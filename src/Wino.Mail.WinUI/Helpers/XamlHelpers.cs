@@ -34,6 +34,7 @@ public static class XamlHelpers
     private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
     private static IPreferencesService? PreferencesService => WinoApplication.Current.Services.GetService<IPreferencesService>();
     private static IContactPictureFileService? ContactPictureFileService => WinoApplication.Current.Services.GetService<IContactPictureFileService>();
+    private static IAccountProfilePictureFileService? AccountProfilePictureFileService => WinoApplication.Current.Services.GetService<IAccountProfilePictureFileService>();
 
     #region Mail Filter Editor
 
@@ -138,6 +139,7 @@ public static class XamlHelpers
     }
 
     public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
+    public static Visibility BoolToVisibilityConverter(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
     public static Visibility ReverseVisibilityConverter(Visibility visibility) => visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
     public static bool ReverseBoolConverter(bool value) => !value;
     public static GridLength DoubleToGridLength(double value) => new(value);
@@ -152,6 +154,37 @@ public static class XamlHelpers
     public static string ConditionalString(bool condition, string trueValue, string falseValue) => condition ? trueValue : falseValue;
     public static bool GetGravatarEnabled() => PreferencesService?.IsGravatarEnabled ?? true;
     public static bool GetFaviconEnabled() => PreferencesService?.IsFaviconEnabled ?? true;
+
+    public static IconSource GetAccountIconSource(MailAccount account)
+    {
+        if (account?.ProfilePictureFileId is { } fileId &&
+            AccountProfilePictureFileService?.GetProfilePictureIconUri(fileId, account.AccountColorHex) is { } uri)
+        {
+            return new BitmapIconSource { UriSource = uri, ShowAsMonochrome = false };
+        }
+
+        var icon = account == null ? WinoIconGlyph.None : GetProviderIcon(account);
+        return new FontIconSource
+        {
+            FontFamily = new FontFamily("ms-appx:///Assets/WinoIcons.ttf#WinoIcons"),
+            Glyph = ControlConstants.WinoIconFontDictionary[icon],
+            Foreground = account == null ? null : GetSolidColorBrushFromHex(account.AccountColorHex)
+        };
+    }
+
+    public static IconSource GetAccountIconSource(MailAccount account, string fallbackUri)
+        => account == null
+            ? new BitmapIconSource { UriSource = new Uri(fallbackUri), ShowAsMonochrome = false }
+            : GetAccountIconSource(account);
+
+    public static double GetAccountIconSize(MailAccount account)
+        => account?.ProfilePictureFileId is { } fileId &&
+           AccountProfilePictureFileService?.GetProfilePicturePath(fileId) != null
+            ? 28
+            : 20;
+
+    public static Thickness GetAccountIconMargin(MailAccount account)
+        => GetAccountIconSize(account) == 28 ? new Thickness(0) : new Thickness(4);
 
     public static object GetContactPicture(
         AccountContact? contact,

@@ -264,10 +264,36 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
     }
 
     private void CalendarToolbarPreviousDateRequested(object? sender, EventArgs e)
-        => CalendarShellClient.PreviousDateRangeCommand.Execute(null);
+        => RequestPreviousPeriod();
 
     private void CalendarToolbarNextDateRequested(object? sender, EventArgs e)
-        => CalendarShellClient.NextDateRangeCommand.Execute(null);
+        => RequestNextPeriod();
+
+    private void CalendarSurfacePreviousPeriodRequested(object? sender, EventArgs e)
+        => RequestPreviousPeriod();
+
+    private void CalendarSurfaceNextPeriodRequested(object? sender, EventArgs e)
+        => RequestNextPeriod();
+
+    private void RequestPreviousPeriod()
+    {
+        var command = CalendarShellClient.PreviousDateRangeCommand;
+
+        if (command.CanExecute(null))
+        {
+            command.Execute(null);
+        }
+    }
+
+    private void RequestNextPeriod()
+    {
+        var command = CalendarShellClient.NextDateRangeCommand;
+
+        if (command.CanExecute(null))
+        {
+            command.Execute(null);
+        }
+    }
 
     private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -316,6 +342,8 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         _calendarTypeSelectorChangedToken = CalendarToolbar.RegisterSelectedTypeChanged(CalendarTypeSelectorSelectedTypeChanged);
         CalendarToolbar.PreviousDateRequested += CalendarToolbarPreviousDateRequested;
         CalendarToolbar.NextDateRequested += CalendarToolbarNextDateRequested;
+        CalendarSurface.PreviousPeriodRequested += CalendarSurfacePreviousPeriodRequested;
+        CalendarSurface.NextPeriodRequested += CalendarSurfaceNextPeriodRequested;
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged += CalendarShellClientPropertyChanged;
         CalendarShellClient.StatePersistenceService.StatePropertyChanged += CalendarStatePersistenceServiceChanged;
@@ -334,6 +362,8 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         CalendarToolbar.UnregisterSelectedTypeChanged(_calendarTypeSelectorChangedToken);
         CalendarToolbar.PreviousDateRequested -= CalendarToolbarPreviousDateRequested;
         CalendarToolbar.NextDateRequested -= CalendarToolbarNextDateRequested;
+        CalendarSurface.PreviousPeriodRequested -= CalendarSurfacePreviousPeriodRequested;
+        CalendarSurface.NextPeriodRequested -= CalendarSurfaceNextPeriodRequested;
         ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         CalendarShellClient.PropertyChanged -= CalendarShellClientPropertyChanged;
         CalendarShellClient.StatePersistenceService.StatePropertyChanged -= CalendarStatePersistenceServiceChanged;

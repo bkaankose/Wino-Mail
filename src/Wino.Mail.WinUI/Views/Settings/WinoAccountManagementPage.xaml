@@ -14,6 +14,7 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
 
         <!--  Non-Intelligence product mark. Intelligence branding comes from the shared dictionary.  -->
         <LinearGradientBrush x:Key="UnlimitedAccountsMarkBrush" StartPoint="0,0" EndPoint="1,1">
@@ -45,11 +46,12 @@
                 IsClickEnabled="{x:Bind CanManage, Mode=OneWay}"
                 ToolTipService.ToolTip="{x:Bind ManageUnavailableTooltip}">
                 <controls:SettingsCard.HeaderIcon>
-                    <ImageIcon
-                        Width="22"
-                        Height="22"
+                    <IconSourceElement
+                        Width="{x:Bind helpers:XamlHelpers.GetAccountIconSize(Account)}"
+                        Height="{x:Bind helpers:XamlHelpers.GetAccountIconSize(Account)}"
                         VerticalAlignment="Center"
-                        Source="{x:Bind ProviderImage}" />
+                        IconSource="{x:Bind helpers:XamlHelpers.GetAccountIconSource(Account, ProviderImage)}"
+                        Margin="{x:Bind helpers:XamlHelpers.GetAccountIconMargin(Account)}" />
                 </controls:SettingsCard.HeaderIcon>
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <ProgressRing

@@ -43,11 +43,21 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IFileService _fileService;
     private readonly IPreferencesService _preferencesService;
+    private readonly IAccountProfilePictureFileService _accountProfilePictureFileService;
     private readonly IWinoLogger _winoLogger;
     private bool isLoaded = false;
 
     [ObservableProperty]
     public partial MailAccount Account { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ChangeProfilePictureCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RemoveProfilePictureCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefreshProfilePictureCommand))]
+    public partial bool IsProfilePictureBusy { get; set; }
+
+    public bool HasProfilePicture => Account?.ProfilePictureFileId.HasValue == true;
+    public bool CanRefreshProfilePicture => Account?.IsProfileInfoSyncSupported == true;
     public ObservableCollection<IMailItemFolder> CurrentFolders { get; set; } = [];
     public ObservableCollection<AccountCalendar> AccountCalendars { get; set; } = [];
     public ObservableCollection<AccountCalendarSettingsItemViewModel> AccountCalendarSettingsItems { get; } = [];
@@ -169,6 +179,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         INotificationBuilder notificationBuilder,
         IApplicationConfiguration applicationConfiguration,
         IFileService fileService,
+        IAccountProfilePictureFileService accountProfilePictureFileService,
         IPreferencesService preferencesService,
         IWinoLogger winoLogger)
     {
@@ -182,6 +193,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         _notificationBuilder = notificationBuilder;
         _applicationConfiguration = applicationConfiguration;
         _fileService = fileService;
+        _accountProfilePictureFileService = accountProfilePictureFileService;
         _preferencesService = preferencesService;
         _winoLogger = winoLogger;
 
@@ -415,6 +427,130 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         catch (Exception ex)
         {
             _dialogService.InfoBarMessage(Translator.IMAPSetupDialog_ValidationFailed_Title, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    private bool CanChangeProfilePicture() => Account != null && !IsProfilePictureBusy;
+
+    [RelayCommand(CanExecute = nameof(CanChangeProfilePicture))]
+    private async Task ChangeProfilePictureAsync()
+    {
+        var imageData = await _dialogService.PickWindowsFileContentAsync(".jpg", ".jpeg", ".png", ".webp");
+        if (imageData == null || imageData.Length == 0)
+            return;
+
+        IsProfilePictureBusy = true;
+
+        try
+        {
+            var previousProfilePictureFileId = Account.ProfilePictureFileId;
+            var newProfilePictureFileId = await _accountProfilePictureFileService.SaveProfilePictureAsync(imageData);
+            Account.ProfilePictureFileId = newProfilePictureFileId;
+            Account.Base64ProfilePictureData = string.Empty;
+            Account.IsProfilePictureBackfillComplete = true;
+
+            try
+            {
+                await _accountService.UpdateAccountAsync(Account);
+            }
+            catch
+            {
+                await _accountProfilePictureFileService.DeleteProfilePictureAsync(newProfilePictureFileId);
+                Account.ProfilePictureFileId = previousProfilePictureFileId;
+                throw;
+            }
+
+            if (previousProfilePictureFileId is { } obsoleteProfilePictureFileId)
+                await _accountProfilePictureFileService.DeleteProfilePictureAsync(obsoleteProfilePictureFileId);
+
+            Account = await _accountService.GetAccountAsync(Account.Id);
+            _dialogService.InfoBarMessage(
+                Translator.AccountDetailsPage_ProfilePictureUpdatedTitle,
+                Translator.AccountDetailsPage_ProfilePictureUpdatedMessage,
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            _winoLogger.CaptureException(ex, "ChangeAccountProfilePicture");
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+        }
+        finally
+        {
+            IsProfilePictureBusy = false;
+        }
+    }
+
+    private bool CanRemoveProfilePicture() => HasProfilePicture && !IsProfilePictureBusy;
+
+    [RelayCommand(CanExecute = nameof(CanRemoveProfilePicture))]
+    private async Task RemoveProfilePictureAsync()
+    {
+        IsProfilePictureBusy = true;
+
+        try
+        {
+            var previousProfilePictureFileId = Account.ProfilePictureFileId;
+            Account.ProfilePictureFileId = null;
+            Account.Base64ProfilePictureData = string.Empty;
+            Account.IsProfilePictureBackfillComplete = true;
+            await _accountService.UpdateAccountAsync(Account);
+
+            if (previousProfilePictureFileId is { } obsoleteProfilePictureFileId)
+                await _accountProfilePictureFileService.DeleteProfilePictureAsync(obsoleteProfilePictureFileId);
+
+            Account = await _accountService.GetAccountAsync(Account.Id);
+            _dialogService.InfoBarMessage(
+                Translator.AccountDetailsPage_ProfilePictureRemovedTitle,
+                Translator.AccountDetailsPage_ProfilePictureRemovedMessage,
+                InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            _winoLogger.CaptureException(ex, "RemoveAccountProfilePicture");
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+        }
+        finally
+        {
+            IsProfilePictureBusy = false;
+        }
+    }
+
+    private bool CanRefreshProfilePictureFromProvider() => CanRefreshProfilePicture && !IsProfilePictureBusy;
+
+    [RelayCommand(CanExecute = nameof(CanRefreshProfilePictureFromProvider))]
+    private async Task RefreshProfilePictureAsync()
+    {
+        IsProfilePictureBusy = true;
+
+        try
+        {
+            var result = await SynchronizationManager.Instance.SynchronizeProfileAsync(Account.Id);
+            if (result.ProfileInformation == null)
+                throw result.Exception ?? new InvalidOperationException(Translator.AccountDetailsPage_ProfilePictureRefreshFailedMessage);
+
+            await _accountService.UpdateProfileInformationAsync(
+                Account.Id,
+                result.ProfileInformation,
+                removePictureWhenConfirmedAbsent: true);
+            Account = await _accountService.GetAccountAsync(Account.Id);
+
+            var isFailure = result.ProfileInformation.ProfilePicture?.Status == ProfilePictureFetchStatus.FetchFailed;
+            _dialogService.InfoBarMessage(
+                isFailure ? Translator.AccountDetailsPage_ProfilePictureRefreshFailedTitle : Translator.AccountDetailsPage_ProfilePictureUpdatedTitle,
+                isFailure ? Translator.AccountDetailsPage_ProfilePictureRefreshFailedMessage : Translator.AccountDetailsPage_ProfilePictureUpdatedMessage,
+                isFailure ? InfoBarMessageType.Error : InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            _winoLogger.CaptureException(ex, "RefreshAccountProfilePicture");
+            _dialogService.InfoBarMessage(
+                Translator.AccountDetailsPage_ProfilePictureRefreshFailedTitle,
+                Translator.AccountDetailsPage_ProfilePictureRefreshFailedMessage,
+                InfoBarMessageType.Error);
+        }
+        finally
+        {
+            IsProfilePictureBusy = false;
         }
     }
 
@@ -690,6 +826,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(HasMailAccess));
         OnPropertyChanged(nameof(HasCalendarAccess));
         OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
+        OnPropertyChanged(nameof(HasProfilePicture));
+        OnPropertyChanged(nameof(CanRefreshProfilePicture));
+        ChangeProfilePictureCommand.NotifyCanExecuteChanged();
+        RemoveProfilePictureCommand.NotifyCanExecuteChanged();
+        RefreshProfilePictureCommand.NotifyCanExecuteChanged();
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
@@ -794,7 +935,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
         if (selectedOption.IsMailAccessGranted && !previousMailAccess)
         {
-            await SynchronizationManager.Instance.SynchronizeProfileAsync(Account.Id);
+            var profileResult = await SynchronizationManager.Instance.SynchronizeProfileAsync(Account.Id);
+            if (profileResult.ProfileInformation != null)
+                await _accountService.UpdateProfileInformationAsync(Account.Id, profileResult.ProfileInformation);
             await SynchronizationManager.Instance.SynchronizeMailAsync(new MailSynchronizationOptions
             {
                 AccountId = Account.Id,

@@ -31,14 +31,36 @@
                 Height="50"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
+                Account="{x:Bind Parameter, Mode=OneWay}"
                 AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
                 BindingData="{x:Bind}"
-                ContextRequested="AccountMenuItemContextRequested"
                 DataContext="{x:Bind}"
                 IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
                 SelectsOnInvoked="False"
                 Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
+                <controls:AccountNavigationItem.ContextFlyout>
+                    <coreControls:WinoMenuFlyout>
+                        <MenuFlyoutItem
+                            AutomationProperties.AutomationId="AccountContextManageSettingsMenuItem"
+                            Click="ManageAccountSettingsMenuItemClicked"
+                            DataContext="{x:Bind}"
+                            Text="{x:Bind domain:Translator.AccountContextMenu_ManageAccountSettings}">
+                            <MenuFlyoutItem.Icon>
+                                <coreControls:WinoFontIcon Icon="ManageAccounts" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem
+                            AutomationProperties.AutomationId="AccountContextCreateFolderMenuItem"
+                            Click="CreateFolderMenuItemClicked"
+                            DataContext="{x:Bind}"
+                            Text="{x:Bind domain:Translator.AccountContextMenu_CreateFolder}">
+                            <MenuFlyoutItem.Icon>
+                                <coreControls:WinoFontIcon Icon="CreateFolder" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </coreControls:WinoMenuFlyout>
+                </controls:AccountNavigationItem.ContextFlyout>
                 <coreControls:WinoNavigationViewItem.ContentTransitions>
                     <TransitionCollection>
                         <EdgeUIThemeTransition Edge="Top" />
@@ -132,14 +154,36 @@
                 Height="40"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"
+                Account="{x:Bind Parameter, Mode=OneWay}"
                 AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
                 BindingData="{x:Bind}"
-                ContextRequested="AccountMenuItemContextRequested"
                 DataContext="{x:Bind}"
                 IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
                 IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
                 SelectsOnInvoked="False"
                 Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
+                <controls:AccountNavigationItem.ContextFlyout>
+                    <coreControls:WinoMenuFlyout>
+                        <MenuFlyoutItem
+                            AutomationProperties.AutomationId="AccountContextManageSettingsMenuItem"
+                            Click="ManageAccountSettingsMenuItemClicked"
+                            DataContext="{x:Bind}"
+                            Text="{x:Bind domain:Translator.AccountContextMenu_ManageAccountSettings}">
+                            <MenuFlyoutItem.Icon>
+                                <coreControls:WinoFontIcon Icon="ManageAccounts" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem
+                            AutomationProperties.AutomationId="AccountContextCreateFolderMenuItem"
+                            Click="CreateFolderMenuItemClicked"
+                            DataContext="{x:Bind}"
+                            Text="{x:Bind domain:Translator.AccountContextMenu_CreateFolder}">
+                            <MenuFlyoutItem.Icon>
+                                <coreControls:WinoFontIcon Icon="CreateFolder" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </coreControls:WinoMenuFlyout>
+                </controls:AccountNavigationItem.ContextFlyout>
                 <coreControls:WinoNavigationViewItem.ContentTransitions>
                     <TransitionCollection>
                         <EdgeUIThemeTransition Edge="Top" />

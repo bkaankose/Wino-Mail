@@ -64,6 +64,16 @@ public class MailAccount
     public string Base64ProfilePictureData { get; set; }
 
     /// <summary>
+    /// Identifier of the normalized account-owned profile picture in app-local storage.
+    /// </summary>
+    public Guid? ProfilePictureFileId { get; set; }
+
+    /// <summary>
+    /// Whether the one-time provider profile-picture backfill has resolved this account.
+    /// </summary>
+    public bool IsProfilePictureBackfillComplete { get; set; }
+
+    /// <summary>
     /// Gets or sets the listing order of the account in the accounts list.
     /// </summary>
     public int Order { get; set; }

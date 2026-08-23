@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Misc;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
@@ -18,12 +19,14 @@ public class AccountServiceTests : IAsyncLifetime
 {
     private InMemoryDatabaseService _databaseService = null!;
     private AccountService _accountService = null!;
+    private Mock<IAccountProfilePictureFileService> _profilePictureFileService = null!;
 
     public async Task InitializeAsync()
     {
         _databaseService = new InMemoryDatabaseService();
         await _databaseService.InitializeAsync();
-        _accountService = CreateService(_databaseService);
+        _profilePictureFileService = new Mock<IAccountProfilePictureFileService>();
+        _accountService = CreateService(_databaseService, _profilePictureFileService.Object);
     }
 
     public async Task DisposeAsync()
@@ -161,6 +164,86 @@ public class AccountServiceTests : IAsyncLifetime
             .BeGreaterThanOrEqualTo(50);
     }
 
+    [Fact]
+    public async Task UpdateProfileInformationAsync_DownloadedPicture_UsesAccountOwnedStorageWithoutCreatingContact()
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Gmail",
+            Address = "profile@test.local",
+            SenderName = "Old name",
+            ProviderType = MailProviderType.Gmail
+        };
+        var newFileId = Guid.NewGuid();
+        var imageData = new byte[] { 1, 2, 3 };
+        await _databaseService.Connection.InsertAsync(account);
+        _profilePictureFileService
+            .Setup(service => service.SaveProfilePictureAsync(imageData, null, default))
+            .ReturnsAsync(newFileId);
+
+        await _accountService.UpdateProfileInformationAsync(
+            account.Id,
+            new ProfileInformation("New name", ProfilePictureFetchResult.Downloaded(imageData), account.Address));
+
+        var updated = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
+        updated.ProfilePictureFileId.Should().Be(newFileId);
+        updated.IsProfilePictureBackfillComplete.Should().BeTrue();
+        (await _databaseService.Connection.Table<AccountContact>().CountAsync()).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task UpdateProfileInformationAsync_FetchFailed_PreservesManualPictureAndBackfillState()
+    {
+        var manualFileId = Guid.NewGuid();
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Outlook",
+            Address = "profile@test.local",
+            ProviderType = MailProviderType.Outlook,
+            ProfilePictureFileId = manualFileId,
+            IsProfilePictureBackfillComplete = false
+        };
+        await _databaseService.Connection.InsertAsync(account);
+
+        await _accountService.UpdateProfileInformationAsync(
+            account.Id,
+            new ProfileInformation("Name", ProfilePictureFetchResult.FetchFailed, account.Address));
+
+        var updated = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
+        updated.ProfilePictureFileId.Should().Be(manualFileId);
+        updated.IsProfilePictureBackfillComplete.Should().BeFalse();
+        _profilePictureFileService.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task UpdateProfileInformationAsync_ExplicitConfirmedAbsent_RemovesCurrentPicture()
+    {
+        var currentFileId = Guid.NewGuid();
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Outlook",
+            Address = "profile@test.local",
+            ProviderType = MailProviderType.Outlook,
+            ProfilePictureFileId = currentFileId
+        };
+        await _databaseService.Connection.InsertAsync(account);
+
+        await _accountService.UpdateProfileInformationAsync(
+            account.Id,
+            new ProfileInformation("Name", ProfilePictureFetchResult.ConfirmedAbsent, account.Address),
+            removePictureWhenConfirmedAbsent: true);
+
+        var updated = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
+        updated.ProfilePictureFileId.Should().BeNull();
+        updated.IsProfilePictureBackfillComplete.Should().BeTrue();
+        _profilePictureFileService.Verify(
+            service => service.DeleteProfilePictureAsync(currentFileId),
+            Times.Once);
+    }
+
     private static MailAccount CreateImapAccount(Guid accountId, string name = "IMAP Test Account", string address = "imap@test.local")
     {
         return new MailAccount
@@ -173,7 +256,9 @@ public class AccountServiceTests : IAsyncLifetime
         };
     }
 
-    private static AccountService CreateService(InMemoryDatabaseService databaseService)
+    private static AccountService CreateService(
+        InMemoryDatabaseService databaseService,
+        IAccountProfilePictureFileService accountProfilePictureFileService = null)
     {
         var signatureService = new Mock<ISignatureService>();
         signatureService
@@ -199,6 +284,7 @@ public class AccountServiceTests : IAsyncLifetime
             authenticationProvider.Object,
             mimeFileService.Object,
             preferencesService.Object,
-            contactPictureFileService.Object);
+            contactPictureFileService.Object,
+            accountProfilePictureFileService: accountProfilePictureFileService);
     }
 }

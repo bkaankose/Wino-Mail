@@ -1560,8 +1560,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     /// <summary>
     /// Get the user's profile picture
     /// </summary>
-    /// <returns>Base64 encoded profile picture.</returns>
-    private async Task<string> GetUserProfilePictureAsync()
+    private async Task<ProfilePictureFetchResult> GetUserProfilePictureAsync()
     {
         try
         {
@@ -1569,16 +1568,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
             using var memoryStream = new MemoryStream();
             await photoStream.CopyToAsync(memoryStream);
-            var byteArray = memoryStream.ToArray();
-
-            return Convert.ToBase64String(byteArray);
+            return ProfilePictureFetchResult.Downloaded(memoryStream.ToArray());
         }
-        catch (ODataError odataError) when (odataError.Error.Code == "ImageNotFound")
+        catch (ODataError odataError) when (
+            odataError.ResponseStatusCode == 404 ||
+            odataError.Error?.Code is "ImageNotFound" or "ErrorItemNotFound" or "Request_ResourceNotFound")
         {
             // Accounts without profile picture will throw this error.
             // At this point nothing we can do. Just return empty string.
 
-            return string.Empty;
+            return ProfilePictureFetchResult.ConfirmedAbsent;
         }
         catch (Exception)
         {
@@ -1587,7 +1586,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             // This permission requires admin consent.
             // We avoid those permissions for now.
 
-            return string.Empty;
+            return ProfilePictureFetchResult.FetchFailed;
         }
     }
 

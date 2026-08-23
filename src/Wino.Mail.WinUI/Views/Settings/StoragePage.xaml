@@ -13,6 +13,10 @@
     x:Name="root"
     mc:Ignorable="d">
 
+    <Page.Resources>
+        <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
+    </Page.Resources>
+
         <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
             <Grid
                 Padding="16"
@@ -70,7 +74,11 @@
 
                             AutomationProperties.AutomationId="StoragePageSettingsExpander" Description="{x:Bind SizeDescription}" Header="{x:Bind AccountName}">
                             <controls:SettingsExpander.HeaderIcon>
-                                <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Account)}" />
+                                <IconSourceElement
+                                    Width="{x:Bind helpers:XamlHelpers.GetAccountIconSize(Account)}"
+                                    Height="{x:Bind helpers:XamlHelpers.GetAccountIconSize(Account)}"
+                                    IconSource="{x:Bind helpers:XamlHelpers.GetAccountIconSource(Account)}"
+                                    Margin="{x:Bind helpers:XamlHelpers.GetAccountIconMargin(Account)}" />
                             </controls:SettingsExpander.HeaderIcon>
 
                             <controls:SettingsExpander.Items>

@@ -3,6 +3,7 @@ using System;
 using System.Windows.Input;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.ViewModels.Data;
@@ -15,6 +16,7 @@ public partial class WinoIntelligenceMailboxItemViewModel : ObservableObject
     public required MailProviderType ProviderType { get; init; }
     public SpecialImapProvider SpecialProvider { get; init; }
     public Guid? LocalAccountId { get; init; }
+    public MailAccount? Account { get; init; }
     public bool HasServerIntelligence { get; init; }
     public bool CanToggle { get; init; }
 

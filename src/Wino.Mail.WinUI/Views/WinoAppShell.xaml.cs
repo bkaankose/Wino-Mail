@@ -610,43 +610,26 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         }
     }
 
-    private void AccountMenuItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    private void ManageAccountSettingsMenuItemClicked(object sender, RoutedEventArgs e)
     {
-        if (!ViewModel.IsMailMode)
-            return;
-
-        if (sender is not AccountNavigationItem accountNavigationItem ||
-            accountNavigationItem.DataContext is not AccountMenuItem accountMenuItem ||
-            !args.TryGetPosition(sender, out Point p))
+        if (!ViewModel.IsMailMode ||
+            sender is not FrameworkElement { DataContext: AccountMenuItem accountMenuItem })
         {
             return;
         }
 
-        args.Handled = true;
+        NavigateToAccountSettings(accountMenuItem);
+    }
 
-        var flyout = new WinoMenuFlyout();
-
-        var manageAccountSettingsItem = new MenuFlyoutItem
+    private async void CreateFolderMenuItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (!ViewModel.IsMailMode ||
+            sender is not FrameworkElement { DataContext: AccountMenuItem accountMenuItem })
         {
-            Text = Translator.AccountContextMenu_ManageAccountSettings
-        };
-        manageAccountSettingsItem.Icon = new WinoFontIcon { Icon = WinoIconGlyph.ManageAccounts };
-        manageAccountSettingsItem.Click += (_, _) => NavigateToAccountSettings(accountMenuItem);
-        flyout.Items.Add(manageAccountSettingsItem);
+            return;
+        }
 
-        var createFolderItem = new MenuFlyoutItem
-        {
-            Text = Translator.AccountContextMenu_CreateFolder
-        };
-        createFolderItem.Icon = new WinoFontIcon { Icon = WinoIconGlyph.CreateFolder };
-        createFolderItem.Click += async (_, _) => await ViewModel.MailClient.CreateRootFolderAsync(accountMenuItem);
-        flyout.Items.Add(createFolderItem);
-
-        flyout.ShowAt(accountNavigationItem, new FlyoutShowOptions
-        {
-            ShowMode = FlyoutShowMode.Standard,
-            Position = new Point(p.X + 30, p.Y - 20)
-        });
+        await ViewModel.MailClient.CreateRootFolderAsync(accountMenuItem);
     }
 
     private void NavigateToAccountSettings(AccountMenuItem accountMenuItem)

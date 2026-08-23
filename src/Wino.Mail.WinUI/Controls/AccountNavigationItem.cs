@@ -1,6 +1,7 @@
 using System.Numerics;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Controls;
 
@@ -11,6 +12,7 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
 
     public static readonly DependencyProperty IsActiveAccountProperty = DependencyProperty.Register(nameof(IsActiveAccount), typeof(bool), typeof(AccountNavigationItem), new PropertyMetadata(false, new PropertyChangedCallback(OnIsActiveAccountChanged)));
     public static readonly DependencyProperty BindingDataProperty = DependencyProperty.Register(nameof(BindingData), typeof(IAccountMenuItem), typeof(AccountNavigationItem), new PropertyMetadata(null));
+    public static readonly DependencyProperty AccountProperty = DependencyProperty.Register(nameof(Account), typeof(MailAccount), typeof(AccountNavigationItem), new PropertyMetadata(null));
 
 
     public bool IsActiveAccount
@@ -23,6 +25,12 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
     {
         get { return (IAccountMenuItem)GetValue(BindingDataProperty); }
         set { SetValue(BindingDataProperty, value); }
+    }
+
+    public MailAccount Account
+    {
+        get { return (MailAccount)GetValue(AccountProperty); }
+        set { SetValue(AccountProperty, value); }
     }
 
     private const string PART_NavigationViewItemMenuItemsHost = "NavigationViewItemMenuItemsHost";

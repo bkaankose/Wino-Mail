@@ -229,8 +229,6 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
         if (profileInformation != null)
         {
             Account.SenderName = profileInformation.SenderName;
-            Account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
-
             if (!string.IsNullOrEmpty(profileInformation.AccountAddress))
             {
                 Account.Address = profileInformation.AccountAddress;
@@ -241,18 +239,15 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     }
 
     /// <summary>
-    /// Returns the base64 encoded profile picture of the account from the given URL.
+    /// Returns profile picture bytes from the given URL.
     /// </summary>
     /// <param name="url">URL to retrieve picture from.</param>
-    /// <returns>base64 encoded profile picture</returns>
-    protected async Task<string> GetProfilePictureBase64EncodedAsync(string url)
+    protected async Task<byte[]> GetProfilePictureAsync(HttpClient client, string url)
     {
-        using var client = new HttpClient();
-
         var response = await client.GetAsync(url).ConfigureAwait(false);
-        var byteContent = await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
 
-        return Convert.ToBase64String(byteContent);
+        return await response.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
     }
 
     public List<IRequestBundle<TBaseRequest>> ForEachRequest<TWinoRequestType>(IEnumerable<TWinoRequestType> requests,

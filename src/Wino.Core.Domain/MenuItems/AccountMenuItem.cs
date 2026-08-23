@@ -84,10 +84,10 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
         set => SetProperty(Parameter.Name, value, Parameter, (u, n) => u.Name = n);
     }
 
-    public string Base64ProfilePicture
+    public Guid? ProfilePictureFileId
     {
-        get => Parameter.Name;
-        set => SetProperty(Parameter.Base64ProfilePictureData, value, Parameter, (u, n) => u.Base64ProfilePictureData = n);
+        get => Parameter.ProfilePictureFileId;
+        set => SetProperty(Parameter.ProfilePictureFileId, value, Parameter, (u, n) => u.ProfilePictureFileId = n);
     }
 
     public string AccountColorHex
@@ -120,7 +120,7 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
         AttentionReason = account.AttentionReason;
 
         OnPropertyChanged(nameof(AccountName));
-        OnPropertyChanged(nameof(Base64ProfilePicture));
+        OnPropertyChanged(nameof(ProfilePictureFileId));
         OnPropertyChanged(nameof(AccountColorHex));
         OnPropertyChanged(nameof(IsAttentionRequired));
 

@@ -265,8 +265,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     if (profileResult.ProfileInformation != null)
                     {
                         _createdAccount.SenderName = profileResult.ProfileInformation.SenderName;
-                        _createdAccount.Base64ProfilePictureData = profileResult.ProfileInformation.Base64ProfilePictureData;
-
                         if (!string.IsNullOrEmpty(profileResult.ProfileInformation.AccountAddress))
                         {
                             if (await _accountService.AccountAddressExistsAsync(profileResult.ProfileInformation.AccountAddress, _createdAccount.Id))

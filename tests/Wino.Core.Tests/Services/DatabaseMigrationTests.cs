@@ -13,6 +13,42 @@ namespace Wino.Core.Tests.Services;
 public sealed class DatabaseMigrationTests
 {
     [Fact]
+    public async Task InitializeAsync_AddsAccountProfilePictureColumns()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"wino-profile-schema-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var databasePath = Path.Combine(directory, "Wino200.db");
+        DatabaseService databaseService = null;
+
+        try
+        {
+            var legacyConnection = new SQLiteAsyncConnection(databasePath);
+            await legacyConnection.CreateTableAsync<MailAccount>();
+            await legacyConnection.ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} DROP COLUMN {nameof(MailAccount.ProfilePictureFileId)}");
+            await legacyConnection.ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} DROP COLUMN {nameof(MailAccount.IsProfilePictureBackfillComplete)}");
+            await legacyConnection.CloseAsync();
+
+            var configuration = new Mock<IApplicationConfiguration>();
+            configuration.SetupProperty(x => x.PublisherSharedFolderPath, directory);
+            databaseService = new DatabaseService(configuration.Object);
+
+            await databaseService.InitializeAsync();
+
+            var columns = await databaseService.Connection.GetTableInfoAsync(nameof(MailAccount));
+            columns.Should().Contain(column => column.Name == nameof(MailAccount.ProfilePictureFileId));
+            columns.Should().Contain(column => column.Name == nameof(MailAccount.IsProfilePictureBackfillComplete));
+        }
+        finally
+        {
+            if (databaseService?.Connection != null)
+                await databaseService.Connection.CloseAsync();
+
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task InitializeAsync_AddsLegacyConnectionPolicyToExistingImapRows()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"wino-policy-migration-{Guid.NewGuid():N}");

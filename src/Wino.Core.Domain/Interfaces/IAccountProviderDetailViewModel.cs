@@ -1,9 +1,13 @@
 ﻿using System;
 
+using Wino.Core.Domain.Entities.Shared;
+
 namespace Wino.Core.Domain.Interfaces;
 
 public interface IAccountProviderDetailViewModel
 {
+    MailAccount Account { get; }
+
     /// <summary>
     /// Entity id that will help to identify the startup entity on launch.
     /// </summary>

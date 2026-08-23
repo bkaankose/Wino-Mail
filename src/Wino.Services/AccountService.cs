@@ -28,7 +28,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
-    private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly IAccountProfilePictureFileService _accountProfilePictureFileService;
     private readonly IServerCertificateTrustService _serverCertificateTrustService;
     private readonly ISemanticIndexJobRegistry _semanticIndexJobRegistry;
     private readonly ILocalIntelligenceStore _localIntelligenceStore;
@@ -43,13 +43,14 @@ public class AccountService : BaseDatabaseService, IAccountService
                           IContactPictureFileService contactPictureFileService,
                           IServerCertificateTrustService serverCertificateTrustService = null,
                           ISemanticIndexJobRegistry semanticIndexJobRegistry = null,
-                          ILocalIntelligenceStore localIntelligenceStore = null) : base(databaseService)
+                          ILocalIntelligenceStore localIntelligenceStore = null,
+                          IAccountProfilePictureFileService accountProfilePictureFileService = null) : base(databaseService)
     {
         _signatureService = signatureService;
         _authenticationProvider = authenticationProvider;
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
-        _contactPictureFileService = contactPictureFileService;
+        _accountProfilePictureFileService = accountProfilePictureFileService;
         _serverCertificateTrustService = serverCertificateTrustService ?? new ServerCertificateTrustService(databaseService);
         _semanticIndexJobRegistry = semanticIndexJobRegistry;
         _localIntelligenceStore = localIntelligenceStore;
@@ -411,6 +412,9 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         await _mimeFileService.DeleteUserMimeCacheAsync(account.Id).ConfigureAwait(false);
 
+        if (account.ProfilePictureFileId is { } profilePictureFileId && _accountProfilePictureFileService != null)
+            await _accountProfilePictureFileService.DeleteProfilePictureAsync(profilePictureFileId).ConfigureAwait(false);
+
         // Clear out or set up a new startup entity id.
         // Next account after the deleted one will be the startup account.
 
@@ -457,9 +461,14 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
     }
 
-    public async Task UpdateProfileInformationAsync(Guid accountId, ProfileInformation profileInformation)
+    public async Task UpdateProfileInformationAsync(
+        Guid accountId,
+        ProfileInformation profileInformation,
+        bool removePictureWhenConfirmedAbsent = false)
     {
         var account = await GetAccountAsync(accountId).ConfigureAwait(false);
+        Guid? profilePictureFileIdToDelete = null;
+        Guid? newlyCreatedProfilePictureFileId = null;
 
         if (account != null)
         {
@@ -468,9 +477,34 @@ public class AccountService : BaseDatabaseService, IAccountService
                 account.SenderName = profileInformation.SenderName;
             }
 
-            if (!string.IsNullOrWhiteSpace(profileInformation.Base64ProfilePictureData))
+            if (profileInformation.ProfilePicture?.Status == ProfilePictureFetchStatus.Downloaded)
             {
-                account.Base64ProfilePictureData = profileInformation.Base64ProfilePictureData;
+                if (_accountProfilePictureFileService == null)
+                    throw new InvalidOperationException("Account profile picture storage is unavailable.");
+
+                var previousProfilePictureFileId = account.ProfilePictureFileId;
+                var newProfilePictureFileId = await _accountProfilePictureFileService
+                    .SaveProfilePictureAsync(profileInformation.ProfilePicture.ImageData)
+                    .ConfigureAwait(false);
+                newlyCreatedProfilePictureFileId = newProfilePictureFileId;
+                account.ProfilePictureFileId = newProfilePictureFileId;
+                profilePictureFileIdToDelete = previousProfilePictureFileId;
+                account.Base64ProfilePictureData = string.Empty;
+                account.IsProfilePictureBackfillComplete = true;
+            }
+            else if (profileInformation.ProfilePicture?.Status == ProfilePictureFetchStatus.ConfirmedAbsent)
+            {
+                if (removePictureWhenConfirmedAbsent && account.ProfilePictureFileId is { } profilePictureFileId)
+                {
+                    if (_accountProfilePictureFileService == null)
+                        throw new InvalidOperationException("Account profile picture storage is unavailable.");
+
+                    profilePictureFileIdToDelete = profilePictureFileId;
+                    account.ProfilePictureFileId = null;
+                    account.Base64ProfilePictureData = string.Empty;
+                }
+
+                account.IsProfilePictureBackfillComplete = true;
             }
 
             var profileAddress = profileInformation.AccountAddress?.Trim();
@@ -484,63 +518,29 @@ public class AccountService : BaseDatabaseService, IAccountService
                 account.Address = profileAddress;
             }
 
-            // Forcefully add or update a contact data with the provided information.
-
-            if (string.IsNullOrWhiteSpace(account.Address))
+            try
             {
                 await UpdateAccountAsync(account).ConfigureAwait(false);
-                return;
+            }
+            catch
+            {
+                if (newlyCreatedProfilePictureFileId is { } failedProfilePictureFileId)
+                {
+                    await _accountProfilePictureFileService
+                        .DeleteProfilePictureAsync(failedProfilePictureFileId)
+                        .ConfigureAwait(false);
+                }
+
+                throw;
             }
 
-            var existingContact = await Connection.Table<AccountContact>()
-                .FirstOrDefaultAsync(a => a.Address == account.Address)
-                .ConfigureAwait(false);
-
-            var contactPictureFileId = await SaveProfilePictureAsync(
-                account.Base64ProfilePictureData,
-                existingContact?.ContactPictureFileId).ConfigureAwait(false);
-
-            var accountContact = new AccountContact()
+            if (profilePictureFileIdToDelete is { } obsoleteProfilePictureFileId)
             {
-                Address = account.Address,
-                Name = account.SenderName,
-                ContactPictureFileId = contactPictureFileId,
-                IsRootContact = true
-            };
-
-            await Connection.InsertOrReplaceAsync(accountContact, typeof(AccountContact)).ConfigureAwait(false);
-
-            await UpdateAccountAsync(account).ConfigureAwait(false);
+                await _accountProfilePictureFileService
+                    .DeleteProfilePictureAsync(obsoleteProfilePictureFileId)
+                    .ConfigureAwait(false);
+            }
         }
-    }
-
-    private async Task<Guid?> SaveProfilePictureAsync(string base64ProfilePictureData, Guid? existingFileId)
-    {
-        if (string.IsNullOrWhiteSpace(base64ProfilePictureData))
-        {
-            if (existingFileId.HasValue)
-                await _contactPictureFileService.DeleteContactPictureAsync(existingFileId.Value).ConfigureAwait(false);
-
-            return null;
-        }
-
-        byte[] bytes;
-        try
-        {
-            bytes = Convert.FromBase64String(base64ProfilePictureData);
-        }
-        catch (FormatException ex)
-        {
-            _logger.Warning(ex, "Failed to decode account profile picture for contact migration.");
-            return existingFileId;
-        }
-
-        var newFileId = await _contactPictureFileService.SaveContactPictureAsync(bytes).ConfigureAwait(false);
-
-        if (existingFileId.HasValue)
-            await _contactPictureFileService.DeleteContactPictureAsync(existingFileId.Value).ConfigureAwait(false);
-
-        return newFileId;
     }
 
     public async Task<MailAccount> GetAccountAsync(Guid accountId)

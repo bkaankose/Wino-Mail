@@ -298,11 +298,7 @@
                         Margin="0,6,0,6"
                         Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                         CornerRadius="4">
-                        <presentation:WinoFontIcon
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            FontSize="18"
-                            Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Account.Account)}" />
+                        <presentation:AccountProfilePicture Width="30" Height="30" Account="{x:Bind Account.Account}" />
                     </Border>
                     <TextBlock
                         Grid.Column="2"

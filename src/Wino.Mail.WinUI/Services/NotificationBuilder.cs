@@ -47,18 +47,21 @@ public class NotificationBuilder : INotificationBuilder
     private readonly IMailService _mailService;
     private readonly IThumbnailService _thumbnailService;
     private readonly IPreferencesService _preferencesService;
+    private readonly IAccountProfilePictureFileService _accountProfilePictureFileService;
 
     public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
                                IMailService mailService,
                                IThumbnailService thumbnailService,
-                               IPreferencesService preferencesService)
+                               IPreferencesService preferencesService,
+                               IAccountProfilePictureFileService accountProfilePictureFileService)
     {
         _accountService = accountService;
         _folderService = folderService;
         _mailService = mailService;
         _thumbnailService = thumbnailService;
         _preferencesService = preferencesService;
+        _accountProfilePictureFileService = accountProfilePictureFileService;
 
         WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
         {
@@ -532,7 +535,7 @@ public class NotificationBuilder : INotificationBuilder
         }
     }
 
-    private static JumpListItem CreateMailFolderJumpListItem(MailAccount account, MailItemFolder folder)
+    private JumpListItem CreateMailFolderJumpListItem(MailAccount account, MailItemFolder folder)
     {
         var accountDisplayName = GetJumpListAccountDisplayName(account);
         var item = JumpListItem.CreateWithArguments(
@@ -597,8 +600,14 @@ public class NotificationBuilder : INotificationBuilder
         }
     }
 
-    private static Uri GetProviderIconUri(MailAccount account)
+    private Uri GetProviderIconUri(MailAccount account)
     {
+        if (account.ProfilePictureFileId is { } fileId &&
+            _accountProfilePictureFileService.GetProfilePictureUri(fileId) is { } profilePictureUri)
+        {
+            return profilePictureUri;
+        }
+
         var iconName = account.SpecialImapProvider != SpecialImapProvider.None
             ? account.SpecialImapProvider.ToString()
             : account.ProviderType.ToString();

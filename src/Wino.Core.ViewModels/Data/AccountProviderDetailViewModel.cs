@@ -30,7 +30,7 @@ public partial class AccountProviderDetailViewModel : ObservableObject, IAccount
 
     public int HoldingAccountCount => 1;
 
-    public bool HasProfilePicture => !string.IsNullOrEmpty(Account.Base64ProfilePictureData);
+    public bool HasProfilePicture => Account.ProfilePictureFileId.HasValue;
 
     public AccountProviderDetailViewModel(IProviderDetail providerDetail, MailAccount account)
     {

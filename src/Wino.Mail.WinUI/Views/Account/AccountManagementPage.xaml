@@ -19,6 +19,8 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
+
         <!--  Root Account Template  -->
         <DataTemplate x:Key="RootAccountTemplate" x:DataType="viewModelData:AccountProviderDetailViewModel">
             <winuiControls:SettingsCard
@@ -30,10 +32,11 @@
                 Header="{x:Bind Account.Name}"
                 IsClickEnabled="True">
                 <winuiControls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon
-                        FontSize="64"
-                        Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Account.AccountColorHex)}"
-                        Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Account)}" />
+                    <IconSourceElement
+                        Width="{x:Bind helpers:XamlHelpers.GetAccountIconSize(Account)}"
+                        Height="{x:Bind helpers:XamlHelpers.GetAccountIconSize(Account)}"
+                        IconSource="{x:Bind helpers:XamlHelpers.GetAccountIconSource(Account)}"
+                        Margin="{x:Bind helpers:XamlHelpers.GetAccountIconMargin(Account)}" />
                 </winuiControls:SettingsCard.HeaderIcon>
             </winuiControls:SettingsCard>
         </DataTemplate>

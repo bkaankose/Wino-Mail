@@ -13,6 +13,7 @@ using Microsoft.Graphics.Canvas.UI.Xaml;
 using Microsoft.UI;
 using Microsoft.UI.Composition;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
@@ -32,6 +33,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 {
     private static readonly TimeSpan SizeRefreshDebounceInterval = TimeSpan.FromMilliseconds(75);
     private const double SizeChangeThreshold = 0.5d;
+    private const double SwipeDistanceThreshold = 72d;
+    private const double SwipeHorizontalDominanceRatio = 1.5d;
     private const double TimedHourColumnWidth = 64d;
     private const double TimedGridIntervalMinutes = 30d;
     private const double TimedSelectionIntervalMinutes = 30d;
@@ -63,6 +66,10 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private DateOnly _lastDisplayDate = DateOnly.FromDateTime(DateTime.Today);
     private DayOfWeek _lastFirstDayOfWeek = DayOfWeek.Monday;
     private readonly DispatcherQueueTimer _sizeRefreshTimer;
+    private readonly GestureRecognizer _swipeGestureRecognizer;
+    private readonly HashSet<uint> _pressedTouchPointerIds = [];
+    private uint? _swipePointerId;
+    private Point _swipeStartPosition;
 
     [GeneratedDependencyProperty]
     public partial VisibleDateRange? VisibleRange { get; set; }
@@ -95,6 +102,19 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     {
         InitializeComponent();
 
+        _swipeGestureRecognizer = new GestureRecognizer
+        {
+            AutoProcessInertia = false,
+            GestureSettings = GestureSettings.ManipulationTranslateX | GestureSettings.ManipulationTranslateY,
+            ManipulationExact = true
+        };
+
+        AddHandler(PointerPressedEvent, new PointerEventHandler(ControlPointerPressed), true);
+        AddHandler(PointerMovedEvent, new PointerEventHandler(ControlPointerMoved), true);
+        AddHandler(PointerReleasedEvent, new PointerEventHandler(ControlPointerReleased), true);
+        AddHandler(PointerCanceledEvent, new PointerEventHandler(ControlPointerCanceled), true);
+        AddHandler(PointerCaptureLostEvent, new PointerEventHandler(ControlPointerCaptureLost), true);
+
         _sizeRefreshTimer = DispatcherQueue.CreateTimer();
         _sizeRefreshTimer.Interval = SizeRefreshDebounceInterval;
         _sizeRefreshTimer.IsRepeating = false;
@@ -104,6 +124,8 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler<CalendarEmptySlotTappedEventArgs>? EmptySlotTapped;
     public event EventHandler<CalendarItemDroppedEventArgs>? CalendarItemDropped;
+    public event EventHandler? PreviousPeriodRequested;
+    public event EventHandler? NextPeriodRequested;
 
     private ObservableCollection<HeaderTextLayout> TimedHeaderTextsCollection { get; } = [];
     private ObservableCollection<HeaderTextLayout> MonthHeaderTextsCollection { get; } = [];
@@ -325,9 +347,149 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void ControlUnloaded(object sender, RoutedEventArgs e)
     {
+        ResetSwipeState(clearPressedPointers: true);
         DetachCurrentItemsSource();
         _sizeRefreshTimer.Stop();
         _sizeRefreshTimer.Tick -= SizeRefreshTimerTick;
+    }
+
+    private void ControlPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (e.Pointer.PointerDeviceType != PointerDeviceType.Touch)
+        {
+            return;
+        }
+
+        var pointerId = e.Pointer.PointerId;
+        _pressedTouchPointerIds.Add(pointerId);
+
+        if (_pressedTouchPointerIds.Count != 1)
+        {
+            ResetSwipeState();
+            return;
+        }
+
+        ResetSwipeState();
+
+        if (IsCalendarItemSource(e.OriginalSource))
+        {
+            return;
+        }
+
+        var pointerPoint = e.GetCurrentPoint(this);
+        _swipePointerId = pointerId;
+        _swipeStartPosition = pointerPoint.Position;
+        _swipeGestureRecognizer.ProcessDownEvent(pointerPoint);
+    }
+
+    private void ControlPointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (e.Pointer.PointerDeviceType != PointerDeviceType.Touch ||
+            _swipePointerId != e.Pointer.PointerId ||
+            _pressedTouchPointerIds.Count != 1)
+        {
+            return;
+        }
+
+        _swipeGestureRecognizer.ProcessMoveEvents(e.GetIntermediatePoints(this));
+    }
+
+    private void ControlPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (e.Pointer.PointerDeviceType != PointerDeviceType.Touch)
+        {
+            return;
+        }
+
+        var pointerId = e.Pointer.PointerId;
+
+        if (_swipePointerId == pointerId && _pressedTouchPointerIds.Count == 1)
+        {
+            var pointerPoint = e.GetCurrentPoint(this);
+            _swipeGestureRecognizer.ProcessUpEvent(pointerPoint);
+            RequestPeriodForSwipe(pointerPoint.Position);
+        }
+
+        _pressedTouchPointerIds.Remove(pointerId);
+        ResetSwipeState();
+    }
+
+    private void ControlPointerCanceled(object sender, PointerRoutedEventArgs e)
+    {
+        if (e.Pointer.PointerDeviceType != PointerDeviceType.Touch)
+        {
+            return;
+        }
+
+        _pressedTouchPointerIds.Remove(e.Pointer.PointerId);
+        ResetSwipeState();
+    }
+
+    private void ControlPointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        if (e.Pointer.PointerDeviceType != PointerDeviceType.Touch)
+        {
+            return;
+        }
+
+        _pressedTouchPointerIds.Remove(e.Pointer.PointerId);
+        ResetSwipeState();
+    }
+
+    private void RequestPeriodForSwipe(Point releasePosition)
+    {
+        var horizontalDistance = releasePosition.X - _swipeStartPosition.X;
+        var verticalDistance = releasePosition.Y - _swipeStartPosition.Y;
+        var absoluteHorizontalDistance = Math.Abs(horizontalDistance);
+        var absoluteVerticalDistance = Math.Abs(verticalDistance);
+
+        if (absoluteHorizontalDistance < SwipeDistanceThreshold ||
+            absoluteHorizontalDistance < absoluteVerticalDistance * SwipeHorizontalDominanceRatio)
+        {
+            return;
+        }
+
+        if (horizontalDistance < 0)
+        {
+            NextPeriodRequested?.Invoke(this, EventArgs.Empty);
+        }
+        else
+        {
+            PreviousPeriodRequested?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private void ResetSwipeState(bool clearPressedPointers = false)
+    {
+        if (_swipeGestureRecognizer.IsActive)
+        {
+            _swipeGestureRecognizer.CompleteGesture();
+        }
+
+        _swipePointerId = null;
+        _swipeStartPosition = default;
+
+        if (clearPressedPointers)
+        {
+            _pressedTouchPointerIds.Clear();
+        }
+    }
+
+    private bool IsCalendarItemSource(object originalSource)
+    {
+        var current = originalSource as DependencyObject;
+
+        while (current is not null && current != this)
+        {
+            if (current is CalendarItemControl)
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
     }
 
     private void SizeRefreshTimerTick(DispatcherQueueTimer sender, object args)

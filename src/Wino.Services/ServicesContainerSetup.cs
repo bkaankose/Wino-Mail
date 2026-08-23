@@ -61,6 +61,9 @@ public static class ServicesContainerSetup
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load()));
         services.AddTransient<IWinoAccountDataSyncService, WinoAccountDataSyncService>();
         services.AddSingleton<IContactPictureFileService, ContactPictureFileService>();
+        services.AddSingleton<IAccountProfilePictureFileService, AccountProfilePictureFileService>();
+        services.AddSingleton<AccountProfilePictureMigrationService>();
+        services.AddSingleton<AccountProfilePictureBackfillService>();
 
         services.AddTransient<ICalDavClient, CalDavClient>();
         services.AddSingleton<IUpdateManager, UpdateManager>();

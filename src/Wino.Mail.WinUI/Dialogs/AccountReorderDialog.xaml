@@ -40,11 +40,12 @@
                         FontSize="16"
                         Glyph="&#xE700;"
                         Opacity="0.5" />
-                    <coreControls:WinoFontIcon
+                    <coreControls:AccountProfilePicture
                         Grid.Column="1"
+                        Width="28"
+                        Height="28"
                         VerticalAlignment="Center"
-                        FontSize="24"
-                        Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(ProviderDetail.Type, ProviderDetail.SpecialImapProvider)}" />
+                        Account="{x:Bind Account}" />
                     <StackPanel
                         Grid.Column="2"
                         VerticalAlignment="Center"

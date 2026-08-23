@@ -214,6 +214,20 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.ProfilePictureFileId)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.ProfilePictureFileId)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsProfilePictureBackfillComplete)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.IsProfilePictureBackfillComplete)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
         var folderColumns = await Connection.GetTableInfoAsync(nameof(MailItemFolder)).ConfigureAwait(false);
 
         if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.HighestKnownUid)))

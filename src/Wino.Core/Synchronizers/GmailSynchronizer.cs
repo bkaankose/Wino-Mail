@@ -160,7 +160,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         var profileRequest = _peopleService.People.Get("people/me");
         profileRequest.PersonFields = "names,photos,emailAddresses";
 
-        string base64ProfilePicture = string.Empty;
+        var profilePictureResult = ProfilePictureFetchResult.FetchFailed;
 
         global::Google.Apis.PeopleService.v1.Data.Person userProfile = null;
 
@@ -200,21 +200,28 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
             ? GetDisplayNameFallback(address)
             : senderName;
 
-        var profilePicture = userProfile.Photos?.FirstOrDefault()?.Url ?? string.Empty;
+        var profilePicture = userProfile?.Photos?
+            .FirstOrDefault(photo => !string.IsNullOrWhiteSpace(photo?.Url))?
+            .Url ?? string.Empty;
 
         if (!string.IsNullOrEmpty(profilePicture))
         {
             try
             {
-                base64ProfilePicture = await GetProfilePictureBase64EncodedAsync(profilePicture).ConfigureAwait(false);
+                var pictureBytes = await GetProfilePictureAsync(_googleHttpClient, profilePicture).ConfigureAwait(false);
+                profilePictureResult = ProfilePictureFetchResult.Downloaded(pictureBytes);
             }
             catch (Exception ex)
             {
                 _logger.Warning(ex, "Failed to fetch Gmail profile picture for {Name}", Account.Name);
             }
         }
+        else if (userProfile != null)
+        {
+            profilePictureResult = ProfilePictureFetchResult.ConfirmedAbsent;
+        }
 
-        return new ProfileInformation(senderName, base64ProfilePicture, address);
+        return new ProfileInformation(senderName, profilePictureResult, address);
     }
 
     private async Task<SendAs> GetPrimarySendAsAsync()

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.ViewModels.Data;
 
@@ -10,6 +11,8 @@ namespace Wino.Core.ViewModels.Data;
 
 public partial class MergedAccountProviderDetailViewModel : ObservableObject, IAccountProviderDetailViewModel
 {
+    public MailAccount Account => null;
+
     public List<AccountProviderDetailViewModel> HoldingAccounts { get; }
     public MergedInbox MergedInbox { get; }
 

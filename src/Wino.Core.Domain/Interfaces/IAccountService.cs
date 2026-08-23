@@ -148,7 +148,10 @@ public interface IAccountService
     /// <param name="accountId">Account id to update info for.</param>
     /// <param name="profileInformation">Info data.</param>
     /// <returns></returns>
-    Task UpdateProfileInformationAsync(Guid accountId, ProfileInformation profileInformation);
+    Task UpdateProfileInformationAsync(
+        Guid accountId,
+        ProfileInformation profileInformation,
+        bool removePictureWhenConfirmedAbsent = false);
 
 
     /// <summary>

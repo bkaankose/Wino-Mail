@@ -553,6 +553,8 @@ public partial class App : WinoApplication,
 
             await InitializeServicesAsync();
 
+            await Services.GetRequiredService<AccountProfilePictureMigrationService>().RunAsync();
+
             _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
             _preferencesService = Services.GetRequiredService<IPreferencesService>();
             _accountService = Services.GetRequiredService<IAccountService>();
@@ -560,6 +562,8 @@ public partial class App : WinoApplication,
             await Services.GetRequiredService<ISemanticIndexCoordinator>().InitializeAsync();
 
             _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
+
+            _ = Services.GetRequiredService<AccountProfilePictureBackfillService>().RunAsync();
 
             _activationInfrastructureInitialized = true;
         }
