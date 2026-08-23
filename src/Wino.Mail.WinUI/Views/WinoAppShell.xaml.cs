@@ -634,22 +634,19 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void NavigateToAccountSettings(AccountMenuItem accountMenuItem)
     {
+        var accountDetailsContext = new AccountDetailsNavigationContext(
+            accountMenuItem.AccountId,
+            AccountDetailsTab.General);
+
         ViewModel.NavigationService.ChangeApplicationMode(
             WinoApplicationMode.Settings,
             new ShellModeActivationContext
             {
-                Parameter = WinoPage.ManageAccountsPage,
+                Parameter = new SettingsPageActivationContext(
+                    WinoPage.ManageAccountsPage,
+                    accountDetailsContext),
                 SuppressStartupFlows = true
             });
-
-        _ = DispatcherQueue.EnqueueAsync(() =>
-        {
-            WeakReferenceMessenger.Default.Send(new SettingsRootNavigationRequested(WinoPage.ManageAccountsPage));
-            WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(
-                accountMenuItem.AccountName,
-                WinoPage.AccountDetailsPage,
-                accountMenuItem.AccountId));
-        });
     }
 
     public void Receive(CreateNewMailWithMultipleAccountsRequested message)

@@ -541,20 +541,25 @@ public class NavigationService : NavigationServiceBase, INavigationService
             _ => false
         };
 
-    private static bool TryGetSettingsActivationTarget(WinoPage page, object? parameter, out WinoPage targetPage)
+    private static bool TryGetSettingsActivationTarget(WinoPage page, object? parameter, out object settingsTarget)
     {
-        targetPage = WinoPage.SettingOptionsPage;
+        settingsTarget = WinoPage.SettingOptionsPage;
 
         if (page == WinoPage.SettingsPage)
         {
-            targetPage = parameter as WinoPage? ?? WinoPage.SettingOptionsPage;
+            settingsTarget = parameter switch
+            {
+                SettingsPageActivationContext activationContext => activationContext,
+                WinoPage targetPage => targetPage,
+                _ => WinoPage.SettingOptionsPage
+            };
             return true;
         }
 
         if (!IsSettingsOnlyPage(page))
             return false;
 
-        targetPage = SettingsNavigationInfoProvider.GetRootPage(page);
+        settingsTarget = SettingsNavigationInfoProvider.GetRootPage(page);
         return true;
     }
 

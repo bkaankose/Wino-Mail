@@ -15,13 +15,14 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
-
         <DataTemplate x:Key="IntelligenceMailboxTemplate" x:DataType="viewModelData:WinoIntelligenceMailboxItemViewModel">
             <controls:SettingsCard
                 AutomationProperties.AutomationId="{x:Bind ManageAutomationId}"
                 Description="{x:Bind IntelligenceSummary}"
                 Header="{x:Bind Address}">
+                <controls:SettingsCard.Resources>
+                    <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
+                </controls:SettingsCard.Resources>
                 <controls:SettingsCard.HeaderIcon>
                     <IconSourceElement
                         Width="{x:Bind helpers:XamlHelpers.GetAccountIconSize(Account)}"

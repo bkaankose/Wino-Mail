@@ -15,8 +15,6 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
-
         <DataTemplate x:Key="LinkedAccountTemplate" x:DataType="data:AccountProviderDetailViewModel">
             <controls:SettingsCard
                 AutomationProperties.AutomationId="MergedAccountDetailsPageSettingsCard"
@@ -26,6 +24,9 @@
                 Description="{x:Bind Account.Address}"
                 Header="{x:Bind Account.Name}"
                 IsClickEnabled="True">
+                <controls:SettingsCard.Resources>
+                    <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
+                </controls:SettingsCard.Resources>
                 <controls:SettingsCard.HeaderIcon>
                     <IconSourceElement
                         Width="{x:Bind helpers:XamlHelpers.GetAccountIconSize(Account)}"
@@ -52,6 +53,9 @@
                 FlowDirection="RightToLeft"
                 Header="{x:Bind Account.Name}"
                 IsClickEnabled="True">
+                <controls:SettingsCard.Resources>
+                    <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
+                </controls:SettingsCard.Resources>
                 <controls:SettingsCard.HeaderIcon>
                     <IconSourceElement
                         Width="{x:Bind helpers:XamlHelpers.GetAccountIconSize(Account)}"

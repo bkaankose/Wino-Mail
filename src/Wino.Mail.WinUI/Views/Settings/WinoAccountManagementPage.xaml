@@ -14,8 +14,6 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
-
         <!--  Non-Intelligence product mark. Intelligence branding comes from the shared dictionary.  -->
         <LinearGradientBrush x:Key="UnlimitedAccountsMarkBrush" StartPoint="0,0" EndPoint="1,1">
             <GradientStop Offset="0" Color="#FBBF24" />
@@ -45,6 +43,9 @@
                 IsActionIconVisible="{x:Bind CanManage, Mode=OneWay}"
                 IsClickEnabled="{x:Bind CanManage, Mode=OneWay}"
                 ToolTipService.ToolTip="{x:Bind ManageUnavailableTooltip}">
+                <controls:SettingsCard.Resources>
+                    <x:Double x:Key="SettingsCardHeaderIconMaxSize">28</x:Double>
+                </controls:SettingsCard.Resources>
                 <controls:SettingsCard.HeaderIcon>
                     <IconSourceElement
                         Width="{x:Bind helpers:XamlHelpers.GetAccountIconSize(Account)}"

@@ -72,9 +72,23 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     [RelayCommand]
     private void NavigateAccountDetails(AccountProviderDetailViewModel accountDetails)
     {
+        if (accountDetails?.Account == null)
+            return;
+
         Messenger.Send(new BreadcrumbNavigationRequested(GetAccountDetailsTitle(accountDetails.Account),
                                                          WinoPage.AccountDetailsPage,
                                                          accountDetails.Account.Id));
+    }
+
+    protected void NavigateToRequestedAccountDetails(AccountDetailsNavigationContext navigationContext)
+    {
+        var accountDetails = FindAccountDetails(navigationContext.AccountId);
+        if (accountDetails?.Account == null)
+            return;
+
+        Messenger.Send(new BreadcrumbNavigationRequested(GetAccountDetailsTitle(accountDetails.Account),
+                                                         WinoPage.AccountDetailsPage,
+                                                         navigationContext));
     }
 
     [RelayCommand]
@@ -176,6 +190,25 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         }
 
         OnPropertyChanged(nameof(StartupAccount));
+    }
+
+    private AccountProviderDetailViewModel FindAccountDetails(Guid accountId)
+    {
+        foreach (var account in Accounts)
+        {
+            if (account is AccountProviderDetailViewModel accountDetails && accountDetails.Account.Id == accountId)
+                return accountDetails;
+
+            if (account is MergedAccountProviderDetailViewModel mergedAccountDetails)
+            {
+                var holdingAccount = mergedAccountDetails.HoldingAccounts
+                    .FirstOrDefault(item => item.Account.Id == accountId);
+                if (holdingAccount != null)
+                    return holdingAccount;
+            }
+        }
+
+        return null;
     }
 
     private static string GetAccountDetailsTitle(MailAccount account)

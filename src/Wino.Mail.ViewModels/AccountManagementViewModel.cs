@@ -301,6 +301,11 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
         await InitializeAccountsAsync();
 
+        if (parameters is AccountDetailsNavigationContext accountDetailsContext)
+        {
+            NavigateToRequestedAccountDetails(accountDetailsContext);
+        }
+
         PropertyChanged -= PagePropertyChanged;
         PropertyChanged += PagePropertyChanged;
     }
