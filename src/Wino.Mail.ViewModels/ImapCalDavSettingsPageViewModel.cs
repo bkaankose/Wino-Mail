@@ -261,7 +261,14 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     {
         base.OnNavigatedTo(mode, parameters);
 
-        if (parameters is not ImapCalDavSettingsNavigationContext context)
+        var context = parameters switch
+        {
+            ImapCalDavSettingsNavigationContext navigationContext => navigationContext,
+            Guid accountId => ImapCalDavSettingsNavigationContext.CreateForEditMode(accountId),
+            _ => null
+        };
+
+        if (context is null)
             return;
 
         _pageMode = context.Mode;

@@ -57,7 +57,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public partial AccountCalendar SelectedPrimaryCalendar { get; set; }
 
     [ObservableProperty]
-    public partial int SelectedTabIndex { get; set; } = 0; // Default to Mail tab
+    public partial int SelectedTabIndex { get; set; } = (int)AccountDetailsTab.General;
 
     [ObservableProperty]
     public partial string AccountName { get; set; }
@@ -512,7 +512,17 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     {
         base.OnNavigatedTo(mode, parameters);
 
-        if (parameters is Guid accountId)
+        var accountId = parameters switch
+        {
+            Guid id => id,
+            AccountDetailsNavigationContext context => context.AccountId,
+            _ => Guid.Empty
+        };
+        var requestedTab = parameters is AccountDetailsNavigationContext navigationContext
+            ? navigationContext.SelectedTab
+            : (AccountDetailsTab?)null;
+
+        if (accountId != Guid.Empty)
         {
             Account = await _accountService.GetAccountAsync(accountId);
             AccountName = Account.Name;
@@ -560,11 +570,14 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 SelectedOutgoingServerConnectionSecurityIndex = AvailableConnectionSecurities.FindIndex(a => a.ImapConnectionSecurity == ServerInformation.OutgoingServerSocketOption);
             }
 
-            SelectedTabIndex = _statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar && HasCalendarAccess
-                ? 2
-                : HasMailAccess
-                    ? 1
-                    : 0;
+            SelectedTabIndex = requestedTab.HasValue
+                ? (int)requestedTab.Value
+                : _statePersistanceService.ApplicationMode == WinoApplicationMode.Calendar && HasCalendarAccess
+                    ? (int)AccountDetailsTab.Calendar
+                    : HasMailAccess
+                        ? (int)AccountDetailsTab.Mail
+                        : (int)AccountDetailsTab.General;
+            EnsureSelectedTabForCapabilities();
 
             var folderStructures = (await _folderService.GetFolderStructureForAccountAsync(Account.Id, true)).Folders;
 

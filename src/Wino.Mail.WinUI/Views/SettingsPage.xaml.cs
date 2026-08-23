@@ -241,8 +241,22 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     }
 
     private void NavigateDirectlyToRootPage(WinoPage targetPage, object? pageParameter = null)
+        => NavigateToRoute(new SettingsNavigationRoute(
+        new[]
+        {
+            new SettingsNavigationRouteStep(
+                SettingsNavigationInfoProvider.GetPageTitle(targetPage),
+                targetPage,
+                pageParameter)
+        }));
+
+    private void NavigateToRoute(SettingsNavigationRoute route)
     {
-        var pageType = ViewModel.NavigationService.GetPageType(targetPage);
+        if (route.Steps.Count == 0)
+            return;
+
+        var destination = route.Destination;
+        var pageType = ViewModel.NavigationService.GetPageType(destination.PageType);
 
         if (pageType == null)
             return;
@@ -250,7 +264,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         SettingsFrame.BackStack.Clear();
         SettingsFrame.ForwardStack.Clear();
 
-        if (!SettingsFrame.Navigate(pageType, pageParameter, new SlideNavigationTransitionInfo
+        if (!SettingsFrame.Navigate(pageType, destination.Parameter, new SlideNavigationTransitionInfo
             {
                 Effect = SlideNavigationTransitionEffect.FromRight
             }))
@@ -265,17 +279,35 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             null,
             new SuppressNavigationTransitionInfo()));
 
+        foreach (var step in route.Steps.Take(route.Steps.Count - 1))
+        {
+            var stepPageType = ViewModel.NavigationService.GetPageType(step.PageType);
+
+            if (stepPageType == null)
+                return;
+
+            SettingsFrame.BackStack.Add(new PageStackEntry(
+                stepPageType,
+                step.Parameter,
+                new SuppressNavigationTransitionInfo()));
+        }
+
         PageHistory.Clear();
         PageHistory.Add(new BreadcrumbNavigationItemViewModel(
             new BreadcrumbNavigationRequested(Translator.MenuSettings, WinoPage.SettingOptionsPage),
             isActive: false,
             stepNumber: 1,
             backStackDepth: 1));
-        PageHistory.Add(new BreadcrumbNavigationItemViewModel(
-            new BreadcrumbNavigationRequested(SettingsNavigationInfoProvider.GetPageTitle(targetPage), targetPage, pageParameter),
-            isActive: true,
-            stepNumber: 2,
-            backStackDepth: 2));
+
+        for (var index = 0; index < route.Steps.Count; index++)
+        {
+            var step = route.Steps[index];
+            PageHistory.Add(new BreadcrumbNavigationItemViewModel(
+                new BreadcrumbNavigationRequested(step.PageTitle, step.PageType, step.Parameter),
+                isActive: index == route.Steps.Count - 1,
+                stepNumber: index + 2,
+                backStackDepth: index + 2));
+        }
 
         UpdateBackNavigationState();
         _ = RefreshCurrentPageStateAsync();
@@ -397,16 +429,20 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             ? string.Format(Translator.SettingsAccountDetails_NavigationTitle, account.Address)
             : account?.Name ?? Translator.AccountDetailsPage_Title;
 
-    public Task OnTitleBarSearchTextChangedAsync()
+    public async Task OnTitleBarSearchTextChangedAsync()
     {
+        var searchText = SearchText;
+        var results = await ViewModel.SearchSettingsAsync(searchText);
+
+        if (!string.Equals(SearchText, searchText, StringComparison.Ordinal))
+            return;
+
         SearchSuggestions.Clear();
 
-        foreach (var item in SettingsNavigationInfoProvider.Search(SearchText, ViewModel.ManageAccountsDescription).Take(6))
+        foreach (var item in results.Take(6))
         {
             SearchSuggestions.Add(new TitleBarSearchSuggestion(item.Title, item.Description, item));
         }
-
-        return Task.CompletedTask;
     }
 
     public void OnTitleBarSearchSuggestionChosen(TitleBarSearchSuggestion suggestion)
@@ -414,18 +450,17 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         SearchText = suggestion.Title;
     }
 
-    public Task OnTitleBarSearchSubmittedAsync(string queryText, TitleBarSearchSuggestion? chosenSuggestion)
+    public async Task OnTitleBarSearchSubmittedAsync(string queryText, TitleBarSearchSuggestion? chosenSuggestion)
     {
         SearchText = queryText;
 
         var selectedSetting = chosenSuggestion?.Tag as SettingsNavigationItemInfo
-                              ?? SettingsNavigationInfoProvider.Search(queryText, ViewModel.ManageAccountsDescription).FirstOrDefault();
+                              ?? (await ViewModel.SearchSettingsAsync(queryText)).FirstOrDefault();
 
-        if (selectedSetting?.PageType is WinoPage pageType)
-        {
+        if (selectedSetting?.NavigationRoute is SettingsNavigationRoute route)
+            NavigateToRoute(route);
+        else if (selectedSetting?.PageType is WinoPage pageType)
             Receive(new SettingsRootNavigationRequested(pageType));
-        }
 
-        return Task.CompletedTask;
     }
 }

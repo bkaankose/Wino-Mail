@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Core.Domain.Models.Settings;
 
@@ -11,7 +12,8 @@ public sealed class SettingsNavigationItemInfo(
     string description,
     string glyph = "",
     bool isSeparator = false,
-    string searchKeywords = "")
+    string searchKeywords = "",
+    SettingsNavigationRoute navigationRoute = null)
 {
     public WinoPage? PageType { get; } = pageType;
     public string Title { get; } = title;
@@ -19,6 +21,7 @@ public sealed class SettingsNavigationItemInfo(
     public string Glyph { get; } = glyph;
     public bool IsSeparator { get; } = isSeparator;
     public string SearchKeywords { get; } = searchKeywords;
+    public SettingsNavigationRoute NavigationRoute { get; } = navigationRoute;
 }
 
 public static class SettingsNavigationInfoProvider
@@ -118,6 +121,12 @@ public static class SettingsNavigationInfoProvider
     }
 
     public static IReadOnlyList<SettingsNavigationItemInfo> Search(string query, string manageAccountsDescription = "")
+        => Search(query, manageAccountsDescription, []);
+
+    public static IReadOnlyList<SettingsNavigationItemInfo> Search(
+        string query,
+        string manageAccountsDescription,
+        IEnumerable<SettingsNavigationItemInfo> additionalItems)
     {
         if (string.IsNullOrWhiteSpace(query))
             return [];
@@ -130,6 +139,7 @@ public static class SettingsNavigationInfoProvider
         var queryTerms = normalizedQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         return GetNavigationItems(manageAccountsDescription)
+            .Concat(additionalItems ?? [])
             .Where(item => item.PageType.HasValue && !item.IsSeparator && item.PageType.Value != WinoPage.SettingOptionsPage)
             .Select(item => new
             {

@@ -13,11 +13,12 @@ public partial class WinoIntelligenceMailboxItemViewModel : ObservableObject
     public required string Address { get; init; }
     public required string IntelligenceSummary { get; init; }
     public required MailProviderType ProviderType { get; init; }
+    public SpecialImapProvider SpecialProvider { get; init; }
     public Guid? LocalAccountId { get; init; }
     public bool HasServerIntelligence { get; init; }
     public bool CanToggle { get; init; }
 
-    public string ProviderImage => $"ms-appx:///Assets/Providers/{ProviderType}.png";
+    public string ProviderImage => $"ms-appx:///Assets/Providers/{(SpecialProvider == SpecialImapProvider.None ? ProviderType : SpecialProvider)}.png";
     public bool CanManage => LocalAccountId.HasValue;
     public bool IsManageUnavailable => !CanManage;
 
