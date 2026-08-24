@@ -113,5 +113,6 @@ public class SettingsPageViewModelTests
         => new(
             Mock.Of<INavigationService>(),
             Mock.Of<IStatePersistanceService>(),
-            accountService);
+            accountService,
+            new SettingsMenuProvider(Mock.Of<INavigationService>()));
 }

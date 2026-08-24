@@ -1,6 +1,12 @@
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Contacts;
 
 namespace Wino.Mail.ViewModels.Data;
@@ -14,11 +20,23 @@ public enum ContactFilterKind
 }
 
 /// <summary>
-/// A single selectable entry in the contacts sidebar. Produces the
-/// <see cref="ContactQueryFilter"/> the contact list is loaded with.
+/// A single selectable entry in the contacts navigation pane. Produces the
+/// <see cref="ContactQueryFilter"/> the contact list is loaded with, and for list entries
+/// also accepts contacts dropped onto it.
 /// </summary>
-public partial class ContactFilterViewModel : ObservableObject
+public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget
 {
+    /// <summary>
+    /// Supplied by <see cref="ContactsPageViewModel"/> so the item can service a drop
+    /// without the view knowing which view model owns the operation.
+    /// </summary>
+    internal Func<ContactList, IReadOnlyList<Guid>, Task> DropHandler { get; set; }
+
+    /// <summary>Raised when the rename or delete command is invoked on a list entry.</summary>
+    internal Action<ContactFilterViewModel> RenameRequested { get; set; }
+
+    internal Action<ContactFilterViewModel> DeleteRequested { get; set; }
+
     public ContactFilterKind Kind { get; }
     [ObservableProperty] public partial string Name { get; set; }
     public string Glyph { get; init; }
@@ -28,7 +46,7 @@ public partial class ContactFilterViewModel : ObservableObject
     public ContactList List { get; init; }
 
     [ObservableProperty] public partial int Count { get; set; }
-    [ObservableProperty] public partial bool IsDragOver { get; set; }
+    [ObservableProperty] public partial bool IsDraggingItemOver { get; set; }
 
     public bool IsList => Kind == ContactFilterKind.List;
     public bool HasAccountIcon => Kind == ContactFilterKind.AddressBook && Account is not null;
@@ -38,23 +56,23 @@ public partial class ContactFilterViewModel : ObservableObject
     private ContactFilterViewModel(ContactFilterKind kind) => Kind = kind;
 
     public static ContactFilterViewModel CreateAll(string name)
-        => new(ContactFilterKind.All) { Name = name, Glyph = "\uE716" };
+        => new(ContactFilterKind.All) { Name = name, Glyph = "" };
 
     public static ContactFilterViewModel CreateFavorites(string name)
-        => new(ContactFilterKind.Favorites) { Name = name, Glyph = "\uE734" };
+        => new(ContactFilterKind.Favorites) { Name = name, Glyph = "" };
 
     public static ContactFilterViewModel CreateAddressBook(ContactAddressBook book, MailAccount account)
         => new(ContactFilterKind.AddressBook)
         {
             Name = string.IsNullOrWhiteSpace(book.DisplayName) ? account?.Name ?? book.SourceKind.ToString() : book.DisplayName,
-            Glyph = "\uE8F1",
+            Glyph = "",
             AddressBookId = book.Id,
             AccountId = book.MailAccountId,
             Account = account
         };
 
     public static ContactFilterViewModel CreateList(ContactList list)
-        => new(ContactFilterKind.List) { Name = list.Name, Glyph = "\uE8FD", List = list };
+        => new(ContactFilterKind.List) { Name = list.Name, Glyph = "", List = list };
 
     public ContactQueryFilter ToQueryFilter(string searchQuery) => Kind switch
     {
@@ -63,4 +81,43 @@ public partial class ContactFilterViewModel : ObservableObject
         ContactFilterKind.List => new ContactQueryFilter(ListId: ListId, SearchQuery: searchQuery, ExcludeRootContacts: true),
         _ => new ContactQueryFilter(SearchQuery: searchQuery, ExcludeRootContacts: true)
     };
+
+    #region Drag and drop
+
+    public bool CanAccept(IReadOnlyDictionary<string, object> dataProperties)
+        => IsList &&
+           DropHandler is not null &&
+           TryGetPackage(dataProperties, out var package) &&
+           package.ContactIds.Count > 0;
+
+    public string GetDropCaption(IReadOnlyDictionary<string, object> dataProperties)
+        => string.Format(Translator.ContactDrag_AddToListCaption, Name);
+
+    public Task HandleDropAsync(IReadOnlyDictionary<string, object> dataProperties)
+        => TryGetPackage(dataProperties, out var package) && DropHandler is not null
+            ? DropHandler(List, package.ContactIds)
+            : Task.CompletedTask;
+
+    private static bool TryGetPackage(IReadOnlyDictionary<string, object> dataProperties, out ContactDragPackage package)
+    {
+        package = dataProperties.TryGetValue(ContactDragPackage.DataPropertyName, out var value)
+            ? value as ContactDragPackage
+            : null;
+
+        return package is not null;
+    }
+
+    #endregion
+
+    #region Commands
+
+    private bool CanModifyList() => IsList;
+
+    [RelayCommand(CanExecute = nameof(CanModifyList))]
+    private void RenameList() => RenameRequested?.Invoke(this);
+
+    [RelayCommand(CanExecute = nameof(CanModifyList))]
+    private void DeleteList() => DeleteRequested?.Invoke(this);
+
+    #endregion
 }

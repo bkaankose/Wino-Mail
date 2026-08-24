@@ -37,6 +37,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     IRecipient<CalendarItemRightTappedMessage>,
     IRecipient<CalendarItemContextActionRequestedMessage>,
     IRecipient<AccountRemovedMessage>,
+    IShellMenuOwner,
     IDisposable
 {
     #region Quick Event Creation
@@ -175,6 +176,12 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     public IStatePersistanceService StatePersistanceService { get; }
     public IAccountCalendarStateService AccountCalendarStateService { get; }
 
+    /// <summary>
+    /// The calendar pane belongs to the calendar mode view model. The page hands it to the
+    /// shell when the inner frame navigates here.
+    /// </summary>
+    public IShellMenuProvider ShellMenuProvider { get; }
+
     public CalendarPageViewModel(
         IStatePersistanceService statePersistanceService,
         ICalendarService calendarService,
@@ -187,8 +194,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         IWinoRequestDelegator winoRequestDelegator,
         IMailDialogService dialogService,
         IDateContextProvider dateContextProvider,
-        ICalendarRangeTextFormatter calendarRangeTextFormatter)
+        ICalendarRangeTextFormatter calendarRangeTextFormatter,
+        ICalendarShellClient shellMenuProvider)
     {
+        ShellMenuProvider = shellMenuProvider;
         StatePersistanceService = statePersistanceService;
         AccountCalendarStateService = accountCalendarStateService;
         _calendarService = calendarService;

@@ -30,6 +30,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     IRecipient<AccountCreatedMessage>,
     IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>,
+    IInnerNavigationHost,
     ITitleBarSearchHost
 {
     public ObservableCollection<BreadcrumbNavigationItemViewModel> PageHistory { get; set; } = [];
@@ -404,7 +405,18 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         WeakReferenceMessenger.Default.Send(new TitleBarShellContentUpdated());
     }
 
+    /// <summary>
+    /// Settings owns a breadcrumb frame of its own, so back navigation is consumed here
+    /// instead of popping the inner shell frame.
+    /// </summary>
     public bool CanNavigateBack => PageHistory.Count > 1 && SettingsFrame.CanGoBack;
+
+    Task<bool> IInnerNavigationHost.NavigateBackAsync(Core.Domain.Enums.NavigationTransitionEffect effect)
+    {
+        GoBackFrame(effect);
+
+        return Task.FromResult(true);
+    }
 
     private async Task RefreshCurrentPageStateAsync()
     {

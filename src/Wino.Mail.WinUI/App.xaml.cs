@@ -41,6 +41,8 @@ using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
+using Wino.Mail.WinUI.Navigation;
+using Wino.Mail.WinUI.Navigation.Rules;
 using Wino.Mail.WinUI.ViewModels;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Mails;
@@ -420,6 +422,12 @@ public partial class App : WinoApplication,
 
     private void RegisterUWPServices(IServiceCollection services)
     {
+        // Order matters: page specific rules get first refusal, then the broader route-kind
+        // rules act as the catch-all.
+        services.AddSingleton<INavigationReentryRule, MailFolderReentryRule>();
+        services.AddSingleton<INavigationReentryRule, CalendarDateReentryRule>();
+        services.AddSingleton<INavigationReentryRule, RenderingReuseRule>();
+        services.AddSingleton<INavigationReentryRule, ModeRootReentryRule>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IMailDialogService, DialogService>();
         services.AddSingleton<IAiActionOptionsService, AiActionOptionsService>();
@@ -436,16 +444,16 @@ public partial class App : WinoApplication,
     {
         services.AddSingleton(typeof(MailAppShellViewModel));
         services.AddSingleton(typeof(CalendarAppShellViewModel));
-        services.AddSingleton(typeof(ContactsShellClient));
-        services.AddSingleton(typeof(SettingsShellClient));
+        services.AddSingleton(typeof(SettingsMenuProvider));
         services.AddSingleton(typeof(WinoAppShellViewModel));
 
         services.AddSingleton<IMailShellClient>(serviceProvider => serviceProvider.GetRequiredService<MailAppShellViewModel>());
         services.AddSingleton<ICalendarShellClient>(serviceProvider => serviceProvider.GetRequiredService<CalendarAppShellViewModel>());
-        services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<MailAppShellViewModel>());
-        services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<CalendarAppShellViewModel>());
-        services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<ContactsShellClient>());
-        services.AddSingleton<IShellClient>(serviceProvider => serviceProvider.GetRequiredService<SettingsShellClient>());
+
+        // Breaks the calendar shell / calendar page constructor cycle and keeps the whole
+        // calendar object graph out of a session that never opens the calendar.
+        services.AddSingleton(serviceProvider =>
+            new Lazy<CalendarPageViewModel>(serviceProvider.GetRequiredService<CalendarPageViewModel>));
 
         services.AddTransient(typeof(MailListPageViewModel));
         services.AddTransient(typeof(MailRenderingPageViewModel));

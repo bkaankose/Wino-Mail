@@ -406,7 +406,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         if (MainShellFrame.Content is WinoAppShell shellPage)
         {
-            return shellPage.GetShellFrame().Content as ITitleBarSearchHost;
+            return shellPage.GetFrame(NavigationReferenceFrame.InnerShellFrame)?.Content as ITitleBarSearchHost;
         }
 
         return MainShellFrame.Content as ITitleBarSearchHost;
@@ -610,7 +610,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         if (MainShellFrame.Content is not WinoAppShell shellPage)
             return true;
 
-        if (shellPage.GetShellFrame().Content is not MailListPage mailListPage)
+        if (shellPage.GetFrame(NavigationReferenceFrame.InnerShellFrame)?.Content is not MailListPage mailListPage)
             return true;
 
         await mailListPage.ClearMailSelectionAsync();

@@ -1,0 +1,45 @@
+<ResourceDictionary
+    x:Class="Wino.Mail.WinUI.Styles.ShellMenu.ShellMenuTemplates"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:menu="using:Wino.Core.Domain.MenuItems"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls">
+
+    <!--
+        Chrome-free navigation item used by pane entries that host a control or a caption
+        rather than acting as a navigation target.
+    -->
+    <Style x:Key="ShellPaneHostNavigationViewItemStyle" TargetType="muxc:NavigationViewItem">
+        <Setter Property="SelectsOnInvoked" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Margin" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="muxc:NavigationViewItem">
+                    <ContentPresenter
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        Content="{TemplateBinding Content}"
+                        ContentTemplate="{TemplateBinding ContentTemplate}" />
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  Section caption between groups of navigation items.  -->
+    <DataTemplate x:Key="ShellSectionHeaderTemplate" x:DataType="menu:ShellSectionHeaderMenuItem">
+        <muxc:NavigationViewItem AutomationProperties.AutomationId="ShellMenuSectionHeader" Style="{StaticResource ShellPaneHostNavigationViewItemStyle}">
+            <TextBlock
+                Margin="14,12,12,2"
+                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind Title, Mode=OneTime}" />
+        </muxc:NavigationViewItem>
+    </DataTemplate>
+
+</ResourceDictionary>

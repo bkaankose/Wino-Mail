@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:coreStyles="using:Wino.Mail.WinUI.Styles"
+    xmlns:shellMenu="using:Wino.Mail.WinUI.Styles.ShellMenu"
     xmlns:local="using:Wino.Mail.WinUI"
     xmlns:styles="using:Wino.Styles"
     xmlns:uwp="using:Wino.Mail.WinUI">
@@ -25,6 +26,9 @@
 
                 <coreStyles:CustomMessageDialogStyles />
                 <coreStyles:DataTemplates />
+
+                <!--  Shared shell navigation item pieces. Per-mode item templates are merged on demand.  -->
+                <shellMenu:ShellMenuTemplates />
 
                 <ResourceDictionary>
                     <Style TargetType="ScrollViewer">

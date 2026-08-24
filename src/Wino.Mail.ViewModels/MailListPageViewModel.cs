@@ -41,6 +41,7 @@ using Wino.Messaging.UI;
 namespace Wino.Mail.ViewModels;
 
 public partial class MailListPageViewModel : MailBaseViewModel,
+    IShellMenuOwner,
     IRecipient<MailItemNavigationRequested>,
     IRecipient<ActiveMailFolderChangedEvent>,
     IRecipient<AccountSynchronizationCompleted>,
@@ -241,6 +242,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     [NotifyCanExecuteChangedFor(nameof(EmptyFolderCommand))]
     public partial bool IsAccountSynchronizerInSynchronization { get; set; }
 
+    /// <summary>
+    /// The mail pane belongs to the mail mode view model. The page hands it to the shell
+    /// when the inner frame navigates here.
+    /// </summary>
+    public IShellMenuProvider ShellMenuProvider { get; }
+
     public MailListPageViewModel(IMailDialogService dialogService,
                                  INavigationService navigationService,
                                  IAccountService accountService,
@@ -259,8 +266,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IWinoLogger winoLogger,
                                  ISynchronizationManager synchronizationManager,
                                  IDraftSyncRetryService draftSyncRetryService,
+                                 IMailShellClient shellMenuProvider = null,
                                  IIntelligenceSearchService intelligenceSearchService = null)
     {
+        ShellMenuProvider = shellMenuProvider;
+
         _winoLogger = winoLogger;
         _accountService = accountService;
         _mailDialogService = mailDialogService;

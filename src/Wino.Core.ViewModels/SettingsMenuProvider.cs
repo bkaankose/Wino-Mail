@@ -1,6 +1,5 @@
 using System.Linq;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -8,36 +7,55 @@ using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 
-namespace Wino.Mail.WinUI.ViewModels;
+namespace Wino.Core.ViewModels;
 
-public partial class SettingsShellClient(INavigationService navigationService) :
+/// <summary>
+/// Owns the settings navigation pane. Settings keeps its own breadcrumb frame inside
+/// <c>SettingsPage</c>, so this provider only tracks which root section is highlighted.
+/// </summary>
+public partial class SettingsMenuProvider(INavigationService navigationService) :
     CoreBaseViewModel,
-    IShellClient,
+    IShellMenuProvider,
     IRecipient<ActiveSettingsPageChanged>,
     IRecipient<LanguageChanged>
 {
     private bool _hasRegisteredPersistentRecipients;
+    private ShellMenu _shellMenu;
+    private object _selectedMenuItem;
 
     public WinoApplicationMode Mode => WinoApplicationMode.Settings;
-    public MenuItemCollection? MenuItems { get; private set; }
 
-    [ObservableProperty]
-    public partial object? SelectedMenuItem { get; set; } = null;
+    public ShellMenu ShellMenu => _shellMenu;
 
-    public bool HandlesNavigationSelection => true;
+    public object SelectedMenuItem
+    {
+        get => _selectedMenuItem;
+        set => SetProperty(ref _selectedMenuItem, value);
+    }
 
     protected override void OnDispatcherAssigned()
     {
         base.OnDispatcherAssigned();
-        MenuItems ??= new MenuItemCollection(Dispatcher);
+
+        _shellMenu ??= new ShellMenu
+        {
+            Items = new MenuItemCollection(Dispatcher),
+            HandlesSelection = true
+        };
+
         RebuildMenuItems();
     }
 
-    public void Activate(ShellModeActivationContext activationContext)
+    /// <summary>
+    /// Every settings entry renders through the navigation item icon slot, so the collapsed
+    /// pane shows them all correctly and nothing has to be dropped.
+    /// </summary>
+    public void SetPaneCompact(bool isCompact) { }
+
+    public void ActivateShellMenu(ShellModeActivationContext activationContext)
     {
         if (!_hasRegisteredPersistentRecipients)
         {
@@ -47,24 +65,25 @@ public partial class SettingsShellClient(INavigationService navigationService) :
 
         RebuildMenuItems();
 
-        var settingsActivationContext = activationContext.Parameter as SettingsPageActivationContext;
+        var settingsActivationContext = activationContext?.Parameter as SettingsPageActivationContext;
         var targetPage = settingsActivationContext?.TargetPage
-                         ?? activationContext.Parameter as WinoPage?
+                         ?? activationContext?.Parameter as WinoPage?
                          ?? WinoPage.SettingOptionsPage;
+
         SetSelectedRootPage(SettingsNavigationInfoProvider.GetRootPage(targetPage));
 
         object navigationParameter = settingsActivationContext is not null
             ? settingsActivationContext
-            : (object)targetPage;
-        navigationService.Navigate(
-            WinoPage.SettingsPage,
-            navigationParameter,
-            NavigationReferenceFrame.InnerShellFrame);
+            : targetPage;
+
+        navigationService.Navigate(WinoPage.SettingsPage, navigationParameter);
     }
 
-    public void Deactivate()
-    {
-    }
+    /// <summary>
+    /// Mode switch. The sections are rebuilt on the next activation anyway, so nothing is
+    /// torn down here beyond letting the shell drop its item containers.
+    /// </summary>
+    public void ReleaseShellMenu() { }
 
     public void PrepareForShellShutdown()
     {
@@ -75,15 +94,18 @@ public partial class SettingsShellClient(INavigationService navigationService) :
         }
 
         SelectedMenuItem = null;
-        MenuItems?.Clear();
+        _shellMenu?.Items.Clear();
     }
 
-    public Task HandleNavigationItemInvokedAsync(IMenuItem? menuItem)
+    public Task OnMenuItemInvokedAsync(IMenuItem menuItem)
     {
         if (menuItem is not SettingsShellPageMenuItem settingsMenuItem)
             return Task.CompletedTask;
 
         var currentPage = (SelectedMenuItem as SettingsShellPageMenuItem)?.PageType;
+
+        // Re-invoking the section already open is only meaningful for the home page, which
+        // acts as "go back to the top" for the breadcrumb frame.
         if (currentPage == settingsMenuItem.PageType && settingsMenuItem.PageType != WinoPage.SettingOptionsPage)
             return Task.CompletedTask;
 
@@ -92,7 +114,7 @@ public partial class SettingsShellClient(INavigationService navigationService) :
         return Task.CompletedTask;
     }
 
-    public Task HandleNavigationSelectionChangedAsync(IMenuItem? menuItem)
+    public Task OnMenuSelectionChangedAsync(IMenuItem menuItem)
     {
         if (menuItem is not SettingsShellPageMenuItem settingsMenuItem)
             return Task.CompletedTask;
@@ -107,39 +129,37 @@ public partial class SettingsShellClient(INavigationService navigationService) :
 
     public override Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args) => Task.CompletedTask;
 
-    public void Receive(ActiveSettingsPageChanged message)
-    {
-        SetSelectedRootPage(message.RootPage);
-    }
+    public void Receive(ActiveSettingsPageChanged message) => SetSelectedRootPage(message.RootPage);
 
     public void Receive(LanguageChanged message)
     {
         var selectedPage = (SelectedMenuItem as SettingsShellPageMenuItem)?.PageType ?? WinoPage.SettingOptionsPage;
+
         RebuildMenuItems();
         SetSelectedRootPage(selectedPage);
     }
 
     private void RebuildMenuItems()
     {
-        if (MenuItems == null)
+        if (_shellMenu is null)
             return;
 
         var selectedPage = (SelectedMenuItem as SettingsShellPageMenuItem)?.PageType ?? WinoPage.SettingOptionsPage;
 
-        MenuItems.Clear();
+        _shellMenu.Items.Clear();
 
         foreach (var item in SettingsNavigationInfoProvider.GetNavigationItems())
         {
             if (item.IsSeparator)
             {
-                MenuItems.Add(new SettingsShellSectionMenuItem(item.Title, item.Glyph));
+                _shellMenu.Items.Add(new SettingsShellSectionMenuItem(item.Title, item.Glyph));
                 continue;
             }
 
             if (!item.PageType.HasValue)
                 continue;
 
-            MenuItems.Add(new SettingsShellPageMenuItem(item.PageType.Value, item.Title, item.Description, item.Glyph));
+            _shellMenu.Items.Add(new SettingsShellPageMenuItem(item.PageType.Value, item.Title, item.Description, item.Glyph));
         }
 
         SetSelectedRootPage(selectedPage);
@@ -147,11 +167,11 @@ public partial class SettingsShellClient(INavigationService navigationService) :
 
     private void SetSelectedRootPage(WinoPage pageType)
     {
-        if (MenuItems == null)
+        if (_shellMenu is null)
             return;
 
         var rootPage = SettingsNavigationInfoProvider.GetRootPage(pageType);
-        var selectedItem = MenuItems.OfType<SettingsShellPageMenuItem>()
+        var selectedItem = _shellMenu.Items.OfType<SettingsShellPageMenuItem>()
             .FirstOrDefault(item => item.PageType == rootPage);
 
         if (ReferenceEquals(SelectedMenuItem, selectedItem))

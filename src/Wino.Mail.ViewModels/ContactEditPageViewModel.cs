@@ -16,7 +16,7 @@ using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class ContactEditPageViewModel : MailBaseViewModel
+public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackNavigation
 {
     private static Guid? _lastSuccessfulDestinationId;
     private readonly IContactService _contactService;
@@ -28,6 +28,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel
     private byte[] _photoBytes;
     private bool _deletePhoto;
     private string _previewPhotoPath;
+    private bool _isSaveInProgress;
 
     public ObservableCollection<ContactCreateDestination> Destinations { get; } = [];
     public ObservableCollection<ContactEmailAddress> EmailAddresses { get; } = [];
@@ -71,7 +72,6 @@ public partial class ContactEditPageViewModel : MailBaseViewModel
     [ObservableProperty] public partial string SourceDescription { get; set; }
     [ObservableProperty] public partial bool IsFavorite { get; set; }
 
-    public bool IsBackNavigationApproved { get; private set; }
     public byte[] PreviewPhotoBytes => _photoBytes;
     public string PreviewPhotoPath => _previewPhotoPath;
 
@@ -119,7 +119,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
-        IsBackNavigationApproved = false;
+        _isSaveInProgress = false;
         _original = null;
         _photoBytes = null;
         _previewPhotoPath = null;
@@ -254,7 +254,10 @@ public partial class ContactEditPageViewModel : MailBaseViewModel
             await ExecuteUIThread(() =>
             {
                 IsDirty = false;
-                IsBackNavigationApproved = true;
+
+                // The save already happened, so the discard prompt must not run on the way out.
+                _isSaveInProgress = true;
+                _navigationService.SetNavigationResult(NavigationResult.Saved(contact.Id));
                 _navigationService.GoBack();
             });
         }
@@ -272,16 +275,23 @@ public partial class ContactEditPageViewModel : MailBaseViewModel
         }
     }
 
-    [RelayCommand]
-    private async Task BackAsync()
+    /// <summary>
+    /// Guards every route out of the editor: the cancel button, the shell back button and
+    /// any programmatic back navigation all land here.
+    /// </summary>
+    public async ValueTask<bool> CanNavigateBackAsync()
     {
-        if (IsDirty && !await _dialogService.ShowConfirmationDialogAsync(
-            Translator.ContactEditor_DiscardTitle, Translator.ContactEditor_DiscardMessage, Translator.ContactEditor_DiscardAction))
-            return;
+        if (_isSaveInProgress || !IsDirty)
+            return true;
 
-        IsBackNavigationApproved = true;
-        _navigationService.GoBack();
+        return await _dialogService.ShowConfirmationDialogAsync(
+            Translator.ContactEditor_DiscardTitle,
+            Translator.ContactEditor_DiscardMessage,
+            Translator.ContactEditor_DiscardAction);
     }
+
+    [RelayCommand]
+    private Task BackAsync() => _navigationService.GoBackAsync();
 
     [RelayCommand] private void AddEmail() { if (EmailAddresses.Count < 3) EmailAddresses.Add(new ContactEmailAddress { Id = Guid.NewGuid() }); IsDirty = true; }
     [RelayCommand] private void RemoveEmail(ContactEmailAddress item) { if (item is not null) EmailAddresses.Remove(item); IsDirty = true; }

@@ -60,6 +60,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public MenuItemCollection FooterItems { get; set; }
     public MenuItemCollection MenuItems { get; set; }
 
+    /// <summary>
+    /// Menu published to the shell while mail mode is active. Built once and mutated in
+    /// place afterwards, so the shell never rebinds while folders come and go.
+    /// </summary>
+    public ShellMenu ShellMenu { get; private set; }
+
     private readonly SettingsItem SettingsItem = new SettingsItem();
     private readonly ContactsMenuItem ContactsMenuItem = new ContactsMenuItem();
 
@@ -73,7 +79,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public IPreferencesService PreferencesService { get; }
     public INavigationService NavigationService { get; }
     public WinoApplicationMode Mode => WinoApplicationMode.Mail;
-    public bool HandlesNavigationSelection => true;
     public IMenuItem CreatePrimaryMenuItem => CreateMailMenuItem;
 
     private readonly IFolderService _folderService;
@@ -152,6 +157,12 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         MenuItems = new MenuItemCollection(Dispatcher);
         FooterItems = new MenuItemCollection(Dispatcher);
+        ShellMenu = new ShellMenu
+        {
+            Items = MenuItems,
+            FooterItems = FooterItems,
+            HandlesSelection = true
+        };
     }
 
     public IEnumerable<FolderOperationMenuItem> GetFolderContextMenuActions(IBaseFolderMenuItem folder)
@@ -1627,6 +1638,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         base.RegisterRecipients();
 
         Messenger.Register<AccountRemovedMessage>(this);
+        Messenger.Register<AccountMenuItemExtended>(this);
+        Messenger.Register<NavigateMailFolderEvent>(this);
         Messenger.Register<AccountUpdatedMessage>(this);
         Messenger.Register<MailtoProtocolMessageRequested>(this);
         Messenger.Register<RefreshUnreadCountsMessage>(this);
@@ -1644,6 +1657,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         base.UnregisterRecipients();
 
         Messenger.Unregister<AccountRemovedMessage>(this);
+        Messenger.Unregister<AccountMenuItemExtended>(this);
+        Messenger.Unregister<NavigateMailFolderEvent>(this);
         Messenger.Unregister<AccountUpdatedMessage>(this);
         Messenger.Unregister<MailtoProtocolMessageRequested>(this);
         Messenger.Unregister<RefreshUnreadCountsMessage>(this);
@@ -1753,16 +1768,22 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         });
     }
 
-    void IShellClient.Activate(ShellModeActivationContext activationContext)
+    /// <summary>
+    /// Every mail pane entry renders through the navigation item icon slot, so the collapsed
+    /// pane shows them all correctly and nothing has to be dropped.
+    /// </summary>
+    public void SetPaneCompact(bool isCompact) { }
+
+    public void ActivateShellMenu(ShellModeActivationContext activationContext)
         => OnNavigatedTo(NavigationMode.New, activationContext);
 
-    void IShellClient.Deactivate()
+    public void ReleaseShellMenu()
         => OnNavigatedFrom(NavigationMode.New, null!);
 
-    Task IShellClient.HandleNavigationItemInvokedAsync(IMenuItem menuItem)
+    public Task OnMenuItemInvokedAsync(IMenuItem menuItem)
         => MenuItemInvokedOrSelectedAsync(menuItem);
 
-    Task IShellClient.HandleNavigationSelectionChangedAsync(IMenuItem menuItem)
+    public Task OnMenuSelectionChangedAsync(IMenuItem menuItem)
         => menuItem == null ? Task.CompletedTask : MenuItemInvokedOrSelectedAsync(menuItem);
 }
 

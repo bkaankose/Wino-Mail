@@ -1,5 +1,3 @@
-using System;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Wino.Core.Domain.Models.Navigation;
 
@@ -15,13 +13,5 @@ public class NavigationServiceBase
             NavigationTransitionType.Entrance => new EntranceNavigationTransitionInfo(),
             _ => new SuppressNavigationTransitionInfo(),
         };
-    }
-
-    public Type? GetCurrentFrameType(Frame frame)
-    {
-        if (frame != null && frame.Content != null)
-            return frame.Content.GetType();
-
-        return null;
     }
 }

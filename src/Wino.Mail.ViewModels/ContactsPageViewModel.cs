@@ -18,16 +18,30 @@ using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Mail.ViewModels.Data;
-using Wino.Messaging.Client.Contacts;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
 public partial class ContactsPageViewModel : MailBaseViewModel,
-    IRecipient<NewContactRequested>, IRecipient<ContactSynchronizationCompleted>,
-    IRecipient<NewAddressListRequested>
+    IRecipient<ContactSynchronizationCompleted>,
+    IBackNavigationAware,
+    IShellMenuOwner,
+    IShellMenuProvider
 {
+    /// <summary>
+    /// Returning from the contact editor. The list has already reconciled through
+    /// <see cref="OnNavigatedTo"/>; this only brings the contact that was just saved
+    /// back into view.
+    /// </summary>
+    public void OnNavigatedBack(object parameter, NavigationResult result)
+    {
+        if (result is null || result.Kind != NavigationResultKind.Saved || result.Payload is not Guid contactId)
+            return;
+
+        _ = ExecuteUIThreadAsync(() => LoadAndSelectContactAsync(contactId));
+    }
+
     private const int ContactPageSize = 50;
     private readonly IContactService _contactService;
     private readonly IAccountService _accountService;
@@ -165,6 +179,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         if (all is null)
         {
             all = ContactFilterViewModel.CreateAll(Translator.ContactsPage_AllContacts);
+            AttachFilterCallbacks(all);
             _primaryFilterGroup.Insert(0, all);
         }
         else
@@ -177,6 +192,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         if (favorites is null)
         {
             favorites = ContactFilterViewModel.CreateFavorites(Translator.ContactsPage_Favorites);
+            AttachFilterCallbacks(favorites);
             _primaryFilterGroup.Insert(Math.Min(1, _primaryFilterGroup.Count), favorites);
         }
         else
@@ -207,6 +223,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             if (filter is null || filter.AccountId != book.MailAccountId || !ReferenceEquals(filter.Account, account))
             {
                 var replacement = ContactFilterViewModel.CreateAddressBook(book, account);
+                AttachFilterCallbacks(replacement);
                 if (filter is null)
                     _addressBookFilterGroup.Insert(Math.Min(targetIndex, _addressBookFilterGroup.Count), replacement);
                 else
@@ -242,6 +259,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             if (filter is null)
             {
                 filter = ContactFilterViewModel.CreateList(list);
+                AttachFilterCallbacks(filter);
                 _listFilterGroup.Insert(Math.Min(targetIndex, _listFilterGroup.Count), filter);
             }
             else
@@ -278,6 +296,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         for (var index = FilterGroups.Count - 1; index >= 0; index--)
             if (!desired.Contains(FilterGroups[index]))
                 FilterGroups.RemoveAt(index);
+
+        SyncShellMenuItems();
     }
 
     private void ReconcileContactLists(IReadOnlyList<ContactList> desired)
@@ -344,8 +364,6 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     {
         base.RegisterRecipients();
 
-        Messenger.Register<NewContactRequested>(this);
-        Messenger.Register<NewAddressListRequested>(this);
         Messenger.Register<ContactSynchronizationCompleted>(this);
     }
 
@@ -353,12 +371,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     {
         base.UnregisterRecipients();
 
-        Messenger.Unregister<NewAddressListRequested>(this);
-        Messenger.Unregister<NewContactRequested>(this);
         Messenger.Unregister<ContactSynchronizationCompleted>(this);
     }
 
-    void IRecipient<NewContactRequested>.Receive(NewContactRequested message) => _ = ExecuteUIThreadAsync(AddContactAsync);
     void IRecipient<ContactSynchronizationCompleted>.Receive(ContactSynchronizationCompleted message)
     {
         if (_isPageActive && Volatile.Read(ref _explicitRefreshDepth) == 0)
@@ -919,6 +934,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     partial void OnSelectedFilterChanged(ContactFilterViewModel value)
     {
+        // The navigation pane binds its selection through IShellMenuProvider.SelectedMenuItem.
+        OnPropertyChanged(nameof(IShellMenuProvider.SelectedMenuItem));
+
         if (value is null || Volatile.Read(ref _suppressSelectedFilterReloadDepth) > 0) return;
 
         SelectedContact = null;
@@ -1111,5 +1129,4 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         pendingReload?.Dispose();
     }
 
-    public void Receive(NewAddressListRequested message) => CreateListCommand.Execute(null);
 }

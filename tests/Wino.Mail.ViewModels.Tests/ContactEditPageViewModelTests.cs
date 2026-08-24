@@ -34,31 +34,60 @@ public class ContactEditPageViewModelTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, true)]
-    public async Task BackCommand_DirtyEditor_OnlyNavigatesAfterDiscardConfirmation(bool confirmed, bool shouldNavigate)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CanNavigateBack_DirtyEditor_FollowsTheDiscardConfirmation(bool confirmed)
     {
-        var navigation = new Mock<INavigationService>();
         var dialogs = new Mock<IDialogServiceBase>();
         dialogs.Setup(service => service.ShowConfirmationDialogAsync(
                 It.IsAny<string>(),
                 It.IsAny<string>(),
                 It.IsAny<string>()))
             .ReturnsAsync(confirmed);
-        var viewModel = new ContactEditPageViewModel(
-            Mock.Of<IContactService>(),
-            Mock.Of<IWinoRequestDelegator>(),
-            navigation.Object,
-            dialogs.Object,
-            Mock.Of<IContactPictureFileService>());
+        var viewModel = CreateViewModel(dialogs: dialogs.Object);
+        viewModel.MarkDirty();
+
+        var canNavigateBack = await viewModel.CanNavigateBackAsync();
+
+        canNavigateBack.Should().Be(confirmed);
+    }
+
+    [Fact]
+    public async Task CanNavigateBack_CleanEditor_LeavesWithoutPrompting()
+    {
+        var dialogs = new Mock<IDialogServiceBase>();
+        var viewModel = CreateViewModel(dialogs: dialogs.Object);
+
+        var canNavigateBack = await viewModel.CanNavigateBackAsync();
+
+        canNavigateBack.Should().BeTrue();
+        dialogs.Verify(service => service.ShowConfirmationDialogAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task BackCommand_DelegatesTheDecisionToTheNavigationService()
+    {
+        var navigation = new Mock<INavigationService>();
+        var viewModel = CreateViewModel(navigation: navigation.Object);
         viewModel.MarkDirty();
 
         await viewModel.BackCommand.ExecuteAsync(null);
 
-        viewModel.IsBackNavigationApproved.Should().Be(shouldNavigate);
-        navigation.Verify(service => service.GoBack(It.IsAny<Wino.Core.Domain.Enums.NavigationTransitionEffect>()),
-            shouldNavigate ? Times.Once : Times.Never);
+        // The editor no longer decides for itself: the navigation service asks it through
+        // IConfirmBackNavigation, whichever route out of the page the user took.
+        navigation.Verify(service => service.GoBackAsync(It.IsAny<Wino.Core.Domain.Enums.NavigationTransitionEffect>()), Times.Once);
     }
+
+    private static ContactEditPageViewModel CreateViewModel(
+        INavigationService navigation = null,
+        IDialogServiceBase dialogs = null)
+        => new(
+            Mock.Of<IContactService>(),
+            Mock.Of<IWinoRequestDelegator>(),
+            navigation ?? Mock.Of<INavigationService>(),
+            dialogs ?? Mock.Of<IDialogServiceBase>(),
+            Mock.Of<IContactPictureFileService>());
 
     [Fact]
     public async Task ChooseAndRemovePhoto_UpdatesTheEditorPreviewImmediately()

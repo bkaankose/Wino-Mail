@@ -1,0 +1,124 @@
+<ResourceDictionary
+    x:Class="Wino.Mail.WinUI.Styles.ShellMenu.ContactsMenuTemplates"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:behaviors="using:Wino.Mail.WinUI.Behaviors"
+    xmlns:contactData="using:Wino.Mail.ViewModels.Data"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:menu="using:Wino.Core.Domain.MenuItems"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls">
+
+    <!--  New contact  -->
+    <DataTemplate x:Key="NewContactTemplate" x:DataType="menu:NewContactMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Height="50"
+            AutomationProperties.AutomationId="NewContactNavigationItem"
+            AutomationProperties.Name="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}"
+            Content="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}"
+            DataContext="{x:Bind}"
+            SelectsOnInvoked="False">
+            <muxc:NavigationViewItem.Icon>
+                <coreControls:WinoFontIcon Icon="NewMail" />
+            </muxc:NavigationViewItem.Icon>
+
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--  New contact list  -->
+    <DataTemplate x:Key="NewAddressListTemplate" x:DataType="menu:NewAddressListMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Height="44"
+            AutomationProperties.AutomationId="ContactsPaneNewList"
+            AutomationProperties.Name="{x:Bind domain:Translator.ContactList_NewTitle, Mode=OneTime}"
+            DataContext="{x:Bind}"
+            SelectsOnInvoked="False">
+            <muxc:NavigationViewItem.Icon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FA;" />
+            </muxc:NavigationViewItem.Icon>
+            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.ContactList_NewTitle, Mode=OneTime}" />
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--
+        A contacts filter: all contacts, favorites, an address book or a local list.
+        List entries accept dropped contacts through the shared drop behaviour.
+    -->
+    <DataTemplate x:Key="ContactFilterTemplate" x:DataType="contactData:ContactFilterViewModel">
+        <coreControls:WinoNavigationViewItem
+            MinHeight="36"
+            behaviors:MenuItemDropBehavior.IsEnabled="{x:Bind IsList, Mode=OneTime}"
+            AutomationProperties.AutomationId="ContactsFilterItem"
+            AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
+            DataContext="{x:Bind}"
+            SelectsOnInvoked="True"
+            ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}">
+            <muxc:NavigationViewItem.Icon>
+                <FontIcon
+                    FontSize="15"
+                    Glyph="{x:Bind Glyph, Mode=OneTime}"
+                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasGlyphIcon), Mode=OneTime}" />
+            </muxc:NavigationViewItem.Icon>
+            <muxc:NavigationViewItem.InfoBadge>
+                <muxc:InfoBadge
+                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
+                    Value="{x:Bind Count, Mode=OneWay}" />
+            </muxc:NavigationViewItem.InfoBadge>
+            <muxc:NavigationViewItem.ContextFlyout>
+                <coreControls:WinoMenuFlyout>
+                    <MenuFlyoutItem
+                        AutomationProperties.AutomationId="ContactsPaneRenameList"
+                        Command="{x:Bind RenameListCommand, Mode=OneTime}"
+                        Text="{x:Bind domain:Translator.ContactList_Rename, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsList), Mode=OneTime}">
+                        <MenuFlyoutItem.Icon>
+                            <FontIcon Glyph="&#xE8AC;" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem
+                        AutomationProperties.AutomationId="ContactsPaneDeleteList"
+                        Command="{x:Bind DeleteListCommand, Mode=OneTime}"
+                        Text="{x:Bind domain:Translator.ContactList_Delete, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsList), Mode=OneTime}">
+                        <MenuFlyoutItem.Icon>
+                            <FontIcon Glyph="&#xE74D;" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                </coreControls:WinoMenuFlyout>
+            </muxc:NavigationViewItem.ContextFlyout>
+
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                
+                <!--  Drop highlight for list entries.  -->
+                <Border
+                    Grid.ColumnSpan="2"
+                    Background="{ThemeResource AccentFillColorTertiaryBrush}"
+                    CornerRadius="4"
+                    IsHitTestVisible="False"
+                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraggingItemOver), Mode=OneWay}" />
+
+                <coreControls:AccountProfilePicture
+                    Width="22"
+                    Height="22"
+                    VerticalAlignment="Center"
+                    Account="{x:Bind Account, Mode=OneTime}"
+                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasAccountIcon), Mode=OneTime}" />
+
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind Name, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis" />
+            </Grid>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+</ResourceDictionary>

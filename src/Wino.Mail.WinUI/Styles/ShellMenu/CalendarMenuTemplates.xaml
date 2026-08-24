@@ -1,0 +1,153 @@
+<ResourceDictionary
+    x:Class="Wino.Mail.WinUI.Styles.ShellMenu.CalendarMenuTemplates"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:behaviors="using:Wino.Mail.WinUI.Behaviors"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:data="using:Wino.Calendar.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:menu="using:Wino.Core.Domain.MenuItems"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls">
+
+    <!--  New event  -->
+    <DataTemplate x:Key="CalendarNewEventTemplate" x:DataType="menu:NewCalendarEventMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Height="50"
+            AutomationProperties.AutomationId="NewCalendarEventNavigationItem"
+            AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}"
+            Content="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}"
+            DataContext="{x:Bind}"
+            SelectsOnInvoked="False">
+            <muxc:NavigationViewItem.Icon>
+                <coreControls:WinoFontIcon Icon="NewMail" />
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--  Synchronize calendars  -->
+    <DataTemplate x:Key="CalendarSyncTemplate" x:DataType="menu:CalendarSyncMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Height="50"
+            AutomationProperties.AutomationId="CalendarPaneSyncHost"
+            AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
+            Content="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
+            DataContext="{x:Bind}"
+            IsEnabled="{x:Bind Parameter.CanSynchronizeCalendars, Mode=OneWay}"
+            SelectsOnInvoked="False"
+            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}">
+            <coreControls:WinoNavigationViewItem.Icon>
+                <coreControls:WinoFontIcon Icon="Sync" />
+            </coreControls:WinoNavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--  Visible date range picker  -->
+    <DataTemplate x:Key="CalendarDatePickerTemplate" x:DataType="menu:CalendarDatePickerMenuItem">
+        <muxc:NavigationViewItem AutomationProperties.AutomationId="CalendarPaneDatePickerHost" Style="{StaticResource ShellPaneHostNavigationViewItemStyle}">
+            <muxc:CalendarView
+                Margin="12,0,12,8"
+                HorizontalAlignment="Stretch"
+                behaviors:CalendarViewRangeBehavior.Client="{x:Bind Parameter, Mode=OneWay}"
+                AutomationProperties.AutomationId="VisibleDateRangeCalendarView"
+                SelectionMode="Multiple"
+                Style="{StaticResource WinoCalendarViewStyle}" />
+        </muxc:NavigationViewItem>
+    </DataTemplate>
+
+    <!--  One account's calendars  -->
+    <DataTemplate x:Key="AccountCalendarGroupTemplate" x:DataType="data:AccountCalendarGroupMenuItem">
+        <muxc:NavigationViewItem AutomationProperties.AutomationId="AccountCalendarGroupHost" Style="{StaticResource ShellPaneHostNavigationViewItemStyle}">
+            <muxc:Expander
+                Margin="8,2"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                AutomationProperties.AutomationId="AccountCalendarGroupExpander"
+                IsExpanded="{x:Bind Parameter.IsExpanded, Mode=TwoWay}">
+                <muxc:Expander.Header>
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <CheckBox
+                            Width="26"
+                            MinWidth="0"
+                            AutomationProperties.AutomationId="AccountCalendarGroupCheckBox"
+                            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarsForAccountAutomationName(Parameter.Account.Name), Mode=OneWay}"
+                            IsChecked="{x:Bind Parameter.IsCheckedState, Mode=TwoWay}"
+                            IsThreeState="True" />
+
+                        <Ellipse
+                            Grid.Column="1"
+                            Width="12"
+                            Height="12"
+                            VerticalAlignment="Center"
+                            Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Parameter.AccountColorHex), Mode=OneWay}" />
+
+                        <StackPanel
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <TextBlock VerticalAlignment="Center" TextWrapping="Wrap">
+                                <Run FontWeight="SemiBold" Text="{x:Bind Parameter.Account.Name}" />
+                                <Run FontSize="12" Text="{x:Bind Parameter.AccountAddressDisplay, Mode=OneWay}" />
+                            </TextBlock>
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                MaxLines="1"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind Parameter.SynchronizationStatus, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis"
+                                Visibility="{x:Bind Parameter.IsSynchronizationProgressVisible, Mode=OneWay}" />
+                            <ProgressBar
+                                Height="4"
+                                IsIndeterminate="{x:Bind Parameter.IsProgressIndeterminate, Mode=OneWay}"
+                                ShowError="False"
+                                ShowPaused="False"
+                                Visibility="{x:Bind Parameter.IsSynchronizationProgressVisible, Mode=OneWay}"
+                                Value="{x:Bind Parameter.SynchronizationProgressValue, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+                </muxc:Expander.Header>
+                <muxc:Expander.Content>
+                    <ItemsControl ItemsSource="{x:Bind Parameter.AccountCalendars, Mode=OneWay}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="data:AccountCalendarViewModel">
+                                <CheckBox
+                                    HorizontalAlignment="Stretch"
+                                    VerticalAlignment="Center"
+                                    HorizontalContentAlignment="Stretch"
+                                    VerticalContentAlignment="Stretch"
+                                    AutomationProperties.AutomationId="AccountCalendarCheckBox"
+                                    AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
+                                    IsChecked="{x:Bind IsChecked, Mode=TwoWay}">
+                                    <Grid Margin="0,0,0,5" ColumnSpacing="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Ellipse
+                                            Width="20"
+                                            Height="20"
+                                            Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" />
+
+                                        <TextBlock
+                                            Grid.Column="1"
+                                            VerticalAlignment="Center"
+                                            Text="{x:Bind Name, Mode=OneWay}"
+                                            TextWrapping="Wrap" />
+                                    </Grid>
+                                </CheckBox>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </muxc:Expander.Content>
+            </muxc:Expander>
+        </muxc:NavigationViewItem>
+    </DataTemplate>
+
+</ResourceDictionary>

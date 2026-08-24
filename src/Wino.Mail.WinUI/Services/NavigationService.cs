@@ -1,31 +1,22 @@
+#nullable enable
+
 using System;
-using System.Linq;
-using CommunityToolkit.Mvvm.Messaging;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
-using Wino.Calendar.Views;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
-using Wino.Mail.ViewModels.Data;
-using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.WinUI.Navigation;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views;
-using Wino.Mail.WinUI.Views.Calendar;
-using Wino.Messaging.Client.Calendar;
-using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Navigation;
-using Wino.Messaging.UI;
-using Wino.Views;
-using Wino.Views.Account;
 using Wino.Views.Mail;
-using Wino.Views.Settings;
 
 namespace Wino.Services;
 
@@ -34,86 +25,25 @@ public class NavigationService : NavigationServiceBase, INavigationService
     private readonly IStatePersistanceService _statePersistanceService;
     private readonly IDispatcher _dispatcher;
     private readonly IWinoWindowManager _windowManager;
+    private readonly NavigationReentryRuleSet _reentryRules;
+
     private NavigationTransitionInfo? _pendingInnerShellTransition;
+    private NavigationResult? _pendingNavigationResult;
 
-    private WinoPage[] _renderingPageTypes = new WinoPage[]
-    {
-        WinoPage.MailRenderingPage,
-        WinoPage.ComposePage,
-        WinoPage.TestPage
-
-    };
-
-    private static readonly WinoPage[] MailOnlyPages =
-    [
-        WinoPage.MailListPage,
-        WinoPage.MailRenderingPage,
-        WinoPage.ComposePage,
-        WinoPage.IdlePage,
-        WinoPage.WelcomePageV2,
-        WinoPage.WelcomeHostPage,
-        WinoPage.ProviderSelectionPage,
-        WinoPage.AccountSetupProgressPage,
-        WinoPage.SpecialImapCredentialsPage,
-        WinoPage.TestPage
-    ];
-
-    private static readonly WinoPage[] CalendarOnlyPages =
-    [
-        WinoPage.CalendarPage,
-        WinoPage.EventDetailsPage,
-        WinoPage.CalendarEventComposePage
-    ];
-
-    private static readonly WinoPage[] ContactsOnlyPages =
-    [
-        WinoPage.ContactsPage,
-        WinoPage.ContactEditPage
-    ];
-
-    private static readonly WinoPage[] SettingsOnlyPages =
-    [
-        WinoPage.SettingsPage,
-        WinoPage.SettingOptionsPage,
-        WinoPage.ManageAccountsPage,
-        WinoPage.AccountManagementPage,
-        WinoPage.AccountDetailsPage,
-        WinoPage.WinoIntelligenceManagementPage,
-        WinoPage.IntelligenceCoveragePage,
-        WinoPage.FolderCustomizationPage,
-        WinoPage.MergedAccountDetailsPage,
-        WinoPage.SignatureManagementPage,
-        WinoPage.AboutPage,
-        WinoPage.PersonalizationPage,
-        WinoPage.MessageListPage,
-        WinoPage.MailNotificationSettingsPage,
-        WinoPage.ReadComposePanePage,
-        WinoPage.AppPreferencesPage,
-        WinoPage.AliasManagementPage,
-        WinoPage.MailCategoryManagementPage,
-        WinoPage.MailFiltersPage,
-        WinoPage.MailFilterEditorPage,
-        WinoPage.ImapCalDavSettingsPage,
-        WinoPage.KeyboardShortcutsPage,
-        WinoPage.SignatureAndEncryptionPage,
-        WinoPage.EmailTemplatesPage,
-        WinoPage.CreateEmailTemplatePage,
-        WinoPage.StoragePage,
-        WinoPage.WinoAccountManagementPage,
-        WinoPage.WinoIntelligencePage,
-        WinoPage.CalendarSettingsPage,
-        WinoPage.CalendarRenderingSettingsPage,
-        WinoPage.CalendarNotificationSettingsPage,
-        WinoPage.CalendarPreferenceSettingsPage,
-        WinoPage.CalendarAccountSettingsPage
-    ];
-
-    public NavigationService(IStatePersistanceService statePersistanceService, IDispatcher dispatcher, IWinoWindowManager windowManager)
+    public NavigationService(IStatePersistanceService statePersistanceService,
+                             IDispatcher dispatcher,
+                             IWinoWindowManager windowManager,
+                             IEnumerable<INavigationReentryRule> reentryRules)
     {
         _statePersistanceService = statePersistanceService;
         _dispatcher = dispatcher;
         _windowManager = windowManager;
+        _reentryRules = new NavigationReentryRuleSet(reentryRules);
     }
+
+    public Type? GetPageType(WinoPage winoPage) => NavigationRouteTable.GetPageType(winoPage);
+
+    #region Thread marshalling
 
     private bool IsOnNavigationThread()
         => _dispatcher is WinUIDispatcher winUiDispatcher && winUiDispatcher.HasThreadAccess;
@@ -139,65 +69,9 @@ public class NavigationService : NavigationServiceBase, INavigationService
         _dispatcher.ExecuteOnUIThread(action).GetAwaiter().GetResult();
     }
 
-    public Type? GetPageType(WinoPage winoPage)
-    {
-        return winoPage switch
-        {
-            WinoPage.None => null,
-            WinoPage.IdlePage => typeof(IdlePage),
-            WinoPage.AccountDetailsPage => typeof(AccountDetailsPage),
-            WinoPage.WinoIntelligenceManagementPage => typeof(WinoIntelligenceManagementPage),
-            WinoPage.IntelligenceCoveragePage => typeof(IntelligenceCoveragePage),
-            WinoPage.FolderCustomizationPage => typeof(FolderCustomizationPage),
-            WinoPage.MergedAccountDetailsPage => typeof(MergedAccountDetailsPage),
-            WinoPage.AccountManagementPage => typeof(AccountManagementPage),
-            WinoPage.ManageAccountsPage => typeof(AccountManagementPage),
-            WinoPage.SignatureManagementPage => typeof(SignatureManagementPage),
-            WinoPage.AboutPage => typeof(AboutPage),
-            WinoPage.PersonalizationPage => typeof(PersonalizationPage),
-            WinoPage.MessageListPage => typeof(MessageListPage),
-            WinoPage.MailNotificationSettingsPage => typeof(MailNotificationSettingsPage),
-            WinoPage.ReadComposePanePage => typeof(ReadComposePanePage),
-            WinoPage.MailRenderingPage => typeof(MailRenderingPage),
-            WinoPage.ComposePage => typeof(ComposePage),
-            WinoPage.TestPage => typeof(TestPage),
-            WinoPage.MailListPage => typeof(MailListPage),
-            WinoPage.SettingsPage => typeof(SettingsPage),
-            WinoPage.WelcomePageV2 => typeof(WelcomePageV2),
-            WinoPage.SettingOptionsPage => typeof(SettingOptionsPage),
-            WinoPage.AppPreferencesPage => typeof(AppPreferencesPage),
-            WinoPage.AliasManagementPage => typeof(AliasManagementPage),
-            WinoPage.MailCategoryManagementPage => typeof(MailCategoryManagementPage),
-            WinoPage.MailFiltersPage => typeof(MailFiltersPage),
-            WinoPage.MailFilterEditorPage => typeof(MailFilterEditorPage),
-            WinoPage.ImapCalDavSettingsPage => typeof(ImapCalDavSettingsPage),
-            WinoPage.KeyboardShortcutsPage => typeof(KeyboardShortcutsPage),
-            WinoPage.ContactsPage => typeof(ContactsPage),
-            WinoPage.ContactEditPage => typeof(ContactEditPage),
-            WinoPage.SignatureAndEncryptionPage => typeof(SignatureAndEncryptionPage),
-            WinoPage.EmailTemplatesPage => typeof(EmailTemplatesPage),
-            WinoPage.CreateEmailTemplatePage => typeof(CreateEmailTemplatePage),
-            WinoPage.StoragePage => typeof(StoragePage),
-            WinoPage.WinoAccountManagementPage => typeof(WinoAccountManagementPage),
-            WinoPage.WinoIntelligencePage => typeof(WinoIntelligencePage),
-            WinoPage.WelcomeHostPage => typeof(WelcomeHostPage),
-            WinoPage.ProviderSelectionPage => typeof(ProviderSelectionPage),
-            WinoPage.AccountSetupProgressPage => typeof(AccountSetupProgressPage),
-            WinoPage.SpecialImapCredentialsPage => typeof(SpecialImapCredentialsPage),
-            WinoPage.CalendarPage => typeof(CalendarPage),
-            WinoPage.EventDetailsPage => typeof(EventDetailsPage),
-            WinoPage.CalendarEventComposePage => typeof(CalendarEventComposePage),
-            WinoPage.CalendarSettingsPage => typeof(CalendarPreferenceSettingsPage),
-            WinoPage.CalendarRenderingSettingsPage => typeof(CalendarRenderingSettingsPage),
-            WinoPage.CalendarNotificationSettingsPage => typeof(CalendarNotificationSettingsPage),
-            WinoPage.CalendarPreferenceSettingsPage => typeof(CalendarPreferenceSettingsPage),
-            WinoPage.CalendarAccountSettingsPage => typeof(CalendarAccountSettingsPage),
-            _ => null,
-        };
-    }
+    #endregion
 
-    public Frame GetCoreFrame(NavigationReferenceFrame frameType)
-        => ExecuteOnNavigationThread(() => GetCoreFrameInternal(frameType) ?? throw new ArgumentException($"Frame '{frameType}' cannot be resolved."));
+    #region Frame resolution
 
     private Frame? GetCoreFrameInternal(NavigationReferenceFrame frameType, WinoWindowKind? requestedWindowKind = null)
     {
@@ -227,6 +101,13 @@ public class NavigationService : NavigationServiceBase, INavigationService
     private static Frame? GetFrameFromShellContent(Frame? shellFrame, NavigationReferenceFrame frameType)
         => (shellFrame?.Content as IWinoFrameProvider)?.GetFrame(frameType);
 
+    private IShellMenuSink? GetShellMenuSink()
+        => GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame, WinoWindowKind.Shell)?.Content as IShellMenuSink;
+
+    #endregion
+
+    #region Application mode
+
     public bool ChangeApplicationMode(WinoApplicationMode mode)
         => ExecuteOnNavigationThread(() => ChangeApplicationModeInternal(mode));
 
@@ -242,9 +123,6 @@ public class NavigationService : NavigationServiceBase, INavigationService
     public bool RestoreShell(WinoApplicationMode mode, ShellModeActivationContext activationContext)
         => ExecuteOnNavigationThread(() => RestoreShellInternal(mode, activationContext));
 
-    public bool CanGoBack()
-        => ExecuteOnNavigationThread(CanGoBackInternal);
-
     private bool ParkShellInternal()
     {
         var coreFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame, WinoWindowKind.Shell);
@@ -256,6 +134,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             return true;
 
         _pendingInnerShellTransition = null;
+        _pendingNavigationResult = null;
         _statePersistanceService.IsReadingMail = false;
         _statePersistanceService.IsEventDetailsVisible = false;
         _statePersistanceService.CoreWindowTitle = string.Empty;
@@ -271,9 +150,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
     }
 
     private bool RestoreShellInternal(WinoApplicationMode mode, ShellModeActivationContext? activationContext = null)
-    {
-        return ChangeApplicationModeInternal(mode, activationContext, WinoWindowKind.Shell);
-    }
+        => ChangeApplicationModeInternal(mode, activationContext, WinoWindowKind.Shell);
 
     private bool ChangeApplicationModeInternal(WinoApplicationMode mode,
                                                ShellModeActivationContext? activationContext = null,
@@ -286,10 +163,10 @@ public class NavigationService : NavigationServiceBase, INavigationService
         var currentMode = _statePersistanceService.ApplicationMode;
         var isInitialShellNavigation = coreFrame.Content is not IShellHost;
 
-        // Update the application mode in state persistence service
         _statePersistanceService.ApplicationMode = mode;
         _statePersistanceService.AppModeTitle = GetApplicationModeTitle(mode);
 
+        // Re-activating the mode already on screen only forwards the parameter.
         if (coreFrame.Content is IShellHost activeShell && activeShell.HasShellContent && currentMode == mode)
         {
             if (activationContext?.Parameter != null)
@@ -309,10 +186,24 @@ public class NavigationService : NavigationServiceBase, INavigationService
             ? null
             : GetApplicationModeTransitionInfo(currentMode, mode);
 
+        // The subtitle belongs to whatever the previous mode was showing. Modes set their
+        // own once their content lands.
+        _statePersistanceService.CoreWindowTitle = string.Empty;
+
+        // Release the outgoing menu before anything else so the navigation view drops its
+        // item containers while the collections behind them are still alive.
+        ReleaseCurrentShellMenu();
+
         if (coreFrame.Content is not IShellHost)
         {
             WindowCleanupHelper.ClearNavigationStack(coreFrame);
             coreFrame.Navigate(typeof(WinoAppShell), null, new SuppressNavigationTransitionInfo());
+        }
+        else
+        {
+            // Tear down the previous mode's pages. Cached mode roots are evicted here so a
+            // second visit rebuilds cleanly instead of resurrecting stale state.
+            WindowCleanupHelper.CleanupFrame(GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame));
         }
 
         if (coreFrame.Content is IShellHost shell)
@@ -324,7 +215,6 @@ public class NavigationService : NavigationServiceBase, INavigationService
                 Parameter = activationContext?.Parameter
             });
 
-            ResetCurrentModeBackStackState();
             return true;
         }
 
@@ -332,17 +222,56 @@ public class NavigationService : NavigationServiceBase, INavigationService
         return true;
     }
 
+    private void ReleaseCurrentShellMenu()
+    {
+        var sink = GetShellMenuSink();
+        sink?.SetShellMenu(null);
+    }
+
+    private static string GetApplicationModeTitle(WinoApplicationMode mode)
+        => mode switch
+        {
+            WinoApplicationMode.Calendar => "Wino Calendar",
+            WinoApplicationMode.Contacts => "Wino Contacts",
+            WinoApplicationMode.Settings => "Wino Settings",
+            _ => "Wino Mail"
+        };
+
+    private static NavigationTransitionInfo GetApplicationModeTransitionInfo(WinoApplicationMode currentMode, WinoApplicationMode targetMode)
+        => new SlideNavigationTransitionInfo
+        {
+            Effect = IsNextMode(currentMode, targetMode)
+                ? SlideNavigationTransitionEffect.FromRight
+                : SlideNavigationTransitionEffect.FromLeft
+        };
+
+    private static bool IsNextMode(WinoApplicationMode currentMode, WinoApplicationMode targetMode)
+        => currentMode switch
+        {
+            WinoApplicationMode.Mail => targetMode == WinoApplicationMode.Calendar,
+            WinoApplicationMode.Calendar => targetMode == WinoApplicationMode.Contacts,
+            WinoApplicationMode.Contacts => targetMode == WinoApplicationMode.Settings,
+            WinoApplicationMode.Settings => targetMode == WinoApplicationMode.Mail,
+            _ => false
+        };
+
+    #endregion
+
+    #region Forward navigation
+
     public bool Navigate(WinoPage page,
                          object? parameter = null,
-                         NavigationReferenceFrame frame = NavigationReferenceFrame.InnerShellFrame,
+                         NavigationReferenceFrame? frame = null,
                          NavigationTransitionType transition = NavigationTransitionType.None)
         => ExecuteOnNavigationThread(() => NavigateInternal(page, parameter, frame, transition));
 
     private bool NavigateInternal(WinoPage page,
-                                  object? parameter = null,
-                                  NavigationReferenceFrame frame = NavigationReferenceFrame.InnerShellFrame,
-                                  NavigationTransitionType transition = NavigationTransitionType.None)
+                                  object? parameter,
+                                  NavigationReferenceFrame? requestedFrame,
+                                  NavigationTransitionType transition)
     {
+        // Settings pages are reached by activating Settings mode, never by navigating the
+        // inner frame straight to them; the settings page owns its own breadcrumb frame.
         if (TryGetSettingsActivationTarget(page, parameter, out var settingsTarget))
         {
             if (_statePersistanceService.ApplicationMode != WinoApplicationMode.Settings)
@@ -357,192 +286,119 @@ public class NavigationService : NavigationServiceBase, INavigationService
             parameter = settingsTarget;
         }
 
-        var pageType = GetPageType(page);
-        if (pageType == null) return false;
+        var route = NavigationRouteTable.Find(page);
+        if (route == null) return false;
 
-        var currentApplicationMode = _statePersistanceService.ApplicationMode;
+        var currentMode = _statePersistanceService.ApplicationMode;
+        if (!route.IsAllowedIn(currentMode)) return false;
 
-        if (!IsPageAllowedInMode(currentApplicationMode, page))
+        var targetFrameType = requestedFrame ?? route.Frame;
+        var innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
+
+        // The account setup wizard takes over the inner shell when one exists, and owns the
+        // welcome window's root frame when it does not.
+        if (route.Kind == RouteKind.Standalone || targetFrameType == NavigationReferenceFrame.ShellFrame)
         {
-            return false;
+            if (innerShellFrame == null)
+                return NavigateStandalone(route, parameter, transition);
+
+            targetFrameType = NavigationReferenceFrame.InnerShellFrame;
         }
 
-        _statePersistanceService.IsReadingMail = _renderingPageTypes.Contains(page);
-        _statePersistanceService.IsEventDetailsVisible = page == WinoPage.EventDetailsPage || page == WinoPage.CalendarEventComposePage;
+        var frame = targetFrameType == NavigationReferenceFrame.InnerShellFrame
+            ? innerShellFrame
+            : GetCoreFrameInternal(targetFrameType);
 
-        Frame? innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
-        if (innerShellFrame == null && frame == NavigationReferenceFrame.ShellFrame)
+        if (frame == null) return false;
+
+        var context = new NavigationContext
         {
-            var requestedFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame, WinoWindowKind.Welcome);
-            if (requestedFrame == null)
-                return false;
+            Page = page,
+            Route = route,
+            Frame = frame,
+            Mode = currentMode,
+            Parameter = parameter
+        };
 
-            return requestedFrame.Navigate(pageType, parameter, GetNavigationTransitionInfo(transition));
+        var decision = _reentryRules.Evaluate(context);
+
+        switch (decision.Action)
+        {
+            case ReentryAction.Suppress:
+                return true;
+
+            case ReentryAction.HandleInPlace:
+                _ = decision.Callback!();
+                return true;
+
+            case ReentryAction.ReuseBackStackEntry:
+                frame.GoBack();
+                SyncModeStateFromContent(frame);
+                PublishShellMenuForContent(frame);
+                _pendingNavigationResult = null;
+                _ = decision.Callback!();
+                return true;
         }
 
-        if (innerShellFrame != null)
-        {
-            PruneInnerShellBackStackForMode(innerShellFrame, currentApplicationMode);
-
-            // Calendar navigations.
-            if (currentApplicationMode == WinoApplicationMode.Calendar)
-            {
-                var currentFrameType = GetCurrentFrameType(innerShellFrame);
-
-                if (page == WinoPage.CalendarPage &&
-                    parameter is CalendarPageNavigationArgs calendarNavigationArgs)
-                {
-                    var loadCalendarMessage = CreateLoadCalendarMessage(calendarNavigationArgs);
-
-                    // Date changes while CalendarPage is already active should not re-navigate the frame.
-                    if (currentFrameType == pageType)
-                    {
-                        WeakReferenceMessenger.Default.Send(loadCalendarMessage);
-                        return true;
-                    }
-
-                    // If CalendarPage is the previous page, reuse it instead of creating a second instance.
-                    var lastBackStackEntry = innerShellFrame.BackStack.Count > 0 ? innerShellFrame.BackStack[^1] : null;
-                    if (innerShellFrame.CanGoBack && lastBackStackEntry?.SourcePageType == pageType)
-                    {
-                        innerShellFrame.GoBack();
-                        WeakReferenceMessenger.Default.Send(loadCalendarMessage);
-                        return true;
-                    }
-                }
-
-                return NavigateInnerShellFrame(innerShellFrame, pageType, parameter, transition);
-            }
-            else
-            {
-                // Mail navigations.
-                var currentFrameType = GetCurrentFrameType(innerShellFrame);
-                bool isMailListingPageActive = currentFrameType != null && currentFrameType == typeof(MailListPage);
-
-                // Active page is mail list page and we are refreshing the folder.
-                if (isMailListingPageActive && currentFrameType == pageType && parameter is NavigateMailFolderEventArgs folderNavigationArgs)
-                {
-                    // No need for new navigation, just refresh the folder.
-                    WeakReferenceMessenger.Default.Send(new ActiveMailFolderChangedEvent(folderNavigationArgs.BaseFolderMenuItem, folderNavigationArgs.FolderInitLoadAwaitTask));
-                    WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
-
-                    return true;
-                }
-
-                // This page must be opened in the Frame placed in MailListingPage.
-                if (isMailListingPageActive && frame == NavigationReferenceFrame.RenderingFrame)
-                {
-                    var listingFrame = GetCoreFrameInternal(NavigationReferenceFrame.RenderingFrame);
-                    if (listingFrame == null) return false;
-
-                    var transitionInfo = GetNavigationTransitionInfo(transition);
-
-                    // Active page is mail list page and we are opening a mail item.
-                    // No navigation needed, just refresh the rendered mail item.
-                    if (listingFrame.Content != null
-                        && listingFrame.Content.GetType() == GetPageType(WinoPage.MailRenderingPage)
-                        && parameter is MailItemViewModel mailItemViewModel
-                        && page != WinoPage.ComposePage)
-                    {
-                        if (listingFrame.Content is MailRenderingPage renderingPage)
-                        {
-                            _ = renderingPage.RefreshMailItemAsync(mailItemViewModel);
-                        }
-
-                        if (listingFrame.Content is TestPage testpage)
-                        {
-                            _ = testpage.ViewModel.RefreshMailItemAsync(mailItemViewModel);
-                        }
-                    }
-                    else if (listingFrame.Content != null
-                        && listingFrame.Content.GetType() == GetPageType(WinoPage.ComposePage)
-                        && page == WinoPage.ComposePage
-                        && parameter is MailItemViewModel composeDraftViewModel)
-                    {
-                        // ComposePage is already active and we're switching to another draft.
-                        // Reuse existing ComposePage and WebView2 instead of navigating.
-                        if (listingFrame.Content is ComposePage composePage)
-                        {
-                            _ = composePage.RefreshDraftAsync(composeDraftViewModel);
-                        }
-                    }
-                    else if (listingFrame.Content != null
-                        && listingFrame.Content.GetType() == GetPageType(WinoPage.IdlePage)
-                        && pageType == typeof(IdlePage))
-                    {
-                        // Idle -> Idle navigation. Ignore.
-                        return true;
-                    }
-                    else
-                    {
-                        listingFrame.Navigate(pageType, parameter, transitionInfo);
-                    }
-
-                    return true;
-                }
-
-                if ((currentFrameType != null && currentFrameType != pageType) || currentFrameType == null)
-                {
-                    return NavigateInnerShellFrame(innerShellFrame, pageType, parameter, transition);
-                }
-            }
-        }
-
-        return false;
+        return NavigateFrame(frame, route, parameter, transition, targetFrameType);
     }
 
-    private static bool IsMailOnlyPage(WinoPage page)
-        => MailOnlyPages.Contains(page);
-
-    private static bool IsCalendarOnlyPage(WinoPage page)
-        => CalendarOnlyPages.Contains(page);
-
-    private static bool IsContactsOnlyPage(WinoPage page)
-        => ContactsOnlyPages.Contains(page);
-
-    private static bool IsSettingsOnlyPage(WinoPage page)
-        => SettingsOnlyPages.Contains(page);
-
-    private static bool IsPageAllowedInMode(WinoApplicationMode mode, WinoPage page)
-        => mode switch
-        {
-            WinoApplicationMode.Mail => !IsCalendarOnlyPage(page) && !IsContactsOnlyPage(page) && !IsSettingsOnlyPage(page),
-            WinoApplicationMode.Calendar => !IsMailOnlyPage(page) && !IsContactsOnlyPage(page) && !IsSettingsOnlyPage(page),
-            WinoApplicationMode.Contacts => !IsMailOnlyPage(page) && !IsCalendarOnlyPage(page) && !IsSettingsOnlyPage(page),
-            WinoApplicationMode.Settings => IsSettingsOnlyPage(page),
-            _ => true
-        };
-
-    private static string GetApplicationModeTitle(WinoApplicationMode mode)
-        => mode switch
-        {
-            WinoApplicationMode.Calendar => "Wino Calendar",
-            WinoApplicationMode.Contacts => "Wino Contacts",
-            WinoApplicationMode.Settings => "Wino Settings",
-            _ => "Wino Mail"
-        };
-
-    private static NavigationTransitionInfo GetApplicationModeTransitionInfo(WinoApplicationMode currentMode, WinoApplicationMode targetMode)
+    private bool NavigateStandalone(NavigationRoute route, object? parameter, NavigationTransitionType transition)
     {
-        var slideEffect = IsNextMode(currentMode, targetMode)
-            ? SlideNavigationTransitionEffect.FromRight
-            : SlideNavigationTransitionEffect.FromLeft;
+        var shellFrame = GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame, WinoWindowKind.Welcome)
+                         ?? GetCoreFrameInternal(NavigationReferenceFrame.ShellFrame);
 
-        return new SlideNavigationTransitionInfo
-        {
-            Effect = slideEffect
-        };
+        return shellFrame?.Navigate(route.PageType, parameter, GetNavigationTransitionInfo(transition)) == true;
     }
 
-    private static bool IsNextMode(WinoApplicationMode currentMode, WinoApplicationMode targetMode)
-        => currentMode switch
+    private bool NavigateFrame(Frame frame,
+                               NavigationRoute route,
+                               object? parameter,
+                               NavigationTransitionType transition,
+                               NavigationReferenceFrame targetFrameType)
+    {
+        var isInnerShellNavigation = targetFrameType == NavigationReferenceFrame.InnerShellFrame;
+
+        if (isInnerShellNavigation)
         {
-            WinoApplicationMode.Mail => targetMode == WinoApplicationMode.Calendar,
-            WinoApplicationMode.Calendar => targetMode == WinoApplicationMode.Contacts,
-            WinoApplicationMode.Contacts => targetMode == WinoApplicationMode.Settings,
-            WinoApplicationMode.Settings => targetMode == WinoApplicationMode.Mail,
-            _ => false
-        };
+            PruneInnerShellBackStackForMode(frame, _statePersistanceService.ApplicationMode);
+        }
+
+        var transitionInfo = isInnerShellNavigation
+            ? ConsumeInnerShellTransitionOrDefault(transition)
+            : GetNavigationTransitionInfo(transition);
+
+        if (!frame.Navigate(route.PageType, parameter, transitionInfo))
+            return false;
+
+        if (isInnerShellNavigation)
+        {
+            // Only detail pages contribute to the inner back stack. Anything else replaces
+            // the mode's content, so the stack is reset behind it.
+            if (route.Kind != RouteKind.Detail)
+            {
+                WindowCleanupHelper.ClearNavigationStack(frame);
+            }
+
+            PublishShellMenuForContent(frame);
+        }
+
+        SyncModeStateFromContent(frame, route);
+
+        return true;
+    }
+
+    private NavigationTransitionInfo ConsumeInnerShellTransitionOrDefault(NavigationTransitionType transition)
+    {
+        if (_pendingInnerShellTransition != null)
+        {
+            var transitionInfo = _pendingInnerShellTransition;
+            _pendingInnerShellTransition = null;
+            return transitionInfo;
+        }
+
+        return GetNavigationTransitionInfo(transition);
+    }
 
     private static bool TryGetSettingsActivationTarget(WinoPage page, object? parameter, out object settingsTarget)
     {
@@ -559,213 +415,213 @@ public class NavigationService : NavigationServiceBase, INavigationService
             return true;
         }
 
-        if (!IsSettingsOnlyPage(page))
+        var route = NavigationRouteTable.Find(page);
+
+        if (route is not { Kind: RouteKind.Hosted, Mode: WinoApplicationMode.Settings })
             return false;
 
         settingsTarget = SettingsNavigationInfoProvider.GetRootPage(page);
         return true;
     }
 
-    private LoadCalendarMessage CreateLoadCalendarMessage(CalendarPageNavigationArgs args)
+    #endregion
+
+    #region Back navigation
+
+    public bool CanGoBack()
+        => ExecuteOnNavigationThread(CanGoBackInternal);
+
+    public void SetNavigationResult(NavigationResult result) => _pendingNavigationResult = result;
+
+    public void GoBack(NavigationTransitionEffect slideEffect = NavigationTransitionEffect.FromRight)
+        => _ = GoBackAsync(slideEffect);
+
+    public Task<bool> GoBackAsync(NavigationTransitionEffect slideEffect = NavigationTransitionEffect.FromRight)
     {
-        var targetDate = args.RequestDefaultNavigation
-            ? DateOnly.FromDateTime(DateTime.Now.Date)
-            : DateOnly.FromDateTime(args.NavigationDate.Date);
+        if (IsOnNavigationThread())
+            return GoBackInternalAsync(slideEffect);
 
-        var displayRequest = new CalendarDisplayRequest(_statePersistanceService.CalendarDisplayType, targetDate);
-        return new LoadCalendarMessage(displayRequest, args.ForceReload, args.PendingTarget);
-    }
+        var completionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    private bool NavigateInnerShellFrame(Frame frame, Type pageType, object? parameter, NavigationTransitionType transition)
-    {
-        var transitionInfo = ConsumeInnerShellTransitionOrDefault(transition);
-        var navigationResult = frame.Navigate(pageType, parameter, transitionInfo);
-
-        if (navigationResult)
+        _ = _dispatcher.ExecuteOnUIThread(async () =>
         {
-            WeakReferenceMessenger.Default.Send(new TitleBarShellContentUpdated());
-            return true;
-        }
-
-        return navigationResult;
-    }
-
-    private NavigationTransitionInfo ConsumeInnerShellTransitionOrDefault(NavigationTransitionType transition)
-    {
-        if (_pendingInnerShellTransition != null)
-        {
-            var transitionInfo = _pendingInnerShellTransition;
-            _pendingInnerShellTransition = null;
-            return transitionInfo;
-        }
-
-        return GetNavigationTransitionInfo(transition);
-    }
-
-    public void GoBack(Core.Domain.Enums.NavigationTransitionEffect slideEffect = Core.Domain.Enums.NavigationTransitionEffect.FromRight)
-        => ExecuteOnNavigationThread(() => GoBackInternal(slideEffect));
-
-    private void GoBackInternal(Core.Domain.Enums.NavigationTransitionEffect slideEffect = Core.Domain.Enums.NavigationTransitionEffect.FromRight)
-    {
-        var innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
-        var currentApplicationMode = _statePersistanceService.ApplicationMode;
-
-        if (currentApplicationMode == WinoApplicationMode.Settings &&
-            innerShellFrame?.Content is SettingsPage settingsPage)
-        {
-            if (settingsPage.CanNavigateBack)
+            try
             {
-                WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(slideEffect));
+                completionSource.TrySetResult(await GoBackInternalAsync(slideEffect));
             }
-
-            return;
-        }
-
-        if (innerShellFrame != null)
-        {
-            PruneInnerShellBackStackForMode(innerShellFrame, currentApplicationMode);
-        }
-
-        if (currentApplicationMode == WinoApplicationMode.Calendar)
-        {
-            if (innerShellFrame?.CanGoBack == true)
+            catch (Exception exception)
             {
-                innerShellFrame.GoBack();
+                completionSource.TrySetException(exception);
             }
-            else if (innerShellFrame != null && innerShellFrame.Content?.GetType() != typeof(CalendarPage))
-            {
-                NavigateToCalendarRoot(innerShellFrame);
-            }
+        });
 
-            // Calendar mode: Navigate back from EventDetailsPage
-            _statePersistanceService.IsEventDetailsVisible = false;
-        }
-        else if (currentApplicationMode == WinoApplicationMode.Contacts)
-        {
-            if (innerShellFrame?.Content is ContactEditPage contactEditPage &&
-                !contactEditPage.ViewModel.IsBackNavigationApproved)
-            {
-                contactEditPage.ViewModel.BackCommand.Execute(null);
-                return;
-            }
-
-            if (innerShellFrame?.CanGoBack == true)
-            {
-                innerShellFrame.GoBack();
-                WeakReferenceMessenger.Default.Send(new TitleBarShellContentUpdated());
-            }
-        }
-        else if (currentApplicationMode == WinoApplicationMode.Mail)
-        {
-            if (_statePersistanceService.IsReadingMail && _statePersistanceService.IsReaderNarrowed)
-            {
-                // Mail mode: Clear selections and dispose rendering frame
-                _statePersistanceService.IsReadingMail = false;
-
-                WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
-                WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
-            }
-        }
-    }
-
-    private void ResetCurrentModeBackStackState()
-    {
-        var innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
-
-        if (innerShellFrame != null)
-        {
-            WindowCleanupHelper.ClearNavigationStack(innerShellFrame);
-        }
-    }
-
-    private void PruneInnerShellBackStackForMode(Frame frame, WinoApplicationMode mode)
-    {
-        for (int i = frame.BackStack.Count - 1; i >= 0; i--)
-        {
-            var backStackEntry = frame.BackStack[i];
-
-            if (!IsPageTypeAllowedInMode(mode, backStackEntry.SourcePageType))
-            {
-                frame.BackStack.RemoveAt(i);
-            }
-        }
-    }
-
-    private bool IsPageTypeAllowedInMode(WinoApplicationMode mode, Type? pageType)
-    {
-        if (pageType == null)
-            return false;
-
-        foreach (var page in Enum.GetValues<WinoPage>())
-        {
-            if (page == WinoPage.None)
-                continue;
-
-            if (GetPageType(page) == pageType)
-                return IsPageAllowedInMode(mode, page);
-        }
-
-        return false;
-    }
-
-    private void NavigateToCalendarRoot(Frame frame)
-    {
-        if (!frame.Navigate(typeof(CalendarPage), new CalendarPageNavigationArgs
-        {
-            RequestDefaultNavigation = true
-        }, GetNavigationTransitionInfo(NavigationTransitionType.None)))
-        {
-            return;
-        }
-
-        WindowCleanupHelper.ClearNavigationStack(frame);
+        return completionSource.Task;
     }
 
     private bool CanGoBackInternal()
     {
         var innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
 
-        return _statePersistanceService.ApplicationMode switch
-        {
-            WinoApplicationMode.Mail => _statePersistanceService.IsReadingMail && _statePersistanceService.IsReaderNarrowed,
-            WinoApplicationMode.Settings => innerShellFrame?.Content is SettingsPage settingsPage && settingsPage.CanNavigateBack,
-            WinoApplicationMode.Calendar or WinoApplicationMode.Contacts => HasModeScopedBackStack(innerShellFrame, _statePersistanceService.ApplicationMode),
-            _ => false
-        };
-    }
-
-    private bool HasModeScopedBackStack(Frame? innerShellFrame, WinoApplicationMode mode)
-    {
-        if (innerShellFrame == null || innerShellFrame.BackStack.Count == 0)
+        if (innerShellFrame == null)
             return false;
 
+        if (innerShellFrame.Content is IInnerNavigationHost innerHost && innerHost.CanNavigateBack)
+            return true;
+
+        return HasModeScopedBackStack(innerShellFrame, _statePersistanceService.ApplicationMode);
+    }
+
+    private async Task<bool> GoBackInternalAsync(NavigationTransitionEffect slideEffect)
+    {
+        var innerShellFrame = GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame);
+
+        if (innerShellFrame == null)
+            return false;
+
+        // The page on screen may refuse to leave, for example while it holds unsaved edits.
+        if (innerShellFrame.Content is BasePage currentPage &&
+            currentPage.AssociatedViewModel is IConfirmBackNavigation confirmBackNavigation &&
+            !await confirmBackNavigation.CanNavigateBackAsync())
+        {
+            _pendingNavigationResult = null;
+            return false;
+        }
+
+        // Pages that navigate inside themselves consume the request first.
+        if (innerShellFrame.Content is IInnerNavigationHost innerHost &&
+            innerHost.CanNavigateBack &&
+            await innerHost.NavigateBackAsync(slideEffect))
+        {
+            return true;
+        }
+
+        PruneInnerShellBackStackForMode(innerShellFrame, _statePersistanceService.ApplicationMode);
+
+        if (innerShellFrame.CanGoBack)
+        {
+            // Captured before the pop: this is the parameter the destination is restored with.
+            var destinationParameter = innerShellFrame.BackStack[^1].Parameter;
+
+            innerShellFrame.GoBack();
+            CompleteBackNavigation(innerShellFrame, destinationParameter);
+            return true;
+        }
+
+        return TryReturnToModeRoot(innerShellFrame);
+    }
+
+    /// <summary>
+    /// Safety net for a mode whose detail page survived a back stack prune: put the mode
+    /// root back on screen rather than leaving a detail page with nowhere to return to.
+    /// </summary>
+    private bool TryReturnToModeRoot(Frame innerShellFrame)
+    {
+        var currentRoute = NavigationRouteTable.Find(innerShellFrame.Content?.GetType());
+
+        if (currentRoute == null || currentRoute.Kind == RouteKind.ModeRoot)
+            return false;
+
+        var modeRoot = GetModeRoot(_statePersistanceService.ApplicationMode);
+
+        if (modeRoot == null)
+            return false;
+
+        var resetParameter = GetModeRootResetParameter(modeRoot);
+
+        if (!innerShellFrame.Navigate(modeRoot.PageType, resetParameter, new SuppressNavigationTransitionInfo()))
+            return false;
+
+        WindowCleanupHelper.ClearNavigationStack(innerShellFrame);
+        CompleteBackNavigation(innerShellFrame, resetParameter);
+        return true;
+    }
+
+    private void CompleteBackNavigation(Frame innerShellFrame, object? destinationParameter)
+    {
+        SyncModeStateFromContent(innerShellFrame);
+        PublishShellMenuForContent(innerShellFrame);
+        DeliverPendingNavigationResult(innerShellFrame, destinationParameter);
+    }
+
+    private void DeliverPendingNavigationResult(Frame innerShellFrame, object? destinationParameter)
+    {
+        var result = _pendingNavigationResult;
+        _pendingNavigationResult = null;
+
+        if (innerShellFrame.Content is BasePage page &&
+            page.AssociatedViewModel is IBackNavigationAware backNavigationAware)
+        {
+            backNavigationAware.OnNavigatedBack(destinationParameter, result);
+        }
+    }
+
+    private static NavigationRoute? GetModeRoot(WinoApplicationMode mode)
+    {
+        foreach (var route in NavigationRouteTable.All)
+        {
+            if (route.Kind == RouteKind.ModeRoot && route.Mode == mode)
+                return route;
+        }
+
+        return null;
+    }
+
+    private static object? GetModeRootResetParameter(NavigationRoute modeRoot)
+        => modeRoot.Page == WinoPage.CalendarPage
+            ? new Core.Domain.Models.Calendar.CalendarPageNavigationArgs { RequestDefaultNavigation = true }
+            : null;
+
+    private static bool HasModeScopedBackStack(Frame innerShellFrame, WinoApplicationMode mode)
+    {
         for (int i = innerShellFrame.BackStack.Count - 1; i >= 0; i--)
         {
-            if (IsPageTypeAllowedInMode(mode, innerShellFrame.BackStack[i].SourcePageType))
+            if (NavigationRouteTable.IsAllowedIn(mode, innerShellFrame.BackStack[i].SourcePageType))
                 return true;
         }
 
         return false;
     }
 
-    // Standalone EML viewer.
-    //public void NavigateRendering(MimeMessageInformation mimeMessageInformation, NavigationTransitionType transition = NavigationTransitionType.None)
-    //{
-    //    if (mimeMessageInformation == null)
-    //        throw new ArgumentException("MimeMessage cannot be null.");
+    private static void PruneInnerShellBackStackForMode(Frame frame, WinoApplicationMode mode)
+    {
+        for (int i = frame.BackStack.Count - 1; i >= 0; i--)
+        {
+            if (!NavigationRouteTable.IsAllowedIn(mode, frame.BackStack[i].SourcePageType))
+            {
+                frame.BackStack.RemoveAt(i);
+            }
+        }
+    }
 
-    //    Navigate(WinoPage.MailRenderingPage, mimeMessageInformation, NavigationReferenceFrame.RenderingFrame, transition);
-    //}
+    #endregion
 
-    //// Mail item view model clicked handler.
-    //public void NavigateRendering(IMailItem mailItem, NavigationTransitionType transition = NavigationTransitionType.None)
-    //{
-    //    if (mailItem is MailItemViewModel mailItemViewModel)
-    //        Navigate(WinoPage.MailRenderingPage, mailItemViewModel, NavigationReferenceFrame.RenderingFrame, transition);
-    //    else
-    //        throw new ArgumentException("MailItem must be of type MailItemViewModel.");
-    //}
+    #region Shell state
 
-    //public void NavigateFolder(NavigateMailFolderEventArgs args)
-    //    => Navigate(WinoPage.MailListPage, args, NavigationReferenceFrame.ShellFrame);
+    private void PublishShellMenuForContent(Frame innerShellFrame)
+    {
+        // Detail pages keep the menu their mode root published, so drilling into one does
+        // not blank the navigation pane.
+        if (innerShellFrame.Content is not BasePage page ||
+            page.AssociatedViewModel is not IShellMenuOwner menuOwner)
+        {
+            return;
+        }
+
+        GetShellMenuSink()?.SetShellMenu(menuOwner.ShellMenuProvider);
+    }
+
+    private void SyncModeStateFromContent(Frame frame, NavigationRoute? route = null)
+    {
+        route ??= NavigationRouteTable.Find(frame.Content?.GetType());
+
+        if (route == null)
+            return;
+
+        // Both flags are derived from the route rather than from a hard-coded page list, so
+        // a new reading pane or calendar detail page picks them up for free.
+        _statePersistanceService.IsReadingMail = route is { Kind: RouteKind.Rendering, Mode: WinoApplicationMode.Mail };
+        _statePersistanceService.IsEventDetailsVisible = route is { Kind: RouteKind.Detail, Mode: WinoApplicationMode.Calendar };
+    }
+
+    #endregion
 }

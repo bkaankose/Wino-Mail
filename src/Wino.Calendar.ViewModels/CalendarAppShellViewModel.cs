@@ -38,12 +38,11 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     public IAccountCalendarStateService AccountCalendarStateService { get; }
     public INavigationService NavigationService { get; }
     public WinoApplicationMode Mode => WinoApplicationMode.Calendar;
-    public bool HandlesNavigationSelection => false;
-    public VisibleDateRange CurrentVisibleRange => _calendarPageViewModel.CurrentVisibleRange;
-    public string VisibleDateRangeText => _calendarPageViewModel.VisibleDateRangeText;
+    public VisibleDateRange CurrentVisibleRange => CalendarPage.CurrentVisibleRange;
+    public string VisibleDateRangeText => CalendarPage.VisibleDateRangeText;
     System.Collections.IEnumerable ICalendarShellClient.GroupedAccountCalendars => AccountCalendarStateService.GroupedAccountCalendars;
     System.Collections.IEnumerable ICalendarShellClient.DateNavigationHeaderItems => DateNavigationHeaderItems;
-    object IShellClient.SelectedMenuItem
+    object IShellMenuProvider.SelectedMenuItem
     {
         get => null;
         set { }
@@ -72,7 +71,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     private readonly SettingsItem _settingsItem = new();
     private readonly SemaphoreSlim _accountCalendarUpdateSemaphoreSlim = new(1);
-    private readonly CalendarPageViewModel _calendarPageViewModel;
+    private readonly Lazy<CalendarPageViewModel> _lazyCalendarPageViewModel;
+    private bool _isCalendarPageSubscriptionAttached;
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
@@ -89,7 +89,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         ICalendarService calendarService,
         IAccountCalendarStateService accountCalendarStateService,
         INavigationService navigationService,
-        CalendarPageViewModel calendarPageViewModel,
+        Lazy<CalendarPageViewModel> calendarPageViewModel,
         IMailDialogService dialogService,
         IDateContextProvider dateContextProvider)
     {
@@ -99,12 +99,31 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         NavigationService = navigationService;
         _accountService = accountService;
         _calendarService = calendarService;
-        _calendarPageViewModel = calendarPageViewModel;
+        _lazyCalendarPageViewModel = calendarPageViewModel;
         _dialogService = dialogService;
         _dateContextProvider = dateContextProvider;
 
-        _calendarPageViewModel.PropertyChanged += CalendarPageViewModelPropertyChanged;
         AccountCalendarStateService.PropertyChanged += AccountCalendarStateServicePropertyChanged;
+    }
+
+    /// <summary>
+    /// Resolved on first use so that never opening the calendar never builds the calendar
+    /// page view model and everything hanging off it.
+    /// </summary>
+    private CalendarPageViewModel CalendarPage
+    {
+        get
+        {
+            var calendarPageViewModel = _lazyCalendarPageViewModel.Value;
+
+            if (!_isCalendarPageSubscriptionAttached)
+            {
+                calendarPageViewModel.PropertyChanged += CalendarPageViewModelPropertyChanged;
+                _isCalendarPageSubscriptionAttached = true;
+            }
+
+            return calendarPageViewModel;
+        }
     }
 
     protected override void OnDispatcherAssigned()
@@ -114,6 +133,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         AccountCalendarStateService.Dispatcher = Dispatcher;
         MenuItems = new MenuItemCollection(Dispatcher);
         FooterItems = new MenuItemCollection(Dispatcher);
+        BuildShellMenu();
         _ = RefreshFooterItemsAsync(false);
     }
 
@@ -186,7 +206,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         {
             NavigationService.Navigate(WinoPage.CalendarPage, navigationArgs);
         }
-        else if (shouldRunStartupFlows || _calendarPageViewModel.CurrentVisibleRange == null)
+        else if (shouldRunStartupFlows || CalendarPage.CurrentVisibleRange == null)
         {
             TodayClicked();
         }
@@ -202,7 +222,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             AccountCalendarStateService.ClearGroupedAccountCalendars();
             SelectedDateNavigationHeaderIndex = -1;
         });
-        _calendarPageViewModel.CleanupForShellDeactivation();
+        CalendarPage.CleanupForShellDeactivation();
     }
 
     public void PrepareForShellShutdown()
@@ -222,7 +242,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         MenuItems?.Clear();
         FooterItems?.Clear();
         AccountCalendarStateService.ClearGroupedAccountCalendars();
-        _calendarPageViewModel.CleanupForShellDeactivation();
+        CalendarPage.CleanupForShellDeactivation();
     }
 
     private void AccountCalendarStateServicePropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -256,6 +276,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         AccountCalendarStateService.AccountCalendarSelectionStateChanged -= UpdateAccountCalendarRequested;
         AccountCalendarStateService.CollectiveAccountGroupSelectionStateChanged -= AccountCalendarStateCollectivelyChanged;
         StatePersistenceService.StatePropertyChanged -= PrefefencesChanged;
+        DetachAccountCalendarSubscription();
         _runtimeSubscriptionsAttached = false;
     }
 
@@ -416,6 +437,12 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         {
             case NewMailMenuItem:
                 await NewEventAsync().ConfigureAwait(false);
+                break;
+            case CalendarSyncMenuItem:
+                if (SyncCommand.CanExecute(null))
+                {
+                    SyncCommand.Execute(null);
+                }
                 break;
             case SettingsItem:
                 NavigationService.Navigate(WinoPage.SettingsPage);
@@ -578,15 +605,4 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         return (startDate, startDate.AddMinutes(30));
     }
 
-    void IShellClient.Activate(ShellModeActivationContext activationContext)
-        => OnNavigatedTo(NavigationMode.New, activationContext);
-
-    void IShellClient.Deactivate()
-        => OnNavigatedFrom(NavigationMode.New, null!);
-
-    Task IShellClient.HandleNavigationItemInvokedAsync(IMenuItem menuItem)
-        => menuItem == null ? Task.CompletedTask : HandleNavigationItemInvokedAsync(menuItem);
-
-    Task IShellClient.HandleNavigationSelectionChangedAsync(IMenuItem menuItem)
-        => Task.CompletedTask;
 }

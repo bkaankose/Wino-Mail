@@ -1,37 +1,23 @@
-﻿#nullable enable
+#nullable enable
 using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.MenuItems;
-using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Core.Domain.Interfaces;
 
-public interface IShellClient : INotifyPropertyChanged
-{
-    WinoApplicationMode Mode { get; }
-    IDispatcher Dispatcher { get; set; }
-    MenuItemCollection? MenuItems { get; }
-    object? SelectedMenuItem { get; set; }
-    bool HandlesNavigationSelection { get; }
-
-    void Activate(ShellModeActivationContext activationContext);
-    void Deactivate();
-    Task HandleNavigationItemInvokedAsync(IMenuItem? menuItem);
-    Task HandleNavigationSelectionChangedAsync(IMenuItem? menuItem);
-    Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args);
-}
-
-public interface IMailShellClient : IShellClient
+/// <summary>
+/// Mail specific surface used by the mail menu item templates and the mail drag and drop
+/// behaviours. The shell itself never touches this.
+/// </summary>
+public interface IMailShellClient : IShellMenuProvider
 {
     IMenuItem CreatePrimaryMenuItem { get; }
 
@@ -45,7 +31,10 @@ public interface IMailShellClient : IShellClient
     Task CreateNewMailForAsync(MailAccount account);
 }
 
-public interface ICalendarShellClient : IShellClient
+/// <summary>
+/// Calendar specific surface bound by the calendar pane menu item templates.
+/// </summary>
+public interface ICalendarShellClient : IShellMenuProvider
 {
     IStatePersistanceService StatePersistenceService { get; }
     IEnumerable DateNavigationHeaderItems { get; }
@@ -61,17 +50,23 @@ public interface ICalendarShellClient : IShellClient
     IEnumerable GroupedAccountCalendars { get; }
 }
 
+/// <summary>
+/// The shell's own view model. It hosts whatever menu the navigated page published and
+/// knows nothing else about the content.
+/// </summary>
 public interface IShellViewModel
 {
     WinoApplicationMode CurrentMode { get; }
-    IShellClient CurrentClient { get; }
-    MenuItemCollection? CurrentMenuItems { get; }
+    ShellMenu? CurrentMenu { get; }
     object? SelectedMenuItem { get; set; }
 
     void SetCurrentMode(WinoApplicationMode mode);
-    IShellClient GetClient(WinoApplicationMode mode);
+    IShellMenuProvider GetProvider(WinoApplicationMode mode);
 }
 
+/// <summary>
+/// The page hosting the inner shell frame.
+/// </summary>
 public interface IShellHost
 {
     bool HasShellContent { get; }

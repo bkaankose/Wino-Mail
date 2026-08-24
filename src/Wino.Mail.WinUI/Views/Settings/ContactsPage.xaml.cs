@@ -13,6 +13,7 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Helpers;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.ViewModels;
@@ -132,7 +133,7 @@ public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearch
     private void ContactsListView_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
     {
         foreach (var filter in ViewModel.FilterGroups.SelectMany(group => group))
-            filter.IsDragOver = false;
+            filter.IsDraggingItemOver = false;
     }
 
     private void ContactsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)

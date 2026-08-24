@@ -55,8 +55,26 @@ public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<WinoIntelligenceAccessChanged>,
     IHostedPopoutSource,
     IWinoFrameProvider,
+    IInnerNavigationHost,
     IMailTitleBarSearchHost
 {
+    /// <summary>
+    /// In a narrow window the reading pane covers the list, so going back means closing the
+    /// reader rather than leaving the page.
+    /// </summary>
+    bool IInnerNavigationHost.CanNavigateBack
+        => StatePersistenceService.IsReadingMail && StatePersistenceService.IsReaderNarrowed;
+
+    Task<bool> IInnerNavigationHost.NavigateBackAsync(NavigationTransitionEffect effect)
+    {
+        StatePersistenceService.IsReadingMail = false;
+
+        WeakReferenceMessenger.Default.Send(new ClearMailSelectionsRequested());
+        WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
+
+        return Task.FromResult(true);
+    }
+
     public event EventHandler<bool> SemanticSearchBusyChanged;
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
     private const int SELECTION_SETTLE_DELAY_MS = 120;

@@ -13,7 +13,7 @@ using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Core.ViewModels;
 
-public partial class SettingsPageViewModel : CoreBaseViewModel
+public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
 {
     private readonly IAccountService _accountService;
     private IReadOnlyList<SettingsNavigationItemInfo> _accountSearchItems = [];
@@ -22,12 +22,20 @@ public partial class SettingsPageViewModel : CoreBaseViewModel
     public SettingsPageViewModel(
         INavigationService navigationService,
         IStatePersistanceService statePersistenceService,
-        IAccountService accountService)
+        IAccountService accountService,
+        SettingsMenuProvider settingsMenuProvider)
     {
         NavigationService = navigationService;
         StatePersistenceService = statePersistenceService;
         _accountService = accountService;
+        ShellMenuProvider = settingsMenuProvider;
     }
+
+    /// <summary>
+    /// The settings pane belongs to the settings mode provider; the page just hands it to
+    /// the shell when it is navigated to.
+    /// </summary>
+    public IShellMenuProvider ShellMenuProvider { get; }
 
     public INavigationService NavigationService { get; }
     public IStatePersistanceService StatePersistenceService { get; }

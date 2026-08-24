@@ -1,3 +1,5 @@
+#nullable enable
+
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -6,18 +8,30 @@ using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.MenuItems;
+using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Navigation;
+using Wino.Calendar.ViewModels;
 using Wino.Core.ViewModels;
+using Wino.Mail.ViewModels;
 
 namespace Wino.Mail.WinUI.ViewModels;
 
+/// <summary>
+/// Hosts whatever navigation menu the currently navigated page published. It deliberately
+/// knows nothing about the pages themselves; every menu item, command and template comes
+/// from the mode that owns it.
+/// </summary>
 public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
 {
-    private readonly Dictionary<WinoApplicationMode, IShellClient> _shellClients = [];
+    private readonly Dictionary<WinoApplicationMode, IShellMenuProvider> _providers = [];
     private readonly IServiceProvider _serviceProvider;
     private readonly IStoreUpdateService _storeUpdateService;
     private readonly IMailDialogService _dialogService;
+
     private WinoApplicationMode _currentMode;
+    private ShellMenu? _currentMenu;
+    private IShellMenuProvider? _currentProvider;
+    private bool _isPaneCompact;
 
     public WinoAppShellViewModel(IServiceProvider serviceProvider,
                                  IPreferencesService preferencesService,
@@ -36,9 +50,6 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
         StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
     }
 
-    public IMailShellClient MailClient => (IMailShellClient)GetClient(WinoApplicationMode.Mail);
-    public ICalendarShellClient CalendarClient => (ICalendarShellClient)GetClient(WinoApplicationMode.Calendar);
-    public IEnumerable<IShellClient> InitializedClients => _shellClients.Values;
     public IPreferencesService PreferencesService { get; }
     public IStatePersistanceService StatePersistenceService { get; }
     public INavigationService NavigationService { get; }
@@ -46,46 +57,179 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     public WinoApplicationMode CurrentMode
     {
         get => _currentMode;
+        private set => SetProperty(ref _currentMode, value);
+    }
+
+    /// <summary>
+    /// The single binding target for the navigation view. Null while a mode switch is in
+    /// flight, which is what releases the navigation view's item containers.
+    /// </summary>
+    public ShellMenu? CurrentMenu
+    {
+        get => _currentMenu;
         private set
         {
-            if (SetProperty(ref _currentMode, value))
+            if (SetProperty(ref _currentMenu, value))
             {
-                OnPropertyChanged(nameof(CurrentClient));
-                OnPropertyChanged(nameof(CurrentMenuItems));
-                OnPropertyChanged(nameof(IsMailMode));
-                OnPropertyChanged(nameof(IsCalendarMode));
-                OnPropertyChanged(nameof(IsContactsMode));
-                OnPropertyChanged(nameof(IsSettingsMode));
                 OnPropertyChanged(nameof(SelectedMenuItem));
+                OnPropertyChanged(nameof(HandlesSelection));
             }
         }
     }
 
-    public IShellClient CurrentClient => GetClient(CurrentMode);
-    public bool IsMailMode => CurrentMode == WinoApplicationMode.Mail;
-    public bool IsCalendarMode => CurrentMode == WinoApplicationMode.Calendar;
-    public bool IsContactsMode => CurrentMode == WinoApplicationMode.Contacts;
-    public bool IsSettingsMode => CurrentMode == WinoApplicationMode.Settings;
-    public MenuItemCollection? CurrentMenuItems => CurrentClient.MenuItems;
+    public bool HandlesSelection => CurrentMenu?.HandlesSelection == true;
 
     public object? SelectedMenuItem
     {
-        get => CurrentClient.SelectedMenuItem;
+        get => _currentProvider?.SelectedMenuItem;
         set
         {
-            if (!ReferenceEquals(CurrentClient.SelectedMenuItem, value))
-            {
-                CurrentClient.SelectedMenuItem = value;
-                OnPropertyChanged();
-            }
+            if (_currentProvider == null || ReferenceEquals(_currentProvider.SelectedMenuItem, value))
+                return;
+
+            _currentProvider.SelectedMenuItem = value;
+            OnPropertyChanged();
         }
     }
 
-    public override void OnNavigatedTo(Core.Domain.Models.Navigation.NavigationMode mode, object parameters)
+    /// <summary>
+    /// Called by the navigation service once the inner frame lands on a page that owns a
+    /// menu. Passing null clears the pane ahead of a mode switch.
+    /// </summary>
+    public void SetShellMenu(IShellMenuProvider? provider)
+    {
+        if (ReferenceEquals(_currentProvider, provider))
+        {
+            // Same provider, but its menu instance may have been rebuilt.
+            CurrentMenu = provider?.ShellMenu;
+            return;
+        }
+
+        if (_currentProvider != null)
+        {
+            _currentProvider.PropertyChanged -= ProviderPropertyChanged;
+        }
+
+        _currentProvider = provider;
+
+        if (_currentProvider != null)
+        {
+            _currentProvider.PropertyChanged += ProviderPropertyChanged;
+        }
+
+        // A newly published menu has to be told the pane state it is arriving into.
+        provider?.SetPaneCompact(_isPaneCompact);
+
+        CurrentMenu = provider?.ShellMenu;
+        OnPropertyChanged(nameof(SelectedMenuItem));
+    }
+
+    /// <summary>
+    /// Reports the pane's own width state to whichever mode is showing. The shell does not
+    /// know or care which entries that hides.
+    /// </summary>
+    public void SetPaneCompact(bool isCompact)
+    {
+        if (_isPaneCompact == isCompact)
+            return;
+
+        _isPaneCompact = isCompact;
+        _currentProvider?.SetPaneCompact(isCompact);
+    }
+
+    public Task InvokeMenuItemAsync(IMenuItem? menuItem)
+        => _currentProvider?.OnMenuItemInvokedAsync(menuItem) ?? Task.CompletedTask;
+
+    public Task ChangeMenuSelectionAsync(IMenuItem? menuItem)
+        => _currentProvider?.OnMenuSelectionChangedAsync(menuItem) ?? Task.CompletedTask;
+
+    public Task KeyboardShortcutHookForMode(KeyboardShortcutTriggerDetails details)
+        => _currentProvider?.KeyboardShortcutHook(details) ?? Task.CompletedTask;
+
+    public override void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         CurrentMode = StatePersistenceService.ApplicationMode;
         _ = ShowStoreUpdateDialogIfNeededAsync();
+    }
+
+    public IShellMenuProvider GetProvider(WinoApplicationMode mode)
+    {
+        if (_providers.TryGetValue(mode, out var provider))
+            return provider;
+
+        // Modes are resolved the first time they are visited, so never opening the calendar
+        // never builds the calendar object graph.
+        provider = mode switch
+        {
+            WinoApplicationMode.Mail => _serviceProvider.GetRequiredService<IMailShellClient>(),
+            WinoApplicationMode.Calendar => _serviceProvider.GetRequiredService<ICalendarShellClient>(),
+            WinoApplicationMode.Contacts => _serviceProvider.GetRequiredService<ContactsPageViewModel>(),
+            WinoApplicationMode.Settings => _serviceProvider.GetRequiredService<SettingsMenuProvider>(),
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
+        };
+
+        _providers.Add(mode, provider);
+        return provider;
+    }
+
+    public bool TryGetProvider(WinoApplicationMode mode, out IShellMenuProvider? provider)
+        => _providers.TryGetValue(mode, out provider);
+
+    public void SetCurrentMode(WinoApplicationMode mode) => CurrentMode = mode;
+
+    /// <summary>
+    /// Window teardown. Every mode that was ever opened releases its menu and its
+    /// long-lived subscriptions.
+    /// </summary>
+    public void ShutdownProviders()
+    {
+        foreach (var provider in _providers.Values)
+        {
+            provider.ReleaseShellMenu();
+
+            switch (provider)
+            {
+                case ContactsPageViewModel contactsProvider:
+                    contactsProvider.PrepareForShellShutdown();
+                    break;
+                case SettingsMenuProvider settingsProvider:
+                    settingsProvider.PrepareForShellShutdown();
+                    break;
+                case MailAppShellViewModel mailProvider:
+                    mailProvider.PrepareForShellShutdown();
+                    break;
+                case CalendarAppShellViewModel calendarProvider:
+                    calendarProvider.PrepareForShellShutdown();
+                    break;
+            }
+        }
+
+        StatePersistenceService.StatePropertyChanged -= StatePersistenceServiceChanged;
+        SetShellMenu(null);
+    }
+
+    private void ProviderPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (!ReferenceEquals(sender, _currentProvider))
+            return;
+
+        if (e.PropertyName == nameof(IShellMenuProvider.SelectedMenuItem))
+        {
+            OnPropertyChanged(nameof(SelectedMenuItem));
+        }
+        else if (e.PropertyName == nameof(IShellMenuProvider.ShellMenu))
+        {
+            CurrentMenu = _currentProvider?.ShellMenu;
+        }
+    }
+
+    private void StatePersistenceServiceChanged(object? sender, string propertyName)
+    {
+        if (propertyName == nameof(IStatePersistanceService.ApplicationMode))
+        {
+            SetCurrentMode(StatePersistenceService.ApplicationMode);
+        }
     }
 
     private async Task ShowStoreUpdateDialogIfNeededAsync()
@@ -109,58 +253,6 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
         if (shouldUpdate)
         {
             await _storeUpdateService.StartUpdateAsync();
-        }
-    }
-
-    public IShellClient GetClient(WinoApplicationMode mode)
-    {
-        if (_shellClients.TryGetValue(mode, out var client))
-            return client;
-
-        client = mode switch
-        {
-            WinoApplicationMode.Mail => _serviceProvider.GetRequiredService<IMailShellClient>(),
-            WinoApplicationMode.Calendar => _serviceProvider.GetRequiredService<ICalendarShellClient>(),
-            WinoApplicationMode.Contacts => _serviceProvider.GetRequiredService<ContactsShellClient>(),
-            WinoApplicationMode.Settings => _serviceProvider.GetRequiredService<SettingsShellClient>(),
-            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
-        };
-
-        _shellClients.Add(mode, client);
-        client.PropertyChanged += ChildPropertyChanged;
-        return client;
-    }
-
-    public bool TryGetClient(WinoApplicationMode mode, out IShellClient? client)
-        => _shellClients.TryGetValue(mode, out client);
-
-    public void SetCurrentMode(WinoApplicationMode mode)
-    {
-        CurrentMode = mode;
-        OnPropertyChanged(nameof(CurrentMenuItems));
-    }
-
-    private void ChildPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (TryGetClient(CurrentMode, out var currentClient) && ReferenceEquals(sender, currentClient))
-        {
-            if (e.PropertyName == nameof(IShellClient.SelectedMenuItem))
-            {
-                OnPropertyChanged(nameof(SelectedMenuItem));
-            }
-
-            if (e.PropertyName == nameof(IShellClient.MenuItems))
-            {
-                OnPropertyChanged(nameof(CurrentMenuItems));
-            }
-        }
-    }
-
-    private void StatePersistenceServiceChanged(object? sender, string propertyName)
-    {
-        if (propertyName == nameof(IStatePersistanceService.ApplicationMode))
-        {
-            SetCurrentMode(StatePersistenceService.ApplicationMode);
         }
     }
 }
