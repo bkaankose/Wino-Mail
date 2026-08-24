@@ -20,7 +20,6 @@ public partial class WinoIntelligenceMailboxItemViewModel : ObservableObject
     public bool HasServerIntelligence { get; init; }
     public bool CanToggle { get; init; }
 
-    public string ProviderImage => $"ms-appx:///Assets/Providers/{(SpecialProvider == SpecialImapProvider.None ? ProviderType : SpecialProvider)}.png";
     public bool CanManage => LocalAccountId.HasValue;
     public bool IsManageUnavailable => !CanManage;
 

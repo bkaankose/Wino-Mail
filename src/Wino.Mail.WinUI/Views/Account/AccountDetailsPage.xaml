@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
     xmlns:calendar="using:Wino.Core.Domain.Entities.Calendar"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
@@ -133,11 +134,10 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <coreControls:AccountProfilePicture
-                            Width="48"
-                            Height="48"
+                        <accountIcon:WinoAccountIcon
                             AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureTitle, Mode=OneTime}"
-                            Account="{x:Bind ViewModel.Account, Mode=OneWay}" />
+                            Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(ViewModel.Account), Mode=OneWay}"
+                            IconSize="48" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
                             <Button
                                 AutomationProperties.AutomationId="AccountDetailsProfilePictureChangeButton"

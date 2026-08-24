@@ -38,23 +38,6 @@ public sealed class AccountProfilePictureFileService : IAccountProfilePictureFil
             ? null
             : new Uri($"ms-appdata:///local/{ProfilePicturesSubFolder}/{fileId:N}.jpg");
 
-    public Uri GetProfilePictureIconUri(Guid fileId, string accountColorHex)
-    {
-        var sourcePath = GetProfilePicturePath(fileId);
-        if (sourcePath == null)
-            return null;
-
-        var hasBorderColor = SKColor.TryParse(accountColorHex, out var borderColor);
-        var colorKey = hasBorderColor ? borderColor.ToString()[1..] : "none";
-        var iconFileName = $"{fileId:N}.icon-{colorKey}.png";
-        var iconPath = Path.Combine(_profilePicturesFolder, iconFileName);
-
-        if (!File.Exists(iconPath))
-            CreateProfilePictureIcon(sourcePath, iconPath, hasBorderColor ? borderColor : null);
-
-        return new Uri($"ms-appdata:///local/{ProfilePicturesSubFolder}/{iconFileName}");
-    }
-
     public async Task<Guid> SaveProfilePictureAsync(
         byte[] imageData,
         Guid? replacedFileId = null,
@@ -95,38 +78,6 @@ public sealed class AccountProfilePictureFileService : IAccountProfilePictureFil
         }
 
         return Task.CompletedTask;
-    }
-
-    private static void CreateProfilePictureIcon(string sourcePath, string destinationPath, SKColor? borderColor)
-    {
-        using var source = SKBitmap.Decode(sourcePath)
-            ?? throw new InvalidOperationException("Profile picture icon source could not be decoded.");
-        using var icon = new SKBitmap(ProfilePictureSize, ProfilePictureSize, SKColorType.Rgba8888, SKAlphaType.Premul);
-        using var canvas = new SKCanvas(icon);
-        using var circlePaint = new SKPaint { Color = SKColors.White, IsAntialias = true };
-        using var imagePaint = new SKPaint { BlendMode = SKBlendMode.SrcIn, IsAntialias = true };
-
-        var bounds = new SKRect(0, 0, ProfilePictureSize, ProfilePictureSize);
-        canvas.Clear(SKColors.Transparent);
-        canvas.DrawOval(bounds, circlePaint);
-        canvas.DrawBitmap(source, bounds, bounds, new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None), imagePaint);
-
-        if (borderColor is { } color)
-        {
-            using var borderPaint = new SKPaint
-            {
-                Color = color,
-                IsAntialias = true,
-                StrokeWidth = 2,
-                Style = SKPaintStyle.Stroke
-            };
-            canvas.DrawOval(new SKRect(1, 1, ProfilePictureSize - 1, ProfilePictureSize - 1), borderPaint);
-        }
-
-        using var encoded = icon.Encode(SKEncodedImageFormat.Png, 100)
-            ?? throw new InvalidOperationException("Profile picture icon rendering failed.");
-        using var output = File.Create(destinationPath);
-        encoded.SaveTo(output);
     }
 
     private static byte[] NormalizeImage(byte[] imageData)

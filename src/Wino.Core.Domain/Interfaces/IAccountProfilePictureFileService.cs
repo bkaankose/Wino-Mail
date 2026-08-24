@@ -11,7 +11,6 @@ public interface IAccountProfilePictureFileService
 {
     string GetProfilePicturePath(Guid fileId);
     Uri GetProfilePictureUri(Guid fileId);
-    Uri GetProfilePictureIconUri(Guid fileId, string accountColorHex);
     Task<Guid> SaveProfilePictureAsync(byte[] imageData, Guid? replacedFileId = null, CancellationToken cancellationToken = default);
     Task DeleteProfilePictureAsync(Guid fileId);
 }

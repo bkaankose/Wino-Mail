@@ -39,9 +39,6 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
     [ObservableProperty]
     public partial string SynchronizationStatus { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial bool IsEnabled { get; set; } = true;
-
     public bool IsAttentionRequired => AttentionReason != AccountAttentionReason.None;
 
     public double SynchronizationProgress

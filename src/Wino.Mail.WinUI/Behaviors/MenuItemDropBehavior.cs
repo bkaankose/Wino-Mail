@@ -14,18 +14,20 @@ namespace Wino.Mail.WinUI.Behaviors;
 /// </summary>
 public static class MenuItemDropBehavior
 {
-    public static readonly DependencyProperty IsEnabledProperty =
+    // Deliberately not called IsEnabled: an attached property sharing a name with the
+    // element's own property makes the x:Bind generator emit two fields with one name.
+    public static readonly DependencyProperty IsDropTargetProperty =
         DependencyProperty.RegisterAttached(
-            "IsEnabled",
+            "IsDropTarget",
             typeof(bool),
             typeof(MenuItemDropBehavior),
-            new PropertyMetadata(false, OnIsEnabledChanged));
+            new PropertyMetadata(false, OnIsDropTargetChanged));
 
-    public static bool GetIsEnabled(DependencyObject element) => (bool)element.GetValue(IsEnabledProperty);
+    public static bool GetIsDropTarget(DependencyObject element) => (bool)element.GetValue(IsDropTargetProperty);
 
-    public static void SetIsEnabled(DependencyObject element, bool value) => element.SetValue(IsEnabledProperty, value);
+    public static void SetIsDropTarget(DependencyObject element, bool value) => element.SetValue(IsDropTargetProperty, value);
 
-    private static void OnIsEnabledChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
+    private static void OnIsDropTargetChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
     {
         if (dependencyObject is not UIElement element)
             return;

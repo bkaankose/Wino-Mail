@@ -18,6 +18,7 @@
             AutomationProperties.Name="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}"
             Content="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}"
             DataContext="{x:Bind}"
+            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
             SelectsOnInvoked="False">
             <muxc:NavigationViewItem.Icon>
                 <coreControls:WinoFontIcon Icon="NewMail" />
@@ -33,6 +34,7 @@
             AutomationProperties.AutomationId="ContactsPaneNewList"
             AutomationProperties.Name="{x:Bind domain:Translator.ContactList_NewTitle, Mode=OneTime}"
             DataContext="{x:Bind}"
+            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
             SelectsOnInvoked="False">
             <muxc:NavigationViewItem.Icon>
                 <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FA;" />
@@ -48,18 +50,14 @@
     <DataTemplate x:Key="ContactFilterTemplate" x:DataType="contactData:ContactFilterViewModel">
         <coreControls:WinoNavigationViewItem
             MinHeight="36"
-            behaviors:MenuItemDropBehavior.IsEnabled="{x:Bind IsList, Mode=OneTime}"
+            behaviors:MenuItemDropBehavior.IsDropTarget="{x:Bind IsList, Mode=OneTime}"
             AutomationProperties.AutomationId="ContactsFilterItem"
             AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
             DataContext="{x:Bind}"
+            Icon="{x:Bind helpers:XamlHelpers.GetAccountOrGlyphIcon(Account, Glyph), Mode=OneTime}"
+            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
             SelectsOnInvoked="True"
             ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}">
-            <muxc:NavigationViewItem.Icon>
-                <FontIcon
-                    FontSize="15"
-                    Glyph="{x:Bind Glyph, Mode=OneTime}"
-                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasGlyphIcon), Mode=OneTime}" />
-            </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
                     Background="{ThemeResource AccentFillColorDefaultBrush}"
@@ -90,30 +88,15 @@
                 </coreControls:WinoMenuFlyout>
             </muxc:NavigationViewItem.ContextFlyout>
 
-            <Grid ColumnSpacing="10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-
-                
+            <Grid>
                 <!--  Drop highlight for list entries.  -->
                 <Border
-                    Grid.ColumnSpan="2"
                     Background="{ThemeResource AccentFillColorTertiaryBrush}"
                     CornerRadius="4"
                     IsHitTestVisible="False"
                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDraggingItemOver), Mode=OneWay}" />
 
-                <coreControls:AccountProfilePicture
-                    Width="22"
-                    Height="22"
-                    VerticalAlignment="Center"
-                    Account="{x:Bind Account, Mode=OneTime}"
-                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasAccountIcon), Mode=OneTime}" />
-
                 <TextBlock
-                    Grid.Column="1"
                     VerticalAlignment="Center"
                     Text="{x:Bind Name, Mode=OneWay}"
                     TextTrimming="CharacterEllipsis" />

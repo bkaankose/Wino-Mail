@@ -1,0 +1,167 @@
+<Page
+    x:Class="Wino.Mail.Controls.Playground.Pages.AccountIconPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:viewModels="using:Wino.Mail.Controls.Playground.ViewModels"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+    Unloaded="PageUnloaded">
+    <ScrollViewer>
+        <Grid
+            Padding="32"
+            ColumnSpacing="32"
+            RowSpacing="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="320" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <TextBlock
+                Grid.ColumnSpan="2"
+                Style="{StaticResource TitleTextBlockStyle}"
+                Text="Account icon" />
+            <TextBlock
+                Grid.Row="1"
+                Grid.ColumnSpan="2"
+                MaxWidth="760"
+                HorizontalAlignment="Left"
+                Style="{StaticResource BodyTextBlockStyle}"
+                Text="Switch providers, choose a local picture, and change the account color. The same identity is rendered through IconElement and IconSource APIs." />
+
+            <StackPanel Grid.Row="2" Spacing="16">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Provider" />
+                    <ComboBox
+                        AutomationProperties.AutomationId="AccountIconProviderComboBox"
+                        ItemsSource="{x:Bind ViewModel.ProviderOptions}"
+                        SelectedItem="{x:Bind ViewModel.SelectedProvider, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:AccountIconProviderOption">
+                                <TextBlock Text="{x:Bind DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Account color" />
+                    <TextBox
+                        AutomationProperties.AutomationId="AccountIconColorTextBox"
+                        Header="Hex color"
+                        PlaceholderText="#RRGGBB"
+                        Text="{x:Bind ViewModel.AccountColorHex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+
+                <ToggleSwitch
+                    AutomationProperties.AutomationId="AccountIconProfilePictureToggle"
+                    Header="Profile picture"
+                    IsOn="{x:Bind ViewModel.IsProfilePictureEnabled, Mode=TwoWay}"
+                    OffContent="Show provider icon"
+                    OnContent="Show picture when available" />
+
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button
+                        AutomationProperties.AutomationId="AccountIconBrowseButton"
+                        Click="BrowseProfilePictureClick"
+                        Content="Browse picture" />
+                    <Button
+                        AutomationProperties.AutomationId="AccountIconClearButton"
+                        Click="ClearProfilePictureClick"
+                        Content="Clear" />
+                </StackPanel>
+
+                <TextBlock
+                    AutomationProperties.AutomationId="AccountIconPictureStatus"
+                    Text="{x:Bind ViewModel.ProfilePictureStatus, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis"
+                    TextWrapping="Wrap" />
+
+                <ComboBox
+                    AutomationProperties.AutomationId="AccountIconThemeComboBox"
+                    Header="Preview theme"
+                    SelectedIndex="0"
+                    SelectionChanged="ThemeSelectionChanged">
+                    <ComboBoxItem Content="Dark" Tag="Dark" />
+                    <ComboBoxItem Content="Light" Tag="Light" />
+                    <ComboBoxItem Content="Use system setting" Tag="Default" />
+                </ComboBox>
+            </StackPanel>
+
+            <StackPanel
+                Grid.Row="2"
+                Grid.Column="1"
+                Spacing="20">
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Standalone IconElement" />
+                    <Border
+                        Width="88"
+                        Height="88"
+                        HorizontalAlignment="Left"
+                        AutomationProperties.AutomationId="StandaloneAccountIconPreview"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4">
+                        <accountIcon:WinoAccountIcon
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"
+                            Account="{x:Bind ViewModel.Account, Mode=OneWay}"
+                            IconSize="48"
+                            IsProfilePictureEnabled="{x:Bind ViewModel.IsProfilePictureEnabled, Mode=OneWay}" />
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="SettingsCard HeaderIcon" />
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="AccountIconSettingsCardPreview"
+                        Description="This slot accepts an IconElement."
+                        Header="Account identity">
+                        <controls:SettingsCard.HeaderIcon>
+                            <accountIcon:WinoAccountIcon
+                                Account="{x:Bind ViewModel.Account, Mode=OneWay}"
+                                IconSize="28"
+                                IsProfilePictureEnabled="{x:Bind ViewModel.IsProfilePictureEnabled, Mode=OneWay}" />
+                        </controls:SettingsCard.HeaderIcon>
+                        <ToggleSwitch
+                            AutomationProperties.AutomationId="AccountIconSettingsCardToggle"
+                            AutomationProperties.Name="Example setting"
+                            IsOn="True" />
+                    </controls:SettingsCard>
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="InfoBar IconSource" />
+                    <InfoBar
+                        Title="Account status"
+                        AutomationProperties.AutomationId="AccountIconInfoBarPreview"
+                        IconSource="{x:Bind InfoBarAccountIconSource.IconSource, Mode=OneWay}"
+                        IsOpen="True"
+                        Message="This slot accepts a reusable IconSource."
+                        Severity="Informational" />
+                </StackPanel>
+
+                <StackPanel Spacing="8">
+                    <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="NavigationViewItem Source" />
+                    <NavigationViewItem Content="Icon">
+                        <NavigationViewItem.Resources>
+                            <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">28</x:Double>
+                        </NavigationViewItem.Resources>
+                        <NavigationViewItem.Icon>
+                            <accountIcon:WinoAccountIcon
+                                Account="{x:Bind ViewModel.Account, Mode=OneWay}"
+                                IconSize="28"
+                                IsProfilePictureEnabled="{x:Bind ViewModel.IsProfilePictureEnabled, Mode=OneWay}" />
+                        </NavigationViewItem.Icon>
+                    </NavigationViewItem>
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </ScrollViewer>
+</Page>

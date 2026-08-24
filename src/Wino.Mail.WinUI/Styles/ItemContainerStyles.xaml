@@ -1,7 +1,6 @@
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:mailControls="using:Wino.Mail.WinUI.Controls"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
     xmlns:winoControls="using:Wino.Controls">
@@ -84,19 +83,12 @@
                             InfoBadge="{TemplateBinding InfoBadge}"
                             IsTabStop="false"
                             UseSystemFocusVisuals="{TemplateBinding UseSystemFocusVisuals}">
+                            <primitives:NavigationViewItemPresenter.Resources>
+                                <!--  WinUI defaults the left-pane icon Viewbox to 16 px.  -->
+                                <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">20</x:Double>
+                            </primitives:NavigationViewItemPresenter.Resources>
                             <ContentPresenter Content="{TemplateBinding Content}" />
                         </primitives:NavigationViewItemPresenter>
-
-                        <mailControls:AccountProfilePicture
-                            Width="28"
-                            Height="28"
-                            Margin="10,0,0,0"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            Account="{TemplateBinding Account}"
-                            AutomationProperties.AccessibilityView="Raw"
-                            IsHitTestVisible="False"
-                            ShowProviderFallback="False" />
 
                         <Rectangle
                             x:Name="CustomSelectionIndicator"

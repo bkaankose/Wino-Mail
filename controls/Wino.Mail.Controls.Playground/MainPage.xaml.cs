@@ -15,13 +15,14 @@ public sealed partial class MainPage : Page
     {
         var page = (args.SelectedItem as NavigationViewItem)?.Tag switch
         {
+            "accountIcon" => typeof(AccountIconPage),
             "contact" => typeof(ContactPicturePage),
             "mailList" => typeof(MailListPage),
             "editor" => typeof(EditorPage),
             "searchBar" => typeof(SearchBarPage),
             "intelligenceHeader" => typeof(IntelligenceHeaderPage),
             "intelligenceProgress" => typeof(IntelligenceProgressPage),
-            _ => typeof(ContactPicturePage),
+            _ => typeof(AccountIconPage),
         };
 
         if (ContentFrame.CurrentSourcePageType != page)

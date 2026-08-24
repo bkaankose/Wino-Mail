@@ -2,6 +2,7 @@
     x:Class="Wino.Mail.WinUI.Styles.ShellMenu.MailMenuTemplates"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:animations="using:CommunityToolkit.WinUI.Animations"
     xmlns:controls="using:Wino.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
@@ -18,7 +19,6 @@
             Height="50"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
-            Account="{x:Bind Parameter, Mode=OneWay}"
             AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
             BindingData="{x:Bind}"
             DataContext="{x:Bind}"
@@ -54,10 +54,9 @@
                 </TransitionCollection>
             </coreControls:WinoNavigationViewItem.ContentTransitions>
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon
-                    FontSize="12"
-                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccountColorHex), Mode=OneWay}"
-                    Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Parameter)}" />
+                <accountIcon:WinoAccountIcon
+                    Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Parameter)}"
+                    IconSize="28" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -141,7 +140,6 @@
             Height="40"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
-            Account="{x:Bind Parameter, Mode=OneWay}"
             AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
             BindingData="{x:Bind}"
             DataContext="{x:Bind}"
@@ -177,10 +175,7 @@
                 </TransitionCollection>
             </coreControls:WinoNavigationViewItem.ContentTransitions>
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon
-                    FontSize="12"
-                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(AccountColorHex), Mode=OneWay}"
-                    Icon="{x:Bind helpers:XamlHelpers.GetProviderIcon(Parameter)}" />
+                <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Parameter)}" IconSize="28" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge

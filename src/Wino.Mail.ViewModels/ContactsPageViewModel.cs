@@ -118,6 +118,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
         _isPageActive = true;
+        SetMenuInteractionEnabled(true);
         SelectedContacts.CollectionChanged -= SelectedContactsChanged;
         SelectedContacts.CollectionChanged += SelectedContactsChanged;
 
@@ -356,6 +357,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     {
         base.OnNavigatedFrom(mode, parameters);
         _isPageActive = false;
+        SetMenuInteractionEnabled(false);
         SelectedContacts.CollectionChanged -= SelectedContactsChanged;
         CancelPendingReload();
     }

@@ -185,9 +185,12 @@ public class MenuItemCollection : ObservableRangeCollection<IMenuItem>
 
     public async Task ReplaceFoldersAsync(IEnumerable<IMenuItem> folders)
     {
-        await _dispatcher.ExecuteOnUIThread(() => ClearFolderAreaMenuItems());
-        await _dispatcher.ExecuteOnUIThread(() => Items.Add(new SeperatorItem()));
-        await _dispatcher.ExecuteOnUIThread(() => AddRange(folders, System.Collections.Specialized.NotifyCollectionChangedAction.Reset));
+        await _dispatcher.ExecuteOnUIThread(() =>
+        {
+            ClearFolderAreaMenuItems();
+            Add(new SeperatorItem());
+            AddRange(folders);
+        });
     }
 
     /// <summary>

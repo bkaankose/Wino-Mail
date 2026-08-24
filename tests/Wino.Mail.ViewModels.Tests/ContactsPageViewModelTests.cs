@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -414,6 +415,87 @@ public class ContactsPageViewModelTests
         var result = viewModel.ResolveContactDragIds([unselected]);
 
         result.Should().Equal(unselected.Id);
+    }
+
+    [Fact]
+    public async Task LeavingTheContactsPage_DisablesEveryPaneEntry()
+    {
+        var viewModel = await NavigatedViewModelAsync();
+
+        viewModel.OnNavigatedFrom(NavigationMode.New, null);
+
+        InteractivePaneEntries(viewModel).Should().NotBeEmpty().And.OnlyContain(item => !item.IsEnabled);
+    }
+
+    [Fact]
+    public async Task ReturningToTheContactsPage_EnablesEveryPaneEntry()
+    {
+        var viewModel = await NavigatedViewModelAsync();
+        viewModel.OnNavigatedFrom(NavigationMode.New, null);
+
+        viewModel.OnNavigatedTo(NavigationMode.Back, null);
+
+        InteractivePaneEntries(viewModel).Should().NotBeEmpty().And.OnlyContain(item => item.IsEnabled);
+    }
+
+    [Fact]
+    public async Task CollapsingThePaneWhileTheEditorIsOpen_KeepsTheEntriesDisabled()
+    {
+        var viewModel = await NavigatedViewModelAsync();
+        viewModel.OnNavigatedFrom(NavigationMode.New, null);
+
+        // Resizing the window rebuilds the pane contents behind the editor.
+        viewModel.ShellMenuProvider.SetPaneCompact(true);
+
+        InteractivePaneEntries(viewModel).Should().NotBeEmpty().And.OnlyContain(item => !item.IsEnabled);
+    }
+
+    [Fact]
+    public async Task InvokingAPaneEntryWhileDisabled_DoesNothing()
+    {
+        var viewModel = await NavigatedViewModelAsync();
+        var favorites = viewModel.FilterGroups.SelectMany(group => group).First(filter => filter.Kind == ContactFilterKind.Favorites);
+        viewModel.OnNavigatedFrom(NavigationMode.New, null);
+
+        await viewModel.ShellMenuProvider.OnMenuItemInvokedAsync(favorites);
+
+        viewModel.SelectedFilter.Should().NotBe(favorites);
+    }
+
+    /// <summary>Every pane entry the user can actually invoke. Section captions are not one.</summary>
+    private static IReadOnlyList<MenuItemBase> InteractivePaneEntries(ContactsPageViewModel viewModel)
+        => viewModel.ShellMenu.Items.OfType<MenuItemBase>().Where(item => item is not ShellSectionHeaderMenuItem).ToList();
+
+    private static async Task<ContactsPageViewModel> NavigatedViewModelAsync(Mock<IContactService> contactService = null)
+    {
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
+
+        var viewModel = new ContactsPageViewModel(
+            (contactService ?? PageService()).Object,
+            accountService.Object,
+            Mock.Of<ISynchronizationManager>(),
+            Mock.Of<IWinoRequestDelegator>(),
+            Mock.Of<INavigationService>(),
+            Mock.Of<IMailDialogService>(),
+            Mock.Of<ILaunchProtocolService>())
+        {
+            Dispatcher = new ImmediateDispatcher()
+        };
+
+        viewModel.OnNavigatedTo(NavigationMode.New, null);
+        await WaitUntilAsync(() => viewModel.ShellMenu?.Items.Count > 2);
+
+        return viewModel;
+    }
+
+    private sealed class ImmediateDispatcher : IDispatcher
+    {
+        public Task ExecuteOnUIThread(Action action)
+        {
+            action();
+            return Task.CompletedTask;
+        }
     }
 
     private static AccountContact Contact(string name)

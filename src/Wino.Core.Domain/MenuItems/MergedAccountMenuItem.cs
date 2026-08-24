@@ -52,9 +52,6 @@ public partial class MergedAccountMenuItem : MenuItemBase<MergedInbox, IMenuItem
     [ObservableProperty]
     public partial string MergedAccountName { get; set; }
 
-    [ObservableProperty]
-    public partial bool IsEnabled { get; set; } = true;
-
     public MergedAccountMenuItem(MergedInbox mergedInbox, IEnumerable<MailAccount> holdingAccounts, IMenuItem parent) : base(mergedInbox, mergedInbox.Id, parent)
     {
         MergedAccountName = mergedInbox.Name;

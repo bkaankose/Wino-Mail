@@ -12,6 +12,11 @@
                     PaneDisplayMode="Left"
                     SelectionChanged="NavigationSelectionChanged">
         <NavigationView.MenuItems>
+            <NavigationViewItem
+                AutomationProperties.AutomationId="AccountIconNavigationItem"
+                Content="Account icon"
+                Icon="ContactInfo"
+                Tag="accountIcon" />
             <NavigationViewItem Content="Contact picture" Icon="Contact" Tag="contact" />
             <NavigationViewItem
                 AutomationProperties.AutomationId="MailListSelectionNavigationItem"

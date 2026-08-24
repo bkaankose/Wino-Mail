@@ -13,6 +13,13 @@ public partial class MenuItemBase : ObservableObject, IMenuItem
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
+    /// <summary>
+    /// Whether the pane entry can be invoked. A mode drills into a detail page while its
+    /// menu stays published, so its entries are disabled rather than left clickable and dead.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool IsEnabled { get; set; } = true;
+
     public IMenuItem ParentMenuItem { get; }
 
     public Guid? EntityId { get; }

@@ -30,9 +30,17 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
+    <PackageReference Include="SkiaSharp" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\WinoIcons.ttf"
+             TargetPath="Assets\WinoIcons.ttf"
+             CopyToOutputDirectory="PreserveNewest" />
+    <InternalsVisibleTo Include="Wino.Mail.Controls.Tests" />
   </ItemGroup>
 </Project>

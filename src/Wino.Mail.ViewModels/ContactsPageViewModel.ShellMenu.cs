@@ -22,6 +22,7 @@ public partial class ContactsPageViewModel
 
     private ShellMenu _shellMenu;
     private bool _isPaneCompact;
+    private bool _isMenuInteractionEnabled = true;
 
     public IShellMenuProvider ShellMenuProvider => this;
 
@@ -73,12 +74,16 @@ public partial class ContactsPageViewModel
     public void PrepareForShellShutdown()
     {
         SelectedFilter = null;
+        _isMenuInteractionEnabled = true;
         _shellMenu?.Items.Clear();
         _sectionHeaders.Clear();
     }
 
     public Task OnMenuItemInvokedAsync(IMenuItem menuItem)
     {
+        if (!_isMenuInteractionEnabled)
+            return Task.CompletedTask;
+
         switch (menuItem)
         {
             case NewContactMenuItem:
@@ -95,6 +100,9 @@ public partial class ContactsPageViewModel
 
     public Task OnMenuSelectionChangedAsync(IMenuItem menuItem)
     {
+        if (!_isMenuInteractionEnabled)
+            return Task.CompletedTask;
+
         if (menuItem is ContactFilterViewModel filter)
         {
             SelectedFilter = filter;
@@ -146,6 +154,7 @@ public partial class ContactsPageViewModel
 
         ApplyDesiredMenuItems(desired);
         PruneSectionHeaders();
+        ApplyMenuInteractionState();
 
         // The selected entry may have just been hidden or brought back; nudge the shell so
         // the pane re-applies the selection it should be showing.
@@ -203,6 +212,31 @@ public partial class ContactsPageViewModel
         while (items.Count > desired.Count)
         {
             items.RemoveAt(items.Count - 1);
+        }
+    }
+
+    /// <summary>
+    /// The editor is a detail page inside this mode, so the pane keeps showing the contacts
+    /// menu while it is open. Invoking a filter there would only change a selection nobody
+    /// can see, so every entry is disabled for as long as this page is not the one on screen.
+    /// </summary>
+    private void SetMenuInteractionEnabled(bool isEnabled)
+    {
+        if (_isMenuInteractionEnabled == isEnabled)
+            return;
+
+        _isMenuInteractionEnabled = isEnabled;
+        ApplyMenuInteractionState();
+    }
+
+    private void ApplyMenuInteractionState()
+    {
+        _newContactMenuItem.IsEnabled = _isMenuInteractionEnabled;
+        _newAddressListMenuItem.IsEnabled = _isMenuInteractionEnabled;
+
+        foreach (var filter in FilterGroups.SelectMany(group => group))
+        {
+            filter.IsEnabled = _isMenuInteractionEnabled;
         }
     }
 
