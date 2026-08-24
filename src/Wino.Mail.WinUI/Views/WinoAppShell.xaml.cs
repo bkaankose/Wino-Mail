@@ -13,6 +13,7 @@ using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.System;
 using Wino.Calendar.ViewModels;
@@ -32,6 +33,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.ViewModels;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
@@ -641,9 +643,71 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
     private void DetachContactsPaneViewModel()
     {
+        ClearContactListDropStates();
         ContactsViewModel = null;
         ((CollectionViewSource)Resources["ContactsFilterCollectionViewSource"]).Source = null;
         Bindings.Update();
+    }
+
+    private void ContactListDragEnter(object sender, DragEventArgs e)
+    {
+        if (sender is not FrameworkElement target || !CanAcceptContactDrop(target, e, out var filter, out _))
+            return;
+
+        ClearContactListDropStates();
+        filter.IsDragOver = true;
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        e.DragUIOverride.Caption = string.Format(Translator.ContactDrag_AddToListCaption, filter.Name);
+        e.Handled = true;
+    }
+
+    private void ContactListDragLeave(object sender, DragEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ContactFilterViewModel filter })
+            filter.IsDragOver = false;
+    }
+
+    private async void ContactListDrop(object sender, DragEventArgs e)
+    {
+        if (sender is not FrameworkElement target ||
+            !CanAcceptContactDrop(target, e, out var filter, out var dragPackage))
+        {
+            ClearContactListDropStates();
+            return;
+        }
+
+        ClearContactListDropStates();
+        e.AcceptedOperation = DataPackageOperation.Copy;
+        e.Handled = true;
+        await ContactsViewModel.AssignContactsToListAsync(filter.List, dragPackage.ContactIds);
+    }
+
+    private bool CanAcceptContactDrop(
+        FrameworkElement target,
+        DragEventArgs args,
+        out ContactFilterViewModel filter,
+        out ContactDragPackage dragPackage)
+    {
+        filter = target.DataContext as ContactFilterViewModel;
+        dragPackage = null;
+
+        if (!ViewModel.IsContactsMode || ContactsViewModel is null || filter?.IsList != true)
+            return false;
+
+        if (!args.DataView.Properties.ContainsKey(ContactDragPackage.DataPropertyName))
+            return false;
+
+        dragPackage = args.DataView.Properties[ContactDragPackage.DataPropertyName] as ContactDragPackage;
+        return dragPackage?.ContactIds.Count > 0;
+    }
+
+    private void ClearContactListDropStates()
+    {
+        if (ContactsViewModel is null)
+            return;
+
+        foreach (var filter in ContactsViewModel.FilterGroups.SelectMany(group => group))
+            filter.IsDragOver = false;
     }
 
     private void RenameContactList_Click(object sender, RoutedEventArgs e)

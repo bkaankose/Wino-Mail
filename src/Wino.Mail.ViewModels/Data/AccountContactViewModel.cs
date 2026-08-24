@@ -22,6 +22,10 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public string SecondaryValue => SourceContact.PrimaryEmailAddress ?? SourceContact.PrimaryPhoneNumber ?? string.Empty;
     public string SourceLabel { get; }
     public bool IsEditable { get; }
+    public bool CanEdit => IsEditable;
+    public bool CanDelete => IsEditable;
+    public bool CanSendMail => !string.IsNullOrWhiteSpace(SourceContact.PrimaryEmailAddress);
+    public string FavoriteActionText => IsFavorite ? Translator.ContactAction_Unfavorite : Translator.ContactAction_Favorite;
 
     /// <summary>
     /// Local-only favorite marker. Writes through to the underlying contact so that a
@@ -35,6 +39,7 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
             if (SourceContact.IsFavorite == value) return;
             SourceContact.IsFavorite = value;
             OnPropertyChanged();
+            OnPropertyChanged(nameof(FavoriteActionText));
         }
     }
 

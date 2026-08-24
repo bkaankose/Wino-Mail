@@ -478,7 +478,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(MailCategoryManagementPageViewModel));
         services.AddTransient(typeof(MailFiltersPageViewModel));
         services.AddTransient(typeof(MailFilterEditorPageViewModel));
-        services.AddTransient(typeof(ContactsPageViewModel));
+        services.AddSingleton(typeof(ContactsPageViewModel));
         services.AddTransient(typeof(ContactEditPageViewModel));
         services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
         services.AddTransient(typeof(EmailTemplatesPageViewModel));

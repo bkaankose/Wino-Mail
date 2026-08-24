@@ -30,7 +30,11 @@
             <Grid
                 MinHeight="36"
                 Padding="10,0"
+                AllowDrop="{x:Bind IsList, Mode=OneTime}"
                 ColumnSpacing="10"
+                DragEnter="ContactListDragEnter"
+                DragLeave="ContactListDragLeave"
+                Drop="ContactListDrop"
                 ToolTipService.ToolTip="{x:Bind Name, Mode=OneTime}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -38,7 +42,26 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <FontIcon FontSize="15" Glyph="{x:Bind Glyph, Mode=OneTime}" />
+                <Border
+                    Grid.ColumnSpan="3"
+                    Background="{ThemeResource AccentFillColorTertiaryBrush}"
+                    CornerRadius="4"
+                    IsHitTestVisible="False"
+                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsDragOver), Mode=OneWay}" />
+
+                <Grid Width="22" Height="22">
+                    <FontIcon
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        FontSize="15"
+                        Glyph="{x:Bind Glyph, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasGlyphIcon), Mode=OneTime}" />
+                    <coreControls:AccountProfilePicture
+                        Width="22"
+                        Height="22"
+                        Account="{x:Bind Account, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasAccountIcon), Mode=OneTime}" />
+                </Grid>
                 <TextBlock
                     Grid.Column="1"
                     VerticalAlignment="Center"
@@ -1028,7 +1051,6 @@
                 <Frame
                     x:Name="InnerShellFrame"
                     Padding="0,0,7,7"
-                    CacheSize="0"
                     IsNavigationStackEnabled="True"
                     Navigated="ShellFrameContentNavigated">
                     <Frame.ContentTransitions>

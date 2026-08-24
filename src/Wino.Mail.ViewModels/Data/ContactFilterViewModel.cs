@@ -20,15 +20,19 @@ public enum ContactFilterKind
 public partial class ContactFilterViewModel : ObservableObject
 {
     public ContactFilterKind Kind { get; }
-    public string Name { get; init; }
+    [ObservableProperty] public partial string Name { get; set; }
     public string Glyph { get; init; }
     public Guid? AddressBookId { get; init; }
     public Guid? AccountId { get; init; }
+    public MailAccount Account { get; init; }
     public ContactList List { get; init; }
 
     [ObservableProperty] public partial int Count { get; set; }
+    [ObservableProperty] public partial bool IsDragOver { get; set; }
 
     public bool IsList => Kind == ContactFilterKind.List;
+    public bool HasAccountIcon => Kind == ContactFilterKind.AddressBook && Account is not null;
+    public bool HasGlyphIcon => !HasAccountIcon;
     public Guid? ListId => List?.Id;
 
     private ContactFilterViewModel(ContactFilterKind kind) => Kind = kind;
@@ -39,13 +43,14 @@ public partial class ContactFilterViewModel : ObservableObject
     public static ContactFilterViewModel CreateFavorites(string name)
         => new(ContactFilterKind.Favorites) { Name = name, Glyph = "\uE734" };
 
-    public static ContactFilterViewModel CreateAddressBook(ContactAddressBook book, string fallbackName)
+    public static ContactFilterViewModel CreateAddressBook(ContactAddressBook book, MailAccount account)
         => new(ContactFilterKind.AddressBook)
         {
-            Name = string.IsNullOrWhiteSpace(book.DisplayName) ? fallbackName : book.DisplayName,
+            Name = string.IsNullOrWhiteSpace(book.DisplayName) ? account?.Name ?? book.SourceKind.ToString() : book.DisplayName,
             Glyph = "\uE8F1",
             AddressBookId = book.Id,
-            AccountId = book.MailAccountId
+            AccountId = book.MailAccountId,
+            Account = account
         };
 
     public static ContactFilterViewModel CreateList(ContactList list)

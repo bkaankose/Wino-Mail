@@ -1,6 +1,8 @@
 using FluentAssertions;
 using CommunityToolkit.Mvvm.Messaging;
 using Moq;
+using System.Collections.Specialized;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -99,15 +101,21 @@ public class ContactsPageViewModelTests
     }
 
     [Fact]
-    public async Task BackNavigation_PreservesTheLoadedContactsWithoutReloading()
+    public async Task BackNavigation_ReconcilesTheLoadedContactsWithoutResettingTheGroups()
     {
+        var original = Contact("Alpha");
+        var updated = Contact("Alpha updated");
+        updated.Id = original.Id;
+        updated.SortKey = original.SortKey;
+        updated.ModifiedAtUtc = original.ModifiedAtUtc.AddMinutes(1);
+        var added = Contact("Able");
         var accountService = new Mock<IAccountService>();
         accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
         var contactService = PageService();
-        contactService.Setup(service => service.GetAddressBooksAsync(null)).ReturnsAsync([]);
-        contactService.Setup(service => service.GetContactListsAsync()).ReturnsAsync([]);
-        contactService.Setup(service => service.GetContactListCountsAsync()).ReturnsAsync([]);
-        contactService.Setup(service => service.GetFavoriteContactsCountAsync()).ReturnsAsync(0);
+        contactService.SetupSequence(service => service.GetContactsPageAsync(
+                It.IsAny<ContactQueryFilter>(), 0, 50))
+            .ReturnsAsync(new PagedContactsResult([original], 1, false, 0, 50))
+            .ReturnsAsync(new PagedContactsResult([added, updated], 2, false, 0, 50));
         var viewModel = new ContactsPageViewModel(contactService.Object, accountService.Object,
             Mock.Of<ISynchronizationManager>(), Mock.Of<IWinoRequestDelegator>(),
             Mock.Of<INavigationService>(), Mock.Of<IMailDialogService>(), Mock.Of<ILaunchProtocolService>());
@@ -115,16 +123,81 @@ public class ContactsPageViewModelTests
         viewModel.OnNavigatedTo(NavigationMode.New, null!);
         await WaitUntilAsync(() => contactService.Invocations.Count(invocation =>
             invocation.Method.Name == nameof(IContactService.GetContactsPageAsync)) == 1 && !viewModel.IsLoading);
-        await Task.Delay(25);
-        var initialPageLoadCount = contactService.Invocations.Count(invocation =>
-            invocation.Method.Name == nameof(IContactService.GetContactsPageAsync));
+        var groupActions = new List<NotifyCollectionChangedAction>();
+        ((INotifyCollectionChanged)viewModel.ContactGroups[0]).CollectionChanged += (_, args) => groupActions.Add(args.Action);
 
         viewModel.OnNavigatedTo(NavigationMode.Back, null!);
-        await Task.Delay(25);
+        await WaitUntilAsync(() => viewModel.Contacts.Count == 2 && viewModel.Contacts.Any(item => item.Name == "Alpha updated"));
 
         accountService.Verify(service => service.GetAccountsAsync(), Times.Once);
         contactService.Verify(service => service.GetContactsPageAsync(
-            It.IsAny<ContactQueryFilter>(), It.IsAny<int>(), It.IsAny<int>()), Times.Exactly(initialPageLoadCount));
+            It.IsAny<ContactQueryFilter>(), 0, 50), Times.Exactly(2));
+        groupActions.Should().Contain(NotifyCollectionChangedAction.Add);
+        groupActions.Should().Contain(NotifyCollectionChangedAction.Replace);
+        groupActions.Should().NotContain(NotifyCollectionChangedAction.Reset);
+    }
+
+    [Fact]
+    public async Task Synchronization_ReconcilesAddRemoveAndReplaceWithoutReset()
+    {
+        var alpha = Contact("Alpha");
+        var beta = Contact("Beta");
+        var updatedAlpha = Contact("Alpha updated");
+        updatedAlpha.Id = alpha.Id;
+        updatedAlpha.SortKey = alpha.SortKey;
+        updatedAlpha.ModifiedAtUtc = alpha.ModifiedAtUtc.AddMinutes(1);
+        var gamma = Contact("Gamma");
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
+        var contactService = PageService();
+        contactService.SetupSequence(service => service.GetContactsPageAsync(
+                It.IsAny<ContactQueryFilter>(), 0, 50))
+            .ReturnsAsync(new PagedContactsResult([alpha, beta], 2, false, 0, 50))
+            .ReturnsAsync(new PagedContactsResult([updatedAlpha, gamma], 2, false, 0, 50));
+        var viewModel = new ContactsPageViewModel(contactService.Object, accountService.Object,
+            Mock.Of<ISynchronizationManager>(), Mock.Of<IWinoRequestDelegator>(),
+            Mock.Of<INavigationService>(), Mock.Of<IMailDialogService>(), Mock.Of<ILaunchProtocolService>());
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+        await WaitUntilAsync(() => viewModel.Contacts.Count == 2 && !viewModel.IsLoading);
+        var actions = new List<NotifyCollectionChangedAction>();
+        viewModel.Contacts.CollectionChanged += (_, args) => actions.Add(args.Action);
+
+        ((IRecipient<ContactSynchronizationCompleted>)viewModel).Receive(
+            new ContactSynchronizationCompleted(Guid.NewGuid(), SynchronizationCompletedState.Success));
+
+        await WaitUntilAsync(() => viewModel.Contacts.Any(item => item.Id == gamma.Id));
+        actions.Should().Contain(NotifyCollectionChangedAction.Add);
+        actions.Should().Contain(NotifyCollectionChangedAction.Remove);
+        actions.Should().Contain(NotifyCollectionChangedAction.Replace);
+        actions.Should().NotContain(NotifyCollectionChangedAction.Reset);
+    }
+
+    [Fact]
+    public async Task DeleteContact_RemovesTheLoadedItemWithoutReloading()
+    {
+        var contact = Contact("Delete me");
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
+        var contactService = PageService();
+        contactService.Setup(service => service.GetContactsPageAsync(
+                It.IsAny<ContactQueryFilter>(), 0, 50))
+            .ReturnsAsync(new PagedContactsResult([contact], 1, false, 0, 50));
+        var dialogs = new Mock<IMailDialogService>();
+        dialogs.Setup(service => service.ShowConfirmationDialogAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+        var viewModel = new ContactsPageViewModel(contactService.Object, accountService.Object,
+            Mock.Of<ISynchronizationManager>(), Mock.Of<IWinoRequestDelegator>(),
+            Mock.Of<INavigationService>(), dialogs.Object, Mock.Of<ILaunchProtocolService>());
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+        await WaitUntilAsync(() => viewModel.Contacts.Count == 1 && !viewModel.IsLoading);
+
+        await viewModel.DeleteContactCommand.ExecuteAsync(viewModel.Contacts[0]);
+
+        viewModel.Contacts.Should().BeEmpty();
+        viewModel.ContactGroups.Count.Should().Be(0);
+        contactService.Verify(service => service.GetContactsPageAsync(
+            It.IsAny<ContactQueryFilter>(), It.IsAny<int>(), It.IsAny<int>()), Times.Once);
     }
 
     [Fact]
@@ -178,6 +251,171 @@ public class ContactsPageViewModelTests
         viewModel.ComposeToContactCommand.CanExecute(withEmail).Should().BeTrue();
     }
 
+    [Fact]
+    public void ContactActionAvailability_ReflectsAuthorizationAndEmailAddress()
+    {
+        var unauthorizedContact = Contact("Read only");
+        unauthorizedContact.SourceKind = ContactSourceKind.Outlook;
+        var withoutEmail = new AccountContactViewModel(unauthorizedContact, isAuthorized: false);
+        var editableContact = Contact("Editable");
+        editableContact.Address = "person@example.com";
+        var withEmail = new AccountContactViewModel(editableContact);
+
+        withoutEmail.CanEdit.Should().BeFalse();
+        withoutEmail.CanDelete.Should().BeFalse();
+        withoutEmail.CanSendMail.Should().BeFalse();
+        withEmail.CanEdit.Should().BeTrue();
+        withEmail.CanDelete.Should().BeTrue();
+        withEmail.CanSendMail.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FavoriteActionText_TracksTheCurrentFavoriteState()
+    {
+        var contact = new AccountContactViewModel(Contact("Favorite"));
+
+        contact.FavoriteActionText.Should().Be(Translator.ContactAction_Favorite);
+
+        contact.IsFavorite = true;
+
+        contact.FavoriteActionText.Should().Be(Translator.ContactAction_Unfavorite);
+    }
+
+    [Fact]
+    public async Task GetAssignableLists_ExcludesExistingMemberships()
+    {
+        var contact = new AccountContactViewModel(Contact("Listed contact"));
+        var assignedList = new ContactList { Id = Guid.NewGuid(), Name = "Assigned" };
+        var availableList = new ContactList { Id = Guid.NewGuid(), Name = "Available" };
+        var contactService = PageService();
+        contactService.Setup(service => service.GetListIdsForContactAsync(contact.Id))
+            .ReturnsAsync([assignedList.Id]);
+        var viewModel = CreateViewModel(contactService.Object);
+        viewModel.ContactLists.Add(assignedList);
+        viewModel.ContactLists.Add(availableList);
+
+        var result = await viewModel.GetAssignableListsAsync(contact);
+
+        result.Should().ContainSingle().Which.Should().BeSameAs(availableList);
+    }
+
+    [Fact]
+    public async Task AssignContactsToList_DeduplicatesIdsAndRefreshesListCounts()
+    {
+        var list = new ContactList { Id = Guid.NewGuid(), Name = "Friends" };
+        var firstId = Guid.NewGuid();
+        var secondId = Guid.NewGuid();
+        var contactService = PageService();
+        var dialogs = new Mock<IMailDialogService>();
+        var viewModel = new ContactsPageViewModel(contactService.Object, Mock.Of<IAccountService>(),
+            Mock.Of<ISynchronizationManager>(), Mock.Of<IWinoRequestDelegator>(), Mock.Of<INavigationService>(),
+            dialogs.Object, Mock.Of<ILaunchProtocolService>());
+
+        await viewModel.AssignContactsToListAsync(list, [firstId, firstId, secondId, Guid.Empty]);
+
+        contactService.Verify(service => service.AddContactsToListAsync(
+            list.Id,
+            It.Is<IEnumerable<Guid>>(ids => ids.SequenceEqual(new[] { firstId, secondId }))), Times.Once);
+        contactService.Verify(service => service.GetContactListCountsAsync(), Times.Once);
+        dialogs.Verify(service => service.InfoBarMessage(
+            Translator.ContactList_AddedTitle,
+            It.IsAny<string>(),
+            InfoBarMessageType.Success), Times.Once);
+    }
+
+    [Fact]
+    public async Task AssignContactsToList_UpdatesCountWithoutRefreshingNavigationCollections()
+    {
+        var list = new ContactList { Id = Guid.NewGuid(), Name = "Friends" };
+        var contactService = PageService();
+        contactService.Setup(service => service.GetContactListsAsync()).ReturnsAsync([list]);
+        contactService.SetupSequence(service => service.GetContactListCountsAsync())
+            .ReturnsAsync(new Dictionary<Guid, int> { [list.Id] = 1 })
+            .ReturnsAsync(new Dictionary<Guid, int> { [list.Id] = 2 });
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
+        var viewModel = new ContactsPageViewModel(contactService.Object, accountService.Object,
+            Mock.Of<ISynchronizationManager>(), Mock.Of<IWinoRequestDelegator>(), Mock.Of<INavigationService>(),
+            Mock.Of<IMailDialogService>(), Mock.Of<ILaunchProtocolService>());
+
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+        await WaitUntilAsync(() => viewModel.FilterGroups.SelectMany(group => group).Any(filter => filter.ListId == list.Id));
+        var listGroup = viewModel.FilterGroups.Single(group => group.Any(filter => filter.IsList));
+        var listFilter = listGroup.Single(filter => filter.ListId == list.Id);
+        var groupActions = new List<NotifyCollectionChangedAction>();
+        var itemActions = new List<NotifyCollectionChangedAction>();
+        viewModel.FilterGroups.CollectionChanged += (_, args) => groupActions.Add(args.Action);
+        listGroup.CollectionChanged += (_, args) => itemActions.Add(args.Action);
+
+        await viewModel.AssignContactsToListAsync(list, [Guid.NewGuid()]);
+
+        listFilter.Count.Should().Be(2);
+        viewModel.FilterGroups.Single(group => group.Any(filter => filter.IsList)).Should().BeSameAs(listGroup);
+        groupActions.Should().BeEmpty();
+        itemActions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateList_AddsOneNavigationItemWithoutResettingGroups()
+    {
+        var createdList = new ContactList { Id = Guid.NewGuid(), Name = "Team" };
+        var contactService = PageService();
+        contactService.Setup(service => service.CreateContactListAsync("Team", null)).ReturnsAsync(createdList);
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
+        var dialogs = new Mock<IMailDialogService>();
+        dialogs.Setup(service => service.ShowTextInputDialogAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync("Team");
+        var viewModel = new ContactsPageViewModel(contactService.Object, accountService.Object,
+            Mock.Of<ISynchronizationManager>(), Mock.Of<IWinoRequestDelegator>(), Mock.Of<INavigationService>(),
+            dialogs.Object, Mock.Of<ILaunchProtocolService>());
+
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+        await WaitUntilAsync(() => viewModel.FilterGroups.Count == 2 && !viewModel.IsLoading);
+        var listGroup = viewModel.FilterGroups.Last();
+        var groupActions = new List<NotifyCollectionChangedAction>();
+        var itemActions = new List<NotifyCollectionChangedAction>();
+        viewModel.FilterGroups.CollectionChanged += (_, args) => groupActions.Add(args.Action);
+        listGroup.CollectionChanged += (_, args) => itemActions.Add(args.Action);
+
+        await viewModel.CreateListCommand.ExecuteAsync(null);
+
+        viewModel.FilterGroups.Last().Should().BeSameAs(listGroup);
+        viewModel.ContactLists.Should().ContainSingle().Which.Should().BeSameAs(createdList);
+        itemActions.Should().Equal(NotifyCollectionChangedAction.Add);
+        groupActions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ResolveContactDragIds_SelectedSourceCarriesTheFullSelection()
+    {
+        var first = new AccountContactViewModel(Contact("First"));
+        var second = new AccountContactViewModel(Contact("Second"));
+        var viewModel = CreateViewModel(PageService().Object);
+        viewModel.SelectedContacts.Add(first);
+        viewModel.SelectedContacts.Add(second);
+
+        var result = viewModel.ResolveContactDragIds([first]);
+
+        result.Should().Equal(first.Id, second.Id);
+    }
+
+    [Fact]
+    public void ResolveContactDragIds_UnselectedSourceCarriesOnlyTheDraggedContact()
+    {
+        var first = new AccountContactViewModel(Contact("First"));
+        var second = new AccountContactViewModel(Contact("Second"));
+        var unselected = new AccountContactViewModel(Contact("Unselected"));
+        var viewModel = CreateViewModel(PageService().Object);
+        viewModel.SelectedContacts.Add(first);
+        viewModel.SelectedContacts.Add(second);
+
+        var result = viewModel.ResolveContactDragIds([unselected]);
+
+        result.Should().Equal(unselected.Id);
+    }
+
     private static AccountContact Contact(string name)
         => new()
         {
@@ -192,6 +430,10 @@ public class ContactsPageViewModelTests
         var mock = new Mock<IContactService>();
         mock.Setup(service => service.GetContactsPageAsync(It.IsAny<ContactQueryFilter>(), It.IsAny<int>(), It.IsAny<int>()))
             .ReturnsAsync(new PagedContactsResult([], 0, false, 0, 50));
+        mock.Setup(service => service.GetAddressBooksAsync(null)).ReturnsAsync([]);
+        mock.Setup(service => service.GetContactListsAsync()).ReturnsAsync([]);
+        mock.Setup(service => service.GetContactListCountsAsync()).ReturnsAsync([]);
+        mock.Setup(service => service.GetFavoriteContactsCountAsync()).ReturnsAsync(0);
         return mock;
     }
 

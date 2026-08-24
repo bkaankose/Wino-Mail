@@ -4,14 +4,20 @@ using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
+using Windows.ApplicationModel.DataTransfer;
+using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Helpers;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Views.Abstract;
@@ -50,6 +56,24 @@ public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearch
         ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         ViewModel.PropertyChanged += ViewModelPropertyChanged;
 
+        if (ViewModel.ListScrollOffset is double verticalOffset)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                ContactsListView.UpdateLayout();
+                var scrollViewer = WinoVisualTreeHelper.GetChildObject<ScrollViewer>(ContactsListView, string.Empty);
+                scrollViewer?.ChangeView(null, verticalOffset, null, true);
+            });
+        }
+    }
+
+    protected override void OnNavigatingFrom(NavigatingCancelEventArgs e)
+    {
+        var scrollViewer = WinoVisualTreeHelper.GetChildObject<ScrollViewer>(ContactsListView, string.Empty);
+        if (scrollViewer is not null)
+            ViewModel.ListScrollOffset = scrollViewer.VerticalOffset;
+
+        base.OnNavigatingFrom(e);
     }
 
     private void ToggleFavorite_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
@@ -58,6 +82,57 @@ public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearch
         {
             ViewModel.ToggleFavoriteCommand.Execute(contact);
         }
+    }
+
+    private async void ContactCardContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: AccountContactViewModel contact } target)
+            return;
+
+        args.Handled = true;
+        Point? position = args.TryGetPosition(target, out var targetPosition) ? targetPosition : null;
+        var flyout = (ContactCardMenuFlyout)Resources["ContactCardContextFlyout"];
+        await flyout.ShowForAsync(target, position, ViewModel, contact);
+    }
+
+    private async void ContactsListView_ContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (args.Handled ||
+            sender is not ListView listView ||
+            listView.SelectedItem is not AccountContactViewModel contact ||
+            listView.ContainerFromItem(contact) is not FrameworkElement target)
+        {
+            return;
+        }
+
+        args.Handled = true;
+        var flyout = (ContactCardMenuFlyout)Resources["ContactCardContextFlyout"];
+        await flyout.ShowForAsync(target, null, ViewModel, contact);
+    }
+
+    private void ContactsListView_DragItemsStarting(object sender, DragItemsStartingEventArgs args)
+    {
+        var draggedContacts = args.Items.OfType<AccountContactViewModel>().ToList();
+        var dragPackage = new ContactDragPackage(ViewModel.ResolveContactDragIds(draggedContacts));
+        if (dragPackage.ContactIds.Count == 0)
+        {
+            args.Cancel = true;
+            return;
+        }
+
+        args.Data.Properties.Add(ContactDragPackage.DataPropertyName, dragPackage);
+        var draggingText = dragPackage.ContactIds.Count == 1
+            ? Translator.ContactDrag_SingleCaption
+            : string.Format(Translator.ContactDrag_MultipleCaption, dragPackage.ContactIds.Count);
+        args.Data.SetText(draggingText);
+        args.Data.Properties.Title = draggingText;
+        args.Data.RequestedOperation = DataPackageOperation.Copy;
+    }
+
+    private void ContactsListView_DragItemsCompleted(ListViewBase sender, DragItemsCompletedEventArgs args)
+    {
+        foreach (var filter in ViewModel.FilterGroups.SelectMany(group => group))
+            filter.IsDragOver = false;
     }
 
     private void ContactsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)

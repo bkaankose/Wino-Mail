@@ -179,6 +179,7 @@ Published cross-repository dependencies must use unconditional `PackageReference
 - Before designing a new user-facing Wino feature or changing a visual pattern, read `docs/wino-design-guideline.md`. Apply its Wino-specific layout, surfaces, command, state, accessibility, and verification decisions; update the guide when establishing a reusable new pattern.
 
 - Do not add XAML-backed controls, flyouts, templates, or visual composition in `.xaml.cs`. Keep code-behind for handlers and view glue.
+- `DataTemplate` and `ControlTemplate` do not support visual states in this project. Never put visual states inside these templates.
 - Wire XAML-backed `Loaded`, `Unloaded`, and input events in XAML, not constructors.
 - Give every element using `x:Load` an `x:Name`.
 - Do not introduce `IValueConverter` classes. Use direct WinUI conversion or existing `XamlHelpers` methods.
