@@ -1,11 +1,11 @@
-using Wino.Intelligence.ConsoleApp;
+using Wino.SmokeTest.ConsoleApp;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.Contracts.SemanticIndex;
 using Xunit;
 
-namespace Wino.Intelligence.Console.Tests;
+namespace Wino.SmokeTest.Console.Tests;
 
 public sealed class ApiEnvironmentTests
 {

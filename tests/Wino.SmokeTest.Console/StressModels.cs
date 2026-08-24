@@ -3,7 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Text.Json.Serialization;
 
-namespace Wino.Intelligence.ConsoleApp;
+namespace Wino.SmokeTest.ConsoleApp;
 
 internal enum StressProfile { Realistic, Database, Ai }
 internal enum StressFailureKind { None, Http, Timeout, Transport, Authentication, Quota, Throttling, Validation }

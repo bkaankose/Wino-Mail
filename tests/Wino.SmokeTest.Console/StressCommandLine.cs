@@ -1,4 +1,4 @@
-namespace Wino.Intelligence.ConsoleApp;
+namespace Wino.SmokeTest.ConsoleApp;
 
 internal static class StressCommandLine
 {

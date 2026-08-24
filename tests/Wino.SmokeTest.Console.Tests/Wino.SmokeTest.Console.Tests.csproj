@@ -20,6 +20,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Wino.Intelligence.Console\Wino.Intelligence.Console.csproj" />
+    <ProjectReference Include="..\Wino.SmokeTest.Console\Wino.SmokeTest.Console.csproj" />
   </ItemGroup>
 </Project>

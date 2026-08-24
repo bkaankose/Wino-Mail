@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
 
-namespace Wino.Intelligence.ConsoleApp;
+namespace Wino.SmokeTest.ConsoleApp;
 
 internal sealed class StressRunner(StressOptions options, IServiceProvider services, Uri target, string runId)
 {

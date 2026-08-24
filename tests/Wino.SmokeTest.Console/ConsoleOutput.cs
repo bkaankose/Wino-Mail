@@ -1,6 +1,6 @@
 using Wino.Core.Domain.Models.SemanticIndexing;
 
-namespace Wino.Intelligence.ConsoleApp;
+namespace Wino.SmokeTest.ConsoleApp;
 
 internal static class ConsoleOutput
 {

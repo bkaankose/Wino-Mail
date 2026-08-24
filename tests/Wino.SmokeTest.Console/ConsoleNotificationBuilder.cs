@@ -3,7 +3,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Intelligence.ConsoleApp;
+namespace Wino.SmokeTest.ConsoleApp;
 
 internal sealed class ConsoleNotificationBuilder : INotificationBuilder
 {

@@ -1,9 +1,9 @@
 using System.Net;
 using System.Text;
-using Wino.Intelligence.ConsoleApp;
+using Wino.SmokeTest.ConsoleApp;
 using Xunit;
 
-namespace Wino.Intelligence.Console.Tests;
+namespace Wino.SmokeTest.Console.Tests;
 
 public sealed class StressHarnessTests
 {

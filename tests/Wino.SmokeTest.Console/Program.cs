@@ -14,7 +14,7 @@ using Wino.Mail.Contracts.Intelligence;
 using Wino.Mail.AI.Abstractions;
 using Wino.Services;
 
-namespace Wino.Intelligence.ConsoleApp;
+namespace Wino.SmokeTest.ConsoleApp;
 
 internal static class Program
 {
@@ -40,12 +40,20 @@ internal static class Program
         }
 
         var apiEnvironment = options.Stress?.Environment ??
-            (options.IndexAccountAddress is null ? SelectApiEnvironment() : ApiEnvironment.Local);
+            (options.IndexAccountAddress is null && options.Smoke is null ? SelectApiEnvironment() : ApiEnvironment.Local);
         var apiUri = GetApiUri(apiEnvironment);
         var stressRunId = options.Stress is null ? null : $"{DateTimeOffset.UtcNow:yyyyMMddTHHmmssZ}-{Guid.NewGuid():N}"[..32];
         var paths = ResolvePaths(options);
         if (!ValidatePaths(paths))
             return 2;
+
+        if (!SmokeProcessGuard.TryAcquire(out var processGuard, out var guardError))
+        {
+            ConsoleOutput.Error(guardError);
+            return 2;
+        }
+
+        using var activeProcessGuard = processGuard;
 
         using var cancellation = new CancellationTokenSource();
         ConsoleCancelEventHandler cancelHandler = (_, eventArgs) =>
@@ -61,10 +69,23 @@ internal static class Program
             ConsoleOutput.Header($"\nAPI: {apiEnvironment} ({apiUri})");
             System.Console.WriteLine($"Database folder: {paths.PublisherFolder}");
             System.Console.WriteLine($"Application data: {paths.ApplicationDataFolder}");
-            ConsoleOutput.Warning("Keep Wino Mail closed while this tool is using its databases.\n");
+            ConsoleOutput.Success("Wino Mail is closed and the smoke-console database lock is active.\n");
 
-            await using var services = CreateServices(paths, apiUri, apiEnvironment, options.Stress, stressRunId);
-            await InitializeServicesAsync(services, cancellation.Token).ConfigureAwait(false);
+            await using var services = CreateServices(
+                paths,
+                apiUri,
+                apiEnvironment,
+                options.Smoke is null,
+                options.Stress,
+                stressRunId);
+            await InitializeServicesAsync(services, options.Smoke is null, cancellation.Token).ConfigureAwait(false);
+            if (options.Smoke is not null)
+            {
+                using var smokeRunner = new SmokeTestRunner(services);
+                return await smokeRunner
+                    .RunAutomaticAsync(options.Smoke.AccountAddress, options.Smoke.ReportRecipient, cancellation.Token)
+                    .ConfigureAwait(false);
+            }
             if (options.Stress is not null)
             {
                 return await new StressRunner(options.Stress, services, apiUri, stressRunId!)
@@ -86,12 +107,15 @@ internal static class Program
                     cancellation.Token).ConfigureAwait(false);
             }
 
-            return await RunAsync(services, cancellation.Token).ConfigureAwait(false);
+            return await RunAsync(
+                services,
+                options.AttachmentsFolder ?? Path.GetFullPath(Path.Combine(Environment.CurrentDirectory, "Attachments")),
+                cancellation.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
             ConsoleOutput.Warning("Operation cancelled.");
-            return 1;
+            return 130;
         }
         catch (Exception exception)
         {
@@ -131,10 +155,14 @@ internal static class Program
             _ => null,
         };
 
-    private static ServiceProvider CreateServices(ConsolePaths paths, Uri apiUri, ApiEnvironment environment,
+    private static ServiceProvider CreateServices(
+        ConsolePaths paths,
+        Uri apiUri,
+        ApiEnvironment environment,
+        bool allowExternalLaunch,
         StressOptions? stressOptions = null, string? stressRunId = null)
     {
-        var nativeAppService = new ConsoleNativeAppService(paths.ApplicationDataFolder);
+        var nativeAppService = new ConsoleNativeAppService(paths.ApplicationDataFolder, allowExternalLaunch);
         var serviceCollection = new ServiceCollection();
         serviceCollection.AddLogging(builder => builder.SetMinimumLevel(LogLevel.Warning));
         serviceCollection.RegisterCoreServices();
@@ -188,16 +216,25 @@ internal static class Program
         return provider;
     }
 
-    private static async Task InitializeServicesAsync(IServiceProvider services, CancellationToken cancellationToken)
+    private static async Task InitializeServicesAsync(
+        IServiceProvider services,
+        bool initializeIntelligence,
+        CancellationToken cancellationToken)
     {
         await services.GetRequiredService<IDatabaseService>().InitializeAsync().ConfigureAwait(false);
-        await services.GetRequiredService<ILocalIntelligenceStore>().InitializeAsync().ConfigureAwait(false);
         await services.GetRequiredService<ITranslationService>().InitializeAsync().ConfigureAwait(false);
         await services.GetRequiredService<SynchronizationManagerInitializer>().InitializeAsync().ConfigureAwait(false);
-        await services.GetRequiredService<ISemanticIndexCoordinator>().InitializeAsync().ConfigureAwait(false);
+        if (initializeIntelligence)
+        {
+            await services.GetRequiredService<ILocalIntelligenceStore>().InitializeAsync().ConfigureAwait(false);
+            await services.GetRequiredService<ISemanticIndexCoordinator>().InitializeAsync().ConfigureAwait(false);
+        }
     }
 
-    private static async Task<int> RunAsync(IServiceProvider services, CancellationToken cancellationToken)
+    private static async Task<int> RunAsync(
+        IServiceProvider services,
+        string attachmentsFolder,
+        CancellationToken cancellationToken)
     {
         var accountService = services.GetRequiredService<IAccountService>();
         var coordinator = services.GetRequiredService<ISemanticIndexCoordinator>();
@@ -223,7 +260,7 @@ internal static class Program
             try
             {
                 await RunAccountAsync(selected, accountService, coordinator, apiClient, authenticationProvider,
-                        messageResolver, localStore, mailService, cancellationToken)
+                        messageResolver, localStore, mailService, services, attachmentsFolder, cancellationToken)
                     .ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -451,27 +488,44 @@ internal static class Program
         IIntelligenceMessageContextResolver messageResolver,
         ILocalIntelligenceStore localStore,
         IMailService mailService,
+        IServiceProvider services,
+        string attachmentsFolder,
         CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
-            var state = await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
-            PrintState(state);
+            SemanticIndexAccountState? state = null;
+            if (IsSupportedAccount(account))
+            {
+                state = await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
+                PrintState(state);
+            }
             ConsoleOutput.Header("\nAccount actions:");
-            System.Console.WriteLine("  1. Semantic search");
-            System.Console.WriteLine("  2. Manage intelligence indexing");
+            System.Console.WriteLine("  1. Smoke tests");
+            System.Console.WriteLine("  2. Semantic search");
+            System.Console.WriteLine("  3. Manage intelligence indexing");
             System.Console.WriteLine("  0. Back");
             ConsoleOutput.Prompt("Selection: ");
             switch (System.Console.ReadLine()?.Trim())
             {
                 case "1":
+                    using (var smokeRunner = new SmokeTestRunner(services))
+                    {
+                        await smokeRunner.RunInteractiveAsync(account, attachmentsFolder, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    break;
+                case "2" when state is not null:
                     await RunSemanticSearchMenuAsync(
                         account, state, apiClient, messageResolver, mailService, cancellationToken).ConfigureAwait(false);
                     break;
-                case "2":
+                case "3" when state is not null:
                     await RunIntelligenceManagementMenuAsync(
                         account, accountService, coordinator, apiClient, authenticationProvider,
                         messageResolver, localStore, cancellationToken).ConfigureAwait(false);
+                    break;
+                case "2" or "3":
+                    ConsoleOutput.Warning("Intelligence tools currently support Outlook accounts only.");
                     break;
                 case "0":
                     return;
@@ -1365,15 +1419,15 @@ internal static class Program
         ConsoleOutput.Header("\nAccounts from Wino database:");
         for (var index = 0; index < accounts.Count; index++)
         {
-            var supported = IsSupportedAccount(accounts[index]) ? string.Empty : " [unsupported]";
+            var supported = IsSupportedAccount(accounts[index]) ? string.Empty : " [intelligence unavailable]";
             System.Console.WriteLine($"  {index + 1}. {accounts[index].Name} <{accounts[index].Address}> — {accounts[index].ProviderType}{supported}");
         }
-        ConsoleOutput.Prompt("Select an Outlook account, or 0 to exit: ");
+        ConsoleOutput.Prompt("Select an account, or 0 to exit: ");
         if (!int.TryParse(System.Console.ReadLine(), out var selection) || selection == 0)
             return null;
-        if (selection < 1 || selection > accounts.Count || !IsSupportedAccount(accounts[selection - 1]))
+        if (selection < 1 || selection > accounts.Count)
         {
-            ConsoleOutput.Warning("Select a listed Outlook account.");
+            ConsoleOutput.Warning("Select a listed account.");
             return SelectAccount(accounts);
         }
         return accounts[selection - 1];
@@ -1444,7 +1498,7 @@ internal static class Program
         var previewApplicationDataFolder = Path.Combine(localAppData, PreviewLocalStateRelativePath);
         var applicationDataFolder = options.ApplicationDataFolder ??
             (Directory.Exists(debugApplicationDataFolder) ? debugApplicationDataFolder : previewApplicationDataFolder);
-        var tempFolder = Path.Combine(Path.GetTempPath(), "Wino.Intelligence.Console");
+        var tempFolder = Path.Combine(Path.GetTempPath(), "Wino.SmokeTest.Console");
         Directory.CreateDirectory(tempFolder);
         return new ConsolePaths(Path.GetFullPath(publisherFolder), Path.GetFullPath(applicationDataFolder), tempFolder);
     }
@@ -1471,6 +1525,29 @@ internal static class Program
 
     private static bool TryParseArguments(string[] args, out CommandLineOptions options, out string? error)
     {
+        if (args.Contains("--smoke", StringComparer.OrdinalIgnoreCase))
+        {
+            if (!SmokeCommandLine.TryParse(args, out var smoke, out error))
+            {
+                options = default;
+                return false;
+            }
+
+            options = new CommandLineOptions(
+                smoke.PublisherFolder,
+                smoke.ApplicationDataFolder,
+                null,
+                null,
+                null,
+                100,
+                false,
+                false,
+                null,
+                smoke,
+                smoke.AttachmentsFolder);
+            return true;
+        }
+
         if (args.Contains("--stress", StringComparer.OrdinalIgnoreCase))
         {
             if (!StressCommandLine.TryParse(args, out var stress, out error))
@@ -1478,7 +1555,7 @@ internal static class Program
                 options = default;
                 return false;
             }
-            options = new CommandLineOptions(null, null, null, null, null, 100, false, false, stress);
+            options = new CommandLineOptions(null, null, null, null, null, 100, false, false, stress, null, null);
             return true;
         }
 
@@ -1488,6 +1565,7 @@ internal static class Program
         string? dailyBriefingAddress = null;
         string? indexAccountAddress = null;
         string? indexFolderName = null;
+        string? attachmentsFolder = null;
         var indexMessageCount = 100;
         var resetIntelligence = false;
         for (var index = 0; index < args.Length; index++)
@@ -1520,6 +1598,9 @@ internal static class Program
                 case "--reset-intelligence":
                     resetIntelligence = true;
                     break;
+                case "--attachments-folder" when index + 1 < args.Length:
+                    attachmentsFolder = Path.GetFullPath(args[++index]);
+                    break;
                 default:
                     options = default;
                     error = $"Unknown or incomplete argument: {args[index]}";
@@ -1535,14 +1616,16 @@ internal static class Program
             indexMessageCount,
             resetIntelligence,
             help,
-            null);
+            null,
+            null,
+            attachmentsFolder);
         error = null;
         return true;
     }
 
     private static void PrintHelp()
     {
-        System.Console.WriteLine("Wino Outlook intelligence test console");
+        System.Console.WriteLine("Wino smoke test and intelligence console");
         System.Console.WriteLine("  --publisher-folder <path>  Override the WinoShared publisher folder");
         System.Console.WriteLine("  --app-data-folder <path>   Override the Debug package LocalState folder");
         System.Console.WriteLine("  --daily-briefing <email>   Report today's and yesterday's briefing facts for an account");
@@ -1550,6 +1633,8 @@ internal static class Program
         System.Console.WriteLine("  --folder <name-or-id>      Folder for --index-account (default: Inbox)");
         System.Console.WriteLine("  --top <count>              Newest messages for --index-account (default: 100)");
         System.Console.WriteLine("  --reset-intelligence       Delete local and server intelligence before indexing");
+        System.Console.WriteLine("  --smoke --account <email>  Run the unattended live-account smoke suite");
+        System.Console.WriteLine("          [--report-to <email>] [--attachments-folder <path>]");
         System.Console.WriteLine("  --stress                   Run the non-interactive intelligence stress harness");
         System.Console.WriteLine("  Stress: --environment local|production --account <email> --output <folder>");
         System.Console.WriteLine("          [--profile realistic|database|ai] [--start-rps 1] [--max-rps 256]");
@@ -1574,5 +1659,7 @@ internal readonly record struct CommandLineOptions(
     int IndexMessageCount,
     bool ResetIntelligence,
     bool ShowHelp,
-    StressOptions? Stress);
+    StressOptions? Stress,
+    SmokeCommandLineOptions? Smoke,
+    string? AttachmentsFolder);
 internal sealed record ConsolePaths(string PublisherFolder, string ApplicationDataFolder, string TempFolder);

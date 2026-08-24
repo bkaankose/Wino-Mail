@@ -11,7 +11,7 @@ using Wino.Mail.AI.Cryptography;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Services;
 
-namespace Wino.Intelligence.ConsoleApp;
+namespace Wino.SmokeTest.ConsoleApp;
 
 internal sealed class StressWorkload
 {

@@ -4,7 +4,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Wino.Core.Domain.Interfaces;
 
-namespace Wino.Intelligence.ConsoleApp;
+namespace Wino.SmokeTest.ConsoleApp;
 
 internal sealed class ConsoleConfigurationService : IConfigurationService
 {
@@ -36,7 +36,7 @@ internal class ConsolePreferencesProxy : DispatchProxy
     {
         var preferences = Create<IPreferencesService, ConsolePreferencesProxy>();
         var proxy = (ConsolePreferencesProxy)(object)preferences;
-        proxy._values[nameof(IPreferencesService.DiagnosticId)] = $"intelligence-console-{Environment.MachineName}";
+        proxy._values[nameof(IPreferencesService.DiagnosticId)] = $"smoke-test-console-{Environment.MachineName}";
         return preferences;
     }
 
@@ -106,19 +106,21 @@ internal sealed class ConsoleNativeAppService : INativeAppService, IAppMetadataS
     private const uint WsOverlapped = 0x00000000;
     private readonly string _applicationDataFolder;
     private readonly IntPtr _ownerWindow;
+    private readonly bool _allowExternalLaunch;
 
-    public ConsoleNativeAppService(string applicationDataFolder)
+    public ConsoleNativeAppService(string applicationDataFolder, bool allowExternalLaunch)
     {
         _applicationDataFolder = applicationDataFolder;
+        _allowExternalLaunch = allowExternalLaunch;
         _ownerWindow = ResolveOwnerWindow();
         GetCoreWindowHwnd = () => _ownerWindow;
     }
 
     public Func<IntPtr> GetCoreWindowHwnd { get; set; }
     public string AppVersion => typeof(ConsoleNativeAppService).Assembly.GetName().Version?.ToString() ?? "1.0.0";
-    public string PackageName => "Wino.Intelligence.Console";
+    public string PackageName => "Wino.SmokeTest.Console";
     public string BuildConfiguration => "Debug";
-    public string SentryEnvironment => "intelligence-console";
+    public string SentryEnvironment => "smoke-test-console";
     public string SentryRelease => $"{PackageName}@{AppVersion}";
     public string SentryDist => AppVersion;
 
@@ -133,12 +135,18 @@ internal sealed class ConsoleNativeAppService : INativeAppService, IAppMetadataS
 
     public Task LaunchFileAsync(string filePath)
     {
+        if (!_allowExternalLaunch)
+            throw new InvalidOperationException("External launch is disabled in unattended smoke mode.");
+
         Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
         return Task.CompletedTask;
     }
 
     public Task<bool> LaunchUriAsync(Uri uri)
     {
+        if (!_allowExternalLaunch)
+            return Task.FromResult(false);
+
         Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
         return Task.FromResult(true);
     }
@@ -157,7 +165,7 @@ internal sealed class ConsoleNativeAppService : INativeAppService, IAppMetadataS
         handle = Process.GetCurrentProcess().MainWindowHandle;
         return handle != IntPtr.Zero
             ? handle
-            : CreateWindowEx(0, "STATIC", "Wino Intelligence Console", WsOverlapped, 0, 0, 1, 1,
+            : CreateWindowEx(0, "STATIC", "Wino Smoke Test Console", WsOverlapped, 0, 0, 1, 1,
                 IntPtr.Zero, IntPtr.Zero, IntPtr.Zero, IntPtr.Zero);
     }
 
