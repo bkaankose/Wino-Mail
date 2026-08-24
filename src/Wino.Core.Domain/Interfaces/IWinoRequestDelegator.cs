@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 
@@ -38,6 +39,9 @@ public interface IWinoRequestDelegator
     /// </summary>
     /// <param name="calendarOperationPreparationRequest">Calendar preparation request.</param>
     Task ExecuteAsync(CalendarOperationPreparationRequest calendarOperationPreparationRequest);
+
+    Task ExecuteAsync(ContactOperationPreparationRequest contactOperationPreparationRequest);
+    Task ExecuteAsync(IReadOnlyList<ContactOperationPreparationRequest> preparationRequests);
 
     /// <summary>
     /// Queues pre-built requests for a single account and triggers synchronization.

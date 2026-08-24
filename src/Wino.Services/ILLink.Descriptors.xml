@@ -17,8 +17,12 @@
     <type fullname="Wino.Core.Domain.Entities.Mail.MergedInbox" preserve="all" />
     <type fullname="Wino.Core.Domain.Entities.Mail.SentMailReceiptState" preserve="all" />
     <type fullname="Wino.Core.Domain.Entities.Shared.AccountContact" preserve="all" />
-    <type fullname="Wino.Core.Domain.Entities.Shared.ContactGroup" preserve="all" />
-    <type fullname="Wino.Core.Domain.Entities.Shared.ContactGroupMember" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.ContactAddressBook" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.ContactEmailAddress" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.ContactPhoneNumber" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.ContactPostalAddress" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.ContactImAddress" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.ContactRelation" preserve="all" />
     <type fullname="Wino.Core.Domain.Entities.Shared.CustomServerInformation" preserve="all" />
     <type fullname="Wino.Core.Domain.Entities.Shared.KeyboardShortcut" preserve="all" />
     <type fullname="Wino.Core.Domain.Entities.Shared.MailAccount" preserve="all" />

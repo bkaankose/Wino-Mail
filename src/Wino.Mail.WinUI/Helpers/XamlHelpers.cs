@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -149,9 +149,31 @@ public static class XamlHelpers
     public static bool ObjectEquals(object obj1, object obj2) => object.Equals(obj1, obj2);
     public static Visibility CountToVisibilityConverter(int value) => value > 0 ? Visibility.Visible : Visibility.Collapsed;
     public static Visibility CountToVisibilityConverterWithThreshold(int value, int threshold) => value > threshold ? Visibility.Visible : Visibility.Collapsed;
-    public static ListViewSelectionMode BoolToSelectionMode(bool isSelectionMode) => isSelectionMode ? ListViewSelectionMode.Multiple : ListViewSelectionMode.None;
+    public static ListViewSelectionMode BoolToSelectionMode(bool isSelectionMode) => isSelectionMode ? ListViewSelectionMode.Extended : ListViewSelectionMode.Single;
     public static string BoolToSelectionModeText(bool isSelectionMode) => isSelectionMode ? Translator.Buttons_Cancel : Translator.Buttons_Multiselect;
     public static string ConditionalString(bool condition, string trueValue, string falseValue) => condition ? trueValue : falseValue;
+
+    // Contacts
+    public static string GetFavoriteGlyph(bool isFavorite) => isFavorite ? "\uE735" : "\uE734";
+    public static string GetFavoriteTooltip(bool isFavorite) => isFavorite ? Translator.ContactAction_Unfavorite : Translator.ContactAction_Favorite;
+    public static Brush GetFavoriteBrush(bool isFavorite)
+        => (Brush)Application.Current.Resources[isFavorite ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush"];
+    public static bool HasText(string value) => !string.IsNullOrWhiteSpace(value);
+    public static ContactPhoneKind[] GetPhoneKinds() => Enum.GetValues<ContactPhoneKind>();
+    public static Visibility TextToVisibility(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
+    public static Visibility NotNullToVisibility(object value) => value is null ? Visibility.Collapsed : Visibility.Visible;
+    public static Visibility CountToInvertedVisibility(int count) => count > 0 ? Visibility.Collapsed : Visibility.Visible;
+
+    // x:Bind cannot nest function calls, so birthday formatting and its visibility are separate flat helpers.
+    public static Visibility BirthdayVisibility(int? year, int? month, int? day)
+        => string.IsNullOrWhiteSpace(FormatBirthday(year, month, day)) ? Visibility.Collapsed : Visibility.Visible;
+
+    public static string FormatBirthday(int? year, int? month, int? day)
+    {
+        if (month is not (>= 1 and <= 12) || day is not (>= 1 and <= 31)) return string.Empty;
+        var date = new DateTime(year ?? 2000, month.Value, Math.Min(day.Value, DateTime.DaysInMonth(year ?? 2000, month.Value)));
+        return year.HasValue ? date.ToString("d MMMM yyyy") : date.ToString("d MMMM");
+    }
     public static bool GetGravatarEnabled() => PreferencesService?.IsGravatarEnabled ?? true;
     public static bool GetFaviconEnabled() => PreferencesService?.IsFaviconEnabled ?? true;
 
@@ -223,6 +245,28 @@ public static class XamlHelpers
         {
             var imageBytes = Convert.FromBase64String(base64String);
             using var stream = new System.IO.MemoryStream(imageBytes);
+            var bitmap = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
+            bitmap.SetSource(stream.AsRandomAccessStream());
+            return bitmap;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static Microsoft.UI.Xaml.Media.Imaging.BitmapImage? GetContactEditorPreviewPicture(byte[]? imageBytes, string? imagePath)
+    {
+        try
+        {
+            var bytes = imageBytes;
+            if ((bytes is null || bytes.Length == 0) && !string.IsNullOrWhiteSpace(imagePath) && File.Exists(imagePath))
+                bytes = File.ReadAllBytes(imagePath);
+
+            if (bytes is null || bytes.Length == 0)
+                return null;
+
+            using var stream = new MemoryStream(bytes);
             var bitmap = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage();
             bitmap.SetSource(stream.AsRandomAccessStream());
             return bitmap;

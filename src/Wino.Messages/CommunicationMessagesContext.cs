@@ -27,5 +27,8 @@ namespace Wino.Messaging;
 [JsonSerializable(typeof(AccountFolderConfigurationUpdated))]
 [JsonSerializable(typeof(CopyAuthURLRequested))]
 [JsonSerializable(typeof(NewMailSynchronizationRequested))]
+[JsonSerializable(typeof(NewContactSynchronizationRequested))]
+[JsonSerializable(typeof(ContactSynchronizationOptions))]
+[JsonSerializable(typeof(ContactSynchronizationCompleted))]
 [JsonSerializable(typeof(AccountCacheResetMessage))]
 public partial class CommunicationMessagesContext : JsonSerializerContext;

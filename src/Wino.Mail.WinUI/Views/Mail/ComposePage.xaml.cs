@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -21,6 +22,7 @@ using Windows.UI.Core.Preview;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Editor;
 using Wino.Mail.ViewModels.Data;
@@ -49,7 +51,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private bool _shouldApplyInitialFocus;
     private bool _isNavigatingFrom;
     private CancellationTokenSource? _editorLifecycleCancellationSource;
-    private readonly Dictionary<TokenizingTextBox, List<AccountContact>> _recipientSuggestions = [];
+    private readonly Dictionary<TokenizingTextBox, List<IContactDisplayItem>> _recipientSuggestions = [];
 
     public bool SupportsPopOut => !_isPoppedOut;
     public bool HasEditorKeyboardFocus => WebViewEditor.FocusState != FocusState.Unfocused;
@@ -133,16 +135,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
             if (senderBox.Text.Length >= 2)
             {
-                _ = ViewModel.ContactService.GetAddressInformationAsync(senderBox.Text).ContinueWith(task =>
-                {
-                    _ = ViewModel.ExecuteUIThread(() =>
-                    {
-                        var addresses = task.Result ?? [];
-
-                        _recipientSuggestions[box] = addresses;
-                        senderBox.ItemsSource = addresses;
-                    });
-                });
+                _ = ResolveRecipientSuggestionsAsync(box, senderBox, senderBox.Text);
             }
             else
             {
@@ -363,13 +356,53 @@ public sealed partial class ComposePage : ComposePageAbstract,
         Clipboard.SetContent(package);
     }
 
+    /// <summary>
+    /// Suggests matching contacts, and local contact lists ahead of them. Both render through
+    /// the shared <c>ContactSuggestionTemplate</c> because both are <see cref="IContactDisplayItem"/>.
+    /// </summary>
+    private async Task ResolveRecipientSuggestionsAsync(TokenizingTextBox box, AutoSuggestBox senderBox, string query)
+    {
+        var contacts = await ViewModel.ContactService.ResolveRecipientCandidatesAsync(ViewModel.ComposingAccount?.Id, query).ConfigureAwait(false) ?? [];
+        var lists = await ViewModel.ContactService.ResolveRecipientListsAsync(query).ConfigureAwait(false) ?? [];
+
+        var suggestions = new List<IContactDisplayItem>(lists.Count + contacts.Count);
+        suggestions.AddRange(lists);
+        suggestions.AddRange(contacts);
+
+        await ViewModel.ExecuteUIThread(() =>
+        {
+            _recipientSuggestions[box] = suggestions;
+            senderBox.ItemsSource = suggestions;
+        });
+    }
+
+    /// <summary>
+    /// Adds every member of a picked contact list that is not already a recipient.
+    /// </summary>
+    private static int AddListMembers(ContactListRecipient listRecipient, ObservableCollection<AccountContact>? addressCollection)
+    {
+        if (addressCollection is null)
+            return 0;
+
+        var added = 0;
+        foreach (var member in listRecipient.ExpandRecipients())
+        {
+            if (addressCollection.Any(item => string.Equals(item.Address, member.PrimaryEmailAddress, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            addressCollection.Add(member);
+            added++;
+        }
+
+        return added;
+    }
+
     private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)
     {
         var deferral = args.GetDeferral();
         try
         {
-            var suggestedContact = GetFirstSuggestedContact(sender);
-            var tokenText = suggestedContact?.Address ?? args.TokenText;
+            var suggestion = GetFirstSuggestion(sender);
             var addressCollection = sender.Tag?.ToString() switch
             {
                 "ToBox" => ViewModel.ToItems,
@@ -377,6 +410,19 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 "BCCBox" => ViewModel.BCCItems,
                 _ => null
             };
+
+            // A contact list is not a single recipient: expand it into its members instead
+            // of committing one token.
+            if (suggestion is ContactListRecipient listRecipient)
+            {
+                args.Cancel = true;
+                if (AddListMembers(listRecipient, addressCollection) == 0)
+                    ViewModel.NotifyAddressExists();
+                return;
+            }
+
+            var suggestedContact = suggestion as AccountContact;
+            var tokenText = suggestedContact?.Address ?? args.TokenText;
 
             if (suggestedContact == null && !EmailValidator.Validate(tokenText))
             {
@@ -495,7 +541,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
     }
 
-    private AccountContact? GetFirstSuggestedContact(TokenizingTextBox box)
+    private IContactDisplayItem? GetFirstSuggestion(TokenizingTextBox box)
         => _recipientSuggestions.TryGetValue(box, out var suggestions)
             ? suggestions.FirstOrDefault()
             : null;

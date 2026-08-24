@@ -13,6 +13,7 @@ public sealed class WelcomeWizardContextTests
 
         context.IsMailAccessEnabled.Should().BeTrue();
         context.IsCalendarAccessEnabled.Should().BeFalse();
+        context.IsContactAccessEnabled.Should().BeTrue();
     }
 
     [Fact]
@@ -28,5 +29,6 @@ public sealed class WelcomeWizardContextTests
 
         context.IsMailAccessEnabled.Should().BeTrue();
         context.IsCalendarAccessEnabled.Should().BeFalse();
+        context.IsContactAccessEnabled.Should().BeTrue();
     }
 }

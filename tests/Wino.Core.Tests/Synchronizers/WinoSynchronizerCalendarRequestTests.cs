@@ -107,7 +107,7 @@ public sealed class WinoSynchronizerCalendarRequestTests
         public void Receive(SynchronizationActionsCompleted message) => CompletedAccountIds.Add(message.AccountId);
     }
 
-    private sealed class TestCalendarSynchronizer : WinoSynchronizer<object, object, object>
+    private sealed class TestCalendarSynchronizer : WinoSynchronizer<object, object, object, object>
     {
         private readonly bool _throwDuringRequestExecution;
 

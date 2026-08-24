@@ -78,3 +78,13 @@ public interface ICategoryActionRequest : IRequestBase
     Guid AccountId { get; }
     CategorySynchronizerOperation Operation { get; }
 }
+
+public interface IContactActionRequest : IRequestBase
+{
+    Guid LocalContactId { get; }
+    Guid MailAccountId { get; }
+    Guid AddressBookId { get; }
+    ContactSourceKind SourceKind { get; }
+    ContactSynchronizerOperation Operation { get; }
+    byte[] Photo { get; }
+}

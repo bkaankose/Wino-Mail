@@ -16,9 +16,11 @@ public sealed class PeopleServiceService : IDisposable
     public PeopleServiceService(HttpClient httpClient)
     {
         People = new PeopleResource(httpClient, this);
+        Connections = new ConnectionsResource(httpClient, this);
     }
 
     public PeopleResource People { get; }
+    public ConnectionsResource Connections { get; }
 
     public void Dispose()
     {
@@ -36,6 +38,9 @@ public sealed class PeopleServiceService : IDisposable
         }
 
         public GetRequest Get(string resourceName) => new(_httpClient, _service, resourceName);
+        public CreateContactRequest CreateContact(Person person) => new(_httpClient, _service, person);
+        public UpdateContactRequest UpdateContact(string resourceName, Person person) => new(_httpClient, _service, resourceName, person);
+        public DeleteContactRequest DeleteContact(string resourceName) => new(_httpClient, _service, resourceName);
 
         public sealed class GetRequest : GoogleApiRequest<Person>
         {
@@ -56,6 +61,67 @@ public sealed class PeopleServiceService : IDisposable
             }
 
             public string PersonFields { get; set; }
+        }
+
+        public sealed class CreateContactRequest : GoogleApiRequest<Person>
+        {
+            internal CreateContactRequest(HttpClient client, object service, Person person)
+                : base(client, service, HttpMethod.Post, () => string.Empty,
+                    GoogleApiJsonContext.Default.Person, () => GoogleJsonContent.Create(person, GoogleApiJsonContext.Default.Person))
+            {
+                RequestUriFactory = () => GoogleUrl.AddQuery(
+                    "https://people.googleapis.com/v1/people:createContact",
+                    ("personFields", PersonFields));
+            }
+            public string PersonFields { get; set; }
+        }
+
+        public sealed class UpdateContactRequest : GoogleApiRequest<Person>
+        {
+            private const string Fields = "names,emailAddresses,phoneNumbers,addresses,organizations,birthdays,nicknames,fileAses,biographies,urls,imClients,relations,photos,metadata";
+            internal UpdateContactRequest(HttpClient client, object service, string resourceName, Person person)
+                : base(client, service, HttpMethod.Patch,
+                    () => GoogleUrl.AddQuery($"https://people.googleapis.com/v1/{GoogleUrl.Segment(resourceName).Replace("%2F", "/", StringComparison.OrdinalIgnoreCase)}:updateContact", ("updatePersonFields", Fields), ("personFields", Fields)),
+                    GoogleApiJsonContext.Default.Person, () => GoogleJsonContent.Create(person, GoogleApiJsonContext.Default.Person)) { }
+        }
+
+        public sealed class DeleteContactRequest : GoogleApiRequest<GoogleEmptyResponse>
+        {
+            internal DeleteContactRequest(HttpClient client, object service, string resourceName)
+                : base(client, service, HttpMethod.Delete,
+                    () => $"https://people.googleapis.com/v1/{GoogleUrl.Segment(resourceName).Replace("%2F", "/", StringComparison.OrdinalIgnoreCase)}:deleteContact",
+                    GoogleApiJsonContext.Default.GoogleEmptyResponse) { }
+        }
+    }
+
+    public sealed class ConnectionsResource
+    {
+        private readonly HttpClient _client;
+        private readonly object _service;
+        internal ConnectionsResource(HttpClient client, object service) { _client = client; _service = service; }
+        public ListRequest List(string resourceName) => new(_client, _service, resourceName);
+
+        public sealed class ListRequest : GoogleApiRequest<ListConnectionsResponse>
+        {
+            private readonly string _resourceName;
+            internal ListRequest(HttpClient client, object service, string resourceName)
+                : base(client, service, HttpMethod.Get, () => string.Empty, GoogleApiJsonContext.Default.ListConnectionsResponse)
+            {
+                _resourceName = resourceName;
+                RequestUriFactory = () => GoogleUrl.AddQuery(
+                    $"https://people.googleapis.com/v1/{GoogleUrl.Segment(_resourceName).Replace("%2F", "/", StringComparison.OrdinalIgnoreCase)}/connections",
+                    ("personFields", PersonFields),
+                    ("sources", "READ_SOURCE_TYPE_CONTACT"),
+                    ("pageSize", PageSize.ToString()),
+                    ("pageToken", PageToken),
+                    ("syncToken", SyncToken),
+                    ("requestSyncToken", RequestSyncToken ? "true" : null));
+            }
+            public string PersonFields { get; set; }
+            public int PageSize { get; set; } = 1000;
+            public string PageToken { get; set; }
+            public string SyncToken { get; set; }
+            public bool RequestSyncToken { get; set; } = true;
         }
     }
 }

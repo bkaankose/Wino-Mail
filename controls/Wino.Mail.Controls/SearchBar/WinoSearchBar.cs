@@ -117,7 +117,6 @@ public sealed partial class WinoSearchBar : Control
     private readonly UISettings _uiSettings = new();
     private WeakHistoryCollectionChangedSubscription? _historySubscription;
     private bool _isSynchronizingOptions;
-    private bool _suppressNextFocusPopup;
     private string _pendingSenderQuery = string.Empty;
 
     private FrameworkElement? _layoutRoot;
@@ -416,11 +415,8 @@ public sealed partial class WinoSearchBar : Control
         }
         if (_queryButton is not null) _queryButton.Click += OnQueryButtonClicked;
         if (_meaningToggle is not null) _meaningToggle.Click += OnMeaningToggleClicked;
-        if (_searchOptionsButton is not null) _searchOptionsButton.Click += OnSearchOptionsButtonClicked;
-        if (_historyList is not null) _historyList.ItemClick += OnHistoryItemClick;
         if (_clearHistoryButton is not null) _clearHistoryButton.Click += OnClearHistoryClicked;
         if (_searchPopup is not null) { _searchPopup.Opened += OnSearchPopupOpened; _searchPopup.Closed += OnSearchPopupClosed; }
-        if (_layoutRoot is not null) _layoutRoot.SizeChanged += OnLayoutRootSizeChanged;
         if (_scopeComboBox is not null) _scopeComboBox.SelectionChanged += OnScopeChanged;
         if (_reachComboBox is not null) _reachComboBox.SelectionChanged += OnReachChanged;
         if (_dateComboBox is not null) _dateComboBox.SelectionChanged += OnDateChanged;
@@ -436,7 +432,6 @@ public sealed partial class WinoSearchBar : Control
         if (_unreadButton is not null) _unreadButton.Click += OnFilterButtonClicked;
         if (_flaggedButton is not null) _flaggedButton.Click += OnFilterButtonClicked;
         if (_resetButton is not null) _resetButton.Click += OnResetClicked;
-        if (_panelSearchButton is not null) _panelSearchButton.Click += OnPanelSearchClicked;
     }
 
     private void DetachTemplateHandlers()
@@ -451,11 +446,8 @@ public sealed partial class WinoSearchBar : Control
         }
         if (_queryButton is not null) _queryButton.Click -= OnQueryButtonClicked;
         if (_meaningToggle is not null) _meaningToggle.Click -= OnMeaningToggleClicked;
-        if (_searchOptionsButton is not null) _searchOptionsButton.Click -= OnSearchOptionsButtonClicked;
-        if (_historyList is not null) _historyList.ItemClick -= OnHistoryItemClick;
         if (_clearHistoryButton is not null) _clearHistoryButton.Click -= OnClearHistoryClicked;
         if (_searchPopup is not null) { _searchPopup.Opened -= OnSearchPopupOpened; _searchPopup.Closed -= OnSearchPopupClosed; }
-        if (_layoutRoot is not null) _layoutRoot.SizeChanged -= OnLayoutRootSizeChanged;
         if (_scopeComboBox is not null) _scopeComboBox.SelectionChanged -= OnScopeChanged;
         if (_reachComboBox is not null) _reachComboBox.SelectionChanged -= OnReachChanged;
         if (_dateComboBox is not null) _dateComboBox.SelectionChanged -= OnDateChanged;
@@ -471,7 +463,6 @@ public sealed partial class WinoSearchBar : Control
         if (_unreadButton is not null) _unreadButton.Click -= OnFilterButtonClicked;
         if (_flaggedButton is not null) _flaggedButton.Click -= OnFilterButtonClicked;
         if (_resetButton is not null) _resetButton.Click -= OnResetClicked;
-        if (_panelSearchButton is not null) _panelSearchButton.Click -= OnPanelSearchClicked;
         if (_xamlRootContent is not null)
         {
             _xamlRootContent.RemoveHandler(UIElement.PointerReleasedEvent, new PointerEventHandler(OnRootPointerReleased));
@@ -484,23 +475,13 @@ public sealed partial class WinoSearchBar : Control
     {
         _isFieldFocused = true;
         SynchronizeFieldVisuals();
-        if (_suppressNextFocusPopup) { _suppressNextFocusPopup = false; return; }
-        ShowHistoryPopup();
+        ShowHistorySuggestions();
     }
 
     private void OnSearchLostFocus(object sender, RoutedEventArgs e)
     {
         _isFieldFocused = false;
         SynchronizeFieldVisuals();
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (_searchPopup?.IsOpen != true || XamlRoot is null) return;
-
-            // Focus landing on the options chevron is not "left the search bar": that click is what
-            // opened the options popup, and closing here would shut it in the same gesture.
-            var focused = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject;
-            if (!IsWithin(focused, _searchPopupRoot) && !IsWithin(focused, this)) CloseSearchPopup();
-        });
     }
 
     /// <summary>
@@ -564,24 +545,33 @@ public sealed partial class WinoSearchBar : Control
 
     private void OnSearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
     {
-        if (!string.IsNullOrEmpty(sender.Text)) CloseSearchPopup();
-        else if (sender.FocusState != FocusState.Unfocused) ShowHistoryPopup();
         if (!string.Equals(Text, sender.Text, StringComparison.Ordinal)) Text = sender.Text;
+        UpdateSuggestions(sender.Text.Length == 0 && sender.FocusState != FocusState.Unfocused);
         SearchTextChanged?.Invoke(this, new SearchBarTextChangedEventArgs(sender.Text, args.Reason == AutoSuggestionBoxTextChangeReason.UserInput));
     }
 
     private void OnSearchKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == VirtualKey.Down && e.KeyStatus.IsMenuKeyDown) { ShowOptionsPopup(); e.Handled = true; }
-        else if (e.Key == VirtualKey.Escape) { CloseSearchPopup(); _autoSuggestBox?.Focus(FocusState.Keyboard); e.Handled = true; }
+        if (e.Key == VirtualKey.Escape && _autoSuggestBox is not null)
+        {
+            _autoSuggestBox.IsSuggestionListOpen = false;
+            e.Handled = true;
+        }
     }
 
     private void OnNativeQuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
-        => RaiseSearchSubmitted(args.ChosenSuggestion is null ? SearchBarSubmissionOrigin.KeyboardOrQueryIcon : SearchBarSubmissionOrigin.Suggestion, args.QueryText, args.ChosenSuggestion);
+    {
+        var origin = args.ChosenSuggestion is string
+            ? SearchBarSubmissionOrigin.History
+            : args.ChosenSuggestion is null
+                ? SearchBarSubmissionOrigin.KeyboardOrQueryIcon
+                : SearchBarSubmissionOrigin.Suggestion;
+        RaiseSearchSubmitted(origin, args.QueryText, args.ChosenSuggestion is string ? null : args.ChosenSuggestion);
+        sender.IsSuggestionListOpen = false;
+    }
 
     private void OnQueryButtonClicked(object sender, RoutedEventArgs e)
     {
-        CloseSearchPopup();
         RaiseSearchSubmitted(SearchBarSubmissionOrigin.KeyboardOrQueryIcon, Text, null);
         _autoSuggestBox?.Focus(FocusState.Programmatic);
     }
@@ -590,31 +580,6 @@ public sealed partial class WinoSearchBar : Control
     {
         if (_isSynchronizingOptions || _meaningToggle is null) return;
         IsSemanticSearchEnabled = _meaningToggle.IsChecked == true && IsSemanticSearchAvailable;
-    }
-
-    private void OnSearchOptionsButtonClicked(object sender, RoutedEventArgs e)
-    {
-        if (_searchPopup?.IsOpen == true && (Mode != SearchBarMode.Mail || _optionsPanel?.Visibility == Visibility.Visible)) CloseSearchPopup();
-        else ShowOptionsPopup();
-    }
-
-    private void OnHistoryItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is not string queryText) return;
-        Text = queryText;
-        CloseSearchPopup();
-        RaiseSearchSubmitted(SearchBarSubmissionOrigin.History, queryText, null);
-        _suppressNextFocusPopup = true;
-        _autoSuggestBox?.Focus(FocusState.Programmatic);
-    }
-
-    private void OnPanelSearchClicked(object sender, RoutedEventArgs e)
-    {
-        ApplyOptionControlValues();
-        CloseSearchPopup();
-        RaiseSearchSubmitted(SearchBarSubmissionOrigin.SearchPanel, Text, null);
-        _suppressNextFocusPopup = true;
-        _autoSuggestBox?.Focus(FocusState.Programmatic);
     }
 
     private void RaiseSearchSubmitted(SearchBarSubmissionOrigin origin, string? queryText, object? chosenSuggestion)
@@ -627,6 +592,28 @@ public sealed partial class WinoSearchBar : Control
 
     private SearchBarFilterSnapshot CreateFilterSnapshot()
         => new(SearchScope, SearchReach, (SelectedSenderContact?.Address ?? SenderFilter).Trim(), DateRange, HasAttachments, IsUnread, IsFlagged);
+
+    private void ShowHistorySuggestions()
+    {
+        if (_autoSuggestBox is null || Mode == SearchBarMode.Settings || _autoSuggestBox.Text.Length != 0)
+        {
+            return;
+        }
+
+        UpdateSuggestions(useHistory: true);
+        _autoSuggestBox.IsSuggestionListOpen = _historySuggestions.Count > 0;
+    }
+
+    private void UpdateSuggestions(bool useHistory)
+    {
+        if (_autoSuggestBox is null)
+        {
+            return;
+        }
+
+        _autoSuggestBox.ItemsSource = useHistory ? _historySuggestions : ItemsSource;
+        _autoSuggestBox.ItemTemplate = useHistory ? null : ItemTemplate;
+    }
 
     private void ShowHistoryPopup()
     {
@@ -717,12 +704,6 @@ public sealed partial class WinoSearchBar : Control
     {
         DetachRootPointerHandler();
         UpdateChevronRotation(false);
-    }
-    private void OnLayoutRootSizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (_searchPopup?.IsOpen != true) return;
-        UpdatePopupSize(_optionsPanel?.Visibility == Visibility.Visible);
-        PositionSearchPopup();
     }
 
     private void UpdateChevronRotation(bool expanded)
@@ -889,6 +870,9 @@ public sealed partial class WinoSearchBar : Control
         RefreshHistoryItems();
     }
 
+    private void UpdateHistorySource()
+        => OnHistorySourcePropertyChanged(this, SearchHistoryItemsSourceProperty);
+
     private void OnHistoryCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshHistoryItems();
 
     private sealed partial class WeakHistoryCollectionChangedSubscription : IDisposable
@@ -926,15 +910,6 @@ public sealed partial class WinoSearchBar : Control
         foreach (var item in source) collection.Add(item);
     }
 
-    private void OnInputPropertyChanged(DependencyObject sender, DependencyProperty dp) => SynchronizeInputProperties();
-    private void OnVisualPropertyChanged(DependencyObject sender, DependencyProperty dp)
-    {
-        if (!IsSemanticSearchAvailable && IsSemanticSearchEnabled) IsSemanticSearchEnabled = false;
-        SynchronizeAll();
-        if (dp is not null && (dp == SearchScopeProperty || dp == SearchReachProperty || dp == SenderFilterProperty || dp == DateRangeProperty || dp == HasAttachmentsProperty || dp == IsUnreadProperty || dp == IsFlaggedProperty || dp == IsSemanticSearchEnabledProperty))
-            SearchOptionsChanged?.Invoke(this, CreateFilterSnapshot());
-    }
-
     private void SynchronizeAll()
     {
         SynchronizeInputProperties();
@@ -944,13 +919,53 @@ public sealed partial class WinoSearchBar : Control
         SynchronizeFieldVisuals();
     }
 
+    private void UpdatePlaceholder()
+    {
+        if (_autoSuggestBox is not null)
+        {
+            _autoSuggestBox.PlaceholderText = IsSemanticSearchEnabled && !string.IsNullOrWhiteSpace(SemanticPlaceholderText)
+                ? SemanticPlaceholderText
+                : PlaceholderText;
+        }
+    }
+
+    private void UpdateQueryButton()
+    {
+        if (_queryButton is null)
+        {
+            return;
+        }
+
+        _queryButton.Content = QueryIcon;
+        _queryButton.Visibility = ToVisibility(QueryIcon is not null);
+    }
+
+    private void UpdateSemanticState()
+    {
+        if (!IsSemanticSearchAvailable && IsSemanticSearchEnabled)
+        {
+            IsSemanticSearchEnabled = false;
+            return;
+        }
+
+        if (_meaningToggle is not null)
+        {
+            _meaningToggle.IsChecked = IsSemanticSearchEnabled;
+        }
+
+        UpdatePlaceholder();
+        UpdateModeVisuals();
+        SynchronizeFieldVisuals();
+    }
+
+    private void UpdateAccessibleText() => SynchronizeLocalizedText();
+
     private void SynchronizeInputProperties()
     {
         if (_autoSuggestBox is null) return;
         if (!string.Equals(_autoSuggestBox.Text, Text, StringComparison.Ordinal)) _autoSuggestBox.Text = Text;
         _autoSuggestBox.PlaceholderText = IsSemanticSearchEnabled && !string.IsNullOrWhiteSpace(SemanticPlaceholderText) ? SemanticPlaceholderText : PlaceholderText;
-        _autoSuggestBox.ItemsSource = ItemsSource;
-        _autoSuggestBox.ItemTemplate = ItemTemplate;
+        UpdateSuggestions(_autoSuggestBox.Text.Length == 0 && _autoSuggestBox.FocusState != FocusState.Unfocused);
         if (_queryButton is not null) { _queryButton.Content = QueryIcon; _queryButton.Visibility = ToVisibility(QueryIcon is not null); }
     }
 
@@ -999,7 +1014,6 @@ public sealed partial class WinoSearchBar : Control
     {
         var mail = Mode == SearchBarMode.Mail;
         if (_mailOptionsPanel is not null) _mailOptionsPanel.Visibility = ToVisibility(mail);
-        if (_searchOptionsButton is not null) _searchOptionsButton.Visibility = ToVisibility(Mode != SearchBarMode.Settings);
         if (_meaningToggle is not null)
         {
             _meaningToggle.Visibility = ToVisibility(mail && (IsSemanticSearchAvailable || !string.IsNullOrWhiteSpace(SemanticUnavailableReasonText)));

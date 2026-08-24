@@ -28,6 +28,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     private const string SetupOperationAuthentication = "Authentication";
     private const string SetupOperationSaveAccount = "SaveAccount";
     private const string SetupOperationProfileSync = "ProfileSync";
+    private const string SetupOperationContactSync = "ContactSync";
     private const string SetupOperationFolderSync = "FolderSync";
     private const string SetupOperationCategorySync = "CategorySync";
     private const string SetupOperationCalendarMetadataSync = "CalendarMetadataSync";
@@ -92,6 +93,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         Steps.Clear();
         var shouldSetupMail = WizardContext.IsMailAccessEnabled;
         var shouldSetupCalendar = WizardContext.IsCalendarAccessEnabled;
+        var shouldSetupContacts = WizardContext.IsOAuthProvider && WizardContext.IsContactAccessEnabled;
 
         if (WizardContext.IsOAuthProvider)
         {
@@ -100,6 +102,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 Title = string.Format(Translator.AccountSetup_Step_Authenticating, WizardContext.SelectedProvider.Name)
             });
             Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SavingAccount });
+            if (shouldSetupContacts)
+                Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SyncingContacts });
             if (shouldSetupMail)
             {
                 Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_FetchingProfile });
@@ -230,7 +234,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 CreatedAt = accountCreatedAt,
                 InitialSynchronizationRange = WizardContext.SelectedInitialSynchronizationRange,
                 IsMailAccessGranted = WizardContext.IsMailAccessEnabled,
-                IsCalendarAccessGranted = WizardContext.IsCalendarAccessEnabled
+                IsCalendarAccessGranted = WizardContext.IsCalendarAccessEnabled,
+                IsContactAccessGranted = WizardContext.IsOAuthProvider && WizardContext.IsContactAccessEnabled
             };
 
             if (WizardContext.IsOAuthProvider)
@@ -253,6 +258,19 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 await _accountService.CreateAccountAsync(_createdAccount, null);
                 _dbWritten = true;
                 SetCurrentStepSucceeded();
+
+                if (_createdAccount.IsContactAccessGranted)
+                {
+                    SetStepInProgress(Translator.AccountSetup_Step_SyncingContacts, SetupOperationContactSync);
+                    var contactResult = await SynchronizationManager.Instance.SynchronizeContactsAsync(new ContactSynchronizationOptions
+                    {
+                        AccountId = _createdAccount.Id,
+                        Type = ContactSynchronizationType.Full
+                    });
+                    if (contactResult.CompletedState != SynchronizationCompletedState.Success)
+                        throw new Exception(Translator.Exception_FailedToSynchronizeContacts);
+                    SetCurrentStepSucceeded();
+                }
 
                 if (_createdAccount.IsMailAccessGranted)
                 {
@@ -556,7 +574,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             ["provider_type"] = WizardContext.SelectedProvider?.Type.ToString() ?? "Unknown",
             ["is_oauth_provider"] = WizardContext.IsOAuthProvider.ToString(),
             ["is_mail_access_enabled"] = WizardContext.IsMailAccessEnabled.ToString(),
-            ["is_calendar_access_enabled"] = WizardContext.IsCalendarAccessEnabled.ToString()
+            ["is_calendar_access_enabled"] = WizardContext.IsCalendarAccessEnabled.ToString(),
+            ["is_contact_access_enabled"] = WizardContext.IsContactAccessEnabled.ToString()
         };
 
         if (_createdAccount != null)

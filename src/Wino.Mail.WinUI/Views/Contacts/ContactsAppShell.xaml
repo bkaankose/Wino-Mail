@@ -34,7 +34,7 @@
                 <Frame
                     x:Name="InnerShellFrame"
                     Padding="0,0,7,7"
-                    IsNavigationStackEnabled="False" />
+                    IsNavigationStackEnabled="True" />
 
                 <coreControls:WinoInfoBar
                     x:Name="ShellInfoBar"

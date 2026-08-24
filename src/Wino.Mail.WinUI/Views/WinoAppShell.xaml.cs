@@ -9,13 +9,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Foundation;
 using Windows.System;
 using Wino.Calendar.ViewModels;
-using Wino.Controls;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -39,11 +39,11 @@ using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Contacts;
 using Wino.Messaging.Client.Mails;
-using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
 using Wino.Views;
 using Wino.Views.Mail;
+using Wino.Views.Settings;
 
 namespace Wino.Mail.WinUI.Views;
 
@@ -69,6 +69,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private Grid? _paneContentGrid;
     private RowDefinition? _paneCustomContentRowDefinition;
     private RowDefinition? _paneItemsContainerRowDefinition;
+    public ContactsPageViewModel ContactsViewModel { get; private set; }
 
     public WinoAppShell()
     {
@@ -221,6 +222,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         else if (_activeMode == WinoApplicationMode.Contacts)
         {
             activeClient.Deactivate();
+            DetachContactsPaneViewModel();
         }
         else if (_activeMode == WinoApplicationMode.Settings)
         {
@@ -432,6 +434,9 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private static void InvokeNewContact()
         => WeakReferenceMessenger.Default.Send(new NewContactRequested());
 
+    private static void InvokeNewAddressList()
+        => WeakReferenceMessenger.Default.Send(new NewAddressListRequested());
+
     private async void SynchronizeCalendarsButtonClick(object sender, RoutedEventArgs e)
     {
         await InvokeCalendarSynchronizationAsync();
@@ -572,6 +577,11 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     {
         NotifyTitleBarContentChanged();
 
+        if (e.Content is ContactsPage contactsPage)
+        {
+            AttachContactsPaneViewModel(contactsPage.ViewModel);
+        }
+
         if (ViewModel.IsMailMode)
         {
             RefreshNavigationViewBindings();
@@ -619,6 +629,39 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         }
 
         NavigateToAccountSettings(accountMenuItem);
+    }
+
+    private void AttachContactsPaneViewModel(ContactsPageViewModel viewModel)
+    {
+        _ = FindName(nameof(ContactsPaneContent));
+        ContactsViewModel = viewModel;
+        ((CollectionViewSource)Resources["ContactsFilterCollectionViewSource"]).Source = viewModel.FilterGroups;
+        Bindings.Update();
+    }
+
+    private void DetachContactsPaneViewModel()
+    {
+        ContactsViewModel = null;
+        ((CollectionViewSource)Resources["ContactsFilterCollectionViewSource"]).Source = null;
+        Bindings.Update();
+    }
+
+    private void RenameContactList_Click(object sender, RoutedEventArgs e)
+    {
+        if (ContactsViewModel is not null &&
+            sender is MenuFlyoutItem { Tag: ContactFilterViewModel filter })
+        {
+            ContactsViewModel.RenameListCommand.Execute(filter);
+        }
+    }
+
+    private void DeleteContactList_Click(object sender, RoutedEventArgs e)
+    {
+        if (ContactsViewModel is not null &&
+            sender is MenuFlyoutItem { Tag: ContactFilterViewModel filter })
+        {
+            ContactsViewModel.DeleteListCommand.Execute(filter);
+        }
     }
 
     private async void CreateFolderMenuItemClicked(object sender, RoutedEventArgs e)
@@ -1165,5 +1208,20 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         WeakReferenceMessenger.Default.Unregister<NavigateMailFolderEvent>(this);
         WeakReferenceMessenger.Default.Unregister<CalendarDisplayTypeChangedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<AccountCreatedMessage>(this);
+    }
+
+    private void NewAddressListNavigationItemTapped(object sender, TappedRoutedEventArgs e)
+    {
+        e.Handled = true;
+        InvokeNewAddressList();
+    }
+
+    private void NewAddressListNavigationItemKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is not (VirtualKey.Enter or VirtualKey.Space))
+            return;
+
+        e.Handled = true;
+        InvokeNewAddressList();
     }
 }

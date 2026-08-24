@@ -665,18 +665,7 @@ public class MailService : BaseDatabaseService, IMailService
         var accountCache = accounts.ToDictionary(account => account.Id);
 
         cancellationToken.ThrowIfCancellationRequested();
-        var addresses = mails
-            .Where(mail => !string.IsNullOrWhiteSpace(mail.FromAddress))
-            .Select(mail => mail.FromAddress)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        var contacts = addresses.Count == 0
-            ? []
-            : await _contactService.GetContactsByAddressesAsync(addresses).ConfigureAwait(false);
-        var contactCache = contacts
-            .Where(contact => contact != null && !string.IsNullOrWhiteSpace(contact.Address))
-            .GroupBy(contact => contact.Address, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
+        var contactCache = await BuildAccountContactCacheAsync(mails, folderCache).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
         AssignPropertiesFromCaches(mails, folderCache, accountCache, contactCache);
@@ -704,11 +693,34 @@ public class MailService : BaseDatabaseService, IMailService
     /// Assigns AssignedFolder, AssignedAccount, and SenderContact to each mail from pre-loaded
     /// in-memory dictionaries. No DB calls are made here.
     /// </summary>
+    private async Task<Dictionary<(Guid AccountId, string Address), AccountContact>> BuildAccountContactCacheAsync(
+        IEnumerable<MailCopy> mails,
+        IReadOnlyDictionary<Guid, MailItemFolder> folderCache)
+    {
+        var cache = new Dictionary<(Guid, string), AccountContact>();
+        var accountAddressGroups = mails
+            .Where(mail => !string.IsNullOrWhiteSpace(mail.FromAddress) && folderCache.ContainsKey(mail.FolderId))
+            .GroupBy(mail => folderCache[mail.FolderId].MailAccountId);
+
+        foreach (var group in accountAddressGroups)
+        {
+            var addresses = group.Select(mail => mail.FromAddress).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            foreach (var address in addresses)
+            {
+                var contact = await _contactService.GetContactByAddressAsync(group.Key, address).ConfigureAwait(false);
+                if (contact is not null)
+                    cache[(group.Key, ContactEmailAddress.Normalize(address))] = contact;
+            }
+        }
+
+        return cache;
+    }
+
     private void AssignPropertiesFromCaches(
         List<MailCopy> mails,
         Dictionary<Guid, MailItemFolder> folderCache,
         Dictionary<Guid, MailAccount> accountCache,
-        Dictionary<string, AccountContact> contactCache)
+        Dictionary<(Guid AccountId, string Address), AccountContact> contactCache)
     {
         foreach (var mail in mails)
         {
@@ -726,7 +738,7 @@ public class MailService : BaseDatabaseService, IMailService
             if (!string.IsNullOrEmpty(mail.FromAddress) &&
                 string.Equals(mail.FromAddress, account.Address, StringComparison.OrdinalIgnoreCase))
             {
-                if (contactCache.TryGetValue(mail.FromAddress, out var ownContact))
+                if (contactCache.TryGetValue((account.Id, ContactEmailAddress.Normalize(mail.FromAddress)), out var ownContact))
                 {
                     mail.SenderContact = ownContact;
                 }
@@ -741,7 +753,7 @@ public class MailService : BaseDatabaseService, IMailService
             }
             else
             {
-                contactCache.TryGetValue(mail.FromAddress ?? string.Empty, out var contact);
+                contactCache.TryGetValue((account.Id, ContactEmailAddress.Normalize(mail.FromAddress) ?? string.Empty), out var contact);
                 mail.SenderContact = contact ?? CreateUnknownContact(mail.FromName, mail.FromAddress);
             }
         }
@@ -780,17 +792,7 @@ public class MailService : BaseDatabaseService, IMailService
             .Where(a => accountIds.Contains(a.Id))
             .ToDictionary(a => a.Id);
 
-        var addresses = mails
-            .Where(m => !string.IsNullOrEmpty(m.FromAddress))
-            .Select(m => m.FromAddress)
-            .Distinct()
-            .ToList();
-
-        var contactCache = addresses.Count == 0
-            ? new Dictionary<string, AccountContact>()
-            : (await _contactService.GetContactsByAddressesAsync(addresses).ConfigureAwait(false))
-                .Where(c => c != null)
-                .ToDictionary(c => c.Address);
+        var contactCache = await BuildAccountContactCacheAsync(mails, folderCache).ConfigureAwait(false);
 
         AssignPropertiesFromCaches(mails, folderCache, accountCache, contactCache);
         await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
@@ -961,13 +963,13 @@ public class MailService : BaseDatabaseService, IMailService
         }
         else
         {
-            return _contactService.GetAddressInformationByAddressAsync(fromAddress);
+            return _contactService.GetContactByAddressAsync(account.Id, fromAddress);
         }
     }
 
     private async Task<AccountContact> GetOwnSenderContactAsync(MailAccount account)
     {
-        var contact = await _contactService.GetAddressInformationByAddressAsync(account.Address).ConfigureAwait(false);
+        var contact = await _contactService.GetContactByAddressAsync(account.Id, account.Address).ConfigureAwait(false);
 
         return contact ?? new AccountContact
         {
@@ -1646,7 +1648,7 @@ public class MailService : BaseDatabaseService, IMailService
         mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
         mailCopy.FolderId = mailItemFolder.Id;
 
-        await SaveContactsForPackageAsync(package).ConfigureAwait(false);
+        await SaveContactsForPackageAsync(account.Id, package).ConfigureAwait(false);
 
         var mimeSaveTask = _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, account.Id);
         var insertMailTask = InsertMailAsync(mailCopy, reportUiChange: true);
@@ -1728,7 +1730,7 @@ public class MailService : BaseDatabaseService, IMailService
                 }
             }
 
-            await SaveContactsForPackageAsync(package).ConfigureAwait(false);
+            await SaveContactsForPackageAsync(accountId, package).ConfigureAwait(false);
 
             var existingCopyItem = await Connection.Table<MailCopy>()
                                                    .FirstOrDefaultAsync(a => a.Id == mailCopy.Id && a.FolderId == assignedFolder.Id)
@@ -1847,7 +1849,7 @@ public class MailService : BaseDatabaseService, IMailService
         }
 
         // Save contact information extracted from provider API or MIME before insert/update.
-        await SaveContactsForPackageAsync(package).ConfigureAwait(false);
+        await SaveContactsForPackageAsync(accountId, package).ConfigureAwait(false);
 
         // Create mail copy in the database.
         // Update if exists.
@@ -1886,13 +1888,13 @@ public class MailService : BaseDatabaseService, IMailService
         }
     }
 
-    private async Task SaveContactsForPackageAsync(NewMailItemPackage package)
+    private async Task SaveContactsForPackageAsync(Guid accountId, NewMailItemPackage package)
     {
         if (package == null) return;
 
         if (package.Mime != null)
         {
-            await _contactService.SaveAddressInformationAsync(package.Mime).ConfigureAwait(false);
+            await _contactService.SaveAddressInformationAsync(accountId, package.Mime).ConfigureAwait(false);
             return;
         }
 
@@ -1912,7 +1914,7 @@ public class MailService : BaseDatabaseService, IMailService
 
         if (contacts.Count == 0) return;
 
-        await _contactService.SaveAddressInformationAsync(contacts).ConfigureAwait(false);
+        await _contactService.SaveAddressInformationAsync(accountId, contacts).ConfigureAwait(false);
     }
 
     private Task ReplaceMailCategoriesForPackageAsync(Guid accountId, MailCopy mailCopy, NewMailItemPackage package)

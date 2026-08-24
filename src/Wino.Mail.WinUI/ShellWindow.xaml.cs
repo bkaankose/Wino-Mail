@@ -479,11 +479,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         TitleBarSearchBox.SearchHistoryItemsSource = [];
     }
 
-    private async void TitleBarSearchOptionsChanged(object? sender, SearchBarFilterSnapshot args)
-    {
-        await RefreshSemanticAvailabilityAsync(args);
-    }
-
     private async Task RefreshSemanticAvailabilityAsync(SearchBarFilterSnapshot? filters = null)
     {
         if (_activeTitleBarSearchHost is not IMailTitleBarSearchHost mailHost)

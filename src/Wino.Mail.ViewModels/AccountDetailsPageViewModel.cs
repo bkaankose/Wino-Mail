@@ -45,6 +45,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     private readonly IPreferencesService _preferencesService;
     private readonly IAccountProfilePictureFileService _accountProfilePictureFileService;
     private readonly IWinoLogger _winoLogger;
+    private readonly IAccountCapabilityService _accountCapabilityService;
     private bool isLoaded = false;
 
     [ObservableProperty]
@@ -125,10 +126,28 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial AccountCapabilityOption SelectedCapabilityOption { get; set; }
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
+    public partial bool IsMailCapabilitySelected { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
+    public partial bool IsCalendarCapabilitySelected { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
+    public partial bool IsContactsCapabilitySelected { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
+    public partial bool IsApplyingCapabilities { get; set; }
+
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
     public bool IsImapServer => ServerInformation != null;
     public bool HasMailAccess => Account?.IsMailAccessGranted == true;
     public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;
+    public bool HasContactAccess => Account?.IsContactAccessGranted == true;
+    public bool IsContactReauthorizationRequired => Account?.IsContactReauthorizationRequired == true;
     public bool IsOAuthCapabilityEditable => Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
     public string ProviderIconPath => Account?.SpecialImapProvider != SpecialImapProvider.None
         ? $"ms-appx:///Assets/Providers/{Account.SpecialImapProvider}.png"
@@ -181,7 +200,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         IFileService fileService,
         IAccountProfilePictureFileService accountProfilePictureFileService,
         IPreferencesService preferencesService,
-        IWinoLogger winoLogger)
+        IWinoLogger winoLogger,
+        IAccountCapabilityService accountCapabilityService)
     {
         _dialogService = dialogService;
         _accountService = accountService;
@@ -196,6 +216,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         _accountProfilePictureFileService = accountProfilePictureFileService;
         _preferencesService = preferencesService;
         _winoLogger = winoLogger;
+        _accountCapabilityService = accountCapabilityService;
 
         var colorHexList = _themeService.GetAvailableAccountColors();
         AvailableColors = colorHexList.Select(a => new AppColorViewModel(a)).ToList();
@@ -241,6 +262,68 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             Translator.ImapCalDavSettingsPage_TitleEdit,
             WinoPage.ImapCalDavSettingsPage,
             ImapCalDavSettingsNavigationContext.CreateForEditMode(Account.Id)));
+
+    private bool CanApplyCapabilities() => Account is not null && !IsApplyingCapabilities &&
+        (IsMailCapabilitySelected || IsCalendarCapabilitySelected || IsContactsCapabilitySelected);
+
+    [RelayCommand(CanExecute = nameof(CanApplyCapabilities))]
+    private async Task ApplyCapabilitiesAsync()
+    {
+        var contactsChanged = Account.IsContactAccessGranted != IsContactsCapabilitySelected;
+        if (contactsChanged)
+        {
+            var confirmed = await _dialogService.ShowConfirmationDialogAsync(
+                Translator.AccountDetailsPage_ContactsTransitionTitle,
+                IsContactsCapabilitySelected
+                    ? Translator.AccountDetailsPage_EnableContactsConfirmation
+                    : Translator.AccountDetailsPage_DisableContactsConfirmation,
+                Translator.Buttons_Apply);
+            if (!confirmed)
+            {
+                IsContactsCapabilitySelected = Account.IsContactAccessGranted;
+                return;
+            }
+        }
+
+        var previousMail = Account.IsMailAccessGranted;
+        var previousCalendar = Account.IsCalendarAccessGranted;
+        IsApplyingCapabilities = true;
+        try
+        {
+            Account = await _accountCapabilityService.ApplyAsync(
+                Account,
+                IsMailCapabilitySelected,
+                IsCalendarCapabilitySelected,
+                IsContactsCapabilitySelected);
+
+            if (IsMailCapabilitySelected && !previousMail)
+                await SynchronizationManager.Instance.SynchronizeFoldersAsync(Account.Id);
+            if (IsCalendarCapabilitySelected && !previousCalendar)
+                await SynchronizationManager.Instance.SynchronizeCalendarAsync(new CalendarSynchronizationOptions { AccountId = Account.Id, Type = CalendarSynchronizationType.CalendarMetadata });
+
+            _dialogService.InfoBarMessage(Translator.EditAccountDetailsPage_SaveSuccess_Title, Translator.EditAccountDetailsPage_SaveSuccess_Message, InfoBarMessageType.Success);
+        }
+        catch (Exception ex)
+        {
+            IsMailCapabilitySelected = Account.IsMailAccessGranted;
+            IsCalendarCapabilitySelected = Account.IsCalendarAccessGranted;
+            IsContactsCapabilitySelected = Account.IsContactAccessGranted;
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+        }
+        finally
+        {
+            IsApplyingCapabilities = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ReauthorizeContactsAsync()
+    {
+        IsContactsCapabilitySelected = true;
+        await ApplyCapabilitiesAsync();
+        if (!Account.IsContactReauthorizationRequired)
+            Messenger.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions { AccountId = Account.Id, Type = ContactSynchronizationType.Delta }));
+    }
 
     [RelayCommand]
     private async Task SaveChangesAsync()
@@ -825,12 +908,17 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(InitialSynchronizationSummary));
         OnPropertyChanged(nameof(HasMailAccess));
         OnPropertyChanged(nameof(HasCalendarAccess));
+        OnPropertyChanged(nameof(HasContactAccess));
+        OnPropertyChanged(nameof(IsContactReauthorizationRequired));
         OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
         OnPropertyChanged(nameof(HasProfilePicture));
         OnPropertyChanged(nameof(CanRefreshProfilePicture));
         ChangeProfilePictureCommand.NotifyCanExecuteChanged();
         RemoveProfilePictureCommand.NotifyCanExecuteChanged();
         RefreshProfilePictureCommand.NotifyCanExecuteChanged();
+        IsMailCapabilitySelected = value?.IsMailAccessGranted == true;
+        IsCalendarCapabilitySelected = value?.IsCalendarAccessGranted == true;
+        IsContactsCapabilitySelected = value?.IsContactAccessGranted == true;
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
@@ -866,22 +954,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             case nameof(IsJumpListEnabled):
                 Account.Preferences.IsJumpListEnabled = IsJumpListEnabled;
                 await _accountService.UpdateAccountAsync(Account);
-                break;
-            case nameof(SelectedCapabilityOption) when IsOAuthCapabilityEditable && SelectedCapabilityOption != null:
-                if (Account.IsMailAccessGranted == SelectedCapabilityOption.IsMailAccessGranted &&
-                    Account.IsCalendarAccessGranted == SelectedCapabilityOption.IsCalendarAccessGranted)
-                    break;
-
-                try
-                {
-                    await UpdateOAuthCapabilityAsync(SelectedCapabilityOption);
-                    await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
-                }
-                catch (Exception ex)
-                {
-                    await ExecuteUIThread(() => SelectedCapabilityOption = ResolveCapabilityOption(Account.IsMailAccessGranted, Account.IsCalendarAccessGranted));
-                    _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
-                }
                 break;
             case nameof(SelectedPrimaryCalendar) when SelectedPrimaryCalendar != null:
                 foreach (var calendar in AccountCalendars)

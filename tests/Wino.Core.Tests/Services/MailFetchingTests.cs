@@ -160,9 +160,17 @@ public class MailFetchingTests : IAsyncLifetime
         const string KnownAddress = "known@example.com";
         const string UnknownAddress = "unknown@example.com";
 
-        await _databaseService.Connection.InsertAsync(
-            new AccountContact { Address = KnownAddress, Name = "Known Sender" },
-            typeof(AccountContact));
+        var knownContact = new AccountContact
+        {
+            Id = Guid.NewGuid(), MailAccountId = _testAccount.Id,
+            DisplayName = "Known Sender", SourceKind = ContactSourceKind.Local
+        };
+        await _databaseService.Connection.InsertAsync(knownContact, typeof(AccountContact));
+        await _databaseService.Connection.InsertAsync(new ContactEmailAddress
+        {
+            Id = Guid.NewGuid(), ContactId = knownContact.Id, Address = KnownAddress,
+            NormalizedAddress = ContactEmailAddress.Normalize(KnownAddress), IsPrimary = true
+        }, typeof(ContactEmailAddress));
 
         var mails = new List<MailCopy>
         {

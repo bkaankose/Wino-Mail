@@ -14,3 +14,9 @@ public record NewMailSynchronizationRequested(MailSynchronizationOptions Options
 /// </summary>
 /// <param name="Options">Options for synchronization.</param>
 public record NewCalendarSynchronizationRequested(CalendarSynchronizationOptions Options) : IClientMessage, IUIMessage;
+
+/// <summary>
+/// Triggers a new contacts synchronization if possible.
+/// </summary>
+/// <param name="Options">Options for synchronization.</param>
+public record NewContactSynchronizationRequested(ContactSynchronizationOptions Options) : IClientMessage, IUIMessage;

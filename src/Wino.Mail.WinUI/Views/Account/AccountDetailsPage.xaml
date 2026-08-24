@@ -213,17 +213,43 @@
                     <controls:SettingsCard.HeaderIcon>
                         <FontIcon Glyph="&#xE787;" />
                     </controls:SettingsCard.HeaderIcon>
-                    <ComboBox
-                        MinWidth="220"
-                        AutomationProperties.AutomationId="AccountDetailsPageComboBox"
-                        ItemsSource="{x:Bind ViewModel.CapabilityOptions, Mode=OneWay}"
-                        SelectedItem="{x:Bind ViewModel.SelectedCapabilityOption, Mode=TwoWay}">
-                        <ComboBox.ItemTemplate>
-                            <DataTemplate x:DataType="mailViewModels:AccountCapabilityOption">
-                                <TextBlock Text="{x:Bind DisplayText}" />
-                            </DataTemplate>
-                        </ComboBox.ItemTemplate>
-                    </ComboBox>
+                    <StackPanel MinWidth="280" Spacing="8">
+                        <CheckBox
+                            AutomationProperties.AutomationId="AccountCapabilityMail"
+                            Content="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
+                            IsChecked="{x:Bind ViewModel.IsMailCapabilitySelected, Mode=TwoWay}" />
+                        <CheckBox
+                            AutomationProperties.AutomationId="AccountCapabilityCalendar"
+                            Content="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}"
+                            IsChecked="{x:Bind ViewModel.IsCalendarCapabilitySelected, Mode=TwoWay}" />
+                        <CheckBox
+                            AutomationProperties.AutomationId="AccountCapabilityContacts"
+                            Content="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}"
+                            IsChecked="{x:Bind ViewModel.IsContactsCapabilitySelected, Mode=TwoWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.AccountDetailsPage_ContactsCapabilityImpact, Mode=OneTime}"
+                            TextWrapping="Wrap" />
+                        <InfoBar
+                            AutomationProperties.AutomationId="AccountContactsReauthorizationInfo"
+                            IsClosable="False"
+                            IsOpen="{x:Bind ViewModel.IsContactReauthorizationRequired, Mode=OneWay}"
+                            Message="{x:Bind domain:Translator.AccountDetailsPage_ContactsReauthorizationMessage, Mode=OneTime}"
+                            Severity="Warning">
+                            <InfoBar.ActionButton>
+                                <Button
+                                    AutomationProperties.AutomationId="ReconnectAccountContacts"
+                                    Command="{x:Bind ViewModel.ReauthorizeContactsCommand}"
+                                    Content="{x:Bind domain:Translator.AccountDetailsPage_ReconnectContacts, Mode=OneTime}" />
+                            </InfoBar.ActionButton>
+                        </InfoBar>
+                        <Button
+                            AutomationProperties.AutomationId="ApplyAccountCapabilities"
+                            HorizontalAlignment="Left"
+                            Command="{x:Bind ViewModel.ApplyCapabilitiesCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_Apply, Mode=OneTime}" />
+                    </StackPanel>
                 </controls:SettingsCard>
 
                 <controls:SettingsCard

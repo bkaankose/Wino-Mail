@@ -1,3 +1,5 @@
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -40,6 +42,7 @@ public class DatabaseService : IDatabaseService
         Connection = new SQLiteAsyncConnection(databaseFileName);
         await Connection.ExecuteAsync("PRAGMA foreign_keys = ON;").ConfigureAwait(false);
 
+        await MigrateLegacyContactsAsync().ConfigureAwait(false);
         await CreateTablesAsync();
 
         _isInitialized = true;
@@ -60,8 +63,14 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<FolderConfigurationOverride>(),
             Connection.CreateTableAsync<MailAccount>(),
             Connection.CreateTableAsync<AccountContact>(),
-            Connection.CreateTableAsync<ContactGroup>(),
-            Connection.CreateTableAsync<ContactGroupMember>(),
+            Connection.CreateTableAsync<ContactAddressBook>(),
+            Connection.CreateTableAsync<ContactEmailAddress>(),
+            Connection.CreateTableAsync<ContactPhoneNumber>(),
+            Connection.CreateTableAsync<ContactPostalAddress>(),
+            Connection.CreateTableAsync<ContactImAddress>(),
+            Connection.CreateTableAsync<ContactRelation>(),
+            Connection.CreateTableAsync<ContactList>(),
+            Connection.CreateTableAsync<ContactListMember>(),
             Connection.CreateTableAsync<CustomServerInformation>(),
             Connection.CreateTableAsync<MailServerCertificateTrust>(),
             Connection.CreateTableAsync<AccountSignature>(),
@@ -82,6 +91,7 @@ public class DatabaseService : IDatabaseService
 
         await EnsureSchemaUpgradesAsync().ConfigureAwait(false);
         await EnsureIndexesAsync().ConfigureAwait(false);
+        await EnsureLocalAddressBooksAsync().ConfigureAwait(false);
     }
 
     private async Task EnsureSchemaUpgradesAsync()
@@ -211,6 +221,20 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
         {
             await Connection
                 .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.IsProtocolLogEnabled)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsContactAccessGranted)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.IsContactAccessGranted)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsContactReauthorizationRequired)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.IsContactReauthorizationRequired)} INTEGER NOT NULL DEFAULT 0")
                 .ConfigureAwait(false);
         }
 
@@ -380,15 +404,6 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
-        var contactColumns = await Connection.GetTableInfoAsync(nameof(AccountContact)).ConfigureAwait(false);
-
-        if (!contactColumns.Any(c => c.Name == nameof(AccountContact.ContactPictureFileId)))
-        {
-            await Connection
-                .ExecuteAsync($"ALTER TABLE {nameof(AccountContact)} ADD COLUMN {nameof(AccountContact.ContactPictureFileId)} TEXT NULL")
-                .ConfigureAwait(false);
-        }
-
         var thumbnailColumns = await Connection.GetTableInfoAsync(nameof(Thumbnail)).ConfigureAwait(false);
 
         var isThumbnailFileCacheMigrationNeeded = false;
@@ -433,6 +448,16 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
         }
 
         await Connection.ExecuteAsync("DROP TABLE IF EXISTS WinoAccountAddOnCache").ConfigureAwait(false);
+
+        await Connection.ExecuteAsync(@"
+UPDATE ContactCard
+SET SortKey = LOWER(COALESCE(
+    NULLIF(TRIM(DisplayName), ''),
+    NULLIF(TRIM(CompanyName), ''),
+    (SELECT e.Address FROM ContactEmailAddress e WHERE e.ContactId = ContactCard.Id ORDER BY e.IsPrimary DESC, e.""Order"" LIMIT 1),
+    (SELECT p.Number FROM ContactPhoneNumber p WHERE p.ContactId = ContactCard.Id ORDER BY p.IsPrimary DESC, p.""Order"" LIMIT 1),
+    ''))
+WHERE SortKey IS NULL OR SortKey = ''").ConfigureAwait(false);
     }
 
     private async Task EnsureWinoAccountSchemaAsync()
@@ -488,6 +513,18 @@ SET {nameof(KeyboardShortcut.Action)} =
 
     private async Task EnsureIndexesAsync()
     {
+        // Contact indexes
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactEmailAddress_NormalizedAddress ON ContactEmailAddress(NormalizedAddress)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_ContactEmailAddress_Contact_Normalized ON ContactEmailAddress(ContactId, NormalizedAddress) WHERE NormalizedAddress IS NOT NULL AND NormalizedAddress <> ''").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactCard_Account_Source_Book ON ContactCard(MailAccountId, SourceKind, AddressBookId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_ContactCard_RemoteIdentity ON ContactCard(MailAccountId, SourceKind, AddressBookId, RemoteId) WHERE RemoteId IS NOT NULL AND RemoteId <> ''").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactCard_SortKey ON ContactCard(SortKey, Id)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactAddressBook_Account_Source ON ContactAddressBook(MailAccountId, SourceKind)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactAddressBook_Account_DeltaToken ON ContactAddressBook(MailAccountId, DeltaToken)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactCard_IsFavorite_SortKey ON ContactCard(IsFavorite, SortKey)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_ContactListMember_List_Contact ON ContactListMember(ListId, ContactId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactListMember_ContactId ON ContactListMember(ContactId)").ConfigureAwait(false);
+
         // Mail indexes
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_Id ON MailCopy(Id)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_FolderId ON MailCopy(FolderId)").ConfigureAwait(false);
@@ -548,5 +585,79 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_SentMailReceiptState_MailUniqueId ON SentMailReceiptState(MailUniqueId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_SentMailReceiptState_AccountId_MessageId ON SentMailReceiptState(AccountId, MessageId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_SentMailReceiptState_Status ON SentMailReceiptState(Status)").ConfigureAwait(false);
+    }
+
+    private async Task MigrateLegacyContactsAsync()
+    {
+        var legacyColumns = await Connection.GetTableInfoAsync("AccountContact").ConfigureAwait(false);
+        if (legacyColumns.Count == 0)
+            return;
+
+        var legacyPictureIds = new List<Guid>();
+        if (legacyColumns.Any(column => column.Name == "ContactPictureFileId"))
+        {
+            var values = await Connection.QueryScalarsAsync<string>(
+                "SELECT ContactPictureFileId FROM AccountContact WHERE ContactPictureFileId IS NOT NULL AND ContactPictureFileId <> ''")
+                .ConfigureAwait(false);
+
+            legacyPictureIds.AddRange(values.Where(value => Guid.TryParse(value, out _)).Select(Guid.Parse));
+        }
+
+        await Connection.RunInTransactionAsync(connection =>
+        {
+            connection.Execute("DROP TABLE IF EXISTS ContactGroupMember");
+            connection.Execute("DROP TABLE IF EXISTS ContactGroup");
+            connection.Execute("DROP TABLE IF EXISTS AccountContact");
+        }).ConfigureAwait(false);
+
+        var contactsRoot = string.IsNullOrWhiteSpace(_folderConfiguration.ApplicationDataFolderPath)
+            ? _folderConfiguration.PublisherSharedFolderPath
+            : _folderConfiguration.ApplicationDataFolderPath;
+        var contactsFolder = Path.Combine(contactsRoot, "contacts");
+        foreach (var pictureId in legacyPictureIds)
+        {
+            try
+            {
+                var picturePath = Path.Combine(contactsFolder, $"{pictureId}.jpg");
+                if (File.Exists(picturePath))
+                    File.Delete(picturePath);
+            }
+            catch
+            {
+                // Contact rows are intentionally discarded even if an orphaned cache file is locked.
+            }
+        }
+    }
+
+    private async Task EnsureLocalAddressBooksAsync()
+    {
+        var accounts = await Connection.Table<MailAccount>().ToListAsync().ConfigureAwait(false);
+        var books = await Connection.Table<ContactAddressBook>().ToListAsync().ConfigureAwait(false);
+        var existingAccountIds = books.Select(book => book.MailAccountId).ToHashSet();
+        var missingBooks = accounts
+            .Where(account => !account.IsContactAccessGranted && !existingAccountIds.Contains(account.Id))
+            .Select(account => new ContactAddressBook
+            {
+                Id = Guid.NewGuid(),
+                MailAccountId = account.Id,
+                SourceKind = ContactSourceKind.Local,
+                DisplayName = account.Name,
+                IsDefault = true
+            })
+            .ToList();
+
+        if (missingBooks.Count > 0)
+        {
+            await Connection.RunInTransactionAsync(transaction =>
+            {
+                foreach (var book in missingBooks)
+                {
+                    transaction.Execute(
+                        "INSERT INTO ContactAddressBook (Id, MailAccountId, SourceKind, RemoteId, ParentRemoteId, DisplayName, IsDefault, DeltaToken, LastSuccessfulSyncUtc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        book.Id, book.MailAccountId, book.SourceKind, book.RemoteId, book.ParentRemoteId,
+                        book.DisplayName, book.IsDefault, book.DeltaToken, book.LastSuccessfulSyncUtc);
+                }
+            }).ConfigureAwait(false);
+        }
     }
 }

@@ -10,6 +10,7 @@ public enum WinoPage
     ComposePage,
     SettingsPage,
     ContactsPage,
+    ContactEditPage,
     MailRenderingPage,
     AccountDetailsPage,
     FolderCustomizationPage,

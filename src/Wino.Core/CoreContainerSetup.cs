@@ -31,6 +31,7 @@ public static class CoreContainerSetup
         services.AddTransient<IMailFilterExecutor, MailFilterExecutor>();
         services.AddTransient<IMailFilterProviderService, MailFilterProviderService>();
         services.AddTransient<IProviderFeatureAuthorizationService, ProviderFeatureAuthorizationService>();
+        services.AddTransient<IAccountCapabilityService, AccountCapabilityService>();
         services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();
         services.AddTransient<IImapTestService, ImapTestService>();
         services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();

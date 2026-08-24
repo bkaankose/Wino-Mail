@@ -12,6 +12,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Folder;
+using Wino.Core.Requests.Contact;
 using Wino.Core.Synchronizers;
 using Xunit;
 
@@ -126,8 +127,90 @@ public sealed class WinoSynchronizerMailRequestTests
         }
     }
 
+    [Fact]
+    public async Task Mail_execution_keeps_contact_requests_in_the_shared_queue()
+    {
+        var synchronizer = new TestMailSynchronizer();
+        var contact = new AccountContact
+        {
+            Id = Guid.NewGuid(), MailAccountId = synchronizer.Account.Id,
+            AddressBookId = Guid.NewGuid(), SourceKind = ContactSourceKind.Local
+        };
+        synchronizer.QueueRequest(new ContactActionRequest(contact, ContactSynchronizerOperation.Update));
+        synchronizer.QueueRequest(new MarkReadRequest(new MailCopy { UniqueId = Guid.NewGuid(), Id = "mail", FolderId = Guid.NewGuid() }, true));
+
+        await synchronizer.SynchronizeMailsAsync(new() { AccountId = synchronizer.Account.Id, Type = MailSynchronizationType.ExecuteRequests });
+
+        synchronizer.HasPendingContactOperation(contact.Id).Should().BeTrue();
+        synchronizer.ContactRequestInvocationCount.Should().Be(0);
+
+        await synchronizer.SynchronizeContactsAsync(new() { AccountId = synchronizer.Account.Id, Type = ContactSynchronizationType.ExecuteRequests });
+
+        synchronizer.ContactRequestInvocationCount.Should().Be(1);
+        synchronizer.HasPendingContactOperation(contact.Id).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExecuteRequests_contact_sync_should_not_trigger_a_provider_resynchronization()
+    {
+        var synchronizer = new TestMailSynchronizer();
+        var contact = new AccountContact { Id = Guid.NewGuid(), MailAccountId = synchronizer.Account.Id, AddressBookId = Guid.NewGuid(), SourceKind = ContactSourceKind.Outlook };
+        synchronizer.QueueRequest(new ContactActionRequest(contact, ContactSynchronizerOperation.Update));
+
+        var result = await synchronizer.SynchronizeContactsAsync(new() { AccountId = synchronizer.Account.Id, Type = ContactSynchronizationType.ExecuteRequests });
+
+        result.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+        synchronizer.ContactRequestInvocationCount.Should().Be(1);
+        synchronizer.ContactSyncInvocationCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Delta_contact_sync_should_still_reach_the_provider()
+    {
+        var synchronizer = new TestMailSynchronizer();
+        await synchronizer.SynchronizeContactsAsync(new() { AccountId = synchronizer.Account.Id, Type = ContactSynchronizationType.Delta });
+        synchronizer.ContactSyncInvocationCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Failed_contact_requests_should_be_dropped_from_the_queue()
+    {
+        var synchronizer = new TestMailSynchronizer { ThrowOnContactRequests = true };
+        var contact = new AccountContact { Id = Guid.NewGuid(), MailAccountId = synchronizer.Account.Id, AddressBookId = Guid.NewGuid(), SourceKind = ContactSourceKind.Gmail };
+        synchronizer.QueueRequest(new ContactActionRequest(contact, ContactSynchronizerOperation.Create));
+
+        var result = await synchronizer.SynchronizeContactsAsync(new() { AccountId = synchronizer.Account.Id, Type = ContactSynchronizationType.ExecuteRequests });
+
+        result.CompletedState.Should().Be(SynchronizationCompletedState.Failed);
+        synchronizer.HasPendingContactOperation(contact.Id).Should().BeFalse();
+        synchronizer.ThrowOnContactRequests = false;
+        await synchronizer.SynchronizeContactsAsync(new() { AccountId = synchronizer.Account.Id, Type = ContactSynchronizationType.ExecuteRequests });
+        synchronizer.ContactRequestInvocationCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Contact_requests_queued_during_execution_are_processed_once_by_the_next_run()
+    {
+        var synchronizer = new TestMailSynchronizer { BlockContactRequests = true };
+        var first = new AccountContact { Id = Guid.NewGuid(), MailAccountId = synchronizer.Account.Id, AddressBookId = Guid.NewGuid() };
+        var second = new AccountContact { Id = Guid.NewGuid(), MailAccountId = synchronizer.Account.Id, AddressBookId = first.AddressBookId };
+        synchronizer.QueueRequest(new ContactActionRequest(first, ContactSynchronizerOperation.Update));
+
+        var firstRun = synchronizer.SynchronizeContactsAsync(new() { AccountId = synchronizer.Account.Id, Type = ContactSynchronizationType.ExecuteRequests });
+        await synchronizer.ContactRequestsStarted.Task;
+        synchronizer.QueueRequest(new ContactActionRequest(second, ContactSynchronizerOperation.SetPhoto, Photo: [1, 2, 3]));
+        var secondRun = synchronizer.SynchronizeContactsAsync(new() { AccountId = synchronizer.Account.Id, Type = ContactSynchronizationType.ExecuteRequests });
+
+        synchronizer.ReleaseContactRequests.TrySetResult();
+        await Task.WhenAll(firstRun, secondRun);
+
+        synchronizer.ContactRequestInvocationCount.Should().Be(2);
+        synchronizer.HasPendingContactOperation(first.Id).Should().BeFalse();
+        synchronizer.HasPendingContactOperation(second.Id).Should().BeFalse();
+    }
+
     private sealed class TestMailSynchronizer
-        : WinoSynchronizer<object, object, object>
+        : WinoSynchronizer<object, object, object, object>
     {
         public TestMailSynchronizer()
             : base(new MailAccount { Id = Guid.NewGuid(), Name = "Test account" }, WeakReferenceMessenger.Default)
@@ -142,6 +225,33 @@ public sealed class WinoSynchronizerMailRequestTests
         public int ExecuteNativeRequestsInvocationCount { get; private set; }
         public int CreateDraftInvocationCount { get; private set; }
         public int LastNativeRequestCount { get; private set; }
+        public int ContactRequestInvocationCount { get; private set; }
+        public int ContactSyncInvocationCount { get; private set; }
+        public bool ThrowOnContactRequests { get; set; }
+        public bool BlockContactRequests { get; set; }
+        public TaskCompletionSource ContactRequestsStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseContactRequests { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
+        {
+            ContactRequestInvocationCount += requests.Count;
+            if (ThrowOnContactRequests)
+                throw new InvalidOperationException("Contact request failed.");
+            if (BlockContactRequests)
+            {
+                BlockContactRequests = false;
+                ContactRequestsStarted.TrySetResult();
+                await ReleaseContactRequests.Task.WaitAsync(cancellationToken);
+            }
+        }
+
+        protected override Task<ContactSynchronizationResult> SynchronizeContactsInternalAsync(
+            ContactSynchronizationOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            ContactSyncInvocationCount++;
+            return Task.FromResult(ContactSynchronizationResult.Empty);
+        }
 
         public override List<IRequestBundle<object>> CreateRootFolder(CreateRootFolderRequest request)
         {

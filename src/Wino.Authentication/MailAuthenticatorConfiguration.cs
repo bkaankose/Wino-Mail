@@ -37,6 +37,9 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
             ]);
         }
 
+        if (request.IncludeContacts)
+            scopes.Add("Contacts.ReadWrite");
+
         if (request.Features?.Contains(ProviderFeature.MailFilters) == true)
             scopes.Add("MailboxSettings.ReadWrite");
 
@@ -68,6 +71,9 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
                 "https://www.googleapis.com/auth/drive.file"
             ]);
         }
+
+        if (request.IncludeContacts)
+            scopes.Add("https://www.googleapis.com/auth/contacts");
 
         if (request.Features?.Contains(ProviderFeature.MailFilters) == true)
             scopes.Add("https://www.googleapis.com/auth/gmail.settings.basic");

@@ -21,6 +21,7 @@ using Wino.Mail.WinUI.Views.Calendar;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Navigation;
+using Wino.Messaging.UI;
 using Wino.Views;
 using Wino.Views.Account;
 using Wino.Views.Mail;
@@ -66,7 +67,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
     private static readonly WinoPage[] ContactsOnlyPages =
     [
-        WinoPage.ContactsPage
+        WinoPage.ContactsPage,
+        WinoPage.ContactEditPage
     ];
 
     private static readonly WinoPage[] SettingsOnlyPages =
@@ -171,6 +173,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
             WinoPage.ImapCalDavSettingsPage => typeof(ImapCalDavSettingsPage),
             WinoPage.KeyboardShortcutsPage => typeof(KeyboardShortcutsPage),
             WinoPage.ContactsPage => typeof(ContactsPage),
+            WinoPage.ContactEditPage => typeof(ContactEditPage),
             WinoPage.SignatureAndEncryptionPage => typeof(SignatureAndEncryptionPage),
             WinoPage.EmailTemplatesPage => typeof(EmailTemplatesPage),
             WinoPage.CreateEmailTemplatePage => typeof(CreateEmailTemplatePage),
@@ -580,6 +583,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
         if (navigationResult)
         {
+            WeakReferenceMessenger.Default.Send(new TitleBarShellContentUpdated());
             return true;
         }
 
@@ -635,6 +639,21 @@ public class NavigationService : NavigationServiceBase, INavigationService
 
             // Calendar mode: Navigate back from EventDetailsPage
             _statePersistanceService.IsEventDetailsVisible = false;
+        }
+        else if (currentApplicationMode == WinoApplicationMode.Contacts)
+        {
+            if (innerShellFrame?.Content is ContactEditPage contactEditPage &&
+                !contactEditPage.ViewModel.IsBackNavigationApproved)
+            {
+                contactEditPage.ViewModel.BackCommand.Execute(null);
+                return;
+            }
+
+            if (innerShellFrame?.CanGoBack == true)
+            {
+                innerShellFrame.GoBack();
+                WeakReferenceMessenger.Default.Send(new TitleBarShellContentUpdated());
+            }
         }
         else if (currentApplicationMode == WinoApplicationMode.Mail)
         {

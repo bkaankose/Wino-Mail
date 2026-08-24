@@ -9,4 +9,5 @@ public record AccountCreationDialogResult(
     string AccountColorHex,
     InitialSynchronizationRange InitialSynchronizationRange,
     bool IsMailAccessGranted,
-    bool IsCalendarAccessGranted);
+    bool IsCalendarAccessGranted,
+    bool IsContactAccessGranted = false);

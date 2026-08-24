@@ -28,6 +28,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly IMimeFileService _mimeFileService;
     private readonly IPreferencesService _preferencesService;
+    private readonly IContactPictureFileService _contactPictureFileService;
     private readonly IAccountProfilePictureFileService _accountProfilePictureFileService;
     private readonly IServerCertificateTrustService _serverCertificateTrustService;
     private readonly ISemanticIndexJobRegistry _semanticIndexJobRegistry;
@@ -50,6 +51,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         _authenticationProvider = authenticationProvider;
         _mimeFileService = mimeFileService;
         _preferencesService = preferencesService;
+        _contactPictureFileService = contactPictureFileService;
         _accountProfilePictureFileService = accountProfilePictureFileService;
         _serverCertificateTrustService = serverCertificateTrustService ?? new ServerCertificateTrustService(databaseService);
         _semanticIndexJobRegistry = semanticIndexJobRegistry;
@@ -383,6 +385,26 @@ public class AccountService : BaseDatabaseService, IAccountService
         await Connection.Table<MailFilter>().DeleteAsync(a => a.MailAccountId == account.Id).ConfigureAwait(false);
         await Connection.Table<AccountProviderFeature>().DeleteAsync(a => a.MailAccountId == account.Id).ConfigureAwait(false);
 
+        var accountContacts = await Connection.Table<AccountContact>()
+            .Where(contact => contact.MailAccountId == account.Id)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            foreach (var contact in accountContacts)
+            {
+                transaction.Execute("DELETE FROM ContactEmailAddress WHERE ContactId = ?", contact.Id);
+                transaction.Execute("DELETE FROM ContactPhoneNumber WHERE ContactId = ?", contact.Id);
+                transaction.Execute("DELETE FROM ContactPostalAddress WHERE ContactId = ?", contact.Id);
+                transaction.Execute("DELETE FROM ContactImAddress WHERE ContactId = ?", contact.Id);
+                transaction.Execute("DELETE FROM ContactRelation WHERE ContactId = ?", contact.Id);
+            }
+
+            transaction.Execute("DELETE FROM ContactCard WHERE MailAccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM ContactAddressBook WHERE MailAccountId = ?", account.Id);
+        }).ConfigureAwait(false);
+
         // Account belongs to a merged inbox.
         // In case of there'll be a single account in the merged inbox, remove the merged inbox as well.
 
@@ -414,6 +436,17 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (account.ProfilePictureFileId is { } profilePictureFileId && _accountProfilePictureFileService != null)
             await _accountProfilePictureFileService.DeleteProfilePictureAsync(profilePictureFileId).ConfigureAwait(false);
+
+        if (_contactPictureFileService is not null)
+        {
+            foreach (var contactPictureFileId in accountContacts
+                         .Where(contact => contact.ContactPictureFileId.HasValue)
+                         .Select(contact => contact.ContactPictureFileId.Value)
+                         .Distinct())
+            {
+                await _contactPictureFileService.DeleteContactPictureAsync(contactPictureFileId).ConfigureAwait(false);
+            }
+        }
 
         // Clear out or set up a new startup entity id.
         // Next account after the deleted one will be the startup account.
@@ -833,6 +866,18 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
 
         await Connection.InsertAsync(account, typeof(MailAccount));
+
+        if (!account.IsContactAccessGranted)
+        {
+            await Connection.InsertAsync(new ContactAddressBook
+            {
+                Id = Guid.NewGuid(),
+                MailAccountId = account.Id,
+                SourceKind = ContactSourceKind.Local,
+                DisplayName = account.Name,
+                IsDefault = true
+            }, typeof(ContactAddressBook)).ConfigureAwait(false);
+        }
 
         var preferences = new MailAccountPreferences()
         {

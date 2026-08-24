@@ -311,7 +311,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         if (!string.IsNullOrEmpty(calendarItem.OrganizerEmail))
             emails.Add(calendarItem.OrganizerEmail);
 
-        var contacts = await _contactService.GetContactsByAddressesAsync(emails).ConfigureAwait(false);
+        var contacts = await _contactService.GetContactsByAddressesAsync(calendarItem.AssignedCalendar?.AccountId, emails).ConfigureAwait(false);
         var contactLookup = contacts.ToDictionary(c => c.Address, StringComparer.OrdinalIgnoreCase);
 
         foreach (var attendee in attendees)

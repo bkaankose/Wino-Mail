@@ -10,10 +10,12 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Calendar;
+using Wino.Core.Requests.Contact;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Messaging.Server;
@@ -27,18 +29,21 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
+    private readonly IContactService _contactService;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
                                 IFolderService folderService,
                                 IMailDialogService dialogService,
                                 IAccountService accountService,
-                                ICalendarService calendarService)
+                                ICalendarService calendarService,
+                                IContactService contactService)
     {
         _winoRequestProcessor = winoRequestProcessor;
         _folderService = folderService;
         _dialogService = dialogService;
         _accountService = accountService;
         _calendarService = calendarService;
+        _contactService = contactService;
     }
 
     public async Task ExecuteAsync(MailOperationPreperationRequest request)
@@ -203,6 +208,48 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         await QueueRequestAsync(request, accountId);
         await QueueCalendarSynchronizationAsync(accountId);
+    }
+
+    public Task ExecuteAsync(ContactOperationPreparationRequest preparationRequest)
+        => ExecuteAsync(preparationRequest is null ? [] : new[] { preparationRequest });
+
+    public async Task ExecuteAsync(IReadOnlyList<ContactOperationPreparationRequest> preparationRequests)
+    {
+        var valid = preparationRequests?.Where(request => request?.Contact is not null).ToList() ?? [];
+
+        if (valid.Count == 0)
+            return;
+
+        foreach (var preparationRequest in valid)
+        {
+            var contact = preparationRequest.Contact;
+            switch (preparationRequest.Operation)
+            {
+                case ContactSynchronizerOperation.Create:
+                    await _contactService.StageCreateAsync(contact).ConfigureAwait(false);
+                    break;
+                case ContactSynchronizerOperation.Update:
+                    await _contactService.StageUpdateAsync(contact).ConfigureAwait(false);
+                    break;
+                case ContactSynchronizerOperation.Delete:
+                    await _contactService.StageDeleteAsync(contact.Id).ConfigureAwait(false);
+                    break;
+            }
+
+            await QueueRequestAsync(
+                new ContactActionRequest(contact, preparationRequest.Operation, preparationRequest.OriginalContact, preparationRequest.Photo),
+                contact.MailAccountId).ConfigureAwait(false);
+        }
+
+        foreach (var group in valid.GroupBy(request => request.Contact.MailAccountId))
+        {
+            WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+            {
+                AccountId = group.Key,
+                AddressBookId = group.First().Contact.AddressBookId,
+                Type = ContactSynchronizationType.ExecuteRequests
+            }));
+        }
     }
 
     public async Task ExecuteAsync(Guid accountId, IEnumerable<IRequestBase> requests)

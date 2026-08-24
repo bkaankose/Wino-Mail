@@ -29,6 +29,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -81,7 +82,7 @@ public partial class GmailSynchronizerJsonContext : JsonSerializerContext;
 /// - CreateMinimalMailCopyAsync: Extracts MailCopy fields from Gmail Metadata format
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
-public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Event>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
+public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Event, global::Google.Apis.PeopleService.v1.Data.Person>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
 {
     public override uint BatchModificationSize => 1000;
 
@@ -102,6 +103,9 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
     private readonly GoogleCalendarService _calendarService;
     private readonly DriveService _driveService;
     private readonly PeopleServiceService _peopleService;
+    private readonly IContactService _contactService;
+    private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly LocalContactSynchronizer _localContactSynchronizer = new();
 
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
     private readonly IGmailSynchronizerErrorHandlerFactory _gmailSynchronizerErrorHandlerFactory;
@@ -116,14 +120,18 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                              IGmailAuthenticator authenticator,
                              IGmailChangeProcessor gmailChangeProcessor,
                              IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
-                             IMailFilterExecutor mailFilterExecutor = null)
+                             IMailFilterExecutor mailFilterExecutor = null,
+                             IContactService contactService = null,
+                             IContactPictureFileService contactPictureFileService = null)
         : this(
             account,
             gmailChangeProcessor,
             gmailSynchronizerErrorHandlerFactory,
             new GmailClientMessageHandler(authenticator, account),
             mailFilterExecutor,
-            new GmailClientMessageHandler(authenticator, account, [ProviderFeature.MailFilters]))
+            new GmailClientMessageHandler(authenticator, account, [ProviderFeature.MailFilters]),
+            contactService,
+            contactPictureFileService)
     {
     }
 
@@ -133,7 +141,9 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
         HttpMessageHandler googleMessageHandler,
         IMailFilterExecutor mailFilterExecutor = null,
-        HttpMessageHandler providerFeatureMessageHandler = null) : base(account, WeakReferenceMessenger.Default)
+        HttpMessageHandler providerFeatureMessageHandler = null,
+        IContactService contactService = null,
+        IContactPictureFileService contactPictureFileService = null) : base(account, WeakReferenceMessenger.Default)
     {
         _googleHttpClient = new HttpClient(googleMessageHandler, disposeHandler: true);
         _gmailService = new GmailService(_googleHttpClient);
@@ -153,7 +163,247 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         _gmailChangeProcessor = gmailChangeProcessor;
         _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
         _mailFilterExecutor = mailFilterExecutor;
+        _contactService = contactService;
+        _contactPictureFileService = contactPictureFileService;
     }
+
+    protected override Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
+        => !Account.IsContactAccessGranted
+            ? _localContactSynchronizer.ExecuteRequestsAsync(requests, cancellationToken)
+            : ExecuteGmailContactRequestsAsync(requests, cancellationToken);
+
+    protected override Task<ContactSynchronizationResult> SynchronizeContactsInternalAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default)
+        => !Account.IsContactAccessGranted
+            ? _localContactSynchronizer.SynchronizeAsync(options, cancellationToken)
+            : SynchronizeGmailContactsAsync(options, cancellationToken);
+
+    private const string GoogleContactFields = "names,emailAddresses,phoneNumbers,addresses,organizations,birthdays,nicknames,fileAses,biographies,urls,imClients,relations,photos,metadata";
+
+    private async Task<ContactSynchronizationResult> SynchronizeGmailContactsAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken)
+    {
+        if (_contactService is null)
+            return ContactSynchronizationResult.Failed(new InvalidOperationException("Contact storage is unavailable."));
+
+        var book = await _contactService.GetOrCreateProviderAddressBookAsync(
+            Account.Id, ContactSourceKind.Gmail, "people/me/connections", Account.Name, true).ConfigureAwait(false);
+        var isFull = options.Type == ContactSynchronizationType.Full || string.IsNullOrWhiteSpace(book.DeltaToken);
+        var downloaded = new List<global::Google.Apis.PeopleService.v1.Data.Person>();
+        string pageToken = null;
+        string nextSyncToken = null;
+
+        try
+        {
+            do
+            {
+                var request = _peopleService.Connections.List("people/me");
+                request.PersonFields = GoogleContactFields;
+                request.PageSize = 1000;
+                request.PageToken = pageToken;
+                request.SyncToken = isFull ? null : book.DeltaToken;
+                var response = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                downloaded.AddRange(response?.Connections ?? []);
+                pageToken = response?.NextPageToken;
+                nextSyncToken = response?.NextSyncToken ?? nextSyncToken;
+            }
+            while (!string.IsNullOrWhiteSpace(pageToken));
+        }
+        catch (GoogleApiException ex) when (!isFull && (int)ex.HttpStatusCode == 410)
+        {
+            return await SynchronizeGmailContactsAsync(new ContactSynchronizationOptions
+            {
+                AccountId = options.AccountId,
+                AddressBookId = book.Id,
+                Type = ContactSynchronizationType.Full
+            }, cancellationToken).ConfigureAwait(false);
+        }
+
+        var active = downloaded.Where(person => person.Metadata?.Deleted != true).Select(person => MapGoogleContact(person, book)).ToList();
+        var existingContacts = await _contactService.GetContactsByAddressBookAsync(book.Id).ConfigureAwait(false);
+        await DownloadGoogleContactPhotosAsync(active, existingContacts, cancellationToken).ConfigureAwait(false);
+        var deletedIds = downloaded.Where(person => person.Metadata?.Deleted == true).Select(person => person.ResourceName).Where(id => !string.IsNullOrWhiteSpace(id)).ToList();
+        if (isFull)
+            await _contactService.ReplaceAddressBookAsync(book.Id, active, nextSyncToken).ConfigureAwait(false);
+        else
+            await _contactService.ApplyDeltaAsync(book.Id, new ContactSynchronizationBatch(active, deletedIds, nextSyncToken), commitDeltaToken: true).ConfigureAwait(false);
+
+        return ContactSynchronizationResult.Completed(active.Count, active.Count, deletedIds.Count);
+    }
+
+    private async Task DownloadGoogleContactPhotosAsync(
+        IReadOnlyList<AccountContact> contacts,
+        IReadOnlyList<AccountContact> existingContacts,
+        CancellationToken cancellationToken)
+    {
+        if (_contactPictureFileService is null)
+            return;
+
+        var existingByRemoteId = existingContacts
+            .Where(contact => !string.IsNullOrWhiteSpace(contact.RemoteId))
+            .ToDictionary(contact => contact.RemoteId, StringComparer.Ordinal);
+        var pending = new List<AccountContact>();
+
+        foreach (var contact in contacts.Where(contact => !string.IsNullOrWhiteSpace(contact.RemotePhotoKey)))
+        {
+            if (existingByRemoteId.TryGetValue(contact.RemoteId ?? string.Empty, out var existing) &&
+                existing.ContactPictureFileId.HasValue &&
+                string.Equals(existing.RemotePhotoKey, contact.RemotePhotoKey, StringComparison.Ordinal))
+            {
+                contact.ContactPictureFileId = existing.ContactPictureFileId;
+                continue;
+            }
+
+            pending.Add(contact);
+        }
+
+        await Parallel.ForEachAsync(
+            pending,
+            new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken },
+            async (contact, token) =>
+            {
+                try
+                {
+                    var bytes = await _googleHttpClient.GetByteArrayAsync(contact.RemotePhotoKey, token).ConfigureAwait(false);
+                    if (bytes?.Length > 0)
+                        contact.ContactPictureFileId = await _contactPictureFileService.SaveContactPictureAsync(bytes).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) { _logger.Warning(ex, "Failed to cache Gmail contact photo {RemoteId}.", contact.RemoteId); }
+            }).ConfigureAwait(false);
+    }
+
+    private async Task ExecuteGmailContactRequestsAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken)
+    {
+        if (_contactService is null)
+            throw new InvalidOperationException("Contact storage is unavailable.");
+
+        foreach (var request in requests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var local = await _contactService.GetContactAsync(request.LocalContactId).ConfigureAwait(false);
+            if (local is null && request.Operation != ContactSynchronizerOperation.Delete)
+                continue;
+
+            try
+            {
+                switch (request.Operation)
+                {
+                    case ContactSynchronizerOperation.Create:
+                    {
+                        var create = _peopleService.People.CreateContact(MapToGoogleContact(local));
+                        create.PersonFields = GoogleContactFields;
+                        var created = await create.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                        var book = (await _contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false)).First(item => item.Id == request.AddressBookId);
+                        await _contactService.CompleteMutationAsync(local.Id, MapGoogleContact(created, book), false).ConfigureAwait(false);
+                        break;
+                    }
+                    case ContactSynchronizerOperation.Update:
+                    {
+                        var currentRequest = _peopleService.People.Get(local.RemoteId);
+                        currentRequest.PersonFields = GoogleContactFields;
+                        var current = await currentRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                        MergeCommonFields(current, local);
+                        var updated = await _peopleService.People.UpdateContact(local.RemoteId, current).ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                        var book = (await _contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false)).First(item => item.Id == request.AddressBookId);
+                        await _contactService.CompleteMutationAsync(local.Id, MapGoogleContact(updated, book), false).ConfigureAwait(false);
+                        break;
+                    }
+                    case ContactSynchronizerOperation.Delete:
+                        if (!string.IsNullOrWhiteSpace(local?.RemoteId))
+                            await _peopleService.People.DeleteContact(local.RemoteId).ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                        if (local is not null)
+                            await _contactService.CompleteMutationAsync(local.Id, null, true).ConfigureAwait(false);
+                        break;
+                    case ContactSynchronizerOperation.SetPhoto:
+                        await UpdateGoogleContactPhotoAsync(local.RemoteId, request.Photo, delete: false, cancellationToken).ConfigureAwait(false);
+                        await _contactService.CompleteMutationAsync(local.Id, null, false).ConfigureAwait(false);
+                        break;
+                    case ContactSynchronizerOperation.DeletePhoto:
+                        await UpdateGoogleContactPhotoAsync(local.RemoteId, null, delete: true, cancellationToken).ConfigureAwait(false);
+                        await _contactService.CompleteMutationAsync(local.Id, null, false).ConfigureAwait(false);
+                        break;
+                }
+            }
+            catch (GoogleApiException ex) when ((int)ex.HttpStatusCode is 400 or 409 or 412)
+            {
+                if (local is null || string.IsNullOrWhiteSpace(local.RemoteId))
+                    continue;
+                var fetch = _peopleService.People.Get(local.RemoteId);
+                fetch.PersonFields = GoogleContactFields;
+                var remote = await fetch.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                var book = (await _contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false)).First(item => item.Id == request.AddressBookId);
+                await _contactService.CompleteMutationAsync(local.Id, MapGoogleContact(remote, book), false).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.Error(ex, "Gmail contact request {Operation} failed for contact {ContactId}.",
+                    request.Operation, request.LocalContactId);
+            }
+        }
+    }
+
+    private async Task UpdateGoogleContactPhotoAsync(string remoteId, byte[] photo, bool delete, CancellationToken cancellationToken)
+    {
+        var escaped = Uri.EscapeDataString(remoteId).Replace("%2F", "/", StringComparison.OrdinalIgnoreCase);
+        var verb = delete ? "deleteContactPhoto" : "updateContactPhoto";
+        using var message = new HttpRequestMessage(HttpMethod.Patch, $"https://people.googleapis.com/v1/{escaped}:{verb}");
+        if (!delete)
+            message.Content = GoogleJsonContent.Create(new global::Google.Apis.PeopleService.v1.Data.UpdateContactPhotoRequest { PhotoBytes = Convert.ToBase64String(photo ?? []) }, GoogleApiJsonContext.Default.UpdateContactPhotoRequest);
+        using var response = await _googleHttpClient.SendAsync(message, cancellationToken).ConfigureAwait(false);
+        await GoogleApiErrorParser.ThrowIfUnsuccessfulAsync(response, cancellationToken).ConfigureAwait(false);
+    }
+
+    private AccountContact MapGoogleContact(global::Google.Apis.PeopleService.v1.Data.Person person, ContactAddressBook book)
+    {
+        var name = person.Names?.FirstOrDefault(item => item.Metadata?.Primary == true) ?? person.Names?.FirstOrDefault();
+        var organization = person.Organizations?.FirstOrDefault(item => item.Metadata?.Primary == true) ?? person.Organizations?.FirstOrDefault();
+        var birthday = person.Birthdays?.FirstOrDefault()?.Date;
+        var contact = new AccountContact
+        {
+            Id = Guid.NewGuid(), MailAccountId = Account.Id, AddressBookId = book.Id, SourceKind = ContactSourceKind.Gmail,
+            RemoteId = person.ResourceName, RemoteVersion = person.Etag, RemotePhotoKey = person.Photos?.FirstOrDefault(item => item.Metadata?.Primary == true)?.Url,
+            DisplayName = name?.DisplayName, HonorificPrefix = name?.HonorificPrefix, GivenName = name?.GivenName,
+            MiddleName = name?.MiddleName, Surname = name?.FamilyName, HonorificSuffix = name?.HonorificSuffix,
+            Nickname = person.Nicknames?.FirstOrDefault()?.Value, FileAs = person.FileAses?.FirstOrDefault()?.Value,
+            CompanyName = organization?.Name, Department = organization?.Department, JobTitle = organization?.Title,
+            OfficeLocation = organization?.Location, Profession = organization?.JobDescription,
+            BirthdayYear = birthday?.Year, BirthdayMonth = birthday?.Month, BirthdayDay = birthday?.Day,
+            Notes = person.Biographies?.FirstOrDefault()?.Value, Website = person.Urls?.FirstOrDefault()?.Value
+        };
+        contact.EmailAddresses = person.EmailAddresses?.Take(3).Select((item, index) => new ContactEmailAddress { Id = Guid.NewGuid(), ContactId = contact.Id, Address = item.Value, NormalizedAddress = ContactEmailAddress.Normalize(item.Value), Label = item.Type, Order = index, IsPrimary = item.Metadata?.Primary == true || index == 0 }).ToList() ?? [];
+        contact.PhoneNumbers = person.PhoneNumbers?.Select((item, index) => new ContactPhoneNumber { Id = Guid.NewGuid(), ContactId = contact.Id, Number = item.Value, Kind = MapPhoneKind(item.Type), Order = index, IsPrimary = item.Metadata?.Primary == true || index == 0 }).ToList() ?? [];
+        contact.PostalAddresses = person.Addresses?.GroupBy(item => MapAddressKind(item.Type)).Select(group => group.First()).Take(3).Select(item => new ContactPostalAddress { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = MapAddressKind(item.Type), PostOfficeBox = item.PoBox, Street = item.StreetAddress, City = item.City, Region = item.Region, PostalCode = item.PostalCode, Country = item.Country }).ToList() ?? [];
+        contact.ImAddresses = person.ImClients?.Select((item, index) => new ContactImAddress { Id = Guid.NewGuid(), ContactId = contact.Id, Address = item.Username, Protocol = item.Protocol, Order = index }).ToList() ?? [];
+        contact.Relations = person.Relations?.Where(item => TryMapRelation(item.Type, out _)).Select((item, index) => new ContactRelation { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = MapRelation(item.Type), Name = item.Person, Order = index }).ToList() ?? [];
+        return contact;
+    }
+
+    private static global::Google.Apis.PeopleService.v1.Data.Person MapToGoogleContact(AccountContact contact)
+    {
+        var person = new global::Google.Apis.PeopleService.v1.Data.Person { ResourceName = contact.RemoteId, Etag = contact.RemoteVersion };
+        MergeCommonFields(person, contact);
+        return person;
+    }
+
+    private static void MergeCommonFields(global::Google.Apis.PeopleService.v1.Data.Person person, AccountContact contact)
+    {
+        person.Names = [new() { DisplayName = contact.DisplayName, HonorificPrefix = contact.HonorificPrefix, GivenName = contact.GivenName, MiddleName = contact.MiddleName, FamilyName = contact.Surname, HonorificSuffix = contact.HonorificSuffix }];
+        person.EmailAddresses = contact.EmailAddresses.Select(item => new global::Google.Apis.PeopleService.v1.Data.EmailAddress { Value = item.Address, Type = item.Label }).ToList();
+        person.PhoneNumbers = contact.PhoneNumbers.Select(item => new global::Google.Apis.PeopleService.v1.Data.PhoneNumber { Value = item.Number, Type = item.Kind.ToString().ToLowerInvariant() }).ToList();
+        person.Addresses = contact.PostalAddresses.Select(item => new global::Google.Apis.PeopleService.v1.Data.Address { Type = item.Kind == ContactPostalAddressKind.Business ? "work" : item.Kind.ToString().ToLowerInvariant(), PoBox = item.PostOfficeBox, StreetAddress = item.Street, City = item.City, Region = item.Region, PostalCode = item.PostalCode, Country = item.Country }).ToList();
+        person.Organizations = [new() { Name = contact.CompanyName, Department = contact.Department, Title = contact.JobTitle, Location = contact.OfficeLocation, JobDescription = contact.Profession }];
+        person.Birthdays = contact.BirthdayMonth.HasValue && contact.BirthdayDay.HasValue ? [new() { Date = new() { Year = contact.BirthdayYear, Month = contact.BirthdayMonth, Day = contact.BirthdayDay } }] : [];
+        person.Nicknames = string.IsNullOrWhiteSpace(contact.Nickname) ? [] : [new() { Value = contact.Nickname }];
+        person.FileAses = string.IsNullOrWhiteSpace(contact.FileAs) ? [] : [new() { Value = contact.FileAs }];
+        person.Biographies = string.IsNullOrWhiteSpace(contact.Notes) ? [] : [new() { Value = contact.Notes, ContentType = "TEXT_PLAIN" }];
+        person.Urls = string.IsNullOrWhiteSpace(contact.Website) ? [] : [new() { Value = contact.Website }];
+        person.ImClients = contact.ImAddresses.Select(item => new global::Google.Apis.PeopleService.v1.Data.ImClient { Username = item.Address, Protocol = item.Protocol }).ToList();
+        person.Relations = contact.Relations.Select(item => new global::Google.Apis.PeopleService.v1.Data.Relation { Person = item.Name, Type = item.Kind.ToString().ToLowerInvariant() }).ToList();
+    }
+
+    private static ContactPhoneKind MapPhoneKind(string value) => value?.ToLowerInvariant() switch { "work" => ContactPhoneKind.Work, "mobile" => ContactPhoneKind.Mobile, _ => ContactPhoneKind.Home };
+    private static ContactPostalAddressKind MapAddressKind(string value) => value?.ToLowerInvariant() switch { "work" => ContactPostalAddressKind.Business, "other" => ContactPostalAddressKind.Other, _ => ContactPostalAddressKind.Home };
+    private static bool TryMapRelation(string value, out ContactRelationKind kind) { kind = MapRelation(value); return value?.ToLowerInvariant() is "manager" or "assistant" or "spouse" or "child"; }
+    private static ContactRelationKind MapRelation(string value) => value?.ToLowerInvariant() switch { "manager" => ContactRelationKind.Manager, "assistant" => ContactRelationKind.Assistant, "spouse" => ContactRelationKind.Spouse, _ => ContactRelationKind.Child };
 
     public override async Task<ProfileInformation> GetProfileInformationAsync()
     {

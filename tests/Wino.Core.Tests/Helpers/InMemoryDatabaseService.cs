@@ -42,6 +42,14 @@ public class InMemoryDatabaseService : IDatabaseService
         await Connection.CreateTableAsync<FolderConfigurationOverride>();
         await Connection.CreateTableAsync<MailAccount>();
         await Connection.CreateTableAsync<AccountContact>();
+        await Connection.CreateTableAsync<ContactAddressBook>();
+        await Connection.CreateTableAsync<ContactEmailAddress>();
+        await Connection.CreateTableAsync<ContactPhoneNumber>();
+        await Connection.CreateTableAsync<ContactPostalAddress>();
+        await Connection.CreateTableAsync<ContactImAddress>();
+        await Connection.CreateTableAsync<ContactRelation>();
+        await Connection.CreateTableAsync<ContactList>();
+        await Connection.CreateTableAsync<ContactListMember>();
         await Connection.CreateTableAsync<CustomServerInformation>();
         await Connection.CreateTableAsync<MailServerCertificateTrust>();
         await Connection.CreateTableAsync<AccountSignature>();
@@ -49,8 +57,6 @@ public class InMemoryDatabaseService : IDatabaseService
         await Connection.CreateTableAsync<MailAccountPreferences>();
         await Connection.CreateTableAsync<MailAccountAlias>();
         await Connection.CreateTableAsync<Thumbnail>();
-        await Connection.CreateTableAsync<ContactGroup>();
-        await Connection.CreateTableAsync<ContactGroupMember>();
         await Connection.CreateTableAsync<KeyboardShortcut>();
         await Connection.CreateTableAsync<AccountCalendar>();
         await Connection.CreateTableAsync<CalendarEventAttendee>();

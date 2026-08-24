@@ -109,6 +109,10 @@ public class MailAccount
     /// </summary>
     public bool IsCalendarAccessGranted { get; set; }
 
+    public bool IsContactAccessGranted { get; set; }
+
+    public bool IsContactReauthorizationRequired { get; set; }
+
     /// <summary>
     /// Gets or sets whether MailKit IMAP and SMTP protocol diagnostics are captured for this account.
     /// Protocol logging is opt-in and disabled by default.

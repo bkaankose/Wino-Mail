@@ -1188,7 +1188,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     public async Task RequestSenderSuggestionsAsync(string query)
     {
-        var contacts = await ContactService.SearchContactsAsync(query).ConfigureAwait(false);
+        var accountIds = ViewModel.ActiveFolder?.HandlingFolders.Select(folder => folder.MailAccountId).Distinct().ToList() ?? [];
+        var accountId = accountIds.Count == 1 ? accountIds[0] : (Guid?)null;
+        var contacts = await ContactService.ResolveRecipientCandidatesAsync(accountId, query).ConfigureAwait(false) ?? [];
         var suggestions = contacts.Take(8).Select(contact => new SearchBarContactSuggestion
         {
             DisplayName = contact.DisplayName,

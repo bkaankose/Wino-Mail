@@ -13,6 +13,48 @@ namespace Wino.Core.Tests.Services;
 public sealed class DatabaseMigrationTests
 {
     [Fact]
+    public async Task InitializeAsync_DiscardsLegacyContactsAndCreatesAccountScopedSchemaIdempotently()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"wino-contact-schema-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var databasePath = Path.Combine(directory, "Wino200.db");
+        DatabaseService databaseService = null;
+        var accountId = Guid.NewGuid();
+
+        try
+        {
+            var legacy = new SQLiteAsyncConnection(databasePath);
+            await legacy.CreateTableAsync<MailAccount>();
+            await legacy.ExecuteAsync("ALTER TABLE MailAccount DROP COLUMN IsContactAccessGranted");
+            await legacy.ExecuteAsync("ALTER TABLE MailAccount DROP COLUMN IsContactReauthorizationRequired");
+            await legacy.ExecuteAsync("INSERT INTO MailAccount (Id, Name, ProviderType) VALUES (?, ?, ?)", accountId, "Existing", MailProviderType.Gmail);
+            await legacy.ExecuteAsync("CREATE TABLE AccountContact (Address TEXT PRIMARY KEY, Name TEXT, ContactPictureFileId TEXT)");
+            await legacy.ExecuteAsync("INSERT INTO AccountContact (Address, Name) VALUES ('old@example.com', 'Old')");
+            await legacy.ExecuteAsync("CREATE TABLE ContactGroup (Id TEXT PRIMARY KEY, Name TEXT)");
+            await legacy.ExecuteAsync("CREATE TABLE ContactGroupMember (GroupId TEXT, MemberAddress TEXT)");
+            await legacy.CloseAsync();
+
+            var configuration = new Mock<IApplicationConfiguration>();
+            configuration.SetupProperty(x => x.PublisherSharedFolderPath, directory);
+            databaseService = new DatabaseService(configuration.Object);
+            await databaseService.InitializeAsync();
+            await databaseService.InitializeAsync();
+
+            (await databaseService.Connection.GetTableInfoAsync("AccountContact")).Should().BeEmpty();
+            (await databaseService.Connection.GetTableInfoAsync("ContactGroup")).Should().BeEmpty();
+            (await databaseService.Connection.GetTableInfoAsync("ContactCard")).Should().NotBeEmpty();
+            (await databaseService.Connection.GetTableInfoAsync("ContactEmailAddress")).Should().NotBeEmpty();
+            (await databaseService.Connection.Table<ContactAddressBook>().Where(book => book.MailAccountId == accountId).CountAsync()).Should().Be(1);
+            (await databaseService.Connection.FindAsync<MailAccount>(accountId)).IsContactAccessGranted.Should().BeFalse();
+        }
+        finally
+        {
+            if (databaseService?.Connection != null) await databaseService.Connection.CloseAsync();
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task InitializeAsync_AddsAccountProfilePictureColumns()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"wino-profile-schema-{Guid.NewGuid():N}");

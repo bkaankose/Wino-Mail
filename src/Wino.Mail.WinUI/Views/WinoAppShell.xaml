@@ -5,6 +5,7 @@
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:animations="using:CommunityToolkit.WinUI.Animations"
     xmlns:communityControls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:contactData="using:Wino.Mail.ViewModels.Data"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:CommunityToolkit.WinUI.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
@@ -23,6 +24,62 @@
     mc:Ignorable="d">
 
     <Page.Resources>
+        <CollectionViewSource x:Key="ContactsFilterCollectionViewSource" IsSourceGrouped="True" />
+
+        <DataTemplate x:Key="ContactsFilterTemplate" x:DataType="contactData:ContactFilterViewModel">
+            <Grid
+                MinHeight="36"
+                Padding="10,0"
+                ColumnSpacing="10"
+                ToolTipService.ToolTip="{x:Bind Name, Mode=OneTime}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <FontIcon FontSize="15" Glyph="{x:Bind Glyph, Mode=OneTime}" />
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind Name, Mode=OneTime}"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind Count, Mode=OneWay}"
+                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}" />
+
+                <Grid.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuFlyoutItem
+                            AutomationProperties.AutomationId="ContactsPaneRenameList"
+                            Click="RenameContactList_Click"
+                            IsEnabled="{x:Bind IsList, Mode=OneTime}"
+                            Tag="{x:Bind}"
+                            Text="{x:Bind domain:Translator.ContactList_Rename, Mode=OneTime}"
+                            Visibility="{x:Bind IsList, Mode=OneTime}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE8AC;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutItem
+                            AutomationProperties.AutomationId="ContactsPaneDeleteList"
+                            Click="DeleteContactList_Click"
+                            IsEnabled="{x:Bind IsList, Mode=OneTime}"
+                            Tag="{x:Bind}"
+                            Text="{x:Bind domain:Translator.ContactList_Delete, Mode=OneTime}"
+                            Visibility="{x:Bind IsList, Mode=OneTime}">
+                            <MenuFlyoutItem.Icon>
+                                <FontIcon Glyph="&#xE74D;" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                    </MenuFlyout>
+                </Grid.ContextFlyout>
+            </Grid>
+        </DataTemplate>
 
         <!--  Clickable New Style Account Template  -->
         <DataTemplate x:Key="ClickableAccountMenuTemplate" x:DataType="menu:AccountMenuItem">
@@ -842,20 +899,24 @@
                         </ListView>
                     </Grid>
 
-                    <ScrollViewer
+                    <Grid
                         x:Name="ContactsPaneContent"
-                        Margin="20,20,16,0"
                         x:Load="{x:Bind ViewModel.IsContactsMode, Mode=OneWay}"
-                        HorizontalScrollBarVisibility="Disabled"
-                        HorizontalScrollMode="Disabled"
-                        VerticalScrollBarVisibility="Auto"
-                        VerticalScrollMode="Auto"
                         Visibility="Collapsed">
-                        <StackPanel Spacing="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
                             <coreControls:WinoNavigationViewItem
                                 x:Name="NewContactNavigationItem"
                                 Height="50"
-                                Margin="0,0,0,12"
                                 AutomationProperties.AutomationId="NewContactNavigationItem"
                                 AutomationProperties.Name="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}"
                                 IsTabStop="True"
@@ -872,17 +933,78 @@
                                     Text="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}" />
                             </coreControls:WinoNavigationViewItem>
 
-                            <TextBlock
-                                Style="{StaticResource BodyStrongTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.ContactsPane_DescriptionTitle, Mode=OneTime}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource BodyTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.ContactsPane_DescriptionBody, Mode=OneTime}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-                    </ScrollViewer>
+                            <Button
+                                Grid.Column="1"
+                                Width="36"
+                                Height="36"
+                                Margin="4,0,12,0"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ContactsPaneRefresh"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Refresh, Mode=OneTime}"
+                                Command="{x:Bind ContactsViewModel.RefreshContactsCommand, Mode=OneWay}"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Refresh, Mode=OneTime}">
+                                <coreControls:WinoFontIcon
+                                    x:Name="SyncFolderIcon"
+                                    FontSize="14"
+                                    Icon="Sync" />
+                            </Button>
+                        </Grid>
+
+                        <ListView
+                            x:Name="ContactsFilterListView"
+                            Grid.Row="1"
+                            AutomationProperties.AutomationId="ContactsFilterListView"
+                            ItemTemplate="{StaticResource ContactsFilterTemplate}"
+                            ItemsSource="{Binding Source={StaticResource ContactsFilterCollectionViewSource}}"
+                            SelectedItem="{x:Bind ContactsViewModel.SelectedFilter, Mode=TwoWay}"
+                            SelectionMode="Single">
+                            <ListView.Header>
+                                <NavigationViewItem
+                                    Height="50"
+                                    AutomationProperties.AutomationId="ContactsPaneNewList"
+                                    Content="{x:Bind domain:Translator.ContactList_NewTitle, Mode=OneTime}"
+                                    IsTabStop="True"
+                                    KeyDown="NewAddressListNavigationItemKeyDown"
+                                    SelectsOnInvoked="False"
+                                    Tapped="NewAddressListNavigationItemTapped">
+                                    <NavigationViewItem.Icon>
+                                        <PathIcon
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Data="F1 M 4.306641 17.5 C 3.896484 17.5 3.505859 17.416992 3.134766 17.250977 C 2.763672 17.084961 2.439779 16.863607 2.163086 16.586914 C 1.886393 16.310221 1.665039 15.986328 1.499023 15.615234 C 1.333008 15.244141 1.25 14.853516 1.25 14.443359 L 1.25 4.306641 C 1.25 3.896484 1.333008 3.505859 1.499023 3.134766 C 1.665039 2.763672 1.886393 2.439779 2.163086 2.163086 C 2.439779 1.886395 2.763672 1.665039 3.134766 1.499023 C 3.505859 1.333008 3.896484 1.25 4.306641 1.25 L 14.443359 1.25 C 14.853515 1.25 15.24414 1.333008 15.615234 1.499023 C 15.986327 1.665039 16.310221 1.886395 16.586914 2.163086 C 16.863605 2.439779 17.084961 2.763672 17.250977 3.134766 C 17.416992 3.505859 17.5 3.896484 17.5 4.306641 L 17.5 7.900391 C 17.102863 7.705079 16.686197 7.548829 16.25 7.431641 L 16.25 4.375 C 16.25 4.121094 16.201172 3.880209 16.103516 3.652344 C 16.005859 3.42448 15.870768 3.224285 15.698242 3.051758 C 15.525715 2.879232 15.32552 2.744141 15.097656 2.646484 C 14.869791 2.548828 14.628906 2.5 14.375 2.5 L 4.375 2.5 C 4.121094 2.5 3.880208 2.548828 3.652344 2.646484 C 3.424479 2.744141 3.224284 2.879232 3.051758 3.051758 C 2.879232 3.224285 2.744141 3.42448 2.646484 3.652344 C 2.548828 3.880209 2.5 4.121094 2.5 4.375 L 2.5 14.375 C 2.5 14.628906 2.548828 14.869792 2.646484 15.097656 C 2.744141 15.325521 2.879232 15.525717 3.051758 15.698242 C 3.224284 15.870769 3.424479 16.005859 3.652344 16.103516 C 3.880208 16.201172 4.121094 16.25 4.375 16.25 L 7.431641 16.25 C 7.548828 16.686197 7.705078 17.102865 7.900391 17.5 Z M 5.625 6.25 C 5.455729 6.25 5.309245 6.188151 5.185547 6.064453 C 5.061849 5.940756 5 5.794271 5 5.625 C 5 5.455729 5.061849 5.309245 5.185547 5.185547 C 5.309245 5.06185 5.455729 5.000001 5.625 5 L 13.125 5 C 13.294271 5.000001 13.440755 5.06185 13.564453 5.185547 C 13.68815 5.309245 13.75 5.455729 13.75 5.625 C 13.75 5.794271 13.68815 5.940756 13.564453 6.064453 C 13.440755 6.188151 13.294271 6.25 13.125 6.25 Z M 5.625 10 C 5.455729 10 5.309245 9.938151 5.185547 9.814453 C 5.061849 9.690756 5 9.544271 5 9.375 C 5 9.205729 5.061849 9.059245 5.185547 8.935547 C 5.309245 8.81185 5.455729 8.75 5.625 8.75 L 9.902344 8.75 C 9.674479 8.932292 9.45638 9.127604 9.248047 9.335938 C 9.039713 9.544271 8.847656 9.765625 8.671875 10 Z M 8.75 14.375 C 8.75 13.600261 8.898111 12.871094 9.194336 12.1875 C 9.49056 11.503906 9.892578 10.908203 10.400391 10.400391 C 10.908203 9.892578 11.503906 9.490561 12.1875 9.194336 C 12.871093 8.898112 13.60026 8.75 14.375 8.75 C 14.889322 8.75 15.385741 8.816732 15.864258 8.950195 C 16.342773 9.083659 16.790363 9.272461 17.207031 9.516602 C 17.623697 9.760742 18.004557 10.055339 18.349609 10.400391 C 18.69466 10.745443 18.989258 11.126303 19.233398 11.542969 C 19.477539 11.959636 19.66634 12.407227 19.799805 12.885742 C 19.933268 13.364258 20 13.860678 20 14.375 C 20 15.14974 19.851887 15.878906 19.555664 16.5625 C 19.259439 17.246094 18.857422 17.841797 18.349609 18.349609 C 17.841797 18.857422 17.246094 19.259439 16.5625 19.555664 C 15.878906 19.851889 15.149739 20 14.375 20 C 13.59375 20 12.861328 19.853516 12.177734 19.560547 C 11.494141 19.267578 10.898438 18.867188 10.390625 18.359375 C 9.882812 17.851562 9.482422 17.255859 9.189453 16.572266 C 8.896484 15.888672 8.75 15.15625 8.75 14.375 Z M 15 15 L 16.875 15 C 17.04427 15 17.190754 14.938151 17.314453 14.814453 C 17.43815 14.690756 17.5 14.544271 17.5 14.375 C 17.5 14.205729 17.43815 14.059245 17.314453 13.935547 C 17.190754 13.81185 17.04427 13.75 16.875 13.75 L 15 13.75 L 15 11.875 C 14.999999 11.705729 14.93815 11.559245 14.814453 11.435547 C 14.690755 11.31185 14.544271 11.25 14.375 11.25 C 14.205729 11.25 14.059244 11.31185 13.935547 11.435547 C 13.811849 11.559245 13.75 11.705729 13.75 11.875 L 13.75 13.75 L 11.875 13.75 C 11.705729 13.75 11.559244 13.81185 11.435547 13.935547 C 11.311849 14.059245 11.25 14.205729 11.25 14.375 C 11.25 14.544271 11.311849 14.690756 11.435547 14.814453 C 11.559244 14.938151 11.705729 15 11.875 15 L 13.75 15 L 13.75 16.875 C 13.75 17.044271 13.811849 17.190756 13.935547 17.314453 C 14.059244 17.43815 14.205729 17.5 14.375 17.5 C 14.544271 17.5 14.690755 17.43815 14.814453 17.314453 C 14.93815 17.190756 14.999999 17.044271 15 16.875 Z " />
+                                    </NavigationViewItem.Icon>
+                                </NavigationViewItem>
+
+                            </ListView.Header>
+                            <ListView.ItemContainerStyle>
+                                <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                                    <Setter Property="Margin" Value="0,1" />
+                                    <Setter Property="Padding" Value="10,7" />
+                                    <Setter Property="MinHeight" Value="0" />
+                                    <Setter Property="CornerRadius" Value="5" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.GroupStyle>
+                                <GroupStyle HidesIfEmpty="True">
+                                    <GroupStyle.HeaderTemplate>
+                                        <DataTemplate x:DataType="contactData:ContactFilterGroup">
+                                            <TextBlock
+                                                Margin="10,10,0,2"
+                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="{x:Bind Title, Mode=OneTime}"
+                                                Visibility="{x:Bind HasTitle, Mode=OneTime}" />
+                                        </DataTemplate>
+                                    </GroupStyle.HeaderTemplate>
+                                </GroupStyle>
+                            </ListView.GroupStyle>
+                        </ListView>
+
+
+                    </Grid>
                 </Grid>
             </muxc:NavigationView.PaneCustomContent>
             <Grid ColumnSpacing="0">

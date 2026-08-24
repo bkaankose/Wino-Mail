@@ -99,7 +99,6 @@
                     ResetText="{x:Bind domain:Translator.SearchBar_ResetFilters}"
                     ScopeLabelText="{x:Bind domain:Translator.SearchBar_Scope}"
                     SearchButtonText="{x:Bind domain:Translator.SearchBar_SearchButton}"
-                    SearchOptionsChanged="TitleBarSearchOptionsChanged"
                     SearchOptionsText="{x:Bind domain:Translator.SearchBar_SearchOptions}"
                     SearchSubmitted="TitleBarSearchSubmitted"
                     SearchTextChanged="TitleBarSearchTextChanged"
@@ -112,14 +111,28 @@
                     UnreadFilterText="{x:Bind domain:Translator.SearchBar_Unread}">
                     <searchControls:WinoSearchBar.ItemTemplate>
                         <DataTemplate x:DataType="searchModels:TitleBarSearchSuggestion">
-                            <StackPanel Padding="0,4">
-                                <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind Subtitle}"
-                                    TextTrimming="CharacterEllipsis" />
-                            </StackPanel>
+                            <Grid MinHeight="48" Padding="8,4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <mailControls:WinoContactPicture
+                                    Width="32"
+                                    Height="32"
+                                    Margin="0,0,10,0"
+                                    ContactPicture="{x:Bind ContactPicture, Mode=OneTime}"
+                                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.NotNullToVisibility(ContactPicture), Mode=OneTime}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind Subtitle}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Grid>
                         </DataTemplate>
                     </searchControls:WinoSearchBar.ItemTemplate>
                 </searchControls:WinoSearchBar>

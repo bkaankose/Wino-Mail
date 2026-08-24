@@ -52,6 +52,10 @@ public interface IBaseSynchronizer
     /// </summary>
     IReadOnlyCollection<Guid> GetPendingCalendarOperationIds();
 
+    bool HasPendingContactOperation(Guid contactId);
+
+    IReadOnlyCollection<Guid> GetPendingContactOperationIds();
+
     /// <summary>
     /// Synchronizes profile information with the server.
     /// Sender name and Profile picture are updated.

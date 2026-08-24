@@ -8,6 +8,6 @@ public abstract class ContactsPageAbstract : BasePage<ContactsPageViewModel>
 {
     protected ContactsPageAbstract()
     {
-        NavigationCacheMode = NavigationCacheMode.Disabled;
+        NavigationCacheMode = NavigationCacheMode.Required;
     }
 }

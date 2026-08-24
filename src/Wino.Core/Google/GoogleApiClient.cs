@@ -40,6 +40,8 @@ namespace Wino.Core.Google;
 [JsonSerializable(typeof(Message))]
 [JsonSerializable(typeof(MessagePartBody))]
 [JsonSerializable(typeof(Person))]
+[JsonSerializable(typeof(ListConnectionsResponse))]
+[JsonSerializable(typeof(UpdateContactPhotoRequest))]
 [JsonSerializable(typeof(Profile))]
 [JsonSerializable(typeof(DriveFile), TypeInfoPropertyName = "DriveFile")]
 internal partial class GoogleApiJsonContext : JsonSerializerContext;

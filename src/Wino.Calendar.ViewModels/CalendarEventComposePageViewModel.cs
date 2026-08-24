@@ -346,7 +346,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         if (string.IsNullOrWhiteSpace(queryText) || queryText.Length < 2)
             return [];
 
-        return await _contactService.GetAddressInformationAsync(queryText).ConfigureAwait(false);
+        return await _contactService.ResolveRecipientCandidatesAsync(SelectedCalendar?.Account?.Id, queryText).ConfigureAwait(false) ?? [];
     }
 
     public async Task<CalendarComposeAttendeeViewModel> GetAttendeeAsync(string tokenText)
@@ -358,7 +358,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         if (existing)
             return null;
 
-        var info = await _contactService.GetAddressInformationByAddressAsync(tokenText).ConfigureAwait(false);
+        var info = await _contactService.GetContactByAddressAsync(SelectedCalendar?.Account?.Id, tokenText).ConfigureAwait(false);
         if (info != null)
         {
             return CalendarComposeAttendeeViewModel.FromContact(info);

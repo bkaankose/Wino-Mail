@@ -32,6 +32,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -40,6 +41,7 @@ using Wino.Core.Http;
 using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
+using Wino.Core.Outlook;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Category;
@@ -72,8 +74,15 @@ public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 /// - CreateMailCopyFromMessageAsync: Creates MailCopy from Message metadata
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
-public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
+public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event, Contact>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
 {
+    internal const string MissingContactPhotoPrefix = "outlook:no-photo:";
+    internal const string DefaultContactFolderKey = "default";
+
+    internal static string BuildMissingPhotoKey(string changeKey)
+        => changeKey?.StartsWith(MissingContactPhotoPrefix, StringComparison.Ordinal) == true
+            ? changeKey
+            : $"{MissingContactPhotoPrefix}{changeKey}";
     public override uint BatchModificationSize => 20;
     public override uint InitialMessageDownloadCountPerFolder => 1000;
     private const uint MaximumAllowedBatchRequestSize = 20;
@@ -124,6 +133,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly IOutlookSynchronizerErrorHandlerFactory _errorHandlingFactory;
     private readonly IMailCategoryService _mailCategoryService;
     private readonly IMailFilterExecutor _mailFilterExecutor;
+    private readonly IContactService _contactService;
+    private readonly LocalContactSynchronizer _localContactSynchronizer = new();
+    private readonly OutlookContactsClient _outlookContactsClient;
+    private readonly IContactPictureFileService _contactPictureFileService;
     private bool _isFolderStructureChanged;
     private bool _hasForcedCategoryResyncForCurrentDelta;
 
@@ -146,7 +159,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                                IOutlookChangeProcessor outlookChangeProcessor,
                                IOutlookSynchronizerErrorHandlerFactory errorHandlingFactory,
                                IMailCategoryService mailCategoryService,
-                               IMailFilterExecutor mailFilterExecutor = null) : base(account, WeakReferenceMessenger.Default)
+                               IMailFilterExecutor mailFilterExecutor = null,
+                               IContactService contactService = null,
+                               IContactPictureFileService contactPictureFileService = null) : base(account, WeakReferenceMessenger.Default)
     {
         _graphClient = CreateGraphClient(Account, authenticator);
         _providerFeatureGraphClient = CreateGraphClient(Account, authenticator, [ProviderFeature.MailFilters]);
@@ -155,7 +170,315 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         _errorHandlingFactory = errorHandlingFactory;
         _mailCategoryService = mailCategoryService;
         _mailFilterExecutor = mailFilterExecutor;
+        _contactService = contactService;
+        _contactPictureFileService = contactPictureFileService;
+        _outlookContactsClient = new OutlookContactsClient(_graphClient.RequestAdapter);
     }
+
+    protected override Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
+        => !Account.IsContactAccessGranted
+            ? _localContactSynchronizer.ExecuteRequestsAsync(requests, cancellationToken)
+            : ExecuteOutlookContactRequestsAsync(requests, cancellationToken);
+
+    protected override Task<ContactSynchronizationResult> SynchronizeContactsInternalAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default)
+        => !Account.IsContactAccessGranted
+            ? _localContactSynchronizer.SynchronizeAsync(options, cancellationToken)
+            : SynchronizeOutlookContactsAsync(options, cancellationToken);
+
+    private async Task<ContactSynchronizationResult> SynchronizeOutlookContactsAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken)
+    {
+        if (_contactService is null)
+            return ContactSynchronizationResult.Failed(new InvalidOperationException("Contact storage is unavailable."));
+
+        var remoteFolders = await DiscoverOutlookContactFoldersAsync(cancellationToken).ConfigureAwait(false);
+
+        var activeRemoteIds = new HashSet<string>(remoteFolders.Select(folder => folder.Id).Concat([DefaultContactFolderKey]), StringComparer.Ordinal);
+        var existingBooks = (await _contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false)).Where(book => book.SourceKind == ContactSourceKind.Outlook).ToList();
+        foreach (var removedBook in existingBooks.Where(book => !activeRemoteIds.Contains(book.RemoteId)))
+            await _contactService.DeleteAddressBookAsync(removedBook.Id).ConfigureAwait(false);
+
+        var books = new List<ContactAddressBook>
+        {
+            await _contactService.GetOrCreateProviderAddressBookAsync(
+                Account.Id, ContactSourceKind.Outlook, DefaultContactFolderKey, Account.Name, true).ConfigureAwait(false)
+        };
+        foreach (var folder in remoteFolders)
+        {
+            books.Add(await _contactService.GetOrCreateProviderAddressBookAsync(
+                Account.Id, ContactSourceKind.Outlook, folder.Id, folder.DisplayName, false, folder.ParentFolderId).ConfigureAwait(false));
+        }
+
+        var downloaded = 0;
+        var changed = 0;
+        var deleted = 0;
+        foreach (var book in books)
+        {
+            var isDefaultBook = string.Equals(book.RemoteId, DefaultContactFolderKey, StringComparison.Ordinal);
+            var isFull = isDefaultBook || options.Type == ContactSynchronizationType.Full || string.IsNullOrWhiteSpace(book.DeltaToken);
+            var response = isDefaultBook
+                ? await _outlookContactsClient.GetDefaultContactsAsync(cancellationToken: cancellationToken).ConfigureAwait(false)
+                : await _outlookContactsClient.GetDeltaAsync(book.RemoteId, isFull ? null : book.DeltaToken, cancellationToken).ConfigureAwait(false);
+            var upserts = new List<AccountContact>();
+            var deletedIds = new List<string>();
+            string deltaLink = null;
+
+            while (response is not null)
+            {
+                foreach (var remote in response.Value ?? [])
+                {
+                    if (remote.AdditionalData?.ContainsKey("@removed") == true)
+                        deletedIds.Add(remote.Id);
+                    else
+                        upserts.Add(MapOutlookContact(remote, book));
+                }
+                deltaLink = response.DeltaLink ?? deltaLink;
+                response = string.IsNullOrWhiteSpace(response.NextLink)
+                    ? null
+                    : isDefaultBook
+                        ? await _outlookContactsClient.GetDefaultContactsAsync(response.NextLink, cancellationToken).ConfigureAwait(false)
+                        : await _outlookContactsClient.GetDeltaAsync(book.RemoteId, response.NextLink, cancellationToken).ConfigureAwait(false);
+            }
+
+            var existingContacts = await _contactService.GetContactsByAddressBookAsync(book.Id).ConfigureAwait(false);
+            await DownloadOutlookContactPhotosAsync(upserts, existingContacts, cancellationToken).ConfigureAwait(false);
+
+            if (isFull)
+                await _contactService.ReplaceAddressBookAsync(book.Id, upserts, deltaLink).ConfigureAwait(false);
+            else
+                await _contactService.ApplyDeltaAsync(book.Id, new ContactSynchronizationBatch(upserts, deletedIds, deltaLink), true).ConfigureAwait(false);
+            downloaded += upserts.Count;
+            changed += upserts.Count;
+            deleted += deletedIds.Count;
+        }
+
+        return ContactSynchronizationResult.Completed(downloaded, changed, deleted);
+    }
+
+    private async Task DownloadOutlookContactPhotosAsync(
+        IReadOnlyList<AccountContact> contacts,
+        IReadOnlyList<AccountContact> existingContacts,
+        CancellationToken cancellationToken)
+    {
+        if (_contactPictureFileService is null)
+            return;
+
+        var existingByRemoteId = existingContacts
+            .Where(contact => !string.IsNullOrWhiteSpace(contact.RemoteId))
+            .ToDictionary(contact => contact.RemoteId, StringComparer.Ordinal);
+        var pending = contacts.Where(contact => !string.IsNullOrWhiteSpace(contact.RemoteId)).ToList();
+
+        await Parallel.ForEachAsync(
+            pending,
+            new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken },
+            async (contact, token) =>
+            {
+                if (existingByRemoteId.TryGetValue(contact.RemoteId, out var existing) && TryReuseOutlookContactPhoto(contact, existing))
+                    return;
+
+                try
+                {
+                    var bytes = await _outlookContactsClient.GetPhotoAsync(contact.RemoteId, token).ConfigureAwait(false);
+                    if (bytes?.Length > 0)
+                        contact.ContactPictureFileId = await _contactPictureFileService.SaveContactPictureAsync(bytes).ConfigureAwait(false);
+                    else
+                        contact.RemotePhotoKey = BuildMissingPhotoKey(contact.RemotePhotoKey);
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (ODataError ex) when (ex.ResponseStatusCode == 404)
+                {
+                    contact.RemotePhotoKey = BuildMissingPhotoKey(contact.RemotePhotoKey);
+                }
+                catch (Exception ex) { _logger.Warning(ex, "Failed to cache Outlook contact photo {RemoteId}.", contact.RemoteId); }
+            }).ConfigureAwait(false);
+    }
+
+    internal static bool TryReuseOutlookContactPhoto(AccountContact incoming, AccountContact existing)
+    {
+        if (string.Equals(existing.RemotePhotoKey, BuildMissingPhotoKey(incoming.RemotePhotoKey), StringComparison.Ordinal))
+        {
+            incoming.RemotePhotoKey = existing.RemotePhotoKey;
+            return true;
+        }
+
+        if (!existing.ContactPictureFileId.HasValue ||
+            !string.Equals(existing.RemotePhotoKey, incoming.RemotePhotoKey, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        incoming.ContactPictureFileId = existing.ContactPictureFileId;
+        return true;
+    }
+
+    internal static void PreserveOutlookContactPhotoSuppression(AccountContact incoming, AccountContact existing)
+    {
+        if (existing.RemotePhotoKey?.StartsWith(MissingContactPhotoPrefix, StringComparison.Ordinal) == true)
+            incoming.RemotePhotoKey = BuildMissingPhotoKey(incoming.RemotePhotoKey);
+    }
+
+    private async Task<List<ContactFolder>> DiscoverOutlookContactFoldersAsync(CancellationToken cancellationToken)
+    {
+        var result = new List<ContactFolder>();
+        var root = await _outlookContactsClient.GetContactFoldersAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        while (root is not null)
+        {
+            result.AddRange(root.Value ?? []);
+            root = string.IsNullOrWhiteSpace(root.NextLink) ? null : await _outlookContactsClient.GetContactFoldersAsync(root.NextLink, cancellationToken).ConfigureAwait(false);
+        }
+
+        var queue = new Queue<ContactFolder>(result);
+        while (queue.Count > 0)
+        {
+            var parent = queue.Dequeue();
+            var children = await _outlookContactsClient.GetChildFoldersAsync(parent.Id, cancellationToken: cancellationToken).ConfigureAwait(false);
+            while (children is not null)
+            {
+                foreach (var child in children.Value ?? [])
+                {
+                    result.Add(child);
+                    queue.Enqueue(child);
+                }
+                children = string.IsNullOrWhiteSpace(children.NextLink) ? null : await _outlookContactsClient.GetChildFoldersAsync(parent.Id, children.NextLink, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        return result;
+    }
+
+    private async Task ExecuteOutlookContactRequestsAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken)
+    {
+        if (_contactService is null)
+            throw new InvalidOperationException("Contact storage is unavailable.");
+
+        var books = await _contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false);
+        foreach (var request in requests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var local = await _contactService.GetContactAsync(request.LocalContactId).ConfigureAwait(false);
+
+            if (local is null && request.Operation != ContactSynchronizerOperation.Delete)
+            {
+                _logger.Warning("Skipping Outlook contact request {Operation}; local contact {ContactId} no longer exists.",
+                    request.Operation, request.LocalContactId);
+                continue;
+            }
+
+            var book = books.FirstOrDefault(item => item.Id == request.AddressBookId);
+            if (book is null && request.Operation is ContactSynchronizerOperation.Create or ContactSynchronizerOperation.Update)
+            {
+                _logger.Warning("Skipping Outlook contact request {Operation}; address book {AddressBookId} no longer exists.",
+                    request.Operation, request.AddressBookId);
+                continue;
+            }
+
+            try
+            {
+                switch (request.Operation)
+                {
+                    case ContactSynchronizerOperation.Create:
+                    {
+                        var created = await _outlookContactsClient.CreateContactAsync(book.RemoteId, MapToOutlookContact(local), cancellationToken).ConfigureAwait(false);
+                        await _contactService.CompleteMutationAsync(local.Id, MapOutlookContact(created, book), false).ConfigureAwait(false);
+                        break;
+                    }
+                    case ContactSynchronizerOperation.Update:
+                    {
+                        var current = await _outlookContactsClient.GetContactAsync(local.RemoteId, cancellationToken).ConfigureAwait(false);
+                        MergeCommonFields(current, local);
+                        var updated = await _outlookContactsClient.UpdateContactAsync(local.RemoteId, current, cancellationToken).ConfigureAwait(false);
+                        var mapped = MapOutlookContact(updated, book);
+                        PreserveOutlookContactPhotoSuppression(mapped, local);
+                        await _contactService.CompleteMutationAsync(local.Id, mapped, false).ConfigureAwait(false);
+                        break;
+                    }
+                    case ContactSynchronizerOperation.Delete:
+                        if (!string.IsNullOrWhiteSpace(local?.RemoteId))
+                            await _outlookContactsClient.DeleteContactAsync(local.RemoteId, cancellationToken).ConfigureAwait(false);
+                        if (local is not null)
+                            await _contactService.CompleteMutationAsync(local.Id, null, true).ConfigureAwait(false);
+                        break;
+                    case ContactSynchronizerOperation.SetPhoto:
+                        await _outlookContactsClient.SetPhotoAsync(local.RemoteId, request.Photo, cancellationToken).ConfigureAwait(false);
+                        await _contactService.CompleteMutationAsync(local.Id, null, false).ConfigureAwait(false);
+                        break;
+                    case ContactSynchronizerOperation.DeletePhoto:
+                        await _contactService.SuppressContactPictureAsync(
+                            local.Id,
+                            BuildMissingPhotoKey(local.RemotePhotoKey)).ConfigureAwait(false);
+                        await _contactService.CompleteMutationAsync(local.Id, null, false).ConfigureAwait(false);
+                        break;
+                }
+            }
+            catch (ApiException ex) when (ex.ResponseStatusCode is 409 or 412)
+            {
+                if (local is null || string.IsNullOrWhiteSpace(local.RemoteId))
+                    continue;
+                var remote = await _outlookContactsClient.GetContactAsync(local.RemoteId, cancellationToken).ConfigureAwait(false);
+                await _contactService.CompleteMutationAsync(local.Id, MapOutlookContact(remote, book), false).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.Error(ex, "Outlook contact request {Operation} failed for contact {ContactId}.",
+                    request.Operation, request.LocalContactId);
+            }
+        }
+    }
+
+    private AccountContact MapOutlookContact(Contact remote, ContactAddressBook book)
+    {
+        var contact = new AccountContact
+        {
+            Id = Guid.NewGuid(), MailAccountId = Account.Id, AddressBookId = book.Id, SourceKind = ContactSourceKind.Outlook,
+            RemoteId = remote.Id, RemoteVersion = remote.ChangeKey, RemotePhotoKey = remote.ChangeKey,
+            DisplayName = remote.DisplayName, HonorificPrefix = remote.Title, GivenName = remote.GivenName,
+            MiddleName = remote.MiddleName, Surname = remote.Surname, HonorificSuffix = remote.Generation,
+            Nickname = remote.NickName, FileAs = remote.FileAs, CompanyName = remote.CompanyName,
+            Department = remote.Department, JobTitle = remote.JobTitle, OfficeLocation = remote.OfficeLocation,
+            Profession = remote.Profession, BirthdayYear = remote.Birthday?.Year, BirthdayMonth = remote.Birthday?.Month,
+            BirthdayDay = remote.Birthday?.Day, Notes = remote.PersonalNotes, Website = remote.BusinessHomePage
+        };
+        contact.EmailAddresses = remote.EmailAddresses?.Take(3).Select((item, index) => new ContactEmailAddress { Id = Guid.NewGuid(), ContactId = contact.Id, Address = item.Address, NormalizedAddress = ContactEmailAddress.Normalize(item.Address), Order = index, IsPrimary = index == 0 }).ToList() ?? [];
+        contact.PhoneNumbers = (remote.HomePhones ?? []).Select((value, index) => new ContactPhoneNumber { Id = Guid.NewGuid(), ContactId = contact.Id, Number = value, Kind = ContactPhoneKind.Home, Order = index }).Concat((remote.BusinessPhones ?? []).Select((value, index) => new ContactPhoneNumber { Id = Guid.NewGuid(), ContactId = contact.Id, Number = value, Kind = ContactPhoneKind.Work, Order = index })).ToList();
+        if (!string.IsNullOrWhiteSpace(remote.MobilePhone)) contact.PhoneNumbers.Add(new ContactPhoneNumber { Id = Guid.NewGuid(), ContactId = contact.Id, Number = remote.MobilePhone, Kind = ContactPhoneKind.Mobile, Order = contact.PhoneNumbers.Count });
+        AddOutlookAddress(contact, remote.HomeAddress, ContactPostalAddressKind.Home);
+        AddOutlookAddress(contact, remote.BusinessAddress, ContactPostalAddressKind.Business);
+        AddOutlookAddress(contact, remote.OtherAddress, ContactPostalAddressKind.Other);
+        contact.ImAddresses = remote.ImAddresses?.Select((value, index) => new ContactImAddress { Id = Guid.NewGuid(), ContactId = contact.Id, Address = value, Order = index }).ToList() ?? [];
+        if (!string.IsNullOrWhiteSpace(remote.Manager)) contact.Relations.Add(new ContactRelation { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = ContactRelationKind.Manager, Name = remote.Manager });
+        if (!string.IsNullOrWhiteSpace(remote.AssistantName)) contact.Relations.Add(new ContactRelation { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = ContactRelationKind.Assistant, Name = remote.AssistantName });
+        if (!string.IsNullOrWhiteSpace(remote.SpouseName)) contact.Relations.Add(new ContactRelation { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = ContactRelationKind.Spouse, Name = remote.SpouseName });
+        contact.Relations.AddRange((remote.Children ?? []).Select(name => new ContactRelation { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = ContactRelationKind.Child, Name = name }));
+        return contact;
+    }
+
+    private static Contact MapToOutlookContact(AccountContact contact) { var result = new Contact(); MergeCommonFields(result, contact); return result; }
+    private static void MergeCommonFields(Contact remote, AccountContact contact)
+    {
+        remote.DisplayName = contact.DisplayName; remote.Title = contact.HonorificPrefix; remote.GivenName = contact.GivenName;
+        remote.MiddleName = contact.MiddleName; remote.Surname = contact.Surname; remote.Generation = contact.HonorificSuffix;
+        remote.NickName = contact.Nickname; remote.FileAs = contact.FileAs; remote.CompanyName = contact.CompanyName;
+        remote.Department = contact.Department; remote.JobTitle = contact.JobTitle; remote.OfficeLocation = contact.OfficeLocation;
+        remote.Profession = contact.Profession; remote.PersonalNotes = contact.Notes; remote.BusinessHomePage = contact.Website;
+        remote.Birthday = contact.BirthdayMonth.HasValue && contact.BirthdayDay.HasValue ? new DateTimeOffset(contact.BirthdayYear ?? 2000, contact.BirthdayMonth.Value, contact.BirthdayDay.Value, 0, 0, 0, TimeSpan.Zero) : null;
+        remote.EmailAddresses = contact.EmailAddresses.Take(3).Select(item => new Microsoft.Graph.Models.EmailAddress { Address = item.Address, Name = contact.DisplayName }).ToList();
+        remote.HomePhones = contact.PhoneNumbers.Where(item => item.Kind == ContactPhoneKind.Home).Select(item => item.Number).ToList();
+        remote.BusinessPhones = contact.PhoneNumbers.Where(item => item.Kind == ContactPhoneKind.Work).Select(item => item.Number).ToList();
+        remote.MobilePhone = contact.PhoneNumbers.FirstOrDefault(item => item.Kind == ContactPhoneKind.Mobile)?.Number;
+        remote.HomeAddress = MapOutlookAddress(contact.PostalAddresses.FirstOrDefault(item => item.Kind == ContactPostalAddressKind.Home));
+        remote.BusinessAddress = MapOutlookAddress(contact.PostalAddresses.FirstOrDefault(item => item.Kind == ContactPostalAddressKind.Business));
+        remote.OtherAddress = MapOutlookAddress(contact.PostalAddresses.FirstOrDefault(item => item.Kind == ContactPostalAddressKind.Other));
+        remote.ImAddresses = contact.ImAddresses.Select(item => item.Address).ToList();
+        remote.Manager = contact.Relations.FirstOrDefault(item => item.Kind == ContactRelationKind.Manager)?.Name;
+        remote.AssistantName = contact.Relations.FirstOrDefault(item => item.Kind == ContactRelationKind.Assistant)?.Name;
+        remote.SpouseName = contact.Relations.FirstOrDefault(item => item.Kind == ContactRelationKind.Spouse)?.Name;
+        remote.Children = contact.Relations.Where(item => item.Kind == ContactRelationKind.Child).Select(item => item.Name).ToList();
+    }
+
+    private static void AddOutlookAddress(AccountContact contact, PhysicalAddress address, ContactPostalAddressKind kind)
+    {
+        if (address is null) return;
+        contact.PostalAddresses.Add(new ContactPostalAddress { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = kind, Street = address.Street, City = address.City, Region = address.State, PostalCode = address.PostalCode, Country = address.CountryOrRegion });
+    }
+    private static PhysicalAddress MapOutlookAddress(ContactPostalAddress address) => address is null ? null : new PhysicalAddress { Street = address.Street, City = address.City, State = address.Region, PostalCode = address.PostalCode, CountryOrRegion = address.Country };
 
     private GraphServiceClient CreateGraphClient(
         MailAccount account,

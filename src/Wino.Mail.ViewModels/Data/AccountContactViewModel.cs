@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
@@ -17,8 +18,50 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public Guid? ContactPictureFileId { get; set; }
     public bool IsRootContact { get; set; }
     public bool IsOverridden { get; set; }
+    public Guid Id => SourceContact.Id;
+    public string SecondaryValue => SourceContact.PrimaryEmailAddress ?? SourceContact.PrimaryPhoneNumber ?? string.Empty;
+    public string SourceLabel { get; }
+    public bool IsEditable { get; }
 
-    public AccountContactViewModel(AccountContact contact)
+    /// <summary>
+    /// Local-only favorite marker. Writes through to the underlying contact so that a
+    /// toggle is reflected without reloading the page.
+    /// </summary>
+    public bool IsFavorite
+    {
+        get => SourceContact.IsFavorite;
+        set
+        {
+            if (SourceContact.IsFavorite == value) return;
+            SourceContact.IsFavorite = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>
+    /// "Job title · Company", or whichever of the two is present.
+    /// </summary>
+    public string JobTitleOrCompany
+        => string.Join(" · ", new[] { SourceContact.JobTitle, SourceContact.CompanyName }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    /// <summary>
+    /// Alphabetical section key. Non-letters collapse into a single "#" section.
+    /// </summary>
+    public string InitialLetter
+    {
+        get
+        {
+            var source = SourceContact.SortKey;
+            if (string.IsNullOrWhiteSpace(source))
+                source = SourceContact.DisplayValue;
+
+            var first = source?.TrimStart().FirstOrDefault() ?? '#';
+            return char.IsLetter(first) ? char.ToUpperInvariant(first).ToString() : "#";
+        }
+    }
+
+    public AccountContactViewModel(AccountContact contact, string accountName = null, bool isAuthorized = true)
     {
         SourceContact = contact;
         Address = contact.Address;
@@ -26,6 +69,8 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
         ContactPictureFileId = contact.ContactPictureFileId;
         IsRootContact = contact.IsRootContact;
         IsOverridden = contact.IsOverridden;
+        SourceLabel = string.IsNullOrWhiteSpace(accountName) ? contact.SourceKind.ToString() : $"{accountName} · {contact.SourceKind}";
+        IsEditable = contact.SourceKind == ContactSourceKind.Local || isAuthorized;
     }
 
     /// <summary>
@@ -48,12 +93,12 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     /// Short display name of the contact.
     /// Either Name or Address.
     /// </summary>
-    public string ShortDisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? $"{Address.ToLowerInvariant()}" : $"{Name}";
+    public string ShortDisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? Address?.ToLowerInvariant() ?? SourceContact.DisplayValue : Name;
 
     /// <summary>
     /// Display name of the contact in a format: Name <Address>.
     /// </summary>
-    public string DisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? Address.ToLowerInvariant() : $"{Name} <{Address.ToLowerInvariant()}>";
+    public string DisplayName => Address == Name || string.IsNullOrWhiteSpace(Name) ? Address?.ToLowerInvariant() ?? SourceContact.DisplayValue : string.IsNullOrWhiteSpace(Address) ? Name : $"{Name} <{Address.ToLowerInvariant()}>";
 
     [ObservableProperty]
     public partial bool ThumbnailUpdatedEvent { get; set; }
@@ -83,12 +128,5 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public AccountNicknamePosition AccountNicknamePosition => Wino.Core.Domain.Enums.AccountNicknamePosition.None;
     public IReadOnlyList<MailCategory> Categories => [];
     public bool HasCategories => false;
-    public AccountContact SenderContact => new()
-    {
-        Address = Address,
-        Name = Name,
-        ContactPictureFileId = ContactPictureFileId,
-        IsRootContact = IsRootContact,
-        IsOverridden = IsOverridden
-    };
+    public AccountContact SenderContact => SourceContact;
 }

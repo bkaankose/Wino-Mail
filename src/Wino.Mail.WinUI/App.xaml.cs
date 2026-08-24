@@ -56,6 +56,7 @@ namespace Wino.Mail.WinUI;
 public partial class App : WinoApplication,
     IRecipient<NewMailSynchronizationRequested>,
     IRecipient<NewCalendarSynchronizationRequested>,
+    IRecipient<NewContactSynchronizationRequested>,
     IRecipient<AccountCreatedMessage>,
     IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>,
@@ -478,6 +479,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(MailFiltersPageViewModel));
         services.AddTransient(typeof(MailFilterEditorPageViewModel));
         services.AddTransient(typeof(ContactsPageViewModel));
+        services.AddTransient(typeof(ContactEditPageViewModel));
         services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
         services.AddTransient(typeof(EmailTemplatesPageViewModel));
         services.AddTransient(typeof(CreateEmailTemplatePageViewModel));
@@ -1427,6 +1429,7 @@ public partial class App : WinoApplication,
     {
         WeakReferenceMessenger.Default.Register<NewMailSynchronizationRequested>(this);
         WeakReferenceMessenger.Default.Register<NewCalendarSynchronizationRequested>(this);
+        WeakReferenceMessenger.Default.Register<NewContactSynchronizationRequested>(this);
         WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
@@ -1506,6 +1509,14 @@ public partial class App : WinoApplication,
         }
     }
 
+    public async void Receive(NewContactSynchronizationRequested message)
+    {
+        if (_synchronizationManager == null)
+            return;
+
+        await _synchronizationManager.SynchronizeContactsAsync(message.Options).ConfigureAwait(false);
+    }
+
     public void Receive(AccountCreatedMessage message)
     {
         _hasConfiguredAccounts = true;
@@ -1525,10 +1536,24 @@ public partial class App : WinoApplication,
         MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
         {
             // Create and activate ShellWindow — ActiveWindowChanged fires and rebinds the dispatcher.
-            CreateWindow(null, AppEntryConstants.GetModeLaunchArgument(WinoApplicationMode.Mail));
+            var initialMode = message.Account.IsMailAccessGranted
+                ? WinoApplicationMode.Mail
+                : message.Account.IsCalendarAccessGranted
+                    ? WinoApplicationMode.Calendar
+                    : WinoApplicationMode.Contacts;
+            CreateWindow(null, AppEntryConstants.GetModeLaunchArgument(initialMode));
             CloseWelcomeWindowIfPresent();
             if (MainWindow != null)
                 await ActivateWindowAsync(MainWindow);
+
+            if (message.Account.IsContactAccessGranted)
+            {
+                WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+                {
+                    AccountId = message.Account.Id,
+                    Type = ContactSynchronizationType.Delta
+                }));
+            }
 
             if (message.Account.IsCalendarAccessGranted)
             {
@@ -1545,6 +1570,15 @@ public partial class App : WinoApplication,
 
     private void QueueCreatedAccountSynchronization(Wino.Core.Domain.Entities.Shared.MailAccount account)
     {
+        if (account.IsContactAccessGranted)
+        {
+            WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = ContactSynchronizationType.Delta
+            }));
+        }
+
         if (account.IsMailAccessGranted)
         {
             WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
@@ -1857,6 +1891,28 @@ public partial class App : WinoApplication,
 
         if (_synchronizationManager.IsAccountSynchronizing(account.Id))
             return;
+
+        if (account.IsContactAccessGranted)
+        {
+            await _synchronizationManager.SynchronizeContactsAsync(new ContactSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = ContactSynchronizationType.Delta
+            }, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (!account.IsMailAccessGranted)
+        {
+            if (account.IsCalendarAccessGranted)
+            {
+                await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+                {
+                    AccountId = account.Id,
+                    Type = CalendarSynchronizationType.CalendarMetadata
+                }, cancellationToken).ConfigureAwait(false);
+            }
+            return;
+        }
 
         var inboxSyncOptions = new MailSynchronizationOptions
         {

@@ -45,4 +45,26 @@ public sealed class MailAuthenticatorConfigurationTests
 
         scopes.Should().Contain("MailboxSettings.ReadWrite");
     }
+
+    [Theory]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, true)]
+    [InlineData(true, true, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    public void ProviderScopes_ReflectEveryCapabilityCombination(bool mail, bool calendar, bool contacts)
+    {
+        var request = new ProviderAuthorizationRequest(mail, calendar, [], contacts);
+        var gmail = _configuration.GetGmailScopes(request);
+        var outlook = _configuration.GetOutlookScopes(request);
+
+        gmail.Contains("https://mail.google.com/").Should().Be(mail);
+        gmail.Contains("https://www.googleapis.com/auth/calendar").Should().Be(calendar);
+        gmail.Contains("https://www.googleapis.com/auth/contacts").Should().Be(contacts);
+        outlook.Contains("mail.readwrite").Should().Be(mail);
+        outlook.Contains("Calendars.ReadWrite").Should().Be(calendar);
+        outlook.Contains("Contacts.ReadWrite").Should().Be(contacts);
+    }
 }

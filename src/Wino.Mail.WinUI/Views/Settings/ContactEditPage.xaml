@@ -1,0 +1,572 @@
+<abstract:ContactEditPageAbstract
+    x:Class="Wino.Views.Settings.ContactEditPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:contacts="using:Wino.Core.Domain.Entities.Shared"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:models="using:Wino.Core.Domain.Models.Contacts"
+    xmlns:viewModels="using:Wino.Mail.ViewModels.Data"
+    x:Name="root"
+    Loaded="ContactEditPage_Loaded"
+    LosingFocus="ContactEditPage_LosingFocus"
+    Unloaded="ContactEditPage_Unloaded"
+    x:SuppressXamlTrimWarnings="True">
+
+    <abstract:ContactEditPageAbstract.Resources>
+        <Style x:Key="EditorCardStyle" TargetType="Border">
+            <Setter Property="Padding" Value="18" />
+            <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+
+        <Style x:Key="EditorSectionHeaderStyle" BasedOn="{StaticResource BodyStrongTextBlockStyle}" TargetType="TextBlock">
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+
+        <Style x:Key="EditorExpanderStyle" TargetType="Expander">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+    </abstract:ContactEditPageAbstract.Resources>
+
+    <Grid Background="{ThemeResource ReadingPaneBackgroundColorBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  ============ HERO ============  -->
+        <Grid
+            Grid.Row="0"
+            Padding="24,16"
+            Background="{ThemeResource LayerOnMicaBaseAltFillColorSecondaryBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="0,0,0,1"
+            ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0" VerticalAlignment="Center">
+                <PersonPicture
+                    Width="72"
+                    Height="72"
+                    AutomationProperties.AutomationId="ContactEditorPreviewPicture"
+                    AutomationProperties.Name="{x:Bind ViewModel.PreviewDisplayName, Mode=OneWay}"
+                    DisplayName="{x:Bind ViewModel.PreviewDisplayName, Mode=OneWay}"
+                    ProfilePicture="{x:Bind helpers:XamlHelpers.GetContactEditorPreviewPicture(ViewModel.PreviewPhotoBytes, ViewModel.PreviewPhotoPath), Mode=OneWay}" />
+
+                <Button
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom"
+                    AutomationProperties.AutomationId="ContactEditorChoosePhoto"
+                    Command="{x:Bind ViewModel.ChoosePhotoCommand}"
+                    CornerRadius="14"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_ChangePhoto, Mode=OneTime}">
+                    <FontIcon FontSize="13" Glyph="&#xE722;" />
+                </Button>
+            </Grid>
+
+            <StackPanel
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Spacing="2">
+                <TextBlock
+                    Style="{StaticResource TitleTextBlockStyle}"
+                    Text="{x:Bind ViewModel.PreviewDisplayName, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind ViewModel.PreviewSubtitle, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+
+            <StackPanel
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                Orientation="Horizontal"
+                Spacing="8">
+                <Button
+                    AutomationProperties.AutomationId="ContactEditorFavorite"
+                    Command="{x:Bind ViewModel.ToggleFavoriteCommand}"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind helpers:XamlHelpers.GetFavoriteTooltip(ViewModel.IsFavorite), Mode=OneWay}">
+                    <FontIcon
+                        FontSize="17"
+                        Foreground="{x:Bind helpers:XamlHelpers.GetFavoriteBrush(ViewModel.IsFavorite), Mode=OneWay}"
+                        Glyph="{x:Bind helpers:XamlHelpers.GetFavoriteGlyph(ViewModel.IsFavorite), Mode=OneWay}" />
+                </Button>
+
+                <Button
+                    AutomationProperties.AutomationId="ContactEditorRemovePhoto"
+                    Command="{x:Bind ViewModel.RemovePhotoCommand}"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.ContactEditDialog_RemovePhoto, Mode=OneTime}">
+                    <FontIcon FontSize="14" Glyph="&#xE8B3;" />
+                </Button>
+
+                <Button
+                    AutomationProperties.AutomationId="ContactEditorCancel"
+                    Command="{x:Bind ViewModel.BackCommand}"
+                    Content="{x:Bind domain:Translator.ContactEditor_Cancel, Mode=OneTime}" />
+
+                <Button
+                    AutomationProperties.AutomationId="ContactEditorSave"
+                    Command="{x:Bind ViewModel.SaveCommand}"
+                    Content="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
+                    Style="{StaticResource AccentButtonStyle}" />
+            </StackPanel>
+        </Grid>
+
+        <InfoBar
+            Grid.Row="1"
+            Margin="24,12,24,0"
+            AutomationProperties.AutomationId="ContactEditorError"
+            IsOpen="{x:Bind ViewModel.IsErrorOpen, Mode=TwoWay}"
+            Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+            Severity="Error" />
+
+        <!--  ============ FORM ============  -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+            <StackPanel
+                MaxWidth="820"
+                Margin="24,20,24,40"
+                HorizontalAlignment="Stretch"
+                Spacing="12">
+
+                <!--  Destination (new contacts only)  -->
+                <Border Style="{StaticResource EditorCardStyle}" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsEditMode), Mode=OneWay}">
+                    <ComboBox
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="ContactEditorDestination"
+                        Header="{x:Bind domain:Translator.ContactEditor_SaveTo, Mode=OneTime}"
+                        ItemsSource="{x:Bind ViewModel.Destinations}"
+                        SelectedItem="{x:Bind ViewModel.SelectedDestination, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:ContactCreateDestination">
+                                <TextBlock Text="{x:Bind DisplayName, Mode=OneTime}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Border>
+
+                <!--  Name: always open  -->
+                <Border Style="{StaticResource EditorCardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Style="{StaticResource EditorSectionHeaderStyle}" Text="{x:Bind domain:Translator.ContactEditor_Identity, Mode=OneTime}" />
+
+                        <TextBox
+                            AutomationProperties.AutomationId="ContactEditorDisplayName"
+                            Header="{x:Bind domain:Translator.ContactEditor_DisplayName, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox
+                                AutomationProperties.AutomationId="ContactEditorGivenName"
+                                Header="{x:Bind domain:Translator.ContactEditor_GivenName, Mode=OneTime}"
+                                Text="{x:Bind ViewModel.GivenName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox
+                                Grid.Column="1"
+                                AutomationProperties.AutomationId="ContactEditorSurname"
+                                Header="{x:Bind domain:Translator.ContactEditor_Surname, Mode=OneTime}"
+                                Text="{x:Bind ViewModel.Surname, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        </Grid>
+
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox
+                                AutomationProperties.AutomationId="ContactEditorNickname"
+                                Header="{x:Bind domain:Translator.ContactEditor_Nickname, Mode=OneTime}"
+                                Text="{x:Bind ViewModel.Nickname, Mode=TwoWay}" />
+                            <TextBox
+                                Grid.Column="1"
+                                AutomationProperties.AutomationId="ContactEditorFileAs"
+                                Header="{x:Bind domain:Translator.ContactEditor_FileAs, Mode=OneTime}"
+                                Text="{x:Bind ViewModel.FileAs, Mode=TwoWay}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!--  Email: always open  -->
+                <Border Style="{StaticResource EditorCardStyle}">
+                    <StackPanel Spacing="10">
+                        <TextBlock Style="{StaticResource EditorSectionHeaderStyle}" Text="{x:Bind domain:Translator.ContactEditor_Emails, Mode=OneTime}" />
+
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.EmailAddresses}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="contacts:ContactEmailAddress">
+                                    <Grid Margin="0,0,0,8" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox
+                                            AutomationProperties.AutomationId="ContactEditorEmailLabel"
+                                            Header="{x:Bind domain:Translator.ContactEditor_EmailLabel, Mode=OneTime}"
+                                            Text="{x:Bind Label, Mode=TwoWay}" />
+                                        <TextBox
+                                            Grid.Column="1"
+                                            AutomationProperties.AutomationId="ContactEditorEmail"
+                                            Header="{x:Bind domain:Translator.ContactEditor_Email, Mode=OneTime}"
+                                            Text="{x:Bind Address, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <Button
+                                            Grid.Column="2"
+                                            VerticalAlignment="Bottom"
+                                            AutomationProperties.AutomationId="ContactEditorRemoveEmail"
+                                            Click="RemoveEmail_Click"
+                                            Style="{StaticResource SubtleButtonStyle}"
+                                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
+                                            <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <Button
+                            HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="ContactEditorAddEmail"
+                            Command="{x:Bind ViewModel.AddEmailCommand}"
+                            Style="{StaticResource SubtleButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="13" Glyph="&#xE710;" />
+                                <TextBlock Text="{x:Bind domain:Translator.ContactEditor_AddEmail, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!--  Lists  -->
+                <Border Style="{StaticResource EditorCardStyle}" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.HasLists), Mode=OneWay}">
+                    <StackPanel Spacing="6">
+                        <TextBlock Style="{StaticResource EditorSectionHeaderStyle}" Text="{x:Bind domain:Translator.ContactEditor_Lists, Mode=OneTime}" />
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.ListMemberships}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="viewModels:ContactListMembershipViewModel">
+                                    <CheckBox
+                                        AutomationProperties.AutomationId="ContactEditorListMembership"
+                                        Content="{x:Bind Name, Mode=OneTime}"
+                                        IsChecked="{x:Bind IsMember, Mode=TwoWay}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!--  Phone  -->
+                <Expander
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    IsExpanded="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.PhoneNumbers.Count), Mode=OneWay}">
+                    <Expander.Header>
+                        <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Phones, Mode=OneTime}" />
+                    </Expander.Header>
+                    <StackPanel Spacing="10">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.PhoneNumbers}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="contacts:ContactPhoneNumber">
+                                    <Grid Margin="0,0,0,8" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox
+                                            HorizontalAlignment="Stretch"
+                                            AutomationProperties.AutomationId="ContactEditorPhoneKind"
+                                            Header="{x:Bind domain:Translator.ContactEditor_PhoneKind, Mode=OneTime}"
+                                            ItemsSource="{x:Bind helpers:XamlHelpers.GetPhoneKinds(), Mode=OneTime}"
+                                            SelectedItem="{x:Bind Kind, Mode=TwoWay}" />
+                                        <TextBox
+                                            Grid.Column="1"
+                                            AutomationProperties.AutomationId="ContactEditorPhone"
+                                            Header="{x:Bind domain:Translator.ContactEditor_Phone, Mode=OneTime}"
+                                            Text="{x:Bind Number, Mode=TwoWay}" />
+                                        <Button
+                                            Grid.Column="2"
+                                            VerticalAlignment="Bottom"
+                                            AutomationProperties.AutomationId="ContactEditorRemovePhone"
+                                            Click="RemovePhone_Click"
+                                            Style="{StaticResource SubtleButtonStyle}"
+                                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
+                                            <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button
+                            HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="ContactEditorAddPhone"
+                            Command="{x:Bind ViewModel.AddPhoneCommand}"
+                            Style="{StaticResource SubtleButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="13" Glyph="&#xE710;" />
+                                <TextBlock Text="{x:Bind domain:Translator.ContactEditor_AddPhone, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Expander>
+
+                <!--  Work  -->
+                <Expander
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    IsExpanded="{x:Bind helpers:XamlHelpers.HasText(ViewModel.CompanyName), Mode=OneWay}">
+                    <Expander.Header>
+                        <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Work, Mode=OneTime}" />
+                    </Expander.Header>
+                    <StackPanel Spacing="10">
+                        <TextBox
+                            AutomationProperties.AutomationId="ContactEditorCompany"
+                            Header="{x:Bind domain:Translator.ContactEditor_Company, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.CompanyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox
+                                AutomationProperties.AutomationId="ContactEditorDepartment"
+                                Header="{x:Bind domain:Translator.ContactEditor_Department, Mode=OneTime}"
+                                Text="{x:Bind ViewModel.Department, Mode=TwoWay}" />
+                            <TextBox
+                                Grid.Column="1"
+                                AutomationProperties.AutomationId="ContactEditorJobTitle"
+                                Header="{x:Bind domain:Translator.ContactEditor_JobTitle, Mode=OneTime}"
+                                Text="{x:Bind ViewModel.JobTitle, Mode=TwoWay}" />
+                        </Grid>
+                        <TextBox
+                            AutomationProperties.AutomationId="ContactEditorOffice"
+                            Header="{x:Bind domain:Translator.ContactEditor_Office, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.OfficeLocation, Mode=TwoWay}" />
+                    </StackPanel>
+                </Expander>
+
+                <!--  Addresses  -->
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Expander.Header>
+                        <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Addresses, Mode=OneTime}" />
+                    </Expander.Header>
+                    <ItemsControl ItemsSource="{x:Bind ViewModel.PostalAddresses}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="contacts:ContactPostalAddress">
+                                <StackPanel Margin="0,0,0,14" Spacing="8">
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind Kind}" />
+                                    <TextBox
+                                        AutomationProperties.AutomationId="ContactEditorStreet"
+                                        Header="{x:Bind domain:Translator.ContactEditor_Street, Mode=OneTime}"
+                                        Text="{x:Bind Street, Mode=TwoWay}" />
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox
+                                            AutomationProperties.AutomationId="ContactEditorCity"
+                                            Header="{x:Bind domain:Translator.ContactEditor_City, Mode=OneTime}"
+                                            Text="{x:Bind City, Mode=TwoWay}" />
+                                        <TextBox
+                                            Grid.Column="1"
+                                            AutomationProperties.AutomationId="ContactEditorRegion"
+                                            Header="{x:Bind domain:Translator.ContactEditor_Region, Mode=OneTime}"
+                                            Text="{x:Bind Region, Mode=TwoWay}" />
+                                    </Grid>
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox
+                                            AutomationProperties.AutomationId="ContactEditorPostalCode"
+                                            Header="{x:Bind domain:Translator.ContactEditor_PostalCode, Mode=OneTime}"
+                                            Text="{x:Bind PostalCode, Mode=TwoWay}" />
+                                        <TextBox
+                                            Grid.Column="1"
+                                            AutomationProperties.AutomationId="ContactEditorCountry"
+                                            Header="{x:Bind domain:Translator.ContactEditor_Country, Mode=OneTime}"
+                                            Text="{x:Bind Country, Mode=TwoWay}" />
+                                    </Grid>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Expander>
+
+                <!--  Personal  -->
+                <Expander
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    IsExpanded="{x:Bind helpers:XamlHelpers.HasText(ViewModel.Website), Mode=OneWay}">
+                    <Expander.Header>
+                        <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Personal, Mode=OneTime}" />
+                    </Expander.Header>
+                    <StackPanel Spacing="10">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <NumberBox
+                                AutomationProperties.AutomationId="ContactEditorBirthYear"
+                                Header="{x:Bind domain:Translator.ContactEditor_BirthYear, Mode=OneTime}"
+                                Value="{x:Bind ViewModel.BirthdayYearValue, Mode=TwoWay}" />
+                            <NumberBox
+                                Grid.Column="1"
+                                AutomationProperties.AutomationId="ContactEditorBirthMonth"
+                                Header="{x:Bind domain:Translator.ContactEditor_BirthMonth, Mode=OneTime}"
+                                Value="{x:Bind ViewModel.BirthdayMonthValue, Mode=TwoWay}" />
+                            <NumberBox
+                                Grid.Column="2"
+                                AutomationProperties.AutomationId="ContactEditorBirthDay"
+                                Header="{x:Bind domain:Translator.ContactEditor_BirthDay, Mode=OneTime}"
+                                Value="{x:Bind ViewModel.BirthdayDayValue, Mode=TwoWay}" />
+                        </Grid>
+                        <TextBox
+                            AutomationProperties.AutomationId="ContactEditorWebsite"
+                            Header="{x:Bind domain:Translator.ContactEditor_Website, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.Website, Mode=TwoWay}" />
+                    </StackPanel>
+                </Expander>
+
+                <!--  Instant messaging  -->
+                <Expander
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    IsExpanded="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.ImAddresses.Count), Mode=OneWay}">
+                    <Expander.Header>
+                        <TextBlock Text="{x:Bind domain:Translator.ContactEditor_InstantMessaging, Mode=OneTime}" />
+                    </Expander.Header>
+                    <StackPanel Spacing="10">
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.ImAddresses}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="contacts:ContactImAddress">
+                                    <Grid Margin="0,0,0,8" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox AutomationProperties.AutomationId="ContactEditorImAddress" Text="{x:Bind Address, Mode=TwoWay}" />
+                                        <Button
+                                            Grid.Column="1"
+                                            AutomationProperties.AutomationId="ContactEditorRemoveIm"
+                                            Click="RemoveImAddress_Click"
+                                            Style="{StaticResource SubtleButtonStyle}"
+                                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
+                                            <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button
+                            HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="ContactEditorAddIm"
+                            Command="{x:Bind ViewModel.AddImAddressCommand}"
+                            Style="{StaticResource SubtleButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="13" Glyph="&#xE710;" />
+                                <TextBlock Text="{x:Bind domain:Translator.ContactEditor_AddIm, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Expander>
+
+                <!--  Relations  -->
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                    <Expander.Header>
+                        <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Relations, Mode=OneTime}" />
+                    </Expander.Header>
+                    <StackPanel Spacing="10">
+                        <TextBox
+                            AutomationProperties.AutomationId="ContactEditorManager"
+                            Header="{x:Bind domain:Translator.ContactEditor_Manager, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.ManagerName, Mode=TwoWay}" />
+                        <TextBox
+                            AutomationProperties.AutomationId="ContactEditorAssistant"
+                            Header="{x:Bind domain:Translator.ContactEditor_Assistant, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.AssistantName, Mode=TwoWay}" />
+                        <TextBox
+                            AutomationProperties.AutomationId="ContactEditorSpouse"
+                            Header="{x:Bind domain:Translator.ContactEditor_Spouse, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.SpouseName, Mode=TwoWay}" />
+                        <ItemsControl ItemsSource="{x:Bind ViewModel.Relations}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="contacts:ContactRelation">
+                                    <Grid Margin="0,0,0,8" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox
+                                            AutomationProperties.AutomationId="ContactEditorChild"
+                                            Header="{x:Bind domain:Translator.ContactEditor_Child, Mode=OneTime}"
+                                            Text="{x:Bind Name, Mode=TwoWay}" />
+                                        <Button
+                                            Grid.Column="1"
+                                            VerticalAlignment="Bottom"
+                                            AutomationProperties.AutomationId="ContactEditorRemoveChild"
+                                            Click="RemoveRelation_Click"
+                                            Style="{StaticResource SubtleButtonStyle}"
+                                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
+                                            <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <Button
+                            HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="ContactEditorAddChild"
+                            Command="{x:Bind ViewModel.AddChildCommand}"
+                            Style="{StaticResource SubtleButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="13" Glyph="&#xE710;" />
+                                <TextBlock Text="{x:Bind domain:Translator.ContactEditor_AddChild, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Expander>
+
+                <!--  Notes  -->
+                <Expander
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    IsExpanded="{x:Bind helpers:XamlHelpers.HasText(ViewModel.Notes), Mode=OneWay}">
+                    <Expander.Header>
+                        <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Notes, Mode=OneTime}" />
+                    </Expander.Header>
+                    <TextBox
+                        AcceptsReturn="True"
+                        AutomationProperties.AutomationId="ContactEditorNotes"
+                        MinHeight="120"
+                        Text="{x:Bind ViewModel.Notes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        TextWrapping="Wrap" />
+                </Expander>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</abstract:ContactEditPageAbstract>

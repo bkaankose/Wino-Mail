@@ -579,7 +579,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         {
             if (item is MailboxAddress mailboxAddress)
             {
-                var foundContact = await _contactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
+                var foundContact = await _contactService.GetContactByAddressAsync(CurrentMailAccountId, mailboxAddress.Address).ConfigureAwait(false)
                     ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
 
                 var contactViewModel = new AccountContactViewModel(foundContact);

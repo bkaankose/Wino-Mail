@@ -27,6 +27,7 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     protected List<IRequestBase> changeRequestQueue = [];
     private readonly ConcurrentDictionary<Guid, byte> _pendingMailOperationIds = new();
     private readonly ConcurrentDictionary<Guid, byte> _pendingCalendarOperationIds = new();
+    private readonly ConcurrentDictionary<Guid, byte> _pendingContactOperationIds = new();
     private readonly ConcurrentQueue<SynchronizationIssue> _capturedSynchronizationIssues = new();
     protected readonly IMessenger Messenger;
     protected SynchronizationProgressCategory CurrentSynchronizationProgressCategory { get; set; } = SynchronizationProgressCategory.Mail;
@@ -146,6 +147,10 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
 
     public IReadOnlyCollection<Guid> GetPendingCalendarOperationIds() => _pendingCalendarOperationIds.Keys.ToArray();
 
+    public bool HasPendingContactOperation(Guid contactId) => _pendingContactOperationIds.ContainsKey(contactId);
+
+    public IReadOnlyCollection<Guid> GetPendingContactOperationIds() => _pendingContactOperationIds.Keys.ToArray();
+
     protected void TrackQueuedRequest(IRequestBase request)
     {
         if (request is IMailActionRequest mailActionRequest)
@@ -160,6 +165,9 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
                 _pendingCalendarOperationIds.TryAdd(calendarActionRequest.LocalCalendarItemId.Value, 0);
             }
         }
+
+        if (request is IContactActionRequest contactActionRequest)
+            _pendingContactOperationIds.TryAdd(contactActionRequest.LocalContactId, 0);
     }
 
     protected void UntrackProcessedRequest(IRequestBase request)
@@ -176,6 +184,10 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
                 _pendingCalendarOperationIds.TryRemove(calendarActionRequest.LocalCalendarItemId.Value, out _);
             }
         }
+
+
+        if (request is IContactActionRequest contactActionRequest)
+            _pendingContactOperationIds.TryRemove(contactActionRequest.LocalContactId, out _);
     }
 
     protected void UntrackProcessedRequests(IEnumerable<IRequestBase> requests)

@@ -27,13 +27,13 @@ using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers;
 
-public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType> : BaseSynchronizer<TBaseRequest>, IWinoSynchronizerBase
+public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType, TContactType> : BaseSynchronizer<TBaseRequest>, IWinoSynchronizerBase
 {
     protected bool IsDisposing { get; private set; }
 
     protected Dictionary<MailSynchronizationOptions, CancellationTokenSource> PendingSynchronizationRequest = new();
 
-    protected ILogger Logger = Log.ForContext<WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType>>();
+    protected ILogger Logger = Log.ForContext<WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType, TContactType>>();
 
     protected WinoSynchronizer(MailAccount account, IMessenger messenger) : base(account, messenger) { }
 
@@ -116,6 +116,85 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// <returns>Synchronization result that contains summary of the sync.</returns>
     protected abstract Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default);
 
+    protected virtual Task ExecuteContactRequestsInternalAsync(
+        IReadOnlyList<IContactActionRequest> requests,
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    protected virtual Task<ContactSynchronizationResult> SynchronizeContactsInternalAsync(
+        ContactSynchronizationOptions options,
+        CancellationToken cancellationToken = default) => Task.FromResult(ContactSynchronizationResult.Empty);
+
+    public async Task<ContactSynchronizationResult> SynchronizeContactsAsync(
+        ContactSynchronizationOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ResetCapturedSynchronizationIssues();
+        var semaphoreEntered = false;
+
+        try
+        {
+            await synchronizationSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            semaphoreEntered = true;
+            activeSynchronizationCancellationToken = cancellationToken;
+            CurrentSynchronizationProgressCategory = SynchronizationProgressCategory.Contacts;
+
+            if (options.Type == ContactSynchronizationType.ExecuteRequests)
+            {
+                // Capture after entering the semaphore. A request can be queued while another
+                // synchronization is running; capturing before the wait can execute it twice or
+                // let an earlier run remove a request that it never processed.
+                var requests = changeRequestQueue.OfType<IContactActionRequest>().ToList();
+                if (requests.Count == 0)
+                    return ContactSynchronizationResult.Empty;
+
+                State = AccountSynchronizerState.ExecutingRequests;
+
+                try
+                {
+                    await ExecuteContactRequestsInternalAsync(requests, cancellationToken).ConfigureAwait(false);
+                }
+                finally
+                {
+                    foreach (var request in requests)
+                        changeRequestQueue.Remove(request);
+                    UntrackProcessedRequests(requests.Cast<IRequestBase>().ToList());
+                    Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
+                }
+
+                var requestResult = ContactSynchronizationResult.Empty.MergeIssues(GetCapturedSynchronizationIssues());
+                Messenger.Send(new ContactSynchronizationCompleted(Account.Id, requestResult.CompletedState));
+                return requestResult;
+            }
+
+            State = AccountSynchronizerState.Synchronizing;
+            UpdateSyncProgress(0, 0, "Synchronizing contacts...");
+            var result = await SynchronizeContactsInternalAsync(options, cancellationToken).ConfigureAwait(false)
+                ?? ContactSynchronizationResult.Empty;
+
+            result.MergeIssues(GetCapturedSynchronizationIssues());
+            Messenger.Send(new ContactSynchronizationCompleted(Account.Id, result.CompletedState));
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            Messenger.Send(new ContactSynchronizationCompleted(Account.Id, SynchronizationCompletedState.Canceled));
+            return ContactSynchronizationResult.Canceled;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Contact synchronization failed for {AccountId}.", Account.Id);
+            var result = ContactSynchronizationResult.Failed(ex).MergeIssues(GetCapturedSynchronizationIssues());
+            Messenger.Send(new ContactSynchronizationCompleted(Account.Id, result.CompletedState));
+            return result;
+        }
+        finally
+        {
+            State = AccountSynchronizerState.Idle;
+            if (semaphoreEntered)
+                synchronizationSemaphore.Release();
+        }
+    }
+
     /// <summary>
     /// Batches network requests, executes them, and does the needed synchronization after the batch request execution.
     /// </summary>
@@ -148,16 +227,18 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             bool shouldDelayExecution = false;
             int maxExecutionDelay = 0;
 
-            if (shouldExecuteRequests && changeRequestQueue.Any())
+            if (shouldExecuteRequests && changeRequestQueue.Any(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest))
             {
                 CurrentSynchronizationProgressCategory = SynchronizationProgressCategory.Mail;
                 State = AccountSynchronizerState.ExecutingRequests;
 
                 List<IRequestBundle<TBaseRequest>> nativeRequests = new();
 
-                requestCopies = new(changeRequestQueue);
+                requestCopies = new(changeRequestQueue.Where(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest));
 
-                var keys = changeRequestQueue.GroupBy(a => a.GroupingKey());
+                var keys = changeRequestQueue
+                    .Where(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest)
+                    .GroupBy(a => a.GroupingKey());
 
                 foreach (var group in keys)
                 {
@@ -251,7 +332,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                     }
                 }
 
-                changeRequestQueue.Clear();
+                changeRequestQueue.RemoveAll(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest);
 
                 Console.WriteLine($"Prepared {nativeRequests.Count()} native requests");
 

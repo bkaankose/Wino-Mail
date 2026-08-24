@@ -104,6 +104,9 @@ public interface ISynchronizationManager
     Task<CalendarSynchronizationResult> SynchronizeCalendarAsync(CalendarSynchronizationOptions options,
                                                                   CancellationToken cancellationToken = default);
 
+    Task<ContactSynchronizationResult> SynchronizeContactsAsync(ContactSynchronizationOptions options,
+                                                                 CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Downloads a MIME message for the given mail item.
     /// </summary>

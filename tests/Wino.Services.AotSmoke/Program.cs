@@ -35,14 +35,14 @@ try
     var accountId = Guid.NewGuid();
     await ExerciseAsync(connection, new MailAccount { Id = accountId, Name = "before", Address = "aot@example.test" }, item => item.Id == accountId, item => item.Name = "after");
 
-    const string contactAddress = "contact@example.test";
-    await ExerciseAsync(connection, new AccountContact { Address = contactAddress, Name = "before" }, item => item.Address == contactAddress, item => item.Name = "after");
+    var contactId = Guid.NewGuid();
+    await ExerciseAsync(connection, new AccountContact { Id = contactId, DisplayName = "before" }, item => item.Id == contactId, item => item.DisplayName = "after");
 
-    var contactGroupId = Guid.NewGuid();
-    await ExerciseAsync(connection, new ContactGroup { Id = contactGroupId, Name = "before" }, item => item.Id == contactGroupId, item => item.Name = "after");
+    var addressBookId = Guid.NewGuid();
+    await ExerciseAsync(connection, new ContactAddressBook { Id = addressBookId, DisplayName = "before" }, item => item.Id == addressBookId, item => item.DisplayName = "after");
 
-    var contactGroupMember = new ContactGroupMember { GroupId = contactGroupId, MemberAddress = "before@example.test" };
-    await ExerciseAsync(connection, contactGroupMember, item => item.Id == contactGroupMember.Id, item => item.MemberAddress = "after@example.test");
+    var contactEmailId = Guid.NewGuid();
+    await ExerciseAsync(connection, new ContactEmailAddress { Id = contactEmailId, ContactId = contactId, Address = "before@example.test" }, item => item.Id == contactEmailId, item => item.Address = "after@example.test");
 
     var serverId = Guid.NewGuid();
     await ExerciseAsync(connection, new CustomServerInformation { Id = serverId, DisplayName = "before" }, item => item.Id == serverId, item => item.DisplayName = "after");

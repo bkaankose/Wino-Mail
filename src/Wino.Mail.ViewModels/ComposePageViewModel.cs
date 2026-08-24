@@ -880,7 +880,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             if (item is MailboxAddress mailboxAddress)
             {
-                var foundContact = await ContactService.GetAddressInformationByAddressAsync(mailboxAddress.Address).ConfigureAwait(false)
+                var foundContact = await ContactService.GetContactByAddressAsync(ComposingAccount?.Id, mailboxAddress.Address).ConfigureAwait(false)
                     ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
 
                 contacts.Add(foundContact);
@@ -939,7 +939,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     {
         // Get model from the service. This will make sure the name is properly included if there is any record.
 
-        var info = await ContactService.GetAddressInformationByAddressAsync(tokenText)
+        var info = await ContactService.GetContactByAddressAsync(ComposingAccount?.Id, tokenText).ConfigureAwait(false)
             ?? new AccountContact() { Name = tokenText, Address = tokenText };
 
         // Don't add if there is already that address in the collection.

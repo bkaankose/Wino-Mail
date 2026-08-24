@@ -308,11 +308,7 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="local:WinoSearchBar">
-                    <Grid x:Name="PART_LayoutRoot" ColumnSpacing="4">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
+                    <Grid x:Name="PART_LayoutRoot">
 
                         <!--
                             TextControlThemeMinHeight (32px) is the stock AutoSuggestBox height. The bar
@@ -432,7 +428,8 @@
                             Grid.Column="1"
                             VerticalAlignment="Center"
                             AutomationProperties.AutomationId="WinoSearchBarOptionsButton"
-                            Style="{StaticResource WinoSearchBarInlineIconButtonStyle}">
+                            Style="{StaticResource WinoSearchBarInlineIconButtonStyle}"
+                            Visibility="Collapsed">
                             <FontIcon
                                 x:Name="PART_SearchOptionsChevronIcon"
                                 AutomationProperties.AccessibilityView="Raw"

@@ -25,6 +25,8 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
 
     Task<CalendarSynchronizationResult> SynchronizeCalendarEventsAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default);
 
+    Task<ContactSynchronizationResult> SynchronizeContactsAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Downloads a single MIME message from the server and saves it to disk.
     /// </summary>
