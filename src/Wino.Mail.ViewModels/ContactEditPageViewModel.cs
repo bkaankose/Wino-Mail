@@ -176,16 +176,26 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
                     ?? Destinations.OrderByDescending(destination => destination.SourceKind != ContactSourceKind.Local)
                     .ThenByDescending(destination => destination.IsDefault).FirstOrDefault()
                     ?? Destinations.FirstOrDefault();
-                EmailAddresses.Add(new ContactEmailAddress { Id = Guid.NewGuid(), IsPrimary = true });
-                PostalAddresses.Add(new ContactPostalAddress { Id = Guid.NewGuid(), Kind = ContactPostalAddressKind.Home });
-                PostalAddresses.Add(new ContactPostalAddress { Id = Guid.NewGuid(), Kind = ContactPostalAddressKind.Business });
-                PostalAddresses.Add(new ContactPostalAddress { Id = Guid.NewGuid(), Kind = ContactPostalAddressKind.Other });
+
+                if (parameter.ImportDraft is { } importDraft)
+                {
+                    Load(importDraft.Contact);
+                    _photoBytes = importDraft.PhotoBytes;
+                }
+                else
+                {
+                    EmailAddresses.Add(new ContactEmailAddress { Id = Guid.NewGuid(), IsPrimary = true });
+                    PostalAddresses.Add(new ContactPostalAddress { Id = Guid.NewGuid(), Kind = ContactPostalAddressKind.Home });
+                    PostalAddresses.Add(new ContactPostalAddress { Id = Guid.NewGuid(), Kind = ContactPostalAddressKind.Business });
+                    PostalAddresses.Add(new ContactPostalAddress { Id = Guid.NewGuid(), Kind = ContactPostalAddressKind.Other });
+                }
             }
 
-            IsDirty = false;
+            IsDirty = parameter.ImportDraft != null;
             OnPropertyChanged(nameof(PageTitle));
             OnPropertyChanged(nameof(PreviewDisplayName));
             OnPropertyChanged(nameof(PreviewSubtitle));
+            OnPropertyChanged(nameof(PreviewPhotoBytes));
             OnPropertyChanged(nameof(PreviewPhotoPath));
         });
     }

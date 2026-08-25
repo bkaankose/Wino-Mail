@@ -460,6 +460,77 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
                                    ?? SelectedShowAsOption
                                    ?? ShowAsOptions.FirstOrDefault();
         }
+
+        if (args?.ShowAs is CalendarItemShowAs importedShowAs)
+        {
+            SelectedShowAsOption = ShowAsOptions.FirstOrDefault(option => option.ShowAs == importedShowAs)
+                                   ?? SelectedShowAsOption;
+        }
+
+        Attendees.Clear();
+        foreach (var attendee in args?.Attendees ?? [])
+        {
+            if (string.IsNullOrWhiteSpace(attendee.Email) ||
+                Attendees.Any(existing => existing.Email.Equals(attendee.Email, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            Attendees.Add(new CalendarComposeAttendeeViewModel(attendee.Name, attendee.Email));
+        }
+
+        ApplyImportedRecurrence(args?.Recurrence);
+        ApplyImportedReminder(
+            args?.ReminderMinutesBeforeStart,
+            isImportedEvent: args?.RequireCalendarPickerWhenUnresolved == true);
+    }
+
+    private void ApplyImportedRecurrence(CalendarEventRecurrenceDraft recurrence)
+    {
+        IsRecurring = recurrence != null;
+        SelectedRecurrenceInterval = 1;
+        SelectedRecurrenceFrequencyOption = RecurrenceFrequencyOptions.FirstOrDefault();
+        RecurrenceEndDate = null;
+
+        foreach (var weekday in WeekdayOptions)
+            weekday.IsSelected = false;
+
+        if (recurrence == null)
+            return;
+
+        SelectedRecurrenceInterval = Math.Clamp(recurrence.Interval, 1, 99);
+        SelectedRecurrenceFrequencyOption = RecurrenceFrequencyOptions.FirstOrDefault(option => option.Frequency == recurrence.Frequency)
+                                            ?? SelectedRecurrenceFrequencyOption;
+
+        if (recurrence.Weekdays.Count > 0)
+        {
+            foreach (var weekday in WeekdayOptions)
+                weekday.IsSelected = recurrence.Weekdays.Contains(weekday.DayOfWeek);
+        }
+
+        RecurrenceEndDate = recurrence.EndDate.HasValue
+            ? new DateTimeOffset(recurrence.EndDate.Value.Date)
+            : null;
+    }
+
+    private void ApplyImportedReminder(int? reminderMinutes, bool isImportedEvent)
+    {
+        if (reminderMinutes is not > 0)
+        {
+            if (isImportedEvent)
+                SelectedReminderOption = null;
+
+            return;
+        }
+
+        var reminder = ReminderOptions.FirstOrDefault(option => option.Minutes == reminderMinutes.Value);
+        if (reminder == null)
+        {
+            reminder = new ReminderOption(reminderMinutes.Value, isCustom: true);
+            ReminderOptions.Add(reminder);
+        }
+
+        SelectedReminderOption = reminder;
     }
 
     private AccountCalendarViewModel ResolveSelectedCalendar(Guid? selectedCalendarId)

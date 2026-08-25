@@ -200,7 +200,21 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         if (composeArgs != null)
         {
+            if (!await PrepareImportedComposeArgsAsync(composeArgs))
+            {
+                TodayClicked();
+                return;
+            }
+
             NavigationService.Navigate(WinoPage.CalendarEventComposePage, composeArgs);
+
+            if (composeArgs.HasUnsupportedImportContent)
+            {
+                _dialogService.InfoBarMessage(
+                    Translator.FileActivation_ImportWarningTitle,
+                    Translator.FileActivation_CalendarImportWarningMessage,
+                    InfoBarMessageType.Warning);
+            }
         }
         else if (navigationArgs != null)
         {
@@ -569,6 +583,89 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         return AccountCalendarStateService.AllCalendars
             .FirstOrDefault(calendar => calendar.Id == PreferencesService.DefaultNewEventCalendarId.Value)?
             .AccountCalendar;
+    }
+
+    internal async Task<bool> PrepareImportedComposeArgsAsync(CalendarEventComposeNavigationArgs composeArgs)
+    {
+        if (!composeArgs.RequireCalendarPickerWhenUnresolved)
+            return true;
+
+        var accounts = await _accountService.GetAccountsAsync();
+        var aliasesByAccount = await Task.WhenAll(accounts.Select(async account => new
+        {
+            Account = account,
+            Aliases = await _accountService.GetAccountAliasesAsync(account.Id)
+        }));
+
+        var hints = composeArgs.AccountAddressHints.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var matchedAccounts = aliasesByAccount
+            .Where(entry => hints.Contains(entry.Account.Address) ||
+                            entry.Aliases.Any(alias => hints.Contains(alias.AliasAddress)))
+            .Select(entry => entry.Account)
+            .DistinctBy(account => account.Id)
+            .ToList();
+
+        AccountCalendar pickedCalendar = null;
+        if (matchedAccounts.Count == 1)
+        {
+            pickedCalendar = AccountCalendarStateService.AllCalendars
+                .Where(calendar => calendar.Account.Id == matchedAccounts[0].Id && !calendar.IsReadOnly)
+                .OrderByDescending(calendar => calendar.IsPrimary)
+                .Select(calendar => calendar.AccountCalendar)
+                .FirstOrDefault(calendar => calendar.IsPrimary);
+        }
+
+        if (pickedCalendar == null)
+        {
+            var availableGroups = AccountCalendarStateService.GroupedAccountCalendars
+                .Select(group => new CalendarPickerAccountGroup
+                {
+                    Account = group.Account,
+                    Calendars = group.AccountCalendars
+                        .Select(calendar => calendar.AccountCalendar)
+                        .Where(calendar => !calendar.IsReadOnly)
+                        .ToList()
+                })
+                .Where(group => group.Calendars.Count > 0)
+                .ToList();
+
+            if (availableGroups.Count == 0)
+            {
+                _dialogService.InfoBarMessage(
+                    Translator.CalendarEventCompose_NoCalendarsTitle,
+                    Translator.FileActivation_NoWritableCalendarsMessage,
+                    InfoBarMessageType.Warning);
+                return false;
+            }
+
+            var pickingResult = await _dialogService.ShowSingleCalendarPickerDialogAsync(availableGroups);
+            if (pickingResult.ShouldNavigateToCalendarSettings)
+            {
+                NavigationService.Navigate(WinoPage.CalendarPreferenceSettingsPage);
+                return false;
+            }
+
+            pickedCalendar = pickingResult.PickedCalendar;
+        }
+
+        if (pickedCalendar == null)
+            return false;
+
+        composeArgs.SelectedCalendarId = pickedCalendar.Id;
+
+        var selectedAccount = aliasesByAccount.FirstOrDefault(entry => entry.Account.Id == pickedCalendar.AccountId);
+        if (selectedAccount != null)
+        {
+            var ownAddresses = selectedAccount.Aliases
+                .Select(alias => alias.AliasAddress)
+                .Append(selectedAccount.Account.Address)
+                .Where(address => !string.IsNullOrWhiteSpace(address))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            composeArgs.Attendees.RemoveAll(attendee => ownAddresses.Contains(attendee.Email));
+        }
+
+        return true;
     }
 
     private void ValidateConfiguredNewEventCalendar()

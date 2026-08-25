@@ -196,7 +196,12 @@ public static class XamlHelpers
     public static IconElement GetAccountOrGlyphIcon(MailAccount? account, string glyph)
         => account is null
             ? new FontIcon { FontSize = 15, Glyph = glyph }
-            : new WinoAccountIcon { Account = GetAccountIconInfo(account), IconSize = 22 };
+            : new WinoAccountIcon
+            {
+                Account = GetAccountIconInfo(account),
+                IconSize = 20,
+                ProfilePictureIconSize = 28
+            };
 
     public static object GetContactPicture(
         AccountContact? contact,

@@ -129,6 +129,33 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         await BuildFiltersAsync().ConfigureAwait(false);
         await ReloadContactsAsync().ConfigureAwait(false);
         _isInitialized = true;
+
+        if (parameters is ContactEditNavigationParameter { ImportDraft: not null } importParameter)
+        {
+            var destinations = await _contactService.GetCreateDestinationsAsync().ConfigureAwait(false);
+            if (destinations.Count == 0)
+            {
+                await ExecuteUIThread(() => _dialogService.InfoBarMessage(
+                        Translator.FileActivation_ImportFailedTitle,
+                        Translator.FileActivation_NoContactDestinationMessage,
+                        InfoBarMessageType.Warning))
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            await ExecuteUIThread(() =>
+            {
+                _navigationService.Navigate(WinoPage.ContactEditPage, importParameter);
+
+                if (importParameter.ImportDraft.HasUnsupportedContent)
+                {
+                    _dialogService.InfoBarMessage(
+                        Translator.FileActivation_ImportWarningTitle,
+                        Translator.FileActivation_ContactImportWarningMessage,
+                        InfoBarMessageType.Warning);
+                }
+            });
+        }
     }
 
     /// <summary>
@@ -876,6 +903,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         if (_listFilterGroup.All(item => item.ListId != list.Id))
         {
             var filter = ContactFilterViewModel.CreateList(list);
+            AttachFilterCallbacks(filter);
             _listFilterGroup.Add(filter);
         }
 

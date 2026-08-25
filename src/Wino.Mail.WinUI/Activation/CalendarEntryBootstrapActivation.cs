@@ -1,42 +1,17 @@
 using System;
-using System.IO;
 using System.Linq;
 using Microsoft.Windows.AppLifecycle;
 using Windows.ApplicationModel;
 using Windows.ApplicationModel.Activation;
 using Windows.Storage;
+using Wino.Core.Activation;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Mail.WinUI.Activation;
 
-internal enum PendingBootstrapActivationKind
-{
-    Launch,
-    Protocol,
-    File
-}
-
-internal sealed class PendingBootstrapActivation
-{
-    public PendingBootstrapActivationKind Kind { get; init; }
-    public WinoApplicationMode Mode { get; init; } = WinoApplicationMode.Mail;
-    public string? LaunchArguments { get; init; }
-    public string? TileId { get; init; }
-    public string? ProtocolUri { get; init; }
-    public string[] FilePaths { get; init; } = [];
-    public DateTimeOffset CreatedAtUtc { get; init; } = DateTimeOffset.UtcNow;
-}
-
-internal static class CalendarEntryBootstrapActivation
+internal static class SecondaryEntryBootstrapActivation
 {
     private const string PendingActivationKey = "PendingCalendarEntryBootstrapActivation";
-    private const string KindKey = "Kind";
-    private const string ModeKey = "Mode";
-    private const string LaunchArgumentsKey = "LaunchArguments";
-    private const string TileIdKey = "TileId";
-    private const string ProtocolUriKey = "ProtocolUri";
-    private const string FilePathsKey = "FilePaths";
-    private const string CreatedAtUtcKey = "CreatedAtUtc";
     private static readonly TimeSpan PendingActivationLifetime = TimeSpan.FromMinutes(1);
 
     public static bool ShouldBootstrapToMailHost(AppActivationArguments activationArgs)
@@ -83,51 +58,23 @@ internal static class CalendarEntryBootstrapActivation
 
     private static ApplicationDataCompositeValue CreateCompositeValue(PendingBootstrapActivation pendingActivation)
     {
-        var compositeValue = new ApplicationDataCompositeValue
-        {
-            [KindKey] = pendingActivation.Kind.ToString(),
-            [ModeKey] = pendingActivation.Mode.ToString(),
-            [LaunchArgumentsKey] = pendingActivation.LaunchArguments ?? string.Empty,
-            [TileIdKey] = pendingActivation.TileId ?? string.Empty,
-            [ProtocolUriKey] = pendingActivation.ProtocolUri ?? string.Empty,
-            [FilePathsKey] = string.Join("\n", pendingActivation.FilePaths),
-            [CreatedAtUtcKey] = pendingActivation.CreatedAtUtc.ToString("o")
-        };
+        var compositeValue = new ApplicationDataCompositeValue();
+        foreach (var pair in SecondaryEntryActivationContract.Serialize(pendingActivation))
+            compositeValue[pair.Key] = pair.Value;
 
         return compositeValue;
     }
 
     private static PendingBootstrapActivation? ParseCompositeValue(ApplicationDataCompositeValue compositeValue)
     {
-        if (!Enum.TryParse(compositeValue[KindKey]?.ToString(), ignoreCase: true, out PendingBootstrapActivationKind kind) ||
-            !Enum.TryParse(compositeValue[ModeKey]?.ToString(), ignoreCase: true, out WinoApplicationMode mode) ||
-            !DateTimeOffset.TryParse(compositeValue[CreatedAtUtcKey]?.ToString(), out var createdAtUtc))
-        {
-            return null;
-        }
+        var values = compositeValue.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value?.ToString(),
+            StringComparer.OrdinalIgnoreCase);
 
-        return new PendingBootstrapActivation
-        {
-            Kind = kind,
-            Mode = mode,
-            LaunchArguments = GetOptionalCompositeString(compositeValue, LaunchArgumentsKey),
-            TileId = GetOptionalCompositeString(compositeValue, TileIdKey),
-            ProtocolUri = GetOptionalCompositeString(compositeValue, ProtocolUriKey),
-            FilePaths = GetOptionalCompositeString(compositeValue, FilePathsKey)?
-                .Split(['\n'], StringSplitOptions.RemoveEmptyEntries)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray() ?? [],
-            CreatedAtUtc = createdAtUtc
-        };
-    }
-
-    private static string? GetOptionalCompositeString(ApplicationDataCompositeValue compositeValue, string key)
-    {
-        if (!compositeValue.TryGetValue(key, out var value))
-            return null;
-
-        var stringValue = value?.ToString();
-        return string.IsNullOrWhiteSpace(stringValue) ? null : stringValue;
+        return SecondaryEntryActivationContract.TryDeserialize(values, out var pendingActivation)
+            ? pendingActivation
+            : null;
     }
 
     public static bool LaunchMailHost()
@@ -140,62 +87,33 @@ internal static class CalendarEntryBootstrapActivation
         return mailEntry != null && mailEntry.LaunchAsync().AsTask().GetAwaiter().GetResult();
     }
 
-    private static bool TryCreatePendingActivation(AppActivationArguments activationArgs, out PendingBootstrapActivation? pendingActivation)
+    internal static bool TryCreatePendingActivation(AppActivationArguments activationArgs, out PendingBootstrapActivation? pendingActivation)
     {
         pendingActivation = null;
 
         if (activationArgs.Kind == ExtendedActivationKind.Launch &&
             activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
         {
-            var resolvedMode = AppModeActivationResolver.Resolve(launchArgs.Arguments, launchArgs.TileId, Environment.CommandLine);
-            if (resolvedMode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts))
-                return false;
-
-            pendingActivation = new PendingBootstrapActivation
-            {
-                Kind = PendingBootstrapActivationKind.Launch,
-                Mode = resolvedMode,
-                LaunchArguments = launchArgs.Arguments,
-                TileId = launchArgs.TileId
-            };
-
-            return true;
+            return SecondaryEntryActivationContract.TryCreateLaunch(
+                launchArgs.Arguments,
+                launchArgs.TileId,
+                Environment.CommandLine,
+                out pendingActivation);
         }
 
         if (activationArgs.Kind == ExtendedActivationKind.Protocol &&
             activationArgs.Data is IProtocolActivatedEventArgs protocolArgs &&
-            protocolArgs.Uri != null &&
-            (string.Equals(protocolArgs.Uri.Scheme, "webcal", StringComparison.OrdinalIgnoreCase) ||
-             string.Equals(protocolArgs.Uri.Scheme, "webcals", StringComparison.OrdinalIgnoreCase)))
+            protocolArgs.Uri != null)
         {
-            pendingActivation = new PendingBootstrapActivation
-            {
-                Kind = PendingBootstrapActivationKind.Protocol,
-                Mode = WinoApplicationMode.Calendar,
-                ProtocolUri = protocolArgs.Uri.AbsoluteUri
-            };
-
-            return true;
+            return SecondaryEntryActivationContract.TryCreateProtocol(protocolArgs.Uri, out pendingActivation);
         }
 
-        if (activationArgs.Kind == ExtendedActivationKind.File &&
-            activationArgs.Data is IFileActivatedEventArgs fileArgs)
+        if (TryGetSupportedFileActivation(activationArgs, out var fileMode, out var filePaths))
         {
-            var filePaths = fileArgs.Files?
-                .OfType<IStorageItem>()
-                .Where(item => string.Equals(Path.GetExtension(item.Path), ".ics", StringComparison.OrdinalIgnoreCase))
-                .Select(item => item.Path)
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-
-            if (filePaths == null || filePaths.Length == 0)
-                return false;
-
             pendingActivation = new PendingBootstrapActivation
             {
                 Kind = PendingBootstrapActivationKind.File,
-                Mode = WinoApplicationMode.Calendar,
+                Mode = fileMode,
                 FilePaths = filePaths
             };
 
@@ -203,5 +121,31 @@ internal static class CalendarEntryBootstrapActivation
         }
 
         return false;
+    }
+
+    internal static bool TryGetSupportedFileActivation(AppActivationArguments activationArgs,
+                                                       out WinoApplicationMode mode,
+                                                       out string[] filePaths)
+    {
+        mode = WinoApplicationMode.Mail;
+        filePaths = [];
+
+        if (activationArgs.Kind != ExtendedActivationKind.File ||
+            activationArgs.Data is not IFileActivatedEventArgs fileArgs)
+        {
+            return false;
+        }
+
+        var activationPaths = fileArgs.Files?
+            .OfType<IStorageItem>()
+            .Select(item => item.Path)
+            .ToArray();
+
+        if (!SecondaryEntryActivationContract.TryCreateFiles(activationPaths, out var activation))
+            return false;
+
+        mode = activation!.Mode;
+        filePaths = activation.FilePaths;
+        return true;
     }
 }

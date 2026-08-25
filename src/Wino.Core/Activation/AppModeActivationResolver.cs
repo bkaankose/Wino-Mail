@@ -45,7 +45,13 @@ public static class AppModeActivationResolver
             return true;
         }
 
-        if (Contains(value, "wino-contacts") ||
+        if (Contains(value, "--wino-people") ||
+            Contains(value, "wino-people") ||
+            Contains(value, "--mode=people") ||
+            Contains(value, "mode=people") ||
+            Contains(value, "peopleapp") ||
+            EqualsToken(value, "people") ||
+            Contains(value, "wino-contacts") ||
             Contains(value, "--mode=contacts") ||
             Contains(value, "mode=contacts") ||
             Contains(value, "contactsapp") ||

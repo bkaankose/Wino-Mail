@@ -21,6 +21,19 @@ public class AppModeActivationResolverTests
         resolvedMode.Should().Be(expectedMode);
     }
 
+    [Theory]
+    [InlineData("--wino-people")]
+    [InlineData("--wino-contacts")]
+    [InlineData("--mode=people")]
+    [InlineData("--mode=contacts")]
+    [InlineData("PeopleApp")]
+    [InlineData("ContactsApp")]
+    public void Resolve_AcceptsPeopleBrandingAndLegacyContactsSignals(string source)
+    {
+        AppModeActivationResolver.Resolve(source, null, null, WinoApplicationMode.Mail)
+            .Should().Be(WinoApplicationMode.Contacts);
+    }
+
     [Fact]
     public void Resolve_ToggleDefaultArgumentFlipsBetweenMailAndCalendar()
     {

@@ -18,8 +18,8 @@
             AutomationProperties.Name="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}"
             Content="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}"
             DataContext="{x:Bind}"
-            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
-            SelectsOnInvoked="False">
+            SelectsOnInvoked="False"
+            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsEnabled), Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
                 <coreControls:WinoFontIcon Icon="NewMail" />
             </muxc:NavigationViewItem.Icon>
@@ -34,8 +34,8 @@
             AutomationProperties.AutomationId="ContactsPaneNewList"
             AutomationProperties.Name="{x:Bind domain:Translator.ContactList_NewTitle, Mode=OneTime}"
             DataContext="{x:Bind}"
-            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
-            SelectsOnInvoked="False">
+            SelectsOnInvoked="False"
+            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsEnabled), Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
                 <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FA;" />
             </muxc:NavigationViewItem.Icon>
@@ -101,6 +101,35 @@
                     Text="{x:Bind Name, Mode=OneWay}"
                     TextTrimming="CharacterEllipsis" />
             </Grid>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--  Address books use a larger account profile picture without resizing glyph icons.  -->
+    <DataTemplate x:Key="ContactAccountFilterTemplate" x:DataType="contactData:ContactFilterViewModel">
+        <coreControls:WinoNavigationViewItem
+            MinHeight="36"
+            AutomationProperties.AutomationId="ContactsAddressBookFilterItem"
+            AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
+            DataContext="{x:Bind}"
+            Icon="{x:Bind helpers:XamlHelpers.GetAccountOrGlyphIcon(Account, Glyph), Mode=OneTime}"
+            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
+            SelectsOnInvoked="True"
+            ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}">
+            <coreControls:WinoNavigationViewItem.Resources>
+                <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">28</x:Double>
+            </coreControls:WinoNavigationViewItem.Resources>
+            <muxc:NavigationViewItem.InfoBadge>
+                <muxc:InfoBadge
+                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
+                    Value="{x:Bind Count, Mode=OneWay}" />
+            </muxc:NavigationViewItem.InfoBadge>
+
+            <TextBlock
+                VerticalAlignment="Center"
+                Text="{x:Bind Name, Mode=OneWay}"
+                TextTrimming="CharacterEllipsis" />
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 

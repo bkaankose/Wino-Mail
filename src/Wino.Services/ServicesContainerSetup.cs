@@ -25,6 +25,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IShareActivationService, ShareActivationService>();
         services.AddSingleton<IMimeFileService, MimeFileService>();
         services.AddSingleton<ICalendarIcsFileService, CalendarIcsFileService>();
+        services.AddSingleton<IActivationFileImportService, ActivationFileImportService>();
         services.AddTransient<IMimeStorageService, MimeStorageService>();
 
         services.AddTransient<ICalendarService, CalendarService>();

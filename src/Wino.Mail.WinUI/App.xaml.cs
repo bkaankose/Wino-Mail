@@ -27,6 +27,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Common;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
@@ -53,6 +54,8 @@ using Wino.Messaging.UI;
 using Wino.Services;
 using Wino.Views;
 using WinUIEx;
+using PendingBootstrapActivation = Wino.Core.Activation.PendingBootstrapActivation;
+using PendingBootstrapActivationKind = Wino.Core.Activation.PendingBootstrapActivationKind;
 namespace Wino.Mail.WinUI;
 
 public partial class App : WinoApplication,
@@ -1053,17 +1056,21 @@ public partial class App : WinoApplication,
         }
 
         var shellWindowAlreadyExists = HasShellWindow();
+        var isMailModeActive = Services.GetRequiredService<IStatePersistanceService>().ApplicationMode == WinoApplicationMode.Mail;
+        var deferNavigationUntilMailIsReady = !shellWindowAlreadyExists || !isMailModeActive;
 
-        if (!shellWindowAlreadyExists)
+        if (deferNavigationUntilMailIsReady)
         {
-            // A new shell consumes this while it is creating its initial mail navigation.
+            // A new or switching shell consumes this after its mail menu has been rebuilt.
+            // Mode activation is asynchronous, so looking up the folder immediately would
+            // race the menu initialization when the notification was opened from another mode.
             Services.GetRequiredService<ILaunchProtocolService>().LaunchParameter =
                 new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
         }
 
         await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
 
-        if (!shellWindowAlreadyExists)
+        if (deferNavigationUntilMailIsReady)
             return;
 
         await ExecuteOnActivationUiThreadAsync(async () =>
@@ -2062,20 +2069,79 @@ public partial class App : WinoApplication,
 
     private async Task<bool> HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation)
     {
-        if (pendingBootstrapActivation.Mode != WinoApplicationMode.Calendar)
+        if (pendingBootstrapActivation.Mode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts))
             return false;
 
-        var navigationArgs = new CalendarPageNavigationArgs
+        if (pendingBootstrapActivation.Kind == PendingBootstrapActivationKind.File)
         {
-            RequestDefaultNavigation = true
-        };
+            await HandleFileActivationAsync(
+                pendingBootstrapActivation.Mode,
+                pendingBootstrapActivation.FilePaths,
+                activateWindow: true);
+
+            return true;
+        }
+
+        object? navigationArgs = pendingBootstrapActivation.Mode == WinoApplicationMode.Calendar
+            ? new CalendarPageNavigationArgs { RequestDefaultNavigation = true }
+            : null;
 
         await EnsureShellWindowAsync(
-            WinoApplicationMode.Calendar,
+            pendingBootstrapActivation.Mode,
             activateWindow: true,
             activationParameter: navigationArgs);
 
         return true;
+    }
+
+    private async Task HandleFileActivationAsync(WinoApplicationMode mode,
+                                                  IReadOnlyList<string> filePaths,
+                                                  bool activateWindow)
+    {
+        if (mode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts))
+            return;
+
+        var importService = Services.GetRequiredService<IActivationFileImportService>();
+
+        if (mode == WinoApplicationMode.Calendar)
+        {
+            var composeArgs = await importService.ImportCalendarEventAsync(filePaths);
+            object activationParameter = composeArgs is null
+                ? new CalendarPageNavigationArgs { RequestDefaultNavigation = true }
+                : composeArgs;
+
+            await EnsureShellWindowAsync(
+                WinoApplicationMode.Calendar,
+                activateWindow,
+                activationParameter: activationParameter);
+
+            if (composeArgs == null)
+            {
+                Services.GetRequiredService<IMailDialogService>().InfoBarMessage(
+                    Translator.FileActivation_ImportFailedTitle,
+                    Translator.FileActivation_CalendarImportFailedMessage,
+                    InfoBarMessageType.Warning);
+            }
+
+            return;
+        }
+
+        var importDraft = await importService.ImportContactAsync(filePaths);
+
+        await EnsureShellWindowAsync(
+            WinoApplicationMode.Contacts,
+            activateWindow,
+            activationParameter: importDraft == null
+                ? null
+                : new ContactEditNavigationParameter(ImportDraft: importDraft));
+
+        if (importDraft == null)
+        {
+            Services.GetRequiredService<IMailDialogService>().InfoBarMessage(
+                Translator.FileActivation_ImportFailedTitle,
+                Translator.FileActivation_ContactImportFailedMessage,
+                InfoBarMessageType.Warning);
+        }
     }
 
     private static string AppendLaunchArgument(string? launchArguments, string launchArgument)
@@ -2125,6 +2191,12 @@ public partial class App : WinoApplication,
             if (string.Equals(extension, ".ics", StringComparison.OrdinalIgnoreCase))
             {
                 mode = WinoApplicationMode.Calendar;
+                return true;
+            }
+
+            if (string.Equals(extension, ".vcf", StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Contacts;
                 return true;
             }
 

@@ -1,10 +1,12 @@
 using System;
 using FluentAssertions;
 using Moq;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Contacts;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels;
 using Xunit;
 
@@ -12,6 +14,65 @@ namespace Wino.Mail.ViewModels.Tests;
 
 public class ContactEditPageViewModelTests
 {
+    [Fact]
+    public async Task ImportedDraft_PopulatesUnsavedEditorAndKeepsNormalDestinationSelection()
+    {
+        var destination = new ContactCreateDestination(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            ContactSourceKind.CardDav,
+            "Work",
+            "People",
+            true);
+        var contactService = new Mock<IContactService>();
+        contactService.Setup(service => service.GetCreateDestinationsAsync()).ReturnsAsync([destination]);
+        contactService.Setup(service => service.GetContactListsAsync()).ReturnsAsync([]);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        var viewModel = new ContactEditPageViewModel(
+            contactService.Object,
+            delegator.Object,
+            Mock.Of<INavigationService>(),
+            Mock.Of<IDialogServiceBase>(),
+            Mock.Of<IContactPictureFileService>());
+        byte[] photoBytes = [1, 2, 3, 4];
+        var importedContact = new AccountContact
+        {
+            DisplayName = "Imported Person",
+            GivenName = "Imported",
+            Surname = "Person",
+            CompanyName = "Wino",
+            Department = "People",
+            Notes = "Review before saving",
+            EmailAddresses =
+            [
+                new ContactEmailAddress { Address = "person@example.com", IsPrimary = true }
+            ],
+            PhoneNumbers =
+            [
+                new ContactPhoneNumber { Number = "+48 123 456 789", Kind = ContactPhoneKind.Mobile }
+            ]
+        };
+
+        viewModel.OnNavigatedTo(
+            NavigationMode.New,
+            new ContactEditNavigationParameter(ImportDraft: new(importedContact, photoBytes)));
+
+        await WaitForAsync(() => viewModel.DisplayName == "Imported Person");
+
+        viewModel.SelectedDestination.Should().Be(destination);
+        viewModel.GivenName.Should().Be("Imported");
+        viewModel.Surname.Should().Be("Person");
+        viewModel.CompanyName.Should().Be("Wino");
+        viewModel.Department.Should().Be("People");
+        viewModel.Notes.Should().Be("Review before saving");
+        viewModel.EmailAddresses.Should().ContainSingle().Which.Address.Should().Be("person@example.com");
+        viewModel.PhoneNumbers.Should().ContainSingle().Which.Number.Should().Be("+48 123 456 789");
+        viewModel.PreviewPhotoBytes.Should().Equal(photoBytes);
+        viewModel.IsDirty.Should().BeTrue();
+        delegator.Verify(service => service.ExecuteAsync(It.IsAny<ContactOperationPreparationRequest>()), Times.Never);
+        delegator.Verify(service => service.ExecuteAsync(It.IsAny<IReadOnlyList<ContactOperationPreparationRequest>>()), Times.Never);
+    }
+
     [Theory]
     [InlineData(2001, 2, 31, false)]
     [InlineData(2001, 4, 31, false)]
@@ -88,6 +149,15 @@ public class ContactEditPageViewModelTests
             navigation ?? Mock.Of<INavigationService>(),
             dialogs ?? Mock.Of<IDialogServiceBase>(),
             Mock.Of<IContactPictureFileService>());
+
+    private static async Task WaitForAsync(Func<bool> predicate)
+    {
+        var timeout = DateTime.UtcNow.AddSeconds(2);
+        while (!predicate() && DateTime.UtcNow < timeout)
+            await Task.Delay(10);
+
+        predicate().Should().BeTrue();
+    }
 
     [Fact]
     public async Task ChooseAndRemovePhoto_UpdatesTheEditorPreviewImmediately()

@@ -43,6 +43,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
         // Contacts
         NewContactMenuItem => "NewContactTemplate",
         NewAddressListMenuItem => "NewAddressListTemplate",
+        ContactFilterViewModel { HasAccountIcon: true } => "ContactAccountFilterTemplate",
         ContactFilterViewModel => "ContactFilterTemplate",
 
         // Mail. NewCalendarEventMenuItem derives from NewMailMenuItem, so it must be

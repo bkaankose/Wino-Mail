@@ -26,6 +26,9 @@
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             SelectsOnInvoked="False"
             Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
+            <controls:AccountNavigationItem.Resources>
+                <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">28</x:Double>
+            </controls:AccountNavigationItem.Resources>
             <controls:AccountNavigationItem.ContextFlyout>
                 <coreControls:WinoMenuFlyout>
                     <MenuFlyoutItem
@@ -56,7 +59,8 @@
             <muxc:NavigationViewItem.Icon>
                 <accountIcon:WinoAccountIcon
                     Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Parameter)}"
-                    IconSize="28" />
+                    IconSize="20"
+                    ProfilePictureIconSize="28" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -147,6 +151,9 @@
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             SelectsOnInvoked="False"
             Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
+            <controls:AccountNavigationItem.Resources>
+                <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">28</x:Double>
+            </controls:AccountNavigationItem.Resources>
             <controls:AccountNavigationItem.ContextFlyout>
                 <coreControls:WinoMenuFlyout>
                     <MenuFlyoutItem
@@ -175,7 +182,10 @@
                 </TransitionCollection>
             </coreControls:WinoNavigationViewItem.ContentTransitions>
             <muxc:NavigationViewItem.Icon>
-                <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Parameter)}" IconSize="28" />
+                <accountIcon:WinoAccountIcon
+                    Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Parameter)}"
+                    IconSize="20"
+                    ProfilePictureIconSize="28" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge

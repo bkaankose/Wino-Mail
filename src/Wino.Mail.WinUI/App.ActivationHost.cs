@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Windows.AppLifecycle;
+using Wino.Core.Activation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Mail.WinUI.Activation;
@@ -22,6 +23,7 @@ internal interface IAppActivationHandlerHost
     Task<bool> HandleMailToProtocolActivationAsync(MailToUri mailToUri, bool activateWindow);
     Task HandleBillingSuccessProtocolActivationAsync(bool activateWindow);
     Task<bool> HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation);
+    Task HandleFileActivationAsync(WinoApplicationMode mode, IReadOnlyList<string> filePaths, bool activateWindow);
     Task CompleteStandardLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs, bool hasAnyAccount);
     Task ActivateRedirectedShellAsync(RedirectedActivationRoute route);
 }
@@ -59,6 +61,8 @@ public partial class App : IAppActivationHandlerHost, IAppNotificationHandlerHos
         => HandleBillingSuccessProtocolActivationAsync(activateWindow);
     Task<bool> IAppActivationHandlerHost.HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation)
         => HandlePendingBootstrapActivationAsync(pendingBootstrapActivation);
+    Task IAppActivationHandlerHost.HandleFileActivationAsync(WinoApplicationMode mode, IReadOnlyList<string> filePaths, bool activateWindow)
+        => HandleFileActivationAsync(mode, filePaths, activateWindow);
     Task IAppActivationHandlerHost.CompleteStandardLaunchAsync(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs, bool hasAnyAccount)
         => CompleteStandardLaunchAsync(launchArgs, hasAnyAccount);
     Task IAppActivationHandlerHost.ActivateRedirectedShellAsync(RedirectedActivationRoute route)

@@ -58,9 +58,6 @@ internal sealed class AppActivationHandler
         if (IsBillingSuccessProtocol(activationArgs))
             return new LaunchActivationRoute(AppActivationPath.BillingSuccessProtocol, launchArgs, activationArgs);
 
-        if (!_host.HasConfiguredAccounts)
-            return new LaunchActivationRoute(AppActivationPath.WelcomeWithoutAccounts, launchArgs, activationArgs);
-
         if (activationArgs.Kind == ExtendedActivationKind.ShareTarget &&
             _host.TryMarkInitialShareActivationHandled())
         {
@@ -80,11 +77,27 @@ internal sealed class AppActivationHandler
             CanHandlePendingBootstrapActivation(pendingBootstrapActivation))
         {
             return new LaunchActivationRoute(
-                AppActivationPath.CalendarEntryBootstrap,
+                AppActivationPath.SecondaryEntryBootstrap,
                 launchArgs,
                 activationArgs,
                 PendingBootstrapActivation: pendingBootstrapActivation);
         }
+
+        if (SecondaryEntryBootstrapActivation.TryGetSupportedFileActivation(
+                activationArgs,
+                out var fileMode,
+                out var filePaths))
+        {
+            return new LaunchActivationRoute(
+                AppActivationPath.FileImport,
+                launchArgs,
+                activationArgs,
+                ActivationMode: fileMode,
+                FilePaths: filePaths);
+        }
+
+        if (!_host.HasConfiguredAccounts)
+            return new LaunchActivationRoute(AppActivationPath.WelcomeWithoutAccounts, launchArgs, activationArgs);
 
         if (ToastActivationResolver.TryParse(launchArgs.Arguments, out var launchToastArguments) &&
             _host.TryMarkInitialNotificationActivationHandled())
@@ -158,7 +171,7 @@ internal sealed class AppActivationHandler
                 _host.LogActivation("Processing billing success protocol activation from OnLaunched.");
                 await _host.HandleBillingSuccessProtocolActivationAsync(activateWindow: true);
                 break;
-            case AppActivationPath.CalendarEntryBootstrap:
+            case AppActivationPath.SecondaryEntryBootstrap:
                 if (route.PendingBootstrapActivation != null)
                 {
                     _host.LogActivation($"Processing pending bootstrap activation. Kind: {route.PendingBootstrapActivation.Kind}, Mode: {route.PendingBootstrapActivation.Mode}");
@@ -167,6 +180,12 @@ internal sealed class AppActivationHandler
                         await _host.CompleteStandardLaunchAsync(route.LaunchArgs, _host.HasConfiguredAccounts);
                     }
                 }
+                break;
+            case AppActivationPath.FileImport:
+                await _host.HandleFileActivationAsync(
+                    route.ActivationMode,
+                    route.FilePaths ?? [],
+                    activateWindow: true);
                 break;
             case AppActivationPath.ToastLaunch:
                 _host.LogActivation($"Processing toast launch activation from OnLaunched. Arguments: {route.LaunchArgs.Arguments}");
@@ -223,6 +242,19 @@ internal sealed class AppActivationHandler
                 WinoApplicationMode.Mail,
                 shouldActivateWindow,
                 MailToUri: mailToUri);
+        }
+
+        if (SecondaryEntryBootstrapActivation.TryGetSupportedFileActivation(
+                args,
+                out var fileMode,
+                out var filePaths))
+        {
+            return new RedirectedActivationRoute(
+                AppActivationPath.FileImport,
+                args,
+                fileMode,
+                shouldActivateWindow,
+                FilePaths: filePaths);
         }
 
         if (args.Kind == ExtendedActivationKind.Launch &&
@@ -336,6 +368,16 @@ internal sealed class AppActivationHandler
             return;
         }
 
+        if (route.Path == AppActivationPath.FileImport)
+        {
+            _host.LogActivation($"Processing redirected {route.ActivationMode} file import activation.");
+            await _host.HandleFileActivationAsync(
+                route.ActivationMode,
+                route.FilePaths ?? [],
+                activateWindow: route.ShouldActivateWindow);
+            return;
+        }
+
         await _host.ActivateRedirectedShellAsync(route);
     }
 
@@ -427,6 +469,12 @@ internal sealed class AppActivationHandler
             if (string.Equals(extension, ".ics", System.StringComparison.OrdinalIgnoreCase))
             {
                 mode = WinoApplicationMode.Calendar;
+                return true;
+            }
+
+            if (string.Equals(extension, ".vcf", System.StringComparison.OrdinalIgnoreCase))
+            {
+                mode = WinoApplicationMode.Contacts;
                 return true;
             }
 

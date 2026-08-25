@@ -21,6 +21,90 @@ namespace Wino.Mail.ViewModels.Tests;
 public class ContactsPageViewModelTests
 {
     [Fact]
+    public async Task ImportedDraft_OpensEditorAfterPeopleRootInitializes()
+    {
+        var contactService = PageService();
+        contactService.Setup(service => service.GetCreateDestinationsAsync()).ReturnsAsync(
+        [
+            new ContactCreateDestination(Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Local, "Account", "People", true)
+        ]);
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
+        var navigation = new Mock<INavigationService>();
+        var navigated = false;
+        navigation.Setup(service => service.Navigate(
+                WinoPage.ContactEditPage,
+                It.IsAny<object>(),
+                It.IsAny<NavigationReferenceFrame?>(),
+                It.IsAny<NavigationTransitionType>()))
+            .Callback(() => navigated = true)
+            .Returns(true);
+        var dialogs = new Mock<IMailDialogService>();
+        var viewModel = new ContactsPageViewModel(
+            contactService.Object,
+            accountService.Object,
+            Mock.Of<ISynchronizationManager>(),
+            Mock.Of<IWinoRequestDelegator>(),
+            navigation.Object,
+            dialogs.Object,
+            Mock.Of<ILaunchProtocolService>())
+        {
+            Dispatcher = new ImmediateDispatcher()
+        };
+        var parameter = new ContactEditNavigationParameter(
+            ImportDraft: new(new AccountContact { DisplayName = "Imported" }, HasUnsupportedContent: true));
+
+        viewModel.OnNavigatedTo(NavigationMode.New, parameter);
+        await WaitUntilAsync(() => navigated);
+
+        navigation.Verify(service => service.Navigate(
+            WinoPage.ContactEditPage,
+            It.Is<ContactEditNavigationParameter>(value => ReferenceEquals(value, parameter)),
+            It.IsAny<NavigationReferenceFrame?>(),
+            It.IsAny<NavigationTransitionType>()), Times.Once);
+        dialogs.Verify(service => service.InfoBarMessage(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            InfoBarMessageType.Warning), Times.Once);
+    }
+
+    [Fact]
+    public async Task ImportedDraftWithoutDestination_RemainsAtPeopleRootAndWarns()
+    {
+        var contactService = PageService();
+        contactService.Setup(service => service.GetCreateDestinationsAsync()).ReturnsAsync([]);
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
+        var navigation = new Mock<INavigationService>();
+        var dialogs = new Mock<IMailDialogService>();
+        var warningShown = false;
+        dialogs.Setup(service => service.InfoBarMessage(It.IsAny<string>(), It.IsAny<string>(), InfoBarMessageType.Warning))
+            .Callback(() => warningShown = true);
+        var viewModel = new ContactsPageViewModel(
+            contactService.Object,
+            accountService.Object,
+            Mock.Of<ISynchronizationManager>(),
+            Mock.Of<IWinoRequestDelegator>(),
+            navigation.Object,
+            dialogs.Object,
+            Mock.Of<ILaunchProtocolService>())
+        {
+            Dispatcher = new ImmediateDispatcher()
+        };
+
+        viewModel.OnNavigatedTo(
+            NavigationMode.New,
+            new ContactEditNavigationParameter(ImportDraft: new(new AccountContact { DisplayName = "Imported" })));
+        await WaitUntilAsync(() => warningShown);
+
+        navigation.Verify(service => service.Navigate(
+            WinoPage.ContactEditPage,
+            It.IsAny<object>(),
+            It.IsAny<NavigationReferenceFrame?>(),
+            It.IsAny<NavigationTransitionType>()), Times.Never);
+    }
+
+    [Fact]
     public async Task OverlappingReloads_AlwaysClearTheLoadingState()
     {
         var contactService = PageService();
@@ -365,9 +449,10 @@ public class ContactsPageViewModelTests
         var accountService = new Mock<IAccountService>();
         accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
         var dialogs = new Mock<IMailDialogService>();
-        dialogs.Setup(service => service.ShowTextInputDialogAsync(
+        dialogs.SetupSequence(service => service.ShowTextInputDialogAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync("Team");
+            .ReturnsAsync("Team")
+            .ReturnsAsync("Renamed team");
         var viewModel = new ContactsPageViewModel(contactService.Object, accountService.Object,
             Mock.Of<ISynchronizationManager>(), Mock.Of<IWinoRequestDelegator>(), Mock.Of<INavigationService>(),
             dialogs.Object, Mock.Of<ILaunchProtocolService>());
@@ -386,6 +471,12 @@ public class ContactsPageViewModelTests
         viewModel.ContactLists.Should().ContainSingle().Which.Should().BeSameAs(createdList);
         itemActions.Should().Equal(NotifyCollectionChangedAction.Add);
         groupActions.Should().BeEmpty();
+
+        var createdFilter = listGroup.Should().ContainSingle().Which;
+        createdFilter.RenameListCommand.Execute(null);
+        await WaitUntilAsync(() => createdFilter.Name == "Renamed team");
+
+        contactService.Verify(service => service.UpdateContactListAsync(createdList), Times.Once);
     }
 
     [Fact]

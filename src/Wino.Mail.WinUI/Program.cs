@@ -7,6 +7,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppLifecycle;
+using Wino.Core.Activation;
 using Wino.Mail.WinUI.Activation;
 
 namespace Wino.Mail.WinUI;
@@ -40,21 +41,21 @@ public class Program
         }
 
         var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
-        var shouldBootstrapCalendarEntry = CalendarEntryBootstrapActivation.ShouldBootstrapToMailHost(activationArgs);
-        _shouldRegisterAppNotifications = !shouldBootstrapCalendarEntry;
+        var shouldBootstrapSecondaryEntry = SecondaryEntryBootstrapActivation.ShouldBootstrapToMailHost(activationArgs);
+        _shouldRegisterAppNotifications = !shouldBootstrapSecondaryEntry;
 
-        if (shouldBootstrapCalendarEntry && !IsMailHostRunning())
+        if (shouldBootstrapSecondaryEntry && !IsMailHostRunning())
         {
-            if (CalendarEntryBootstrapActivation.QueuePendingActivation(activationArgs) &&
-                CalendarEntryBootstrapActivation.LaunchMailHost())
+            if (SecondaryEntryBootstrapActivation.QueuePendingActivation(activationArgs) &&
+                SecondaryEntryBootstrapActivation.LaunchMailHost())
             {
                 return 0;
             }
 
-            CalendarEntryBootstrapActivation.ClearPendingActivation();
+            SecondaryEntryBootstrapActivation.ClearPendingActivation();
         }
 
-        _pendingBootstrapActivation = CalendarEntryBootstrapActivation.ConsumePendingActivation();
+        _pendingBootstrapActivation = SecondaryEntryBootstrapActivation.ConsumePendingActivation();
         bool isRedirect = DecideRedirection(activationArgs);
 
         if (!isRedirect)

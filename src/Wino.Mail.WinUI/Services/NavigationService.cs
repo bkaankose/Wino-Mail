@@ -232,7 +232,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
         => mode switch
         {
             WinoApplicationMode.Calendar => "Wino Calendar",
-            WinoApplicationMode.Contacts => "Wino Contacts",
+            WinoApplicationMode.Contacts => "Wino People",
             WinoApplicationMode.Settings => "Wino Settings",
             _ => "Wino Mail"
         };

@@ -380,6 +380,15 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         {
             DailyBriefingPanelControl.Close();
             RefreshDailyBriefingButtonVisibility();
+
+            var applicationMode = StatePersistanceService.ApplicationMode;
+
+            // Settings belongs to whichever app entry opened it. The three primary modes,
+            // however, must follow their own taskbar entries even when switched in-app.
+            if (applicationMode != WinoApplicationMode.Settings)
+            {
+                WindowAppUserModelIdHelper.TrySet(this, AppEntryConstants.GetAppUserModelId(applicationMode));
+            }
         }
 
         if (propertyName == nameof(IStatePersistanceService.ApplicationMode) ||

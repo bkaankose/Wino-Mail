@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
+using Wino.Core.Activation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Launch;
@@ -17,7 +18,8 @@ internal enum AppActivationPath
     ShareTarget,
     MailToProtocol,
     BillingSuccessProtocol,
-    CalendarEntryBootstrap,
+    SecondaryEntryBootstrap,
+    FileImport,
     AppNotification,
     ToastLaunch,
     ModeActivation
@@ -49,7 +51,9 @@ internal readonly record struct LaunchActivationRoute(
     NotificationActivationRoute NotificationRoute = default,
     NotificationArguments? ToastArguments = null,
     MailToUri? MailToUri = null,
-    PendingBootstrapActivation? PendingBootstrapActivation = null)
+    PendingBootstrapActivation? PendingBootstrapActivation = null,
+    WinoApplicationMode ActivationMode = WinoApplicationMode.Mail,
+    IReadOnlyList<string>? FilePaths = null)
 {
     public bool RequiresAppHostInfrastructure => Path switch
     {
@@ -68,7 +72,8 @@ internal readonly record struct RedirectedActivationRoute(
     NotificationArguments? ToastArguments = null,
     IDictionary<string, string>? UserInput = null,
     MailToUri? MailToUri = null,
-    AppNotificationActivatedEventArgs? AppNotificationArgs = null);
+    AppNotificationActivatedEventArgs? AppNotificationArgs = null,
+    IReadOnlyList<string>? FilePaths = null);
 
 internal static class ActivationPathNames
 {
@@ -81,7 +86,8 @@ internal static class ActivationPathNames
             AppActivationPath.ShareTarget => "share target",
             AppActivationPath.MailToProtocol => "mailto protocol",
             AppActivationPath.BillingSuccessProtocol => "billing success protocol",
-            AppActivationPath.CalendarEntryBootstrap => "calendar entry bootstrap",
+            AppActivationPath.SecondaryEntryBootstrap => "secondary entry bootstrap",
+            AppActivationPath.FileImport => "file import",
             AppActivationPath.AppNotification => "app notification",
             AppActivationPath.ToastLaunch => "toast launch",
             AppActivationPath.ModeActivation => "mode activation",
