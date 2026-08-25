@@ -105,6 +105,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly object _folderNavigationSync = new();
     private IBaseFolderMenuItem _pendingNavigationFolder;
     private TaskCompletionSource<bool> _pendingNavigationCompletion;
+    private bool _isPreparedForShellShutdown;
 
     private readonly SemaphoreSlim accountInitFolderUpdateSlim = new SemaphoreSlim(1);
 
@@ -155,6 +156,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         base.OnDispatcherAssigned();
 
+        _isPreparedForShellShutdown = false;
         MenuItems = new MenuItemCollection(Dispatcher);
         FooterItems = new MenuItemCollection(Dispatcher);
         ShellMenu = new ShellMenu
@@ -352,6 +354,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public void PrepareForShellShutdown()
     {
+        if (_isPreparedForShellShutdown)
+            return;
+
+        _isPreparedForShellShutdown = true;
+
         lock (_folderNavigationSync)
         {
             _pendingNavigationCompletion?.TrySetResult(false);
@@ -369,8 +376,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         SelectedMenuItem = null;
 
         MenuItems?.Clear();
-        MenuItems?.Add(CreateMailMenuItem);
         FooterItems?.Clear();
+        ShellMenu = null;
     }
 
     private async Task MakeSureEnableStartupLaunchAsync()

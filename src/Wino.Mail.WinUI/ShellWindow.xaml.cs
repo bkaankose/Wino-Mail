@@ -61,18 +61,24 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private bool _hasDailyBriefingAccess;
     private ISearchHistoryService SearchHistoryService { get; } = WinoApplication.Current.Services.GetRequiredService<ISearchHistoryService>();
     private bool _isPreparedForClose;
+    private bool _isCloseRequestInProgress;
+    private readonly Microsoft.UI.Xaml.Input.PointerEventHandler _pointerPressedHandler;
 
     public ShellWindow()
     {
         InitializeComponent();
+        _pointerPressedHandler = OnPointerPressed;
         RegisterRecipients();
         StatePersistanceService.StatePropertyChanged += StatePersistenceServiceChanged;
+        PreferencesService.PreferenceChanged += PreferencesServiceChanged;
         DailyBriefingPanelControl.IsOpenChanged += DailyBriefingPanelIsOpenChanged;
 
         MinWidth = 420;
         MinHeight = 420;
         ConfigureWindowPlacementPersistence();
         ConfigureTitleBar();
+        UpdateShellTitles();
+        UpdateWinoAccountButtonVisibility();
         ApplyTitleBarSearchHost();
         _ = RefreshDailyBriefingStateAsync();
 
@@ -86,9 +92,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         RegisterMouseBackButtonListener();
 
         this.SetIcon("Assets/Wino_Icon.ico");
-        Title = string.IsNullOrWhiteSpace(StatePersistanceService.CoreWindowTitle)
-            ? StatePersistanceService.AppModeTitle
-            : $"{StatePersistanceService.AppModeTitle} - {StatePersistanceService.CoreWindowTitle}";
     }
 
     private void ConfigureTitleBar()
@@ -120,7 +123,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         // Subscribe to pointer pressed events on the root content
         if (Content is UIElement rootElement)
         {
-            rootElement.AddHandler(UIElement.PointerPressedEvent, new Microsoft.UI.Xaml.Input.PointerEventHandler(OnPointerPressed), true);
+            rootElement.AddHandler(UIElement.PointerPressedEvent, _pointerPressedHandler, true);
         }
     }
 
@@ -374,6 +377,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             return;
         }
 
+        if (propertyName is nameof(IStatePersistanceService.AppModeTitle)
+            or nameof(IStatePersistanceService.CoreWindowTitle))
+        {
+            UpdateShellTitles();
+        }
+
         // The briefing panel belongs to the mail surface it was opened over. A mode switch replaces
         // that surface, so the panel goes with it instead of hanging over the new one.
         if (propertyName == nameof(IStatePersistanceService.ApplicationMode))
@@ -546,22 +555,68 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         if (_allowClose || app?.IsExiting == true)
             return;
 
-        if (app?.TryExitApplicationOnShellWindowClose() == true)
+        // Snapshot the preference once so a single close request cannot take different branches
+        // before and after asynchronous draft/compose confirmation.
+        var closeBehavior = PreferencesService.AppCloseBehavior;
+
+        if (app?.TryExitApplicationOnShellWindowClose(closeBehavior) == true)
             return;
 
         e.Cancel = true;
 
-        if (!await PrepareMailModeForHideAsync())
+        if (_isCloseRequestInProgress)
             return;
 
-        if (!NavigationService.ParkShell())
-            return;
+        _isCloseRequestInProgress = true;
 
-        SaveWindowPlacement();
+        try
+        {
+            if (!await PrepareMailModeForCloseAsync())
+                return;
 
-        var windowManager = WinoApplication.Current.Services.GetService<IWinoWindowManager>();
-        windowManager?.HideWindow(this);
+            if (app?.TryPrepareForBackgroundShellWindowClose(closeBehavior) != true)
+                return;
+
+            SaveWindowPlacement();
+            PrepareForClose();
+
+            // PrepareForClose removes this handler and permits the real close. The managed
+            // app and tray keep running, but this HWND and its complete XAML tree do not.
+            Close();
+        }
+        finally
+        {
+            _isCloseRequestInProgress = false;
+        }
     }
+
+    private void PreferencesServiceChanged(object? sender, string propertyName)
+    {
+        if (propertyName != nameof(IPreferencesService.IsWinoAccountButtonHidden))
+            return;
+
+        if (DispatcherQueue.HasThreadAccess)
+        {
+            UpdateWinoAccountButtonVisibility();
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(UpdateWinoAccountButtonVisibility);
+    }
+
+    private void UpdateShellTitles()
+    {
+        ShellTitleBar.Title = StatePersistanceService.AppModeTitle;
+        ShellTitleBar.Subtitle = StatePersistanceService.CoreWindowTitle;
+        Title = string.IsNullOrWhiteSpace(StatePersistanceService.CoreWindowTitle)
+            ? StatePersistanceService.AppModeTitle
+            : $"{StatePersistanceService.AppModeTitle} - {StatePersistanceService.CoreWindowTitle}";
+    }
+
+    private void UpdateWinoAccountButtonVisibility()
+        => WinoAccountButton.Visibility = PreferencesService.IsWinoAccountButtonHidden
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
     public void PrepareForClose()
     {
@@ -569,15 +624,59 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             return;
 
         _isPreparedForClose = true;
+        _allowClose = true;
+
+        AppWindow.Closing -= OnAppWindowClosing;
+        StatePersistanceService.StatePropertyChanged -= StatePersistenceServiceChanged;
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        DailyBriefingPanelControl.IsOpenChanged -= DailyBriefingPanelIsOpenChanged;
+        UnregisterRecipients();
+
+        if (Content is UIElement rootElement)
+        {
+            rootElement.RemoveHandler(UIElement.PointerPressedEvent, _pointerPressedHandler);
+        }
+
+        DetachTitleBarSearchHost();
+        CloseHostedPopoutWindows();
 
         if (MainShellFrame.Content is WinoAppShell shellPage)
         {
             shellPage.PrepareForWindowClose();
         }
 
-        WindowCleanupHelper.CleanupFrame(MainShellFrame);
+        Bindings.StopTracking();
 
-        _allowClose = true;
+        var rootContent = Content;
+        WindowCleanupHelper.CleanupObject(rootContent);
+        Content = null;
+    }
+
+    private void DetachTitleBarSearchHost()
+    {
+        if (_activeTitleBarSearchHost is IMailTitleBarSearchHost mailHost)
+        {
+            mailHost.SemanticSearchBusyChanged -= MailHostSemanticSearchBusyChanged;
+        }
+
+        _activeTitleBarSearchHost = null;
+        TitleBarSearchBox.ItemsSource = null;
+        TitleBarSearchBox.SearchHistoryItemsSource = null;
+        TitleBarSearchBox.ScopeOptionsSource = null;
+        TitleBarSearchBox.ReachOptionsSource = null;
+        TitleBarSearchBox.DateOptionsSource = null;
+        TitleBarSearchBox.SenderSuggestions = null;
+    }
+
+    private static void CloseHostedPopoutWindows()
+    {
+        var windowManager = WinoApplication.Current.Services.GetService<IWinoWindowManager>();
+        var hostedPopouts = windowManager?.GetWindows().OfType<HostedContentPopoutWindow>().ToList() ?? [];
+
+        foreach (var hostedPopout in hostedPopouts)
+        {
+            hostedPopout.Close();
+        }
     }
 
     private void OnWindowClosed(object sender, WindowEventArgs e)
@@ -586,20 +685,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         Closed -= OnWindowClosed;
         AppWindow.Closing -= OnAppWindowClosing;
-        StatePersistanceService.StatePropertyChanged -= StatePersistenceServiceChanged;
-        DailyBriefingPanelControl.IsOpenChanged -= DailyBriefingPanelIsOpenChanged;
 
         // No need to prepare for close or cleanup if the application is exiting, as the process will be terminated shortly after.
         if ((Application.Current as App)?.IsExiting == true)
             return;
 
-        if (MainShellFrame.Content is WinoAppShell shellPage)
-        {
-            shellPage.PrepareForWindowClose();
-        }
-
-        WindowCleanupHelper.CleanupFrame(MainShellFrame);
-        UnregisterRecipients();
+        PrepareForClose();
     }
 
     private void SaveWindowPlacement()
@@ -614,7 +705,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         }
     }
 
-    private async Task<bool> PrepareMailModeForHideAsync()
+    private async Task<bool> PrepareMailModeForCloseAsync()
     {
         if (MainShellFrame.Content is not WinoAppShell shellPage)
             return true;

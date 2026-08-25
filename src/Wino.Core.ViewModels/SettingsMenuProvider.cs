@@ -25,6 +25,7 @@ public partial class SettingsMenuProvider(INavigationService navigationService) 
     private bool _hasRegisteredPersistentRecipients;
     private ShellMenu _shellMenu;
     private object _selectedMenuItem;
+    private bool _isPreparedForShellShutdown;
 
     public WinoApplicationMode Mode => WinoApplicationMode.Settings;
 
@@ -40,7 +41,8 @@ public partial class SettingsMenuProvider(INavigationService navigationService) 
     {
         base.OnDispatcherAssigned();
 
-        _shellMenu ??= new ShellMenu
+        _isPreparedForShellShutdown = false;
+        _shellMenu = new ShellMenu
         {
             Items = new MenuItemCollection(Dispatcher),
             HandlesSelection = true
@@ -87,6 +89,11 @@ public partial class SettingsMenuProvider(INavigationService navigationService) 
 
     public void PrepareForShellShutdown()
     {
+        if (_isPreparedForShellShutdown)
+            return;
+
+        _isPreparedForShellShutdown = true;
+
         if (_hasRegisteredPersistentRecipients)
         {
             UnregisterRecipients();
@@ -95,6 +102,7 @@ public partial class SettingsMenuProvider(INavigationService navigationService) 
 
         SelectedMenuItem = null;
         _shellMenu?.Items.Clear();
+        _shellMenu = null;
     }
 
     public Task OnMenuItemInvokedAsync(IMenuItem menuItem)

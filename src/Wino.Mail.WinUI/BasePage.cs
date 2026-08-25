@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -73,8 +72,6 @@ public abstract class BasePage<T> : BasePage where T : CoreBaseViewModel
     }
 
     private void PageLoaded(object sender, RoutedEventArgs e) => ViewModel.OnPageLoaded();
-
-    ~BasePage() { Debug.WriteLine($"Disposed {GetType().Name}"); }
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {

@@ -91,31 +91,98 @@ public partial class App : WinoApplication,
     private readonly AppActivationHandler _activationHandler;
     private readonly DispatcherQueue? _applicationDispatcherQueue;
     private NativeTrayIcon? _trayIcon;
+    private Window? _backgroundLifetimeWindow;
     private readonly record struct ShellWindowActivationResult(IWinoShellWindow? ShellWindow, bool WasCreated);
 
     internal bool IsExiting => _isExiting;
 
-    internal bool ShouldKeepShellWindowAliveOnClose()
-    {
-        if (_isExiting)
-            return false;
-
-        var preferencesService = _preferencesService ?? Services.GetService<IPreferencesService>();
-
-        return preferencesService?.AppCloseBehavior != AppCloseBehavior.Terminate;
-    }
-
-    internal bool TryExitApplicationOnShellWindowClose()
+    internal bool TryExitApplicationOnShellWindowClose(AppCloseBehavior closeBehavior)
     {
         if (_isExiting)
             return true;
 
-        if (ShouldKeepShellWindowAliveOnClose())
+        LogActivation($"Shell window close requested. AppCloseBehavior: {closeBehavior}.");
+
+        if (closeBehavior != AppCloseBehavior.Terminate)
             return false;
 
         ExitApplication();
 
         return true;
+    }
+
+    internal bool TryPrepareForBackgroundShellWindowClose(AppCloseBehavior closeBehavior)
+    {
+        var isBackgroundBehavior = closeBehavior is AppCloseBehavior.RunInBackgroundWithTrayIcon
+            or AppCloseBehavior.RunInBackgroundWithoutTrayIcon;
+
+        if (_isExiting || !isBackgroundBehavior)
+            return false;
+
+        var createdLifetimeWindow = false;
+
+        if (_backgroundLifetimeWindow == null)
+        {
+            try
+            {
+                // Closing the last WinUI Window ends the XAML application loop. Keep a contentless,
+                // never-activated window alive so background services can continue without retaining
+                // ShellWindow or any part of its XAML tree.
+                var lifetimeWindow = new Window();
+                lifetimeWindow.AppWindow.IsShownInSwitchers = false;
+                lifetimeWindow.Closed += BackgroundLifetimeWindowClosed;
+                _backgroundLifetimeWindow = lifetimeWindow;
+                createdLifetimeWindow = true;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex,
+                    "Failed to create the background lifetime window. Shell close was canceled to preserve the running application.");
+                return false;
+            }
+        }
+
+        if (closeBehavior == AppCloseBehavior.RunInBackgroundWithoutTrayIcon)
+        {
+            DisposeTrayIcon();
+            LogActivation("Background shell close prepared without a system tray icon.");
+            return true;
+        }
+
+        EnsureTrayIconCreated();
+
+        if (_trayIcon != null)
+        {
+            LogActivation("Background shell close prepared with a system tray icon.");
+            return true;
+        }
+
+        if (createdLifetimeWindow)
+            ReleaseBackgroundLifetimeWindow();
+
+        Log.Error(
+            "System tray mode is selected, but the tray icon could not be created. Shell close was canceled to avoid leaving the application inaccessible.");
+        return false;
+    }
+
+    private void ReleaseBackgroundLifetimeWindow()
+    {
+        var lifetimeWindow = _backgroundLifetimeWindow;
+        if (lifetimeWindow == null)
+            return;
+
+        _backgroundLifetimeWindow = null;
+        lifetimeWindow.Closed -= BackgroundLifetimeWindowClosed;
+        lifetimeWindow.Close();
+    }
+
+    private void BackgroundLifetimeWindowClosed(object sender, WindowEventArgs args)
+    {
+        if (sender is Window lifetimeWindow)
+            lifetimeWindow.Closed -= BackgroundLifetimeWindowClosed;
+
+        if (ReferenceEquals(_backgroundLifetimeWindow, sender))
+            _backgroundLifetimeWindow = null;
     }
 
     public App()
@@ -361,7 +428,6 @@ public partial class App : WinoApplication,
             return;
 
         DisposeTrayIcon();
-        windowManager.HideWindow(shellWindow);
         if (ReferenceEquals(MainWindow, shellWindow))
         {
             MainWindow = null;
@@ -402,6 +468,7 @@ public partial class App : WinoApplication,
 
         _isExiting = true;
         DisposeTrayIcon();
+        ReleaseBackgroundLifetimeWindow();
 
         Application.Current.Exit();
     }
@@ -448,7 +515,10 @@ public partial class App : WinoApplication,
         services.AddSingleton(typeof(MailAppShellViewModel));
         services.AddSingleton(typeof(CalendarAppShellViewModel));
         services.AddSingleton(typeof(SettingsMenuProvider));
-        services.AddSingleton(typeof(WinoAppShellViewModel));
+        // The app shell owns window-specific binding state and must die with its window.
+        // Mode providers remain application services so background synchronization can keep
+        // running, but a newly created ShellWindow always receives a fresh shell host VM.
+        services.AddTransient(typeof(WinoAppShellViewModel));
 
         services.AddSingleton<IMailShellClient>(serviceProvider => serviceProvider.GetRequiredService<MailAppShellViewModel>());
         services.AddSingleton<ICalendarShellClient>(serviceProvider => serviceProvider.GetRequiredService<CalendarAppShellViewModel>());
@@ -862,8 +932,8 @@ public partial class App : WinoApplication,
         {
             ApplyShellWindowTaskbarIdentity(shellWindow, mode);
 
-            // Rebuild the parked shell while the window is still hidden. Showing the
-            // retained IdlePage first exposes its transient surface as a bright flash.
+            // Bring an existing, not-yet-visible shell to the requested mode before it is
+            // activated (for example, a shell created by a non-foreground activation).
             navigationService.RestoreShell(mode, new ShellModeActivationContext
             {
                 SuppressStartupFlows = suppressStartupFlows,
@@ -884,6 +954,13 @@ public partial class App : WinoApplication,
         if (activateWindow && shellWindow is WindowEx window)
         {
             await ActivateWindowAsync(window, applyThemeToWindow: wasCreated);
+        }
+
+        // A real app window now owns the WinUI lifetime. The contentless background host is only
+        // needed while every user-facing window is gone.
+        if (shellWindow != null)
+        {
+            ReleaseBackgroundLifetimeWindow();
         }
 
         return new ShellWindowActivationResult(shellWindow, wasCreated);

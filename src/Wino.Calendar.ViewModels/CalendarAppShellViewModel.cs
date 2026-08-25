@@ -81,6 +81,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     private bool _hasRegisteredPersistentRecipients;
     private bool _suppressDisplayTypeNavigation;
     private DateTime? _navigationDate;
+    private bool _isPreparedForShellShutdown;
 
     public CalendarAppShellViewModel(
         IPreferencesService preferencesService,
@@ -130,6 +131,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     {
         base.OnDispatcherAssigned();
 
+        _isPreparedForShellShutdown = false;
         AccountCalendarStateService.Dispatcher = Dispatcher;
         MenuItems = new MenuItemCollection(Dispatcher);
         FooterItems = new MenuItemCollection(Dispatcher);
@@ -241,6 +243,10 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     public void PrepareForShellShutdown()
     {
+        if (_isPreparedForShellShutdown)
+            return;
+
+        _isPreparedForShellShutdown = true;
         DetachRuntimeSubscriptions();
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
 
@@ -256,7 +262,26 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         MenuItems?.Clear();
         FooterItems?.Clear();
         AccountCalendarStateService.ClearGroupedAccountCalendars();
-        CalendarPage.CleanupForShellDeactivation();
+
+        _accountCalendarMenuItems.Clear();
+        _syncMenuItem = null;
+        _datePickerMenuItem = null;
+        ShellMenu = null;
+
+        if (_lazyCalendarPageViewModel.IsValueCreated)
+        {
+            var calendarPage = _lazyCalendarPageViewModel.Value;
+
+            if (_isCalendarPageSubscriptionAttached)
+            {
+                calendarPage.PropertyChanged -= CalendarPageViewModelPropertyChanged;
+                _isCalendarPageSubscriptionAttached = false;
+            }
+
+            calendarPage.CleanupForShellDeactivation();
+        }
+
+        AccountCalendarStateService.Dispatcher = null;
     }
 
     private void AccountCalendarStateServicePropertyChanged(object sender, PropertyChangedEventArgs e)
@@ -267,6 +292,11 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _ = ExecuteUIThread(() =>
         {
             OnPropertyChanged(nameof(CanSynchronizeCalendars));
+            if (_syncMenuItem != null)
+            {
+                _syncMenuItem.IsEnabled = CanSynchronizeCalendars;
+            }
+
             SyncCommand.NotifyCanExecuteChanged();
         });
     }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -23,6 +24,7 @@ public partial class ContactsPageViewModel
     private ShellMenu _shellMenu;
     private bool _isPaneCompact;
     private bool _isMenuInteractionEnabled = true;
+    private bool _isPreparedForShellShutdown;
 
     public IShellMenuProvider ShellMenuProvider => this;
 
@@ -46,7 +48,8 @@ public partial class ContactsPageViewModel
     {
         base.OnDispatcherAssigned();
 
-        _shellMenu ??= new ShellMenu
+        _isPreparedForShellShutdown = false;
+        _shellMenu = new ShellMenu
         {
             Items = new MenuItemCollection(Dispatcher),
             HandlesSelection = true
@@ -73,10 +76,39 @@ public partial class ContactsPageViewModel
     /// </summary>
     public void PrepareForShellShutdown()
     {
+        if (_isPreparedForShellShutdown)
+            return;
+
+        _isPreparedForShellShutdown = true;
+        _isPageActive = false;
+        Interlocked.Increment(ref _currentQueryVersion);
+        CancelPendingReload();
+        UnregisterRecipients();
+        SelectedContacts.CollectionChanged -= SelectedContactsChanged;
+
         SelectedFilter = null;
+        SelectedContact = null;
         _isMenuInteractionEnabled = true;
         _shellMenu?.Items.Clear();
+        _shellMenu = null;
         _sectionHeaders.Clear();
+
+        Contacts.Clear();
+        SelectedContacts.Clear();
+        ContactGroups.Clear();
+        ContactLists.Clear();
+        FilterGroups.Clear();
+        _primaryFilterGroup.Clear();
+        _addressBookFilterGroup.Clear();
+        _listFilterGroup.Clear();
+        _accounts.Clear();
+
+        _isInitialized = false;
+        _currentOffset = 0;
+        SelectedContactsCount = 0;
+        TotalContactsCount = 0;
+        HasMoreContacts = false;
+        ListScrollOffset = null;
     }
 
     public Task OnMenuItemInvokedAsync(IMenuItem menuItem)

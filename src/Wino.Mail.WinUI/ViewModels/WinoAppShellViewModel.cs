@@ -32,6 +32,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     private ShellMenu? _currentMenu;
     private IShellMenuProvider? _currentProvider;
     private bool _isPaneCompact;
+    private bool _isShutdown;
 
     public WinoAppShellViewModel(IServiceProvider serviceProvider,
                                  IPreferencesService preferencesService,
@@ -184,10 +185,14 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     /// </summary>
     public void ShutdownProviders()
     {
+        if (_isShutdown)
+            return;
+
+        _isShutdown = true;
+        SetShellMenu(null);
+
         foreach (var provider in _providers.Values)
         {
-            provider.ReleaseShellMenu();
-
             switch (provider)
             {
                 case ContactsPageViewModel contactsProvider:
@@ -202,11 +207,18 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
                 case CalendarAppShellViewModel calendarProvider:
                     calendarProvider.PrepareForShellShutdown();
                     break;
+                default:
+                    provider.ReleaseShellMenu();
+                    break;
             }
+
+            // Providers are application singletons. Do not let them retain the dispatcher
+            // wrapper created by this window after all window-owned state is released.
+            provider.Dispatcher = null!;
         }
 
+        _providers.Clear();
         StatePersistenceService.StatePropertyChanged -= StatePersistenceServiceChanged;
-        SetShellMenu(null);
     }
 
     private void ProviderPropertyChanged(object? sender, PropertyChangedEventArgs e)

@@ -49,10 +49,13 @@ public partial class CalendarAppShellViewModel
 
     private void BuildShellMenu()
     {
-        _syncMenuItem ??= new CalendarSyncMenuItem(this);
-        _datePickerMenuItem ??= new CalendarDatePickerMenuItem(this);
+        _syncMenuItem = new CalendarSyncMenuItem(this)
+        {
+            IsEnabled = CanSynchronizeCalendars
+        };
+        _datePickerMenuItem = new CalendarDatePickerMenuItem(this);
 
-        ShellMenu ??= new ShellMenu
+        ShellMenu = new ShellMenu
         {
             Items = MenuItems,
             FooterItems = FooterItems,

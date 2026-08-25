@@ -61,7 +61,7 @@
         <Grid Grid.RowSpan="2" Background="{ThemeResource WinoApplicationBackgroundColor}" />
         <TitleBar
             x:Name="ShellTitleBar"
-            Title="{x:Bind StatePersistanceService.AppModeTitle, Mode=OneWay}"
+            Title="{x:Bind StatePersistanceService.AppModeTitle, Mode=OneTime}"
             Margin="-2"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
@@ -70,7 +70,7 @@
             IsPaneToggleButtonVisible="True"
             IsTabStop="False"
             PaneToggleRequested="PaneButtonClicked"
-            Subtitle="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneWay}">
+            Subtitle="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneTime}">
             <!--<TitleBar.Resources>
                 <HorizontalAlignment x:Key="TitleBarContentHorizontalAlignment">Stretch</HorizontalAlignment>
                 <VerticalAlignment x:Key="TitleBarContentVerticalAlignment">Stretch</VerticalAlignment>
@@ -173,7 +173,7 @@
                         Background="Transparent"
                         BorderBrush="Transparent"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(PreferencesService.IsWinoAccountButtonHidden), Mode=OneWay}">
+                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(PreferencesService.IsWinoAccountButtonHidden), Mode=OneTime}">
                         <Button.Flyout>
                             <Flyout x:Name="WinoAccountFlyout" Placement="Bottom">
                                 <Grid MinWidth="320" MaxWidth="360">

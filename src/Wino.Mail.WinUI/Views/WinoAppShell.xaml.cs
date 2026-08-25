@@ -93,7 +93,11 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         _activeMode = mode;
         ViewModel.SetCurrentMode(mode);
 
-        provider.Dispatcher ??= _pageDispatcher;
+        if (!ReferenceEquals(provider.Dispatcher, _pageDispatcher))
+        {
+            provider.Dispatcher = _pageDispatcher;
+        }
+
         provider.ActivateShellMenu(activationContext);
     }
 
@@ -154,27 +158,32 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
 
         _isPreparedForWindowClose = true;
 
-        ParkInnerShellFrameForShutdown();
-
         ViewModel.StatePersistenceService.IsReadingMail = false;
         ViewModel.StatePersistenceService.IsEventDetailsVisible = false;
+
+        // The NavigationView owns WinRT item containers for the provider collections. Drop
+        // those references before any provider clears its collection; mutating a collection
+        // still connected to a closing XamlRoot is what surfaces as E_FAIL/"Unspecified error".
+        DetachShellMenuBindings();
+
+        WindowCleanupHelper.CleanupFrame(InnerShellFrame);
         ViewModel.ShutdownProviders();
         ViewModel.PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged -= StatePersistenceServiceChanged;
 
-        SetShellMenu(null);
         UnregisterRecipients();
         Bindings.StopTracking();
-
-        WindowCleanupHelper.CleanupFrame(InnerShellFrame);
     }
 
-    private void ParkInnerShellFrameForShutdown()
+    private void DetachShellMenuBindings()
     {
-        if (InnerShellFrame.Content == null || InnerShellFrame.Content is IdlePage)
-            return;
+        ViewModel.SetShellMenu(null);
 
-        InnerShellFrame.Navigate(typeof(IdlePage), null, new Microsoft.UI.Xaml.Media.Animation.SuppressNavigationTransitionInfo());
+        // x:Bind notifications are synchronous today, but assign the WinRT properties as
+        // well so teardown does not depend on binding-engine timing.
+        navigationView.SelectedItem = null;
+        navigationView.MenuItemsSource = null;
+        navigationView.FooterMenuItemsSource = null;
     }
 
     #endregion
@@ -190,7 +199,10 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     {
         if (provider != null)
         {
-            provider.Dispatcher ??= _pageDispatcher;
+            if (!ReferenceEquals(provider.Dispatcher, _pageDispatcher))
+            {
+                provider.Dispatcher = _pageDispatcher;
+            }
         }
 
         ViewModel.SetShellMenu(provider);

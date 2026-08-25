@@ -33,7 +33,7 @@
             AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
             Content="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
             DataContext="{x:Bind}"
-            IsEnabled="{x:Bind Parameter.CanSynchronizeCalendars, Mode=OneWay}"
+            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
             SelectsOnInvoked="False"
             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}">
             <coreControls:WinoNavigationViewItem.Icon>
@@ -48,7 +48,7 @@
             <muxc:CalendarView
                 Margin="12,0,12,8"
                 HorizontalAlignment="Stretch"
-                behaviors:CalendarViewRangeBehavior.Client="{x:Bind Parameter, Mode=OneWay}"
+                behaviors:CalendarViewRangeBehavior.Client="{x:Bind Parameter, Mode=OneTime}"
                 AutomationProperties.AutomationId="VisibleDateRangeCalendarView"
                 SelectionMode="Multiple"
                 Style="{StaticResource WinoCalendarViewStyle}" />
