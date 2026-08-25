@@ -1142,7 +1142,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             _inventory,
             _coveredRemoteMessageIds,
             IncludedFolderIds(),
-            [.. IntelligenceFolderCoverageItems.Select(item => item.Rule)],
+            (SemanticIndexFolderCoverageRule[])[.. IntelligenceFolderCoverageItems.Select(item => item.Rule)],
             DefaultCoverageRule);
 
         Messenger.Send(new BreadcrumbNavigationRequested(

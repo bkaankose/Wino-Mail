@@ -11,7 +11,6 @@
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:mvvmCollections="using:CommunityToolkit.Mvvm.Collections"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
     xmlns:viewModels="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
@@ -169,7 +168,6 @@
                 DragItemsStarting="ContactsListView_DragItemsStarting"
                 IsMultiSelectCheckBoxEnabled="{x:Bind ViewModel.IsSelectionMode, Mode=OneWay}"
                 ItemTemplate="{StaticResource ContactTemplate}"
-                ItemsSource="{x:Bind ContactCollectionViewSource.View, Mode=OneWay}"
                 LoadMoreCommand="{x:Bind ViewModel.LoadMoreContactsCommand}"
                 SelectedItem="{x:Bind ViewModel.SelectedContact, Mode=TwoWay}"
                 SelectionChanged="ContactsListView_SelectionChanged"
@@ -193,7 +191,7 @@
                             </Style>
                         </GroupStyle.HeaderContainerStyle>
                         <GroupStyle.HeaderTemplate>
-                            <DataTemplate x:DataType="mvvmCollections:IReadOnlyObservableGroup">
+                            <DataTemplate x:DataType="viewModels:ContactGroup">
                                 <Border
                                     MinHeight="36"
                                     Padding="12,6"

@@ -5,7 +5,6 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.Collections;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -51,7 +50,6 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     private readonly IMailDialogService _dialogService;
     private readonly ILaunchProtocolService _launchProtocolService;
     private readonly SemaphoreSlim _loadSemaphore = new(1, 1);
-    private readonly ObservableGroupedCollection<string, AccountContactViewModel> _contactGroups = [];
     private readonly ContactFilterGroup _primaryFilterGroup;
     private readonly ContactFilterGroup _addressBookFilterGroup;
     private readonly ContactFilterGroup _listFilterGroup;
@@ -86,8 +84,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     public ObservableCollection<AccountContactViewModel> Contacts { get; } = [];
     public ObservableCollection<AccountContactViewModel> SelectedContacts { get; } = [];
 
-    /// <summary>Read-only alphabetical sections over <see cref="Contacts"/>.</summary>
-    public ReadOnlyObservableGroupedCollection<string, AccountContactViewModel> ContactGroups { get; }
+    /// <summary>Alphabetical sections over <see cref="Contacts"/>.</summary>
+    public ObservableCollection<ContactGroup> ContactGroups { get; } = [];
 
     /// <summary>Sidebar sections: primary filters, per-account address books, then local lists.</summary>
     public ObservableCollection<ContactFilterGroup> FilterGroups { get; } = [];
@@ -110,7 +108,6 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         _primaryFilterGroup = new ContactFilterGroup(string.Empty);
         _addressBookFilterGroup = new ContactFilterGroup(Translator.ContactsPage_AddressBooks);
         _listFilterGroup = new ContactFilterGroup(Translator.ContactsPage_MyLists);
-        ContactGroups = new ReadOnlyObservableGroupedCollection<string, AccountContactViewModel>(_contactGroups);
         Contacts.CollectionChanged += ContactsCollectionChanged;
     }
 
@@ -203,7 +200,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         }
 
         favorites.Count = favoritesCount;
-        RemoveFiltersExcept(_primaryFilterGroup, [all, favorites]);
+        RemoveFiltersExcept(_primaryFilterGroup, (ContactFilterViewModel[])[all, favorites]);
     }
 
     private void ReconcileAddressBookFilters(IReadOnlyList<ContactAddressBook> books)
@@ -451,7 +448,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                     if (reset)
                     {
                         Contacts.Clear();
-                        _contactGroups.Clear();
+                        ContactGroups.Clear();
                     }
 
                     foreach (var contact in page.Contacts)
@@ -540,7 +537,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         var confirmed = await _dialogService.ShowConfirmationDialogAsync(
             string.Format(Translator.ContactConfirmDialog_DeleteMessage, contact.SourceContact.DisplayValue),
             Translator.ContactConfirmDialog_DeleteTitle, Translator.ContactConfirmDialog_DeleteButton);
-        if (confirmed) await DeleteContactsInternalAsync([contact.SourceContact]).ConfigureAwait(false);
+        if (confirmed) await DeleteContactsInternalAsync((AccountContact[])[contact.SourceContact]).ConfigureAwait(false);
     }
 
     [RelayCommand(CanExecute = nameof(CanDeleteSelectedContacts))]
@@ -592,16 +589,15 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     private void AppendToGroup(AccountContactViewModel contact)
     {
         var key = contact.InitialLetter;
-        var group = _contactGroups.Count > 0 ? _contactGroups[^1] : null;
+        var group = ContactGroups.Count > 0 ? ContactGroups[^1] : null;
 
         if (group is null || !string.Equals(group.Key, key, StringComparison.Ordinal))
         {
-            group = _contactGroups.FirstOrDefault<ObservableGroup<string, AccountContactViewModel>>(
-                item => string.Equals(item.Key, key, StringComparison.Ordinal));
+            group = ContactGroups.FirstOrDefault(item => string.Equals(item.Key, key, StringComparison.Ordinal));
             if (group is null)
             {
-                group = new ObservableGroup<string, AccountContactViewModel>(key);
-                _contactGroups.Add(group);
+                group = new ContactGroup(key);
+                ContactGroups.Add(group);
             }
         }
 
@@ -610,13 +606,13 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     private void RemoveFromGroups(AccountContactViewModel contact)
     {
-        foreach (var group in _contactGroups.ToList<ObservableGroup<string, AccountContactViewModel>>())
+        foreach (var group in ContactGroups.ToList())
         {
             if (!group.Remove(contact))
                 continue;
 
             if (group.Count == 0)
-                _contactGroups.Remove(group);
+                ContactGroups.Remove(group);
             break;
         }
     }
@@ -856,7 +852,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
         try
         {
-            await _contactService.RemoveContactsFromListAsync(listId, [contact.Id]).ConfigureAwait(false);
+            await _contactService.RemoveContactsFromListAsync(listId, (Guid[])[contact.Id]).ConfigureAwait(false);
             await ExecuteUIThread(() =>
             {
                 Contacts.Remove(contact);
@@ -1044,30 +1040,29 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         for (var targetGroupIndex = 0; targetGroupIndex < desiredGroups.Count; targetGroupIndex++)
         {
             var desired = desiredGroups[targetGroupIndex];
-            var group = _contactGroups.FirstOrDefault<ObservableGroup<string, AccountContactViewModel>>(
-                item => string.Equals(item.Key, desired.Key, StringComparison.Ordinal));
+            var group = ContactGroups.FirstOrDefault(item => string.Equals(item.Key, desired.Key, StringComparison.Ordinal));
 
             if (group is null)
             {
-                group = new ObservableGroup<string, AccountContactViewModel>(desired.Key);
-                _contactGroups.Insert(targetGroupIndex, group);
+                group = new ContactGroup(desired.Key);
+                ContactGroups.Insert(targetGroupIndex, group);
             }
             else
             {
-                var currentGroupIndex = _contactGroups.IndexOf(group);
+                var currentGroupIndex = ContactGroups.IndexOf(group);
                 if (currentGroupIndex != targetGroupIndex)
-                    _contactGroups.Move(currentGroupIndex, targetGroupIndex);
+                    ContactGroups.Move(currentGroupIndex, targetGroupIndex);
             }
 
             ReconcileGroup(group, desired.Contacts);
         }
 
-        while (_contactGroups.Count > desiredGroups.Count)
-            _contactGroups.RemoveAt(_contactGroups.Count - 1);
+        while (ContactGroups.Count > desiredGroups.Count)
+            ContactGroups.RemoveAt(ContactGroups.Count - 1);
     }
 
     private static void ReconcileGroup(
-        ObservableGroup<string, AccountContactViewModel> group,
+        ContactGroup group,
         IReadOnlyList<AccountContactViewModel> desiredContacts)
     {
         for (var targetIndex = 0; targetIndex < desiredContacts.Count; targetIndex++)

@@ -48,6 +48,10 @@ public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearch
 
         ContactCollectionViewSource.Source = ViewModel.ContactGroups;
 
+        // Native AOT needs the grouped view handed to the list in code. The generated
+        // x:Bind path to CollectionViewSource.View does not root the grouped ABI.
+        ContactsListView.ItemsSource = ContactCollectionViewSource.View;
+
         Loaded += ContactsPageLoaded;
         Unloaded += ContactsPageUnloaded;
     }

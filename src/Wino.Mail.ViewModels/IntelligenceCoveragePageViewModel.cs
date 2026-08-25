@@ -74,6 +74,7 @@ public partial class IntelligenceCoveragePageViewModel : MailBaseViewModel
     public ObservableCollection<SemanticIndexRangeBucketViewModel> Buckets { get; } = [];
 
     public IReadOnlyList<CoverageCountPresetOption> CountPresets { get; } =
+    (CoverageCountPresetOption[])
     [
         new(100, string.Format(Translator.SemanticIndex_CoverageCountNewest, 100)),
         new(500, string.Format(Translator.SemanticIndex_CoverageCountNewest, 500)),
@@ -83,6 +84,7 @@ public partial class IntelligenceCoveragePageViewModel : MailBaseViewModel
     ];
 
     public IReadOnlyList<CoverageDatePresetOption> DatePresets { get; } =
+    (CoverageDatePresetOption[])
     [
         new(SemanticIndexRangePreset.OneWeek, Translator.SemanticIndex_CoveragePeriodOneWeek),
         new(SemanticIndexRangePreset.OneMonth, Translator.SemanticIndex_CoveragePeriodOneMonth),
@@ -456,8 +458,8 @@ public partial class IntelligenceCoveragePageViewModel : MailBaseViewModel
         var included = AllNodes().Where(static node => node.IsIncluded).ToArray();
         _handoff.Publish(new IntelligenceCoverageResult(
             _args.AccountId,
-            [.. included.Select(static node => node.RemoteFolderId)],
-            [.. included.Select(static node => node.Rule)],
+            (string[])[.. included.Select(static node => node.RemoteFolderId)],
+            (SemanticIndexFolderCoverageRule[])[.. included.Select(static node => node.Rule)],
             _defaultRule ?? _args.DefaultRule));
 
         Messenger.Send(new BackBreadcrumNavigationRequested());
@@ -503,7 +505,7 @@ public partial class IntelligenceCoveragePageViewModel : MailBaseViewModel
         var folderIds = new HashSet<string>(StringComparer.Ordinal) { folder.RemoteFolderId };
         var selection = IntelligenceCoverageCalculator.Resolve(
             inventory,
-            [folder.Rule],
+            (SemanticIndexFolderCoverageRule[])[folder.Rule],
             DateTimeOffset.UtcNow);
         var histogram = IntelligenceCoverageCalculator.BuildBuckets(
             inventory, folderIds, selection.SelectedByIndex, _indexedByIndex, BucketCount);
@@ -552,7 +554,7 @@ public partial class IntelligenceCoveragePageViewModel : MailBaseViewModel
         var allNodes = AllNodes().ToArray();
         var selection = IntelligenceCoverageCalculator.Resolve(
             inventory,
-            [.. allNodes.Select(static node => node.Rule)],
+            (SemanticIndexFolderCoverageRule[])[.. allNodes.Select(static node => node.Rule)],
             DateTimeOffset.UtcNow);
 
         var selectedByFolderId = new Dictionary<string, int>(StringComparer.Ordinal);

@@ -2,6 +2,7 @@
 // Copyright (c) Files Community. Licensed under the MIT License.
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -362,31 +363,28 @@ internal sealed partial class NativeTrayIcon : IDisposable
 
     private sealed partial class NativeTrayIconWindow : IDisposable
     {
-        private readonly NativeTrayIcon _trayIcon;
-        private readonly WindowProcDelegate _windowProcedure;
-        private readonly string _className;
+        private const int ErrorClassAlreadyExists = 1410;
+
+        /// <summary>
+        /// A window class cannot be re-registered under the same name, so the class is
+        /// registered once for the process and deliberately never unregistered. Its native
+        /// procedure pointer therefore has to reference a delegate that lives just as long:
+        /// an instance-owned delegate would be collected together with the owning icon and
+        /// leave the registration pointing at a freed stub.
+        /// </summary>
+        private static readonly WindowProcDelegate SharedWindowProcedure = StaticWindowProc;
+        private static readonly string ClassName = $"WinoMail.NativeTrayIconWindow.{TrayIconGuid}";
+        private static readonly ConcurrentDictionary<nint, NativeTrayIcon> OwnersByWindowHandle = new();
+        private static readonly object RegistrationLock = new();
+        private static bool _isClassRegistered;
 
         internal NativeTrayIconWindow(NativeTrayIcon trayIcon)
         {
-            _trayIcon = trayIcon;
-            _windowProcedure = WindowProc;
-            _className = $"WinoMail.NativeTrayIconWindow.{trayIcon.Id}";
-
-            var windowClass = new WNDCLASSEXW
-            {
-                cbSize = (uint)Marshal.SizeOf<WNDCLASSEXW>(),
-                style = CsDblClks,
-                lpfnWndProc = _windowProcedure,
-                hInstance = GetModuleHandleW(null),
-                lpszClassName = _className
-            };
-
-            if (RegisterClassExW(ref windowClass) == 0)
-                throw CreateWin32Exception("Failed to register native tray icon window class.");
+            EnsureWindowClassRegistered();
 
             WindowHandle = CreateWindowExW(
                 0,
-                _className,
+                ClassName,
                 string.Empty,
                 0,
                 0,
@@ -400,6 +398,11 @@ internal sealed partial class NativeTrayIcon : IDisposable
 
             if (WindowHandle == nint.Zero)
                 throw CreateWin32Exception("Failed to create native tray icon message window.");
+
+            // Messages raised while the window is being created reach the shared procedure
+            // before this registration and fall through to DefWindowProc, which is what the
+            // per-instance procedure did with them as well.
+            OwnersByWindowHandle[WindowHandle] = trayIcon;
         }
 
         internal nint WindowHandle { get; private set; }
@@ -409,12 +412,43 @@ internal sealed partial class NativeTrayIcon : IDisposable
             if (WindowHandle == nint.Zero)
                 return;
 
+            // WM_DESTROY is dispatched synchronously and still needs to reach the owner,
+            // so the lookup entry is only dropped once the window is gone.
             DestroyWindow(WindowHandle);
+            OwnersByWindowHandle.TryRemove(WindowHandle, out _);
             WindowHandle = nint.Zero;
         }
 
-        private nint WindowProc(nint windowHandle, uint message, nuint wParam, nint lParam)
-            => _trayIcon.WindowProc(windowHandle, message, wParam, lParam);
+        private static void EnsureWindowClassRegistered()
+        {
+            lock (RegistrationLock)
+            {
+                if (_isClassRegistered)
+                    return;
+
+                var windowClass = new WNDCLASSEXW
+                {
+                    cbSize = (uint)Marshal.SizeOf<WNDCLASSEXW>(),
+                    style = CsDblClks,
+                    lpfnWndProc = SharedWindowProcedure,
+                    hInstance = GetModuleHandleW(null),
+                    lpszClassName = ClassName
+                };
+
+                if (RegisterClassExW(ref windowClass) == 0 &&
+                    Marshal.GetLastWin32Error() != ErrorClassAlreadyExists)
+                {
+                    throw CreateWin32Exception("Failed to register native tray icon window class.");
+                }
+
+                _isClassRegistered = true;
+            }
+        }
+
+        private static nint StaticWindowProc(nint windowHandle, uint message, nuint wParam, nint lParam)
+            => OwnersByWindowHandle.TryGetValue(windowHandle, out var trayIcon)
+                ? trayIcon.WindowProc(windowHandle, message, wParam, lParam)
+                : DefWindowProcW(windowHandle, message, wParam, lParam);
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]

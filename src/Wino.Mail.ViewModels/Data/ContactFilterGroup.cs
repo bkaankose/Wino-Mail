@@ -6,7 +6,7 @@ namespace Wino.Mail.ViewModels.Data;
 /// One titled section of the contacts sidebar. Section titles come from grouping so
 /// that they are never selectable.
 /// </summary>
-public class ContactFilterGroup : ObservableCollection<ContactFilterViewModel>
+public partial class ContactFilterGroup : ObservableCollection<ContactFilterViewModel>
 {
     public string Title { get; }
     public bool HasTitle => !string.IsNullOrWhiteSpace(Title);

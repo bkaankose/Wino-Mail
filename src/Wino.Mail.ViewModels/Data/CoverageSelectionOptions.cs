@@ -21,6 +21,7 @@ public partial class CoverageDatePresetOption(
         : DisplayName;
 
     public static IReadOnlyList<CoverageDatePresetOption> All =>
+    (CoverageDatePresetOption[])
     [
         new(SemanticIndexRangePreset.OnlyNew, Translator.SemanticIndex_RangeOnlyNew),
         new(SemanticIndexRangePreset.OneWeek, Translator.SemanticIndex_CoveragePeriodOneWeek),

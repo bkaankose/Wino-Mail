@@ -748,19 +748,28 @@ public sealed partial class WinoSearchBar : Control
     private void OnScopeChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_isSynchronizingOptions && _scopeComboBox?.SelectedItem is SearchBarOptionItem option)
+        {
             SearchScope = (SearchBarScope)option.Value;
+            NotifySearchOptionsChanged();
+        }
     }
 
     private void OnReachChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_isSynchronizingOptions && _reachComboBox?.SelectedItem is SearchBarOptionItem option)
+        {
             SearchReach = (SearchBarReach)option.Value;
+            NotifySearchOptionsChanged();
+        }
     }
 
     private void OnDateChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_isSynchronizingOptions && _dateComboBox?.SelectedItem is SearchBarOptionItem option)
+        {
             DateRange = (SearchBarDateRange)option.Value;
+            NotifySearchOptionsChanged();
+        }
     }
 
     private void OnSenderTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
@@ -768,6 +777,7 @@ public sealed partial class WinoSearchBar : Control
         if (_isSynchronizingOptions || args.Reason != AutoSuggestionBoxTextChangeReason.UserInput) return;
         SelectedSenderContact = null;
         SenderFilter = sender.Text.Trim();
+        NotifySearchOptionsChanged();
         StopSenderDebounce();
         _pendingSenderQuery = SenderFilter;
         if (_pendingSenderQuery.Length >= 2)
@@ -815,6 +825,7 @@ public sealed partial class WinoSearchBar : Control
         SenderFilter = suggestion.Address;
         if (_senderSuggestBox is not null) { _senderSuggestBox.Text = string.Empty; _senderSuggestBox.IsSuggestionListOpen = false; }
         SynchronizeSenderVisuals();
+        NotifySearchOptionsChanged();
     }
 
     private void OnSenderTokenRemoveClicked(object sender, RoutedEventArgs e) => ClearSender();
@@ -825,6 +836,7 @@ public sealed partial class WinoSearchBar : Control
         SenderFilter = string.Empty;
         if (_senderSuggestBox is not null) _senderSuggestBox.Text = string.Empty;
         SynchronizeSenderVisuals();
+        NotifySearchOptionsChanged();
         _senderSuggestBox?.Focus(FocusState.Programmatic);
     }
 
@@ -839,7 +851,11 @@ public sealed partial class WinoSearchBar : Control
         HasAttachments = _attachmentsButton?.IsChecked == true;
         IsUnread = _unreadButton?.IsChecked == true;
         IsFlagged = _flaggedButton?.IsChecked == true;
+        NotifySearchOptionsChanged();
     }
+
+    private void NotifySearchOptionsChanged()
+        => SearchOptionsChanged?.Invoke(this, CreateFilterSnapshot());
 
     private void OnResetClicked(object sender, RoutedEventArgs e)
     {
