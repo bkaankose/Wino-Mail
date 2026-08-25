@@ -148,7 +148,7 @@ internal static class CalendarEntryBootstrapActivation
             activationArgs.Data is ILaunchActivatedEventArgs launchArgs)
         {
             var resolvedMode = AppModeActivationResolver.Resolve(launchArgs.Arguments, launchArgs.TileId, Environment.CommandLine);
-            if (resolvedMode != WinoApplicationMode.Calendar)
+            if (resolvedMode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts))
                 return false;
 
             pendingActivation = new PendingBootstrapActivation
