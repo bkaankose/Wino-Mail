@@ -11,6 +11,7 @@ internal sealed class SmokeSynchronizationHost :
     IRecipient<NewMailSynchronizationRequested>,
     IRecipient<NewCalendarSynchronizationRequested>,
     IRecipient<NewContactSynchronizationRequested>,
+    IRecipient<NewTaskSynchronizationRequested>,
     IRecipient<CalendarItemAdded>,
     IRecipient<CalendarItemUpdated>,
     IRecipient<CalendarItemDeleted>,
@@ -24,6 +25,7 @@ internal sealed class SmokeSynchronizationHost :
     private readonly List<MailWaiter> _mailWaiters = [];
     private readonly Dictionary<Guid, TaskCompletionSource<CalendarSynchronizationResult>> _calendarWaiters = [];
     private readonly Dictionary<Guid, TaskCompletionSource<ContactSynchronizationResult>> _contactWaiters = [];
+    private readonly Dictionary<Guid, TaskCompletionSource<TaskSynchronizationResult>> _taskWaiters = [];
     private readonly Dictionary<Guid, SemaphoreSlim> _accountGates = [];
     private Guid? _observedCalendarAccountId;
     private CalendarChangeSummary _calendarChanges;
@@ -112,6 +114,26 @@ internal sealed class SmokeSynchronizationHost :
         }
     }
 
+    public async Task<TaskSynchronizationResult> SynchronizeTasksAsync(
+        TaskSynchronizationOptions options,
+        CancellationToken cancellationToken)
+    {
+        var completion = NewCompletion<TaskSynchronizationResult>();
+        lock (_waiterLock)
+            _taskWaiters.Add(options.Id, completion);
+
+        try
+        {
+            _messenger.Send(new NewTaskSynchronizationRequested(options));
+            return await completion.Task.WaitAsync(DefaultTimeout, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            lock (_waiterLock)
+                _taskWaiters.Remove(options.Id);
+        }
+    }
+
     public void Receive(NewMailSynchronizationRequested message)
         => _ = ProcessMailAsync(message);
 
@@ -120,6 +142,9 @@ internal sealed class SmokeSynchronizationHost :
 
     public void Receive(NewContactSynchronizationRequested message)
         => _ = ProcessContactsAsync(message);
+
+    public void Receive(NewTaskSynchronizationRequested message)
+        => _ = ProcessTasksAsync(message);
 
     public void Receive(CalendarItemAdded message)
         => CountCalendarChange(message.CalendarItem.AssignedCalendar?.AccountId, CalendarChangeKind.Added, message.Source);
@@ -239,6 +264,31 @@ internal sealed class SmokeSynchronizationHost :
         completion?.TrySetResult(result);
     }
 
+    private async Task ProcessTasksAsync(NewTaskSynchronizationRequested message)
+    {
+        var gate = GetAccountGate(message.Options.AccountId);
+        await gate.WaitAsync().ConfigureAwait(false);
+
+        TaskSynchronizationResult result;
+        try
+        {
+            result = await _synchronizationManager.SynchronizeTasksAsync(message.Options).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            result = TaskSynchronizationResult.Failed(exception);
+        }
+        finally
+        {
+            gate.Release();
+        }
+
+        TaskCompletionSource<TaskSynchronizationResult>? completion;
+        lock (_waiterLock)
+            _taskWaiters.TryGetValue(message.Options.Id, out completion);
+        completion?.TrySetResult(result);
+    }
+
     private SemaphoreSlim GetAccountGate(Guid accountId)
     {
         lock (_waiterLock)
@@ -303,6 +353,8 @@ internal sealed class SmokeSynchronizationHost :
             foreach (var completion in _calendarWaiters.Values)
                 completion.TrySetCanceled();
             foreach (var completion in _contactWaiters.Values)
+                completion.TrySetCanceled();
+            foreach (var completion in _taskWaiters.Values)
                 completion.TrySetCanceled();
             foreach (var gate in _accountGates.Values)
                 gate.Dispose();

@@ -163,6 +163,36 @@ public static class XamlHelpers
         => (Brush)Application.Current.Resources[isFavorite ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush"];
     public static bool HasText(string value) => !string.IsNullOrWhiteSpace(value);
     public static ContactPhoneKind[] GetPhoneKinds() => Enum.GetValues<ContactPhoneKind>();
+
+    // To Do
+    // The star reuses the contacts favorite idiom: filled glyph when set, outline when not.
+    public static string GetTaskImportanceGlyph(bool isImportant) => isImportant ? "\uE735" : "\uE734";
+    public static Brush GetTaskImportanceBrush(bool isImportant)
+        => (Brush)Application.Current.Resources[isImportant ? "SystemFillColorCautionBrush" : "TextFillColorTertiaryBrush"];
+
+    /// <summary>Overdue due-date text turns critical; everything else stays secondary.</summary>
+    public static Brush GetTaskDueBrush(bool isOverdue)
+        => (Brush)Application.Current.Resources[isOverdue ? "SystemFillColorCriticalBrush" : "TextFillColorSecondaryBrush"];
+
+    public static TextDecorations GetTaskTitleDecorations(bool isCompleted)
+        => isCompleted ? TextDecorations.Strikethrough : TextDecorations.None;
+
+    public static Brush GetTaskTitleBrush(bool isCompleted)
+        => (Brush)Application.Current.Resources[isCompleted ? "TextFillColorTertiaryBrush" : "TextFillColorPrimaryBrush"];
+
+    /// <summary>x:Bind cannot convert double to GridLength, so the drawer width comes through here.</summary>
+    public static GridLength GetTaskDrawerWidth(bool isOpen, bool isCompactLayout)
+        => isOpen
+            ? (isCompactLayout ? new GridLength(1, GridUnitType.Star) : new GridLength(340))
+            : new GridLength(0);
+
+    public static GridLength GetTaskListWidth(bool isDrawerOpen, bool isCompactLayout)
+        => isDrawerOpen && isCompactLayout ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+
+    public static Brush GetMyDayBrush(bool isInMyDay)
+        => (Brush)Application.Current.Resources[isInMyDay ? "AccentTextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush"];
+
+    public static string GetCompletedGroupCaretGlyph(bool isExpanded) => isExpanded ? "\uE70E" : "\uE70D";
     public static Visibility TextToVisibility(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility NotNullToVisibility(object value) => value is null ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility CountToInvertedVisibility(int count) => count > 0 ? Visibility.Collapsed : Visibility.Visible;

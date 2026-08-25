@@ -42,7 +42,8 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     {
         [WinoApplicationMode.Mail] = () => new Styles.ShellMenu.MailMenuTemplates(),
         [WinoApplicationMode.Calendar] = () => new Styles.ShellMenu.CalendarMenuTemplates(),
-        [WinoApplicationMode.Contacts] = () => new Styles.ShellMenu.ContactsMenuTemplates()
+        [WinoApplicationMode.Contacts] = () => new Styles.ShellMenu.ContactsMenuTemplates(),
+        [WinoApplicationMode.Tasks] = () => new Styles.ShellMenu.ToDoMenuTemplates(),
     };
 
     private static readonly HashSet<WinoApplicationMode> MergedTemplateDictionaries = [];
@@ -273,9 +274,13 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     {
         _ = DispatcherQueue.EnqueueAsync(async () =>
         {
-            var targetMode = !message.Account.IsMailAccessGranted && message.Account.IsCalendarAccessGranted
-                ? WinoApplicationMode.Calendar
-                : WinoApplicationMode.Mail;
+            var targetMode = message.Account.IsMailAccessGranted
+                ? WinoApplicationMode.Mail
+                : message.Account.IsCalendarAccessGranted
+                    ? WinoApplicationMode.Calendar
+                    : message.Account.IsTaskAccessGranted
+                        ? WinoApplicationMode.Tasks
+                        : WinoApplicationMode.Contacts;
 
             if (targetMode == WinoApplicationMode.Mail &&
                 ViewModel.GetProvider(WinoApplicationMode.Mail) is IMailShellClient mailClient)

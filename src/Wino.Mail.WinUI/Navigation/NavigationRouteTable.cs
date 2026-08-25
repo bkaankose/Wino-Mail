@@ -10,6 +10,7 @@ using Wino.Views;
 using Wino.Views.Account;
 using Wino.Views.Mail;
 using Wino.Views.Settings;
+using Wino.Views.ToDo;
 
 namespace Wino.Mail.WinUI.Navigation;
 
@@ -36,6 +37,9 @@ public static class NavigationRouteTable
         // ---- Contacts ------------------------------------------------------------
         Root(WinoPage.ContactsPage, typeof(ContactsPage), WinoApplicationMode.Contacts),
         Detail(WinoPage.ContactEditPage, typeof(ContactEditPage), WinoApplicationMode.Contacts),
+
+        // ---- To Do --------------------------------------------------------------
+        Root(WinoPage.ToDoPage, typeof(ToDoPage), WinoApplicationMode.Tasks),
 
         // ---- Settings ------------------------------------------------------------
         Root(WinoPage.SettingsPage, typeof(SettingsPage), WinoApplicationMode.Settings),

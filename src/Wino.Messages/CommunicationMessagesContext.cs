@@ -30,5 +30,8 @@ namespace Wino.Messaging;
 [JsonSerializable(typeof(NewContactSynchronizationRequested))]
 [JsonSerializable(typeof(ContactSynchronizationOptions))]
 [JsonSerializable(typeof(ContactSynchronizationCompleted))]
+[JsonSerializable(typeof(NewTaskSynchronizationRequested))]
+[JsonSerializable(typeof(TaskSynchronizationOptions))]
+[JsonSerializable(typeof(TaskSynchronizationCompleted))]
 [JsonSerializable(typeof(AccountCacheResetMessage))]
 public partial class CommunicationMessagesContext : JsonSerializerContext;

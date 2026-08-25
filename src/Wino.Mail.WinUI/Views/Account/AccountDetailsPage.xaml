@@ -226,10 +226,19 @@
                             AutomationProperties.AutomationId="AccountCapabilityContacts"
                             Content="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}"
                             IsChecked="{x:Bind ViewModel.IsContactsCapabilitySelected, Mode=TwoWay}" />
+                        <CheckBox
+                            AutomationProperties.AutomationId="AccountCapabilityTasks"
+                            Content="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}"
+                            IsChecked="{x:Bind ViewModel.IsTasksCapabilitySelected, Mode=TwoWay}" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind domain:Translator.AccountDetailsPage_ContactsCapabilityImpact, Mode=OneTime}"
+                            TextWrapping="Wrap" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.AccountDetailsPage_TasksCapabilityImpact, Mode=OneTime}"
                             TextWrapping="Wrap" />
                         <InfoBar
                             AutomationProperties.AutomationId="AccountContactsReauthorizationInfo"
@@ -242,6 +251,19 @@
                                     AutomationProperties.AutomationId="ReconnectAccountContacts"
                                     Command="{x:Bind ViewModel.ReauthorizeContactsCommand}"
                                     Content="{x:Bind domain:Translator.AccountDetailsPage_ReconnectContacts, Mode=OneTime}" />
+                            </InfoBar.ActionButton>
+                        </InfoBar>
+                        <InfoBar
+                            AutomationProperties.AutomationId="AccountTasksReauthorizationInfo"
+                            IsClosable="False"
+                            IsOpen="{x:Bind ViewModel.IsTaskReauthorizationRequired, Mode=OneWay}"
+                            Message="{x:Bind domain:Translator.AccountDetailsPage_TasksReauthorizationMessage, Mode=OneTime}"
+                            Severity="Warning">
+                            <InfoBar.ActionButton>
+                                <Button
+                                    AutomationProperties.AutomationId="ReconnectAccountTasks"
+                                    Command="{x:Bind ViewModel.ReauthorizeTasksCommand}"
+                                    Content="{x:Bind domain:Translator.AccountDetailsPage_ReconnectTasks, Mode=OneTime}" />
                             </InfoBar.ActionButton>
                         </InfoBar>
                         <Button

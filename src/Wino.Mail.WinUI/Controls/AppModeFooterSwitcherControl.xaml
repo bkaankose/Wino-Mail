@@ -35,6 +35,14 @@
     </controls:SegmentedItem>
     <controls:SegmentedItem
         Padding="0"
+        AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_Title}"
+        ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_Title}">
+        <controls:SegmentedItem.Icon>
+        <SymbolIcon Symbol="Accept" />
+        </controls:SegmentedItem.Icon>
+    </controls:SegmentedItem>
+    <controls:SegmentedItem
+        Padding="0"
         AutomationProperties.Name="{x:Bind domain:Translator.MenuSettings}"
         ToolTipService.ToolTip="{x:Bind domain:Translator.MenuSettings}">
         <controls:SegmentedItem.Icon>

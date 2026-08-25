@@ -45,6 +45,19 @@ public static class AppModeActivationResolver
             return true;
         }
 
+        if (Contains(value, "--wino-todo") ||
+            Contains(value, "wino-todo") ||
+            Contains(value, "--mode=tasks") ||
+            Contains(value, "mode=tasks") ||
+            Contains(value, "todoapp") ||
+            Contains(value, "tasksapp") ||
+            EqualsToken(value, "todo") ||
+            EqualsToken(value, "tasks"))
+        {
+            mode = WinoApplicationMode.Tasks;
+            return true;
+        }
+
         if (Contains(value, "--wino-people") ||
             Contains(value, "wino-people") ||
             Contains(value, "--mode=people") ||

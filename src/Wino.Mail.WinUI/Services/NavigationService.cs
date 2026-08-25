@@ -233,6 +233,7 @@ public class NavigationService : NavigationServiceBase, INavigationService
         {
             WinoApplicationMode.Calendar => "Wino Calendar",
             WinoApplicationMode.Contacts => "Wino People",
+            WinoApplicationMode.Tasks => "Wino To Do",
             WinoApplicationMode.Settings => "Wino Settings",
             _ => "Wino Mail"
         };
@@ -250,7 +251,8 @@ public class NavigationService : NavigationServiceBase, INavigationService
         {
             WinoApplicationMode.Mail => targetMode == WinoApplicationMode.Calendar,
             WinoApplicationMode.Calendar => targetMode == WinoApplicationMode.Contacts,
-            WinoApplicationMode.Contacts => targetMode == WinoApplicationMode.Settings,
+            WinoApplicationMode.Contacts => targetMode == WinoApplicationMode.Tasks,
+            WinoApplicationMode.Tasks => targetMode == WinoApplicationMode.Settings,
             WinoApplicationMode.Settings => targetMode == WinoApplicationMode.Mail,
             _ => false
         };

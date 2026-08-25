@@ -40,6 +40,9 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
         if (request.IncludeContacts)
             scopes.Add("Contacts.ReadWrite");
 
+        if (request.IncludeTasks)
+            scopes.Add("Tasks.ReadWrite");
+
         if (request.Features?.Contains(ProviderFeature.MailFilters) == true)
             scopes.Add("MailboxSettings.ReadWrite");
 
@@ -74,6 +77,9 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
 
         if (request.IncludeContacts)
             scopes.Add("https://www.googleapis.com/auth/contacts");
+
+        if (request.IncludeTasks)
+            scopes.Add("https://www.googleapis.com/auth/tasks");
 
         if (request.Features?.Contains(ProviderFeature.MailFilters) == true)
             scopes.Add("https://www.googleapis.com/auth/gmail.settings.basic");

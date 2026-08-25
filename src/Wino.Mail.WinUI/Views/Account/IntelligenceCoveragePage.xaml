@@ -225,6 +225,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="data:CoverageCountPresetOption">
                                     <Button
+                                        AutomationProperties.AutomationId="IntelligenceCoverageCountPresetButton"
                                         Command="{Binding ElementName=PageRoot, Path=ViewModel.ApplyCountPresetCommand}"
                                         CommandParameter="{x:Bind}"
                                         Content="{x:Bind DisplayName}" />
@@ -241,6 +242,7 @@
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="data:CoverageDatePresetOption">
                                     <Button
+                                        AutomationProperties.AutomationId="IntelligenceCoverageDatePresetButton"
                                         Command="{Binding ElementName=PageRoot, Path=ViewModel.ApplyDatePresetCommand}"
                                         CommandParameter="{x:Bind}"
                                         Content="{x:Bind DisplayName}" />

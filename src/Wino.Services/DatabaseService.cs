@@ -71,6 +71,9 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<ContactRelation>(),
             Connection.CreateTableAsync<ContactList>(),
             Connection.CreateTableAsync<ContactListMember>(),
+            Connection.CreateTableAsync<AccountTaskList>(),
+            Connection.CreateTableAsync<AccountTask>(),
+            Connection.CreateTableAsync<AccountTaskStep>(),
             Connection.CreateTableAsync<CustomServerInformation>(),
             Connection.CreateTableAsync<MailServerCertificateTrust>(),
             Connection.CreateTableAsync<AccountSignature>(),
@@ -92,6 +95,7 @@ public class DatabaseService : IDatabaseService
         await EnsureSchemaUpgradesAsync().ConfigureAwait(false);
         await EnsureIndexesAsync().ConfigureAwait(false);
         await EnsureLocalAddressBooksAsync().ConfigureAwait(false);
+        await EnsureLocalTaskListsAsync().ConfigureAwait(false);
     }
 
     private async Task EnsureSchemaUpgradesAsync()
@@ -236,6 +240,34 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
             await Connection
                 .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.IsContactReauthorizationRequired)} INTEGER NOT NULL DEFAULT 0")
                 .ConfigureAwait(false);
+        }
+
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsTaskAccessGranted)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.IsTaskAccessGranted)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsTaskReauthorizationRequired)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.IsTaskReauthorizationRequired)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        // AccountTaskList uses a stable storage name so the schema remains compatible
+        // with the task synchronizer and account cleanup SQL.
+        const string taskListTableName = "TaskList";
+        var taskListColumns = await Connection.GetTableInfoAsync(taskListTableName).ConfigureAwait(false);
+        if (!taskListColumns.Any(c => c.Name == nameof(AccountTaskList.ListDeltaLink)))
+        {
+            await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.ListDeltaLink)} TEXT NULL").ConfigureAwait(false);
+        }
+
+        if (!taskListColumns.Any(c => c.Name == nameof(AccountTaskList.TaskDeltaLink)))
+        {
+            await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.TaskDeltaLink)} TEXT NULL").ConfigureAwait(false);
         }
 
         if (!accountColumns.Any(c => c.Name == nameof(MailAccount.ProfilePictureFileId)))
@@ -525,6 +557,15 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_ContactListMember_List_Contact ON ContactListMember(ListId, ContactId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactListMember_ContactId ON ContactListMember(ContactId)").ConfigureAwait(false);
 
+        // Task indexes
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskList_AccountId ON TaskList(MailAccountId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskList_Account_Source ON TaskList(MailAccountId, SourceKind)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_TaskList_RemoteIdentity ON TaskList(MailAccountId, SourceKind, RemoteId) WHERE RemoteId IS NOT NULL AND RemoteId <> ''").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskCard_Account_List ON TaskCard(MailAccountId, TaskListId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_TaskCard_RemoteIdentity ON TaskCard(MailAccountId, SourceKind, TaskListId, RemoteId) WHERE RemoteId IS NOT NULL AND RemoteId <> ''").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskCard_Due_Completed ON TaskCard(DueDate, IsCompleted)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskStep_Task_Order ON TaskStep(TaskId, [Order])").ConfigureAwait(false);
+
         // Mail indexes
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_Id ON MailCopy(Id)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_FolderId ON MailCopy(FolderId)").ConfigureAwait(false);
@@ -659,5 +700,42 @@ SET {nameof(KeyboardShortcut.Action)} =
                 }
             }).ConfigureAwait(false);
         }
+    }
+
+    private async Task EnsureLocalTaskListsAsync()
+    {
+        var accounts = await Connection.Table<MailAccount>().ToListAsync().ConfigureAwait(false);
+        var lists = await Connection.Table<AccountTaskList>().ToListAsync().ConfigureAwait(false);
+        var existingAccountIds = lists
+            .Where(list => list.SourceKind == TaskSourceKind.Local)
+            .Select(list => list.MailAccountId)
+            .ToHashSet();
+        var missingLists = accounts
+            .Where(account => account.ProviderType == MailProviderType.IMAP4 && !existingAccountIds.Contains(account.Id))
+            .Select(account => new AccountTaskList
+            {
+                Id = Guid.NewGuid(),
+                MailAccountId = account.Id,
+                SourceKind = TaskSourceKind.Local,
+                Title = string.IsNullOrWhiteSpace(account.Name) ? "Tasks" : account.Name,
+                IsDefault = true,
+                PendingMutation = TaskPendingMutation.None
+            })
+            .ToList();
+
+        if (missingLists.Count == 0)
+            return;
+
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            foreach (var list in missingLists)
+            {
+                    transaction.Execute(
+                        "INSERT INTO TaskList (Id, MailAccountId, SourceKind, RemoteId, RemoteVersion, ListDeltaLink, TaskDeltaLink, Title, IsDefault, IsReadOnly, DeltaLink, LastSuccessfulSyncUtc, WatermarkUtc, PendingMutation, CreatedAtUtc, ModifiedAtUtc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        list.Id, list.MailAccountId, list.SourceKind, list.RemoteId, list.RemoteVersion, list.ListDeltaLink,
+                        list.TaskDeltaLink, list.Title, list.IsDefault, list.IsReadOnly, list.DeltaLink, list.LastSuccessfulSyncUtc, list.WatermarkUtc,
+                        list.PendingMutation, list.CreatedAtUtc, list.ModifiedAtUtc);
+            }
+        }).ConfigureAwait(false);
     }
 }

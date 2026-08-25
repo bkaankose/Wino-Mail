@@ -187,6 +187,26 @@
         <uap:SplashScreen Image="Assets\AppEntries\PeopleAssets\SplashScreen.png" />
       </uap:VisualElements>
     </Application>
+    <Application Id="ToDoApp"
+      Executable="$targetnametoken$.exe"
+      EntryPoint="$targetentrypoint$"
+      uap10:Parameters="--wino-todo">
+      <uap:VisualElements
+        DisplayName="Wino To Do"
+        Description="Wino.Mail.WinUI.ToDo"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\AppEntries\ToDoAssets\Square150x150Logo.png"
+        Square44x44Logo="Assets\AppEntries\ToDoAssets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\AppEntries\ToDoAssets\Wide310x150Logo.png" Square71x71Logo="Assets\AppEntries\ToDoAssets\SmallTile.png" Square310x310Logo="Assets\AppEntries\ToDoAssets\LargeTile.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo" />
+            <uap:ShowOn Tile="wide310x150Logo" />
+            <uap:ShowOn Tile="square310x310Logo" />
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        <uap:SplashScreen Image="Assets\AppEntries\ToDoAssets\SplashScreen.png" />
+      </uap:VisualElements>
+    </Application>
   </Applications>
 
   <Capabilities>

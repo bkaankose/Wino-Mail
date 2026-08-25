@@ -47,9 +47,11 @@ using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Requests.Tasks;
 using Wino.Messaging.UI;
 using Wino.Mail.AI.Abstractions;
 using GlobalizationCultureInfo = System.Globalization.CultureInfo;
+using GraphTaskStatus = Microsoft.Graph.Models.TaskStatus;
 
 namespace Wino.Core.Synchronizers.Mail;
 
@@ -137,6 +139,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly LocalContactSynchronizer _localContactSynchronizer = new();
     private readonly OutlookContactsClient _outlookContactsClient;
     private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly ITaskService _taskService;
+    private readonly LocalTaskSynchronizer _localTaskSynchronizer = new();
+    private readonly OutlookTasksClient _outlookTasksClient;
     private bool _isFolderStructureChanged;
     private bool _hasForcedCategoryResyncForCurrentDelta;
 
@@ -161,7 +166,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                                IMailCategoryService mailCategoryService,
                                IMailFilterExecutor mailFilterExecutor = null,
                                IContactService contactService = null,
-                               IContactPictureFileService contactPictureFileService = null) : base(account, WeakReferenceMessenger.Default)
+                               IContactPictureFileService contactPictureFileService = null,
+                               ITaskService taskService = null) : base(account, WeakReferenceMessenger.Default)
     {
         _graphClient = CreateGraphClient(Account, authenticator);
         _providerFeatureGraphClient = CreateGraphClient(Account, authenticator, [ProviderFeature.MailFilters]);
@@ -173,6 +179,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         _contactService = contactService;
         _contactPictureFileService = contactPictureFileService;
         _outlookContactsClient = new OutlookContactsClient(_graphClient.RequestAdapter);
+        _taskService = taskService;
+        _outlookTasksClient = new OutlookTasksClient(_graphClient.RequestAdapter);
     }
 
     protected override Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
@@ -184,6 +192,399 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         => !Account.IsContactAccessGranted
             ? _localContactSynchronizer.SynchronizeAsync(options, cancellationToken)
             : SynchronizeOutlookContactsAsync(options, cancellationToken);
+
+    protected override async Task ExecuteTaskRequestsInternalAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken = default)
+    {
+        if (!Account.IsTaskAccessGranted || _taskService is null)
+        {
+            await _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            await ExecuteOutlookTaskRequestsAsync(requests, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ApiException ex) when (ex.ResponseStatusCode is 401 or 403)
+        {
+            await MarkTaskAuthorizationRequiredAsync().ConfigureAwait(false);
+            throw new AuthenticationAttentionException(Account);
+        }
+    }
+
+    protected override async Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
+    {
+        if (!Account.IsTaskAccessGranted || _taskService is null)
+            return await _localTaskSynchronizer.SynchronizeAsync(options, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            return await SynchronizeOutlookTasksAsync(options, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ApiException ex) when (ex.ResponseStatusCode is 401 or 403)
+        {
+            await MarkTaskAuthorizationRequiredAsync().ConfigureAwait(false);
+            throw new AuthenticationAttentionException(Account);
+        }
+    }
+
+    private async Task MarkTaskAuthorizationRequiredAsync()
+    {
+        Account.IsTaskReauthorizationRequired = true;
+        if (_taskService is not null)
+            await _taskService.MarkTaskListsReadOnlyAsync(Account.Id, TaskSourceKind.Outlook).ConfigureAwait(false);
+    }
+
+    private async Task ExecuteOutlookTaskRequestsAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken)
+    {
+        foreach (var request in requests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            switch (request.Operation)
+            {
+                case TaskSynchronizerOperation.CreateList:
+                {
+                    var localList = request is TaskActionRequest typedRequest
+                        ? typedRequest.List
+                        : await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                    if (localList is null)
+                        continue;
+
+                    var remote = await _outlookTasksClient.CreateTaskListAsync(new TodoTaskList { DisplayName = localList.Title }, cancellationToken).ConfigureAwait(false);
+                    await _taskService.CompleteListMutationAsync(localList.Id, MapRemoteList(remote), false).ConfigureAwait(false);
+                    break;
+                }
+                case TaskSynchronizerOperation.UpdateList:
+                {
+                    var localList = await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                    if (localList?.RemoteId is null)
+                        continue;
+
+                    try
+                    {
+                        var remote = await _outlookTasksClient.UpdateTaskListAsync(localList.RemoteId, new TodoTaskList { DisplayName = localList.Title }, localList.RemoteVersion, cancellationToken).ConfigureAwait(false);
+                        await _taskService.CompleteListMutationAsync(localList.Id, MapRemoteList(remote), false).ConfigureAwait(false);
+                    }
+                    catch (ApiException ex) when (ex.ResponseStatusCode is 409 or 412)
+                    {
+                        var remote = await _outlookTasksClient.GetTaskListAsync(localList.RemoteId, cancellationToken).ConfigureAwait(false);
+                        await _taskService.CompleteListMutationAsync(localList.Id, MapRemoteList(remote), false).ConfigureAwait(false);
+                    }
+                    break;
+                }
+                case TaskSynchronizerOperation.DeleteList:
+                {
+                    var localList = await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                    if (localList?.RemoteId is null)
+                        continue;
+
+                    try
+                    {
+                        await _outlookTasksClient.DeleteTaskListAsync(localList.RemoteId, localList.RemoteVersion, cancellationToken).ConfigureAwait(false);
+                        await _taskService.CompleteListMutationAsync(localList.Id, null, true).ConfigureAwait(false);
+                    }
+                    catch (ApiException ex) when (ex.ResponseStatusCode is 409 or 412)
+                    {
+                        var remote = await _outlookTasksClient.GetTaskListAsync(localList.RemoteId, cancellationToken).ConfigureAwait(false);
+                        await _taskService.CompleteListMutationAsync(localList.Id, MapRemoteList(remote), false).ConfigureAwait(false);
+                    }
+                    break;
+                }
+                case TaskSynchronizerOperation.CreateTask:
+                case TaskSynchronizerOperation.UpdateTask:
+                case TaskSynchronizerOperation.DeleteTask:
+                case TaskSynchronizerOperation.CreateStep:
+                case TaskSynchronizerOperation.UpdateStep:
+                case TaskSynchronizerOperation.DeleteStep:
+                    await ExecuteOutlookTaskMutationAsync(request, cancellationToken).ConfigureAwait(false);
+                    break;
+            }
+
+            MarkTaskRequestProcessed(request);
+        }
+    }
+
+    private async Task ExecuteOutlookTaskMutationAsync(ITaskActionRequest request, CancellationToken cancellationToken)
+    {
+        var localTask = await _taskService.GetTaskAsync(request.TaskId ?? Guid.Empty).ConfigureAwait(false);
+        if (localTask is null)
+            return;
+        var list = await _taskService.GetTaskListAsync(localTask.TaskListId).ConfigureAwait(false);
+        if (list?.RemoteId is null)
+            return;
+
+        try
+        {
+            if (request.Operation == TaskSynchronizerOperation.DeleteTask)
+            {
+                if (localTask.RemoteId is not null)
+                    await _outlookTasksClient.DeleteTaskAsync(list.RemoteId, localTask.RemoteId, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
+                await _taskService.CompleteTaskMutationAsync(localTask.Id, null, true).ConfigureAwait(false);
+                return;
+            }
+
+            // Checklist mutations are sent as the complete one-level checklist. Graph v1
+            // has no equivalent of a child-task hierarchy, so this is deterministic and
+            // avoids retaining a stale provider-side step.
+            var payload = BuildRemoteTask(localTask);
+            TodoTask remote;
+            if (request.Operation == TaskSynchronizerOperation.CreateTask || localTask.RemoteId is null)
+                remote = await _outlookTasksClient.CreateTaskAsync(list.RemoteId, payload, cancellationToken).ConfigureAwait(false);
+            else
+                remote = await _outlookTasksClient.UpdateTaskAsync(list.RemoteId, localTask.RemoteId, payload, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
+
+            await _taskService.CompleteTaskMutationAsync(localTask.Id, MapRemoteTask(remote, list), false).ConfigureAwait(false);
+        }
+        catch (ApiException ex) when ((ex.ResponseStatusCode is 409 or 412) && localTask.RemoteId is not null)
+        {
+            // Provider data wins a stale ETag conflict. Re-read the complete task,
+            // including checklist items, and replace the optimistic local fork.
+            var remote = await _outlookTasksClient.GetTaskAsync(list.RemoteId, localTask.RemoteId, cancellationToken).ConfigureAwait(false);
+            await _taskService.CompleteTaskMutationAsync(localTask.Id, MapRemoteTask(remote, list), false).ConfigureAwait(false);
+        }
+    }
+
+    private async Task<TaskSynchronizationResult> SynchronizeOutlookTasksAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken)
+    {
+        var existingLists = (await _taskService.GetTaskListsAsync(Account.Id).ConfigureAwait(false))
+            .Where(list => list.SourceKind == TaskSourceKind.Outlook)
+            .ToList();
+        var full = options.Type is TaskSynchronizationType.Full or TaskSynchronizationType.Strict;
+        var listUrl = full ? null : existingLists.Select(list => list.ListDeltaLink).FirstOrDefault(link => !string.IsNullOrWhiteSpace(link));
+        // The delta endpoint also provides the initial full representation and a
+        // continuation link. Starting every full sync there gives the next run a
+        // durable list watermark instead of falling back to a non-delta list query.
+        var listResponse = await _outlookTasksClient
+            .GetTaskListsDeltaAsync(full ? null : listUrl, cancellationToken)
+            .ConfigureAwait(false);
+
+        var remoteLists = new List<TodoTaskList>();
+        var removedListIds = new HashSet<string>(StringComparer.Ordinal);
+        string listDeltaLink = null;
+        while (listResponse is not null)
+        {
+            foreach (var remote in listResponse.Value ?? [])
+            {
+                if (remote?.Id is null)
+                    continue;
+                if (remote.AdditionalData?.ContainsKey("@removed") == true)
+                    removedListIds.Add(remote.Id);
+                else if (IsSupportedOutlookTaskList(remote))
+                    remoteLists.Add(remote);
+            }
+
+            if (!string.IsNullOrWhiteSpace(listResponse.DeltaLink))
+                listDeltaLink = listResponse.DeltaLink;
+            if (string.IsNullOrWhiteSpace(listResponse.NextLink))
+                break;
+            listResponse = await _outlookTasksClient.GetTaskListsDeltaAsync(listResponse.NextLink, cancellationToken).ConfigureAwait(false);
+        }
+
+        var changed = 0;
+        var deleted = 0;
+        var activeRemoteIds = new HashSet<string>(remoteLists.Select(list => list.Id), StringComparer.Ordinal);
+        foreach (var removedId in removedListIds)
+        {
+            var local = existingLists.FirstOrDefault(list => list.RemoteId == removedId);
+            if (local is not null)
+            {
+                await _taskService.RemoveTaskListAsync(local.Id).ConfigureAwait(false);
+                deleted++;
+            }
+        }
+
+        if (full)
+        {
+            foreach (var local in existingLists.Where(list => list.RemoteId is not null && !activeRemoteIds.Contains(list.RemoteId)))
+            {
+                await _taskService.RemoveTaskListAsync(local.Id).ConfigureAwait(false);
+                deleted++;
+            }
+        }
+
+        foreach (var remoteList in remoteLists)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var existing = existingLists.FirstOrDefault(list => list.RemoteId == remoteList.Id);
+            await _taskService.UpsertRemoteTaskListAsync(new AccountTaskList
+            {
+                Id = existing?.Id ?? Guid.NewGuid(),
+                MailAccountId = Account.Id,
+                SourceKind = TaskSourceKind.Outlook,
+                RemoteId = remoteList.Id,
+                RemoteVersion = GetRemoteVersion(remoteList),
+                Title = remoteList.DisplayName ?? "Tasks",
+                IsDefault = remoteList.WellknownListName == WellknownListName.DefaultList,
+                IsReadOnly = remoteList.IsOwner == false,
+                ListDeltaLink = listDeltaLink ?? existing?.ListDeltaLink,
+                TaskDeltaLink = existing?.TaskDeltaLink
+            }).ConfigureAwait(false);
+        }
+
+        // A list delta only reports list metadata changes. Task changes are tracked by
+        // a separate delta link per list, so reconcile every remaining owned list on
+        // each run, including lists that were absent from the list-delta page.
+        var listsToSynchronize = (await _taskService.GetTaskListsAsync(Account.Id).ConfigureAwait(false))
+            .Where(list => list.SourceKind == TaskSourceKind.Outlook && !string.IsNullOrWhiteSpace(list.RemoteId))
+            .ToList();
+        foreach (var list in listsToSynchronize)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var taskResult = await SynchronizeOutlookTaskListAsync(list, full, listDeltaLink, cancellationToken).ConfigureAwait(false);
+            changed += taskResult.ChangedCount;
+            deleted += taskResult.DeletedCount;
+        }
+
+        return TaskSynchronizationResult.Completed(remoteLists.Count, changed, deleted);
+    }
+
+    private async Task<TaskSynchronizationResult> SynchronizeOutlookTaskListAsync(AccountTaskList list, bool full, string listDeltaLink, CancellationToken cancellationToken)
+    {
+        var taskUrl = full ? null : list.TaskDeltaLink;
+        var response = await _outlookTasksClient.GetTasksDeltaAsync(list.RemoteId, taskUrl, cancellationToken).ConfigureAwait(false);
+        var current = await _taskService.GetTasksAsync(listId: list.Id).ConfigureAwait(false);
+        var byRemoteId = full
+            ? new Dictionary<string, AccountTask>(StringComparer.Ordinal)
+            : current.Where(task => task.RemoteId is not null).ToDictionary(task => task.RemoteId, StringComparer.Ordinal);
+        var deletedIds = new HashSet<string>(StringComparer.Ordinal);
+        var changed = 0;
+        string taskDeltaLink = null;
+        while (response is not null)
+        {
+            foreach (var remote in response.Value ?? [])
+            {
+                if (remote?.Id is null)
+                    continue;
+                if (remote.AdditionalData?.ContainsKey("@removed") == true)
+                {
+                    deletedIds.Add(remote.Id);
+                    continue;
+                }
+
+                byRemoteId[remote.Id] = MapRemoteTask(remote, list);
+                changed++;
+            }
+
+            if (!string.IsNullOrWhiteSpace(response.DeltaLink))
+                taskDeltaLink = response.DeltaLink;
+            if (string.IsNullOrWhiteSpace(response.NextLink))
+                break;
+            response = await _outlookTasksClient.GetTasksDeltaAsync(list.RemoteId, response.NextLink, cancellationToken).ConfigureAwait(false);
+        }
+
+        foreach (var deletedId in deletedIds)
+            byRemoteId.Remove(deletedId);
+        if (full)
+        {
+            var remoteIds = new HashSet<string>(byRemoteId.Values.Select(task => task.RemoteId), StringComparer.Ordinal);
+            foreach (var stale in current.Where(task => task.RemoteId is not null && !remoteIds.Contains(task.RemoteId)))
+                byRemoteId.Remove(stale.RemoteId);
+        }
+
+        await _taskService.ReplaceListAsync(
+            list.Id,
+            byRemoteId.Values.ToList(),
+            taskDeltaLink ?? list.TaskDeltaLink,
+            watermarkUtc: null,
+            listDeltaLink: listDeltaLink ?? list.ListDeltaLink).ConfigureAwait(false);
+        return TaskSynchronizationResult.Completed(byRemoteId.Count, changed, deletedIds.Count);
+    }
+
+    private static bool IsSupportedOutlookTaskList(TodoTaskList list)
+        => list.IsOwner != false && list.IsShared != true && list.WellknownListName != WellknownListName.FlaggedEmails;
+
+    private static AccountTaskList MapRemoteList(TodoTaskList remote)
+        => new()
+        {
+            RemoteId = remote?.Id,
+            RemoteVersion = GetRemoteVersion(remote),
+            Title = remote?.DisplayName ?? "Tasks",
+            SourceKind = TaskSourceKind.Outlook,
+            IsDefault = remote?.WellknownListName == WellknownListName.DefaultList,
+            IsReadOnly = remote?.IsOwner == false
+        };
+
+    private static AccountTask MapRemoteTask(TodoTask remote, AccountTaskList list)
+    {
+        var due = ParseGraphDate(remote?.DueDateTime?.DateTime);
+        var completed = remote?.Status == GraphTaskStatus.Completed;
+        var task = new AccountTask
+        {
+            MailAccountId = list.MailAccountId,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = remote?.Id,
+            RemoteVersion = GetRemoteVersion(remote),
+            Title = remote?.Title ?? string.Empty,
+            Notes = ParseTaskNotes(remote?.Body),
+            DueDate = due,
+            IsCompleted = completed,
+            IsImportant = remote?.Importance == Microsoft.Graph.Models.Importance.High,
+            CompletedAtUtc = ParseGraphDateTime(remote?.CompletedDateTime?.DateTime),
+            RemoteOrder = GetRemoteValue(remote, "order"),
+            PendingMutation = TaskPendingMutation.None
+        };
+        task.Steps = (remote?.ChecklistItems ?? []).Select((step, index) => new AccountTaskStep
+        {
+            TaskId = task.Id,
+            MailAccountId = list.MailAccountId,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = step.Id,
+            RemoteVersion = GetRemoteVersion(step),
+            Title = step.DisplayName ?? string.Empty,
+            IsCompleted = step.IsChecked == true,
+            Order = index,
+            PendingMutation = TaskPendingMutation.None
+        }).ToList();
+        return task;
+    }
+
+    private static TodoTask BuildRemoteTask(AccountTask task)
+        => new()
+        {
+            Title = task.Title,
+            Body = string.IsNullOrWhiteSpace(task.Notes) ? null : new ItemBody { ContentType = BodyType.Text, Content = task.Notes },
+            Status = task.IsCompleted ? GraphTaskStatus.Completed : GraphTaskStatus.NotStarted,
+            Importance = task.IsImportant ? Microsoft.Graph.Models.Importance.High : Microsoft.Graph.Models.Importance.Normal,
+            DueDateTime = task.DueDate is DateTime due ? new DateTimeTimeZone { DateTime = due.ToString("yyyy-MM-ddT00:00:00", GlobalizationCultureInfo.InvariantCulture), TimeZone = "UTC" } : null,
+            ChecklistItems = task.Steps?.OrderBy(step => step.Order).Select(step => new ChecklistItem
+            {
+                Id = step.RemoteId,
+                DisplayName = step.Title,
+                IsChecked = step.IsCompleted
+            }).ToList()
+        };
+
+    private static DateTime? ParseGraphDate(string value)
+        => DateTime.TryParse(value, GlobalizationCultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var parsed)
+            ? parsed.Date
+            : null;
+
+    private static DateTime? ParseGraphDateTime(string value)
+        => DateTime.TryParse(value, GlobalizationCultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var parsed)
+            ? parsed
+            : null;
+
+    private static string ParseTaskNotes(ItemBody body)
+    {
+        var content = body?.Content ?? string.Empty;
+        if (body?.ContentType != BodyType.Html || string.IsNullOrWhiteSpace(content))
+            return content;
+
+        content = Regex.Replace(content, "<br\\s*/?>", Environment.NewLine, RegexOptions.IgnoreCase);
+        content = Regex.Replace(content, "<[^>]+>", string.Empty, RegexOptions.Singleline);
+        return WebUtility.HtmlDecode(content).Trim();
+    }
+
+    private static string GetRemoteVersion(Microsoft.Graph.Models.Entity entity)
+        => entity?.AdditionalData?.TryGetValue("@odata.etag", out var value) == true ? value?.ToString() : null;
+
+    private static string GetRemoteVersion(ChecklistItem entity)
+        => entity?.AdditionalData?.TryGetValue("@odata.etag", out var value) == true ? value?.ToString() : null;
+
+    private static string GetRemoteValue(Microsoft.Graph.Models.Entity entity, string key)
+        => entity?.AdditionalData?.TryGetValue(key, out var value) == true ? value?.ToString() : null;
 
     private async Task<ContactSynchronizationResult> SynchronizeOutlookContactsAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken)
     {

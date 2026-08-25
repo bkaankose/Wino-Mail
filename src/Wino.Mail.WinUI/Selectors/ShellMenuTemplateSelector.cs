@@ -43,6 +43,9 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
         // Contacts
         NewContactMenuItem => "NewContactTemplate",
         NewAddressListMenuItem => "NewAddressListTemplate",
+        NewTaskListMenuItem => "NewTaskListTemplate",
+        TaskSmartViewMenuItem => "TaskSmartViewTemplate",
+        AccountTaskListMenuItem => "AccountTaskListTemplate",
         ContactFilterViewModel { HasAccountIcon: true } => "ContactAccountFilterTemplate",
         ContactFilterViewModel => "ContactFilterTemplate",
 

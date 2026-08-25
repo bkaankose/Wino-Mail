@@ -41,6 +41,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _mailSynchronizationProgress = new();
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _calendarSynchronizationProgress = new();
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _contactSynchronizationProgress = new();
+    private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _taskSynchronizationProgress = new();
     private readonly ConcurrentDictionary<Guid, PendingUndoActionPack> _pendingUndoActionPacks = new();
     private readonly SemaphoreSlim _initializationSemaphore = new(1, 1);
     private readonly object _undoActionPackLock = new();
@@ -369,6 +370,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             SynchronizationProgressCategory.Contacts => _contactSynchronizationProgress.TryGetValue(accountId, out var contactProgress)
                 ? contactProgress
                 : AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Contacts),
+            SynchronizationProgressCategory.Tasks => _taskSynchronizationProgress.TryGetValue(accountId, out var taskProgress)
+                ? taskProgress
+                : AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Tasks),
             _ => _mailSynchronizationProgress.TryGetValue(accountId, out var mailProgress)
                 ? mailProgress
                 : AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Mail)
@@ -459,57 +463,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         if (triggerSynchronization)
         {
-            // Determine if this is a calendar or mail operation
-            bool isCalendarOperation = requestList.All(request => request is ICalendarActionRequest);
-
-            if (isCalendarOperation)
-            {
-                // Trigger calendar synchronization
-                _logger.Debug("Triggering calendar synchronization to execute queued request for account {AccountId}", accountId);
-
-                var calendarSyncOptions = new CalendarSynchronizationOptions()
-                {
-                    AccountId = accountId
-                };
-
-                // Trigger synchronization asynchronously without waiting for completion
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await SynchronizeCalendarAsync(calendarSyncOptions);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "Failed to execute calendar synchronization after queuing request for account {AccountId}", accountId);
-                    }
-                });
-            }
-            else
-            {
-                // Trigger mail synchronization (includes mail and folder operations)
-                _logger.Debug("Triggering mail synchronization to execute queued request for account {AccountId}", accountId);
-
-                var mailSyncOptions = new MailSynchronizationOptions()
-                {
-                    AccountId = accountId,
-                    Type = MailSynchronizationType.ExecuteRequests
-                };
-
-                // Trigger synchronization asynchronously without waiting for completion
-                // This matches the pattern used in WinoRequestDelegator
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await SynchronizeMailAsync(mailSyncOptions);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "Failed to execute mail synchronization after queuing request for account {AccountId}", accountId);
-                    }
-                });
-            }
+            PublishSynchronizationRequests(accountId, requestList);
         }
     }
 
@@ -628,17 +582,11 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
             if (pack.RequiresFolderSynchronizationByAccount.Contains(pair.Key))
             {
-                _ = Task.Run(async () =>
+                WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
                 {
-                    try
-                    {
-                        await SynchronizeFoldersAsync(pair.Key).ConfigureAwait(false);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Error(ex, "Failed to synchronize folders after undo action pack {PackId} expired for account {AccountId}", pack.Id, pair.Key);
-                    }
-                });
+                    AccountId = pair.Key,
+                    Type = MailSynchronizationType.FoldersOnly
+                }));
             }
         }
 
@@ -655,6 +603,58 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     private static bool RequiresFolderRefreshAfterExecution(IRequestBase request)
         => request is DeleteFolderRequest or CreateSubFolderRequest or CreateRootFolderRequest;
+
+    private void PublishSynchronizationRequests(Guid accountId, IReadOnlyCollection<IRequestBase> requests)
+    {
+        var hasCalendarRequests = requests.Any(request => request is ICalendarActionRequest);
+        var hasContactRequests = requests.Any(request => request is IContactActionRequest);
+        var hasTaskRequests = requests.Any(request => request is ITaskActionRequest);
+        var hasMailRequests = requests.Any(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest);
+
+        if (hasCalendarRequests)
+        {
+            _logger.Debug("Publishing calendar synchronization request for account {AccountId}", accountId);
+            WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+            {
+                AccountId = accountId,
+                Type = CalendarSynchronizationType.ExecuteRequests
+            }));
+        }
+
+        if (hasContactRequests)
+        {
+            foreach (var addressBookId in requests.OfType<IContactActionRequest>().Select(request => request.AddressBookId).Distinct())
+            {
+                _logger.Debug("Publishing contact synchronization request for account {AccountId} and address book {AddressBookId}", accountId, addressBookId);
+                WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+                {
+                    AccountId = accountId,
+                    AddressBookId = addressBookId,
+                    Type = ContactSynchronizationType.ExecuteRequests
+                }));
+            }
+        }
+
+        if (hasTaskRequests)
+        {
+            _logger.Debug("Publishing task synchronization request for account {AccountId}", accountId);
+            WeakReferenceMessenger.Default.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            {
+                AccountId = accountId,
+                Type = TaskSynchronizationType.ExecuteRequests
+            }));
+        }
+
+        if (hasMailRequests || (!hasCalendarRequests && !hasContactRequests && !hasTaskRequests))
+        {
+            _logger.Debug("Publishing mail synchronization request for account {AccountId}", accountId);
+            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            {
+                AccountId = accountId,
+                Type = MailSynchronizationType.ExecuteRequests
+            }));
+        }
+    }
 
     private UndoActionSettings CreateUndoActionSettings(IReadOnlyCollection<IRequestBase> allRequests)
     {
@@ -866,6 +866,70 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         finally
         {
             PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(options.AccountId, SynchronizationProgressCategory.Contacts));
+        }
+    }
+
+    public async Task<TaskSynchronizationResult> SynchronizeTasksAsync(
+        TaskSynchronizationOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        EnsureInitialized();
+        if (options is null)
+            return TaskSynchronizationResult.Failed(new ArgumentNullException(nameof(options)));
+
+        var synchronizer = await GetOrCreateSynchronizerAsync(options.AccountId).ConfigureAwait(false);
+        if (synchronizer is null)
+            return TaskSynchronizationResult.Failed(new InvalidOperationException("Can't create/get synchronizer."));
+
+        var accountCancellationSource = _accountSynchronizationCancellationSources.GetOrAdd(options.AccountId, _ => new CancellationTokenSource());
+        using var linkedSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, accountCancellationSource.Token);
+        try
+        {
+            PublishSynchronizationProgress(new AccountSynchronizationProgress(
+                options.AccountId,
+                SynchronizationProgressCategory.Tasks,
+                true,
+                true,
+                0,
+                0,
+                0,
+                "Synchronizing tasks...",
+                AccountSynchronizerState.Synchronizing));
+
+            var result = await synchronizer.SynchronizeTasksAsync(options, linkedSource.Token).ConfigureAwait(false);
+            if (result.Exception is AuthenticationAttentionException authenticationException)
+            {
+                var account = authenticationException.Account ?? await _accountService.GetAccountAsync(options.AccountId).ConfigureAwait(false);
+                if (account is not null)
+                {
+                    account.IsTaskReauthorizationRequired = true;
+                    await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+                }
+            }
+            return result;
+        }
+        catch (AuthenticationAttentionException ex)
+        {
+            var account = ex.Account ?? await _accountService.GetAccountAsync(options.AccountId).ConfigureAwait(false);
+            if (account is not null)
+            {
+                account.IsTaskReauthorizationRequired = true;
+                await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+            }
+            return TaskSynchronizationResult.Failed(ex);
+        }
+        catch (OperationCanceledException)
+        {
+            return TaskSynchronizationResult.Canceled;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "Task synchronization failed for account {AccountId}.", options.AccountId);
+            return TaskSynchronizationResult.Failed(ex);
+        }
+        finally
+        {
+            PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(options.AccountId, SynchronizationProgressCategory.Tasks));
         }
     }
 
@@ -1162,6 +1226,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Mail));
         PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Calendar));
         PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Contacts));
+        PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Tasks));
 
         return Task.CompletedTask;
     }
@@ -1195,6 +1260,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Mail));
         PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Calendar));
         PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Contacts));
+        PublishSynchronizationProgress(AccountSynchronizationProgress.Idle(accountId, SynchronizationProgressCategory.Tasks));
     }
 
     /// <summary>
@@ -1462,6 +1528,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
            currentAccount == null ||
            cachedAccount.IsMailAccessGranted != currentAccount.IsMailAccessGranted ||
            cachedAccount.IsCalendarAccessGranted != currentAccount.IsCalendarAccessGranted ||
+           cachedAccount.IsContactAccessGranted != currentAccount.IsContactAccessGranted ||
+           cachedAccount.IsTaskAccessGranted != currentAccount.IsTaskAccessGranted ||
            !ConnectionSettingsMatch(cachedAccount.ServerInformation, currentAccount.ServerInformation);
 
     private static bool ConnectionSettingsMatch(CustomServerInformation left, CustomServerInformation right)
@@ -1612,6 +1680,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         {
             SynchronizationProgressCategory.Calendar => _calendarSynchronizationProgress,
             SynchronizationProgressCategory.Contacts => _contactSynchronizationProgress,
+            SynchronizationProgressCategory.Tasks => _taskSynchronizationProgress,
             _ => _mailSynchronizationProgress
         };
 

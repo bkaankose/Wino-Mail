@@ -494,6 +494,11 @@ internal static class Program
     {
         while (!cancellationToken.IsCancellationRequested)
         {
+            account = await accountService.GetAccountAsync(account.Id).ConfigureAwait(false);
+            if (account is null)
+                return;
+
+            System.Console.WriteLine($"\n{FormatAccountSelection(account)}");
             SemanticIndexAccountState? state = null;
             if (IsSupportedAccount(account))
             {
@@ -501,31 +506,50 @@ internal static class Program
                 PrintState(state);
             }
             ConsoleOutput.Header("\nAccount actions:");
-            System.Console.WriteLine("  1. Smoke tests");
-            System.Console.WriteLine("  2. Semantic search");
-            System.Console.WriteLine("  3. Manage intelligence indexing");
+            System.Console.WriteLine("  1. Synchronize");
+            System.Console.WriteLine("  2. Smoke tests");
+            System.Console.WriteLine("  3. Semantic search");
+            System.Console.WriteLine("  4. Manage intelligence indexing");
+            System.Console.WriteLine("  5. Invalidate authentication data");
             System.Console.WriteLine("  0. Back");
             ConsoleOutput.Prompt("Selection: ");
             switch (System.Console.ReadLine()?.Trim())
             {
                 case "1":
+                    using (var synchronizationRunner = new SmokeTestRunner(services))
+                    {
+                        await synchronizationRunner.RunSynchronizationMenuAsync(account, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    break;
+                case "2":
                     using (var smokeRunner = new SmokeTestRunner(services))
                     {
                         await smokeRunner.RunInteractiveAsync(account, attachmentsFolder, cancellationToken)
                             .ConfigureAwait(false);
                     }
                     break;
-                case "2" when state is not null:
+                case "3" when state is not null:
                     await RunSemanticSearchMenuAsync(
                         account, state, apiClient, messageResolver, mailService, cancellationToken).ConfigureAwait(false);
                     break;
-                case "3" when state is not null:
+                case "4" when state is not null:
                     await RunIntelligenceManagementMenuAsync(
                         account, accountService, coordinator, apiClient, authenticationProvider,
                         messageResolver, localStore, cancellationToken).ConfigureAwait(false);
                     break;
-                case "2" or "3":
+                case "3" or "4":
                     ConsoleOutput.Warning("Intelligence tools currently support Outlook accounts only.");
+                    break;
+                case "5":
+                    if (await InvalidateAuthenticationDataAsync(
+                            account,
+                            accountService,
+                            services.GetRequiredService<ISynchronizationManager>(),
+                            cancellationToken).ConfigureAwait(false))
+                    {
+                        return;
+                    }
                     break;
                 case "0":
                     return;
@@ -1419,8 +1443,7 @@ internal static class Program
         ConsoleOutput.Header("\nAccounts from Wino database:");
         for (var index = 0; index < accounts.Count; index++)
         {
-            var supported = IsSupportedAccount(accounts[index]) ? string.Empty : " [intelligence unavailable]";
-            System.Console.WriteLine($"  {index + 1}. {accounts[index].Name} <{accounts[index].Address}> — {accounts[index].ProviderType}{supported}");
+            System.Console.WriteLine($"  {index + 1}. {FormatAccountSelection(accounts[index])}");
         }
         ConsoleOutput.Prompt("Select an account, or 0 to exit: ");
         if (!int.TryParse(System.Console.ReadLine(), out var selection) || selection == 0)
@@ -1431,6 +1454,38 @@ internal static class Program
             return SelectAccount(accounts);
         }
         return accounts[selection - 1];
+    }
+
+    internal static string FormatAccountSelection(MailAccount account)
+    {
+        var attention = account.AttentionReason == AccountAttentionReason.None
+            ? "attention: none"
+            : $"ATTENTION: {account.AttentionReason}";
+        var intelligence = IsSupportedAccount(account) ? string.Empty : " [intelligence unavailable]";
+        return $"{account.Name} <{account.Address}> — {account.ProviderType} [{attention}]{intelligence}";
+    }
+
+    private static async Task<bool> InvalidateAuthenticationDataAsync(
+        MailAccount account,
+        IAccountService accountService,
+        ISynchronizationManager synchronizationManager,
+        CancellationToken cancellationToken)
+    {
+        ConsoleOutput.Warning(
+            "This immediately removes cached provider credentials. Local mail, calendar, contacts, and Todo data are preserved.");
+        ConsoleOutput.Prompt($"Type INVALIDATE to remove authentication data for {account.Address}: ");
+        if (!string.Equals(System.Console.ReadLine(), "INVALIDATE", StringComparison.Ordinal))
+        {
+            ConsoleOutput.Warning("Authentication invalidation cancelled.");
+            return false;
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        await synchronizationManager.CancelSynchronizationsAsync(account.Id).ConfigureAwait(false);
+        await synchronizationManager.DestroySynchronizerAsync(account.Id).ConfigureAwait(false);
+        await accountService.DeleteAccountAuthenticationDataAsync(account.Id).ConfigureAwait(false);
+        ConsoleOutput.Success("Authentication data was removed. The account now requires attention.");
+        return true;
     }
 
     private static SemanticIndexRangePreset? SelectRange()

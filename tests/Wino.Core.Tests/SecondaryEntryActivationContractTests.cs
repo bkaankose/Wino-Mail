@@ -11,6 +11,8 @@ public sealed class SecondaryEntryActivationContractTests
     [InlineData("--wino-calendar", WinoApplicationMode.Calendar)]
     [InlineData("--wino-contacts", WinoApplicationMode.Contacts)]
     [InlineData("--wino-people", WinoApplicationMode.Contacts)]
+    [InlineData("--wino-todo", WinoApplicationMode.Tasks)]
+    [InlineData("ToDoApp", WinoApplicationMode.Tasks)]
     public void LaunchClassification_AcceptsCalendarPeopleAndLegacyContactsTokens(
         string argument,
         WinoApplicationMode expectedMode)

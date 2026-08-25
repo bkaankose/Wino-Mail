@@ -42,7 +42,7 @@ public static class SecondaryEntryActivationContract
                                        out PendingBootstrapActivation? activation)
     {
         var mode = AppModeActivationResolver.Resolve(launchArguments, tileId, commandLine);
-        if (mode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts))
+        if (mode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts or WinoApplicationMode.Tasks))
         {
             activation = null;
             return false;
@@ -149,7 +149,7 @@ public static class SecondaryEntryActivationContract
             !TryGetValue(values, CreatedAtUtcKey, out var createdValue) ||
             !DateTimeOffset.TryParse(createdValue, out var createdAtUtc) ||
             !Enum.IsDefined(kind) ||
-            mode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts))
+            mode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts or WinoApplicationMode.Tasks))
         {
             return false;
         }

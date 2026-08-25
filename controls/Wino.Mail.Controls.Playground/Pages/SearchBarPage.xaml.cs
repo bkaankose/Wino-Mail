@@ -22,6 +22,7 @@ public sealed partial class SearchBarPage : Page
         ],
         [SearchBarMode.Contacts] = ["Ada Lovelace", "Design team", "Contoso support", "People at Fabrikam"],
         [SearchBarMode.Calendar] = ["Project Northstar review", "Dentist appointment", "Team planning", "Flight to Warsaw"],
+        [SearchBarMode.Tasks] = ["Finish release notes", "Prepare sprint demo", "Renew domain"],
         [SearchBarMode.Settings] = [],
     };
 
@@ -53,6 +54,7 @@ public sealed partial class SearchBarPage : Page
         new(SearchBarMode.Mail, "Mail"),
         new(SearchBarMode.Contacts, "Contacts"),
         new(SearchBarMode.Calendar, "Calendar"),
+        new(SearchBarMode.Tasks, "Tasks"),
         new(SearchBarMode.Settings, "Settings"),
     ];
 

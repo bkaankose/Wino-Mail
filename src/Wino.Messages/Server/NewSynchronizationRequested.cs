@@ -20,3 +20,9 @@ public record NewCalendarSynchronizationRequested(CalendarSynchronizationOptions
 /// </summary>
 /// <param name="Options">Options for synchronization.</param>
 public record NewContactSynchronizationRequested(ContactSynchronizationOptions Options) : IClientMessage, IUIMessage;
+
+/// <summary>
+/// Triggers a new task synchronization if possible.
+/// </summary>
+/// <param name="Options">Options for synchronization.</param>
+public record NewTaskSynchronizationRequested(TaskSynchronizationOptions Options) : IClientMessage, IUIMessage;

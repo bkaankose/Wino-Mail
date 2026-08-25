@@ -8,15 +8,18 @@ internal static class AppEntryConstants
     public const string MailApplicationId = "App";
     public const string CalendarApplicationId = "CalendarApp";
     public const string ContactsApplicationId = "ContactsApp";
+    public const string ToDoApplicationId = "ToDoApp";
     public const string MailLaunchArgument = "--wino-mail";
     public const string CalendarLaunchArgument = "--wino-calendar";
     public const string ContactsLaunchArgument = "--wino-contacts";
+    public const string ToDoLaunchArgument = "--wino-todo";
 
     public static string GetModeLaunchArgument(WinoApplicationMode mode)
         => mode switch
         {
             WinoApplicationMode.Calendar => CalendarLaunchArgument,
             WinoApplicationMode.Contacts => ContactsLaunchArgument,
+            WinoApplicationMode.Tasks => ToDoLaunchArgument,
             WinoApplicationMode.Settings => "--mode=settings",
             _ => MailLaunchArgument
         };
@@ -26,6 +29,7 @@ internal static class AppEntryConstants
         {
             WinoApplicationMode.Calendar => CalendarApplicationId,
             WinoApplicationMode.Contacts => ContactsApplicationId,
+            WinoApplicationMode.Tasks => ToDoApplicationId,
             WinoApplicationMode.Mail => MailApplicationId,
             _ => null
         };

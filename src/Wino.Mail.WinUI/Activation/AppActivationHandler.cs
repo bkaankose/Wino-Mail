@@ -382,7 +382,7 @@ internal sealed class AppActivationHandler
     }
 
     private static bool CanHandlePendingBootstrapActivation(PendingBootstrapActivation pendingBootstrapActivation)
-        => pendingBootstrapActivation.Mode is WinoApplicationMode.Calendar or WinoApplicationMode.Contacts;
+        => pendingBootstrapActivation.Mode is WinoApplicationMode.Calendar or WinoApplicationMode.Contacts or WinoApplicationMode.Tasks;
 
     private static bool TryCreateMailToUri(AppActivationArguments activationArgs, out MailToUri? mailToUri)
     {

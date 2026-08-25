@@ -250,6 +250,7 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -305,6 +306,29 @@
                         </ToggleButton>
 
                         <ToggleButton
+                            AutomationProperties.AutomationId="ProviderSelectionTasksCapability"
+                            Grid.Row="1"
+                            Grid.ColumnSpan="3"
+                            Margin="0,12,0,0"
+                            AutomationProperties.HelpText="{x:Bind domain:Translator.ProviderSelection_TasksCapabilityHelp, Mode=OneTime}"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            IsChecked="{x:Bind ViewModel.IsTaskAccessEnabled, Mode=TwoWay}"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsTasksCapabilityVisible), Mode=OneWay}">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <SymbolIcon Symbol="Accept" />
+                                <TextBlock Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap">
+                                    <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}" /><LineBreak /><Run Text="{x:Bind domain:Translator.ProviderSelection_TasksCapabilityHelp, Mode=OneTime}" />
+                                </TextBlock>
+                            </Grid>
+                        </ToggleButton>
+
+                        <ToggleButton
                             AutomationProperties.AutomationId="XBindDomainTranslatorProviderSelectionUseForCalendarModeOneTime"
                             Grid.Column="1"
                             AutomationProperties.HelpText="{x:Bind domain:Translator.ProviderSelection_CalendarCapabilityHelp, Mode=OneTime}"
@@ -332,7 +356,7 @@
                         </ToggleButton>
 
                         <TextBlock
-                            Grid.Row="1"
+                            Grid.Row="2"
                             Grid.ColumnSpan="3"
                             Margin="0,12"
                             VerticalAlignment="Center"

@@ -29,6 +29,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     private const string SetupOperationSaveAccount = "SaveAccount";
     private const string SetupOperationProfileSync = "ProfileSync";
     private const string SetupOperationContactSync = "ContactSync";
+    private const string SetupOperationTaskSync = "TaskSync";
     private const string SetupOperationFolderSync = "FolderSync";
     private const string SetupOperationCategorySync = "CategorySync";
     private const string SetupOperationCalendarMetadataSync = "CalendarMetadataSync";
@@ -94,6 +95,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         var shouldSetupMail = WizardContext.IsMailAccessEnabled;
         var shouldSetupCalendar = WizardContext.IsCalendarAccessEnabled;
         var shouldSetupContacts = WizardContext.IsOAuthProvider && WizardContext.IsContactAccessEnabled;
+        var shouldSetupTasks = WizardContext.IsOAuthProvider && WizardContext.IsTaskAccessEnabled;
 
         if (WizardContext.IsOAuthProvider)
         {
@@ -104,6 +106,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SavingAccount });
             if (shouldSetupContacts)
                 Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SyncingContacts });
+            if (shouldSetupTasks)
+                Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SyncingTasks });
             if (shouldSetupMail)
             {
                 Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_FetchingProfile });
@@ -235,7 +239,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 InitialSynchronizationRange = WizardContext.SelectedInitialSynchronizationRange,
                 IsMailAccessGranted = WizardContext.IsMailAccessEnabled,
                 IsCalendarAccessGranted = WizardContext.IsCalendarAccessEnabled,
-                IsContactAccessGranted = WizardContext.IsOAuthProvider && WizardContext.IsContactAccessEnabled
+                IsContactAccessGranted = WizardContext.IsOAuthProvider && WizardContext.IsContactAccessEnabled,
+                IsTaskAccessGranted = WizardContext.IsOAuthProvider && WizardContext.IsTaskAccessEnabled
             };
 
             if (WizardContext.IsOAuthProvider)
@@ -269,6 +274,19 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     });
                     if (contactResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeContacts);
+                    SetCurrentStepSucceeded();
+                }
+
+                if (_createdAccount.IsTaskAccessGranted)
+                {
+                    SetStepInProgress(Translator.AccountSetup_Step_SyncingTasks, SetupOperationTaskSync);
+                    var taskResult = await SynchronizationManager.Instance.SynchronizeTasksAsync(new TaskSynchronizationOptions
+                    {
+                        AccountId = _createdAccount.Id,
+                        Type = TaskSynchronizationType.Full
+                    });
+                    if (taskResult.CompletedState != SynchronizationCompletedState.Success)
+                        throw new Exception(Translator.Exception_FailedToSynchronizeTasks);
                     SetCurrentStepSucceeded();
                 }
 
@@ -575,7 +593,8 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
             ["is_oauth_provider"] = WizardContext.IsOAuthProvider.ToString(),
             ["is_mail_access_enabled"] = WizardContext.IsMailAccessEnabled.ToString(),
             ["is_calendar_access_enabled"] = WizardContext.IsCalendarAccessEnabled.ToString(),
-            ["is_contact_access_enabled"] = WizardContext.IsContactAccessEnabled.ToString()
+            ["is_contact_access_enabled"] = WizardContext.IsContactAccessEnabled.ToString(),
+            ["is_task_access_enabled"] = WizardContext.IsTaskAccessEnabled.ToString()
         };
 
         if (_createdAccount != null)

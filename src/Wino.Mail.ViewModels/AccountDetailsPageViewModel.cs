@@ -140,6 +140,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
+    public partial bool IsTasksCapabilitySelected { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     public partial bool IsApplyingCapabilities { get; set; }
 
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
@@ -147,6 +151,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public bool HasMailAccess => Account?.IsMailAccessGranted == true;
     public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;
     public bool HasContactAccess => Account?.IsContactAccessGranted == true;
+    public bool HasTaskAccess => Account?.IsTaskAccessGranted == true;
+    public bool IsTaskReauthorizationRequired => Account?.IsTaskReauthorizationRequired == true;
     public bool IsContactReauthorizationRequired => Account?.IsContactReauthorizationRequired == true;
     public bool IsOAuthCapabilityEditable => Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
     public string ProviderIconPath => Account?.SpecialImapProvider != SpecialImapProvider.None
@@ -264,23 +270,29 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             ImapCalDavSettingsNavigationContext.CreateForEditMode(Account.Id)));
 
     private bool CanApplyCapabilities() => Account is not null && !IsApplyingCapabilities &&
-        (IsMailCapabilitySelected || IsCalendarCapabilitySelected || IsContactsCapabilitySelected);
+        (IsMailCapabilitySelected || IsCalendarCapabilitySelected || IsContactsCapabilitySelected || IsTasksCapabilitySelected);
 
     [RelayCommand(CanExecute = nameof(CanApplyCapabilities))]
     private async Task ApplyCapabilitiesAsync()
     {
         var contactsChanged = Account.IsContactAccessGranted != IsContactsCapabilitySelected;
-        if (contactsChanged)
+        var tasksChanged = Account.IsTaskAccessGranted != IsTasksCapabilitySelected;
+        if (contactsChanged || tasksChanged)
         {
             var confirmed = await _dialogService.ShowConfirmationDialogAsync(
-                Translator.AccountDetailsPage_ContactsTransitionTitle,
-                IsContactsCapabilitySelected
-                    ? Translator.AccountDetailsPage_EnableContactsConfirmation
-                    : Translator.AccountDetailsPage_DisableContactsConfirmation,
+                contactsChanged ? Translator.AccountDetailsPage_ContactsTransitionTitle : Translator.AccountDetailsPage_TasksTransitionTitle,
+                contactsChanged
+                    ? (IsContactsCapabilitySelected
+                        ? Translator.AccountDetailsPage_EnableContactsConfirmation
+                        : Translator.AccountDetailsPage_DisableContactsConfirmation)
+                    : (IsTasksCapabilitySelected
+                        ? Translator.AccountDetailsPage_EnableTasksConfirmation
+                        : Translator.AccountDetailsPage_DisableTasksConfirmation),
                 Translator.Buttons_Apply);
             if (!confirmed)
             {
                 IsContactsCapabilitySelected = Account.IsContactAccessGranted;
+                IsTasksCapabilitySelected = Account.IsTaskAccessGranted;
                 return;
             }
         }
@@ -294,7 +306,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
                 Account,
                 IsMailCapabilitySelected,
                 IsCalendarCapabilitySelected,
-                IsContactsCapabilitySelected);
+                IsContactsCapabilitySelected,
+                IsTasksCapabilitySelected);
 
             if (IsMailCapabilitySelected && !previousMail)
                 await SynchronizationManager.Instance.SynchronizeFoldersAsync(Account.Id);
@@ -308,6 +321,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             IsMailCapabilitySelected = Account.IsMailAccessGranted;
             IsCalendarCapabilitySelected = Account.IsCalendarAccessGranted;
             IsContactsCapabilitySelected = Account.IsContactAccessGranted;
+            IsTasksCapabilitySelected = Account.IsTaskAccessGranted;
             _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
         }
         finally
@@ -323,6 +337,22 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         await ApplyCapabilitiesAsync();
         if (!Account.IsContactReauthorizationRequired)
             Messenger.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions { AccountId = Account.Id, Type = ContactSynchronizationType.Delta }));
+    }
+
+    [RelayCommand]
+    private async Task ReauthorizeTasksAsync()
+    {
+        IsTasksCapabilitySelected = true;
+        await ApplyCapabilitiesAsync();
+
+        if (Account.IsTaskReauthorizationRequired)
+            return;
+
+        await SynchronizationManager.Instance.SynchronizeTasksAsync(new TaskSynchronizationOptions
+        {
+            AccountId = Account.Id,
+            Type = TaskSynchronizationType.Full
+        });
     }
 
     [RelayCommand]
@@ -909,6 +939,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(HasMailAccess));
         OnPropertyChanged(nameof(HasCalendarAccess));
         OnPropertyChanged(nameof(HasContactAccess));
+        OnPropertyChanged(nameof(HasTaskAccess));
+        OnPropertyChanged(nameof(IsTaskReauthorizationRequired));
         OnPropertyChanged(nameof(IsContactReauthorizationRequired));
         OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
         OnPropertyChanged(nameof(HasProfilePicture));
@@ -919,6 +951,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         IsMailCapabilitySelected = value?.IsMailAccessGranted == true;
         IsCalendarCapabilitySelected = value?.IsCalendarAccessGranted == true;
         IsContactsCapabilitySelected = value?.IsContactAccessGranted == true;
+        IsTasksCapabilitySelected = value?.IsTaskAccessGranted == true;
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)

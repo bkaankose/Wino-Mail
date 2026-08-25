@@ -62,6 +62,7 @@ public partial class App : WinoApplication,
     IRecipient<NewMailSynchronizationRequested>,
     IRecipient<NewCalendarSynchronizationRequested>,
     IRecipient<NewContactSynchronizationRequested>,
+    IRecipient<NewTaskSynchronizationRequested>,
     IRecipient<AccountCreatedMessage>,
     IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>,
@@ -560,6 +561,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(MailFiltersPageViewModel));
         services.AddTransient(typeof(MailFilterEditorPageViewModel));
         services.AddSingleton(typeof(ContactsPageViewModel));
+        services.AddSingleton(typeof(ToDoPageViewModel));
         services.AddTransient(typeof(ContactEditPageViewModel));
         services.AddTransient(typeof(SignatureAndEncryptionPageViewModel));
         services.AddTransient(typeof(EmailTemplatesPageViewModel));
@@ -1522,6 +1524,7 @@ public partial class App : WinoApplication,
         WeakReferenceMessenger.Default.Register<NewMailSynchronizationRequested>(this);
         WeakReferenceMessenger.Default.Register<NewCalendarSynchronizationRequested>(this);
         WeakReferenceMessenger.Default.Register<NewContactSynchronizationRequested>(this);
+        WeakReferenceMessenger.Default.Register<NewTaskSynchronizationRequested>(this);
         WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
@@ -1535,7 +1538,9 @@ public partial class App : WinoApplication,
 
     private async Task HandleMailSynchronizationRequestedAsync(NewMailSynchronizationRequested message)
     {
-        if (_synchronizationManager == null) return;
+        var synchronizationManager = _synchronizationManager;
+        if (synchronizationManager == null)
+            return;
 
         MailSynchronizationResult syncResult;
 
@@ -1545,12 +1550,13 @@ public partial class App : WinoApplication,
             // commonly requested by the UI thread, so force the synchronous setup/batching
             // portion of synchronization onto the thread pool as well as its async continuations.
             syncResult = await Task
-                .Run(() => _synchronizationManager.SynchronizeMailAsync(message.Options))
+                .Run(() => synchronizationManager.SynchronizeMailAsync(message.Options))
                 .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             // Defensive fallback to guarantee completion message emission.
+            Log.Error(ex, "Mail synchronization request failed for account {AccountId}", message.Options.AccountId);
             syncResult = MailSynchronizationResult.Failed(ex);
         }
 
@@ -1573,27 +1579,40 @@ public partial class App : WinoApplication,
         if (syncResult.CompletedState == SynchronizationCompletedState.Failed ||
             syncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted)
         {
-            var dialogService = Services.GetRequiredService<IMailDialogService>();
             var errorMessage = GetSynchronizationFailureMessage(message.Options.Type, syncResult.AllIssues, syncResult.Exception?.Message);
             var severity = syncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted
                 ? InfoBarMessageType.Warning
                 : InfoBarMessageType.Error;
 
-            dialogService.InfoBarMessage(Translator.Info_SyncFailedTitle, errorMessage, severity);
+            QueueSynchronizationFailure(errorMessage, severity);
         }
     }
 
-    public async void Receive(NewCalendarSynchronizationRequested message)
-    {
-        if (_synchronizationManager == null) return;
+    public void Receive(NewCalendarSynchronizationRequested message)
+        => _ = HandleCalendarSynchronizationRequestedAsync(message);
 
-        var calendarSyncResult = await _synchronizationManager.SynchronizeCalendarAsync(message.Options);
+    private async Task HandleCalendarSynchronizationRequestedAsync(NewCalendarSynchronizationRequested message)
+    {
+        var synchronizationManager = _synchronizationManager;
+        if (synchronizationManager == null)
+            return;
+
+        CalendarSynchronizationResult calendarSyncResult;
+        try
+        {
+            calendarSyncResult = await Task
+                .Run(() => synchronizationManager.SynchronizeCalendarAsync(message.Options))
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Calendar synchronization request failed for account {AccountId}", message.Options.AccountId);
+            calendarSyncResult = CalendarSynchronizationResult.Failed(ex);
+        }
 
         if (calendarSyncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted)
         {
-            var dialogService = Services.GetRequiredService<IMailDialogService>();
-            dialogService.InfoBarMessage(
-                Translator.Info_SyncFailedTitle,
+            QueueSynchronizationFailure(
                 GetCalendarSynchronizationFailureMessage(message.Options.Type, calendarSyncResult.AllIssues, calendarSyncResult.Exception?.Message),
                 calendarSyncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted
                     ? InfoBarMessageType.Warning
@@ -1601,12 +1620,68 @@ public partial class App : WinoApplication,
         }
     }
 
-    public async void Receive(NewContactSynchronizationRequested message)
+    public void Receive(NewContactSynchronizationRequested message)
+        => _ = HandleContactSynchronizationRequestedAsync(message);
+
+    private async Task HandleContactSynchronizationRequestedAsync(NewContactSynchronizationRequested message)
     {
-        if (_synchronizationManager == null)
+        var synchronizationManager = _synchronizationManager;
+        if (synchronizationManager == null)
             return;
 
-        await _synchronizationManager.SynchronizeContactsAsync(message.Options).ConfigureAwait(false);
+        ContactSynchronizationResult syncResult;
+        try
+        {
+            syncResult = await Task
+                .Run(() => synchronizationManager.SynchronizeContactsAsync(message.Options))
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Contact synchronization request failed for account {AccountId}", message.Options.AccountId);
+            syncResult = ContactSynchronizationResult.Failed(ex);
+        }
+
+        if (syncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted)
+        {
+            QueueSynchronizationFailure(
+                GetSynchronizationFailureMessage(syncResult.Issues, syncResult.Exception?.Message, Translator.Exception_FailedToSynchronizeContacts),
+                syncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted
+                    ? InfoBarMessageType.Warning
+                    : InfoBarMessageType.Error);
+        }
+    }
+
+    public void Receive(NewTaskSynchronizationRequested message)
+        => _ = HandleTaskSynchronizationRequestedAsync(message);
+
+    private async Task HandleTaskSynchronizationRequestedAsync(NewTaskSynchronizationRequested message)
+    {
+        var synchronizationManager = _synchronizationManager;
+        if (synchronizationManager == null)
+            return;
+
+        TaskSynchronizationResult syncResult;
+        try
+        {
+            syncResult = await Task
+                .Run(() => synchronizationManager.SynchronizeTasksAsync(message.Options))
+                .ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Task synchronization request failed for account {AccountId}", message.Options.AccountId);
+            syncResult = TaskSynchronizationResult.Failed(ex);
+        }
+
+        if (syncResult.CompletedState is SynchronizationCompletedState.Failed or SynchronizationCompletedState.PartiallyCompleted)
+        {
+            QueueSynchronizationFailure(
+                GetSynchronizationFailureMessage(syncResult.Issues, syncResult.Exception?.Message, Translator.Exception_FailedToSynchronizeTasks),
+                syncResult.CompletedState == SynchronizationCompletedState.PartiallyCompleted
+                    ? InfoBarMessageType.Warning
+                    : InfoBarMessageType.Error);
+        }
     }
 
     public void Receive(AccountCreatedMessage message)
@@ -1632,6 +1707,8 @@ public partial class App : WinoApplication,
                 ? WinoApplicationMode.Mail
                 : message.Account.IsCalendarAccessGranted
                     ? WinoApplicationMode.Calendar
+                    : message.Account.IsTaskAccessGranted
+                        ? WinoApplicationMode.Tasks
                     : WinoApplicationMode.Contacts;
             CreateWindow(null, AppEntryConstants.GetModeLaunchArgument(initialMode));
             CloseWelcomeWindowIfPresent();
@@ -1644,6 +1721,15 @@ public partial class App : WinoApplication,
                 {
                     AccountId = message.Account.Id,
                     Type = ContactSynchronizationType.Delta
+                }));
+            }
+
+            if (message.Account.IsTaskAccessGranted && !message.Account.IsTaskReauthorizationRequired)
+            {
+                WeakReferenceMessenger.Default.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+                {
+                    AccountId = message.Account.Id,
+                    Type = TaskSynchronizationType.Delta
                 }));
             }
 
@@ -1668,6 +1754,15 @@ public partial class App : WinoApplication,
             {
                 AccountId = account.Id,
                 Type = ContactSynchronizationType.Delta
+            }));
+        }
+
+        if (account.IsTaskAccessGranted && !account.IsTaskReauthorizationRequired)
+        {
+            WeakReferenceMessenger.Default.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = TaskSynchronizationType.Delta
             }));
         }
 
@@ -1848,6 +1943,39 @@ public partial class App : WinoApplication,
         };
     }
 
+    private static string GetSynchronizationFailureMessage(
+        IEnumerable<SynchronizationIssue> issues,
+        string? exceptionMessage,
+        string fallbackMessage)
+    {
+        var issueMessage = FormatSynchronizationIssues(issues);
+        if (!string.IsNullOrWhiteSpace(issueMessage))
+            return issueMessage;
+
+        return !string.IsNullOrWhiteSpace(exceptionMessage)
+            ? exceptionMessage
+            : fallbackMessage;
+    }
+
+    private void QueueSynchronizationFailure(string message, InfoBarMessageType severity)
+    {
+        void ShowFailure()
+            => Services.GetRequiredService<IMailDialogService>()
+                .InfoBarMessage(Translator.Info_SyncFailedTitle, message, severity);
+
+        var dispatcherQueue = MainWindow?.DispatcherQueue;
+        if (dispatcherQueue == null)
+        {
+            Log.Warning("Could not show synchronization failure because no main window dispatcher is available: {Message}", message);
+            return;
+        }
+
+        if (dispatcherQueue.HasThreadAccess)
+            ShowFailure();
+        else if (!dispatcherQueue.TryEnqueue(ShowFailure))
+            Log.Warning("Could not enqueue synchronization failure UI: {Message}", message);
+    }
+
     private static string? FormatSynchronizationIssues(IEnumerable<SynchronizationIssue> issues)
     {
         if (issues == null)
@@ -1990,6 +2118,15 @@ public partial class App : WinoApplication,
             {
                 AccountId = account.Id,
                 Type = ContactSynchronizationType.Delta
+            }, cancellationToken).ConfigureAwait(false);
+        }
+
+        if (account.IsTaskAccessGranted && !account.IsTaskReauthorizationRequired)
+        {
+            await _synchronizationManager.SynchronizeTasksAsync(new TaskSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = TaskSynchronizationType.Delta
             }, cancellationToken).ConfigureAwait(false);
         }
 
@@ -2146,7 +2283,7 @@ public partial class App : WinoApplication,
 
     private async Task<bool> HandlePendingBootstrapActivationAsync(PendingBootstrapActivation pendingBootstrapActivation)
     {
-        if (pendingBootstrapActivation.Mode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts))
+        if (pendingBootstrapActivation.Mode is not (WinoApplicationMode.Calendar or WinoApplicationMode.Contacts or WinoApplicationMode.Tasks))
             return false;
 
         if (pendingBootstrapActivation.Kind == PendingBootstrapActivationKind.File)

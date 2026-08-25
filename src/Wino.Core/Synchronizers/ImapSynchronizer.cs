@@ -45,12 +45,19 @@ namespace Wino.Core.Synchronizers.Mail;
 public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object, AccountContact>, IImapSynchronizer, ISemanticMailBodySynchronizer
 {
     private readonly LocalContactSynchronizer _localContactSynchronizer = new();
+    private readonly LocalTaskSynchronizer _localTaskSynchronizer = new();
 
     protected override Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
         => _localContactSynchronizer.ExecuteRequestsAsync(requests, cancellationToken);
 
     protected override Task<ContactSynchronizationResult> SynchronizeContactsInternalAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default)
         => _localContactSynchronizer.SynchronizeAsync(options, cancellationToken);
+
+    protected override Task ExecuteTaskRequestsInternalAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken = default)
+        => _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken);
+
+    protected override Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
+        => _localTaskSynchronizer.SynchronizeAsync(options, cancellationToken);
     /// <summary>
     /// N/A for IMAP as it doesn't support batch modifications natively.
     /// </summary>

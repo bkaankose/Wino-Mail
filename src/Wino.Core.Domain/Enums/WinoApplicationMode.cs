@@ -5,5 +5,6 @@ public enum WinoApplicationMode
     Mail,
     Calendar,
     Contacts,
-    Settings
+    Settings,
+    Tasks
 }

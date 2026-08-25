@@ -44,7 +44,8 @@ public interface IWinoRequestDelegator
     Task ExecuteAsync(IReadOnlyList<ContactOperationPreparationRequest> preparationRequests);
 
     /// <summary>
-    /// Queues pre-built requests for a single account and triggers synchronization.
+    /// Queues pre-built requests for a single account and publishes the synchronization
+    /// request for each represented request type.
     /// </summary>
     Task ExecuteAsync(Guid accountId, IEnumerable<IRequestBase> requests);
 }

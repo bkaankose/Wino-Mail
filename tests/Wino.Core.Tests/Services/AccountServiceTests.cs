@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using Moq;
 using Wino.Core.Domain;
@@ -10,6 +11,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Misc;
 using Wino.Core.Tests.Helpers;
+using Wino.Messaging.UI;
 using Wino.Services;
 using Xunit;
 
@@ -20,13 +22,18 @@ public class AccountServiceTests : IAsyncLifetime
     private InMemoryDatabaseService _databaseService = null!;
     private AccountService _accountService = null!;
     private Mock<IAccountProfilePictureFileService> _profilePictureFileService = null!;
+    private Mock<IAuthenticationProvider> _authenticationProvider = null!;
 
     public async Task InitializeAsync()
     {
         _databaseService = new InMemoryDatabaseService();
         await _databaseService.InitializeAsync();
         _profilePictureFileService = new Mock<IAccountProfilePictureFileService>();
-        _accountService = CreateService(_databaseService, _profilePictureFileService.Object);
+        _authenticationProvider = new Mock<IAuthenticationProvider>();
+        _accountService = CreateService(
+            _databaseService,
+            _profilePictureFileService.Object,
+            _authenticationProvider.Object);
     }
 
     public async Task DisposeAsync()
@@ -244,6 +251,83 @@ public class AccountServiceTests : IAsyncLifetime
             Times.Once);
     }
 
+    [Theory]
+    [InlineData(MailProviderType.Gmail)]
+    [InlineData(MailProviderType.Outlook)]
+    public async Task DeleteAccountAuthenticationDataAsync_OAuthProvider_DeletesTokenAndMarksAttention(
+        MailProviderType providerType)
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = providerType.ToString(),
+            Address = $"{providerType.ToString().ToLowerInvariant()}@test.local",
+            ProviderType = providerType
+        };
+        var authenticator = new Mock<IAuthenticator>();
+        _authenticationProvider.Setup(provider => provider.GetAuthenticator(providerType))
+            .Returns(authenticator.Object);
+        await _databaseService.Connection.InsertAsync(account);
+
+        AccountUpdatedMessage? notification = null;
+        var recipient = new object();
+        WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(recipient, (_, message) => notification = message);
+        try
+        {
+            await _accountService.DeleteAccountAuthenticationDataAsync(account.Id);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+
+        authenticator.Verify(value => value.DeleteTokenInformationAsync(
+            It.Is<MailAccount>(candidate => candidate.Id == account.Id)), Times.Once);
+        var updated = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
+        updated.AttentionReason.Should().Be(AccountAttentionReason.InvalidCredentials);
+        notification.Should().NotBeNull();
+        notification!.Account.Id.Should().Be(account.Id);
+        notification.Account.AttentionReason.Should().Be(AccountAttentionReason.InvalidCredentials);
+    }
+
+    [Fact]
+    public async Task DeleteAccountAuthenticationDataAsync_Imap_BlanksPasswordsAndPreservesConnectionDetails()
+    {
+        var account = CreateImapAccount(Guid.NewGuid());
+        var server = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            AccountId = account.Id,
+            IncomingServer = "imap.test.local",
+            IncomingServerUsername = "incoming-user",
+            IncomingServerPassword = "incoming-secret",
+            OutgoingServer = "smtp.test.local",
+            OutgoingServerUsername = "outgoing-user",
+            OutgoingServerPassword = "outgoing-secret",
+            CalDavServiceUrl = "https://caldav.test.local/user",
+            CalDavUsername = "calendar-user",
+            CalDavPassword = "calendar-secret"
+        };
+        await _databaseService.Connection.InsertAsync(account);
+        await _databaseService.Connection.InsertAsync(server);
+
+        await _accountService.DeleteAccountAuthenticationDataAsync(account.Id);
+
+        var updatedAccount = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
+        var updatedServer = await _databaseService.Connection.FindAsync<CustomServerInformation>(server.Id);
+        updatedAccount.AttentionReason.Should().Be(AccountAttentionReason.InvalidCredentials);
+        updatedServer.IncomingServerPassword.Should().BeEmpty();
+        updatedServer.OutgoingServerPassword.Should().BeEmpty();
+        updatedServer.CalDavPassword.Should().BeEmpty();
+        updatedServer.IncomingServer.Should().Be("imap.test.local");
+        updatedServer.IncomingServerUsername.Should().Be("incoming-user");
+        updatedServer.OutgoingServer.Should().Be("smtp.test.local");
+        updatedServer.OutgoingServerUsername.Should().Be("outgoing-user");
+        updatedServer.CalDavServiceUrl.Should().Be("https://caldav.test.local/user");
+        updatedServer.CalDavUsername.Should().Be("calendar-user");
+        _authenticationProvider.VerifyNoOtherCalls();
+    }
+
     private static MailAccount CreateImapAccount(Guid accountId, string name = "IMAP Test Account", string address = "imap@test.local")
     {
         return new MailAccount
@@ -258,7 +342,8 @@ public class AccountServiceTests : IAsyncLifetime
 
     private static AccountService CreateService(
         InMemoryDatabaseService databaseService,
-        IAccountProfilePictureFileService accountProfilePictureFileService = null)
+        IAccountProfilePictureFileService accountProfilePictureFileService = null,
+        IAuthenticationProvider authenticationProvider = null)
     {
         var signatureService = new Mock<ISignatureService>();
         signatureService
@@ -271,7 +356,7 @@ public class AccountServiceTests : IAsyncLifetime
                 HtmlBody = string.Empty
             });
 
-        var authenticationProvider = new Mock<IAuthenticationProvider>();
+        authenticationProvider ??= Mock.Of<IAuthenticationProvider>();
         var mimeFileService = new Mock<IMimeFileService>();
         var contactPictureFileService = new Mock<IContactPictureFileService>();
 
@@ -281,7 +366,7 @@ public class AccountServiceTests : IAsyncLifetime
         return new AccountService(
             databaseService,
             signatureService.Object,
-            authenticationProvider.Object,
+            authenticationProvider,
             mimeFileService.Object,
             preferencesService.Object,
             contactPictureFileService.Object,

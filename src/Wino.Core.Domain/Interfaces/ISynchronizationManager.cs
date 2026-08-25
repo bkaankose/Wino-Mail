@@ -107,6 +107,9 @@ public interface ISynchronizationManager
     Task<ContactSynchronizationResult> SynchronizeContactsAsync(ContactSynchronizationOptions options,
                                                                  CancellationToken cancellationToken = default);
 
+    Task<TaskSynchronizationResult> SynchronizeTasksAsync(TaskSynchronizationOptions options,
+                                                           CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Downloads a MIME message for the given mail item.
     /// </summary>

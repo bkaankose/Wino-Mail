@@ -68,7 +68,8 @@ public sealed partial class AppModeFooterSwitcherControl : Segmented
         {
             1 => WinoApplicationMode.Calendar,
             2 => WinoApplicationMode.Contacts,
-            3 => WinoApplicationMode.Settings,
+            3 => WinoApplicationMode.Tasks,
+            4 => WinoApplicationMode.Settings,
             _ => WinoApplicationMode.Mail
         };
 
@@ -85,7 +86,8 @@ public sealed partial class AppModeFooterSwitcherControl : Segmented
         {
             WinoApplicationMode.Calendar => 1,
             WinoApplicationMode.Contacts => 2,
-            WinoApplicationMode.Settings => 3,
+            WinoApplicationMode.Tasks => 3,
+            WinoApplicationMode.Settings => 4,
             _ => 0
         };
         _isUpdatingSelection = false;

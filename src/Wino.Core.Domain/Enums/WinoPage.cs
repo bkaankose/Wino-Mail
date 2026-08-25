@@ -11,6 +11,7 @@ public enum WinoPage
     SettingsPage,
     ContactsPage,
     ContactEditPage,
+    ToDoPage,
     MailRenderingPage,
     AccountDetailsPage,
     FolderCustomizationPage,

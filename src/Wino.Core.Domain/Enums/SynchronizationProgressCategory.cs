@@ -4,5 +4,6 @@ public enum SynchronizationProgressCategory
 {
     Mail,
     Calendar,
-    Contacts
+    Contacts,
+    Tasks
 }

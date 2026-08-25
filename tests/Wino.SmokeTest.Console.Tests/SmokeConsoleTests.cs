@@ -1,4 +1,5 @@
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.SmokeTest.ConsoleApp;
@@ -108,6 +109,40 @@ public sealed class SmokeConsoleTests
     }
 
     [Fact]
+    public void AccountSelection_ShowsAttentionState()
+    {
+        var account = new MailAccount
+        {
+            Name = "Needs auth",
+            Address = "attention@example.test",
+            ProviderType = MailProviderType.Gmail,
+            AttentionReason = AccountAttentionReason.InvalidCredentials
+        };
+
+        var display = Program.FormatAccountSelection(account);
+
+        Assert.Contains("ATTENTION: InvalidCredentials", display);
+    }
+
+    [Fact]
+    public void EnabledSynchronizationModes_OnlyReturnsGrantedCapabilities()
+    {
+        var account = new MailAccount
+        {
+            IsMailAccessGranted = true,
+            IsCalendarAccessGranted = false,
+            IsContactAccessGranted = true,
+            IsTaskAccessGranted = true
+        };
+
+        var modes = SmokeTestRunner.GetEnabledSynchronizationModes(account);
+
+        Assert.Equal(
+            [AccountSynchronizationMode.Mail, AccountSynchronizationMode.Contacts, AccountSynchronizationMode.Todo],
+            modes);
+    }
+
+    [Fact]
     public async Task SynchronizationHost_RoutesMessengerRequestAndReturnsResult()
     {
         var manager = SynchronizationManagerProxy.Create(async options =>
@@ -157,6 +192,30 @@ public sealed class SmokeConsoleTests
         Assert.Equal(1, maximumActive);
     }
 
+    [Fact]
+    public async Task SynchronizationHost_AwaitsTaskSynchronizationResult()
+    {
+        var manager = SynchronizationManagerProxy.Create(
+            _ => Task.FromResult(MailSynchronizationResult.Empty),
+            async options =>
+            {
+                await Task.Yield();
+                return TaskSynchronizationResult.Completed(3, 2, 1);
+            });
+        using var host = new SmokeSynchronizationHost(manager);
+
+        var result = await host.SynchronizeTasksAsync(new TaskSynchronizationOptions
+        {
+            AccountId = Guid.NewGuid(),
+            Type = TaskSynchronizationType.Delta
+        }, CancellationToken.None);
+
+        Assert.Equal(SynchronizationCompletedState.Success, result.CompletedState);
+        Assert.Equal(3, result.DownloadedCount);
+        Assert.Equal(2, result.ChangedCount);
+        Assert.Equal(1, result.DeletedCount);
+    }
+
     private static SmokeRunResult CreateResult()
         => new()
         {
@@ -171,12 +230,15 @@ public sealed class SmokeConsoleTests
 internal class SynchronizationManagerProxy : DispatchProxy
 {
     private Func<MailSynchronizationOptions, Task<MailSynchronizationResult>> _mailHandler = null!;
+    private Func<TaskSynchronizationOptions, Task<TaskSynchronizationResult>>? _taskHandler;
 
     public static ISynchronizationManager Create(
-        Func<MailSynchronizationOptions, Task<MailSynchronizationResult>> mailHandler)
+        Func<MailSynchronizationOptions, Task<MailSynchronizationResult>> mailHandler,
+        Func<TaskSynchronizationOptions, Task<TaskSynchronizationResult>>? taskHandler = null)
     {
         var manager = Create<ISynchronizationManager, SynchronizationManagerProxy>();
         ((SynchronizationManagerProxy)(object)manager)._mailHandler = mailHandler;
+        ((SynchronizationManagerProxy)(object)manager)._taskHandler = taskHandler;
         return manager;
     }
 
@@ -187,6 +249,9 @@ internal class SynchronizationManagerProxy : DispatchProxy
 
         if (targetMethod.Name == nameof(ISynchronizationManager.SynchronizeMailAsync))
             return _mailHandler((MailSynchronizationOptions)args[0]!);
+
+        if (targetMethod.Name == nameof(ISynchronizationManager.SynchronizeTasksAsync) && _taskHandler is not null)
+            return _taskHandler((TaskSynchronizationOptions)args[0]!);
 
         throw new NotSupportedException(targetMethod.Name);
     }

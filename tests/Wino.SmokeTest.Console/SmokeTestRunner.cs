@@ -264,7 +264,7 @@ internal sealed class SmokeTestRunner : IDisposable
                 switch (System.Console.ReadLine()?.Trim())
                 {
                     case "1":
-                        await RunInteractiveSynchronizationAsync(account, cancellationToken).ConfigureAwait(false);
+                        await RunSynchronizationMenuAsync(account, cancellationToken).ConfigureAwait(false);
                         break;
                     case "2":
                         await RunInteractiveMailOperationsAsync(account, cancellationToken).ConfigureAwait(false);
@@ -294,7 +294,80 @@ internal sealed class SmokeTestRunner : IDisposable
         }
     }
 
-    private async Task RunInteractiveSynchronizationAsync(MailAccount account, CancellationToken cancellationToken)
+    public async Task RunSynchronizationMenuAsync(MailAccount account, CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            var modes = GetEnabledSynchronizationModes(account);
+            ConsoleOutput.Header("\nSynchronize:");
+
+            if (modes.Count == 0)
+            {
+                ConsoleOutput.Warning("This account has no enabled synchronization modes.");
+                return;
+            }
+
+            for (var index = 0; index < modes.Count; index++)
+                System.Console.WriteLine($"  {index + 1}. {GetSynchronizationModeLabel(modes[index])}");
+
+            var synchronizeAllSelection = modes.Count + 1;
+            System.Console.WriteLine($"  {synchronizeAllSelection}. All enabled (sequential)");
+            System.Console.WriteLine("  0. Back");
+            ConsoleOutput.Prompt("Selection: ");
+
+            if (!int.TryParse(System.Console.ReadLine(), out var selection))
+            {
+                ConsoleOutput.Warning("Select a listed synchronization mode.");
+                continue;
+            }
+
+            if (selection == 0)
+                return;
+
+            if (selection == synchronizeAllSelection)
+            {
+                foreach (var mode in modes)
+                    await SynchronizeModeAsync(account, mode, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            if (selection < 1 || selection > modes.Count)
+            {
+                ConsoleOutput.Warning("Select a listed synchronization mode.");
+                continue;
+            }
+
+            await SynchronizeModeAsync(account, modes[selection - 1], cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task SynchronizeModeAsync(
+        MailAccount account,
+        AccountSynchronizationMode mode,
+        CancellationToken cancellationToken)
+    {
+        ConsoleOutput.Muted($"Synchronizing {GetSynchronizationModeLabel(mode)}...");
+
+        switch (mode)
+        {
+            case AccountSynchronizationMode.Mail:
+                await SynchronizeMailInteractivelyAsync(account, cancellationToken).ConfigureAwait(false);
+                break;
+            case AccountSynchronizationMode.Calendar:
+                await SynchronizeCalendarInteractivelyAsync(account, cancellationToken).ConfigureAwait(false);
+                break;
+            case AccountSynchronizationMode.Contacts:
+                await SynchronizeContactsInteractivelyAsync(account, cancellationToken).ConfigureAwait(false);
+                break;
+            case AccountSynchronizationMode.Todo:
+                await SynchronizeTasksInteractivelyAsync(account, cancellationToken).ConfigureAwait(false);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(mode), mode, null);
+        }
+    }
+
+    private async Task SynchronizeMailInteractivelyAsync(MailAccount account, CancellationToken cancellationToken)
     {
         var mail = await _synchronizationHost.SynchronizeMailAsync(new MailSynchronizationOptions
         {
@@ -302,36 +375,41 @@ internal sealed class SmokeTestRunner : IDisposable
             Type = MailSynchronizationType.FullFolders
         }, cancellationToken).ConfigureAwait(false);
         PrintMailResult(mail);
+    }
 
-        if (account.IsCalendarAccessGranted)
+    private async Task SynchronizeCalendarInteractivelyAsync(MailAccount account, CancellationToken cancellationToken)
+    {
+        var calendar = await _synchronizationHost.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
         {
-            var calendar = await _synchronizationHost.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
-            {
-                AccountId = account.Id,
-                Type = CalendarSynchronizationType.CalendarEvents
-            }, cancellationToken).ConfigureAwait(false);
-            var changes = _synchronizationHost.LastCalendarChanges;
-            var added = Math.Max(changes.Added, calendar.DownloadedEvents?.Count() ?? 0);
-            System.Console.WriteLine($"Calendar: {calendar.CompletedState}; added {added}, updated {changes.Updated}, deleted {changes.Deleted}.");
-        }
-        else
-        {
-            ConsoleOutput.Warning("Calendar synchronization skipped: access is not granted.");
-        }
+            AccountId = account.Id,
+            Type = CalendarSynchronizationType.CalendarEvents
+        }, cancellationToken).ConfigureAwait(false);
+        var changes = _synchronizationHost.LastCalendarChanges;
+        var added = Math.Max(changes.Added, calendar.DownloadedEvents?.Count() ?? 0);
+        System.Console.WriteLine($"Calendar: {calendar.CompletedState}; added {added}, updated {changes.Updated}, removed {changes.Deleted}.");
+        PrintResultDetails(calendar.Exception, calendar.AllIssues);
+    }
 
-        if (account.IsContactAccessGranted)
+    private async Task SynchronizeContactsInteractivelyAsync(MailAccount account, CancellationToken cancellationToken)
+    {
+        var contacts = await _synchronizationHost.SynchronizeContactsAsync(new ContactSynchronizationOptions
         {
-            var contacts = await _synchronizationHost.SynchronizeContactsAsync(new ContactSynchronizationOptions
-            {
-                AccountId = account.Id,
-                Type = ContactSynchronizationType.Delta
-            }, cancellationToken).ConfigureAwait(false);
-            System.Console.WriteLine($"Contacts: {contacts.CompletedState}; downloaded {contacts.DownloadedCount}, changed {contacts.ChangedCount}, deleted {contacts.DeletedCount}.");
-        }
-        else
+            AccountId = account.Id,
+            Type = ContactSynchronizationType.Delta
+        }, cancellationToken).ConfigureAwait(false);
+        System.Console.WriteLine($"Contacts: {contacts.CompletedState}; added {contacts.DownloadedCount}, updated {contacts.ChangedCount}, removed {contacts.DeletedCount}.");
+        PrintResultDetails(contacts.Exception, contacts.Issues);
+    }
+
+    private async Task SynchronizeTasksInteractivelyAsync(MailAccount account, CancellationToken cancellationToken)
+    {
+        var tasks = await _synchronizationHost.SynchronizeTasksAsync(new TaskSynchronizationOptions
         {
-            ConsoleOutput.Warning("Contact synchronization skipped: access is not granted.");
-        }
+            AccountId = account.Id,
+            Type = TaskSynchronizationType.Delta
+        }, cancellationToken).ConfigureAwait(false);
+        System.Console.WriteLine($"Todo: {tasks.CompletedState}; added {tasks.DownloadedCount}, updated {tasks.ChangedCount}, removed {tasks.DeletedCount}.");
+        PrintResultDetails(tasks.Exception, tasks.Issues);
     }
 
     private async Task RunInteractiveMailOperationsAsync(MailAccount account, CancellationToken cancellationToken)
@@ -676,12 +754,44 @@ internal sealed class SmokeTestRunner : IDisposable
 
     private static void PrintMailResult(MailSynchronizationResult result)
     {
-        System.Console.WriteLine($"Mail: {result.CompletedState}; arrived {result.TotalDownloadedCount}, updated {result.TotalUpdatedCount}, deleted {result.TotalDeletedCount}.");
+        System.Console.WriteLine($"Mail: {result.CompletedState}; added {result.TotalDownloadedCount}, updated {result.TotalUpdatedCount}, removed {result.TotalDeletedCount}.");
         foreach (var folder in result.FolderResults)
-            System.Console.WriteLine($"  {folder.FolderName}: success={folder.Success}, arrived={folder.DownloadedCount}, updated={folder.UpdatedCount}, deleted={folder.DeletedCount}");
-        foreach (var issue in result.AllIssues)
-            ConsoleOutput.Warning($"  {issue.Message}");
+            System.Console.WriteLine($"  {folder.FolderName}: success={folder.Success}, added={folder.DownloadedCount}, updated={folder.UpdatedCount}, removed={folder.DeletedCount}");
+        PrintResultDetails(result.Exception, result.AllIssues);
     }
+
+    private static void PrintResultDetails(Exception? exception, IEnumerable<SynchronizationIssue> issues)
+    {
+        foreach (var issue in issues)
+            ConsoleOutput.Warning($"  {issue.Message}");
+
+        if (exception is not null && !issues.Any(issue => string.Equals(issue.Message, exception.Message, StringComparison.Ordinal)))
+            ConsoleOutput.Error($"  {exception.Message}");
+    }
+
+    internal static IReadOnlyList<AccountSynchronizationMode> GetEnabledSynchronizationModes(MailAccount account)
+    {
+        var modes = new List<AccountSynchronizationMode>(4);
+        if (account.IsMailAccessGranted)
+            modes.Add(AccountSynchronizationMode.Mail);
+        if (account.IsCalendarAccessGranted)
+            modes.Add(AccountSynchronizationMode.Calendar);
+        if (account.IsContactAccessGranted)
+            modes.Add(AccountSynchronizationMode.Contacts);
+        if (account.IsTaskAccessGranted)
+            modes.Add(AccountSynchronizationMode.Todo);
+        return modes;
+    }
+
+    private static string GetSynchronizationModeLabel(AccountSynchronizationMode mode)
+        => mode switch
+        {
+            AccountSynchronizationMode.Mail => "Mail",
+            AccountSynchronizationMode.Calendar => "Calendar",
+            AccountSynchronizationMode.Contacts => "Contacts",
+            AccountSynchronizationMode.Todo => "Todo",
+            _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
+        };
 
     internal static bool TryMapManualOperation(string? input, out MailOperation operation)
     {
@@ -711,4 +821,12 @@ internal sealed class SmokeTestRunner : IDisposable
     private readonly record struct StepPayload(string Details, IReadOnlyDictionary<string, int>? Counts);
 
     public void Dispose() => _synchronizationHost.Dispose();
+}
+
+internal enum AccountSynchronizationMode
+{
+    Mail,
+    Calendar,
+    Contacts,
+    Todo
 }

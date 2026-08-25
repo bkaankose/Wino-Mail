@@ -67,4 +67,20 @@ public sealed class MailAuthenticatorConfigurationTests
         outlook.Contains("Calendars.ReadWrite").Should().Be(calendar);
         outlook.Contains("Contacts.ReadWrite").Should().Be(contacts);
     }
+
+    [Theory]
+    [InlineData(false, false, false, false)]
+    [InlineData(true, false, false, false)]
+    [InlineData(false, true, false, false)]
+    [InlineData(false, false, true, true)]
+    [InlineData(true, true, true, true)]
+    public void ProviderScopes_ReflectIndependentTasksCapability(bool mail, bool calendar, bool tasks, bool expectedTasks)
+    {
+        var request = new ProviderAuthorizationRequest(mail, calendar, [], IncludeTasks: tasks);
+        var gmail = _configuration.GetGmailScopes(request);
+        var outlook = _configuration.GetOutlookScopes(request);
+
+        gmail.Contains("https://www.googleapis.com/auth/tasks").Should().Be(expectedTasks);
+        outlook.Contains("Tasks.ReadWrite").Should().Be(expectedTasks);
+    }
 }

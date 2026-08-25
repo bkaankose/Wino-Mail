@@ -11,8 +11,12 @@ internal static class AppModeActivationResolver
     {
         var mailDefaultMode = Resolve(launchArguments, tileId, appId, WinoApplicationMode.Mail);
         var calendarDefaultMode = Resolve(launchArguments, tileId, appId, WinoApplicationMode.Calendar);
+        var contactsDefaultMode = Resolve(launchArguments, tileId, appId, WinoApplicationMode.Contacts);
+        var tasksDefaultMode = Resolve(launchArguments, tileId, appId, WinoApplicationMode.Tasks);
 
-        if (mailDefaultMode == calendarDefaultMode)
+        if (mailDefaultMode == calendarDefaultMode &&
+            mailDefaultMode == contactsDefaultMode &&
+            mailDefaultMode == tasksDefaultMode)
         {
             mode = mailDefaultMode;
             return true;

@@ -69,6 +69,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public partial bool IsContactAccessEnabled { get; set; } = true;
 
     [ObservableProperty]
+    public partial bool IsTaskAccessEnabled { get; set; }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentStepNumber))]
     [NotifyPropertyChangedFor(nameof(StepProgressValue))]
     [NotifyPropertyChangedFor(nameof(StepProgressText))]
@@ -95,7 +98,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public string SelectedProviderImage => SelectedProvider?.ProviderImage ?? string.Empty;
     public string SelectedProviderCapabilityDescription => GetSelectedProviderCapabilityDescription();
     public bool IsContactsCapabilityVisible => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
-    public bool IsCapabilitySelectionMissing => !IsMailAccessEnabled && !IsCalendarAccessEnabled && !(IsContactsCapabilityVisible && IsContactAccessEnabled);
+    public bool IsTasksCapabilityVisible => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
+    public bool IsCapabilitySelectionMissing => !IsMailAccessEnabled && !IsCalendarAccessEnabled &&
+        !(IsContactsCapabilityVisible && IsContactAccessEnabled) && !(IsTasksCapabilityVisible && IsTaskAccessEnabled);
     public bool IsCalendarOnlyServerHintVisible =>
         SelectedProvider?.Type == MailProviderType.IMAP4 &&
         !IsMailAccessEnabled &&
@@ -149,6 +154,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
             IsMailAccessEnabled = WizardContext.IsMailAccessEnabled;
             IsCalendarAccessEnabled = WizardContext.IsCalendarAccessEnabled;
             IsContactAccessEnabled = WizardContext.IsContactAccessEnabled;
+            IsTaskAccessEnabled = WizardContext.IsTaskAccessEnabled;
 
             if (WizardContext.AccountColorHex != null)
                 SelectedColor = AvailableColors.FirstOrDefault(c => c.Hex == WizardContext.AccountColorHex);
@@ -158,6 +164,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
             IsMailAccessEnabled = true;
             IsCalendarAccessEnabled = false;
             IsContactAccessEnabled = IsContactsCapabilityVisible;
+            IsTaskAccessEnabled = false;
         }
 
         CurrentStep = mode == NavigationMode.Back && SelectedProvider != null
@@ -173,7 +180,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(SelectedProviderCapabilityDescription));
         OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
         OnPropertyChanged(nameof(IsContactsCapabilityVisible));
+        OnPropertyChanged(nameof(IsTasksCapabilityVisible));
         IsContactAccessEnabled = IsContactsCapabilityVisible;
+        IsTaskAccessEnabled = false;
         OnPropertyChanged(nameof(IsCalendarOnlyServerHintVisible));
         ContinueCommand.NotifyCanExecuteChanged();
     }
@@ -200,6 +209,12 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         ContinueCommand.NotifyCanExecuteChanged();
     }
 
+    partial void OnIsTaskAccessEnabledChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
+        ContinueCommand.NotifyCanExecuteChanged();
+    }
+
     [RelayCommand]
     private void ClearColor() => SelectedColor = null;
 
@@ -209,7 +224,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         {
             ProviderSelectionWizardStep.Provider => SelectedProvider != null,
             ProviderSelectionWizardStep.Identity => !string.IsNullOrWhiteSpace(AccountName),
-            ProviderSelectionWizardStep.Capabilities => IsMailAccessEnabled || IsCalendarAccessEnabled || (IsContactsCapabilityVisible && IsContactAccessEnabled),
+            ProviderSelectionWizardStep.Capabilities => IsMailAccessEnabled || IsCalendarAccessEnabled || (IsContactsCapabilityVisible && IsContactAccessEnabled) || (IsTasksCapabilityVisible && IsTaskAccessEnabled),
             _ => false
         };
     }
@@ -261,6 +276,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         WizardContext.IsMailAccessEnabled = IsMailAccessEnabled;
         WizardContext.IsCalendarAccessEnabled = IsCalendarAccessEnabled;
         WizardContext.IsContactAccessEnabled = IsContactsCapabilityVisible && IsContactAccessEnabled;
+        WizardContext.IsTaskAccessEnabled = IsTasksCapabilityVisible && IsTaskAccessEnabled;
 
         if (WizardContext.IsGenericImap)
         {

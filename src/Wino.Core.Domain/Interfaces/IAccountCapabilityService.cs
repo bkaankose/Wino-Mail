@@ -11,5 +11,6 @@ public interface IAccountCapabilityService
         bool includeMail,
         bool includeCalendar,
         bool includeContacts,
+        bool includeTasks,
         CancellationToken cancellationToken = default);
 }

@@ -7,9 +7,10 @@ namespace Wino.Core.Domain.Models.Authentication;
 
 public sealed record ProviderAuthorizationRequest(
     bool IncludeMail,
-    bool IncludeCalendar,
-    IReadOnlyCollection<ProviderFeature> Features,
-    bool IncludeContacts = false)
+        bool IncludeCalendar,
+        IReadOnlyCollection<ProviderFeature> Features,
+        bool IncludeContacts = false,
+        bool IncludeTasks = false)
 {
     public static ProviderAuthorizationRequest ForAccount(
         MailAccount account,
@@ -17,6 +18,7 @@ public sealed record ProviderAuthorizationRequest(
         => new(
             account?.IsMailAccessGranted != false,
             account?.IsCalendarAccessGranted == true,
-            features?.Distinct().ToArray() ?? [],
-            account?.IsContactAccessGranted == true);
+              features?.Distinct().ToArray() ?? [],
+              account?.IsContactAccessGranted == true,
+              account?.IsTaskAccessGranted == true);
 }

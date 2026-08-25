@@ -50,6 +50,13 @@ public interface IAccountService
     Task DeleteAccountAsync(MailAccount account);
 
     /// <summary>
+    /// Removes the credentials for an account without deleting its locally synchronized data.
+    /// The account is marked as requiring authentication before it can synchronize again.
+    /// </summary>
+    /// <param name="accountId">Account whose authentication data will be removed.</param>
+    Task DeleteAccountAuthenticationDataAsync(Guid accountId);
+
+    /// <summary>
     /// Returns the custom server information for the given account id.
     /// </summary>
     Task<CustomServerInformation> GetAccountCustomServerInformationAsync(Guid accountId);

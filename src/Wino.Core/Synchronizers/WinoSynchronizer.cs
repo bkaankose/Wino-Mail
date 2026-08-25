@@ -124,6 +124,28 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
         ContactSynchronizationOptions options,
         CancellationToken cancellationToken = default) => Task.FromResult(ContactSynchronizationResult.Empty);
 
+    protected virtual Task ExecuteTaskRequestsInternalAsync(
+        IReadOnlyList<ITaskActionRequest> requests,
+        CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    protected virtual Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(
+        TaskSynchronizationOptions options,
+        CancellationToken cancellationToken = default) => Task.FromResult(TaskSynchronizationResult.Empty);
+
+    /// <summary>
+    /// Removes one task mutation after its provider operation has been accepted.
+    /// Provider synchronizers call this per operation so a later failure in the same
+    /// batch cannot replay an already-created list or task.
+    /// </summary>
+    protected void MarkTaskRequestProcessed(ITaskActionRequest request)
+    {
+        if (request is null)
+            return;
+
+        changeRequestQueue.Remove(request);
+        UntrackProcessedRequest(request);
+    }
+
     public async Task<ContactSynchronizationResult> SynchronizeContactsAsync(
         ContactSynchronizationOptions options,
         CancellationToken cancellationToken = default)
@@ -185,6 +207,98 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             Logger.Error(ex, "Contact synchronization failed for {AccountId}.", Account.Id);
             var result = ContactSynchronizationResult.Failed(ex).MergeIssues(GetCapturedSynchronizationIssues());
             Messenger.Send(new ContactSynchronizationCompleted(Account.Id, result.CompletedState));
+            return result;
+        }
+        finally
+        {
+            State = AccountSynchronizerState.Idle;
+            if (semaphoreEntered)
+                synchronizationSemaphore.Release();
+        }
+    }
+
+    public async Task<TaskSynchronizationResult> SynchronizeTasksAsync(
+        TaskSynchronizationOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ResetCapturedSynchronizationIssues();
+        var semaphoreEntered = false;
+
+        try
+        {
+            await synchronizationSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            semaphoreEntered = true;
+            activeSynchronizationCancellationToken = cancellationToken;
+            CurrentSynchronizationProgressCategory = SynchronizationProgressCategory.Tasks;
+
+            if (options?.Type == TaskSynchronizationType.ExecuteRequests)
+            {
+                var requests = changeRequestQueue.OfType<ITaskActionRequest>().ToList();
+                if (requests.Count == 0)
+                {
+                    Messenger.Send(new TaskSynchronizationCompleted(Account.Id, SynchronizationCompletedState.Success));
+                    return TaskSynchronizationResult.Empty;
+                }
+
+                State = AccountSynchronizerState.ExecutingRequests;
+                try
+                {
+                    await ExecuteTaskRequestsInternalAsync(requests, cancellationToken).ConfigureAwait(false);
+
+                    // Remove only after the provider accepted the complete request batch.
+                    // A failed provider call leaves the optimistic mutation queued so the
+                    // next task synchronization can retry it and reconcile provider data.
+                    foreach (var request in requests)
+                        changeRequestQueue.Remove(request);
+                    UntrackProcessedRequests(requests.Cast<IRequestBase>().ToList());
+                }
+                finally
+                {
+                    Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
+                }
+
+                var requestResult = TaskSynchronizationResult.Empty.MergeIssues(GetCapturedSynchronizationIssues());
+
+                // Provider mutations are followed by a reconciliation pass. This commits
+                // remote identities/ETags and makes provider-authoritative conflict handling
+                // deterministic before the visible task list is refreshed.
+                State = AccountSynchronizerState.Synchronizing;
+                UpdateSyncProgress(0, 0, "Synchronizing tasks...");
+                var reconciliationResult = await SynchronizeTasksInternalAsync(new TaskSynchronizationOptions
+                {
+                    AccountId = Account.Id,
+                    Type = TaskSynchronizationType.Delta
+                }, cancellationToken).ConfigureAwait(false) ?? TaskSynchronizationResult.Empty;
+
+                var combinedResult = new TaskSynchronizationResult
+                {
+                    CompletedState = reconciliationResult.CompletedState,
+                    DownloadedCount = requestResult.DownloadedCount + reconciliationResult.DownloadedCount,
+                    ChangedCount = requestResult.ChangedCount + reconciliationResult.ChangedCount,
+                    DeletedCount = requestResult.DeletedCount + reconciliationResult.DeletedCount
+                }.MergeIssues(requestResult.Issues).MergeIssues(reconciliationResult.Issues);
+                Messenger.Send(new TaskSynchronizationCompleted(Account.Id, combinedResult.CompletedState));
+                return combinedResult;
+            }
+
+            State = AccountSynchronizerState.Synchronizing;
+            UpdateSyncProgress(0, 0, "Synchronizing tasks...");
+            var result = await SynchronizeTasksInternalAsync(options, cancellationToken).ConfigureAwait(false)
+                ?? TaskSynchronizationResult.Empty;
+            result = result.MergeIssues(GetCapturedSynchronizationIssues());
+            Messenger.Send(new TaskSynchronizationCompleted(Account.Id, result.CompletedState));
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            Messenger.Send(new TaskSynchronizationCompleted(Account.Id, SynchronizationCompletedState.Canceled));
+            return TaskSynchronizationResult.Canceled;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "Task synchronization failed for {AccountId}.", Account.Id);
+            var result = TaskSynchronizationResult.Failed(ex).MergeIssues(GetCapturedSynchronizationIssues());
+            Messenger.Send(new TaskSynchronizationCompleted(Account.Id, result.CompletedState));
             return result;
         }
         finally

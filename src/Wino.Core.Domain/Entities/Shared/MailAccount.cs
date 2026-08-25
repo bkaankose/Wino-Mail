@@ -114,6 +114,16 @@ public class MailAccount
     public bool IsContactReauthorizationRequired { get; set; }
 
     /// <summary>
+    /// Gets or sets whether provider task access is enabled for this account.
+    /// Existing accounts default to false so migration never requests a new scope.
+    /// IMAP-family accounts use their local task list regardless of this flag.
+    /// </summary>
+    public bool IsTaskAccessGranted { get; set; }
+
+    /// <summary>Gets or sets whether task authorization must be renewed.</summary>
+    public bool IsTaskReauthorizationRequired { get; set; }
+
+    /// <summary>
     /// Gets or sets whether MailKit IMAP and SMTP protocol diagnostics are captured for this account.
     /// Protocol logging is opt-in and disabled by default.
     /// </summary>

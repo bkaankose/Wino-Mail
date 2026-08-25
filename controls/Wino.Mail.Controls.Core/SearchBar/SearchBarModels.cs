@@ -9,6 +9,7 @@ public enum SearchBarMode
     Mail,
     Contacts,
     Calendar,
+    Tasks,
     Settings,
 }
 

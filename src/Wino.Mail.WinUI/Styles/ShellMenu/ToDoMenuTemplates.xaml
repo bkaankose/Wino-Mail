@@ -1,0 +1,70 @@
+<ResourceDictionary
+    x:Class="Wino.Mail.WinUI.Styles.ShellMenu.ToDoMenuTemplates"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:menu="using:Wino.Core.Domain.MenuItems"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls">
+
+    <DataTemplate x:Key="NewTaskListTemplate" x:DataType="menu:NewTaskListMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Height="44"
+            AutomationProperties.AutomationId="ToDoNewList"
+            AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_NewList, Mode=OneTime}"
+            Content="{x:Bind domain:Translator.ToDoPage_NewList, Mode=OneTime}"
+            DataContext="{x:Bind}"
+            SelectsOnInvoked="False">
+            <muxc:NavigationViewItem.Icon>
+                <SymbolIcon Symbol="Add" />
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--  Smart views carry a badge of their remaining open tasks.  -->
+    <DataTemplate x:Key="TaskSmartViewTemplate" x:DataType="menu:TaskSmartViewMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Height="38"
+            AutomationProperties.AutomationId="ToDoSmartView"
+            AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
+            Content="{x:Bind Title, Mode=OneWay}"
+            DataContext="{x:Bind}"
+            SelectsOnInvoked="True">
+            <muxc:NavigationViewItem.Icon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph, Mode=OneWay}" />
+            </muxc:NavigationViewItem.Icon>
+            <muxc:NavigationViewItem.InfoBadge>
+                <muxc:InfoBadge
+                    AutomationProperties.AutomationId="ToDoSmartViewCount"
+                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                    Value="{x:Bind Count, Mode=OneWay}"
+                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}" />
+            </muxc:NavigationViewItem.InfoBadge>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--  Lists carry an icon so they align with the smart views above them, plus the same badge.  -->
+    <DataTemplate x:Key="AccountTaskListTemplate" x:DataType="menu:AccountTaskListMenuItem">
+        <coreControls:WinoNavigationViewItem
+            Height="38"
+            AutomationProperties.AutomationId="ToDoListItem"
+            AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
+            Content="{x:Bind Title, Mode=OneWay}"
+            DataContext="{x:Bind}"
+            SelectsOnInvoked="True">
+            <muxc:NavigationViewItem.Icon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FD;" />
+            </muxc:NavigationViewItem.Icon>
+            <muxc:NavigationViewItem.InfoBadge>
+                <muxc:InfoBadge
+                    AutomationProperties.AutomationId="ToDoListItemCount"
+                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                    Value="{x:Bind Count, Mode=OneWay}"
+                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}" />
+            </muxc:NavigationViewItem.InfoBadge>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+</ResourceDictionary>

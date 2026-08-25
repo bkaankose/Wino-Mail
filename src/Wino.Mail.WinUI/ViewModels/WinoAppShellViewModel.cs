@@ -166,6 +166,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
             WinoApplicationMode.Mail => _serviceProvider.GetRequiredService<IMailShellClient>(),
             WinoApplicationMode.Calendar => _serviceProvider.GetRequiredService<ICalendarShellClient>(),
             WinoApplicationMode.Contacts => _serviceProvider.GetRequiredService<ContactsPageViewModel>(),
+            WinoApplicationMode.Tasks => _serviceProvider.GetRequiredService<ToDoPageViewModel>(),
             WinoApplicationMode.Settings => _serviceProvider.GetRequiredService<SettingsMenuProvider>(),
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, null)
         };
@@ -206,6 +207,9 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
                     break;
                 case CalendarAppShellViewModel calendarProvider:
                     calendarProvider.PrepareForShellShutdown();
+                    break;
+                case ToDoPageViewModel tasksProvider:
+                    tasksProvider.PrepareForShellShutdown();
                     break;
                 default:
                     provider.ReleaseShellMenu();

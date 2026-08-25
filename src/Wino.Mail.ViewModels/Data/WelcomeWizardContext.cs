@@ -30,6 +30,9 @@ public partial class WelcomeWizardContext : ObservableObject
     [ObservableProperty]
     public partial bool IsContactAccessEnabled { get; set; } = true;
 
+    [ObservableProperty]
+    public partial bool IsTaskAccessEnabled { get; set; }
+
     // Special IMAP fields (iCloud/Yahoo)
     [ObservableProperty]
     public partial string DisplayName { get; set; }
@@ -90,6 +93,7 @@ public partial class WelcomeWizardContext : ObservableObject
         IsMailAccessEnabled = true;
         IsCalendarAccessEnabled = false;
         IsContactAccessEnabled = true;
+        IsTaskAccessEnabled = false;
         DisplayName = null;
         EmailAddress = null;
         AppSpecificPassword = null;

@@ -403,6 +403,9 @@ public class AccountService : BaseDatabaseService, IAccountService
 
             transaction.Execute("DELETE FROM ContactCard WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM ContactAddressBook WHERE MailAccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM TaskStep WHERE MailAccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM TaskCard WHERE MailAccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM TaskList WHERE MailAccountId = ?", account.Id);
         }).ConfigureAwait(false);
 
         // Account belongs to a merged inbox.
@@ -476,6 +479,37 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
 
         ReportUIChange(new AccountRemovedMessage(account));
+    }
+
+    public async Task DeleteAccountAuthenticationDataAsync(Guid accountId)
+    {
+        var account = await Connection.Table<MailAccount>()
+            .FirstOrDefaultAsync(candidate => candidate.Id == accountId)
+            .ConfigureAwait(false);
+
+        Guard.IsNotNull(account);
+
+        if (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
+        {
+            var authenticator = _authenticationProvider.GetAuthenticator(account.ProviderType);
+            await authenticator.DeleteTokenInformationAsync(account).ConfigureAwait(false);
+        }
+        else if (account.ProviderType == MailProviderType.IMAP4)
+        {
+            var serverInformation = await GetAccountCustomServerInformationAsync(account.Id).ConfigureAwait(false);
+
+            if (serverInformation is not null)
+            {
+                serverInformation.IncomingServerPassword = string.Empty;
+                serverInformation.OutgoingServerPassword = string.Empty;
+                serverInformation.CalDavPassword = string.Empty;
+                await Connection.UpdateAsync(serverInformation, typeof(CustomServerInformation)).ConfigureAwait(false);
+                account.ServerInformation = serverInformation;
+            }
+        }
+
+        account.AttentionReason = AccountAttentionReason.InvalidCredentials;
+        await UpdateAccountAsync(account).ConfigureAwait(false);
     }
 
     private async Task DeleteProviderTokenAsync(MailAccount account)
@@ -866,6 +900,19 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
 
         await Connection.InsertAsync(account, typeof(MailAccount));
+
+        if (account.ProviderType == MailProviderType.IMAP4)
+        {
+            await Connection.InsertAsync(new AccountTaskList
+            {
+                Id = Guid.NewGuid(),
+                MailAccountId = account.Id,
+                SourceKind = TaskSourceKind.Local,
+                Title = string.IsNullOrWhiteSpace(account.Name) ? "Tasks" : account.Name,
+                IsDefault = true,
+                PendingMutation = TaskPendingMutation.None
+            }, typeof(AccountTaskList)).ConfigureAwait(false);
+        }
 
         if (!account.IsContactAccessGranted)
         {

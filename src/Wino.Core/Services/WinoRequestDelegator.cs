@@ -30,13 +30,15 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
     private readonly IContactService _contactService;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
                                 IFolderService folderService,
                                 IMailDialogService dialogService,
                                 IAccountService accountService,
                                 ICalendarService calendarService,
-                                IContactService contactService)
+                                IContactService contactService,
+                                ISynchronizationManager synchronizationManager)
     {
         _winoRequestProcessor = winoRequestProcessor;
         _folderService = folderService;
@@ -44,6 +46,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         _accountService = accountService;
         _calendarService = calendarService;
         _contactService = contactService;
+        _synchronizationManager = synchronizationManager;
     }
 
     public async Task ExecuteAsync(MailOperationPreperationRequest request)
@@ -260,12 +263,7 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         await QueueRequestsAsync(requestList, accountId).ConfigureAwait(false);
 
-        await QueueSynchronizationAsync(accountId).ConfigureAwait(false);
-
-        if (requestList.Any(r => r is DeleteFolderRequest or CreateSubFolderRequest or CreateRootFolderRequest))
-        {
-            await QueueFoldersOnlySynchronizationAsync(accountId).ConfigureAwait(false);
-        }
+        PublishSynchronizationRequests(accountId, requestList);
     }
 
     private async Task<IRequestBase> CreateCalendarEventRequestAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
@@ -314,17 +312,22 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private async Task QueueRequestAsync(IRequestBase request, Guid accountId)
     {
         // Don't trigger synchronization for individual requests - we'll trigger it once for all requests
-        await SynchronizationManager.Instance.QueueRequestAsync(request, accountId, triggerSynchronization: false).ConfigureAwait(false);
+        await _synchronizationManager.QueueRequestAsync(request, accountId, triggerSynchronization: false).ConfigureAwait(false);
     }
 
     private async Task QueueRequestsAsync(IEnumerable<IRequestBase> requests, Guid accountId)
     {
-        await SynchronizationManager.Instance.QueueRequestsAsync(requests, accountId, triggerSynchronization: false).ConfigureAwait(false);
+        await _synchronizationManager.QueueRequestPackAsync(
+            new Dictionary<Guid, List<IRequestBase>>
+            {
+                [accountId] = requests.ToList()
+            },
+            triggerSynchronization: false).ConfigureAwait(false);
     }
 
     private async Task QueueRequestPackAsync(IReadOnlyDictionary<Guid, List<IRequestBase>> requestsByAccount)
     {
-        await SynchronizationManager.Instance.QueueRequestPackAsync(requestsByAccount, triggerSynchronization: false).ConfigureAwait(false);
+        await _synchronizationManager.QueueRequestPackAsync(requestsByAccount, triggerSynchronization: false).ConfigureAwait(false);
     }
 
     private Task QueueSynchronizationAsync(Guid accountId)
@@ -361,5 +364,62 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(options));
         return Task.CompletedTask;
+    }
+
+    private static void PublishSynchronizationRequests(Guid accountId, IReadOnlyCollection<IRequestBase> requests)
+    {
+        var hasCalendarRequests = requests.Any(request => request is ICalendarActionRequest);
+        var hasContactRequests = requests.Any(request => request is IContactActionRequest);
+        var hasTaskRequests = requests.Any(request => request is ITaskActionRequest);
+        var hasMailRequests = requests.Any(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest);
+
+        if (hasCalendarRequests)
+        {
+            WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+            {
+                AccountId = accountId,
+                Type = CalendarSynchronizationType.ExecuteRequests
+            }));
+        }
+
+        if (hasContactRequests)
+        {
+            foreach (var addressBookId in requests.OfType<IContactActionRequest>().Select(request => request.AddressBookId).Distinct())
+            {
+                WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+                {
+                    AccountId = accountId,
+                    AddressBookId = addressBookId,
+                    Type = ContactSynchronizationType.ExecuteRequests
+                }));
+            }
+        }
+
+        if (hasTaskRequests)
+        {
+            WeakReferenceMessenger.Default.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            {
+                AccountId = accountId,
+                Type = TaskSynchronizationType.ExecuteRequests
+            }));
+        }
+
+        if (hasMailRequests || (!hasCalendarRequests && !hasContactRequests && !hasTaskRequests))
+        {
+            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            {
+                AccountId = accountId,
+                Type = MailSynchronizationType.ExecuteRequests
+            }));
+        }
+
+        if (requests.Any(request => request is DeleteFolderRequest or CreateSubFolderRequest or CreateRootFolderRequest))
+        {
+            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            {
+                AccountId = accountId,
+                Type = MailSynchronizationType.FoldersOnly
+            }));
+        }
     }
 }

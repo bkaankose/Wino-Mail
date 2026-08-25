@@ -13,6 +13,9 @@ public class AppModeActivationResolverTests
     [InlineData("--mode=mail", WinoApplicationMode.Calendar, WinoApplicationMode.Mail)]
     [InlineData("--mode=calendar", WinoApplicationMode.Mail, WinoApplicationMode.Calendar)]
     [InlineData("CalendarApp", WinoApplicationMode.Mail, WinoApplicationMode.Calendar)]
+    [InlineData("--wino-todo", WinoApplicationMode.Mail, WinoApplicationMode.Tasks)]
+    [InlineData("ToDoApp", WinoApplicationMode.Mail, WinoApplicationMode.Tasks)]
+    [InlineData("--mode=tasks", WinoApplicationMode.Mail, WinoApplicationMode.Tasks)]
     [InlineData("App", WinoApplicationMode.Calendar, WinoApplicationMode.Mail)]
     public void Resolve_PrefersKnownMailCalendarSignals(string source, WinoApplicationMode defaultMode, WinoApplicationMode expectedMode)
     {
