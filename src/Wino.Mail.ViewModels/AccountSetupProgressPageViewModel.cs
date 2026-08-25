@@ -238,9 +238,17 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 CreatedAt = accountCreatedAt,
                 InitialSynchronizationRange = WizardContext.SelectedInitialSynchronizationRange,
                 IsMailAccessGranted = WizardContext.IsMailAccessEnabled,
-                IsCalendarAccessGranted = WizardContext.IsCalendarAccessEnabled,
-                IsContactAccessGranted = WizardContext.IsOAuthProvider && WizardContext.IsContactAccessEnabled,
-                IsTaskAccessGranted = WizardContext.IsOAuthProvider && WizardContext.IsTaskAccessEnabled
+                IsCalendarAccessEnabled = WizardContext.IsCalendarAccessEnabled,
+                IsCalendarAccessGranted = WizardContext.IsCalendarAccessEnabled &&
+                    WizardContext.CalendarIntegrationSource != AccountIntegrationSource.Local,
+                IsContactAccessEnabled = WizardContext.IsContactAccessEnabled,
+                IsContactAccessGranted = WizardContext.IsOAuthProvider &&
+                    WizardContext.IsContactAccessEnabled &&
+                    WizardContext.ContactIntegrationSource == AccountIntegrationSource.Provider,
+                IsTaskAccessEnabled = WizardContext.IsTaskAccessEnabled,
+                IsTaskAccessGranted = WizardContext.IsOAuthProvider &&
+                    WizardContext.IsTaskAccessEnabled &&
+                    WizardContext.TaskIntegrationSource == AccountIntegrationSource.Provider
             };
 
             if (WizardContext.IsOAuthProvider)
@@ -373,6 +381,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 _createdAccount.Address = WizardContext.EmailAddress;
                 _createdAccount.SenderName = WizardContext.DisplayName;
                 _createdAccount.IsMailAccessGranted = dialogResult.IsMailAccessGranted;
+                _createdAccount.IsCalendarAccessEnabled = WizardContext.IsCalendarAccessEnabled;
                 _createdAccount.IsCalendarAccessGranted = customServerInformation.CalendarSupportMode != ImapCalendarSupportMode.Disabled;
                 _createdAccount.ServerInformation = customServerInformation;
 
@@ -447,6 +456,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 _createdAccount.Address = setupResult.EmailAddress;
                 _createdAccount.SenderName = setupResult.DisplayName;
                 _createdAccount.IsMailAccessGranted = setupResult.IsMailAccessGranted;
+                _createdAccount.IsCalendarAccessEnabled = WizardContext.IsCalendarAccessEnabled;
                 _createdAccount.IsCalendarAccessGranted = setupResult.IsCalendarAccessGranted;
                 _createdAccount.ServerInformation = customServerInformation;
 

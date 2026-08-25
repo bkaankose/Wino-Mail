@@ -1960,7 +1960,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             : preferredColor;
     }
 
-    private interface IImapCalendarOperationHandler
+    internal interface IImapCalendarOperationHandler
     {
         bool RequiresConnectedClient { get; }
         Task CreateCalendarEventAsync(CreateCalendarEventRequest request);
@@ -1971,7 +1971,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         Task TentativeEventAsync(TentativeEventRequest request);
     }
 
-    private class LocalCalendarOperationHandler : IImapCalendarOperationHandler
+    internal sealed class LocalCalendarOperationHandler : IImapCalendarOperationHandler
     {
         private readonly MailAccount _account;
         private readonly IImapChangeProcessor _changeProcessor;

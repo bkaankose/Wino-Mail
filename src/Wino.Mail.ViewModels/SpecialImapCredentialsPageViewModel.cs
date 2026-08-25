@@ -137,15 +137,6 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
         WizardContext.DisplayName = DisplayName?.Trim();
         WizardContext.EmailAddress = EmailAddress?.Trim();
         WizardContext.AppSpecificPassword = AppSpecificPassword?.Trim();
-        WizardContext.CalendarSupportMode = WizardContext.IsCalendarAccessEnabled
-            ? SelectedCalendarModeIndex switch
-            {
-                1 => ImapCalendarSupportMode.CalDav,
-                2 => ImapCalendarSupportMode.LocalOnly,
-                _ => ImapCalendarSupportMode.Disabled
-            }
-            : ImapCalendarSupportMode.Disabled;
-
         Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.WelcomeWizard_Step3Title,
             WinoPage.AccountSetupProgressPage));

@@ -617,6 +617,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             InitialSynchronizationRange = InitialSynchronizationRange.SixMonths,
             IsMailAccessGranted = mailbox.IsMailAccessGranted ?? true,
             IsCalendarAccessGranted = mailbox.IsCalendarAccessGranted,
+            IsCalendarAccessEnabled = mailbox.IsCalendarAccessGranted,
+            IsContactAccessEnabled = true,
+            IsTaskAccessEnabled = false,
             SynchronizationDeltaIdentifier = string.Empty,
             CalendarSynchronizationDeltaIdentifier = string.Empty,
             AttentionReason = AccountAttentionReason.InvalidCredentials

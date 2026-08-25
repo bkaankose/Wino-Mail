@@ -74,7 +74,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
     {
         var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(item => item.Id == accountId).ConfigureAwait(false)
             ?? throw new InvalidOperationException("The account does not exist.");
-        if (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook && !account.IsTaskAccessGranted)
+        if (!account.IsTaskAccessEnabled)
             throw new InvalidOperationException("Tasks are not enabled for this account.");
         var source = ResolveSource(account);
         var now = DateTime.UtcNow;

@@ -125,7 +125,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             return;
         }
 
-        _accounts = (await _accountService.GetAccountsAsync().ConfigureAwait(false)).ToDictionary(account => account.Id);
+        _accounts = (await _accountService.GetAccountsAsync().ConfigureAwait(false))
+            .Where(account => account.IsContactAccessEnabled)
+            .ToDictionary(account => account.Id);
         await BuildFiltersAsync().ConfigureAwait(false);
         await ReloadContactsAsync().ConfigureAwait(false);
         _isInitialized = true;

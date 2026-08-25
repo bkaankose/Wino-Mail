@@ -11,12 +11,6 @@ public sealed partial class SpecialImapCredentialsPage : SpecialImapCredentialsP
         InitializeComponent();
     }
 
-    private void CalendarModeSelectionChanged(object sender, SelectionChangedEventArgs args)
-    {
-        if (sender is ListView lv)
-            ViewModel.SelectedCalendarModeIndex = lv.SelectedIndex;
-    }
-
     private void AppPasswordChanged(object sender, RoutedEventArgs e)
     {
         if (sender is PasswordBox pb)

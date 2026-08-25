@@ -90,8 +90,9 @@ public class ContactService : BaseDatabaseService, IContactService
 
         return (from book in books
                 join account in accounts on book.MailAccountId equals account.Id
-                where book.SourceKind == ContactSourceKind.Local ||
-                      (account.IsContactAccessGranted && !account.IsContactReauthorizationRequired)
+                where account.IsContactAccessEnabled &&
+                      (book.SourceKind == ContactSourceKind.Local ||
+                       (account.IsContactAccessGranted && !account.IsContactReauthorizationRequired))
                 orderby book.IsDefault descending, account.Order, book.DisplayName
                 select new ContactCreateDestination(
                     account.Id,
@@ -164,7 +165,7 @@ public class ContactService : BaseDatabaseService, IContactService
             return;
 
         var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(item => item.Id == accountId).ConfigureAwait(false);
-        if (account is null || account.IsContactAccessGranted)
+        if (account is null || !account.IsContactAccessEnabled || account.IsContactAccessGranted)
             return;
 
         var book = await GetOrCreateLocalAddressBookAsync(accountId, account.Name).ConfigureAwait(false);
@@ -181,7 +182,7 @@ public class ContactService : BaseDatabaseService, IContactService
             return;
 
         var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(item => item.Id == accountId).ConfigureAwait(false);
-        if (account is null || account.IsContactAccessGranted)
+        if (account is null || !account.IsContactAccessEnabled || account.IsContactAccessGranted)
             return;
 
         var book = await GetOrCreateLocalAddressBookAsync(accountId, account.Name).ConfigureAwait(false);

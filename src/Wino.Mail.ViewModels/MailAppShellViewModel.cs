@@ -1444,7 +1444,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         return accounts
             .Where(account => (!requireMail || account.IsMailAccessGranted) &&
-                              (!requireCalendar || account.IsCalendarAccessGranted))
+                              (!requireCalendar || account.IsCalendarAccessEnabled))
             .ToList();
     }
 

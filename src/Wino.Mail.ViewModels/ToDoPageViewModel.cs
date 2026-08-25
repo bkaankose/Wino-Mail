@@ -416,7 +416,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         await ExecuteUIThread(() => IsLoading = true).ConfigureAwait(false);
         try
         {
-            var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+            var accounts = (await _accountService.GetAccountsAsync().ConfigureAwait(false))
+                .Where(account => account.IsTaskAccessEnabled)
+                .ToList();
             foreach (var account in accounts.Where(RequiresLocalFallbackList))
                 await _taskService.GetOrCreateLocalTaskListAsync(account.Id, account.Name).ConfigureAwait(false);
 
@@ -769,7 +771,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     [RelayCommand]
     private async Task CreateListAsync()
     {
-        var account = Accounts.FirstOrDefault(account => account.ProviderType == MailProviderType.IMAP4 || account.IsTaskAccessGranted);
+        var account = Accounts.FirstOrDefault(account => account.IsTaskAccessEnabled);
         if (account is null)
             return;
         var list = await _taskService.CreateTaskListAsync(account.Id, Translator.ToDoPage_NewList).ConfigureAwait(false);
@@ -915,9 +917,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             .FirstOrDefault();
 
     private static bool RequiresLocalFallbackList(MailAccount account)
-        => account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook) ||
+        => account.IsTaskAccessEnabled &&
+           (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook) ||
            !account.IsTaskAccessGranted ||
-           account.IsTaskReauthorizationRequired;
+           account.IsTaskReauthorizationRequired);
 
     private string ResolveListName(AccountTask task)
         => TaskLists.FirstOrDefault(list => list.Id == task.TaskListId)?.Title ?? string.Empty;

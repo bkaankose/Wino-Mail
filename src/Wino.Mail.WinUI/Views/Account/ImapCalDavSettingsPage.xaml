@@ -90,7 +90,9 @@
                                     Visibility="{x:Bind ViewModel.IsMailPasswordInputVisible, Mode=OneWay}" />
                             </Grid>
 
-                            <StackPanel Spacing="10">
+                            <StackPanel
+                                Spacing="10"
+                                Visibility="{x:Bind ViewModel.IsAccessSelectionVisible, Mode=OneWay}">
                                 <CheckBox
                                     AutomationProperties.AutomationId="ImapCalDavSettingsPageCheckBox"
                                     Content="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
@@ -267,7 +269,8 @@
                                 Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CalendarModeHeader, Mode=OneTime}"
                                 IsEnabled="{x:Bind ViewModel.IsCalendarModeSelectionVisible, Mode=OneWay}"
                                 ItemsSource="{x:Bind ViewModel.AvailableCalendarSupportModeTitles}"
-                                SelectedIndex="{x:Bind ViewModel.SelectedCalendarSupportModeIndex, Mode=TwoWay}" />
+                                SelectedIndex="{x:Bind ViewModel.SelectedCalendarSupportModeIndex, Mode=TwoWay}"
+                                Visibility="{x:Bind ViewModel.IsAccessSelectionVisible, Mode=OneWay}" />
 
                             <TextBlock
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"

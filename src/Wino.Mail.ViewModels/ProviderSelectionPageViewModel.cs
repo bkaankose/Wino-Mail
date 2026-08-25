@@ -43,6 +43,18 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         new(InitialSynchronizationRange.Everything, Translator.AccountCreation_InitialSynchronization_Everything)
     ];
 
+    public List<string> CalendarSourceOptions => IsOAuthProvider
+        ? [Translator.ProviderSelection_SourceProviderCalendar, Translator.ProviderSelection_SourceLocalCalendar]
+        : [Translator.ProviderSelection_SourceCalDav, Translator.ProviderSelection_SourceLocalCalendar];
+
+    public List<string> ContactSourceOptions => IsOAuthProvider
+        ? [Translator.ProviderSelection_SourceProviderContacts, Translator.ProviderSelection_SourceLocalContacts]
+        : [Translator.ProviderSelection_SourceLocalContacts];
+
+    public List<string> TaskSourceOptions => IsOAuthProvider
+        ? [Translator.ProviderSelection_SourceProviderTasks, Translator.ProviderSelection_SourceLocalTasks]
+        : [Translator.ProviderSelection_SourceLocalTasks];
+
     [ObservableProperty]
     public partial IProviderDetail SelectedProvider { get; set; }
 
@@ -72,6 +84,27 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public partial bool IsTaskAccessEnabled { get; set; }
 
     [ObservableProperty]
+    public partial int SelectedCalendarSourceIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedContactSourceIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int SelectedTaskSourceIndex { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsMailExpanderExpanded { get; set; } = true;
+
+    [ObservableProperty]
+    public partial bool IsCalendarExpanderExpanded { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsContactExpanderExpanded { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsTaskExpanderExpanded { get; set; }
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentStepNumber))]
     [NotifyPropertyChangedFor(nameof(StepProgressValue))]
     [NotifyPropertyChangedFor(nameof(StepProgressText))]
@@ -97,10 +130,15 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public string SelectedProviderDescription => SelectedProvider?.Description ?? string.Empty;
     public string SelectedProviderImage => SelectedProvider?.ProviderImage ?? string.Empty;
     public string SelectedProviderCapabilityDescription => GetSelectedProviderCapabilityDescription();
-    public bool IsContactsCapabilityVisible => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
-    public bool IsTasksCapabilityVisible => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
+    public bool IsOAuthProvider => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
+    public bool IsImapFamily => SelectedProvider?.Type == MailProviderType.IMAP4;
+    public bool IsDavContactChoiceAvailable => false;
+    public bool IsFixedLocalTaskSource => IsImapFamily;
+    public string DavContactAvailabilityMessage => SelectedProvider?.SpecialImapProvider == SpecialImapProvider.iCloud
+        ? Translator.ProviderSelection_CardDavUnavailableICloud
+        : Translator.ProviderSelection_CardDavUnavailableManual;
     public bool IsCapabilitySelectionMissing => !IsMailAccessEnabled && !IsCalendarAccessEnabled &&
-        !(IsContactsCapabilityVisible && IsContactAccessEnabled) && !(IsTasksCapabilityVisible && IsTaskAccessEnabled);
+        !IsContactAccessEnabled && !IsTaskAccessEnabled;
     public bool IsCalendarOnlyServerHintVisible =>
         SelectedProvider?.Type == MailProviderType.IMAP4 &&
         !IsMailAccessEnabled &&
@@ -155,6 +193,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
             IsCalendarAccessEnabled = WizardContext.IsCalendarAccessEnabled;
             IsContactAccessEnabled = WizardContext.IsContactAccessEnabled;
             IsTaskAccessEnabled = WizardContext.IsTaskAccessEnabled;
+            SelectedCalendarSourceIndex = WizardContext.CalendarIntegrationSource == AccountIntegrationSource.Local ? 1 : 0;
+            SelectedContactSourceIndex = WizardContext.ContactIntegrationSource == AccountIntegrationSource.Local && IsOAuthProvider ? 1 : 0;
+            SelectedTaskSourceIndex = WizardContext.TaskIntegrationSource == AccountIntegrationSource.Local && IsOAuthProvider ? 1 : 0;
 
             if (WizardContext.AccountColorHex != null)
                 SelectedColor = AvailableColors.FirstOrDefault(c => c.Hex == WizardContext.AccountColorHex);
@@ -163,8 +204,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         {
             IsMailAccessEnabled = true;
             IsCalendarAccessEnabled = false;
-            IsContactAccessEnabled = IsContactsCapabilityVisible;
+            IsContactAccessEnabled = IsOAuthProvider;
             IsTaskAccessEnabled = false;
+            ApplyProviderSourceDefaults();
         }
 
         CurrentStep = mode == NavigationMode.Back && SelectedProvider != null
@@ -179,10 +221,17 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(SelectedProviderImage));
         OnPropertyChanged(nameof(SelectedProviderCapabilityDescription));
         OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
-        OnPropertyChanged(nameof(IsContactsCapabilityVisible));
-        OnPropertyChanged(nameof(IsTasksCapabilityVisible));
-        IsContactAccessEnabled = IsContactsCapabilityVisible;
+        OnPropertyChanged(nameof(IsOAuthProvider));
+        OnPropertyChanged(nameof(IsImapFamily));
+        OnPropertyChanged(nameof(IsDavContactChoiceAvailable));
+        OnPropertyChanged(nameof(IsFixedLocalTaskSource));
+        OnPropertyChanged(nameof(DavContactAvailabilityMessage));
+        OnPropertyChanged(nameof(CalendarSourceOptions));
+        OnPropertyChanged(nameof(ContactSourceOptions));
+        OnPropertyChanged(nameof(TaskSourceOptions));
+        IsContactAccessEnabled = IsOAuthProvider;
         IsTaskAccessEnabled = false;
+        ApplyProviderSourceDefaults();
         OnPropertyChanged(nameof(IsCalendarOnlyServerHintVisible));
         ContinueCommand.NotifyCanExecuteChanged();
     }
@@ -191,6 +240,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     partial void OnIsMailAccessEnabledChanged(bool value)
     {
+        IsMailExpanderExpanded = value;
         OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
         OnPropertyChanged(nameof(IsCalendarOnlyServerHintVisible));
         ContinueCommand.NotifyCanExecuteChanged();
@@ -198,6 +248,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     partial void OnIsCalendarAccessEnabledChanged(bool value)
     {
+        IsCalendarExpanderExpanded = value;
         OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
         OnPropertyChanged(nameof(IsCalendarOnlyServerHintVisible));
         ContinueCommand.NotifyCanExecuteChanged();
@@ -205,12 +256,14 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     partial void OnIsContactAccessEnabledChanged(bool value)
     {
+        IsContactExpanderExpanded = value;
         OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
         ContinueCommand.NotifyCanExecuteChanged();
     }
 
     partial void OnIsTaskAccessEnabledChanged(bool value)
     {
+        IsTaskExpanderExpanded = value;
         OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
         ContinueCommand.NotifyCanExecuteChanged();
     }
@@ -224,7 +277,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         {
             ProviderSelectionWizardStep.Provider => SelectedProvider != null,
             ProviderSelectionWizardStep.Identity => !string.IsNullOrWhiteSpace(AccountName),
-            ProviderSelectionWizardStep.Capabilities => IsMailAccessEnabled || IsCalendarAccessEnabled || (IsContactsCapabilityVisible && IsContactAccessEnabled) || (IsTasksCapabilityVisible && IsTaskAccessEnabled),
+            ProviderSelectionWizardStep.Capabilities => !IsCapabilitySelectionMissing,
             _ => false
         };
     }
@@ -275,8 +328,22 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         WizardContext.SelectedInitialSynchronizationRange = SelectedInitialSynchronizationRange?.Range ?? InitialSynchronizationRange.SixMonths;
         WizardContext.IsMailAccessEnabled = IsMailAccessEnabled;
         WizardContext.IsCalendarAccessEnabled = IsCalendarAccessEnabled;
-        WizardContext.IsContactAccessEnabled = IsContactsCapabilityVisible && IsContactAccessEnabled;
-        WizardContext.IsTaskAccessEnabled = IsTasksCapabilityVisible && IsTaskAccessEnabled;
+        WizardContext.IsContactAccessEnabled = IsContactAccessEnabled;
+        WizardContext.IsTaskAccessEnabled = IsTaskAccessEnabled;
+        WizardContext.CalendarIntegrationSource = SelectedCalendarSourceIndex == 1
+            ? AccountIntegrationSource.Local
+            : IsOAuthProvider ? AccountIntegrationSource.Provider : AccountIntegrationSource.Dav;
+        WizardContext.ContactIntegrationSource = SelectedContactSourceIndex == 1 || IsImapFamily
+            ? AccountIntegrationSource.Local
+            : AccountIntegrationSource.Provider;
+        WizardContext.TaskIntegrationSource = SelectedTaskSourceIndex == 1 || IsImapFamily
+            ? AccountIntegrationSource.Local
+            : AccountIntegrationSource.Provider;
+        WizardContext.CalendarSupportMode = !IsCalendarAccessEnabled
+            ? ImapCalendarSupportMode.Disabled
+            : WizardContext.CalendarIntegrationSource == AccountIntegrationSource.Local
+                ? ImapCalendarSupportMode.LocalOnly
+                : ImapCalendarSupportMode.CalDav;
 
         if (WizardContext.IsGenericImap)
         {
@@ -324,5 +391,12 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
             return Translator.ProviderSelection_CapabilityProviderDescription_SpecialImap;
 
         return Translator.ProviderSelection_CapabilityProviderDescription_CustomServer;
+    }
+
+    private void ApplyProviderSourceDefaults()
+    {
+        SelectedCalendarSourceIndex = IsOAuthProvider || SelectedProvider?.SpecialImapProvider is SpecialImapProvider.iCloud or SpecialImapProvider.Yahoo ? 0 : 1;
+        SelectedContactSourceIndex = 0;
+        SelectedTaskSourceIndex = 0;
     }
 }

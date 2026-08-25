@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
@@ -18,6 +19,8 @@ using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Contact;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Integration.Processors;
+using Wino.Core.Synchronizers.Mail;
 using Wino.Messaging.Server;
 
 namespace Wino.Core.Services;
@@ -31,6 +34,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly ICalendarService _calendarService;
     private readonly IContactService _contactService;
     private readonly ISynchronizationManager _synchronizationManager;
+    private readonly IImapChangeProcessor _imapChangeProcessor;
+    private readonly IApplicationConfiguration _applicationConfiguration;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
                                 IFolderService folderService,
@@ -38,7 +43,9 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                                 IAccountService accountService,
                                 ICalendarService calendarService,
                                 IContactService contactService,
-                                ISynchronizationManager synchronizationManager)
+                                ISynchronizationManager synchronizationManager,
+                                IImapChangeProcessor imapChangeProcessor,
+                                IApplicationConfiguration applicationConfiguration)
     {
         _winoRequestProcessor = winoRequestProcessor;
         _folderService = folderService;
@@ -47,6 +54,8 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         _calendarService = calendarService;
         _contactService = contactService;
         _synchronizationManager = synchronizationManager;
+        _imapChangeProcessor = imapChangeProcessor;
+        _applicationConfiguration = applicationConfiguration;
     }
 
     public async Task ExecuteAsync(MailOperationPreperationRequest request)
@@ -209,8 +218,52 @@ public class WinoRequestDelegator : IWinoRequestDelegator
             ? null
             : calendarPreparationRequest.CalendarItem.AssignedCalendar.MailAccount?.Name;
 
+        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+        if (account?.IsCalendarAccessEnabled == true && !account.IsCalendarAccessGranted)
+        {
+            await ExecuteLocalCalendarRequestAsync(account, request).ConfigureAwait(false);
+            return;
+        }
+
         await QueueRequestAsync(request, accountId);
         await QueueCalendarSynchronizationAsync(accountId);
+    }
+
+    private async Task ExecuteLocalCalendarRequestAsync(MailAccount account, IRequestBase request)
+    {
+        var handler = new ImapSynchronizer.LocalCalendarOperationHandler(
+            account,
+            _imapChangeProcessor,
+            _calendarService,
+            _applicationConfiguration.ApplicationDataFolderPath,
+            "local");
+
+        switch (request)
+        {
+            case CreateCalendarEventRequest createRequest:
+                await handler.CreateCalendarEventAsync(createRequest).ConfigureAwait(false);
+                break;
+            case ChangeStartAndEndDateRequest changeDateRequest:
+                await handler.UpdateCalendarEventAsync(changeDateRequest).ConfigureAwait(false);
+                break;
+            case UpdateCalendarEventRequest updateRequest:
+                await handler.UpdateCalendarEventAsync(updateRequest).ConfigureAwait(false);
+                break;
+            case DeleteCalendarEventRequest deleteRequest:
+                await handler.DeleteCalendarEventAsync(deleteRequest).ConfigureAwait(false);
+                break;
+            case AcceptEventRequest acceptRequest:
+                await handler.AcceptEventAsync(acceptRequest).ConfigureAwait(false);
+                break;
+            case DeclineEventRequest declineRequest:
+                await handler.DeclineEventAsync(declineRequest).ConfigureAwait(false);
+                break;
+            case TentativeEventRequest tentativeRequest:
+                await handler.TentativeEventAsync(tentativeRequest).ConfigureAwait(false);
+                break;
+            default:
+                throw new NotSupportedException($"Local calendar request {request.GetType().Name} is not supported.");
+        }
     }
 
     public Task ExecuteAsync(ContactOperationPreparationRequest preparationRequest)

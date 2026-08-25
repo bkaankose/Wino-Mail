@@ -6,6 +6,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Tasks;
 using Wino.Core.Services;
@@ -121,7 +122,9 @@ public sealed class WinoRequestDelegatorTests
             Mock.Of<IAccountService>(),
             Mock.Of<ICalendarService>(),
             Mock.Of<IContactService>(),
-            synchronizationManager);
+            synchronizationManager,
+            Mock.Of<IImapChangeProcessor>(),
+            Mock.Of<IApplicationConfiguration>());
 
     private static Mock<ISynchronizationManager> CreateSynchronizationManager()
     {

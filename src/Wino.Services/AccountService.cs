@@ -901,7 +901,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         await Connection.InsertAsync(account, typeof(MailAccount));
 
-        if (account.ProviderType == MailProviderType.IMAP4)
+        if (account.IsTaskAccessEnabled && !account.IsTaskAccessGranted)
         {
             await Connection.InsertAsync(new AccountTaskList
             {
@@ -914,7 +914,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             }, typeof(AccountTaskList)).ConfigureAwait(false);
         }
 
-        if (!account.IsContactAccessGranted)
+        if (account.IsContactAccessEnabled && !account.IsContactAccessGranted)
         {
             await Connection.InsertAsync(new ContactAddressBook
             {
@@ -961,14 +961,17 @@ public class AccountService : BaseDatabaseService, IAccountService
             customServerInformation.PendingCertificateTrusts.Clear();
         }
 
-        if (account.ProviderType == MailProviderType.IMAP4 &&
-            customServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.LocalOnly)
+        var shouldCreateLocalCalendar = account.ProviderType == MailProviderType.IMAP4
+            ? customServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.LocalOnly
+            : account.IsCalendarAccessEnabled && !account.IsCalendarAccessGranted;
+
+        if (shouldCreateLocalCalendar)
         {
-            await EnsureDefaultLocalCalendarForImapAsync(account.Id).ConfigureAwait(false);
+            await EnsureDefaultLocalCalendarAsync(account.Id).ConfigureAwait(false);
         }
     }
 
-    private async Task EnsureDefaultLocalCalendarForImapAsync(Guid accountId)
+    private async Task EnsureDefaultLocalCalendarAsync(Guid accountId)
     {
         var existingCalendarCount = await Connection.Table<AccountCalendar>()
             .Where(a => a.AccountId == accountId)

@@ -256,6 +256,33 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsCalendarAccessEnabled)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.IsCalendarAccessEnabled)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+            await Connection
+                .ExecuteAsync($"UPDATE {nameof(MailAccount)} SET {nameof(MailAccount.IsCalendarAccessEnabled)} = {nameof(MailAccount.IsCalendarAccessGranted)}")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsContactAccessEnabled)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.IsContactAccessEnabled)} INTEGER NOT NULL DEFAULT 1")
+                .ConfigureAwait(false);
+        }
+
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsTaskAccessEnabled)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.IsTaskAccessEnabled)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+            await Connection
+                .ExecuteAsync($"UPDATE {nameof(MailAccount)} SET {nameof(MailAccount.IsTaskAccessEnabled)} = 1 WHERE {nameof(MailAccount.IsTaskAccessGranted)} = 1 OR {nameof(MailAccount.ProviderType)} = {(int)MailProviderType.IMAP4}")
+                .ConfigureAwait(false);
+        }
+
         // AccountTaskList uses a stable storage name so the schema remains compatible
         // with the task synchronizer and account cleanup SQL.
         const string taskListTableName = "TaskList";
@@ -676,7 +703,9 @@ SET {nameof(KeyboardShortcut.Action)} =
         var books = await Connection.Table<ContactAddressBook>().ToListAsync().ConfigureAwait(false);
         var existingAccountIds = books.Select(book => book.MailAccountId).ToHashSet();
         var missingBooks = accounts
-            .Where(account => !account.IsContactAccessGranted && !existingAccountIds.Contains(account.Id))
+            .Where(account => account.IsContactAccessEnabled &&
+                              !account.IsContactAccessGranted &&
+                              !existingAccountIds.Contains(account.Id))
             .Select(account => new ContactAddressBook
             {
                 Id = Guid.NewGuid(),
@@ -711,7 +740,9 @@ SET {nameof(KeyboardShortcut.Action)} =
             .Select(list => list.MailAccountId)
             .ToHashSet();
         var missingLists = accounts
-            .Where(account => account.ProviderType == MailProviderType.IMAP4 && !existingAccountIds.Contains(account.Id))
+            .Where(account => account.IsTaskAccessEnabled &&
+                              !account.IsTaskAccessGranted &&
+                              !existingAccountIds.Contains(account.Id))
             .Select(account => new AccountTaskList
             {
                 Id = Guid.NewGuid(),

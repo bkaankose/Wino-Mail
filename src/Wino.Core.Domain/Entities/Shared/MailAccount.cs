@@ -109,7 +109,13 @@ public class MailAccount
     /// </summary>
     public bool IsCalendarAccessGranted { get; set; }
 
+    /// <summary>Gets or sets whether the calendar mode is enabled, independently of remote authorization.</summary>
+    public bool IsCalendarAccessEnabled { get; set; }
+
     public bool IsContactAccessGranted { get; set; }
+
+    /// <summary>Gets or sets whether the contacts mode is enabled, independently of remote authorization.</summary>
+    public bool IsContactAccessEnabled { get; set; } = true;
 
     public bool IsContactReauthorizationRequired { get; set; }
 
@@ -119,6 +125,9 @@ public class MailAccount
     /// IMAP-family accounts use their local task list regardless of this flag.
     /// </summary>
     public bool IsTaskAccessGranted { get; set; }
+
+    /// <summary>Gets or sets whether the To Do mode is enabled, independently of remote authorization.</summary>
+    public bool IsTaskAccessEnabled { get; set; }
 
     /// <summary>Gets or sets whether task authorization must be renewed.</summary>
     public bool IsTaskReauthorizationRequired { get; set; }

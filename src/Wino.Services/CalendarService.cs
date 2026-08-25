@@ -421,7 +421,7 @@ public class CalendarService : BaseDatabaseService, ICalendarService
             INNER JOIN MailAccount ma ON ma.Id = ac.AccountId
             WHERE
                 c.IsHidden = 0
-                AND ma.IsCalendarAccessGranted = 1
+                AND (ma.IsCalendarAccessEnabled = 1 OR ma.IsCalendarAccessGranted = 1)
                 AND r.ReminderType = 0
                 AND NOT (IFNULL(c.Recurrence, '') != '' AND c.RecurringCalendarItemId IS NULL)")
             .ConfigureAwait(false);

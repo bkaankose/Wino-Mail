@@ -10,4 +10,6 @@ public record AccountCreationDialogResult(
     InitialSynchronizationRange InitialSynchronizationRange,
     bool IsMailAccessGranted,
     bool IsCalendarAccessGranted,
-    bool IsContactAccessGranted = false);
+    bool IsContactAccessGranted = false,
+    bool IsTaskAccessGranted = false,
+    ImapCalendarSupportMode CalendarSupportMode = ImapCalendarSupportMode.Disabled);

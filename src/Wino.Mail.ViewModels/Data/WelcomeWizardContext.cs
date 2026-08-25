@@ -6,6 +6,13 @@ using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Mail.ViewModels.Data;
 
+public enum AccountIntegrationSource
+{
+    Provider = 0,
+    Local = 1,
+    Dav = 2
+}
+
 public partial class WelcomeWizardContext : ObservableObject
 {
     // Step 2 — Provider selection
@@ -32,6 +39,15 @@ public partial class WelcomeWizardContext : ObservableObject
 
     [ObservableProperty]
     public partial bool IsTaskAccessEnabled { get; set; }
+
+    [ObservableProperty]
+    public partial AccountIntegrationSource CalendarIntegrationSource { get; set; } = AccountIntegrationSource.Provider;
+
+    [ObservableProperty]
+    public partial AccountIntegrationSource ContactIntegrationSource { get; set; } = AccountIntegrationSource.Provider;
+
+    [ObservableProperty]
+    public partial AccountIntegrationSource TaskIntegrationSource { get; set; } = AccountIntegrationSource.Provider;
 
     // Special IMAP fields (iCloud/Yahoo)
     [ObservableProperty]
@@ -81,7 +97,9 @@ public partial class WelcomeWizardContext : ObservableObject
             SelectedInitialSynchronizationRange,
             IsMailAccessEnabled,
             IsCalendarAccessEnabled,
-            IsContactAccessEnabled);
+            IsContactAccessEnabled,
+            IsTaskAccessEnabled,
+            CalendarSupportMode);
     }
 
     public void Reset()
@@ -94,6 +112,9 @@ public partial class WelcomeWizardContext : ObservableObject
         IsCalendarAccessEnabled = false;
         IsContactAccessEnabled = true;
         IsTaskAccessEnabled = false;
+        CalendarIntegrationSource = AccountIntegrationSource.Provider;
+        ContactIntegrationSource = AccountIntegrationSource.Provider;
+        TaskIntegrationSource = AccountIntegrationSource.Provider;
         DisplayName = null;
         EmailAddress = null;
         AppSpecificPassword = null;

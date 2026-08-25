@@ -24,7 +24,7 @@ public partial class GroupedAccountCalendarViewModel : ObservableObject
     public ObservableCollection<AccountCalendarViewModel> AccountCalendars { get; }
 
     public static bool SupportsCalendar(MailAccount account)
-        => account?.IsCalendarAccessGranted == true;
+        => account?.IsCalendarAccessEnabled == true || account?.IsCalendarAccessGranted == true;
 
     public GroupedAccountCalendarViewModel(MailAccount account, IEnumerable<AccountCalendarViewModel> calendarViewModels)
     {

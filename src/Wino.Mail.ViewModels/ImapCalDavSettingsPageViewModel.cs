@@ -291,6 +291,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         OnPropertyChanged(nameof(IsCreateMode));
         OnPropertyChanged(nameof(IsEditMode));
+        OnPropertyChanged(nameof(IsAccessSelectionVisible));
 
         TrackImapSetupEvent("imap_setup_opened", result: "opened");
     }
@@ -307,6 +308,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     }
 
     public bool IsWizardMode => _pageMode == ImapCalDavSettingsPageMode.Wizard;
+    public bool IsAccessSelectionVisible => _pageMode is ImapCalDavSettingsPageMode.Create or ImapCalDavSettingsPageMode.Edit;
 
     [RelayCommand]
     private async Task AutoDiscoverSettingsAsync()
@@ -677,7 +679,8 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         IsMailSupportEnabled = accountCreationDialogResult?.IsMailAccessGranted != false;
         ShouldAppendMessagesToSentFolder = true;
         IsCalendarSupportEnabled = accountCreationDialogResult?.IsCalendarAccessGranted == true;
-        SelectedCalendarSupportMode = accountCreationDialogResult?.SpecialImapProviderDetails?.CalendarSupportMode
+        SelectedCalendarSupportMode = accountCreationDialogResult?.CalendarSupportMode
+            ?? accountCreationDialogResult?.SpecialImapProviderDetails?.CalendarSupportMode
             ?? (IsCalendarSupportEnabled ? ImapCalendarSupportMode.CalDav : ImapCalendarSupportMode.Disabled);
 
         var specialProvider = accountCreationDialogResult?.SpecialImapProviderDetails?.SpecialImapProvider ?? SpecialImapProvider.None;
