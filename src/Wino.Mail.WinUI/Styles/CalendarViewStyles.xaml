@@ -8,14 +8,14 @@
 
     <Style x:Key="WinoCalendarViewStyle" TargetType="CalendarView">
         <Setter Property="BlackoutStrikethroughBrush" Value="{ThemeResource CalendarViewBlackoutStrikethroughBrush}" />
-        <Setter Property="SelectedHoverBorderBrush" Value="{ThemeResource CalendarViewSelectedHoverBorderBrush}" />
-        <Setter Property="SelectedPressedBorderBrush" Value="{ThemeResource CalendarViewSelectedPressedBorderBrush}" />
+        <Setter Property="SelectedHoverBorderBrush" Value="{ThemeResource AccentFillColorSecondaryBrush}" />
+        <Setter Property="SelectedPressedBorderBrush" Value="{ThemeResource AccentFillColorDefaultBrush}" />
         <Setter Property="SelectedDisabledBorderBrush" Value="{ThemeResource CalendarViewSelectedDisabledBorderBrush}" />
-        <Setter Property="SelectedBorderBrush" Value="{ThemeResource CalendarViewSelectedBorderBrush}" />
+        <Setter Property="SelectedBorderBrush" Value="{ThemeResource AccentFillColorTertiaryBrush}" />
         <Setter Property="HoverBorderBrush" Value="{ThemeResource CalendarViewHoverBorderBrush}" />
         <Setter Property="PressedBorderBrush" Value="{ThemeResource CalendarViewPressedBorderBrush}" />
         <Setter Property="CalendarItemBorderBrush" Value="{ThemeResource CalendarViewCalendarItemBorderBrush}" />
-        <Setter Property="TodaySelectedInnerBorderBrush" Value="{ThemeResource CalendarViewTodaySelectedInnerBorderBrush}" />
+        <Setter Property="TodaySelectedInnerBorderBrush" Value="{ThemeResource CalendarViewTodayBackground}" />
         <Setter Property="TodayForeground" Value="{ThemeResource CalendarViewTodayForeground}" />
         <Setter Property="DisabledForeground" Value="{ThemeResource CalendarViewDisabledForeground}" />
         <Setter Property="BlackoutForeground" Value="{ThemeResource CalendarViewBlackoutForeground}" />
@@ -46,7 +46,7 @@
         <Setter Property="DayItemFontFamily" Value="XamlAutoFontFamily" />
         <Setter Property="DayItemFontSize" Value="{ThemeResource CalendarViewDayItemFontSize}" />
         <Setter Property="DayItemMargin" Value="0" />
-        <Setter Property="CalendarItemCornerRadius" Value="8" />
+        <Setter Property="CalendarItemCornerRadius" Value="4" />
         <Setter Property="FirstOfMonthLabelFontFamily" Value="XamlAutoFontFamily" />
         <Setter Property="FirstOfMonthLabelFontSize" Value="{ThemeResource CalendarViewFirstOfMonthLabelFontSize}" />
         <Setter Property="FirstOfMonthLabelMargin" Value="{ThemeResource CalendarViewFirstOfMonthLabelMargin}" />

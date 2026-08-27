@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Moq;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -42,14 +42,14 @@ public sealed class ProviderSelectionPageViewModelTests
         };
 
     [Fact]
-    public void OAuthProvider_DefaultsToMailAndContactsSyncedWithProvider()
+    public void OAuthProvider_DefaultsToAllRecommendedProviderChoices()
     {
         var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
 
         viewModel.MailMode.Should().Be(AccountCapabilityMode.Provider);
         viewModel.ContactMode.Should().Be(AccountCapabilityMode.Provider);
-        viewModel.CalendarMode.Should().Be(AccountCapabilityMode.Off);
-        viewModel.TaskMode.Should().Be(AccountCapabilityMode.Off);
+        viewModel.CalendarMode.Should().Be(AccountCapabilityMode.Provider);
+        viewModel.TaskMode.Should().Be(AccountCapabilityMode.Provider);
         viewModel.IsCapabilitySelectionMissing.Should().BeFalse();
     }
 
@@ -60,11 +60,13 @@ public sealed class ProviderSelectionPageViewModelTests
 
         viewModel.IsTaskProviderModeAvailable.Should().BeFalse();
         viewModel.IsTaskProviderUnavailableHintVisible.Should().BeTrue();
-        viewModel.TaskMode.Should().NotBe(AccountCapabilityMode.Provider);
+        viewModel.IsTaskLocalRecommended.Should().BeTrue();
+        viewModel.TaskMode.Should().Be(AccountCapabilityMode.Local);
+        viewModel.IsTaskChoiceLocal.Should().BeTrue();
     }
 
     [Fact]
-    public void CapabilityModes_DriveAccessFlagsAndPermissionSummary()
+    public void CapabilityModes_DriveAccessFlags()
     {
         var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
 
@@ -73,8 +75,6 @@ public sealed class ProviderSelectionPageViewModelTests
 
         viewModel.IsMailAccessEnabled.Should().BeFalse();
         viewModel.IsContactAccessEnabled.Should().BeTrue();
-        viewModel.ProviderPermissionScopes.Should().BeEmpty();
-        viewModel.LocalOnlyCapabilities.Should().Equal(Translator.ProviderSelection_UseForContacts);
     }
 
     [Fact]
@@ -91,14 +91,99 @@ public sealed class ProviderSelectionPageViewModelTests
     }
 
     [Fact]
-    public void ModeIndex_IgnoresTransientNegativeSelection()
+    public void CapabilityScreens_StartWithRecommendedChoicesSelected()
     {
         var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
 
-        viewModel.CalendarModeIndex = 2;
-        viewModel.CalendarMode.Should().Be(AccountCapabilityMode.Local);
+        viewModel.IsCalendarAnswered.Should().BeTrue();
+        viewModel.IsContactAnswered.Should().BeTrue();
+        viewModel.IsTaskAnswered.Should().BeTrue();
 
-        viewModel.CalendarModeIndex = -1;
+        viewModel.IsCalendarChoiceProvider.Should().BeTrue();
+        viewModel.ContactMode.Should().Be(AccountCapabilityMode.Provider);
+        viewModel.IsContactChoiceProvider.Should().BeTrue();
+        viewModel.IsTaskChoiceProvider.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ChoosingCapability_AnswersTheScreenWithoutMovingToTheNextOne()
+    {
+        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+        viewModel.CurrentStep = ProviderSelectionWizardStep.Calendar;
+
+        viewModel.ChooseCapabilityCommand.Execute("Calendar:Local");
+
         viewModel.CalendarMode.Should().Be(AccountCapabilityMode.Local);
+        viewModel.IsCalendarAnswered.Should().BeTrue();
+        viewModel.IsCalendarChoiceLocal.Should().BeTrue();
+        viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Calendar);
+    }
+
+    [Fact]
+    public async Task ContinueAfterChoosingCapability_MovesToTheNextScreen()
+    {
+        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+        viewModel.CurrentStep = ProviderSelectionWizardStep.Calendar;
+        viewModel.ChooseCapabilityCommand.Execute("Calendar:Provider");
+
+        await viewModel.ContinueCommand.ExecuteAsync(null);
+
+        viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Contacts);
+    }
+
+    [Fact]
+    public void ChoosingCapability_IgnoresUnknownTokens()
+    {
+        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+        viewModel.CurrentStep = ProviderSelectionWizardStep.Calendar;
+
+        viewModel.ChooseCapabilityCommand.Execute("Calendar");
+        viewModel.ChooseCapabilityCommand.Execute("Nonsense:Local");
+        viewModel.ChooseCapabilityCommand.Execute("Calendar:Nonsense");
+
+        viewModel.IsCalendarAnswered.Should().BeTrue();
+        viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Calendar);
+    }
+
+    [Fact]
+    public void SkippingTheRest_PreservesRecommendedChoicesAndJumpsToSummary()
+    {
+        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+        viewModel.CurrentStep = ProviderSelectionWizardStep.Calendar;
+
+        viewModel.ChooseCapabilityCommand.Execute("Calendar:Provider");
+        viewModel.SkipRemainingCapabilitiesCommand.Execute(null);
+
+        viewModel.CalendarMode.Should().Be(AccountCapabilityMode.Provider);
+        viewModel.ContactMode.Should().Be(AccountCapabilityMode.Provider);
+        viewModel.TaskMode.Should().Be(AccountCapabilityMode.Provider);
+        viewModel.IsContactAnswered.Should().BeTrue();
+        viewModel.IsTaskAnswered.Should().BeTrue();
+        viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Summary);
+    }
+
+    [Fact]
+    public void SummaryChangeLink_ReturnsToASingleCapabilityScreen()
+    {
+        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+        viewModel.CurrentStep = ProviderSelectionWizardStep.Summary;
+
+        viewModel.GoToStepCommand.Execute("Contacts");
+
+        viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Contacts);
+    }
+
+    [Fact]
+    public void ChangingProvider_RestoresRecommendedCapabilityChoices()
+    {
+        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+
+        viewModel.ChooseCapabilityCommand.Execute("Calendar:Local");
+        viewModel.IsCalendarAnswered.Should().BeTrue();
+
+        viewModel.SelectedProvider = new ProviderDetail(MailProviderType.Gmail, SpecialImapProvider.None);
+
+        viewModel.IsCalendarAnswered.Should().BeTrue();
+        viewModel.CalendarMode.Should().Be(AccountCapabilityMode.Provider);
     }
 }

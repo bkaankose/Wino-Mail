@@ -8,14 +8,14 @@ Use `--apply` to write updates.
 
 Examples:
   python scripts/translate_resources.py --dry-run
-  python scripts/translate_resources.py --apply --model gpt-5-nano
+  python scripts/translate_resources.py --apply
   python scripts/translate_resources.py --apply --locales pl_PL de_DE --chunk-size 120
 
 
 Usage:
     $env:OPENAI_API_KEY="{open ai key here}"
     python .\\scripts\\translate_resources.py --dry-run
-    python .\\scripts\\translate_resources.py --apply --model gpt-5-nano --workers 4
+    python .\\scripts\\translate_resources.py --apply --workers 4
 """
 
 from __future__ import annotations
@@ -63,6 +63,7 @@ LOCALE_LABELS = {
 DEFAULT_TRANSLATIONS_ROOT = (
     Path(__file__).resolve().parents[1] / "src" / "Wino.Core.Domain" / "Translations"
 )
+TRANSLATION_MODEL = "gpt-5.6-luna"
 
 
 def parse_args() -> argparse.Namespace:
@@ -81,11 +82,6 @@ def parse_args() -> argparse.Namespace:
         "--locales",
         nargs="*",
         help="Specific locale directory names to process. Defaults to all non-source locales.",
-    )
-    parser.add_argument(
-        "--model",
-        default="gpt-5-nano",
-        help="OpenAI model name to use for translation.",
     )
     parser.add_argument(
         "--chunk-size",
@@ -327,7 +323,7 @@ def process_locale(
         missing_entries = [(key, source_data[key]) for key in missing_keys]
         translated_missing = translate_missing_entries(
             api_key=api_key,
-            model=args.model,
+            model=TRANSLATION_MODEL,
             locale=locale,
             entries=missing_entries,
             chunk_size=args.chunk_size,
@@ -384,7 +380,7 @@ def main() -> int:
     api_key = os.environ.get(args.api_key_env)
     print(
         f"Processing {len(locales)} locale(s) from {source_path} "
-        f"using model {args.model} in {'apply' if args.apply else 'dry-run'} mode.",
+        f"using model {TRANSLATION_MODEL} in {'apply' if args.apply else 'dry-run'} mode.",
         flush=True,
     )
 

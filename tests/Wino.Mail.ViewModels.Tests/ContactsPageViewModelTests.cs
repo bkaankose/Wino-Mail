@@ -477,19 +477,16 @@ public class ContactsPageViewModelTests
             dialogs.Object, Mock.Of<ILaunchProtocolService>());
 
         viewModel.OnNavigatedTo(NavigationMode.New, null!);
-        await WaitUntilAsync(() => viewModel.FilterGroups.Count == 2 && !viewModel.IsLoading);
-        var listGroup = viewModel.FilterGroups.Last();
+        await WaitUntilAsync(() => viewModel.FilterGroups.Count == 1 && !viewModel.IsLoading);
         var groupActions = new List<NotifyCollectionChangedAction>();
-        var itemActions = new List<NotifyCollectionChangedAction>();
         viewModel.FilterGroups.CollectionChanged += (_, args) => groupActions.Add(args.Action);
-        listGroup.CollectionChanged += (_, args) => itemActions.Add(args.Action);
 
         await viewModel.CreateListCommand.ExecuteAsync(null);
 
+        var listGroup = viewModel.FilterGroups.Single(group => group.Any(filter => filter.IsList));
         viewModel.FilterGroups.Last().Should().BeSameAs(listGroup);
         viewModel.ContactLists.Should().ContainSingle().Which.Name.Should().Be("Team");
-        itemActions.Should().Equal(NotifyCollectionChangedAction.Add);
-        groupActions.Should().BeEmpty();
+        groupActions.Should().Equal(NotifyCollectionChangedAction.Add);
 
         var createdFilter = listGroup.Should().ContainSingle().Which;
         createdFilter.RenameListCommand.Execute(null);
@@ -500,6 +497,50 @@ public class ContactsPageViewModelTests
             ApplicationLocalContactOperation.UpdateList);
         contactService.Verify(service => service.CreateContactListAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         contactService.Verify(service => service.UpdateContactListAsync(It.IsAny<ContactList>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EmptyContactLists_HideTheMyListsSection()
+    {
+        var viewModel = await NavigatedViewModelAsync();
+
+        viewModel.FilterGroups.Should().NotContain(group => group.Title == Translator.ContactsPage_MyLists);
+        viewModel.ShellMenu.Items.OfType<ShellSectionHeaderMenuItem>()
+            .Should().NotContain(item => item.Title == Translator.ContactsPage_MyLists);
+    }
+
+    [Fact]
+    public async Task FavoritingAContact_PreservesItsAlphabeticalGroup()
+    {
+        var contact = Contact("Alpha");
+        var contactService = PageService();
+        contactService.Setup(service => service.GetContactsPageAsync(
+                It.IsAny<ContactQueryFilter>(), 0, 50))
+            .ReturnsAsync(new PagedContactsResult([contact], 1, false, 0, 50));
+        contactService.Setup(service => service.GetFavoriteContactsCountAsync()).ReturnsAsync(1);
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteLocalAsync(It.IsAny<IRequestBase>()))
+            .Callback<IRequestBase>(request => request.ApplyUIChanges())
+            .Returns(Task.CompletedTask);
+        var viewModel = new ContactsPageViewModel(contactService.Object, accountService.Object,
+            Mock.Of<ISynchronizationManager>(), delegator.Object, Mock.Of<INavigationService>(),
+            Mock.Of<IMailDialogService>(), Mock.Of<ILaunchProtocolService>())
+        {
+            Dispatcher = new ImmediateDispatcher()
+        };
+
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+        await WaitUntilAsync(() => viewModel.Contacts.Count == 1 && !viewModel.IsLoading);
+        var group = viewModel.ContactGroups.Should().ContainSingle().Subject;
+        var loadedContact = viewModel.Contacts.Single();
+
+        await viewModel.ToggleFavoriteCommand.ExecuteAsync(loadedContact);
+
+        loadedContact.IsFavorite.Should().BeTrue();
+        viewModel.ContactGroups.Should().ContainSingle().Which.Should().BeSameAs(group);
+        group.Should().ContainSingle().Which.Should().BeSameAs(loadedContact);
     }
 
     [Fact]

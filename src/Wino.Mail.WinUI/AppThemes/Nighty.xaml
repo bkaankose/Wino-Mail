@@ -11,6 +11,14 @@
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
+            <!--  Illustration palette. Night wallpaper, forced Dark, and its accent is already gold (#e1b12c). Amber would collide with the
+                 accent, so the warm role flips to moonlight blue here: the sun disc reads as a moon.
+            -->
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#CBD3DE</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#E6EAF1</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#7FA8D8</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#14141E14</SolidColorBrush>
             <!--  Brushes  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#fdcb6e</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#33FDCB6E</SolidColorBrush>
@@ -20,6 +28,11 @@
             <SolidColorBrush x:Key="WelcomeOverlayBrush">#D9FFFFFF</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#1B2028</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#333C4A</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#272E39</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#9FC4EC</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#52000000</SolidColorBrush>
             <!--  Brushes  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#5413191F</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#2213191F</SolidColorBrush>

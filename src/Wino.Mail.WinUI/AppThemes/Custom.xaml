@@ -18,6 +18,14 @@
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
+            <!--  Illustration palette. User wallpaper behind a translucent overlay, so the backdrop is unknowable. Highest-contrast values in
+                 the family: fully opaque surface and the strongest shadow.
+            -->
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#C8C8D2</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#E4E4EC</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#EFA92B</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#28141414</SolidColorBrush>
             <!--  Reading Page Date/Name Group Header Background  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
 
@@ -38,6 +46,11 @@
             <SolidColorBrush x:Key="WelcomeOverlayBrush" Color="{StaticResource MainCustomThemeColor}" />
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#23232B</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#464650</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#34343E</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F5C05C</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#66000000</SolidColorBrush>
             <!--  Reading Page Date/Name Group Header Background  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#1f1f1f</SolidColorBrush>
 

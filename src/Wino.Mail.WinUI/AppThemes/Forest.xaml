@@ -11,6 +11,13 @@
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
+            <!--  Illustration palette. Forest wallpaper, forced Dark. Green-cast neutrals; amber stays as sunlight through canopy.
+            -->
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#C6D8CC</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#E4EEE7</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F2B33D</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#14142018</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#A800D608</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#2200D608</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#4D00D608</SolidColorBrush>
@@ -19,6 +26,11 @@
             <SolidColorBrush x:Key="WelcomeOverlayBrush">#D9FFFFFF</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#1E2A24</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#354A3E</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#2A3A31</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F5C05C</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#52000000</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#59001C01</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#22001C01</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#6600D608</SolidColorBrush>

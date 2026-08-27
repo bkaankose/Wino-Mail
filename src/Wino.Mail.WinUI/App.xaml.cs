@@ -1711,9 +1711,13 @@ public partial class App : WinoApplication,
                         ? WinoApplicationMode.Tasks
                     : WinoApplicationMode.Contacts;
             CreateWindow(null, AppEntryConstants.GetModeLaunchArgument(initialMode));
-            CloseWelcomeWindowIfPresent();
+
+            // Keep the welcome window alive until the shell is active. Closing the only active
+            // XAML window first can terminate the process natively before shell activation runs.
             if (MainWindow != null)
                 await ActivateWindowAsync(MainWindow);
+
+            CloseWelcomeWindowIfPresent();
 
             if (message.Account.IsContactAccessGranted)
             {
@@ -1814,12 +1818,14 @@ public partial class App : WinoApplication,
                 });
 
             await LoadInitialWinoAccountAsync();
-            CloseWelcomeWindowIfPresent();
 
+            // Preserve an active XAML window throughout the welcome-to-shell handoff.
             if (MainWindow != null)
             {
                 await ActivateWindowAsync(MainWindow);
             }
+
+            CloseWelcomeWindowIfPresent();
 
             RestartAutoSynchronizationLoop();
             await UpdateJumpListOptionsSafeAsync();

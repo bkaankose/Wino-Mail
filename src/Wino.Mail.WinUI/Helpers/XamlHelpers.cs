@@ -450,6 +450,19 @@ public static class XamlHelpers
         => isActive
             ? new SolidColorBrush(Colors.White)
             : (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+
+    public static Brush GetChoiceCardBorderBrush(bool isSelected)
+        => (Brush)Application.Current.Resources[isSelected
+            ? "AccentFillColorDefaultBrush"
+            : "CardStrokeColorDefaultBrush"];
+
+    public static Thickness GetChoiceCardBorderThickness(bool isSelected) => new(isSelected ? 2 : 1);
+
+    /// <summary>
+    /// Collapses a grid column completely when the element inside it is hidden.
+    /// </summary>
+    public static GridLength GetColumnWidthByVisibility(bool isVisible)
+        => isVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
     public static FontWeight GetFontWeightByChildSelectedState(bool isChildSelected) => isChildSelected ? FontWeights.SemiBold : FontWeights.Normal;
     public static FontWeight GetFontWeightByReadState(bool isChildSelected) => isChildSelected ? FontWeights.Normal : FontWeights.SemiBold;
     public static FontWeight GetMailItemSenderFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.Bold;

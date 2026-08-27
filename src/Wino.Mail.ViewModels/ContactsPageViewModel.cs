@@ -451,11 +451,15 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     private void ReconcileFilterGroups()
     {
-        var desired = _addressBookFilterGroup.Count > 0
-            ? new[] { _primaryFilterGroup, _addressBookFilterGroup, _listFilterGroup }
-            : new[] { _primaryFilterGroup, _listFilterGroup };
+        var desired = new List<ContactFilterGroup> { _primaryFilterGroup };
 
-        for (var targetIndex = 0; targetIndex < desired.Length; targetIndex++)
+        if (_addressBookFilterGroup.Count > 0)
+            desired.Add(_addressBookFilterGroup);
+
+        if (_listFilterGroup.Count > 0)
+            desired.Add(_listFilterGroup);
+
+        for (var targetIndex = 0; targetIndex < desired.Count; targetIndex++)
         {
             var group = desired[targetIndex];
             var currentIndex = FilterGroups.IndexOf(group);
@@ -619,7 +623,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             return;
         }
 
-        RemoveFromGroups(existing);
+        var previousInitialLetter = existing.InitialLetter;
         existing.ApplySnapshot(message.Contact);
 
         if (SelectedFilter?.Kind == ContactFilterKind.Favorites && !existing.IsFavorite)
@@ -628,7 +632,11 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             return;
         }
 
-        AppendToGroup(existing);
+        if (!string.Equals(previousInitialLetter, existing.InitialLetter, StringComparison.Ordinal))
+        {
+            RemoveFromGroups(existing);
+            AppendToGroup(existing);
+        }
     }
 
     private bool ShouldDisplayContact(AccountContact contact)
@@ -1252,8 +1260,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             _listFilterGroup.Add(filter);
         }
 
-        if (!FilterGroups.Contains(_listFilterGroup))
-            FilterGroups.Add(_listFilterGroup);
+        ReconcileFilterGroups();
     }
 
     private void RemoveContactList(ContactFilterViewModel filter, bool wasSelected)
@@ -1275,6 +1282,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         var list = ContactLists.FirstOrDefault(item => item.Id == filter.ListId);
         if (list is not null)
             ContactLists.Remove(list);
+
+        ReconcileFilterGroups();
     }
 
     private async Task RefreshListCountsAsync()

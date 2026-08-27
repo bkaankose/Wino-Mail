@@ -28,8 +28,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     private const string SetupOperationAuthentication = "Authentication";
     private const string SetupOperationSaveAccount = "SaveAccount";
     private const string SetupOperationProfileSync = "ProfileSync";
-    private const string SetupOperationContactSync = "ContactSync";
-    private const string SetupOperationTaskSync = "TaskSync";
     private const string SetupOperationFolderSync = "FolderSync";
     private const string SetupOperationCategorySync = "CategorySync";
     private const string SetupOperationCalendarMetadataSync = "CalendarMetadataSync";
@@ -94,8 +92,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
         Steps.Clear();
         var shouldSetupMail = WizardContext.IsMailAccessEnabled;
         var shouldSetupCalendar = WizardContext.IsCalendarAccessEnabled;
-        var shouldSetupContacts = WizardContext.IsOAuthProvider && WizardContext.IsContactAccessEnabled;
-        var shouldSetupTasks = WizardContext.IsOAuthProvider && WizardContext.IsTaskAccessEnabled;
 
         if (WizardContext.IsOAuthProvider)
         {
@@ -104,10 +100,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 Title = string.Format(Translator.AccountSetup_Step_Authenticating, WizardContext.SelectedProvider.Name)
             });
             Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SavingAccount });
-            if (shouldSetupContacts)
-                Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SyncingContacts });
-            if (shouldSetupTasks)
-                Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_SyncingTasks });
             if (shouldSetupMail)
             {
                 Steps.Add(new AccountSetupStepModel { Title = Translator.AccountSetup_Step_FetchingProfile });
@@ -274,32 +266,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 _dbWritten = true;
                 SetCurrentStepSucceeded();
 
-                if (_createdAccount.IsContactAccessGranted)
-                {
-                    SetStepInProgress(Translator.AccountSetup_Step_SyncingContacts, SetupOperationContactSync);
-                    var contactResult = await SynchronizationManager.Instance.SynchronizeContactsAsync(new ContactSynchronizationOptions
-                    {
-                        AccountId = _createdAccount.Id,
-                        Type = ContactSynchronizationType.Full
-                    });
-                    if (contactResult.CompletedState != SynchronizationCompletedState.Success)
-                        throw new Exception(Translator.Exception_FailedToSynchronizeContacts);
-                    SetCurrentStepSucceeded();
-                }
-
-                if (_createdAccount.IsTaskAccessGranted)
-                {
-                    SetStepInProgress(Translator.AccountSetup_Step_SyncingTasks, SetupOperationTaskSync);
-                    var taskResult = await SynchronizationManager.Instance.SynchronizeTasksAsync(new TaskSynchronizationOptions
-                    {
-                        AccountId = _createdAccount.Id,
-                        Type = TaskSynchronizationType.Full
-                    });
-                    if (taskResult.CompletedState != SynchronizationCompletedState.Success)
-                        throw new Exception(Translator.Exception_FailedToSynchronizeTasks);
-                    SetCurrentStepSucceeded();
-                }
-
                 if (_createdAccount.IsMailAccessGranted)
                 {
                     // Step: Profile
@@ -439,20 +405,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     SetCurrentStepSucceeded();
                 }
 
-                if (_createdAccount.IsContactAccessGranted &&
-                    _createdAccount.ContactIntegrationSource == AccountIntegrationSource.Dav)
-                {
-                    SetStepInProgress(Translator.AccountSetup_Step_SyncingContacts, SetupOperationContactSync);
-                    var contactResult = await SynchronizationManager.Instance.SynchronizeContactsAsync(new ContactSynchronizationOptions
-                    {
-                        AccountId = _createdAccount.Id,
-                        Type = ContactSynchronizationType.Full
-                    });
-                    if (contactResult == null || contactResult.CompletedState != SynchronizationCompletedState.Success)
-                        throw new Exception(Translator.Exception_FailedToSynchronizeContacts);
-                    SetCurrentStepSucceeded();
-                }
-
                 if (_createdAccount.IsMailAccessGranted)
                 {
                     await _accountService.CreateRootAliasAsync(_createdAccount.Id, _createdAccount.Address);
@@ -521,20 +473,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     SetCurrentStepSucceeded();
                 }
 
-                if (_createdAccount.IsContactAccessGranted &&
-                    _createdAccount.ContactIntegrationSource == AccountIntegrationSource.Dav)
-                {
-                    SetStepInProgress(Translator.AccountSetup_Step_SyncingContacts, SetupOperationContactSync);
-                    var contactResult = await SynchronizationManager.Instance.SynchronizeContactsAsync(new ContactSynchronizationOptions
-                    {
-                        AccountId = _createdAccount.Id,
-                        Type = ContactSynchronizationType.Full
-                    });
-                    if (contactResult == null || contactResult.CompletedState != SynchronizationCompletedState.Success)
-                        throw new Exception(Translator.Exception_FailedToSynchronizeContacts);
-                    SetCurrentStepSucceeded();
-                }
-
                 if (_createdAccount.IsMailAccessGranted)
                 {
                     await _accountService.CreateRootAliasAsync(_createdAccount.Id, _createdAccount.Address);
@@ -576,20 +514,10 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     validationException.ProtocolLog);
             }
 
-            // Rollback if DB write happened
-            if (_dbWritten && _createdAccount != null)
-            {
-                try
-                {
-                    await _accountService.DeleteAccountAsync(_createdAccount);
-                }
-                catch (Exception deleteEx)
-                {
-                    Log.Error(deleteEx, "Failed to rollback account creation.");
-                }
-
-                _dbWritten = false;
-            }
+            // Once authentication and persistence have succeeded, the account is valid even if a
+            // provider endpoint is temporarily unavailable. Keep it so retry can enter the shell
+            // without authenticating again or attempting a duplicate insert. The shell queues the
+            // deferred contact/task work and normal synchronization can recover the remaining data.
         }
     }
 
@@ -732,6 +660,16 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
     [RelayCommand]
     private async Task TryAgainAsync()
     {
+        if (_dbWritten && _createdAccount != null)
+        {
+            IsSetupFailed = false;
+            FailureMessage = null;
+            IsSetupComplete = true;
+
+            Messenger.Send(new AccountCreatedMessage(_createdAccount));
+            return;
+        }
+
         await RunSetupAsync();
     }
 }

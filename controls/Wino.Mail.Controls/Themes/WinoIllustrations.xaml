@@ -6,6 +6,15 @@
 
         Accent tints are NOT brushes. Shapes fill with the accent brush and set Opacity (0.20 soft,
         0.45 mid) so the whole family follows SystemAccentColor without a second set of resources.
+
+        WinoIllustrationAccentBrush aliases AccentFillColorDefaultBrush, and NewThemeService.SetBrushResource
+        mutates that brush instance in place rather than replacing it. The alias therefore tracks whatever
+        accent the active app theme installs (Forest teal, Nighty gold, Garden green) with nothing to sync.
+
+        These values are the Default and system-theme baseline. App themes in AppThemes/*.xaml are merged
+        into Application.Resources AFTER this dictionary, so any of them may override the surface, line,
+        line-soft, warm and shadow keys to sit correctly on a wallpaper. Only Default.xaml deliberately
+        overrides nothing: on Mica the baseline is already the right answer.
     -->
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">

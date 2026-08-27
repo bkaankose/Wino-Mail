@@ -11,6 +11,13 @@
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
+            <!--  Illustration palette. Icy wallpaper, forced Light. Cool blue-grey neutrals; amber is kept deliberately as winter sun.
+            -->
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#C3CFDF</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#E3EAF3</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F2B33D</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#14141824</SolidColorBrush>
             <!--  Brushes  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#b0c6dd</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#33B0C6DD</SolidColorBrush>
@@ -20,6 +27,11 @@
             <SolidColorBrush x:Key="WelcomeOverlayBrush">#D9FFFFFF</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#1E242E</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#36404F</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#2A323D</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F5C05C</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#52000000</SolidColorBrush>
             <!--  Brushes  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#b0c6dd</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#33B0C6DD</SolidColorBrush>

@@ -11,6 +11,13 @@
     <!--  Acrylic Template  -->
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
+            <!--  Illustration palette. Acrylic is translucent and visually noisy, so the neutrals run one step stronger than base.
+            -->
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#CFCFDA</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#E6E6EE</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F2B33D</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#1F14141E</SolidColorBrush>
             <!--  Reading Page Date/Name Group Header Background  -->
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#B2FCFCFC</SolidColorBrush>
@@ -26,6 +33,11 @@
         </ResourceDictionary>
 
         <ResourceDictionary x:Name="Dark">
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#2C2C34</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#45454F</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#363640</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F5C05C</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#5C000000</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#2C2C2C</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#662C2C2C</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#33399BFF</SolidColorBrush>

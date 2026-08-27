@@ -11,6 +11,13 @@
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
+            <!--  Illustration palette. Sky wallpaper, forced Light. Neutrals carry a blue cast so the art sits in the photo, not on it.
+            -->
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#C2D4E4</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#E2ECF5</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F2B33D</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#14141E28</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#b2dffc</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#33B2DFFC</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#59B2DFFC</SolidColorBrush>
@@ -21,6 +28,11 @@
             <SolidColorBrush x:Key="WelcomeOverlayBrush">#D9FFFFFF</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#1E2A36</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#35485B</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#2A3947</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F5C05C</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#52000000</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#b2dffc</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush">#33B2DFFC</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush">#59B2DFFC</SolidColorBrush>
