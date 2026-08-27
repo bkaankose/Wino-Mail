@@ -11,6 +11,7 @@ using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Requests.Contact;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.UI;
@@ -392,16 +393,23 @@ public class ContactsPageViewModelTests
         var secondId = Guid.NewGuid();
         var contactService = PageService();
         var dialogs = new Mock<IMailDialogService>();
+        ApplicationLocalContactRequest queuedRequest = null;
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteLocalAsync(It.IsAny<IRequestBase>()))
+            .Callback<IRequestBase>(request => queuedRequest = request as ApplicationLocalContactRequest)
+            .Returns(Task.CompletedTask);
         var viewModel = new ContactsPageViewModel(contactService.Object, Mock.Of<IAccountService>(),
-            Mock.Of<ISynchronizationManager>(), Mock.Of<IWinoRequestDelegator>(), Mock.Of<INavigationService>(),
+            Mock.Of<ISynchronizationManager>(), delegator.Object, Mock.Of<INavigationService>(),
             dialogs.Object, Mock.Of<ILaunchProtocolService>());
 
         await viewModel.AssignContactsToListAsync(list, [firstId, firstId, secondId, Guid.Empty]);
 
+        queuedRequest.Should().NotBeNull();
+        queuedRequest.Operation.Should().Be(ApplicationLocalContactOperation.AddMembership);
+        queuedRequest.ContactIds.Should().Equal(firstId, secondId);
         contactService.Verify(service => service.AddContactsToListAsync(
-            list.Id,
-            It.Is<IEnumerable<Guid>>(ids => ids.SequenceEqual(new[] { firstId, secondId }))), Times.Once);
-        contactService.Verify(service => service.GetContactListCountsAsync(), Times.Once);
+            It.IsAny<Guid>(),
+            It.IsAny<IEnumerable<Guid>>()), Times.Never);
         dialogs.Verify(service => service.InfoBarMessage(
             Translator.ContactList_AddedTitle,
             It.IsAny<string>(),
@@ -419,8 +427,12 @@ public class ContactsPageViewModelTests
             .ReturnsAsync(new Dictionary<Guid, int> { [list.Id] = 2 });
         var accountService = new Mock<IAccountService>();
         accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteLocalAsync(It.IsAny<IRequestBase>()))
+            .Callback<IRequestBase>(request => request.ApplyUIChanges())
+            .Returns(Task.CompletedTask);
         var viewModel = new ContactsPageViewModel(contactService.Object, accountService.Object,
-            Mock.Of<ISynchronizationManager>(), Mock.Of<IWinoRequestDelegator>(), Mock.Of<INavigationService>(),
+            Mock.Of<ISynchronizationManager>(), delegator.Object, Mock.Of<INavigationService>(),
             Mock.Of<IMailDialogService>(), Mock.Of<ILaunchProtocolService>());
 
         viewModel.OnNavigatedTo(NavigationMode.New, null!);
@@ -443,9 +455,7 @@ public class ContactsPageViewModelTests
     [Fact]
     public async Task CreateList_AddsOneNavigationItemWithoutResettingGroups()
     {
-        var createdList = new ContactList { Id = Guid.NewGuid(), Name = "Team" };
         var contactService = PageService();
-        contactService.Setup(service => service.CreateContactListAsync("Team", null)).ReturnsAsync(createdList);
         var accountService = new Mock<IAccountService>();
         accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
         var dialogs = new Mock<IMailDialogService>();
@@ -453,8 +463,17 @@ public class ContactsPageViewModelTests
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .ReturnsAsync("Team")
             .ReturnsAsync("Renamed team");
+        var localRequests = new List<ApplicationLocalContactRequest>();
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteLocalAsync(It.IsAny<IRequestBase>()))
+            .Callback<IRequestBase>(request =>
+            {
+                localRequests.Add((ApplicationLocalContactRequest)request);
+                request.ApplyUIChanges();
+            })
+            .Returns(Task.CompletedTask);
         var viewModel = new ContactsPageViewModel(contactService.Object, accountService.Object,
-            Mock.Of<ISynchronizationManager>(), Mock.Of<IWinoRequestDelegator>(), Mock.Of<INavigationService>(),
+            Mock.Of<ISynchronizationManager>(), delegator.Object, Mock.Of<INavigationService>(),
             dialogs.Object, Mock.Of<ILaunchProtocolService>());
 
         viewModel.OnNavigatedTo(NavigationMode.New, null!);
@@ -468,7 +487,7 @@ public class ContactsPageViewModelTests
         await viewModel.CreateListCommand.ExecuteAsync(null);
 
         viewModel.FilterGroups.Last().Should().BeSameAs(listGroup);
-        viewModel.ContactLists.Should().ContainSingle().Which.Should().BeSameAs(createdList);
+        viewModel.ContactLists.Should().ContainSingle().Which.Name.Should().Be("Team");
         itemActions.Should().Equal(NotifyCollectionChangedAction.Add);
         groupActions.Should().BeEmpty();
 
@@ -476,7 +495,11 @@ public class ContactsPageViewModelTests
         createdFilter.RenameListCommand.Execute(null);
         await WaitUntilAsync(() => createdFilter.Name == "Renamed team");
 
-        contactService.Verify(service => service.UpdateContactListAsync(createdList), Times.Once);
+        localRequests.Select(request => request.Operation).Should().Equal(
+            ApplicationLocalContactOperation.CreateList,
+            ApplicationLocalContactOperation.UpdateList);
+        contactService.Verify(service => service.CreateContactListAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        contactService.Verify(service => service.UpdateContactListAsync(It.IsAny<ContactList>()), Times.Never);
     }
 
     [Fact]

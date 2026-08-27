@@ -29,7 +29,8 @@ public class SpecialImapProviderConfigResolver : ISpecialImapProviderConfigResol
                 OutgoingAuthenticationMethod = ImapAuthenticationMethod.Auto,
                 MaxConcurrentClients = 5,
                 ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected,
-                CalDavServiceUrl = "https://caldav.icloud.com/"
+                CalDavServiceUrl = "https://caldav.icloud.com/",
+                CardDavServiceUrl = "https://contacts.icloud.com/"
             };
 
             // iCloud IMAP/SMTP authentication uses only the local-part mailbox username.
@@ -68,9 +69,16 @@ public class SpecialImapProviderConfigResolver : ISpecialImapProviderConfigResol
         resolvedConfig.CalDavUsername = details.Address;
         resolvedConfig.CalDavPassword = details.Password;
 
+        var requiresDavCredentials = details.CalendarSupportMode == ImapCalendarSupportMode.CalDav ||
+            account.IsContactAccessGranted && account.ContactIntegrationSource == AccountIntegrationSource.Dav;
+
         if (details.CalendarSupportMode != ImapCalendarSupportMode.CalDav)
         {
             resolvedConfig.CalDavServiceUrl = string.Empty;
+        }
+
+        if (!requiresDavCredentials)
+        {
             resolvedConfig.CalDavUsername = string.Empty;
             resolvedConfig.CalDavPassword = string.Empty;
         }

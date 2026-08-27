@@ -27,7 +27,9 @@ internal sealed class SmokeTestRunner : IDisposable
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly IMailService _mailService;
+    private readonly IContactService _contactService;
     private readonly IWinoRequestDelegator _requestDelegator;
+    private readonly ICardDavSynchronizationStore _cardDavStore;
     private readonly SmokeSynchronizationHost _synchronizationHost;
     private readonly SmokeMailSender _mailSender;
 
@@ -37,7 +39,9 @@ internal sealed class SmokeTestRunner : IDisposable
         _accountService = services.GetRequiredService<IAccountService>();
         _folderService = services.GetRequiredService<IFolderService>();
         _mailService = services.GetRequiredService<IMailService>();
+        _contactService = services.GetRequiredService<IContactService>();
         _requestDelegator = services.GetRequiredService<IWinoRequestDelegator>();
+        _cardDavStore = services.GetRequiredService<ICardDavSynchronizationStore>();
         _synchronizationHost = new SmokeSynchronizationHost(services.GetRequiredService<ISynchronizationManager>());
         _mailSender = new SmokeMailSender(
             _accountService,
@@ -397,6 +401,7 @@ internal sealed class SmokeTestRunner : IDisposable
             AccountId = account.Id,
             Type = ContactSynchronizationType.Delta
         }, cancellationToken).ConfigureAwait(false);
+        await VerifyCardDavDiscoveryAsync(account).ConfigureAwait(false);
         System.Console.WriteLine($"Contacts: {contacts.CompletedState}; added {contacts.DownloadedCount}, updated {contacts.ChangedCount}, removed {contacts.DeletedCount}.");
         PrintResultDetails(contacts.Exception, contacts.Issues);
     }
@@ -578,6 +583,7 @@ internal sealed class SmokeTestRunner : IDisposable
                 Type = ContactSynchronizationType.Delta
             }, cancellationToken).ConfigureAwait(false);
             EnsureSuccessful(sync.CompletedState, sync.Exception, sync.Issues.Select(issue => issue.Message));
+            await VerifyCardDavDiscoveryAsync(account).ConfigureAwait(false);
             return new StepPayload("Contact synchronization completed.", new Dictionary<string, int>
             {
                 ["downloaded"] = sync.DownloadedCount,
@@ -585,6 +591,29 @@ internal sealed class SmokeTestRunner : IDisposable
                 ["deleted"] = sync.DeletedCount
             });
         }).ConfigureAwait(false);
+    }
+
+    private async Task VerifyCardDavDiscoveryAsync(MailAccount account)
+    {
+        if (account.ContactIntegrationSource != AccountIntegrationSource.Dav)
+            return;
+
+        var addressBooks = await _cardDavStore.GetAddressBooksAsync(account.Id).ConfigureAwait(false);
+        if (addressBooks.Count == 0)
+            throw new InvalidOperationException("CardDAV synchronization completed without discovering an address book.");
+        var accountState = await _cardDavStore.GetAccountStateAsync(account.Id).ConfigureAwait(false);
+
+        var summaries = new List<string>(addressBooks.Count);
+        foreach (var book in addressBooks)
+        {
+            var contacts = await _contactService.GetContactsByAddressBookAsync(book.AddressBook.Id).ConfigureAwait(false);
+            summaries.Add($"{book.AddressBook.DisplayName} ({contacts.Count} contacts; " +
+                          $"extended MKCOL: {book.State.SupportsExtendedMkCol}; writable: {!book.State.IsReadOnly})");
+        }
+
+        System.Console.WriteLine($"CardDAV: {addressBooks.Count} address book(s) discovered; " +
+                                 $"collection creation: {accountState?.SupportsAddressBookCreation == true}. " +
+                                 string.Join(", ", summaries));
     }
 
     private async Task<MailCopy?> RunStateOperationAsync(

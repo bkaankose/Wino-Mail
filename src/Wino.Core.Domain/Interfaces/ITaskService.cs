@@ -6,10 +6,12 @@ using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Interfaces;
 
-public interface ITaskService
+public interface ITaskService : ITaskQueryService
 {
-    Task<List<AccountTaskList>> GetTaskListsAsync(Guid? accountId = null);
-    Task<AccountTaskList> GetTaskListAsync(Guid listId);
+    Task<AccountTaskListGroup> CreateTaskListGroupAsync(Guid accountId, string title);
+    Task UpdateTaskListGroupAsync(AccountTaskListGroup group);
+    Task DeleteTaskListGroupAsync(Guid groupId, bool ungroupLists = true);
+    Task UpdateTaskListPlacementAsync(Guid listId, Guid? groupId, int sortOrder);
     Task<AccountTaskList> GetOrCreateLocalTaskListAsync(Guid accountId, string displayName);
     Task<AccountTaskList> CreateTaskListAsync(Guid accountId, string title);
     Task<AccountTaskList> UpsertRemoteTaskListAsync(AccountTaskList list);
@@ -18,15 +20,11 @@ public interface ITaskService
     Task DeleteTaskListAsync(Guid listId);
     Task RemoveTaskListAsync(Guid listId);
 
-    Task<List<AccountTask>> GetTasksAsync(Guid? accountId = null, Guid? listId = null, TaskViewKind view = TaskViewKind.All, string search = null, TaskSortKind sort = TaskSortKind.DueDate);
-
     /// <summary>
     /// Open tasks worth pulling into today's My Day, ordered overdue → due today →
     /// unfinished from yesterday's My Day → recently created. Anything already in
     /// today's My Day is excluded.
     /// </summary>
-    Task<List<AccountTask>> GetMyDaySuggestionsAsync();
-    Task<AccountTask> GetTaskAsync(Guid taskId);
     Task<AccountTask> CreateTaskAsync(AccountTask task);
     Task UpdateTaskAsync(AccountTask task);
     Task DeleteTaskAsync(Guid taskId);

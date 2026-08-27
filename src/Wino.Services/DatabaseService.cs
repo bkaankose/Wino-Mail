@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Misc;
 
 namespace Wino.Services;
 
@@ -22,6 +23,7 @@ public class DatabaseService : IDatabaseService
     private const string DatabaseName = "Wino200.db";
 
     private bool _isInitialized = false;
+    private bool _cardDavCreationCapabilityMigrationRequired;
     private readonly IApplicationConfiguration _folderConfiguration;
 
     public SQLiteAsyncConnection Connection { get; private set; }
@@ -43,6 +45,9 @@ public class DatabaseService : IDatabaseService
         await Connection.ExecuteAsync("PRAGMA foreign_keys = ON;").ConfigureAwait(false);
 
         await MigrateLegacyContactsAsync().ConfigureAwait(false);
+        var preCreateCardDavAccountColumns = await Connection.GetTableInfoAsync(nameof(CardDavAccountState)).ConfigureAwait(false);
+        _cardDavCreationCapabilityMigrationRequired = preCreateCardDavAccountColumns.Count > 0 &&
+            !preCreateCardDavAccountColumns.Any(column => column.Name == nameof(CardDavAccountState.SupportsAddressBookCreation));
         await CreateTablesAsync();
 
         _isInitialized = true;
@@ -71,6 +76,12 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<ContactRelation>(),
             Connection.CreateTableAsync<ContactList>(),
             Connection.CreateTableAsync<ContactListMember>(),
+            Connection.CreateTableAsync<CardDavAccountState>(),
+            Connection.CreateTableAsync<CardDavAddressBookState>(),
+            Connection.CreateTableAsync<CardDavResourceShadow>(),
+            Connection.CreateTableAsync<CardDavQuarantine>(),
+            Connection.CreateTableAsync<CardDavConflict>(),
+            Connection.CreateTableAsync<AccountTaskListGroup>(),
             Connection.CreateTableAsync<AccountTaskList>(),
             Connection.CreateTableAsync<AccountTask>(),
             Connection.CreateTableAsync<AccountTaskStep>(),
@@ -102,6 +113,13 @@ public class DatabaseService : IDatabaseService
     {
         await EnsureKeyboardShortcutSchemaAsync().ConfigureAwait(false);
         await EnsureWinoAccountSchemaAsync().ConfigureAwait(false);
+
+        if (_cardDavCreationCapabilityMigrationRequired)
+        {
+            await Connection.ExecuteAsync(
+                $"UPDATE {nameof(CardDavAccountState)} SET {nameof(CardDavAccountState.RequiresRediscovery)} = 1")
+                .ConfigureAwait(false);
+        }
 
         var mailCopyColumns = await Connection.GetTableInfoAsync(nameof(MailCopy)).ConfigureAwait(false);
 
@@ -273,6 +291,22 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        var contactAddressBookColumns = await Connection.GetTableInfoAsync(nameof(ContactAddressBook)).ConfigureAwait(false);
+
+        if (!contactAddressBookColumns.Any(c => c.Name == nameof(ContactAddressBook.IsReadOnly)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(ContactAddressBook)} ADD COLUMN {nameof(ContactAddressBook.IsReadOnly)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!contactAddressBookColumns.Any(c => c.Name == nameof(ContactAddressBook.IsPendingRemoteOperation)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(ContactAddressBook)} ADD COLUMN {nameof(ContactAddressBook.IsPendingRemoteOperation)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
         if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsTaskAccessEnabled)))
         {
             await Connection
@@ -295,6 +329,21 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
         if (!taskListColumns.Any(c => c.Name == nameof(AccountTaskList.TaskDeltaLink)))
         {
             await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.TaskDeltaLink)} TEXT NULL").ConfigureAwait(false);
+        }
+
+        if (!taskListColumns.Any(c => c.Name == nameof(AccountTaskList.ColorHex)))
+        {
+            await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.ColorHex)} TEXT NULL").ConfigureAwait(false);
+        }
+
+        if (!taskListColumns.Any(c => c.Name == nameof(AccountTaskList.GroupId)))
+        {
+            await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.GroupId)} BLOB NULL").ConfigureAwait(false);
+        }
+
+        if (!taskListColumns.Any(c => c.Name == nameof(AccountTaskList.SortOrder)))
+        {
+            await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.SortOrder)} INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
         }
 
         if (!accountColumns.Any(c => c.Name == nameof(MailAccount.ProfilePictureFileId)))
@@ -374,6 +423,13 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
         {
             await Connection
                 .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.CalDavPassword)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.CardDavServiceUrl)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.CardDavServiceUrl)} TEXT NULL")
                 .ConfigureAwait(false);
         }
 
@@ -583,9 +639,15 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactCard_IsFavorite_SortKey ON ContactCard(IsFavorite, SortKey)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_ContactListMember_List_Contact ON ContactListMember(ListId, ContactId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactListMember_ContactId ON ContactListMember(ContactId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_CardDavResourceShadow_Book_Href ON CardDavResourceShadow(AddressBookId, ExactHref)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_CardDavResourceShadow_Book_Generation ON CardDavResourceShadow(AddressBookId, LastSeenGeneration)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_CardDavQuarantine_Book_Href ON CardDavQuarantine(AddressBookId, ExactHref)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_CardDavConflict_Unresolved ON CardDavConflict(AccountId, Resolution)").ConfigureAwait(false);
 
         // Task indexes
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskList_AccountId ON TaskList(MailAccountId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskList_Group_Order ON TaskList(GroupId, SortOrder)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskListGroup_Account_Order ON TaskListGroup(MailAccountId, SortOrder)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskList_Account_Source ON TaskList(MailAccountId, SourceKind)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_TaskList_RemoteIdentity ON TaskList(MailAccountId, SourceKind, RemoteId) WHERE RemoteId IS NOT NULL AND RemoteId <> ''").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskCard_Account_List ON TaskCard(MailAccountId, TaskListId)").ConfigureAwait(false);
@@ -739,18 +801,25 @@ SET {nameof(KeyboardShortcut.Action)} =
             .Where(list => list.SourceKind == TaskSourceKind.Local)
             .Select(list => list.MailAccountId)
             .ToHashSet();
+        var usedColors = lists.Select(list => list.ColorHex).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var missingLists = accounts
             .Where(account => account.IsTaskAccessEnabled &&
                               !account.IsTaskAccessGranted &&
                               !existingAccountIds.Contains(account.Id))
-            .Select(account => new AccountTaskList
+            .Select(account =>
             {
-                Id = Guid.NewGuid(),
-                MailAccountId = account.Id,
-                SourceKind = TaskSourceKind.Local,
-                Title = string.IsNullOrWhiteSpace(account.Name) ? "Tasks" : account.Name,
-                IsDefault = true,
-                PendingMutation = TaskPendingMutation.None
+                var color = ColorPalette.GetDistinctColor(usedColors);
+                usedColors.Add(color);
+                return new AccountTaskList
+                {
+                    Id = Guid.NewGuid(),
+                    MailAccountId = account.Id,
+                    SourceKind = TaskSourceKind.Local,
+                    Title = string.IsNullOrWhiteSpace(account.Name) ? "Tasks" : account.Name,
+                    ColorHex = color,
+                    IsDefault = true,
+                    PendingMutation = TaskPendingMutation.None
+                };
             })
             .ToList();
 
@@ -762,9 +831,9 @@ SET {nameof(KeyboardShortcut.Action)} =
             foreach (var list in missingLists)
             {
                     transaction.Execute(
-                        "INSERT INTO TaskList (Id, MailAccountId, SourceKind, RemoteId, RemoteVersion, ListDeltaLink, TaskDeltaLink, Title, IsDefault, IsReadOnly, DeltaLink, LastSuccessfulSyncUtc, WatermarkUtc, PendingMutation, CreatedAtUtc, ModifiedAtUtc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                        "INSERT INTO TaskList (Id, MailAccountId, SourceKind, RemoteId, RemoteVersion, ListDeltaLink, TaskDeltaLink, Title, ColorHex, IsDefault, IsReadOnly, DeltaLink, LastSuccessfulSyncUtc, WatermarkUtc, PendingMutation, CreatedAtUtc, ModifiedAtUtc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                         list.Id, list.MailAccountId, list.SourceKind, list.RemoteId, list.RemoteVersion, list.ListDeltaLink,
-                        list.TaskDeltaLink, list.Title, list.IsDefault, list.IsReadOnly, list.DeltaLink, list.LastSuccessfulSyncUtc, list.WatermarkUtc,
+                        list.TaskDeltaLink, list.Title, list.ColorHex, list.IsDefault, list.IsReadOnly, list.DeltaLink, list.LastSuccessfulSyncUtc, list.WatermarkUtc,
                         list.PendingMutation, list.CreatedAtUtc, list.ModifiedAtUtc);
             }
         }).ConfigureAwait(false);

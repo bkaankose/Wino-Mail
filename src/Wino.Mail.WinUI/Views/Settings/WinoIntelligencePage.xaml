@@ -8,6 +8,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:illustrations="using:Wino.Controls.Illustrations"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:viewModelData="using:Wino.Core.ViewModels.Data"
     x:Name="Root"
@@ -108,11 +109,10 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <PathIcon
-                                Width="56"
-                                Height="56"
-                                Data="{StaticResource WinoIntelligenceBrandSparklePathData}"
-                                Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                            <illustrations:WinoIntelligencePromotionIllustration
+                                Width="104"
+                                Height="104"
+                                VerticalAlignment="Top" />
                             <StackPanel Grid.Column="1" Spacing="10">
                                 <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.WinoIntelligence_PromotionTitle, Mode=OneTime}" />
                                 <TextBlock
@@ -151,12 +151,10 @@
                         CornerRadius="12"
                         Visibility="{x:Bind ViewModel.AiPackAddOn.IsNotPurchased, Mode=OneWay}">
                         <StackPanel Spacing="10">
-                            <PathIcon
-                                Width="42"
-                                Height="42"
-                                HorizontalAlignment="Left"
-                                Data="{StaticResource WinoIntelligenceBrandSparklePathData}"
-                                Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                            <illustrations:WinoIntelligencePromotionIllustration
+                                Width="88"
+                                Height="88"
+                                HorizontalAlignment="Left" />
                             <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.WinoIntelligence_PromotionTitle, Mode=OneTime}" />
                             <TextBlock Text="{x:Bind domain:Translator.WinoIntelligence_PromotionDescription, Mode=OneTime}" TextWrapping="WrapWholeWords" />
                             <TextBlock

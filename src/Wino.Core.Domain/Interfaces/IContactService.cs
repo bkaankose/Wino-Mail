@@ -9,13 +9,10 @@ using Wino.Core.Domain.Models.Contacts;
 
 namespace Wino.Core.Domain.Interfaces;
 
-public interface IContactService
+public interface IContactService : IContactQueryService
 {
-    Task<AccountContact> GetContactAsync(Guid contactId);
     Task<List<AccountContact>> GetContactsByAddressBookAsync(Guid addressBookId);
-    Task<List<ContactAddressBook>> GetAddressBooksAsync(Guid? accountId = null);
     Task<ContactAddressBook> GetOrCreateProviderAddressBookAsync(Guid accountId, ContactSourceKind sourceKind, string remoteId, string displayName, bool isDefault, string parentRemoteId = null);
-    Task<List<ContactCreateDestination>> GetCreateDestinationsAsync();
     Task<List<AccountContact>> ResolveRecipientCandidatesAsync(Guid? accountId, string queryText, int limit = 20);
 
     /// <summary>
@@ -40,21 +37,17 @@ public interface IContactService
 
     Task<AccountContact> GetContactByAddressAsync(Guid? accountId, string address);
     Task<List<AccountContact>> GetContactsByAddressesAsync(Guid? accountId, IEnumerable<string> addresses);
-    Task<PagedContactsResult> GetContactsPageAsync(ContactQueryFilter filter, int offset, int pageSize);
 
     // Favorites. Local-only; never pushed to a provider.
     Task SetContactFavoriteAsync(Guid contactId, bool isFavorite);
     Task SetContactsFavoriteAsync(IEnumerable<Guid> contactIds, bool isFavorite);
-    Task<int> GetFavoriteContactsCountAsync();
 
     // Local contact lists.
-    Task<List<ContactList>> GetContactListsAsync();
     Task<ContactList> CreateContactListAsync(string name, string description = null);
+    Task SaveContactListAsync(ContactList list);
     Task UpdateContactListAsync(ContactList list);
     Task DeleteContactListAsync(Guid listId);
     Task AddContactsToListAsync(Guid listId, IEnumerable<Guid> contactIds);
     Task RemoveContactsFromListAsync(Guid listId, IEnumerable<Guid> contactIds);
-    Task<List<Guid>> GetListIdsForContactAsync(Guid contactId);
     Task SetListsForContactAsync(Guid contactId, IEnumerable<Guid> listIds);
-    Task<Dictionary<Guid, int>> GetContactListCountsAsync();
 }

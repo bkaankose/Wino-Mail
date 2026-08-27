@@ -4,7 +4,8 @@ using System.Globalization;
 
 namespace Wino.Core.Domain.Misc;
 
-public static class CalendarColorPalette
+/// <summary>Shared flat colors for calendars, task lists, and other account-owned collections.</summary>
+public static class ColorPalette
 {
     private static readonly string[] FlatUiColorPalette =
     [
@@ -17,7 +18,10 @@ public static class CalendarColorPalette
         "#546E7A", "#455A64", "#37474F", "#607D8B", "#78909C", "#90A4AE", "#757575", "#616161", "#424242", "#9E9E9E",
         "#BDBDBD", "#EC407A", "#F06292", "#F48FB1", "#BA68C8", "#CE93D8", "#9575CD", "#B39DDB", "#7986CB", "#9FA8DA",
         "#64B5F6", "#90CAF9", "#4FC3F7", "#81D4FA", "#4DD0E1", "#80DEEA", "#4DB6AC", "#80CBC4", "#81C784", "#A5D6A7",
-        "#C5E1A5", "#E6EE9C", "#FFF176", "#FFD54F", "#FFCC80", "#FFB74D", "#FFAB40", "#FF9E80", "#BCAAA4", "#A1887F"
+        "#C5E1A5", "#E6EE9C", "#FFF176", "#FFD54F", "#FFCC80", "#FFB74D", "#FFAB40", "#FF9E80", "#BCAAA4", "#A1887F",
+        "#B71C1C", "#880E4F", "#4A148C", "#311B92", "#1A237E", "#0D47A1", "#01579B", "#006064", "#004D40", "#1B5E20",
+        "#33691E", "#827717", "#F57F17", "#FF6F00", "#E65100", "#BF360C", "#3E2723", "#263238", "#FF1744", "#F50057",
+        "#D500F9", "#651FFF", "#3D5AFE", "#2979FF", "#00B0FF", "#00E5FF", "#1DE9B6", "#00E676"
     ];
 
     public static IReadOnlyList<string> GetColors() => FlatUiColorPalette;

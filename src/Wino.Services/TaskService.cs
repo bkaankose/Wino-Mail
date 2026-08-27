@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using SQLite;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Misc;
 
 namespace Wino.Services;
 
@@ -15,7 +17,61 @@ namespace Wino.Services;
 /// </summary>
 public sealed class TaskService : BaseDatabaseService, ITaskService
 {
+    private static readonly SemaphoreSlim TaskListColorGate = new(1, 1);
+
     public TaskService(IDatabaseService databaseService) : base(databaseService) { }
+
+    public async Task<List<AccountTaskListGroup>> GetTaskListGroupsAsync(Guid? accountId = null)
+    {
+        var groups = await Connection.Table<AccountTaskListGroup>().ToListAsync().ConfigureAwait(false);
+        return (accountId is null ? groups : groups.Where(group => group.MailAccountId == accountId.Value))
+            .OrderBy(group => group.SortOrder)
+            .ThenBy(group => group.Title, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(group => group.Id)
+            .ToList();
+    }
+
+    public async Task<AccountTaskListGroup> CreateTaskListGroupAsync(Guid accountId, string title)
+    {
+        var existing = await GetTaskListGroupsAsync(accountId).ConfigureAwait(false);
+        var now = DateTime.UtcNow;
+        var group = new AccountTaskListGroup
+        {
+            MailAccountId = accountId,
+            Title = string.IsNullOrWhiteSpace(title) ? "Group" : title.Trim(),
+            SortOrder = existing.Count,
+            CreatedAtUtc = now,
+            ModifiedAtUtc = now
+        };
+        await Connection.InsertAsync(group, typeof(AccountTaskListGroup)).ConfigureAwait(false);
+        return group;
+    }
+
+    public async Task UpdateTaskListGroupAsync(AccountTaskListGroup group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        group.Title = string.IsNullOrWhiteSpace(group.Title) ? "Group" : group.Title.Trim();
+        group.ModifiedAtUtc = DateTime.UtcNow;
+        await Connection.UpdateAsync(group, typeof(AccountTaskListGroup)).ConfigureAwait(false);
+    }
+
+    public async Task DeleteTaskListGroupAsync(Guid groupId, bool ungroupLists = true)
+    {
+        if (ungroupLists)
+            await Connection.ExecuteAsync("UPDATE TaskList SET GroupId = NULL WHERE GroupId = ?", groupId).ConfigureAwait(false);
+        await Connection.DeleteAsync<AccountTaskListGroup>(groupId).ConfigureAwait(false);
+    }
+
+    public async Task UpdateTaskListPlacementAsync(Guid listId, Guid? groupId, int sortOrder)
+    {
+        var list = await GetTaskListAsync(listId).ConfigureAwait(false);
+        if (list is null)
+            return;
+        list.GroupId = groupId;
+        list.SortOrder = sortOrder;
+        list.ModifiedAtUtc = DateTime.UtcNow;
+        await Connection.UpdateAsync(list, typeof(AccountTaskList)).ConfigureAwait(false);
+    }
 
     public async Task<List<AccountTaskList>> GetTaskListsAsync(Guid? accountId = null)
     {
@@ -66,7 +122,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             Title = string.IsNullOrWhiteSpace(displayName) ? "Tasks" : displayName,
             IsDefault = true
         };
-        await Connection.InsertAsync(createdList, typeof(AccountTaskList)).ConfigureAwait(false);
+        await InsertTaskListWithDistinctColorAsync(createdList).ConfigureAwait(false);
         return createdList;
     }
 
@@ -88,7 +144,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             CreatedAtUtc = now,
             ModifiedAtUtc = now
         };
-        await Connection.InsertAsync(list, typeof(AccountTaskList)).ConfigureAwait(false);
+        await InsertTaskListWithDistinctColorAsync(list).ConfigureAwait(false);
         return list;
     }
 
@@ -103,6 +159,9 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         {
             list.Id = existing.Id;
             list.CreatedAtUtc = existing.CreatedAtUtc;
+            list.ColorHex = existing.ColorHex;
+            list.GroupId = existing.GroupId;
+            list.SortOrder = existing.SortOrder;
             list.PendingMutation = TaskPendingMutation.None;
             list.ModifiedAtUtc = DateTime.UtcNow;
             await Connection.UpdateAsync(list, typeof(AccountTaskList)).ConfigureAwait(false);
@@ -113,7 +172,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         list.PendingMutation = TaskPendingMutation.None;
         list.CreatedAtUtc = DateTime.UtcNow;
         list.ModifiedAtUtc = list.CreatedAtUtc;
-        await Connection.InsertAsync(list, typeof(AccountTaskList)).ConfigureAwait(false);
+        await InsertTaskListWithDistinctColorAsync(list).ConfigureAwait(false);
         return list;
     }
 
@@ -342,13 +401,28 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
     public async Task CompleteListMutationAsync(Guid listId, AccountTaskList remoteList, bool deleted)
     {
         var local = await GetTaskListAsync(listId).ConfigureAwait(false);
-        if (local is null)
-            return;
+
         if (deleted)
         {
-            await DeleteTaskListLocallyAsync(local).ConfigureAwait(false);
+            if (local is not null)
+                await DeleteTaskListLocallyAsync(local).ConfigureAwait(false);
             return;
         }
+
+        if (local is null)
+        {
+            if (remoteList is null)
+                throw new InvalidOperationException("A successful task-list mutation requires a list snapshot.");
+
+            remoteList.Id = listId;
+            remoteList.PendingMutation = TaskPendingMutation.None;
+            remoteList.CreatedAtUtc = remoteList.CreatedAtUtc == default ? DateTime.UtcNow : remoteList.CreatedAtUtc;
+            remoteList.ModifiedAtUtc = DateTime.UtcNow;
+
+            await InsertTaskListWithDistinctColorAsync(remoteList).ConfigureAwait(false);
+            return;
+        }
+
         local.RemoteId = remoteList?.RemoteId ?? local.RemoteId;
         local.RemoteVersion = remoteList?.RemoteVersion ?? local.RemoteVersion;
         if (remoteList is not null)
@@ -362,17 +436,69 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         await Connection.UpdateAsync(local, typeof(AccountTaskList)).ConfigureAwait(false);
     }
 
+    private async Task InsertTaskListWithDistinctColorAsync(AccountTaskList list)
+    {
+        await TaskListColorGate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var existingLists = await Connection.Table<AccountTaskList>().ToListAsync().ConfigureAwait(false);
+            var usedColors = existingLists
+                .Where(existing => existing.Id != list.Id && !string.IsNullOrWhiteSpace(existing.ColorHex))
+                .Select(existing => existing.ColorHex)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (string.IsNullOrWhiteSpace(list.ColorHex) || usedColors.Contains(list.ColorHex))
+                list.ColorHex = ColorPalette.GetDistinctColor(existingLists
+                    .Where(existing => existing.Id != list.Id)
+                    .Select(existing => existing.ColorHex));
+
+            await Connection.InsertAsync(list, typeof(AccountTaskList)).ConfigureAwait(false);
+        }
+        finally
+        {
+            TaskListColorGate.Release();
+        }
+    }
+
     public async Task CompleteTaskMutationAsync(Guid taskId, AccountTask remoteTask, bool deleted)
     {
         var local = await GetTaskAsync(taskId).ConfigureAwait(false);
-        if (local is null)
-            return;
+
         if (deleted)
         {
-            await Connection.Table<AccountTaskStep>().DeleteAsync(step => step.TaskId == taskId).ConfigureAwait(false);
-            await Connection.ExecuteAsync("DELETE FROM TaskCard WHERE Id = ?", local.Id).ConfigureAwait(false);
+            if (local is not null)
+            {
+                await Connection.Table<AccountTaskStep>().DeleteAsync(step => step.TaskId == taskId).ConfigureAwait(false);
+                await Connection.ExecuteAsync("DELETE FROM TaskCard WHERE Id = ?", local.Id).ConfigureAwait(false);
+            }
             return;
         }
+
+        if (local is null)
+        {
+            if (remoteTask is null)
+                throw new InvalidOperationException("A successful task mutation requires a task snapshot.");
+
+            remoteTask.Id = taskId;
+            remoteTask.PendingMutation = TaskPendingMutation.None;
+            remoteTask.CreatedAtUtc = remoteTask.CreatedAtUtc == default ? DateTime.UtcNow : remoteTask.CreatedAtUtc;
+            remoteTask.ModifiedAtUtc = DateTime.UtcNow;
+
+            await Connection.RunInTransactionAsync(transaction =>
+            {
+                transaction.Insert(remoteTask, typeof(AccountTask));
+
+                foreach (var step in remoteTask.Steps ?? [])
+                {
+                    step.TaskId = taskId;
+                    step.MailAccountId = remoteTask.MailAccountId;
+                    step.SourceKind = remoteTask.SourceKind;
+                    step.PendingMutation = TaskPendingMutation.None;
+                    transaction.Insert(step, typeof(AccountTaskStep));
+                }
+            }).ConfigureAwait(false);
+            return;
+        }
+
         local.RemoteId = remoteTask?.RemoteId ?? local.RemoteId;
         local.RemoteVersion = remoteTask?.RemoteVersion ?? local.RemoteVersion;
         if (remoteTask is not null)
@@ -412,13 +538,28 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
     public async Task CompleteStepMutationAsync(Guid stepId, AccountTaskStep remoteStep, bool deleted)
     {
         var local = await Connection.Table<AccountTaskStep>().FirstOrDefaultAsync(step => step.Id == stepId).ConfigureAwait(false);
-        if (local is null)
-            return;
+
         if (deleted)
         {
-            await Connection.ExecuteAsync("DELETE FROM TaskStep WHERE Id = ?", local.Id).ConfigureAwait(false);
+            if (local is not null)
+                await Connection.ExecuteAsync("DELETE FROM TaskStep WHERE Id = ?", local.Id).ConfigureAwait(false);
             return;
         }
+
+        if (local is null)
+        {
+            if (remoteStep is null)
+                throw new InvalidOperationException("A successful task-step mutation requires a step snapshot.");
+
+            remoteStep.Id = stepId;
+            remoteStep.PendingMutation = TaskPendingMutation.None;
+            remoteStep.CreatedAtUtc = remoteStep.CreatedAtUtc == default ? DateTime.UtcNow : remoteStep.CreatedAtUtc;
+            remoteStep.ModifiedAtUtc = DateTime.UtcNow;
+
+            await Connection.InsertAsync(remoteStep, typeof(AccountTaskStep)).ConfigureAwait(false);
+            return;
+        }
+
         local.RemoteId = remoteStep?.RemoteId ?? local.RemoteId;
         local.RemoteVersion = remoteStep?.RemoteVersion ?? local.RemoteVersion;
         if (remoteStep is not null)
@@ -506,6 +647,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             transaction.Execute("DELETE FROM TaskStep WHERE MailAccountId = ?", accountId);
             transaction.Execute("DELETE FROM TaskCard WHERE MailAccountId = ?", accountId);
             transaction.Execute("DELETE FROM TaskList WHERE MailAccountId = ?", accountId);
+            transaction.Execute("DELETE FROM TaskListGroup WHERE MailAccountId = ?", accountId);
         }).ConfigureAwait(false);
     }
 

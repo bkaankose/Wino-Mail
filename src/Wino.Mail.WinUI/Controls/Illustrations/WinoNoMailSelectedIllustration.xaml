@@ -1,0 +1,76 @@
+<UserControl
+    x:Class="Wino.Controls.Illustrations.WinoNoMailSelectedIllustration"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    IsHitTestVisible="False"
+    mc:Ignorable="d">
+
+    <!--
+        "Letter out of the envelope." 128x128 canvas, artwork inside the 112 safe area.
+        Accent carries the envelope front only; the letter stays neutral so the copy below it wins.
+    -->
+    <Viewbox Stretch="Uniform">
+        <Canvas Width="128" Height="128">
+            <Ellipse
+                Canvas.Left="28"
+                Canvas.Top="99"
+                Width="72"
+                Height="10"
+                Fill="{ThemeResource WinoIllustrationShadowBrush}" />
+
+            <!--  Envelope body  -->
+            <Rectangle
+                Canvas.Left="18"
+                Canvas.Top="50"
+                Width="92"
+                Height="50"
+                Fill="{ThemeResource WinoIllustrationSurfaceBrush}"
+                RadiusX="9"
+                RadiusY="9"
+                Stroke="{ThemeResource WinoIllustrationLineBrush}"
+                StrokeThickness="1.5" />
+
+            <!--  The letter, lifted out  -->
+            <Rectangle
+                Canvas.Left="38"
+                Canvas.Top="22"
+                Width="52"
+                Height="48"
+                Fill="{ThemeResource WinoIllustrationSurfaceBrush}"
+                RadiusX="7"
+                RadiusY="7"
+                Stroke="{ThemeResource WinoIllustrationLineBrush}"
+                StrokeThickness="1.5" />
+            <Rectangle
+                Canvas.Left="46"
+                Canvas.Top="32"
+                Width="36"
+                Height="5"
+                Fill="{ThemeResource WinoIllustrationAccentBrush}"
+                Opacity="0.2"
+                RadiusX="2.5"
+                RadiusY="2.5" />
+            <Rectangle
+                Canvas.Left="46"
+                Canvas.Top="43"
+                Width="28"
+                Height="4"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2"
+                RadiusY="2" />
+            <Rectangle
+                Canvas.Left="46"
+                Canvas.Top="52"
+                Width="33"
+                Height="4"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2"
+                RadiusY="2" />
+
+            <!--  Envelope front. The one accent shape.  -->
+            <Path Data="M18,54 L64,89 L110,54 L110,91 C110,96 106,100 101,100 L27,100 C22,100 18,96 18,91 Z" Fill="{ThemeResource WinoIllustrationAccentBrush}" />
+        </Canvas>
+    </Viewbox>
+</UserControl>

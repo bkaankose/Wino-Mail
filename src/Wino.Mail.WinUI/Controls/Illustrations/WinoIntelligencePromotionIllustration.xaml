@@ -1,0 +1,104 @@
+<UserControl
+    x:Class="Wino.Controls.Illustrations.WinoIntelligencePromotionIllustration"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    IsHitTestVisible="False"
+    mc:Ignorable="d">
+
+    <!--
+        "Long thread, short summary." This is the only illustration in the app allowed to use the
+        spark: it means Wino Intelligence and nothing else.
+
+        The brand gradient goes on the large spark alone. A LinearGradientBrush restarts per shape,
+        so the small parts use the flat brand brush instead of repeating the gradient five times.
+    -->
+    <Viewbox Stretch="Uniform">
+        <Canvas Width="128" Height="128">
+            <Ellipse
+                Canvas.Left="28"
+                Canvas.Top="99"
+                Width="68"
+                Height="10"
+                Fill="{ThemeResource WinoIllustrationShadowBrush}" />
+
+            <!--  The long thread behind  -->
+            <Rectangle
+                Canvas.Left="28"
+                Canvas.Top="22"
+                Width="78"
+                Height="52"
+                Fill="{ThemeResource WinoIllustrationBrandSolidBrush}"
+                Opacity="0.2"
+                RadiusX="10"
+                RadiusY="10" />
+
+            <!--  The message  -->
+            <Rectangle
+                Canvas.Left="18"
+                Canvas.Top="38"
+                Width="78"
+                Height="60"
+                Fill="{ThemeResource WinoIllustrationSurfaceBrush}"
+                RadiusX="10"
+                RadiusY="10"
+                Stroke="{ThemeResource WinoIllustrationLineBrush}"
+                StrokeThickness="1.5" />
+            <Rectangle
+                Canvas.Left="29"
+                Canvas.Top="50"
+                Width="52"
+                Height="4.5"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2.25"
+                RadiusY="2.25" />
+            <Rectangle
+                Canvas.Left="29"
+                Canvas.Top="59"
+                Width="44"
+                Height="4"
+                Fill="{ThemeResource WinoIllustrationLineSoftBrush}"
+                RadiusX="2"
+                RadiusY="2" />
+            <Rectangle
+                Canvas.Left="29"
+                Canvas.Top="68"
+                Width="48"
+                Height="4"
+                Fill="{ThemeResource WinoIllustrationLineSoftBrush}"
+                RadiusX="2"
+                RadiusY="2" />
+
+            <!--  What Intelligence produced  -->
+            <Rectangle
+                Canvas.Left="29"
+                Canvas.Top="80"
+                Width="34"
+                Height="5.5"
+                Fill="{ThemeResource WinoIllustrationBrandSolidBrush}"
+                RadiusX="2.75"
+                RadiusY="2.75" />
+            <Rectangle
+                Canvas.Left="29"
+                Canvas.Top="89"
+                Width="22"
+                Height="4.5"
+                Fill="{ThemeResource WinoIllustrationBrandSolidBrush}"
+                Opacity="0.45"
+                RadiusX="2.25"
+                RadiusY="2.25" />
+
+            <!--  The spark  -->
+            <Ellipse
+                Canvas.Left="84"
+                Canvas.Top="12"
+                Width="36"
+                Height="36"
+                Fill="{ThemeResource WinoIllustrationBrandSolidBrush}"
+                Opacity="0.2" />
+            <Path Data="M102,17 Q104.08,27.92 115,30 Q104.08,32.08 102,43 Q99.92,32.08 89,30 Q99.92,27.92 102,17 Z" Fill="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+            <Path Data="M114,45 Q114.8,49.2 119,50 Q114.8,50.8 114,55 Q113.2,50.8 109,50 Q113.2,49.2 114,45 Z" Fill="{ThemeResource WinoIllustrationWarmBrush}" />
+        </Canvas>
+    </Viewbox>
+</UserControl>

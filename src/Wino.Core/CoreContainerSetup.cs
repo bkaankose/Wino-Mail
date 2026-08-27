@@ -9,6 +9,7 @@ using Wino.Core.Synchronizers.Errors.Gmail;
 using Wino.Core.Synchronizers.Errors.Imap;
 using Wino.Core.Synchronizers.Errors.Outlook;
 using Wino.Core.Synchronizers.ImapSync;
+using Wino.Core.Synchronizers.CardDav;
 
 namespace Wino.Core;
 
@@ -20,7 +21,13 @@ public static class CoreContainerSetup
 
         services.AddSingleton(loggerLevelSwitcher);
         services.AddSingleton<ISynchronizerFactory, SynchronizerFactory>();
+        services.AddSingleton<ModeSynchronizerFactory>();
+        services.AddSingleton<IMailSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
+        services.AddSingleton<ICalendarSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
+        services.AddSingleton<IContactSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
+        services.AddSingleton<ITaskSynchronizerFactory>(provider => provider.GetRequiredService<ModeSynchronizerFactory>());
         services.AddSingleton<ISynchronizationManager>(provider => SynchronizationManager.Instance);
+        services.AddTransient<IApplicationLocalRequestExecutor, ApplicationLocalRequestExecutor>();
         services.AddTransient<SynchronizationManagerInitializer>();
 
         services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
@@ -42,6 +49,8 @@ public static class CoreContainerSetup
         services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
 
         services.AddTransient<UnifiedImapSynchronizer>();
+        services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();
+        services.AddTransient<ICardDavAddressBookService, CardDavAddressBookService>();
 
         // Register Outlook error handlers
         services.AddTransient<ObjectCannotBeDeletedHandler>();

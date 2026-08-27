@@ -8,9 +8,13 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Tasks;
+using Wino.Core.Requests.Contact;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Requests.Tasks;
 
 namespace Wino.Core.Services;
 
@@ -48,6 +52,49 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         _preferencesService = preferencesService;
         _dialogService = dialogService;
         _mailService = mailService;
+    }
+
+    public Task<IContactActionRequest> PrepareContactRequestAsync(ContactOperationPreparationRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(request.Contact);
+
+        if (request.Contact.MailAccountId == Guid.Empty)
+            throw new ArgumentException("A contact request requires an account.", nameof(request));
+
+        if (request.Contact.AddressBookId == Guid.Empty)
+            throw new ArgumentException("A contact request requires an address book.", nameof(request));
+
+        IContactActionRequest prepared = new ContactActionRequest(
+            request.Contact,
+            request.Operation,
+            request.OriginalContact,
+            request.Photo);
+
+        return Task.FromResult(prepared);
+    }
+
+    public Task<ITaskActionRequest> PrepareTaskRequestAsync(TaskOperationPreparationRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        if (request.AccountId == Guid.Empty)
+            throw new ArgumentException("A task request requires an account.", nameof(request));
+
+        if (request.List is null && request.Task is null && request.Step is null)
+            throw new ArgumentException("A task request requires a list, task, or step snapshot.", nameof(request));
+
+        ITaskActionRequest prepared = new TaskActionRequest(
+            request.AccountId,
+            request.Operation,
+            request.List,
+            request.Task,
+            request.Step,
+            request.OriginalList,
+            request.OriginalTask,
+            request.OriginalStep);
+
+        return Task.FromResult(prepared);
     }
 
     public async Task<List<IMailActionRequest>> PrepareRequestsAsync(MailOperationPreperationRequest preperationRequest)

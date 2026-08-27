@@ -245,12 +245,25 @@ public class ContactService : BaseDatabaseService, IContactService
     public async Task CompleteMutationAsync(Guid localContactId, AccountContact serverContact, bool deleted)
     {
         var local = await GetContactAsync(localContactId).ConfigureAwait(false);
-        if (local is null)
-            return;
 
         if (deleted)
         {
-            await DeleteCardsAsync([local]).ConfigureAwait(false);
+            if (local is not null)
+                await DeleteCardsAsync([local]).ConfigureAwait(false);
+            return;
+        }
+
+        if (local is null)
+        {
+            if (serverContact is null)
+                throw new InvalidOperationException("A successful contact mutation requires a contact snapshot.");
+
+            serverContact.Id = localContactId;
+            serverContact.PendingMutation = ContactPendingMutation.None;
+            serverContact.CreatedAtUtc = serverContact.CreatedAtUtc == default ? DateTime.UtcNow : serverContact.CreatedAtUtc;
+            serverContact.ModifiedAtUtc = DateTime.UtcNow;
+
+            await WriteContactAsync(serverContact, insert: true).ConfigureAwait(false);
             return;
         }
 
@@ -538,6 +551,21 @@ public class ContactService : BaseDatabaseService, IContactService
 
         await Connection.InsertAsync(list, typeof(ContactList)).ConfigureAwait(false);
         return list;
+    }
+
+    public Task SaveContactListAsync(ContactList list)
+    {
+        if (list is null || list.Id == Guid.Empty)
+            return Task.CompletedTask;
+
+        list.Name = list.Name?.Trim();
+        list.Description = list.Description?.Trim();
+        list.ModifiedAtUtc = DateTime.UtcNow;
+
+        if (list.CreatedAtUtc == default)
+            list.CreatedAtUtc = list.ModifiedAtUtc;
+
+        return Connection.InsertOrReplaceAsync(list, typeof(ContactList));
     }
 
     public Task UpdateContactListAsync(ContactList list)

@@ -13,6 +13,44 @@ namespace Wino.Core.Tests.Services;
 public sealed class DatabaseMigrationTests
 {
     [Fact]
+    public async Task InitializeAsync_NewCardDavCreationCapability_ForcesOneTimeRediscovery()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"wino-carddav-capability-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var databasePath = Path.Combine(directory, "Wino200.db");
+        DatabaseService databaseService = null;
+        var accountId = Guid.NewGuid();
+
+        try
+        {
+            var existing = new SQLiteAsyncConnection(databasePath);
+            await existing.CreateTableAsync<CardDavAccountState>();
+            await existing.ExecuteAsync(
+                $"ALTER TABLE {nameof(CardDavAccountState)} DROP COLUMN {nameof(CardDavAccountState.SupportsAddressBookCreation)}");
+            await existing.ExecuteAsync(
+                $"INSERT INTO {nameof(CardDavAccountState)} ({nameof(CardDavAccountState.AccountId)}, {nameof(CardDavAccountState.RequiresRediscovery)}) VALUES (?, 0)",
+                accountId);
+            await existing.CloseAsync();
+
+            var configuration = new Mock<IApplicationConfiguration>();
+            configuration.SetupProperty(item => item.PublisherSharedFolderPath, directory);
+            databaseService = new DatabaseService(configuration.Object);
+
+            await databaseService.InitializeAsync();
+
+            var state = await databaseService.Connection.FindAsync<CardDavAccountState>(accountId);
+            state.RequiresRediscovery.Should().BeTrue();
+            (await databaseService.Connection.GetTableInfoAsync(nameof(CardDavAccountState)))
+                .Should().Contain(column => column.Name == nameof(CardDavAccountState.SupportsAddressBookCreation));
+        }
+        finally
+        {
+            if (databaseService?.Connection != null) await databaseService.Connection.CloseAsync();
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task InitializeAsync_DiscardsLegacyContactsAndCreatesAccountScopedSchemaIdempotently()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"wino-contact-schema-{Guid.NewGuid():N}");

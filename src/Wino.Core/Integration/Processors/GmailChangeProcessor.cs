@@ -24,7 +24,9 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                                 IMailService mailService,
                                 ICalendarService calendarService,
                                 IAccountService accountService,
-                                IMimeFileService mimeFileService) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
+                                IMimeFileService mimeFileService,
+                                IContactService contactService = null,
+                                ITaskService taskService = null) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
     {
 
     }

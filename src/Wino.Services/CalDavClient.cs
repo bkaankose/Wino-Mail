@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -7,6 +8,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
 using System.Xml.Linq;
 using Ical.Net;
 using Ical.Net.CalendarComponents;
@@ -16,22 +18,35 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.CardDav;
+using Wino.Services.Dav;
 
 namespace Wino.Services;
 
 public sealed class CalDavClient : ICalDavClient
 {
+    private static readonly XNamespace DavNamespace = "DAV:";
+    private static readonly XNamespace CalDavNamespace = "urn:ietf:params:xml:ns:caldav";
+    private static readonly XNamespace CalendarServerNamespace = "http://calendarserver.org/ns/";
+    private static readonly XNamespace AppleCalendarNamespace = "http://apple.com/ns/ical/";
     private static readonly HttpMethod PropFindMethod = new("PROPFIND");
     private static readonly HttpMethod ReportMethod = new("REPORT");
     private static readonly HttpMethod PutMethod = HttpMethod.Put;
     private static readonly HttpMethod DeleteMethod = HttpMethod.Delete;
     private static readonly ILogger Logger = Log.ForContext<CalDavClient>();
 
-    private readonly HttpClient _httpClient;
+    private readonly IDavTransport _davTransport;
+    private readonly IDavResponseHandler _responseHandler;
 
     public CalDavClient(HttpClient httpClient = null)
+        : this(new DavTransport(httpClient), new DavResponseHandler())
     {
-        _httpClient = httpClient ?? new HttpClient();
+    }
+
+    public CalDavClient(IDavTransport davTransport, IDavResponseHandler responseHandler = null)
+    {
+        _davTransport = davTransport ?? throw new ArgumentNullException(nameof(davTransport));
+        _responseHandler = responseHandler ?? new DavResponseHandler();
     }
 
     public async Task<IReadOnlyList<CalDavCalendar>> DiscoverCalendarsAsync(
@@ -41,7 +56,7 @@ public sealed class CalDavClient : ICalDavClient
         ValidateConnectionSettings(connectionSettings);
 
         var principalUri = await DiscoverPrincipalUriAsync(connectionSettings, cancellationToken).ConfigureAwait(false);
-        var homeSetUri = await DiscoverCalendarHomeSetUriAsync(connectionSettings, principalUri, cancellationToken).ConfigureAwait(false);
+        var homeSetUris = await DiscoverCalendarHomeSetUrisAsync(connectionSettings, principalUri, cancellationToken).ConfigureAwait(false);
 
         var body = """
             <D:propfind xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav" xmlns:CS="http://calendarserver.org/ns/" xmlns:ICAL="http://apple.com/ns/ical/">
@@ -61,20 +76,24 @@ public sealed class CalDavClient : ICalDavClient
             </D:propfind>
             """;
 
-        var responseXml = await SendXmlAsync(
-            connectionSettings,
-            PropFindMethod,
-            homeSetUri,
-            depth: "1",
-            body,
-            cancellationToken).ConfigureAwait(false);
+        var calendars = new List<CalDavCalendar>();
+        foreach (var homeSetUri in homeSetUris)
+        {
+            var responseXml = await SendXmlAsync(
+                connectionSettings,
+                PropFindMethod,
+                homeSetUri,
+                depth: "1",
+                body,
+                cancellationToken).ConfigureAwait(false);
 
-        var calendars = ParseCalendarCollection(responseXml, homeSetUri)
-            .GroupBy(c => c.RemoteCalendarId, StringComparer.OrdinalIgnoreCase)
+            calendars.AddRange(ParseCalendarCollection(responseXml, homeSetUri));
+        }
+
+        return calendars
+            .GroupBy(c => c.RemoteCalendarId, StringComparer.Ordinal)
             .Select(g => g.First())
             .ToList();
-
-        return calendars;
     }
 
     public async Task<IReadOnlyList<CalDavCalendarEvent>> GetCalendarEventsAsync(
@@ -137,11 +156,10 @@ public sealed class CalDavClient : ICalDavClient
             .ToList();
     }
 
-    public Task UpsertCalendarEventAsync(
+    public async Task<CalDavWriteResult> UpsertCalendarEventAsync(
         CalDavConnectionSettings connectionSettings,
         CalDavCalendar calendar,
-        string remoteEventId,
-        string icsContent,
+        CalDavWriteRequest writeRequest,
         CancellationToken cancellationToken = default)
     {
         ValidateConnectionSettings(connectionSettings);
@@ -149,44 +167,77 @@ public sealed class CalDavClient : ICalDavClient
         if (calendar == null || string.IsNullOrWhiteSpace(calendar.RemoteCalendarId))
             throw new ArgumentException("Calendar remote ID is required for CalDAV writes.");
 
-        if (string.IsNullOrWhiteSpace(remoteEventId))
+        if (writeRequest == null)
+            throw new ArgumentNullException(nameof(writeRequest));
+
+        if (string.IsNullOrWhiteSpace(writeRequest.RemoteEventId))
             throw new ArgumentException("Remote event ID is required for CalDAV writes.");
 
-        if (string.IsNullOrWhiteSpace(icsContent))
+        if (string.IsNullOrWhiteSpace(writeRequest.IcsContent))
             throw new ArgumentException("ICS content is required for CalDAV writes.");
 
-        var resourceUri = BuildEventResourceUri(calendar.RemoteCalendarId, remoteEventId);
+        if (!writeRequest.CreateOnly && string.IsNullOrWhiteSpace(writeRequest.ExactHref))
+            throw new ArgumentException("The exact CalDAV resource href is required for updates.");
 
-        return SendAsync(
-            connectionSettings,
-            PutMethod,
-            resourceUri,
-            new StringContent(icsContent, Encoding.UTF8, "text/calendar"),
-            cancellationToken);
+        if (!writeRequest.CreateOnly && string.IsNullOrWhiteSpace(writeRequest.ETag))
+            throw new ArgumentException("The current CalDAV ETag is required for updates.");
+
+        var resourceUri = string.IsNullOrWhiteSpace(writeRequest.ExactHref)
+            ? BuildEventResourceUri(calendar.RemoteCalendarId, writeRequest.RemoteEventId)
+            : new Uri(writeRequest.ExactHref, UriKind.Absolute);
+
+        using var request = new HttpRequestMessage(PutMethod, resourceUri)
+        {
+            Content = new StringContent(writeRequest.IcsContent, Encoding.UTF8, "text/calendar")
+        };
+
+        if (writeRequest.CreateOnly)
+            request.Headers.TryAddWithoutValidation("If-None-Match", "*");
+        else
+            request.Headers.TryAddWithoutValidation("If-Match", writeRequest.ETag);
+
+        using var response = await SendAsync(connectionSettings, request, cancellationToken).ConfigureAwait(false);
+        var resultHref = response.Headers.Location == null
+            ? resourceUri
+            : response.Headers.Location.IsAbsoluteUri
+                ? response.Headers.Location
+                : new Uri(resourceUri, response.Headers.Location);
+        var eTag = response.Headers.ETag?.ToString() ?? string.Empty;
+
+        return new CalDavWriteResult
+        {
+            ExactHref = resultHref.ToString(),
+            ETag = eTag,
+            RequiresRefetch = string.IsNullOrWhiteSpace(eTag)
+        };
     }
 
-    public Task DeleteCalendarEventAsync(
+    public async Task DeleteCalendarEventAsync(
         CalDavConnectionSettings connectionSettings,
-        CalDavCalendar calendar,
-        string remoteEventId,
+        string exactHref,
+        string eTag,
         CancellationToken cancellationToken = default)
     {
         ValidateConnectionSettings(connectionSettings);
 
-        if (calendar == null || string.IsNullOrWhiteSpace(calendar.RemoteCalendarId))
-            throw new ArgumentException("Calendar remote ID is required for CalDAV deletes.");
+        if (string.IsNullOrWhiteSpace(exactHref))
+            throw new ArgumentException("The exact CalDAV resource href is required for deletes.");
 
-        if (string.IsNullOrWhiteSpace(remoteEventId))
-            throw new ArgumentException("Remote event ID is required for CalDAV deletes.");
+        if (string.IsNullOrWhiteSpace(eTag))
+            throw new ArgumentException("The current CalDAV ETag is required for deletes.");
 
-        var resourceUri = BuildEventResourceUri(calendar.RemoteCalendarId, remoteEventId);
+        using var request = new HttpRequestMessage(DeleteMethod, new Uri(exactHref, UriKind.Absolute));
+        request.Headers.TryAddWithoutValidation("If-Match", eTag);
 
-        return SendAsync(
-            connectionSettings,
-            DeleteMethod,
-            resourceUri,
-            null,
-            cancellationToken);
+        using var response = await _davTransport.SendAsync(
+            request,
+            CreateAuthentication(connectionSettings),
+            cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return;
+
+        await _responseHandler.EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
     private static void ValidateConnectionSettings(CalDavConnectionSettings connectionSettings)
@@ -219,19 +270,16 @@ public sealed class CalDavClient : ICalDavClient
             body,
             cancellationToken).ConfigureAwait(false);
 
-        var principalHref = responseXml
-            .Descendants()
-            .FirstOrDefault(e => e.Name.LocalName == "current-user-principal")
-            ?.Descendants()
-            .FirstOrDefault(e => e.Name.LocalName == "href")
-            ?.Value;
+        var principalHref = GetSuccessProps(responseXml)
+            .Select(prop => prop.Element(DavNamespace + "current-user-principal")?.Element(DavNamespace + "href")?.Value)
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
         return string.IsNullOrWhiteSpace(principalHref)
             ? connectionSettings.ServiceUri
             : CreateAbsoluteUri(connectionSettings.ServiceUri, principalHref);
     }
 
-    private async Task<Uri> DiscoverCalendarHomeSetUriAsync(
+    private async Task<IReadOnlyList<Uri>> DiscoverCalendarHomeSetUrisAsync(
         CalDavConnectionSettings connectionSettings,
         Uri principalUri,
         CancellationToken cancellationToken)
@@ -252,16 +300,16 @@ public sealed class CalDavClient : ICalDavClient
             body,
             cancellationToken).ConfigureAwait(false);
 
-        var homeSetHref = responseXml
-            .Descendants()
-            .FirstOrDefault(e => e.Name.LocalName == "calendar-home-set")
-            ?.Descendants()
-            .FirstOrDefault(e => e.Name.LocalName == "href")
-            ?.Value;
+        var homeSetUris = GetSuccessProps(responseXml)
+            .SelectMany(prop => prop.Elements(CalDavNamespace + "calendar-home-set"))
+            .SelectMany(homeSet => homeSet.Elements(DavNamespace + "href"))
+            .Select(href => href.Value)
+            .Where(href => !string.IsNullOrWhiteSpace(href))
+            .Select(href => CreateAbsoluteUri(principalUri, href))
+            .DistinctBy(uri => uri.AbsoluteUri, StringComparer.Ordinal)
+            .ToList();
 
-        return string.IsNullOrWhiteSpace(homeSetHref)
-            ? principalUri
-            : CreateAbsoluteUri(principalUri, homeSetHref);
+        return homeSetUris.Count == 0 ? [principalUri] : homeSetUris;
     }
 
     private async Task<XDocument> SendXmlAsync(
@@ -274,95 +322,94 @@ public sealed class CalDavClient : ICalDavClient
     {
         using var request = new HttpRequestMessage(method, uri);
 
-        request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Basic",
-            Convert.ToBase64String(Encoding.UTF8.GetBytes($"{connectionSettings.Username}:{connectionSettings.Password}")));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/xml"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/xml"));
         request.Headers.Add("Depth", depth);
         request.Content = new StringContent(body, Encoding.UTF8, "application/xml");
 
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        using var response = await _davTransport.SendAsync(
+            request,
+            CreateAuthentication(connectionSettings),
+            cancellationToken).ConfigureAwait(false);
 
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-        {
-            throw new UnauthorizedAccessException("CalDAV authorization failed.");
-        }
+        await _responseHandler.EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode != HttpStatusCode.MultiStatus)
+            throw new DavRequestException((int)response.StatusCode, Translator.DavError_InvalidResponse);
 
-        if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.MultiStatus)
-        {
-            var failureBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            throw new HttpRequestException($"CalDAV request failed ({(int)response.StatusCode}): {failureBody}");
-        }
-
-        var xml = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-
-        if (string.IsNullOrWhiteSpace(xml))
+        if (response.Content == null)
             return new XDocument(new XElement("empty"));
 
-        return XDocument.Parse(xml);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        using var reader = XmlReader.Create(stream, new XmlReaderSettings
+        {
+            Async = true,
+            DtdProcessing = DtdProcessing.Prohibit,
+            XmlResolver = null
+        });
+
+        return await XDocument.LoadAsync(reader, LoadOptions.None, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task SendAsync(
+    private async Task<HttpResponseMessage> SendAsync(
         CalDavConnectionSettings connectionSettings,
-        HttpMethod method,
-        Uri uri,
-        HttpContent content,
+        HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
-        using var request = new HttpRequestMessage(method, uri);
-        request.Headers.Authorization = new AuthenticationHeaderValue(
-            "Basic",
-            Convert.ToBase64String(Encoding.UTF8.GetBytes($"{connectionSettings.Username}:{connectionSettings.Password}")));
+        var response = await _davTransport.SendAsync(
+            request,
+            CreateAuthentication(connectionSettings),
+            cancellationToken).ConfigureAwait(false);
 
-        if (content != null)
-            request.Content = content;
-
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-
-        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-            throw new UnauthorizedAccessException("CalDAV authorization failed.");
-
-        if (!response.IsSuccessStatusCode)
+        try
         {
-            var failureBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            throw new HttpRequestException($"CalDAV request failed ({(int)response.StatusCode}): {failureBody}");
+            await _responseHandler.EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+            return response;
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
         }
     }
+
+    private static DavAuthenticationProfile CreateAuthentication(CalDavConnectionSettings settings)
+        => new()
+        {
+            Kind = DavAuthenticationKind.Basic,
+            Username = settings.Username,
+            Password = settings.Password
+        };
 
     private static List<CalDavCalendar> ParseCalendarCollection(XDocument xml, Uri baseUri)
     {
         var result = new List<CalDavCalendar>();
 
-        foreach (var response in xml.Descendants().Where(e => e.Name.LocalName == "response"))
+        foreach (var response in xml.Descendants(DavNamespace + "response"))
         {
-            var href = response.Descendants().FirstOrDefault(e => e.Name.LocalName == "href")?.Value;
+            var href = response.Element(DavNamespace + "href")?.Value;
             if (string.IsNullOrWhiteSpace(href))
                 continue;
 
             foreach (var prop in GetSuccessProps(response))
             {
-                var resourceType = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "resourcetype");
+                var resourceType = prop.Element(DavNamespace + "resourcetype");
                 if (resourceType == null)
                     continue;
 
-                var isCalendar = resourceType.Descendants().Any(e => e.Name.LocalName == "calendar");
+                var isCalendar = resourceType.Elements(CalDavNamespace + "calendar").Any();
                 if (!isCalendar)
                     continue;
 
-                var displayName = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "displayname")?.Value ?? string.Empty;
-                var description = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "calendar-description")?.Value ?? string.Empty;
-                var ctag = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "getctag")?.Value ?? string.Empty;
-                var syncToken = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "sync-token")?.Value ?? string.Empty;
+                var displayName = prop.Element(DavNamespace + "displayname")?.Value ?? string.Empty;
+                var description = prop.Element(CalDavNamespace + "calendar-description")?.Value ?? string.Empty;
+                var ctag = prop.Element(CalendarServerNamespace + "getctag")?.Value ?? string.Empty;
+                var syncToken = prop.Element(DavNamespace + "sync-token")?.Value ?? string.Empty;
                 var timeZone = ExtractCalendarTimeZoneId(
-                    prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "calendar-timezone")?.Value);
+                    prop.Element(CalDavNamespace + "calendar-timezone")?.Value);
                 var backgroundColor = NormalizeCalendarColor(
-                    prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "calendar-color")?.Value);
-                var supportedComponents = prop
-                    .Descendants()
-                    .Where(e => e.Name.LocalName == "supported-calendar-component-set")
-                    .Descendants()
-                    .Where(e => e.Name.LocalName == "comp")
+                    prop.Element(AppleCalendarNamespace + "calendar-color")?.Value);
+                var supportedComponents = prop.Elements(CalDavNamespace + "supported-calendar-component-set")
+                    .Elements(CalDavNamespace + "comp")
                     .Select(e => e.Attribute("name")?.Value?.Trim())
                     .Where(value => !string.IsNullOrWhiteSpace(value))
                     .ToList();
@@ -371,8 +418,8 @@ public sealed class CalDavClient : ICalDavClient
                 var isReadOnly = IsCalendarReadOnly(prop);
                 var defaultShowAs = GetDefaultShowAs(prop);
                 var calendarOrder = ParseCalendarOrder(
-                    prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "calendar-order")?.Value);
-                var remoteUri = CreateAbsoluteUri(baseUri, href).ToString().TrimEnd('/');
+                    prop.Element(AppleCalendarNamespace + "calendar-order")?.Value);
+                var remoteUri = CreateAbsoluteUri(EnsureCollectionUri(baseUri), href).ToString().TrimEnd('/');
 
                 if (!supportsEvents)
                     continue;
@@ -404,22 +451,22 @@ public sealed class CalDavClient : ICalDavClient
 
     private static IEnumerable<CalDavEventResponse> ParseEventResponses(XDocument xml, Uri baseUri)
     {
-        foreach (var response in xml.Descendants().Where(e => e.Name.LocalName == "response"))
+        foreach (var response in xml.Descendants(DavNamespace + "response"))
         {
-            var href = response.Descendants().FirstOrDefault(e => e.Name.LocalName == "href")?.Value;
+            var href = response.Element(DavNamespace + "href")?.Value;
             if (string.IsNullOrWhiteSpace(href))
                 continue;
 
             foreach (var prop in GetSuccessProps(response))
             {
-                var calendarData = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "calendar-data")?.Value;
+                var calendarData = prop.Element(CalDavNamespace + "calendar-data")?.Value;
                 if (string.IsNullOrWhiteSpace(calendarData))
                     continue;
 
-                var eTag = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "getetag")?.Value ?? string.Empty;
+                var eTag = prop.Element(DavNamespace + "getetag")?.Value ?? string.Empty;
 
                 yield return new CalDavEventResponse(
-                    CreateAbsoluteUri(baseUri, href).ToString(),
+                    CreateAbsoluteUri(EnsureCollectionUri(baseUri), href).ToString(),
                     eTag,
                     calendarData);
             }
@@ -428,17 +475,20 @@ public sealed class CalDavClient : ICalDavClient
 
     private static IEnumerable<XElement> GetSuccessProps(XElement response)
     {
-        foreach (var propstat in response.Elements().Where(e => e.Name.LocalName == "propstat"))
+        foreach (var propstat in response.Elements(DavNamespace + "propstat"))
         {
-            var status = propstat.Elements().FirstOrDefault(e => e.Name.LocalName == "status")?.Value ?? string.Empty;
+            var status = propstat.Element(DavNamespace + "status")?.Value ?? string.Empty;
             if (!status.Contains(" 200 ", StringComparison.Ordinal))
                 continue;
 
-            var prop = propstat.Elements().FirstOrDefault(e => e.Name.LocalName == "prop");
+            var prop = propstat.Element(DavNamespace + "prop");
             if (prop != null)
                 yield return prop;
         }
     }
+
+    private static IEnumerable<XElement> GetSuccessProps(XDocument document)
+        => document.Descendants(DavNamespace + "response").SelectMany(GetSuccessProps);
 
     private static List<CalDavCalendarEvent> ParseCalendarData(
         string icsContent,
@@ -467,6 +517,15 @@ public sealed class CalDavClient : ICalDavClient
                 .GroupBy(e => $"{e.Uid}|{GetOccurrenceKey(GetRecurrenceId(e))}", StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
 
+            var rangeExceptions = allEvents
+                .Where(e => e?.RecurrenceIdentifier?.Range == RecurrenceRange.ThisAndFuture &&
+                            !string.IsNullOrWhiteSpace(e.Uid) && GetRecurrenceId(e) != null)
+                .GroupBy(e => e.Uid, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.OrderBy(value => ToDateTimeOffset(GetRecurrenceId(value))).ToList(),
+                    StringComparer.OrdinalIgnoreCase);
+
             var consumedExceptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var master in masters)
@@ -479,7 +538,7 @@ public sealed class CalDavClient : ICalDavClient
                     result.Add(CreateCalendarEvent(
                         sourceEvent: master,
                         start: ToDateTimeOffset(master.Start),
-                        end: ToDateTimeOffset(master.End),
+                        end: GetEffectiveEventEnd(master),
                         remoteEventId: masterRemoteId,
                         resourceHref: resourceHref,
                         eTag: eTag,
@@ -493,9 +552,10 @@ public sealed class CalDavClient : ICalDavClient
                         .GetOccurrences(
                             new CalDateTime(windowStartUtc.UtcDateTime, true),
                             new Ical.Net.Evaluation.EvaluationOptions())
+                        .TakeWhile(o => ToDateTimeOffset(o.Period.StartTime) < windowEndUtc)
                         .Where(o => Overlaps(
                             ToDateTimeOffset(o.Period.StartTime),
-                            ToDateTimeOffset(o.Period.EndTime),
+                            ToDateTimeOffset(o.Period.EffectiveEndTime ?? o.Period.StartTime),
                             windowStartUtc,
                             windowEndUtc));
 
@@ -504,15 +564,33 @@ public sealed class CalDavClient : ICalDavClient
                         var key = GetOccurrenceKey(occurrence.Period.StartTime);
                         var mapKey = $"{master.Uid}|{key}";
 
-                        var sourceEvent = exceptionMap.TryGetValue(mapKey, out var exceptionEvent)
-                            ? exceptionEvent
-                            : master;
+                        exceptionMap.TryGetValue(mapKey, out var exceptionEvent);
+                        var rangeException = exceptionEvent == null
+                            ? FindApplicableRangeException(rangeExceptions, master.Uid, occurrence.Period.StartTime)
+                            : null;
+                        var sourceEvent = exceptionEvent ?? rangeException ?? master;
 
                         if (exceptionEvent != null)
                             consumedExceptions.Add(mapKey);
 
                         var occurrenceStart = ToDateTimeOffset(occurrence.Period.StartTime);
-                        var occurrenceEnd = ToDateTimeOffset(occurrence.Period.EndTime);
+                        var occurrenceEnd = ToDateTimeOffset(occurrence.Period.EffectiveEndTime ?? occurrence.Period.StartTime);
+                        if (exceptionEvent != null)
+                        {
+                            occurrenceStart = ToDateTimeOffset(exceptionEvent.Start);
+                            occurrenceEnd = GetEffectiveEventEnd(exceptionEvent);
+                        }
+                        else if (rangeException != null)
+                        {
+                            var rangeStart = ToDateTimeOffset(rangeException.Start);
+                            var rangeRecurrenceStart = ToDateTimeOffset(GetRecurrenceId(rangeException));
+                            var rangeDuration = GetEffectiveEventEnd(rangeException) - rangeStart;
+                            occurrenceStart += rangeStart - rangeRecurrenceStart;
+                            occurrenceEnd = occurrenceStart + rangeDuration;
+                        }
+
+                        if (!Overlaps(occurrenceStart, occurrenceEnd, windowStartUtc, windowEndUtc))
+                            continue;
 
                         result.Add(CreateCalendarEvent(
                             sourceEvent: sourceEvent,
@@ -531,7 +609,7 @@ public sealed class CalDavClient : ICalDavClient
                 else
                 {
                     var start = ToDateTimeOffset(master.Start);
-                    var end = ToDateTimeOffset(master.End);
+                    var end = GetEffectiveEventEnd(master);
 
                     if (!Overlaps(start, end, windowStartUtc, windowEndUtc))
                         continue;
@@ -559,7 +637,7 @@ public sealed class CalDavClient : ICalDavClient
                     continue;
 
                 var start = ToDateTimeOffset(exceptionEvent.Start);
-                var end = ToDateTimeOffset(exceptionEvent.End);
+                var end = GetEffectiveEventEnd(exceptionEvent);
 
                 if (!Overlaps(start, end, windowStartUtc, windowEndUtc))
                     continue;
@@ -600,7 +678,9 @@ public sealed class CalDavClient : ICalDavClient
         => calendarEvent?.RecurrenceIdentifier?.StartTime;
 
     private static string GetOccurrenceKey(CalDateTime dateTime)
-        => dateTime.AsUtc.ToString("yyyyMMdd'T'HHmmss'Z'");
+        => dateTime.IsFloating
+            ? dateTime.Value.ToString("yyyyMMdd'T'HHmmss")
+            : dateTime.AsUtc.ToString("yyyyMMdd'T'HHmmss'Z'");
 
     private static DateTimeOffset ToDateTimeOffset(CalDateTime dateTime)
     {
@@ -610,7 +690,7 @@ public sealed class CalDavClient : ICalDavClient
         if (dateTime.IsFloating)
         {
             var floatingValue = DateTime.SpecifyKind(dateTime.Value, DateTimeKind.Unspecified);
-            return new DateTimeOffset(floatingValue, TimeZoneInfo.Local.GetUtcOffset(floatingValue));
+            return new DateTimeOffset(floatingValue, TimeSpan.Zero);
         }
 
         return new DateTimeOffset(DateTime.SpecifyKind(dateTime.AsUtc, DateTimeKind.Utc));
@@ -618,10 +698,37 @@ public sealed class CalDavClient : ICalDavClient
 
     private static bool Overlaps(DateTimeOffset start, DateTimeOffset end, DateTimeOffset windowStart, DateTimeOffset windowEnd)
     {
-        if (end <= start)
-            end = start.AddHours(1);
+        if (end < start)
+            end = start;
+
+        if (end == start)
+            return start >= windowStart && start < windowEnd;
 
         return start < windowEnd && end > windowStart;
+    }
+
+    private static DateTimeOffset GetEffectiveEventEnd(CalendarEvent calendarEvent)
+    {
+        var start = ToDateTimeOffset(calendarEvent?.Start);
+        if (calendarEvent?.End != null)
+            return ToDateTimeOffset(calendarEvent.End);
+
+        if (calendarEvent?.Duration is { } duration)
+            return start.Add(duration.ToTimeSpanUnspecified());
+
+        return calendarEvent?.IsAllDay == true ? start.AddDays(1) : start;
+    }
+
+    private static CalendarEvent FindApplicableRangeException(
+        IReadOnlyDictionary<string, List<CalendarEvent>> rangeExceptions,
+        string uid,
+        CalDateTime occurrenceStart)
+    {
+        if (!rangeExceptions.TryGetValue(uid, out var candidates))
+            return null;
+
+        var occurrence = ToDateTimeOffset(occurrenceStart);
+        return candidates.LastOrDefault(value => ToDateTimeOffset(GetRecurrenceId(value)) <= occurrence);
     }
 
     private static CalDavCalendarEvent CreateCalendarEvent(
@@ -637,8 +744,8 @@ public sealed class CalDavClient : ICalDavClient
         string seriesMasterRemoteEventId,
         string recurrence)
     {
-        if (end <= start)
-            end = start.AddHours(1);
+        if (end < start)
+            end = start;
 
         var status = MapStatus(sourceEvent.Status);
         var organizerEmail = NormalizeCalendarEmail(sourceEvent.Organizer?.Value);
@@ -683,8 +790,10 @@ public sealed class CalDavClient : ICalDavClient
             Location = sourceEvent.Location ?? string.Empty,
             Start = start,
             End = end,
+            StartIsFloating = sourceEvent.Start?.IsFloating == true,
+            EndIsFloating = (sourceEvent.End ?? sourceEvent.Start)?.IsFloating == true,
             StartTimeZone = ResolveTimeZoneId(sourceEvent.Start, start),
-            EndTimeZone = ResolveTimeZoneId(sourceEvent.End, end),
+            EndTimeZone = ResolveTimeZoneId(sourceEvent.End ?? sourceEvent.Start, end),
             Recurrence = recurrence,
             OrganizerDisplayName = organizerDisplayName,
             OrganizerEmail = organizerEmail,
@@ -702,6 +811,9 @@ public sealed class CalDavClient : ICalDavClient
         var explicitTimeZoneId = sourceDateTime?.TzId;
         if (!string.IsNullOrWhiteSpace(explicitTimeZoneId))
             return explicitTimeZoneId;
+
+        if (sourceDateTime?.IsFloating == true)
+            return string.Empty;
 
         // Explicit UTC values usually don't carry TZID in CalDAV payloads.
         // Preserve UTC so downstream local-time conversion stays correct.
@@ -858,26 +970,25 @@ public sealed class CalDavClient : ICalDavClient
 
     private static bool IsCalendarReadOnly(XElement prop)
     {
-        var privilegeSet = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "current-user-privilege-set");
+        var privilegeSet = prop.Element(DavNamespace + "current-user-privilege-set");
         if (privilegeSet == null)
             return false;
 
         var privilegeNames = privilegeSet
-            .Descendants()
-            .Where(e => e.Name.LocalName == "privilege")
-            .Descendants()
-            .Select(e => e.Name.LocalName)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            .Elements(DavNamespace + "privilege")
+            .SelectMany(e => e.Elements())
+            .Select(e => e.Name)
+            .ToHashSet();
 
-        return !privilegeNames.Contains("all")
-               && !privilegeNames.Contains("write")
-               && !privilegeNames.Contains("write-content");
+        return !privilegeNames.Contains(DavNamespace + "all")
+               && !privilegeNames.Contains(DavNamespace + "write")
+               && !privilegeNames.Contains(DavNamespace + "write-content");
     }
 
     private static CalendarItemShowAs GetDefaultShowAs(XElement prop)
     {
-        var transparency = prop.Descendants().FirstOrDefault(e => e.Name.LocalName == "schedule-calendar-transp");
-        if (transparency?.Descendants().Any(e => e.Name.LocalName == "transparent") == true)
+        var transparency = prop.Element(CalDavNamespace + "schedule-calendar-transp");
+        if (transparency?.Element(CalDavNamespace + "transparent") != null)
             return CalendarItemShowAs.Free;
 
         return CalendarItemShowAs.Busy;
@@ -1009,6 +1120,11 @@ public sealed class CalDavClient : ICalDavClient
 
         return new Uri(baseUri, href);
     }
+
+    private static Uri EnsureCollectionUri(Uri uri)
+        => uri.AbsoluteUri.EndsWith("/", StringComparison.Ordinal)
+            ? uri
+            : new Uri($"{uri.AbsoluteUri}/");
 
     private static Uri BuildEventResourceUri(string remoteCalendarId, string remoteEventId)
     {

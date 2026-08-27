@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Specialized;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 #if WINRT_EXPOSED
 using WinRT;
 #endif
@@ -6,7 +9,8 @@ using WinRT;
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>
-/// One section of the task list — the open tasks, or the collapsed "Completed" group.
+/// One stable section of the task list. Smart views group tasks by account; named lists use one
+/// headerless group.
 /// Native AOT requires a concrete, WinRT-exposed group type: the generic toolkit groups have no
 /// generated vtable, so a grouped CollectionViewSource cannot enumerate them and the list renders
 /// empty in trimmed builds. Mirrors <see cref="ContactGroup"/>.
@@ -16,16 +20,31 @@ namespace Wino.Mail.ViewModels.Data;
 #endif
 public sealed partial class TaskGroup : ObservableCollection<TaskItemViewModel>
 {
-    public TaskGroup(string key, bool isCompletedGroup)
+    public TaskGroup(string key, Guid? accountId, bool showHeader)
     {
         Key = key;
-        IsCompletedGroup = isCompletedGroup;
+        AccountId = accountId;
+        ShowHeader = showHeader;
     }
 
-    public string Key { get; }
-
-    /// <summary>The completed group renders a collapsible header; the active group has none.</summary>
-    public bool IsCompletedGroup { get; }
+    public string Key { get; private set; }
+    public Guid? AccountId { get; }
+    public bool ShowHeader { get; }
 
     public string HeaderCountText => Count.ToString();
+
+    public void UpdateHeader(string key)
+    {
+        if (string.Equals(Key, key, StringComparison.Ordinal))
+            return;
+
+        Key = key;
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(Key)));
+    }
+
+    protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
+    {
+        base.OnCollectionChanged(e);
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(HeaderCountText)));
+    }
 }

@@ -30,12 +30,13 @@ public sealed class OutlookTasksClient
         => SendCollectionAsync(url ?? "https://graph.microsoft.com/v1.0/me/todo/lists?$top=100", OutlookTaskListCollectionResponse.CreateFromDiscriminatorValue, cancellationToken);
 
     public Task<OutlookTaskListCollectionResponse> GetTaskListsDeltaAsync(string url = null, CancellationToken cancellationToken = default)
-        => SendCollectionAsync(url ?? "https://graph.microsoft.com/v1.0/me/todo/lists/delta?$top=100", OutlookTaskListCollectionResponse.CreateFromDiscriminatorValue, cancellationToken);
+        => SendCollectionAsync(url ?? "https://graph.microsoft.com/v1.0/me/todo/lists/delta", OutlookTaskListCollectionResponse.CreateFromDiscriminatorValue, cancellationToken);
 
     public Task<OutlookTaskCollectionResponse> GetTasksDeltaAsync(string listId, string url = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(listId);
-        url ??= $"https://graph.microsoft.com/v1.0/me/todo/lists/{Uri.EscapeDataString(listId)}/tasks/delta?$expand=checklistItems&$top=100";
+        url ??= $"https://graph.microsoft.com/v1.0/me/todo/lists/{Uri.EscapeDataString(listId)}/tasks/delta()?$expand=checklistItems&$top=100";
+        url = NormalizeTaskDeltaUrl(url);
         return SendCollectionAsync(url, OutlookTaskCollectionResponse.CreateFromDiscriminatorValue, cancellationToken);
     }
 
@@ -104,7 +105,6 @@ public sealed class OutlookTasksClient
     private static RequestInformation CreateRequest(string url, Method method, string ifMatch = null)
     {
         var request = new RequestInformation { URI = new Uri(url), HttpMethod = method };
-        request.Headers.Add("Prefer", "IdType=\"ImmutableId\"");
         if (!string.IsNullOrWhiteSpace(ifMatch))
             request.Headers.TryAdd("If-Match", ifMatch);
         return request;
@@ -112,6 +112,16 @@ public sealed class OutlookTasksClient
 
     private static string BuildTaskUrl(string listId, string taskId)
         => $"https://graph.microsoft.com/v1.0/me/todo/lists/{Uri.EscapeDataString(listId)}/tasks/{Uri.EscapeDataString(taskId)}";
+
+    private static string NormalizeTaskDeltaUrl(string url)
+    {
+        var uri = new Uri(url);
+        if (!uri.AbsolutePath.EndsWith("/tasks/delta", StringComparison.OrdinalIgnoreCase))
+            return url;
+
+        var builder = new UriBuilder(uri) { Path = $"{uri.AbsolutePath}()" };
+        return builder.Uri.AbsoluteUri;
+    }
 }
 
 public sealed class OutlookTaskListCollectionResponse : IParsable

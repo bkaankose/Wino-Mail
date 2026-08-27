@@ -411,6 +411,11 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             return;
 
         var allRequests = normalizedRequestsByAccount.Values.SelectMany(requests => requests).ToList();
+
+        // Optimistic presentation is independent from provider availability. Apply first;
+        // resolution or queue failures below revert the exact same request snapshots.
+        RequestUiChangeCoordinator.ApplyRequests(allRequests);
+
         var undoActionSettings = CreateUndoActionSettings(allRequests);
 
         if (undoActionSettings != null)
@@ -421,7 +426,16 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         foreach (var pair in normalizedRequestsByAccount)
         {
-            await QueueRequestsCoreAsync(pair.Value, pair.Key, triggerSynchronization).ConfigureAwait(false);
+            try
+            {
+                await QueueRequestsCoreAsync(pair.Value, pair.Key, triggerSynchronization).ConfigureAwait(false);
+            }
+            catch
+            {
+                RequestUiChangeCoordinator.RevertRequests(pair.Value);
+                RequestUiChangeCoordinator.CompleteRequests(pair.Value);
+                throw;
+            }
         }
     }
 
@@ -437,7 +451,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (synchronizer == null)
         {
             _logger.Error("Could not find or create synchronizer for account {AccountId} to queue {RequestCount} request(s)", accountId, requestList.Count);
-            return;
+            throw new InvalidOperationException($"A synchronizer is not available for account {accountId}.");
         }
 
         if (requestList.Count == 1)

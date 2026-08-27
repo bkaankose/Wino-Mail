@@ -20,7 +20,9 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
                                IAccountService accountService,
                                ICalendarService calendarService,
                                IMimeFileService mimeFileService,
-                               ICalendarIcsFileService calendarIcsFileService) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
+                               ICalendarIcsFileService calendarIcsFileService,
+                               IContactService contactService = null,
+                               ITaskService taskService = null) : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
     {
         _calendarIcsFileService = calendarIcsFileService;
     }
@@ -40,8 +42,8 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
         var savingItemId = existingItem?.Id ?? Guid.NewGuid();
         var savingItem = existingItem ?? new CalendarItem { Id = savingItemId };
 
-        var startTimeZone = NormalizeTimeZoneId(calendarEvent.StartTimeZone, calendarEvent.Start);
-        var endTimeZone = NormalizeTimeZoneId(calendarEvent.EndTimeZone, calendarEvent.End);
+        var startTimeZone = NormalizeTimeZoneId(calendarEvent.StartTimeZone, calendarEvent.Start, calendarEvent.StartIsFloating);
+        var endTimeZone = NormalizeTimeZoneId(calendarEvent.EndTimeZone, calendarEvent.End, calendarEvent.EndIsFloating);
         if (string.IsNullOrWhiteSpace(endTimeZone))
             endTimeZone = startTimeZone;
 
@@ -49,12 +51,10 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
         var end = ConvertToEventWallClock(calendarEvent.End, endTimeZone);
 
         var durationInSeconds = (calendarEvent.End - calendarEvent.Start).TotalSeconds;
-        if (durationInSeconds <= 0)
+        if (durationInSeconds < 0)
         {
-            if (end <= start)
-                end = start.AddHours(1);
-
-            durationInSeconds = (end - start).TotalSeconds;
+            end = start;
+            durationInSeconds = 0;
         }
 
         savingItem.RemoteEventId = calendarEvent.RemoteEventId;
@@ -147,6 +147,9 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
     public Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent)
         => _calendarIcsFileService.SaveCalendarItemIcsAsync(accountId, calendarId, calendarItemId, remoteEventId, remoteResourceHref, eTag, icsContent);
 
+    public Task<CalDavResourceSnapshot> GetCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId)
+        => _calendarIcsFileService.GetCalendarItemIcsAsync(accountId, calendarId, calendarItemId);
+
     public Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId)
         => _calendarIcsFileService.GetCalendarItemIcsETagAsync(accountId, calendarId, calendarItemId);
 
@@ -175,8 +178,11 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
         await DeleteCalendarItemAsync(item.Id).ConfigureAwait(false);
     }
 
-    private static string NormalizeTimeZoneId(string timeZoneId, DateTimeOffset value)
+    private static string NormalizeTimeZoneId(string timeZoneId, DateTimeOffset value, bool isFloating)
     {
+        if (isFloating)
+            return string.Empty;
+
         if (!string.IsNullOrWhiteSpace(timeZoneId))
             return timeZoneId;
 

@@ -19,17 +19,16 @@ public interface ICalDavClient
         DateTimeOffset endUtc,
         CancellationToken cancellationToken = default);
 
-    Task UpsertCalendarEventAsync(
+    Task<CalDavWriteResult> UpsertCalendarEventAsync(
         CalDavConnectionSettings connectionSettings,
         CalDavCalendar calendar,
-        string remoteEventId,
-        string icsContent,
+        CalDavWriteRequest writeRequest,
         CancellationToken cancellationToken = default);
 
     Task DeleteCalendarEventAsync(
         CalDavConnectionSettings connectionSettings,
-        CalDavCalendar calendar,
-        string remoteEventId,
+        string exactHref,
+        string eTag,
         CancellationToken cancellationToken = default);
 }
 

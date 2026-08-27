@@ -121,10 +121,10 @@ public sealed class WinoRequestDelegatorTests
             Mock.Of<IMailDialogService>(),
             Mock.Of<IAccountService>(),
             Mock.Of<ICalendarService>(),
-            Mock.Of<IContactService>(),
             synchronizationManager,
             Mock.Of<IImapChangeProcessor>(),
-            Mock.Of<IApplicationConfiguration>());
+            Mock.Of<IApplicationConfiguration>(),
+            Mock.Of<IApplicationLocalRequestExecutor>());
 
     private static Mock<ISynchronizationManager> CreateSynchronizationManager()
     {

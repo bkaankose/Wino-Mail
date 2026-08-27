@@ -37,5 +37,39 @@ public class SpecialImapProviderConfigResolverTests
         serverInformation.IncomingServerUsername.Should().Be("tester");
         serverInformation.OutgoingServerUsername.Should().Be("tester");
         serverInformation.CalDavUsername.Should().Be("tester@icloud.com");
+        serverInformation.CardDavServiceUrl.Should().Be("https://contacts.icloud.com/");
+    }
+
+    [Fact]
+    public void GetServerInformation_CardDavWithoutCalendar_RetainsSharedDavCredentials()
+    {
+        var sut = new SpecialImapProviderConfigResolver();
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Address = "tester@icloud.com",
+            IsContactAccessGranted = true,
+            ContactIntegrationSource = AccountIntegrationSource.Dav
+        };
+        var dialogResult = new AccountCreationDialogResult(
+            MailProviderType.IMAP4,
+            "iCloud",
+            new SpecialImapProviderDetails(
+                "tester@icloud.com",
+                "app-password",
+                "Tester",
+                SpecialImapProvider.iCloud,
+                ImapCalendarSupportMode.Disabled),
+            "#0078D4",
+            InitialSynchronizationRange.SixMonths,
+            true,
+            false);
+
+        var serverInformation = sut.GetServerInformation(account, dialogResult);
+
+        serverInformation.CalDavServiceUrl.Should().BeEmpty();
+        serverInformation.CardDavServiceUrl.Should().Be("https://contacts.icloud.com/");
+        serverInformation.CalDavUsername.Should().Be("tester@icloud.com");
+        serverInformation.CalDavPassword.Should().Be("app-password");
     }
 }

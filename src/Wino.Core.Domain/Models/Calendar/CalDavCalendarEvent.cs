@@ -22,6 +22,8 @@ public sealed class CalDavCalendarEvent
 
     public DateTimeOffset Start { get; init; }
     public DateTimeOffset End { get; init; }
+    public bool StartIsFloating { get; init; }
+    public bool EndIsFloating { get; init; }
     public string StartTimeZone { get; init; } = string.Empty;
     public string EndTimeZone { get; init; } = string.Empty;
     public string Recurrence { get; init; } = string.Empty;

@@ -100,6 +100,29 @@ public class CalDavCalendarMetadataTests
     }
 
     [Fact]
+    public void ParseCalendarCollection_IgnoresMatchingLocalNamesFromWrongNamespaces()
+    {
+        var xml = XDocument.Parse(
+            """
+            <X:multistatus xmlns:X="https://example.test/not-dav">
+              <X:response>
+                <X:href>/forged/</X:href>
+                <X:propstat>
+                  <X:status>HTTP/1.1 200 OK</X:status>
+                  <X:prop>
+                    <X:resourcetype><X:calendar /></X:resourcetype>
+                    <X:displayname>Forged</X:displayname>
+                  </X:prop>
+                </X:propstat>
+              </X:response>
+            </X:multistatus>
+            """);
+
+        ParseCalendars(xml, new Uri("https://calendar.example.com/"))
+            .Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task SynchronizeCalendarMetadataAsync_UpdatesServerBackedSettingsAndPreservesUserColorOverride()
     {
         var tempDirectory = CreateTempDirectory();

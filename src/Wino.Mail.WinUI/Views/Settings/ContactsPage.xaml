@@ -10,7 +10,9 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
+    xmlns:illustrations="using:Wino.Controls.Illustrations"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
     xmlns:viewModels="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
@@ -142,16 +144,80 @@
                     Text="{x:Bind Name, Mode=OneTime}" />
             </Border>
         </DataTemplate>
+
+        <DataTemplate x:Key="ConflictDifferenceTemplate" x:DataType="viewModels:ContactConflictFieldViewModel">
+            <Grid Padding="0,4" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="120" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock FontWeight="SemiBold" Text="{x:Bind FieldName, Mode=OneTime}" TextWrapping="Wrap" />
+                <TextBlock Grid.Column="1" Text="{x:Bind LocalValue, Mode=OneTime}" TextWrapping="Wrap" />
+                <TextBlock Grid.Column="2" Text="{x:Bind ServerValue, Mode=OneTime}" TextWrapping="Wrap" />
+            </Grid>
+        </DataTemplate>
     </Page.Resources>
 
     <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
             <ColumnDefinition x:Name="ListColumn" Width="*" />
             <ColumnDefinition x:Name="DetailColumn" Width="348" />
         </Grid.ColumnDefinitions>
 
+        <StackPanel Grid.Row="0" Grid.ColumnSpan="2">
+            <Button
+                Margin="12,8"
+                HorizontalAlignment="Right"
+                AutomationProperties.AutomationId="ContactsNewCardDavAddressBook"
+                Command="{x:Bind ViewModel.CreateCardDavAddressBookCommand}"
+                Content="{x:Bind domain:Translator.ContactsPage_NewAddressBook, Mode=OneTime}"
+                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanCreateCardDavAddressBook), Mode=OneWay}" />
+            <muxc:InfoBar
+                AutomationProperties.AutomationId="ContactsCardDavConflictInfoBar"
+                IsOpen="{x:Bind ViewModel.HasUnresolvedConflicts, Mode=OneWay}"
+                Message="{x:Bind ViewModel.ConflictInfoMessage, Mode=OneWay}"
+                Severity="Warning"
+                Title="{x:Bind domain:Translator.ContactsPage_CardDavConflictsTitle, Mode=OneTime}">
+                <muxc:InfoBar.ActionButton>
+                    <Button
+                        AutomationProperties.AutomationId="ContactsReviewCardDavConflicts"
+                        Command="{x:Bind ViewModel.ReviewConflictsCommand}"
+                        Content="{x:Bind domain:Translator.ContactsPage_ReviewConflicts, Mode=OneTime}" />
+                </muxc:InfoBar.ActionButton>
+            </muxc:InfoBar>
+            <Border
+                Padding="16,12"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsConflictResolverOpen), Mode=OneWay}">
+                <StackPanel Spacing="10">
+                    <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.ConflictSummary, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock Text="{x:Bind domain:Translator.ContactsPage_ConflictResolutionHelp, Mode=OneTime}" TextWrapping="Wrap" />
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="{x:Bind domain:Translator.ContactsPage_LocalVersion, Mode=OneTime}" />
+                        <TextBlock Grid.Column="2" FontWeight="SemiBold" Text="{x:Bind domain:Translator.ContactsPage_ServerVersion, Mode=OneTime}" />
+                    </Grid>
+                    <ItemsControl ItemTemplate="{StaticResource ConflictDifferenceTemplate}" ItemsSource="{x:Bind ViewModel.ConflictDifferences, Mode=OneWay}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button AutomationProperties.AutomationId="ContactsConflictUseServer" Command="{x:Bind ViewModel.UseServerConflictCommand}" Content="{x:Bind domain:Translator.ContactsPage_UseServer, Mode=OneTime}" />
+                        <Button AutomationProperties.AutomationId="ContactsConflictUseMine" Command="{x:Bind ViewModel.UseMineConflictCommand}" Content="{x:Bind domain:Translator.ContactsPage_UseMine, Mode=OneTime}" />
+                        <Button AutomationProperties.AutomationId="ContactsConflictKeepBoth" Command="{x:Bind ViewModel.KeepBothConflictCommand}" Content="{x:Bind domain:Translator.ContactsPage_KeepBoth, Mode=OneTime}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
         <!--  ============ CONTACT LIST ============  -->
-        <Grid Grid.Column="0">
+        <Grid Grid.Row="1" Grid.Column="0">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
@@ -266,20 +332,29 @@
         <!--  ============ DETAIL ============  -->
         <Grid
             x:Name="DetailPane"
+            Grid.Row="1"
             Grid.Column="1"
             Background="{ThemeResource LayerOnMicaBaseAltFillColorSecondaryBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1,0,0,0">
 
-            <TextBlock
+            <StackPanel
                 Margin="24"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
-                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                Text="{x:Bind domain:Translator.ContactsPage_NoContactSelected, Mode=OneTime}"
-                TextAlignment="Center"
-                TextWrapping="Wrap"
-                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsDetailVisible), Mode=OneWay}" />
+                Spacing="14"
+                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsDetailVisible), Mode=OneWay}">
+                <illustrations:WinoNoContactSelectedIllustration
+                    Width="116"
+                    Height="116"
+                    HorizontalAlignment="Center" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                    Text="{x:Bind domain:Translator.ContactsPage_NoContactSelected, Mode=OneTime}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+            </StackPanel>
 
             <ScrollViewer
                 x:Name="DetailScroller"

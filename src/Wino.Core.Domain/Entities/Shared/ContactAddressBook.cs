@@ -13,6 +13,8 @@ public class ContactAddressBook
     public string ParentRemoteId { get; set; }
     public string DisplayName { get; set; }
     public bool IsDefault { get; set; }
+    public bool IsReadOnly { get; set; }
+    public bool IsPendingRemoteOperation { get; set; }
     public string DeltaToken { get; set; }
     public DateTime? LastSuccessfulSyncUtc { get; set; }
 }

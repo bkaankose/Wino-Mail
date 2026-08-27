@@ -112,12 +112,21 @@ public class MailAccount
     /// <summary>Gets or sets whether the calendar mode is enabled, independently of remote authorization.</summary>
     public bool IsCalendarAccessEnabled { get; set; }
 
+    /// <summary>Selects the calendar backend independently from the mail provider.</summary>
+    public AccountIntegrationSource CalendarIntegrationSource { get; set; } = AccountIntegrationSource.Local;
+
     public bool IsContactAccessGranted { get; set; }
 
     /// <summary>Gets or sets whether the contacts mode is enabled, independently of remote authorization.</summary>
     public bool IsContactAccessEnabled { get; set; } = true;
 
     public bool IsContactReauthorizationRequired { get; set; }
+
+    /// <summary>
+    /// Selects the contact backend independently from the account's mail provider.
+    /// Existing accounts are migrated explicitly so IMAP accounts remain local-only.
+    /// </summary>
+    public AccountIntegrationSource ContactIntegrationSource { get; set; } = AccountIntegrationSource.Local;
 
     /// <summary>
     /// Gets or sets whether provider task access is enabled for this account.
@@ -128,6 +137,9 @@ public class MailAccount
 
     /// <summary>Gets or sets whether the To Do mode is enabled, independently of remote authorization.</summary>
     public bool IsTaskAccessEnabled { get; set; }
+
+    /// <summary>Selects the task backend independently from the mail provider.</summary>
+    public AccountIntegrationSource TaskIntegrationSource { get; set; } = AccountIntegrationSource.Local;
 
     /// <summary>Gets or sets whether task authorization must be renewed.</summary>
     public bool IsTaskReauthorizationRequired { get; set; }

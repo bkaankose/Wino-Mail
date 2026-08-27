@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Services;
 
@@ -46,34 +47,52 @@ public class CalendarIcsFileService : ICalendarIcsFileService
     }
 
     public async Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId)
+        => (await GetCalendarItemIcsAsync(accountId, calendarId, calendarItemId).ConfigureAwait(false))?.ETag ?? string.Empty;
+
+    public async Task<CalDavResourceSnapshot> GetCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId)
     {
         if (accountId == Guid.Empty || calendarId == Guid.Empty || calendarItemId == Guid.Empty)
-            return string.Empty;
+            return null;
 
         try
         {
             var itemPath = await GetCalendarItemPathAsync(accountId, calendarId, calendarItemId).ConfigureAwait(false);
+            var icsPath = Path.Combine(itemPath, "event.ics");
             var metaPath = Path.Combine(itemPath, "event.meta.json");
 
-            if (!File.Exists(metaPath))
-                return string.Empty;
+            if (!File.Exists(metaPath) || !File.Exists(icsPath))
+                return null;
 
             var lines = await File.ReadAllLinesAsync(metaPath).ConfigureAwait(false);
+            var exactHref = GetMetadataValue(lines, "RemoteResourceHref");
+            var eTag = GetMetadataValue(lines, "ETag");
+            var icsContent = await File.ReadAllTextAsync(icsPath).ConfigureAwait(false);
 
-            foreach (var line in lines)
+            if (string.IsNullOrWhiteSpace(exactHref) || string.IsNullOrWhiteSpace(icsContent))
             {
-                if (!line.StartsWith("ETag=", StringComparison.OrdinalIgnoreCase))
-                    continue;
-
-                return line["ETag=".Length..].Trim();
+                return null;
             }
+
+            return new CalDavResourceSnapshot
+            {
+                ExactHref = exactHref,
+                ETag = eTag,
+                IcsContent = icsContent
+            };
         }
         catch (Exception ex)
         {
             _logger.Warning(ex, "Failed to load ICS metadata for account {AccountId}, calendar {CalendarId}, item {CalendarItemId}", accountId, calendarId, calendarItemId);
         }
 
-        return string.Empty;
+        return null;
+    }
+
+    private static string GetMetadataValue(string[] lines, string name)
+    {
+        var prefix = $"{name}=";
+        var line = Array.Find(lines, value => value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+        return line == null ? string.Empty : line[prefix.Length..].Trim();
     }
 
     public async Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId)

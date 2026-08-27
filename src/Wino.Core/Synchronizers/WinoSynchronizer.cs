@@ -18,6 +18,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Helpers;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Category;
@@ -170,20 +171,50 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                     return ContactSynchronizationResult.Empty;
 
                 State = AccountSynchronizerState.ExecutingRequests;
+                Exception firstFailure = null;
 
-                try
+                foreach (var request in requests)
                 {
-                    await ExecuteContactRequestsInternalAsync(requests, cancellationToken).ConfigureAwait(false);
-                }
-                finally
-                {
-                    foreach (var request in requests)
+                    try
+                    {
+                        await ExecuteContactRequestsInternalAsync([request], cancellationToken).ConfigureAwait(false);
+                        RequestUiChangeCoordinator.CompleteRequests([request]);
+                    }
+                    catch (Exception ex)
+                    {
+                        firstFailure ??= ex;
+                        CaptureSynchronizationIssue(SynchronizationIssue.FromException(ex, $"Contact:{request.Operation}"));
+                        RequestUiChangeCoordinator.RevertRequests([request]);
+                        RequestUiChangeCoordinator.CompleteRequests([request]);
+                    }
+                    finally
+                    {
                         changeRequestQueue.Remove(request);
-                    UntrackProcessedRequests(requests.Cast<IRequestBase>().ToList());
-                    Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
+                        UntrackProcessedRequest(request);
+                    }
                 }
 
-                var requestResult = ContactSynchronizationResult.Empty.MergeIssues(GetCapturedSynchronizationIssues());
+                Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
+
+                if (firstFailure is not null)
+                {
+                    try
+                    {
+                        await SynchronizeContactsInternalAsync(new ContactSynchronizationOptions
+                        {
+                            AccountId = Account.Id,
+                            Type = ContactSynchronizationType.Full
+                        }, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (Exception reconciliationException)
+                    {
+                        CaptureSynchronizationIssue(SynchronizationIssue.FromException(reconciliationException, "ContactReconciliation"));
+                    }
+                }
+
+                var requestResult = firstFailure is null
+                    ? ContactSynchronizationResult.Empty.MergeIssues(GetCapturedSynchronizationIssues())
+                    : ContactSynchronizationResult.Failed(firstFailure).MergeIssues(GetCapturedSynchronizationIssues());
                 Messenger.Send(new ContactSynchronizationCompleted(Account.Id, requestResult.CompletedState));
                 return requestResult;
             }
@@ -205,6 +236,25 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
         catch (Exception ex)
         {
             Logger.Error(ex, "Contact synchronization failed for {AccountId}.", Account.Id);
+
+            if (options?.Type == ContactSynchronizationType.ExecuteRequests)
+            {
+                // A provider may have accepted the HTTP mutation before a local commit failed.
+                // Reconciliation is a separate pull and never retries the failed request.
+                try
+                {
+                    await SynchronizeContactsInternalAsync(new ContactSynchronizationOptions
+                    {
+                        AccountId = Account.Id,
+                        Type = ContactSynchronizationType.Full
+                    }, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception reconciliationException)
+                {
+                    Logger.Error(reconciliationException, "Contact reconciliation failed for {AccountId}.", Account.Id);
+                }
+            }
+
             var result = ContactSynchronizationResult.Failed(ex).MergeIssues(GetCapturedSynchronizationIssues());
             Messenger.Send(new ContactSynchronizationCompleted(Account.Id, result.CompletedState));
             return result;
@@ -241,23 +291,34 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 }
 
                 State = AccountSynchronizerState.ExecutingRequests;
-                try
-                {
-                    await ExecuteTaskRequestsInternalAsync(requests, cancellationToken).ConfigureAwait(false);
+                Exception firstFailure = null;
 
-                    // Remove only after the provider accepted the complete request batch.
-                    // A failed provider call leaves the optimistic mutation queued so the
-                    // next task synchronization can retry it and reconcile provider data.
-                    foreach (var request in requests)
+                foreach (var request in requests)
+                {
+                    try
+                    {
+                        await ExecuteTaskRequestsInternalAsync([request], cancellationToken).ConfigureAwait(false);
+                        RequestUiChangeCoordinator.CompleteRequests([request]);
+                    }
+                    catch (Exception ex)
+                    {
+                        firstFailure ??= ex;
+                        CaptureSynchronizationIssue(SynchronizationIssue.FromException(ex, $"Task:{request.Operation}"));
+                        RequestUiChangeCoordinator.RevertRequests([request]);
+                        RequestUiChangeCoordinator.CompleteRequests([request]);
+                    }
+                    finally
+                    {
                         changeRequestQueue.Remove(request);
-                    UntrackProcessedRequests(requests.Cast<IRequestBase>().ToList());
-                }
-                finally
-                {
-                    Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
+                        UntrackProcessedRequest(request);
+                    }
                 }
 
-                var requestResult = TaskSynchronizationResult.Empty.MergeIssues(GetCapturedSynchronizationIssues());
+                Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
+
+                var requestResult = firstFailure is null
+                    ? TaskSynchronizationResult.Empty.MergeIssues(GetCapturedSynchronizationIssues())
+                    : TaskSynchronizationResult.Failed(firstFailure).MergeIssues(GetCapturedSynchronizationIssues());
 
                 // Provider mutations are followed by a reconciliation pass. This commits
                 // remote identities/ETags and makes provider-authoritative conflict handling
@@ -297,6 +358,23 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
         catch (Exception ex)
         {
             Logger.Error(ex, "Task synchronization failed for {AccountId}.", Account.Id);
+
+            if (options?.Type == TaskSynchronizationType.ExecuteRequests)
+            {
+                try
+                {
+                    await SynchronizeTasksInternalAsync(new TaskSynchronizationOptions
+                    {
+                        AccountId = Account.Id,
+                        Type = TaskSynchronizationType.Strict
+                    }, CancellationToken.None).ConfigureAwait(false);
+                }
+                catch (Exception reconciliationException)
+                {
+                    Logger.Error(reconciliationException, "Task reconciliation failed for {AccountId}.", Account.Id);
+                }
+            }
+
             var result = TaskSynchronizationResult.Failed(ex).MergeIssues(GetCapturedSynchronizationIssues());
             Messenger.Send(new TaskSynchronizationCompleted(Account.Id, result.CompletedState));
             return result;

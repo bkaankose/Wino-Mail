@@ -20,7 +20,9 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
                                     ICalendarService calendarService,
                                     IMailService mailService,
                                     IAccountService accountService,
-                                    IMimeFileService mimeFileService) : DefaultChangeProcessor(databaseService, folderService, mailService, calendarService, accountService, mimeFileService)
+                                    IMimeFileService mimeFileService,
+                                    IContactService contactService = null,
+                                    ITaskService taskService = null) : DefaultChangeProcessor(databaseService, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
     , IOutlookChangeProcessor
 {
 

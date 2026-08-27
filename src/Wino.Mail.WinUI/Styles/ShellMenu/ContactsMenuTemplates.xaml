@@ -71,7 +71,7 @@
                         AutomationProperties.AutomationId="ContactsPaneRenameList"
                         Command="{x:Bind RenameListCommand, Mode=OneTime}"
                         Text="{x:Bind domain:Translator.ContactList_Rename, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsList), Mode=OneTime}">
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(CanRenameOrDelete), Mode=OneTime}">
                         <MenuFlyoutItem.Icon>
                             <FontIcon Glyph="&#xE8AC;" />
                         </MenuFlyoutItem.Icon>
@@ -79,8 +79,8 @@
                     <MenuFlyoutItem
                         AutomationProperties.AutomationId="ContactsPaneDeleteList"
                         Command="{x:Bind DeleteListCommand, Mode=OneTime}"
-                        Text="{x:Bind domain:Translator.ContactList_Delete, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsList), Mode=OneTime}">
+                        Text="{x:Bind domain:Translator.ContactsPage_Delete, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(CanRenameOrDelete), Mode=OneTime}">
                         <MenuFlyoutItem.Icon>
                             <FontIcon Glyph="&#xE74D;" />
                         </MenuFlyoutItem.Icon>

@@ -48,4 +48,6 @@ public interface IWinoRequestDelegator
     /// request for each represented request type.
     /// </summary>
     Task ExecuteAsync(Guid accountId, IEnumerable<IRequestBase> requests);
+
+    Task ExecuteLocalAsync(IRequestBase request);
 }

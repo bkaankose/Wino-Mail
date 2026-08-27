@@ -39,6 +39,8 @@ using Wino.Core.Http;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Contact;
+using Wino.Core.Requests;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
@@ -105,10 +107,11 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
     private readonly PeopleServiceService _peopleService;
     private readonly IContactService _contactService;
     private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly ICardDavSynchronizationEngine _cardDavSynchronizationEngine;
     private readonly ITaskService _taskService;
     private readonly GoogleTasksClient _googleTasksClient;
-    private readonly LocalTaskSynchronizer _localTaskSynchronizer = new();
-    private readonly LocalContactSynchronizer _localContactSynchronizer = new();
+    private readonly LocalTaskSynchronizer _localTaskSynchronizer;
+    private readonly LocalContactSynchronizer _localContactSynchronizer;
 
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
     private readonly IGmailSynchronizerErrorHandlerFactory _gmailSynchronizerErrorHandlerFactory;
@@ -126,7 +129,8 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                              IMailFilterExecutor mailFilterExecutor = null,
                              IContactService contactService = null,
                              IContactPictureFileService contactPictureFileService = null,
-                             ITaskService taskService = null)
+                             ITaskService taskService = null,
+                             ICardDavSynchronizationEngine cardDavSynchronizationEngine = null)
         : this(
             account,
             gmailChangeProcessor,
@@ -136,7 +140,8 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
             new GmailClientMessageHandler(authenticator, account, [ProviderFeature.MailFilters]),
             contactService,
             contactPictureFileService,
-            taskService)
+            taskService,
+            cardDavSynchronizationEngine)
     {
     }
 
@@ -149,7 +154,8 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         HttpMessageHandler providerFeatureMessageHandler = null,
         IContactService contactService = null,
         IContactPictureFileService contactPictureFileService = null,
-        ITaskService taskService = null) : base(account, WeakReferenceMessenger.Default)
+        ITaskService taskService = null,
+        ICardDavSynchronizationEngine cardDavSynchronizationEngine = null) : base(account, WeakReferenceMessenger.Default)
     {
         _googleHttpClient = new HttpClient(googleMessageHandler, disposeHandler: true);
         _gmailService = new GmailService(_googleHttpClient);
@@ -170,28 +176,42 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         _gmailSynchronizerErrorHandlerFactory = gmailSynchronizerErrorHandlerFactory;
         _mailFilterExecutor = mailFilterExecutor;
         _contactService = contactService;
+        _localContactSynchronizer = new LocalContactSynchronizer(contactService, contactPictureFileService);
         _contactPictureFileService = contactPictureFileService;
         _taskService = taskService;
+        _localTaskSynchronizer = new LocalTaskSynchronizer(taskService);
         _googleTasksClient = new GoogleTasksClient(_googleHttpClient);
+        _cardDavSynchronizationEngine = cardDavSynchronizationEngine;
     }
 
     protected override Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
-        => !Account.IsContactAccessGranted
-            ? _localContactSynchronizer.ExecuteRequestsAsync(requests, cancellationToken)
-            : ExecuteGmailContactRequestsAsync(requests, cancellationToken);
+        => Account.ContactIntegrationSource switch
+        {
+            AccountIntegrationSource.Local => _localContactSynchronizer.ExecuteRequestsAsync(requests, cancellationToken),
+            AccountIntegrationSource.Provider when Account.IsContactAccessGranted => ExecuteGmailContactRequestsAsync(requests, cancellationToken),
+            AccountIntegrationSource.Dav when _cardDavSynchronizationEngine is not null => _cardDavSynchronizationEngine.ExecuteRequestsAsync(Account, requests, cancellationToken),
+            _ => throw new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable)
+        };
 
     protected override Task<ContactSynchronizationResult> SynchronizeContactsInternalAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default)
-        => !Account.IsContactAccessGranted
-            ? _localContactSynchronizer.SynchronizeAsync(options, cancellationToken)
-            : SynchronizeGmailContactsAsync(options, cancellationToken);
+        => Account.ContactIntegrationSource switch
+        {
+            AccountIntegrationSource.Local => _localContactSynchronizer.SynchronizeAsync(options, cancellationToken),
+            AccountIntegrationSource.Provider when Account.IsContactAccessGranted => SynchronizeGmailContactsAsync(options, cancellationToken),
+            AccountIntegrationSource.Dav when _cardDavSynchronizationEngine is not null => _cardDavSynchronizationEngine.SynchronizeAsync(Account, options, cancellationToken),
+            _ => Task.FromResult(ContactSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable)))
+        };
 
     protected override async Task ExecuteTaskRequestsInternalAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken = default)
     {
-        if (!Account.IsTaskAccessGranted || _taskService is null)
+        if (Account.TaskIntegrationSource == AccountIntegrationSource.Local)
         {
             await _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken).ConfigureAwait(false);
             return;
         }
+
+        if (Account.TaskIntegrationSource != AccountIntegrationSource.Provider || !Account.IsTaskAccessGranted || _taskService is null)
+            throw new InvalidOperationException(Translator.Synchronizer_TasksUnavailable);
 
         try
         {
@@ -206,8 +226,11 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
     protected override async Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
-        if (!Account.IsTaskAccessGranted || _taskService is null)
+        if (Account.TaskIntegrationSource == AccountIntegrationSource.Local)
             return await _localTaskSynchronizer.SynchronizeAsync(options, cancellationToken).ConfigureAwait(false);
+
+        if (Account.TaskIntegrationSource != AccountIntegrationSource.Provider || !Account.IsTaskAccessGranted || _taskService is null)
+            return TaskSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_TasksUnavailable));
 
         try
         {
@@ -236,45 +259,39 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
             {
                 case TaskSynchronizerOperation.CreateList:
                     {
-                        var localList = await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                        var localList = (request as TaskActionRequest)?.List
+                                        ?? await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
                         if (localList is null)
-                            continue;
+                            throw new InvalidOperationException($"Task list {request.TaskListId} is unavailable for creation.");
                         var remote = await _googleTasksClient.CreateTaskListAsync(localList.Title, cancellationToken).ConfigureAwait(false);
-                        await _taskService.CompleteListMutationAsync(localList.Id, MapGoogleList(remote), false).ConfigureAwait(false);
+                        var mapped = MapGoogleList(remote);
+
+                        PreserveRequestedTaskListState(mapped, localList);
+                        await _gmailChangeProcessor.CommitTaskListMutationAsync(localList.Id, mapped, false).ConfigureAwait(false);
                         break;
                     }
                 case TaskSynchronizerOperation.UpdateList:
                     {
-                        var localList = await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                        var localList = (request as TaskActionRequest)?.List
+                                        ?? await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
                         if (localList?.RemoteId is null)
-                            continue;
-                        try
-                        {
-                            var remote = await _googleTasksClient.UpdateTaskListAsync(localList.RemoteId, localList.Title, localList.RemoteVersion, cancellationToken).ConfigureAwait(false);
-                            await _taskService.CompleteListMutationAsync(localList.Id, MapGoogleList(remote), false).ConfigureAwait(false);
-                        }
-                        catch (HttpRequestException ex) when (ex.StatusCode is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.PreconditionFailed)
-                        {
-                            var remote = await _googleTasksClient.GetTaskListAsync(localList.RemoteId, cancellationToken).ConfigureAwait(false);
-                            await _taskService.CompleteListMutationAsync(localList.Id, MapGoogleList(remote), false).ConfigureAwait(false);
-                        }
+                            throw new InvalidOperationException($"Task list {request.TaskListId} is unavailable for update.");
+                        var remote = await _googleTasksClient.UpdateTaskListAsync(localList.RemoteId, localList.Title, localList.RemoteVersion, cancellationToken).ConfigureAwait(false);
+                        var mapped = MapGoogleList(remote);
+
+                        PreserveRequestedTaskListState(mapped, localList);
+                        await _gmailChangeProcessor.CommitTaskListMutationAsync(localList.Id, mapped, false).ConfigureAwait(false);
                         break;
                     }
                 case TaskSynchronizerOperation.DeleteList:
                     {
-                        var localList = await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                        var localList = (request as TaskActionRequest)?.List
+                                        ?? (request as TaskActionRequest)?.OriginalList
+                                        ?? await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
                         if (localList?.RemoteId is null)
-                            continue;
-                        try
-                        {
-                            await _googleTasksClient.DeleteTaskListAsync(localList.RemoteId, localList.RemoteVersion, cancellationToken).ConfigureAwait(false);
-                            await _taskService.CompleteListMutationAsync(localList.Id, null, true).ConfigureAwait(false);
-                        }
-                        catch (HttpRequestException ex) when (ex.StatusCode is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.PreconditionFailed)
-                        {
-                            var remote = await _googleTasksClient.GetTaskListAsync(localList.RemoteId, cancellationToken).ConfigureAwait(false);
-                            await _taskService.CompleteListMutationAsync(localList.Id, MapGoogleList(remote), false).ConfigureAwait(false);
-                        }
+                            throw new InvalidOperationException($"Task list {request.TaskListId} is unavailable for deletion.");
+                        await _googleTasksClient.DeleteTaskListAsync(localList.RemoteId, localList.RemoteVersion, cancellationToken).ConfigureAwait(false);
+                        await _gmailChangeProcessor.CommitTaskListMutationAsync(localList.Id, null, true).ConfigureAwait(false);
                         break;
                     }
                 case TaskSynchronizerOperation.CreateTask:
@@ -295,75 +312,91 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
     private async Task ExecuteGoogleTaskMutationAsync(ITaskActionRequest request, CancellationToken cancellationToken)
     {
-        var localTask = await _taskService.GetTaskAsync(request.TaskId ?? Guid.Empty).ConfigureAwait(false);
+        var typedRequest = request as TaskActionRequest;
+        var localTask = typedRequest?.Task
+                        ?? typedRequest?.OriginalTask
+                        ?? await _taskService.GetTaskAsync(request.TaskId ?? Guid.Empty).ConfigureAwait(false);
         if (localTask is null)
-            return;
+            throw new InvalidOperationException($"Task {request.TaskId} is unavailable for {request.Operation}.");
+
         var list = await _taskService.GetTaskListAsync(localTask.TaskListId).ConfigureAwait(false);
         if (list?.RemoteId is null)
-            return;
-        try
-        {
-            if (request.Operation == TaskSynchronizerOperation.DeleteTask)
-            {
-                if (localTask.RemoteId is not null)
-                    await _googleTasksClient.DeleteTaskAsync(list.RemoteId, localTask.RemoteId, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
-                await _taskService.CompleteTaskMutationAsync(localTask.Id, null, true).ConfigureAwait(false);
-                return;
-            }
+            throw new InvalidOperationException($"Task list {localTask.TaskListId} is unavailable for {request.Operation}.");
 
-            var payload = BuildGoogleTask(localTask);
-            var remote = request.Operation == TaskSynchronizerOperation.CreateTask || localTask.RemoteId is null
-                ? await _googleTasksClient.CreateTaskAsync(list.RemoteId, payload, cancellationToken: cancellationToken).ConfigureAwait(false)
-                : await _googleTasksClient.UpdateTaskAsync(list.RemoteId, localTask.RemoteId, payload, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
-            await _taskService.CompleteTaskMutationAsync(localTask.Id, MapGoogleTask(remote, list), false).ConfigureAwait(false);
-        }
-        catch (HttpRequestException ex) when ((ex.StatusCode is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.PreconditionFailed) && localTask.RemoteId is not null)
+        if (request.Operation == TaskSynchronizerOperation.DeleteTask)
         {
-            var remote = await _googleTasksClient.GetTaskAsync(list.RemoteId, localTask.RemoteId, cancellationToken).ConfigureAwait(false);
-            await _taskService.CompleteTaskMutationAsync(localTask.Id, MapGoogleTask(remote, list), false).ConfigureAwait(false);
+            if (localTask.RemoteId is not null)
+                await _googleTasksClient.DeleteTaskAsync(list.RemoteId, localTask.RemoteId, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
+
+            await _gmailChangeProcessor.CommitTaskMutationAsync(localTask.Id, null, true).ConfigureAwait(false);
+            return;
         }
+
+        var payload = BuildGoogleTask(localTask);
+        var remote = request.Operation == TaskSynchronizerOperation.CreateTask || localTask.RemoteId is null
+            ? await _googleTasksClient.CreateTaskAsync(list.RemoteId, payload, cancellationToken: cancellationToken).ConfigureAwait(false)
+            : await _googleTasksClient.UpdateTaskAsync(list.RemoteId, localTask.RemoteId, payload, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
+        var mapped = MapGoogleTask(remote, list);
+
+        PreserveRequestedTaskState(mapped, localTask);
+        await _gmailChangeProcessor.CommitTaskMutationAsync(localTask.Id, mapped, false).ConfigureAwait(false);
     }
 
     private async Task ExecuteGoogleStepMutationAsync(ITaskActionRequest request, CancellationToken cancellationToken)
     {
-        var task = await _taskService.GetTaskAsync(request.TaskId ?? Guid.Empty).ConfigureAwait(false);
+        var typedRequest = request as TaskActionRequest;
+        var task = typedRequest?.Task
+                   ?? await _taskService.GetTaskAsync(request.TaskId ?? Guid.Empty).ConfigureAwait(false);
         var list = task is null ? null : await _taskService.GetTaskListAsync(task.TaskListId).ConfigureAwait(false);
         var requestedStep = (request as TaskActionRequest)?.Step;
         var step = task?.Steps.FirstOrDefault(item => item.Id == requestedStep?.Id) ?? requestedStep;
         if (task is null || list?.RemoteId is null || task.RemoteId is null || step is null)
             return;
 
-        try
+        if (request.Operation == TaskSynchronizerOperation.DeleteStep)
         {
-            if (request.Operation == TaskSynchronizerOperation.DeleteStep)
-            {
-                if (step.RemoteId is not null)
-                    await _googleTasksClient.DeleteTaskAsync(list.RemoteId, step.RemoteId, step.RemoteVersion, cancellationToken).ConfigureAwait(false);
-                await _taskService.CompleteStepMutationAsync(step.Id, null, true).ConfigureAwait(false);
-                return;
-            }
+            if (step.RemoteId is not null)
+                await _googleTasksClient.DeleteTaskAsync(list.RemoteId, step.RemoteId, step.RemoteVersion, cancellationToken).ConfigureAwait(false);
 
-            var payload = BuildGoogleStep(step);
-            var remote = request.Operation == TaskSynchronizerOperation.CreateStep || step.RemoteId is null
-                ? await _googleTasksClient.CreateTaskAsync(list.RemoteId, payload, task.RemoteId, cancellationToken).ConfigureAwait(false)
-                : await _googleTasksClient.UpdateTaskAsync(list.RemoteId, step.RemoteId, payload, step.RemoteVersion, cancellationToken).ConfigureAwait(false);
-            await _taskService.CompleteStepMutationAsync(step.Id, new AccountTaskStep
-            {
-                RemoteId = remote.Id,
-                RemoteVersion = remote.Etag
-            }, false).ConfigureAwait(false);
+            await _gmailChangeProcessor.CommitTaskStepMutationAsync(step.Id, null, true).ConfigureAwait(false);
+            return;
         }
-        catch (HttpRequestException ex) when ((ex.StatusCode is System.Net.HttpStatusCode.Conflict or System.Net.HttpStatusCode.PreconditionFailed) && step.RemoteId is not null)
+
+        var payload = BuildGoogleStep(step);
+        var remote = request.Operation == TaskSynchronizerOperation.CreateStep || step.RemoteId is null
+            ? await _googleTasksClient.CreateTaskAsync(list.RemoteId, payload, task.RemoteId, cancellationToken).ConfigureAwait(false)
+            : await _googleTasksClient.UpdateTaskAsync(list.RemoteId, step.RemoteId, payload, step.RemoteVersion, cancellationToken).ConfigureAwait(false);
+        await _gmailChangeProcessor.CommitTaskStepMutationAsync(step.Id, new AccountTaskStep
         {
-            var remote = await _googleTasksClient.GetTaskAsync(list.RemoteId, step.RemoteId, cancellationToken).ConfigureAwait(false);
-            await _taskService.CompleteStepMutationAsync(step.Id, new AccountTaskStep
-            {
-                RemoteId = remote.Id,
-                RemoteVersion = remote.Etag,
-                Title = remote.Title,
-                IsCompleted = string.Equals(remote.Status, "completed", StringComparison.OrdinalIgnoreCase)
-            }, false).ConfigureAwait(false);
-        }
+            Id = step.Id,
+            TaskId = step.TaskId,
+            MailAccountId = step.MailAccountId,
+            SourceKind = step.SourceKind,
+            RemoteId = remote.Id,
+            RemoteVersion = remote.Etag,
+            Title = remote.Title ?? step.Title,
+            IsCompleted = string.Equals(remote.Status, "completed", StringComparison.OrdinalIgnoreCase),
+            Order = step.Order
+        }, false).ConfigureAwait(false);
+    }
+
+    private static void PreserveRequestedTaskListState(AccountTaskList mapped, AccountTaskList requested)
+    {
+        mapped.Id = requested.Id;
+        mapped.MailAccountId = requested.MailAccountId;
+        mapped.SourceKind = requested.SourceKind;
+        mapped.IsDefault = requested.IsDefault;
+        mapped.ColorHex = requested.ColorHex;
+    }
+
+    private static void PreserveRequestedTaskState(AccountTask mapped, AccountTask requested)
+    {
+        mapped.Id = requested.Id;
+        mapped.MailAccountId = requested.MailAccountId;
+        mapped.TaskListId = requested.TaskListId;
+        mapped.SourceKind = requested.SourceKind;
+        mapped.IsImportant = requested.IsImportant;
+        mapped.MyDayDateUtc = requested.MyDayDateUtc;
     }
 
     private async Task<TaskSynchronizationResult> SynchronizeGoogleTasksAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken)
@@ -661,9 +694,16 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         foreach (var request in requests)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var local = await _contactService.GetContactAsync(request.LocalContactId).ConfigureAwait(false);
+            var typedRequest = request as ContactActionRequest;
+            var local = typedRequest?.Contact;
+
+            if (request.Operation != ContactSynchronizerOperation.Create && string.IsNullOrWhiteSpace(local?.RemoteId))
+                local = await _contactService.GetContactAsync(request.LocalContactId).ConfigureAwait(false)
+                        ?? typedRequest?.OriginalContact
+                        ?? local;
+
             if (local is null && request.Operation != ContactSynchronizerOperation.Delete)
-                continue;
+                throw new InvalidOperationException($"Contact {request.LocalContactId} is unavailable for {request.Operation}.");
 
             try
             {
@@ -675,7 +715,10 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                             create.PersonFields = GoogleContactFields;
                             var created = await create.ExecuteAsync(cancellationToken).ConfigureAwait(false);
                             var book = (await _contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false)).First(item => item.Id == request.AddressBookId);
-                            await _contactService.CompleteMutationAsync(local.Id, MapGoogleContact(created, book), false).ConfigureAwait(false);
+                            var mapped = MapGoogleContact(created, book);
+
+                            PreserveRequestedContactState(mapped, local);
+                            await _gmailChangeProcessor.CommitContactMutationAsync(local.Id, mapped, false).ConfigureAwait(false);
                             break;
                         }
                     case ContactSynchronizerOperation.Update:
@@ -686,41 +729,48 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                             MergeCommonFields(current, local);
                             var updated = await _peopleService.People.UpdateContact(local.RemoteId, current).ExecuteAsync(cancellationToken).ConfigureAwait(false);
                             var book = (await _contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false)).First(item => item.Id == request.AddressBookId);
-                            await _contactService.CompleteMutationAsync(local.Id, MapGoogleContact(updated, book), false).ConfigureAwait(false);
+                            var mapped = MapGoogleContact(updated, book);
+
+                            PreserveRequestedContactState(mapped, local);
+                            await _gmailChangeProcessor.CommitContactMutationAsync(local.Id, mapped, false).ConfigureAwait(false);
                             break;
                         }
                     case ContactSynchronizerOperation.Delete:
                         if (!string.IsNullOrWhiteSpace(local?.RemoteId))
                             await _peopleService.People.DeleteContact(local.RemoteId).ExecuteAsync(cancellationToken).ConfigureAwait(false);
                         if (local is not null)
-                            await _contactService.CompleteMutationAsync(local.Id, null, true).ConfigureAwait(false);
+                            await _gmailChangeProcessor.CommitContactMutationAsync(local.Id, null, true).ConfigureAwait(false);
                         break;
                     case ContactSynchronizerOperation.SetPhoto:
                         await UpdateGoogleContactPhotoAsync(local.RemoteId, request.Photo, delete: false, cancellationToken).ConfigureAwait(false);
-                        await _contactService.CompleteMutationAsync(local.Id, null, false).ConfigureAwait(false);
+                        var photoContact = RequestEntityCloner.Contact(local);
+                        photoContact.ContactPictureFileId = await _contactPictureFileService.SaveContactPictureAsync(request.Photo).ConfigureAwait(false);
+                        await _gmailChangeProcessor.CommitContactMutationAsync(local.Id, photoContact, false).ConfigureAwait(false);
                         break;
                     case ContactSynchronizerOperation.DeletePhoto:
                         await UpdateGoogleContactPhotoAsync(local.RemoteId, null, delete: true, cancellationToken).ConfigureAwait(false);
-                        await _contactService.CompleteMutationAsync(local.Id, null, false).ConfigureAwait(false);
+                        var noPhotoContact = RequestEntityCloner.Contact(local);
+                        noPhotoContact.ContactPictureFileId = null;
+                        await _gmailChangeProcessor.CommitContactMutationAsync(local.Id, noPhotoContact, false).ConfigureAwait(false);
                         break;
                 }
-            }
-            catch (GoogleApiException ex) when ((int)ex.HttpStatusCode is 400 or 409 or 412)
-            {
-                if (local is null || string.IsNullOrWhiteSpace(local.RemoteId))
-                    continue;
-                var fetch = _peopleService.People.Get(local.RemoteId);
-                fetch.PersonFields = GoogleContactFields;
-                var remote = await fetch.ExecuteAsync(cancellationToken).ConfigureAwait(false);
-                var book = (await _contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false)).First(item => item.Id == request.AddressBookId);
-                await _contactService.CompleteMutationAsync(local.Id, MapGoogleContact(remote, book), false).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.Error(ex, "Gmail contact request {Operation} failed for contact {ContactId}.",
                     request.Operation, request.LocalContactId);
+                throw;
             }
         }
+    }
+
+    private static void PreserveRequestedContactState(AccountContact mapped, AccountContact requested)
+    {
+        mapped.Id = requested.Id;
+        mapped.MailAccountId = requested.MailAccountId;
+        mapped.AddressBookId = requested.AddressBookId;
+        mapped.IsFavorite = requested.IsFavorite;
+        mapped.ContactPictureFileId = requested.ContactPictureFileId;
     }
 
     private async Task UpdateGoogleContactPhotoAsync(string remoteId, byte[] photo, bool delete, CancellationToken cancellationToken)
@@ -1306,6 +1356,12 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
     protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
+        if (Account.CalendarIntegrationSource == AccountIntegrationSource.Local)
+            return CalendarSynchronizationResult.Empty;
+
+        if (Account.CalendarIntegrationSource != AccountIntegrationSource.Provider || !Account.IsCalendarAccessGranted)
+            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
+
         _logger.Information("Internal calendar synchronization started for {Name}", Account.Name);
 
         cancellationToken.ThrowIfCancellationRequested();

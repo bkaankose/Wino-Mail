@@ -84,6 +84,11 @@ public interface IDefaultChangeProcessor
     Task<bool> IsMailExistsInFolderAsync(string messageId, Guid folderId);
     Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds);
     Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier);
+
+    Task CommitContactMutationAsync(Guid contactId, AccountContact contact, bool deleted);
+    Task CommitTaskListMutationAsync(Guid listId, AccountTaskList list, bool deleted);
+    Task CommitTaskMutationAsync(Guid taskId, AccountTask task, bool deleted);
+    Task CommitTaskStepMutationAsync(Guid stepId, AccountTaskStep step, bool deleted);
 }
 
 public interface IGmailChangeProcessor : IDefaultChangeProcessor
@@ -135,6 +140,7 @@ public interface IImapChangeProcessor : IDefaultChangeProcessor
 
     Task ManageCalendarEventAsync(CalDavCalendarEvent calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
     Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent);
+    Task<CalDavResourceSnapshot> GetCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId);
     Task<string> GetCalendarItemIcsETagAsync(Guid accountId, Guid calendarId, Guid calendarItemId);
     Task DeleteCalendarItemIcsAsync(Guid accountId, Guid calendarItemId);
     Task DeleteCalendarIcsForCalendarAsync(Guid accountId, Guid calendarId);
@@ -145,7 +151,9 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
                               IMailService mailService,
                               ICalendarService calendarService,
                               IAccountService accountService,
-                              IMimeFileService mimeFileService) : BaseDatabaseService(databaseService), IDefaultChangeProcessor
+                              IMimeFileService mimeFileService,
+                              IContactService contactService = null,
+                              ITaskService taskService = null) : BaseDatabaseService(databaseService), IDefaultChangeProcessor
 {
     protected IMailService MailService = mailService;
     protected ICalendarService CalendarService = calendarService;
@@ -153,6 +161,24 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     protected IAccountService AccountService = accountService;
 
     private readonly IMimeFileService _mimeFileService = mimeFileService;
+    private readonly IContactService _contactService = contactService;
+    private readonly ITaskService _taskService = taskService;
+
+    public Task CommitContactMutationAsync(Guid contactId, AccountContact contact, bool deleted)
+        => (_contactService ?? throw new InvalidOperationException("Contact persistence is unavailable."))
+            .CompleteMutationAsync(contactId, contact, deleted);
+
+    public Task CommitTaskListMutationAsync(Guid listId, AccountTaskList list, bool deleted)
+        => (_taskService ?? throw new InvalidOperationException("Task persistence is unavailable."))
+            .CompleteListMutationAsync(listId, list, deleted);
+
+    public Task CommitTaskMutationAsync(Guid taskId, AccountTask task, bool deleted)
+        => (_taskService ?? throw new InvalidOperationException("Task persistence is unavailable."))
+            .CompleteTaskMutationAsync(taskId, task, deleted);
+
+    public Task CommitTaskStepMutationAsync(Guid stepId, AccountTaskStep step, bool deleted)
+        => (_taskService ?? throw new InvalidOperationException("Task persistence is unavailable."))
+            .CompleteStepMutationAsync(stepId, step, deleted);
 
     public Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier)
         => AccountService.UpdateSyncIdentifierRawAsync(accountId, synchronizationDeltaIdentifier);

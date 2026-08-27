@@ -37,6 +37,7 @@ using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Misc;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
+using Wino.Services;
 using Wino.Services.Extensions;
 using Wino.Mail.AI.Abstractions;
 
@@ -44,20 +45,34 @@ namespace Wino.Core.Synchronizers.Mail;
 
 public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object, AccountContact>, IImapSynchronizer, ISemanticMailBodySynchronizer
 {
-    private readonly LocalContactSynchronizer _localContactSynchronizer = new();
-    private readonly LocalTaskSynchronizer _localTaskSynchronizer = new();
+    private readonly LocalContactSynchronizer _localContactSynchronizer;
+    private readonly LocalTaskSynchronizer _localTaskSynchronizer;
+    private readonly ICardDavSynchronizationEngine _cardDavSynchronizationEngine;
 
     protected override Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
-        => _localContactSynchronizer.ExecuteRequestsAsync(requests, cancellationToken);
+        => Account.ContactIntegrationSource switch
+        {
+            AccountIntegrationSource.Dav when _cardDavSynchronizationEngine is not null => _cardDavSynchronizationEngine.ExecuteRequestsAsync(Account, requests, cancellationToken),
+            AccountIntegrationSource.Local => _localContactSynchronizer.ExecuteRequestsAsync(requests, cancellationToken),
+            _ => throw new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable)
+        };
 
     protected override Task<ContactSynchronizationResult> SynchronizeContactsInternalAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default)
-        => _localContactSynchronizer.SynchronizeAsync(options, cancellationToken);
+        => Account.ContactIntegrationSource == AccountIntegrationSource.Dav && _cardDavSynchronizationEngine is not null
+            ? _cardDavSynchronizationEngine.SynchronizeAsync(Account, options, cancellationToken)
+            : Account.ContactIntegrationSource == AccountIntegrationSource.Local
+                ? _localContactSynchronizer.SynchronizeAsync(options, cancellationToken)
+                : Task.FromResult(ContactSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable)));
 
     protected override Task ExecuteTaskRequestsInternalAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken = default)
-        => _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken);
+        => Account.TaskIntegrationSource == AccountIntegrationSource.Local
+            ? _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken)
+            : throw new InvalidOperationException(Translator.Synchronizer_TasksUnavailable);
 
     protected override Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
-        => _localTaskSynchronizer.SynchronizeAsync(options, cancellationToken);
+        => Account.TaskIntegrationSource == AccountIntegrationSource.Local
+            ? _localTaskSynchronizer.SynchronizeAsync(options, cancellationToken)
+            : Task.FromResult(TaskSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_TasksUnavailable)));
     /// <summary>
     /// N/A for IMAP as it doesn't support batch modifications natively.
     /// </summary>
@@ -103,7 +118,10 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                             IAutoDiscoveryService autoDiscoveryService,
                             ICalendarService calendarService,
                             IMailFilterExecutor mailFilterExecutor = null,
-                            IServerCertificateTrustService serverCertificateTrustService = null) : base(account, WeakReferenceMessenger.Default)
+                            IServerCertificateTrustService serverCertificateTrustService = null,
+                            ICardDavSynchronizationEngine cardDavSynchronizationEngine = null,
+                            IContactService contactService = null,
+                            ITaskService taskService = null) : base(account, WeakReferenceMessenger.Default)
     {
         _imapChangeProcessor = imapChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
@@ -114,6 +132,9 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         _calendarService = calendarService;
         _mailFilterExecutor = mailFilterExecutor;
         _serverCertificateTrustService = serverCertificateTrustService;
+        _cardDavSynchronizationEngine = cardDavSynchronizationEngine;
+        _localContactSynchronizer = new LocalContactSynchronizer(contactService);
+        _localTaskSynchronizer = new LocalTaskSynchronizer(taskService);
 
         var poolOptions = ImapClientPoolOptions.CreateDefault(
             Account.ServerInformation,
@@ -720,13 +741,16 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
     private IImapCalendarOperationHandler ResolveCalendarOperationHandler()
     {
+        var source = Account.GetEffectiveCalendarIntegrationSource();
         var mode = Account.ServerInformation?.CalendarSupportMode ?? ImapCalendarSupportMode.Disabled;
 
-        return mode switch
+        return source switch
         {
-            ImapCalendarSupportMode.LocalOnly => _localCalendarOperationHandler,
-            ImapCalendarSupportMode.CalDav => _calDavCalendarOperationHandler,
-            _ => throw new NotSupportedException("Calendar operations are disabled for this IMAP account.")
+            AccountIntegrationSource.Local => _localCalendarOperationHandler,
+            AccountIntegrationSource.Dav when Account.ProviderType == MailProviderType.IMAP4 &&
+                                              Account.IsCalendarAccessGranted &&
+                                              mode == ImapCalendarSupportMode.CalDav => _calDavCalendarOperationHandler,
+            _ => throw new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable)
         };
     }
 
@@ -1504,24 +1528,32 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
     protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
-        if (Account.ProviderType != MailProviderType.IMAP4 || !Account.IsCalendarAccessGranted || Account.ServerInformation == null)
+        var calendarSource = Account.GetEffectiveCalendarIntegrationSource();
+
+        if (calendarSource == AccountIntegrationSource.Local)
             return CalendarSynchronizationResult.Empty;
 
-        if (Account.ServerInformation.CalendarSupportMode is ImapCalendarSupportMode.Disabled or ImapCalendarSupportMode.LocalOnly)
-            return CalendarSynchronizationResult.Empty;
+        if (calendarSource != AccountIntegrationSource.Dav)
+            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
+
+        if (Account.ProviderType != MailProviderType.IMAP4 || !Account.IsCalendarAccessGranted || Account.ServerInformation == null)
+            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
+
+        if (Account.ServerInformation.CalendarSupportMode != ImapCalendarSupportMode.CalDav)
+            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
 
         var calDavServiceUri = await ResolveCalDavServiceUriAsync(cancellationToken).ConfigureAwait(false);
         if (calDavServiceUri == null)
         {
             _logger.Information("Skipping calendar sync for {AccountName}: CalDAV endpoint is not configured.", Account.Name);
-            return CalendarSynchronizationResult.Empty;
+            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
         }
 
         var password = ResolveCalDavPassword();
         if (string.IsNullOrWhiteSpace(password))
         {
             _logger.Warning("Skipping calendar sync for {AccountName}: empty credentials.", Account.Name);
-            return CalendarSynchronizationResult.Empty;
+            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
         }
 
         cancellationToken.ThrowIfCancellationRequested();
@@ -1530,7 +1562,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         if (string.IsNullOrWhiteSpace(calDavUsername))
         {
             _logger.Warning("Skipping calendar sync for {AccountName}: account email address is empty for CalDAV credentials.", Account.Name);
-            return CalendarSynchronizationResult.Empty;
+            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
         }
 
         var activeConnection = new CalDavConnectionSettings
@@ -2153,8 +2185,39 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                 throw new InvalidOperationException("Cannot delete CalDAV event because remote event ID is missing.");
             }
 
+            var snapshot = await RequireResourceSnapshotAsync(request.Item).ConfigureAwait(false);
+
+            if (request.Item.IsRecurringChild)
+            {
+                var icsContent = CalDavIcsMutator.RemoveOccurrence(snapshot.IcsContent, request.Item.RemoteEventId);
+                var result = await _calDavClient.UpsertCalendarEventAsync(
+                    connection,
+                    calendar,
+                    new CalDavWriteRequest
+                    {
+                        RemoteEventId = request.Item.RemoteEventId.GetProviderRemoteEventId(),
+                        ExactHref = snapshot.ExactHref,
+                        ETag = snapshot.ETag,
+                        IcsContent = icsContent
+                    }).ConfigureAwait(false);
+
+                if (request.Item.RecurringCalendarItemId is { } parentId)
+                {
+                    await _changeProcessor.SaveCalendarItemIcsAsync(
+                        _account.Id,
+                        request.Item.CalendarId,
+                        parentId,
+                        request.Item.RemoteEventId.GetProviderRemoteEventId(),
+                        result.ExactHref,
+                        result.ETag,
+                        icsContent).ConfigureAwait(false);
+                }
+
+                return;
+            }
+
             await _calDavClient
-                .DeleteCalendarEventAsync(connection, calendar, request.Item.RemoteEventId.GetProviderRemoteEventId())
+                .DeleteCalendarEventAsync(connection, snapshot.ExactHref, snapshot.ETag)
                 .ConfigureAwait(false);
         }
 
@@ -2186,11 +2249,54 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
             }
 
             var (connection, calendar) = await ResolveCalDavContextAsync(item.CalendarId).ConfigureAwait(false);
-            var icsContent = BuildIcsContent(item, attendees);
-
-            await _calDavClient
-                .UpsertCalendarEventAsync(connection, calendar, item.RemoteEventId.GetProviderRemoteEventId(), icsContent)
+            var snapshot = await _changeProcessor
+                .GetCalendarItemIcsAsync(_account.Id, item.CalendarId, item.Id)
                 .ConfigureAwait(false);
+            var isCreate = snapshot == null;
+            if (!isCreate && (string.IsNullOrWhiteSpace(snapshot.ExactHref) || string.IsNullOrWhiteSpace(snapshot.ETag)))
+            {
+                throw new InvalidOperationException(
+                    "Cannot safely update the CalDAV event because its exact resource href or ETag is unavailable. Synchronize the calendar and retry.");
+            }
+
+            var icsContent = isCreate
+                ? CalDavIcsMutator.Normalize(BuildIcsContent(item, attendees))
+                : CalDavIcsMutator.UpdateEvent(snapshot.IcsContent, item, attendees);
+
+            var result = await _calDavClient
+                .UpsertCalendarEventAsync(connection, calendar, new CalDavWriteRequest
+                {
+                    RemoteEventId = item.RemoteEventId.GetProviderRemoteEventId(),
+                    ExactHref = snapshot?.ExactHref ?? string.Empty,
+                    ETag = snapshot?.ETag ?? string.Empty,
+                    IcsContent = icsContent,
+                    CreateOnly = isCreate
+                })
+                .ConfigureAwait(false);
+
+            await _changeProcessor.SaveCalendarItemIcsAsync(
+                _account.Id,
+                item.CalendarId,
+                item.Id,
+                item.RemoteEventId,
+                result.ExactHref,
+                result.ETag,
+                icsContent).ConfigureAwait(false);
+        }
+
+        private async Task<CalDavResourceSnapshot> RequireResourceSnapshotAsync(CalendarItem item)
+        {
+            var snapshot = await _changeProcessor
+                .GetCalendarItemIcsAsync(_account.Id, item.CalendarId, item.Id)
+                .ConfigureAwait(false);
+
+            if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.ExactHref) || string.IsNullOrWhiteSpace(snapshot.ETag))
+            {
+                throw new InvalidOperationException(
+                    "Cannot safely modify the CalDAV event because its exact resource href or ETag is unavailable. Synchronize the calendar and retry.");
+            }
+
+            return snapshot;
         }
 
         private async Task<(CalDavConnectionSettings Connection, CalDavCalendar Calendar)> ResolveCalDavContextAsync(Guid calendarId)

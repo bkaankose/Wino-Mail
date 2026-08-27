@@ -8,13 +8,13 @@ namespace Wino.Core.Misc;
 
 public static class ColorHelpers
 {
-    public static IReadOnlyList<string> GetFlatColorPalette() => CalendarColorPalette.GetColors();
+    public static IReadOnlyList<string> GetFlatColorPalette() => ColorPalette.GetColors();
 
     public static string GenerateFlatColorHex() => GetDistinctFlatColorHex(Array.Empty<string>());
 
     public static string GetDistinctFlatColorHex(IEnumerable<string> usedColors, string preferredColor = null)
     {
-        var palette = CalendarColorPalette.GetColors();
+        var palette = ColorPalette.GetColors();
         var normalizedUsedColors = usedColors?
             .Select(NormalizeHexColor)
             .Where(color => !string.IsNullOrWhiteSpace(color))
@@ -27,7 +27,7 @@ public static class ColorHelpers
             return normalizedPreferred;
         }
 
-        var distinctColor = CalendarColorPalette.GetDistinctColor(usedColors);
+        var distinctColor = ColorPalette.GetDistinctColor(usedColors);
         if (palette.Contains(distinctColor))
         {
             return distinctColor;

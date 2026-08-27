@@ -7,7 +7,9 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
+    xmlns:illustrations="using:Wino.Controls.Illustrations"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
     xmlns:viewModels="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
@@ -197,8 +199,27 @@
 
     <Grid
         AutomationProperties.AutomationId="ToDoPageRoot"
-        Background="{ThemeResource WinoContentZoneBackgroud}"
-        SizeChanged="Root_SizeChanged">
+        Background="{ThemeResource WinoContentZoneBackgroud}">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="ResponsiveLayoutStates">
+                <VisualState x:Name="ExpandedLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1008" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="root.IsCompactLayout" Value="False" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="CompactLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="root.IsCompactLayout" Value="True" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="{x:Bind helpers:XamlHelpers.GetTaskListWidth(ViewModel.IsDetailSurfaceVisible, ViewModel.IsCompactLayout), Mode=OneWay}" />
             <ColumnDefinition Width="{x:Bind helpers:XamlHelpers.GetTaskDrawerWidth(ViewModel.IsDetailSurfaceVisible, ViewModel.IsCompactLayout), Mode=OneWay}" />
@@ -255,6 +276,63 @@
                         Style="{StaticResource BodyTextBlockStyle}"
                         Text="{x:Bind ViewModel.SelectedSurfaceSubtitle, Mode=OneWay}"
                         Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.HasSurfaceSubtitle), Mode=OneWay}" />
+
+                    <Grid
+                        Margin="0,8,0,0"
+                        ColumnSpacing="8"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsNamedListSelected), Mode=OneWay}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <toolkit:Segmented
+                            Grid.Column="0"
+                            AutomationProperties.AutomationId="ToDoTaskFilters"
+                            SelectionMode="Multiple"
+                            Style="{StaticResource ButtonSegmentedStyle}">
+                            <toolkit:SegmentedItem
+                                AutomationProperties.AutomationId="ToDoFilterAll"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}"
+                                Content="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}"
+                                IsSelected="{x:Bind ViewModel.IsAllTasksFilterSelected, Mode=TwoWay}">
+                                <toolkit:SegmentedItem.Icon>
+                                    <FontIcon Glyph="&#xE8FD;" />
+                                </toolkit:SegmentedItem.Icon>
+                            </toolkit:SegmentedItem>
+                            <toolkit:SegmentedItem
+                                AutomationProperties.AutomationId="ToDoFilterCompleted"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}"
+                                Content="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}"
+                                IsSelected="{x:Bind ViewModel.IsCompletedTasksFilterSelected, Mode=TwoWay}">
+                                <toolkit:SegmentedItem.Icon>
+                                    <FontIcon Glyph="&#xE73E;" />
+                                </toolkit:SegmentedItem.Icon>
+                            </toolkit:SegmentedItem>
+                            <toolkit:SegmentedItem
+                                AutomationProperties.AutomationId="ToDoFilterImportant"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}"
+                                Content="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}"
+                                IsSelected="{x:Bind ViewModel.IsImportantTasksFilterSelected, Mode=TwoWay}">
+                                <toolkit:SegmentedItem.Icon>
+                                    <FontIcon Glyph="&#xE734;" />
+                                </toolkit:SegmentedItem.Icon>
+                            </toolkit:SegmentedItem>
+                        </toolkit:Segmented>
+
+                        <AutoSuggestBox
+                            Grid.Column="1"
+                            MinWidth="140"
+                            MaxWidth="240"
+                            HorizontalAlignment="Right"
+                            AutomationProperties.AutomationId="ToDoActiveListFilter"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_Filter, Mode=OneTime}"
+                            PlaceholderText="{x:Bind domain:Translator.ToDoPage_Filter, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.FilterText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                            <AutoSuggestBox.QueryIcon>
+                                <SymbolIcon Symbol="Find" />
+                            </AutoSuggestBox.QueryIcon>
+                        </AutoSuggestBox>
+                    </Grid>
                 </StackPanel>
 
                 <StackPanel
@@ -410,7 +488,7 @@
                 </StackPanel>
             </Grid>
 
-            <!--  Grouped task list. The Completed group publishes a collapsible header.  -->
+            <!--  Smart views group by account; a named list uses one headerless group.  -->
             <listview:WinoListView
                 x:Name="TaskListView"
                 Grid.Row="1"
@@ -440,31 +518,22 @@
                         </GroupStyle.HeaderContainerStyle>
                         <GroupStyle.HeaderTemplate>
                             <DataTemplate x:DataType="viewModels:TaskGroup">
-                                <!--  The active group has no header; only the Completed group renders one.  -->
-                                <Button
-                                    Margin="0,10,0,2"
-                                    Padding="8,4"
-                                    HorizontalAlignment="Left"
-                                    AutomationProperties.AutomationId="ToDoCompletedGroupHeader"
-                                    Click="CompletedGroupHeader_Click"
-                                    Style="{StaticResource TransparentActionButtonStyle}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCompletedGroup), Mode=OneTime}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <FontIcon
-                                            x:Name="CompletedGroupCaret"
-                                            FontSize="11"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Glyph="&#xE70D;" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource BodyStrongTextBlockStyle}"
-                                            Text="{x:Bind Key, Mode=OneTime}" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                            Style="{StaticResource BodyTextBlockStyle}"
-                                            Text="{x:Bind HeaderCountText, Mode=OneTime}" />
-                                    </StackPanel>
-                                </Button>
+                                <StackPanel
+                                    Margin="8,10,8,4"
+                                    AutomationProperties.AutomationId="ToDoAccountTaskGroupHeader"
+                                    AutomationProperties.Name="{x:Bind Key, Mode=OneWay}"
+                                    Orientation="Horizontal"
+                                    Spacing="8"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ShowHeader), Mode=OneTime}">
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                                        Text="{x:Bind Key, Mode=OneWay}" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                        Style="{StaticResource BodyTextBlockStyle}"
+                                        Text="{x:Bind HeaderCountText, Mode=OneWay}" />
+                                </StackPanel>
                             </DataTemplate>
                         </GroupStyle.HeaderTemplate>
                     </GroupStyle>
@@ -480,18 +549,11 @@
                 VerticalAlignment="Center"
                 Spacing="6"
                 Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsEmpty), Mode=OneWay}">
-                <Border
-                    Width="72"
-                    Height="72"
+                <illustrations:WinoFocusOnYourDayIllustration
+                    Width="120"
+                    Height="120"
                     Margin="0,0,0,10"
-                    HorizontalAlignment="Center"
-                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                    CornerRadius="18">
-                    <FontIcon
-                        FontSize="30"
-                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                        Glyph="&#xE706;" />
-                </Border>
+                    HorizontalAlignment="Center" />
                 <TextBlock
                     HorizontalAlignment="Center"
                     AutomationProperties.AutomationId="ToDoEmptyState"

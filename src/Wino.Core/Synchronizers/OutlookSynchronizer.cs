@@ -43,6 +43,8 @@ using Wino.Core.Integration.Processors;
 using Wino.Core.Misc;
 using Wino.Core.Outlook;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Contact;
+using Wino.Core.Requests;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
@@ -136,11 +138,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
     private readonly IMailCategoryService _mailCategoryService;
     private readonly IMailFilterExecutor _mailFilterExecutor;
     private readonly IContactService _contactService;
-    private readonly LocalContactSynchronizer _localContactSynchronizer = new();
+    private readonly LocalContactSynchronizer _localContactSynchronizer;
     private readonly OutlookContactsClient _outlookContactsClient;
     private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly ICardDavSynchronizationEngine _cardDavSynchronizationEngine;
     private readonly ITaskService _taskService;
-    private readonly LocalTaskSynchronizer _localTaskSynchronizer = new();
+    private readonly LocalTaskSynchronizer _localTaskSynchronizer;
     private readonly OutlookTasksClient _outlookTasksClient;
     private bool _isFolderStructureChanged;
     private bool _hasForcedCategoryResyncForCurrentDelta;
@@ -167,7 +170,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                                IMailFilterExecutor mailFilterExecutor = null,
                                IContactService contactService = null,
                                IContactPictureFileService contactPictureFileService = null,
-                               ITaskService taskService = null) : base(account, WeakReferenceMessenger.Default)
+                               ITaskService taskService = null,
+                               ICardDavSynchronizationEngine cardDavSynchronizationEngine = null) : base(account, WeakReferenceMessenger.Default)
     {
         _graphClient = CreateGraphClient(Account, authenticator);
         _providerFeatureGraphClient = CreateGraphClient(Account, authenticator, [ProviderFeature.MailFilters]);
@@ -177,29 +181,43 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         _mailCategoryService = mailCategoryService;
         _mailFilterExecutor = mailFilterExecutor;
         _contactService = contactService;
+        _localContactSynchronizer = new LocalContactSynchronizer(contactService, contactPictureFileService);
         _contactPictureFileService = contactPictureFileService;
         _outlookContactsClient = new OutlookContactsClient(_graphClient.RequestAdapter);
         _taskService = taskService;
+        _localTaskSynchronizer = new LocalTaskSynchronizer(taskService);
         _outlookTasksClient = new OutlookTasksClient(_graphClient.RequestAdapter);
+        _cardDavSynchronizationEngine = cardDavSynchronizationEngine;
     }
 
     protected override Task ExecuteContactRequestsInternalAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken = default)
-        => !Account.IsContactAccessGranted
-            ? _localContactSynchronizer.ExecuteRequestsAsync(requests, cancellationToken)
-            : ExecuteOutlookContactRequestsAsync(requests, cancellationToken);
+        => Account.ContactIntegrationSource switch
+        {
+            AccountIntegrationSource.Local => _localContactSynchronizer.ExecuteRequestsAsync(requests, cancellationToken),
+            AccountIntegrationSource.Provider when Account.IsContactAccessGranted => ExecuteOutlookContactRequestsAsync(requests, cancellationToken),
+            AccountIntegrationSource.Dav when _cardDavSynchronizationEngine is not null => _cardDavSynchronizationEngine.ExecuteRequestsAsync(Account, requests, cancellationToken),
+            _ => throw new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable)
+        };
 
     protected override Task<ContactSynchronizationResult> SynchronizeContactsInternalAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default)
-        => !Account.IsContactAccessGranted
-            ? _localContactSynchronizer.SynchronizeAsync(options, cancellationToken)
-            : SynchronizeOutlookContactsAsync(options, cancellationToken);
+        => Account.ContactIntegrationSource switch
+        {
+            AccountIntegrationSource.Local => _localContactSynchronizer.SynchronizeAsync(options, cancellationToken),
+            AccountIntegrationSource.Provider when Account.IsContactAccessGranted => SynchronizeOutlookContactsAsync(options, cancellationToken),
+            AccountIntegrationSource.Dav when _cardDavSynchronizationEngine is not null => _cardDavSynchronizationEngine.SynchronizeAsync(Account, options, cancellationToken),
+            _ => Task.FromResult(ContactSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable)))
+        };
 
     protected override async Task ExecuteTaskRequestsInternalAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken = default)
     {
-        if (!Account.IsTaskAccessGranted || _taskService is null)
+        if (Account.TaskIntegrationSource == AccountIntegrationSource.Local)
         {
             await _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken).ConfigureAwait(false);
             return;
         }
+
+        if (Account.TaskIntegrationSource != AccountIntegrationSource.Provider || !Account.IsTaskAccessGranted || _taskService is null)
+            throw new InvalidOperationException(Translator.Synchronizer_TasksUnavailable);
 
         try
         {
@@ -214,8 +232,11 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     protected override async Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
-        if (!Account.IsTaskAccessGranted || _taskService is null)
+        if (Account.TaskIntegrationSource == AccountIntegrationSource.Local)
             return await _localTaskSynchronizer.SynchronizeAsync(options, cancellationToken).ConfigureAwait(false);
+
+        if (Account.TaskIntegrationSource != AccountIntegrationSource.Provider || !Account.IsTaskAccessGranted || _taskService is null)
+            return TaskSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_TasksUnavailable));
 
         try
         {
@@ -249,46 +270,39 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                         ? typedRequest.List
                         : await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
                     if (localList is null)
-                        continue;
+                        throw new InvalidOperationException($"Task list {request.TaskListId} is unavailable for creation.");
 
                     var remote = await _outlookTasksClient.CreateTaskListAsync(new TodoTaskList { DisplayName = localList.Title }, cancellationToken).ConfigureAwait(false);
-                    await _taskService.CompleteListMutationAsync(localList.Id, MapRemoteList(remote), false).ConfigureAwait(false);
+                    var mapped = MapRemoteList(remote);
+
+                    PreserveRequestedTaskListState(mapped, localList);
+                    await _outlookChangeProcessor.CommitTaskListMutationAsync(localList.Id, mapped, false).ConfigureAwait(false);
                     break;
                 }
                 case TaskSynchronizerOperation.UpdateList:
                 {
-                    var localList = await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                    var localList = (request as TaskActionRequest)?.List
+                                    ?? await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
                     if (localList?.RemoteId is null)
-                        continue;
+                        throw new InvalidOperationException($"Task list {request.TaskListId} is unavailable for update.");
 
-                    try
-                    {
-                        var remote = await _outlookTasksClient.UpdateTaskListAsync(localList.RemoteId, new TodoTaskList { DisplayName = localList.Title }, localList.RemoteVersion, cancellationToken).ConfigureAwait(false);
-                        await _taskService.CompleteListMutationAsync(localList.Id, MapRemoteList(remote), false).ConfigureAwait(false);
-                    }
-                    catch (ApiException ex) when (ex.ResponseStatusCode is 409 or 412)
-                    {
-                        var remote = await _outlookTasksClient.GetTaskListAsync(localList.RemoteId, cancellationToken).ConfigureAwait(false);
-                        await _taskService.CompleteListMutationAsync(localList.Id, MapRemoteList(remote), false).ConfigureAwait(false);
-                    }
+                    var remote = await _outlookTasksClient.UpdateTaskListAsync(localList.RemoteId, new TodoTaskList { DisplayName = localList.Title }, localList.RemoteVersion, cancellationToken).ConfigureAwait(false);
+                    var mapped = MapRemoteList(remote);
+
+                    PreserveRequestedTaskListState(mapped, localList);
+                    await _outlookChangeProcessor.CommitTaskListMutationAsync(localList.Id, mapped, false).ConfigureAwait(false);
                     break;
                 }
                 case TaskSynchronizerOperation.DeleteList:
                 {
-                    var localList = await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                    var localList = (request as TaskActionRequest)?.List
+                                    ?? (request as TaskActionRequest)?.OriginalList
+                                    ?? await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
                     if (localList?.RemoteId is null)
-                        continue;
+                        throw new InvalidOperationException($"Task list {request.TaskListId} is unavailable for deletion.");
 
-                    try
-                    {
-                        await _outlookTasksClient.DeleteTaskListAsync(localList.RemoteId, localList.RemoteVersion, cancellationToken).ConfigureAwait(false);
-                        await _taskService.CompleteListMutationAsync(localList.Id, null, true).ConfigureAwait(false);
-                    }
-                    catch (ApiException ex) when (ex.ResponseStatusCode is 409 or 412)
-                    {
-                        var remote = await _outlookTasksClient.GetTaskListAsync(localList.RemoteId, cancellationToken).ConfigureAwait(false);
-                        await _taskService.CompleteListMutationAsync(localList.Id, MapRemoteList(remote), false).ConfigureAwait(false);
-                    }
+                    await _outlookTasksClient.DeleteTaskListAsync(localList.RemoteId, localList.RemoteVersion, cancellationToken).ConfigureAwait(false);
+                    await _outlookChangeProcessor.CommitTaskListMutationAsync(localList.Id, null, true).ConfigureAwait(false);
                     break;
                 }
                 case TaskSynchronizerOperation.CreateTask:
@@ -307,42 +321,69 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     private async Task ExecuteOutlookTaskMutationAsync(ITaskActionRequest request, CancellationToken cancellationToken)
     {
-        var localTask = await _taskService.GetTaskAsync(request.TaskId ?? Guid.Empty).ConfigureAwait(false);
+        var typedRequest = request as TaskActionRequest;
+        var localTask = typedRequest?.Task
+                        ?? typedRequest?.OriginalTask
+                        ?? await _taskService.GetTaskAsync(request.TaskId ?? Guid.Empty).ConfigureAwait(false);
+
         if (localTask is null)
-            return;
+            throw new InvalidOperationException($"Task {request.TaskId} is unavailable for {request.Operation}.");
+
         var list = await _taskService.GetTaskListAsync(localTask.TaskListId).ConfigureAwait(false);
         if (list?.RemoteId is null)
+            throw new InvalidOperationException($"Task list {localTask.TaskListId} is unavailable for {request.Operation}.");
+
+        if (request.Operation == TaskSynchronizerOperation.DeleteTask)
+        {
+            if (localTask.RemoteId is not null)
+                await _outlookTasksClient.DeleteTaskAsync(list.RemoteId, localTask.RemoteId, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
+
+            await _outlookChangeProcessor.CommitTaskMutationAsync(localTask.Id, null, true).ConfigureAwait(false);
+            return;
+        }
+
+        ApplyRequestedStepMutation(localTask, typedRequest);
+
+        // Graph exposes checklist items through the task resource, so step requests send
+        // the desired complete checklist after optimistic UI state has been applied.
+        var payload = BuildRemoteTask(localTask);
+        var remote = request.Operation == TaskSynchronizerOperation.CreateTask || localTask.RemoteId is null
+            ? await _outlookTasksClient.CreateTaskAsync(list.RemoteId, payload, cancellationToken).ConfigureAwait(false)
+            : await _outlookTasksClient.UpdateTaskAsync(list.RemoteId, localTask.RemoteId, payload, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
+        var mapped = MapRemoteTask(remote, list);
+
+        PreserveRequestedTaskState(mapped, localTask);
+        await _outlookChangeProcessor.CommitTaskMutationAsync(localTask.Id, mapped, false).ConfigureAwait(false);
+    }
+
+    private static void ApplyRequestedStepMutation(AccountTask task, TaskActionRequest request)
+    {
+        if (request?.Step is null)
             return;
 
-        try
-        {
-            if (request.Operation == TaskSynchronizerOperation.DeleteTask)
-            {
-                if (localTask.RemoteId is not null)
-                    await _outlookTasksClient.DeleteTaskAsync(list.RemoteId, localTask.RemoteId, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
-                await _taskService.CompleteTaskMutationAsync(localTask.Id, null, true).ConfigureAwait(false);
-                return;
-            }
+        task.Steps.RemoveAll(step => step.Id == request.Step.Id);
 
-            // Checklist mutations are sent as the complete one-level checklist. Graph v1
-            // has no equivalent of a child-task hierarchy, so this is deterministic and
-            // avoids retaining a stale provider-side step.
-            var payload = BuildRemoteTask(localTask);
-            TodoTask remote;
-            if (request.Operation == TaskSynchronizerOperation.CreateTask || localTask.RemoteId is null)
-                remote = await _outlookTasksClient.CreateTaskAsync(list.RemoteId, payload, cancellationToken).ConfigureAwait(false);
-            else
-                remote = await _outlookTasksClient.UpdateTaskAsync(list.RemoteId, localTask.RemoteId, payload, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
+        if (request.Operation != TaskSynchronizerOperation.DeleteStep)
+            task.Steps.Add(RequestEntityCloner.TaskStep(request.Step));
+    }
 
-            await _taskService.CompleteTaskMutationAsync(localTask.Id, MapRemoteTask(remote, list), false).ConfigureAwait(false);
-        }
-        catch (ApiException ex) when ((ex.ResponseStatusCode is 409 or 412) && localTask.RemoteId is not null)
-        {
-            // Provider data wins a stale ETag conflict. Re-read the complete task,
-            // including checklist items, and replace the optimistic local fork.
-            var remote = await _outlookTasksClient.GetTaskAsync(list.RemoteId, localTask.RemoteId, cancellationToken).ConfigureAwait(false);
-            await _taskService.CompleteTaskMutationAsync(localTask.Id, MapRemoteTask(remote, list), false).ConfigureAwait(false);
-        }
+    private static void PreserveRequestedTaskListState(AccountTaskList mapped, AccountTaskList requested)
+    {
+        mapped.Id = requested.Id;
+        mapped.MailAccountId = requested.MailAccountId;
+        mapped.SourceKind = requested.SourceKind;
+        mapped.IsDefault = requested.IsDefault;
+        mapped.ColorHex = requested.ColorHex;
+    }
+
+    private static void PreserveRequestedTaskState(AccountTask mapped, AccountTask requested)
+    {
+        mapped.Id = requested.Id;
+        mapped.MailAccountId = requested.MailAccountId;
+        mapped.TaskListId = requested.TaskListId;
+        mapped.SourceKind = requested.SourceKind;
+        mapped.IsImportant = requested.IsImportant;
+        mapped.MyDayDateUtc = requested.MyDayDateUtc;
     }
 
     private async Task<TaskSynchronizationResult> SynchronizeOutlookTasksAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken)
@@ -754,22 +795,20 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         foreach (var request in requests)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var local = await _contactService.GetContactAsync(request.LocalContactId).ConfigureAwait(false);
+            var typedRequest = request as ContactActionRequest;
+            var local = typedRequest?.Contact;
+
+            if (request.Operation != ContactSynchronizerOperation.Create && string.IsNullOrWhiteSpace(local?.RemoteId))
+                local = await _contactService.GetContactAsync(request.LocalContactId).ConfigureAwait(false)
+                        ?? typedRequest?.OriginalContact
+                        ?? local;
 
             if (local is null && request.Operation != ContactSynchronizerOperation.Delete)
-            {
-                _logger.Warning("Skipping Outlook contact request {Operation}; local contact {ContactId} no longer exists.",
-                    request.Operation, request.LocalContactId);
-                continue;
-            }
+                throw new InvalidOperationException($"Contact {request.LocalContactId} is unavailable for {request.Operation}.");
 
             var book = books.FirstOrDefault(item => item.Id == request.AddressBookId);
             if (book is null && request.Operation is ContactSynchronizerOperation.Create or ContactSynchronizerOperation.Update)
-            {
-                _logger.Warning("Skipping Outlook contact request {Operation}; address book {AddressBookId} no longer exists.",
-                    request.Operation, request.AddressBookId);
-                continue;
-            }
+                throw new InvalidOperationException($"Address book {request.AddressBookId} is unavailable for {request.Operation}.");
 
             try
             {
@@ -778,7 +817,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     case ContactSynchronizerOperation.Create:
                     {
                         var created = await _outlookContactsClient.CreateContactAsync(book.RemoteId, MapToOutlookContact(local), cancellationToken).ConfigureAwait(false);
-                        await _contactService.CompleteMutationAsync(local.Id, MapOutlookContact(created, book), false).ConfigureAwait(false);
+                        var mapped = MapOutlookContact(created, book);
+
+                        PreserveRequestedContactState(mapped, local);
+                        await _outlookChangeProcessor.CommitContactMutationAsync(local.Id, mapped, false).ConfigureAwait(false);
                         break;
                     }
                     case ContactSynchronizerOperation.Update:
@@ -787,41 +829,48 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                         MergeCommonFields(current, local);
                         var updated = await _outlookContactsClient.UpdateContactAsync(local.RemoteId, current, cancellationToken).ConfigureAwait(false);
                         var mapped = MapOutlookContact(updated, book);
+
+                        PreserveRequestedContactState(mapped, local);
                         PreserveOutlookContactPhotoSuppression(mapped, local);
-                        await _contactService.CompleteMutationAsync(local.Id, mapped, false).ConfigureAwait(false);
+                        await _outlookChangeProcessor.CommitContactMutationAsync(local.Id, mapped, false).ConfigureAwait(false);
                         break;
                     }
                     case ContactSynchronizerOperation.Delete:
                         if (!string.IsNullOrWhiteSpace(local?.RemoteId))
                             await _outlookContactsClient.DeleteContactAsync(local.RemoteId, cancellationToken).ConfigureAwait(false);
                         if (local is not null)
-                            await _contactService.CompleteMutationAsync(local.Id, null, true).ConfigureAwait(false);
+                            await _outlookChangeProcessor.CommitContactMutationAsync(local.Id, null, true).ConfigureAwait(false);
                         break;
                     case ContactSynchronizerOperation.SetPhoto:
                         await _outlookContactsClient.SetPhotoAsync(local.RemoteId, request.Photo, cancellationToken).ConfigureAwait(false);
-                        await _contactService.CompleteMutationAsync(local.Id, null, false).ConfigureAwait(false);
+                        var photoContact = RequestEntityCloner.Contact(local);
+                        photoContact.ContactPictureFileId = await _contactPictureFileService.SaveContactPictureAsync(request.Photo).ConfigureAwait(false);
+                        await _outlookChangeProcessor.CommitContactMutationAsync(local.Id, photoContact, false).ConfigureAwait(false);
                         break;
                     case ContactSynchronizerOperation.DeletePhoto:
-                        await _contactService.SuppressContactPictureAsync(
-                            local.Id,
-                            BuildMissingPhotoKey(local.RemotePhotoKey)).ConfigureAwait(false);
-                        await _contactService.CompleteMutationAsync(local.Id, null, false).ConfigureAwait(false);
+                        var noPhotoContact = RequestEntityCloner.Contact(local);
+                        noPhotoContact.ContactPictureFileId = null;
+                        noPhotoContact.RemotePhotoKey = BuildMissingPhotoKey(local.RemotePhotoKey);
+                        await _outlookChangeProcessor.CommitContactMutationAsync(local.Id, noPhotoContact, false).ConfigureAwait(false);
                         break;
                 }
-            }
-            catch (ApiException ex) when (ex.ResponseStatusCode is 409 or 412)
-            {
-                if (local is null || string.IsNullOrWhiteSpace(local.RemoteId))
-                    continue;
-                var remote = await _outlookContactsClient.GetContactAsync(local.RemoteId, cancellationToken).ConfigureAwait(false);
-                await _contactService.CompleteMutationAsync(local.Id, MapOutlookContact(remote, book), false).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 _logger.Error(ex, "Outlook contact request {Operation} failed for contact {ContactId}.",
                     request.Operation, request.LocalContactId);
+                throw;
             }
         }
+    }
+
+    private static void PreserveRequestedContactState(AccountContact mapped, AccountContact requested)
+    {
+        mapped.Id = requested.Id;
+        mapped.MailAccountId = requested.MailAccountId;
+        mapped.AddressBookId = requested.AddressBookId;
+        mapped.IsFavorite = requested.IsFavorite;
+        mapped.ContactPictureFileId = requested.ContactPictureFileId;
     }
 
     private AccountContact MapOutlookContact(Contact remote, ContactAddressBook book)
@@ -3648,6 +3697,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
+        if (Account.CalendarIntegrationSource == AccountIntegrationSource.Local)
+            return CalendarSynchronizationResult.Empty;
+
+        if (Account.CalendarIntegrationSource != AccountIntegrationSource.Provider || !Account.IsCalendarAccessGranted)
+            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
+
         _logger.Information("Internal calendar synchronization started for {Name}", Account.Name);
 
         cancellationToken.ThrowIfCancellationRequested();

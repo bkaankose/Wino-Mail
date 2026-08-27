@@ -38,6 +38,9 @@
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
 </PropertyGroup>
 
+  <ItemGroup>
+    <RuntimeHostConfigurationOption Include="Wino.CardDavContacts" Value="true" />
+  </ItemGroup>
 
   <ItemGroup>
     <Content Remove="Assets\BadgeLogo.scale-100.png" />

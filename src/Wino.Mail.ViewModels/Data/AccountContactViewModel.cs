@@ -12,7 +12,7 @@ namespace Wino.Mail.ViewModels.Data;
 
 public partial class AccountContactViewModel : ObservableObject, IMailItemDisplayInformation
 {
-    public AccountContact SourceContact { get; }
+    public AccountContact SourceContact { get; private set; }
     public string Address { get; set; }
     public string Name { get; set; }
     public Guid? ContactPictureFileId { get; set; }
@@ -76,6 +76,32 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
         IsOverridden = contact.IsOverridden;
         SourceLabel = string.IsNullOrWhiteSpace(accountName) ? contact.SourceKind.ToString() : $"{accountName} · {contact.SourceKind}";
         IsEditable = contact.SourceKind == ContactSourceKind.Local || isAuthorized;
+    }
+
+    /// <summary>Replaces the presentation snapshot and raises the dependent binding notifications.</summary>
+    public void ApplySnapshot(AccountContact contact)
+    {
+        ArgumentNullException.ThrowIfNull(contact);
+
+        SourceContact = contact;
+        Address = contact.Address;
+        Name = contact.Name;
+        ContactPictureFileId = contact.ContactPictureFileId;
+        IsRootContact = contact.IsRootContact;
+        IsOverridden = contact.IsOverridden;
+
+        OnPropertyChanged(nameof(SourceContact));
+        OnPropertyChanged(nameof(Address));
+        OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(ContactPictureFileId));
+        OnPropertyChanged(nameof(SecondaryValue));
+        OnPropertyChanged(nameof(IsFavorite));
+        OnPropertyChanged(nameof(FavoriteActionText));
+        OnPropertyChanged(nameof(JobTitleOrCompany));
+        OnPropertyChanged(nameof(InitialLetter));
+        OnPropertyChanged(nameof(ShortDisplayName));
+        OnPropertyChanged(nameof(DisplayName));
+        OnPropertyChanged(nameof(SenderContact));
     }
 
     /// <summary>

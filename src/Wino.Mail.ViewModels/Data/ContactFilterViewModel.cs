@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Contacts;
@@ -44,11 +45,14 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget
     public Guid? AccountId { get; init; }
     public MailAccount Account { get; init; }
     public ContactList List { get; init; }
+    public ContactAddressBook AddressBook { get; init; }
 
     [ObservableProperty] public partial int Count { get; set; }
     [ObservableProperty] public partial bool IsDraggingItemOver { get; set; }
 
     public bool IsList => Kind == ContactFilterKind.List;
+    public bool CanManageRemoteAddressBook => AddressBook?.SourceKind == ContactSourceKind.CardDav && !AddressBook.IsReadOnly;
+    public bool CanRenameOrDelete => IsList || CanManageRemoteAddressBook;
     public bool HasAccountIcon => Kind == ContactFilterKind.AddressBook && Account is not null;
     public bool HasGlyphIcon => !HasAccountIcon;
     public Guid? ListId => List?.Id;
@@ -68,7 +72,8 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget
             Glyph = "",
             AddressBookId = book.Id,
             AccountId = book.MailAccountId,
-            Account = account
+            Account = account,
+            AddressBook = book
         };
 
     public static ContactFilterViewModel CreateList(ContactList list)
@@ -111,7 +116,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget
 
     #region Commands
 
-    private bool CanModifyList() => IsList;
+    private bool CanModifyList() => CanRenameOrDelete;
 
     [RelayCommand(CanExecute = nameof(CanModifyList))]
     private void RenameList() => RenameRequested?.Invoke(this);

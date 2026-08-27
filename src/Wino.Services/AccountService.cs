@@ -33,6 +33,8 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly IServerCertificateTrustService _serverCertificateTrustService;
     private readonly ISemanticIndexJobRegistry _semanticIndexJobRegistry;
     private readonly ILocalIntelligenceStore _localIntelligenceStore;
+    private readonly ICardDavSynchronizationStore _cardDavSynchronizationStore;
+    private readonly IDavCredentialStore _davCredentialStore;
 
     private readonly ILogger _logger = Log.ForContext<AccountService>();
 
@@ -45,7 +47,9 @@ public class AccountService : BaseDatabaseService, IAccountService
                           IServerCertificateTrustService serverCertificateTrustService = null,
                           ISemanticIndexJobRegistry semanticIndexJobRegistry = null,
                           ILocalIntelligenceStore localIntelligenceStore = null,
-                          IAccountProfilePictureFileService accountProfilePictureFileService = null) : base(databaseService)
+                          IAccountProfilePictureFileService accountProfilePictureFileService = null,
+                          ICardDavSynchronizationStore cardDavSynchronizationStore = null,
+                          IDavCredentialStore davCredentialStore = null) : base(databaseService)
     {
         _signatureService = signatureService;
         _authenticationProvider = authenticationProvider;
@@ -56,6 +60,8 @@ public class AccountService : BaseDatabaseService, IAccountService
         _serverCertificateTrustService = serverCertificateTrustService ?? new ServerCertificateTrustService(databaseService);
         _semanticIndexJobRegistry = semanticIndexJobRegistry;
         _localIntelligenceStore = localIntelligenceStore;
+        _cardDavSynchronizationStore = cardDavSynchronizationStore;
+        _davCredentialStore = davCredentialStore;
     }
 
 
@@ -389,6 +395,11 @@ public class AccountService : BaseDatabaseService, IAccountService
             .Where(contact => contact.MailAccountId == account.Id)
             .ToListAsync()
             .ConfigureAwait(false);
+
+        if (_cardDavSynchronizationStore is not null)
+            await _cardDavSynchronizationStore.DeleteAccountStateAsync(account.Id).ConfigureAwait(false);
+        if (_davCredentialStore is not null)
+            await _davCredentialStore.DeleteAsync(account.Id).ConfigureAwait(false);
 
         await Connection.RunInTransactionAsync(transaction =>
         {
@@ -903,12 +914,15 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         if (account.IsTaskAccessEnabled && !account.IsTaskAccessGranted)
         {
+            var taskListColors = (await Connection.Table<AccountTaskList>().ToListAsync().ConfigureAwait(false))
+                .Select(list => list.ColorHex);
             await Connection.InsertAsync(new AccountTaskList
             {
                 Id = Guid.NewGuid(),
                 MailAccountId = account.Id,
                 SourceKind = TaskSourceKind.Local,
                 Title = string.IsNullOrWhiteSpace(account.Name) ? "Tasks" : account.Name,
+                ColorHex = ColorPalette.GetDistinctColor(taskListColors),
                 IsDefault = true,
                 PendingMutation = TaskPendingMutation.None
             }, typeof(AccountTaskList)).ConfigureAwait(false);
@@ -1005,7 +1019,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             .ToListAsync()
             .ConfigureAwait(false);
 
-        return CalendarColorPalette.GetDistinctColor(usedColors.Select(a => a.BackgroundColorHex));
+        return ColorPalette.GetDistinctColor(usedColors.Select(a => a.BackgroundColorHex));
     }
 
     private static string GetReadableTextColorHex(string backgroundColorHex)

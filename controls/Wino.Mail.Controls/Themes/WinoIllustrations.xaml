@@ -1,0 +1,40 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        Palette for the empty-state illustrations. The system has four colour roles and no more:
+        accent (the subject), warm (the single optimistic note), neutrals (the container), surface.
+
+        Accent tints are NOT brushes. Shapes fill with the accent brush and set Opacity (0.20 soft,
+        0.45 mid) so the whole family follows SystemAccentColor without a second set of resources.
+    -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush" Color="#D6D6E0" />
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush" Color="#E9E9F1" />
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush" Color="#F2B33D" />
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush" Color="#12141428" />
+            <SolidColorBrush x:Key="WinoIllustrationBrandSolidBrush" Color="#3B84E8" />
+            <StaticResource x:Key="WinoIllustrationAccentBrush" ResourceKey="AccentFillColorDefaultBrush" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush" Color="#24242C" />
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush" Color="#3C3C48" />
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush" Color="#2F2F3A" />
+            <SolidColorBrush x:Key="WinoIllustrationWarmBrush" Color="#F5C05C" />
+            <SolidColorBrush x:Key="WinoIllustrationShadowBrush" Color="#52000000" />
+            <SolidColorBrush x:Key="WinoIllustrationBrandSolidBrush" Color="#7FBAFF" />
+            <StaticResource x:Key="WinoIllustrationAccentBrush" ResourceKey="AccentFillColorDefaultBrush" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <StaticResource x:Key="WinoIllustrationSurfaceBrush" ResourceKey="SystemColorWindowColorBrush" />
+            <StaticResource x:Key="WinoIllustrationLineBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+            <StaticResource x:Key="WinoIllustrationLineSoftBrush" ResourceKey="SystemColorGrayTextColorBrush" />
+            <StaticResource x:Key="WinoIllustrationWarmBrush" ResourceKey="SystemColorHotlightColorBrush" />
+            <StaticResource x:Key="WinoIllustrationShadowBrush" ResourceKey="SystemColorWindowColorBrush" />
+            <StaticResource x:Key="WinoIllustrationBrandSolidBrush" ResourceKey="SystemColorHotlightColorBrush" />
+            <StaticResource x:Key="WinoIllustrationAccentBrush" ResourceKey="SystemColorHighlightColorBrush" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+</ResourceDictionary>

@@ -12,6 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Requests.Contact;
 using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels;
@@ -19,7 +20,7 @@ namespace Wino.Mail.ViewModels;
 public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackNavigation
 {
     private static Guid? _lastSuccessfulDestinationId;
-    private readonly IContactService _contactService;
+    private readonly IContactQueryService _contactService;
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly INavigationService _navigationService;
     private readonly IDialogServiceBase _dialogService;
@@ -29,6 +30,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     private bool _deletePhoto;
     private string _previewPhotoPath;
     private bool _isSaveInProgress;
+    private IReadOnlyList<Guid> _originalListIds = [];
 
     public ObservableCollection<ContactCreateDestination> Destinations { get; } = [];
     public ObservableCollection<ContactEmailAddress> EmailAddresses { get; } = [];
@@ -106,7 +108,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     public double BirthdayMonthValue { get => BirthdayMonth ?? double.NaN; set { BirthdayMonth = double.IsNaN(value) ? null : (int)value; IsDirty = true; } }
     public double BirthdayDayValue { get => BirthdayDay ?? double.NaN; set { BirthdayDay = double.IsNaN(value) ? null : (int)value; IsDirty = true; } }
 
-    public ContactEditPageViewModel(IContactService contactService, IWinoRequestDelegator requestDelegator,
+    public ContactEditPageViewModel(IContactQueryService contactService, IWinoRequestDelegator requestDelegator,
         INavigationService navigationService, IDialogServiceBase dialogService, IContactPictureFileService pictureFileService)
     {
         _contactService = contactService;
@@ -135,6 +137,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
         List<Guid> memberListIds = original is null
             ? []
             : await _contactService.GetListIdsForContactAsync(original.Id).ConfigureAwait(false);
+        _originalListIds = memberListIds.ToArray();
 
         if (parameter.ContactId is not null && original is null)
         {
@@ -212,8 +215,6 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
         try
         {
             var contact = BuildContact();
-            var previousPictureFileId = _original?.ContactPictureFileId;
-            Guid? newPictureFileId = null;
             var requests = new List<ContactOperationPreparationRequest>
             {
                 new(
@@ -224,40 +225,35 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
 
             if (_photoBytes is not null)
             {
-                newPictureFileId = await _pictureFileService.SaveContactPictureAsync(_photoBytes).ConfigureAwait(false);
-                contact.ContactPictureFileId = newPictureFileId;
-                requests.Add(new ContactOperationPreparationRequest(ContactSynchronizerOperation.SetPhoto, contact, Photo: _photoBytes));
+                requests.Add(new ContactOperationPreparationRequest(
+                    ContactSynchronizerOperation.SetPhoto,
+                    contact,
+                    _original ?? contact,
+                    _photoBytes));
             }
             else if (_deletePhoto)
             {
                 contact.ContactPictureFileId = null;
-                requests.Add(new ContactOperationPreparationRequest(ContactSynchronizerOperation.DeletePhoto, contact));
+                requests.Add(new ContactOperationPreparationRequest(
+                    ContactSynchronizerOperation.DeletePhoto,
+                    contact,
+                    _original ?? contact));
             }
 
-            try
-            {
-                // Keep the contact mutation and its photo mutation in one queued batch. This
-                // produces one provider request synchronization and one completion notification.
-                await _requestDelegator.ExecuteAsync(requests).ConfigureAwait(false);
-            }
-            catch
-            {
-                if (newPictureFileId is Guid newId)
-                    await _pictureFileService.DeleteContactPictureAsync(newId).ConfigureAwait(false);
-                await _contactService.SetContactPictureFileIdAsync(contact.Id, previousPictureFileId).ConfigureAwait(false);
-                throw;
-            }
+            // Photo bytes stay in the request. The selected strategy persists the file only
+            // after the provider accepts the mutation.
+            await _requestDelegator.ExecuteAsync(requests).ConfigureAwait(false);
 
-            if ((_photoBytes is not null || _deletePhoto) &&
-                previousPictureFileId is Guid previousId && previousId != newPictureFileId)
-                await _pictureFileService.DeleteContactPictureAsync(previousId).ConfigureAwait(false);
+            var desiredListIds = ListMemberships
+                .Where(item => item.IsMember)
+                .Select(item => item.ListId)
+                .ToArray();
 
-            // Favorites and list membership are local-only, so they are written directly
-            // rather than routed through the provider request delegator.
-            await _contactService.SetContactFavoriteAsync(contact.Id, IsFavorite).ConfigureAwait(false);
-            await _contactService.SetListsForContactAsync(
-                contact.Id,
-                ListMemberships.Where(item => item.IsMember).Select(item => item.ListId)).ConfigureAwait(false);
+            await _requestDelegator.ExecuteLocalAsync(new ApplicationLocalContactRequest(
+                ApplicationLocalContactOperation.SetMemberships,
+                contact: contact,
+                desiredListIds: desiredListIds,
+                originalListIds: _originalListIds)).ConfigureAwait(false);
 
             _lastSuccessfulDestinationId = contact.AddressBookId;
 

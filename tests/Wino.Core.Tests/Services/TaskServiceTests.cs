@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Misc;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
 using Xunit;
@@ -43,6 +44,57 @@ public sealed class TaskServiceTests : IAsyncLifetime
         first.SourceKind.Should().Be(TaskSourceKind.Local);
         first.IsDefault.Should().BeTrue();
         (await _taskService.GetTaskListsAsync(_imapAccount.Id)).Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task NewTaskLists_ReceiveDistinctSharedPaletteColorsAndKeepThemOnRemoteUpdate()
+    {
+        var local = await _taskService.GetOrCreateLocalTaskListAsync(_imapAccount.Id, _imapAccount.Name);
+        var remote = await _taskService.UpsertRemoteTaskListAsync(new AccountTaskList
+        {
+            MailAccountId = _imapAccount.Id,
+            SourceKind = TaskSourceKind.Gmail,
+            RemoteId = "remote-list",
+            Title = "Remote",
+            ColorHex = local.ColorHex
+        });
+
+        local.ColorHex.Should().BeOneOf(ColorPalette.GetColors());
+        remote.ColorHex.Should().BeOneOf(ColorPalette.GetColors());
+        remote.ColorHex.Should().NotBe(local.ColorHex);
+
+        var updated = await _taskService.UpsertRemoteTaskListAsync(new AccountTaskList
+        {
+            MailAccountId = _imapAccount.Id,
+            SourceKind = TaskSourceKind.Gmail,
+            RemoteId = "remote-list",
+            Title = "Renamed"
+        });
+
+        updated.ColorHex.Should().Be(remote.ColorHex);
+    }
+
+    [Fact]
+    public async Task TaskListGroups_AreLocalOrderedAndCanRemainEmpty()
+    {
+        var first = await _taskService.CreateTaskListGroupAsync(_imapAccount.Id, "First");
+        var second = await _taskService.CreateTaskListGroupAsync(_imapAccount.Id, "Second");
+        var list = await _taskService.GetOrCreateLocalTaskListAsync(_imapAccount.Id, _imapAccount.Name);
+
+        await _taskService.UpdateTaskListPlacementAsync(list.Id, second.Id, 0);
+        first.SortOrder = 1;
+        second.SortOrder = 0;
+        await _taskService.UpdateTaskListGroupAsync(first);
+        await _taskService.UpdateTaskListGroupAsync(second);
+
+        (await _taskService.GetTaskListGroupsAsync(_imapAccount.Id)).Select(group => group.Title)
+            .Should().Equal("Second", "First");
+        (await _taskService.GetTaskListAsync(list.Id))!.GroupId.Should().Be(second.Id);
+
+        await _taskService.DeleteTaskListGroupAsync(second.Id);
+
+        (await _taskService.GetTaskListGroupsAsync(_imapAccount.Id)).Should().ContainSingle().Which.Id.Should().Be(first.Id);
+        (await _taskService.GetTaskListAsync(list.Id))!.GroupId.Should().BeNull();
     }
 
     [Fact]

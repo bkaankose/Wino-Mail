@@ -4,6 +4,8 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.Cryptography;
 using Wino.Mail.AI.ContentProcessing;
+using Wino.Services.CardDav;
+using Wino.Services.Dav;
 
 namespace Wino.Services;
 
@@ -38,7 +40,9 @@ public static class ServicesContainerSetup
         services.AddTransient<IAccountService, AccountService>();
         services.AddTransient<IServerCertificateTrustService, ServerCertificateTrustService>();
         services.AddTransient<IContactService, ContactService>();
+        services.AddTransient<IContactQueryService>(provider => provider.GetRequiredService<IContactService>());
         services.AddTransient<ITaskService, TaskService>();
+        services.AddTransient<ITaskQueryService>(provider => provider.GetRequiredService<ITaskService>());
         services.AddTransient<ISignatureService, SignatureService>();
         services.AddTransient<IEmailTemplateService, EmailTemplateService>();
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
@@ -67,7 +71,17 @@ public static class ServicesContainerSetup
         services.AddSingleton<AccountProfilePictureMigrationService>();
         services.AddSingleton<AccountProfilePictureBackfillService>();
 
-        services.AddTransient<ICalDavClient, CalDavClient>();
+        services.AddSingleton<IDavTransport>(_ => new DavTransport());
+        services.AddSingleton<IDavMultistatusReader, DavMultistatusReader>();
+        services.AddSingleton<IDavResponseHandler, DavResponseHandler>();
+        services.AddSingleton<IDavCredentialStore, DavCredentialStore>();
+        services.AddSingleton<IVCardCodec, VCardCodec>();
+        services.AddSingleton<ICardDavPayloadStore, CardDavPayloadStore>();
+        services.AddTransient<ICardDavSynchronizationStore, CardDavSynchronizationStore>();
+        services.AddTransient<ICardDavClient, CardDavClient>();
+        services.AddTransient<ICalDavClient>(provider => new CalDavClient(
+            provider.GetRequiredService<IDavTransport>(),
+            provider.GetRequiredService<IDavResponseHandler>()));
         services.AddSingleton<IUpdateManager, UpdateManager>();
     }
 }

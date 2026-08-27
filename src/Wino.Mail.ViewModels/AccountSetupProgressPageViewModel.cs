@@ -241,14 +241,16 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 IsCalendarAccessEnabled = WizardContext.IsCalendarAccessEnabled,
                 IsCalendarAccessGranted = WizardContext.IsCalendarAccessEnabled &&
                     WizardContext.CalendarIntegrationSource != AccountIntegrationSource.Local,
+                CalendarIntegrationSource = WizardContext.CalendarIntegrationSource,
                 IsContactAccessEnabled = WizardContext.IsContactAccessEnabled,
-                IsContactAccessGranted = WizardContext.IsOAuthProvider &&
-                    WizardContext.IsContactAccessEnabled &&
-                    WizardContext.ContactIntegrationSource == AccountIntegrationSource.Provider,
+                IsContactAccessGranted = WizardContext.IsContactAccessEnabled &&
+                    WizardContext.ContactIntegrationSource != AccountIntegrationSource.Local,
+                ContactIntegrationSource = WizardContext.ContactIntegrationSource,
                 IsTaskAccessEnabled = WizardContext.IsTaskAccessEnabled,
                 IsTaskAccessGranted = WizardContext.IsOAuthProvider &&
                     WizardContext.IsTaskAccessEnabled &&
-                    WizardContext.TaskIntegrationSource == AccountIntegrationSource.Provider
+                    WizardContext.TaskIntegrationSource == AccountIntegrationSource.Provider,
+                TaskIntegrationSource = WizardContext.TaskIntegrationSource
             };
 
             if (WizardContext.IsOAuthProvider)
@@ -437,6 +439,20 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     SetCurrentStepSucceeded();
                 }
 
+                if (_createdAccount.IsContactAccessGranted &&
+                    _createdAccount.ContactIntegrationSource == AccountIntegrationSource.Dav)
+                {
+                    SetStepInProgress(Translator.AccountSetup_Step_SyncingContacts, SetupOperationContactSync);
+                    var contactResult = await SynchronizationManager.Instance.SynchronizeContactsAsync(new ContactSynchronizationOptions
+                    {
+                        AccountId = _createdAccount.Id,
+                        Type = ContactSynchronizationType.Full
+                    });
+                    if (contactResult == null || contactResult.CompletedState != SynchronizationCompletedState.Success)
+                        throw new Exception(Translator.Exception_FailedToSynchronizeContacts);
+                    SetCurrentStepSucceeded();
+                }
+
                 if (_createdAccount.IsMailAccessGranted)
                 {
                     await _accountService.CreateRootAliasAsync(_createdAccount.Id, _createdAccount.Address);
@@ -502,6 +518,20 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     });
                     if (calResult == null || calResult.CompletedState != SynchronizationCompletedState.Success)
                         throw new Exception(Translator.Exception_FailedToSynchronizeCalendarMetadata);
+                    SetCurrentStepSucceeded();
+                }
+
+                if (_createdAccount.IsContactAccessGranted &&
+                    _createdAccount.ContactIntegrationSource == AccountIntegrationSource.Dav)
+                {
+                    SetStepInProgress(Translator.AccountSetup_Step_SyncingContacts, SetupOperationContactSync);
+                    var contactResult = await SynchronizationManager.Instance.SynchronizeContactsAsync(new ContactSynchronizationOptions
+                    {
+                        AccountId = _createdAccount.Id,
+                        Type = ContactSynchronizationType.Full
+                    });
+                    if (contactResult == null || contactResult.CompletedState != SynchronizationCompletedState.Success)
+                        throw new Exception(Translator.Exception_FailedToSynchronizeContacts);
                     SetCurrentStepSucceeded();
                 }
 

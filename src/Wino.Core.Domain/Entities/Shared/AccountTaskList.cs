@@ -23,6 +23,10 @@ public class AccountTaskList
     public string ListDeltaLink { get; set; }
     public string TaskDeltaLink { get; set; }
     public string Title { get; set; }
+    public string ColorHex { get; set; }
+    [Indexed]
+    public Guid? GroupId { get; set; }
+    public int SortOrder { get; set; }
     public bool IsDefault { get; set; }
     public bool IsReadOnly { get; set; }
     public string DeltaLink { get; set; }

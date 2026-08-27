@@ -33,6 +33,7 @@ public class CustomServerInformation
     public string CalDavServiceUrl { get; set; }
     public string CalDavUsername { get; set; }
     public string CalDavPassword { get; set; }
+    public string CardDavServiceUrl { get; set; }
     public ImapCalendarSupportMode CalendarSupportMode { get; set; }
 
     /// <summary>

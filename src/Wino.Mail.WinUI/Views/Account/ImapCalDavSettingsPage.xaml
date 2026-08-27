@@ -321,6 +321,25 @@
                                 Password="{x:Bind ViewModel.CalDavPassword, Mode=TwoWay}"
                                 Visibility="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}" />
 
+                            <TextBox
+                                AutomationProperties.AutomationId="ImapCalDavSettingsPageCardDavServiceUrl"
+                                Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_CardDavServiceUrl, Mode=OneTime}"
+                                PlaceholderText="{x:Bind domain:Translator.ImapCalDavSettingsPage_CardDavDiscoveryPlaceholder, Mode=OneTime}"
+                                Text="{x:Bind ViewModel.CardDavServiceUrl, Mode=TwoWay}"
+                                Visibility="{x:Bind ViewModel.IsCardDavSettingsVisible, Mode=OneWay}" />
+
+                            <TextBox
+                                AutomationProperties.AutomationId="ImapCalDavSettingsPageCardDavUsername"
+                                Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_DavUsername, Mode=OneTime}"
+                                Text="{x:Bind ViewModel.CalDavUsername, Mode=TwoWay}"
+                                Visibility="{x:Bind ViewModel.IsCardDavOnlySettingsVisible, Mode=OneWay}" />
+
+                            <PasswordBox
+                                AutomationProperties.AutomationId="ImapCalDavSettingsPageCardDavPassword"
+                                Header="{x:Bind domain:Translator.ImapCalDavSettingsPage_DavPassword, Mode=OneTime}"
+                                Password="{x:Bind ViewModel.CalDavPassword, Mode=TwoWay}"
+                                Visibility="{x:Bind ViewModel.IsCardDavOnlySettingsVisible, Mode=OneWay}" />
+
                             <Button
                                 HorizontalAlignment="Right"
                                 AutomationProperties.AutomationId="ImapCalDavSettingsPageButton3"

@@ -1,0 +1,511 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wino — Account Access Redesign</title>
+<style>
+  :root{
+    --bg:#f3f3f3; --page:#fbfbfb;
+    --card:#ffffff; --card-alt:#f6f6f6;
+    --stroke:rgba(0,0,0,.0578); --stroke-strong:rgba(0,0,0,.11);
+    --txt:#1b1b1b; --txt2:rgba(0,0,0,.606); --txt3:rgba(0,0,0,.44);
+    --accent:#6750c4; --accent-fg:#fff;
+    --seg-bg:rgba(0,0,0,.0373); --seg-hover:rgba(0,0,0,.06);
+    --shadow:0 2px 4px rgba(0,0,0,.08);
+    --warn:#9d5d00; --warn-bg:#fff4ce; --warn-stroke:#e8c86a;
+    --info-bg:#f0f3fb; --info-stroke:#c9d4ef; --info:#3a4a7a;
+    --ok:#0f7b0f;
+  }
+  html[data-theme="dark"]{
+    --bg:#1c1c1c; --page:#272727;
+    --card:#2d2d2d; --card-alt:#323232;
+    --stroke:rgba(255,255,255,.0698); --stroke-strong:rgba(255,255,255,.14);
+    --txt:#ffffff; --txt2:rgba(255,255,255,.786); --txt3:rgba(255,255,255,.54);
+    --accent:#a08cf0; --accent-fg:#1b1035;
+    --seg-bg:rgba(255,255,255,.0326); --seg-hover:rgba(255,255,255,.07);
+    --shadow:0 2px 6px rgba(0,0,0,.28);
+    --warn:#fce100; --warn-bg:#433519; --warn-stroke:#6b5620;
+    --info-bg:#2b3145; --info-stroke:#3f4761; --info:#c8d3f5;
+    --ok:#6ccb5f;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--txt);
+    font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+    font-size:14px; line-height:20px; -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3{font-family:"Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;font-weight:600;margin:0}
+
+  /* ---------- prototype chrome (not part of the design) ---------- */
+  .chrome{
+    position:sticky;top:0;z-index:20;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+    padding:10px 20px;background:var(--page);border-bottom:1px solid var(--stroke);
+  }
+  .chrome .brand{font-weight:600;margin-right:auto;display:flex;align-items:center;gap:8px}
+  .chrome .brand small{font-weight:400;color:var(--txt3)}
+  .chip{
+    border:1px solid var(--stroke-strong);background:var(--card);color:var(--txt);
+    border-radius:16px;padding:5px 12px;font:inherit;font-size:13px;cursor:pointer;
+  }
+  .chip:hover{background:var(--card-alt)}
+  .chip[aria-pressed="true"],.chip.on{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+  .chromegroup{display:flex;gap:6px;align-items:center}
+  .chromegroup > span{color:var(--txt3);font-size:12px;margin-right:2px}
+
+  /* ---------- page ---------- */
+  .stage{padding:28px 20px 80px;display:flex;justify-content:center}
+  .wizard{width:100%;max-width:880px}
+
+  .titlebar{display:flex;flex-direction:column;gap:6px;margin-bottom:20px}
+  .titlebar h1{font-size:20px;line-height:28px}
+  .titlebar p{margin:0;color:var(--txt2)}
+  .steps{display:flex;align-items:center;gap:8px;margin-top:10px}
+  .steps .dot{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:11px;
+    background:var(--seg-bg);color:var(--txt3);border:1px solid var(--stroke-strong)}
+  .steps .dot.done{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+  .steps .dot.cur{background:var(--accent);color:var(--accent-fg);border-color:transparent;box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+  .steps .bar{flex:1;height:2px;background:var(--stroke-strong);border-radius:2px}
+  .steps .bar.done{background:var(--accent)}
+  .steps .lbl{font-size:12px;color:var(--txt3);margin-left:6px}
+
+  .card{
+    background:var(--card);border:1px solid var(--stroke);border-radius:8px;box-shadow:var(--shadow);
+  }
+  .card > .hd{padding:16px 16px 0}
+  .card > .bd{padding:16px}
+
+  /* provider identity strip */
+  .identity{display:flex;gap:12px;align-items:center;padding:12px 14px;background:var(--card-alt);
+    border:1px solid var(--stroke);border-radius:6px}
+  .identity .logo{width:32px;height:32px;border-radius:6px;display:grid;place-items:center;flex:none;
+    background:#0a5ca8;color:#fff;font-weight:700;font-size:15px}
+  .identity .logo.gmail{background:#fff;color:#ea4335;border:1px solid var(--stroke-strong)}
+  .identity .logo.imap{background:#5a5a5a;color:#fff}
+  .identity strong{display:block;font-weight:600}
+  .identity span{color:var(--txt2);font-size:12.5px;line-height:17px}
+
+  .sectiontitle{display:flex;align-items:baseline;gap:8px;margin:22px 0 10px}
+  .sectiontitle h2{font-size:14px}
+  .sectiontitle span{color:var(--txt3);font-size:12.5px}
+
+  /* ---------- OPTION A : capability tiles ---------- */
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .tile{
+    border:1px solid var(--stroke-strong);border-radius:8px;background:var(--card-alt);
+    padding:14px;display:flex;flex-direction:column;gap:12px;transition:border-color .12s,background .12s;
+  }
+  .tile.off{background:transparent}
+  .tile.on{border-color:color-mix(in srgb,var(--accent) 45%,var(--stroke-strong));
+           background:color-mix(in srgb,var(--accent) 7%,var(--card-alt))}
+  .tile .top{display:flex;gap:10px;align-items:flex-start}
+  .tile .ico{width:32px;height:32px;border-radius:7px;flex:none;display:grid;place-items:center;
+    background:var(--seg-bg);color:var(--txt2);border:1px solid var(--stroke)}
+  .tile.on .ico{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+  .tile .ico svg{width:17px;height:17px}
+  .tile .nm{font-weight:600;font-size:14px}
+  .tile .state{font-size:12px;color:var(--txt3);line-height:16px;margin-top:1px}
+  .tile.on .state{color:var(--txt2)}
+
+  /* segmented (maps to CommunityToolkit Segmented) */
+  .seg{display:flex;background:var(--seg-bg);border:1px solid var(--stroke);border-radius:6px;padding:2px;gap:2px}
+  .seg button{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:6px;
+    border:0;background:transparent;color:var(--txt2);font:inherit;font-size:12.5px;
+    padding:6px 4px;border-radius:4px;cursor:pointer;white-space:nowrap;min-width:0;
+  }
+  .seg button svg{width:14px;height:14px;flex:none}
+  .seg button span{overflow:hidden;text-overflow:ellipsis}
+  .seg button:hover{background:var(--seg-hover)}
+  .seg button[aria-pressed="true"]{background:var(--card);color:var(--txt);font-weight:600;
+    box-shadow:0 1px 2px rgba(0,0,0,.12);position:relative}
+  .seg button[aria-pressed="true"]::after{
+    content:"";position:absolute;left:50%;transform:translateX(-50%);bottom:-2px;
+    width:14px;height:2.5px;border-radius:2px;background:var(--accent)}
+  .seg button:disabled{opacity:.4;cursor:default}
+
+  /* consequence line — the "what does this actually mean" row */
+  .why{display:flex;gap:8px;align-items:flex-start;font-size:12px;line-height:16px;color:var(--txt2);
+    padding:8px 10px;border-radius:5px;background:var(--card);border:1px solid var(--stroke)}
+  .why svg{width:14px;height:14px;flex:none;margin-top:1px;color:var(--txt3)}
+  .tile.off .why{display:none}
+
+  .sub{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12.5px}
+  .sub label{color:var(--txt2)}
+  select{
+    font:inherit;font-size:12.5px;padding:5px 8px;border-radius:5px;color:var(--txt);
+    background:var(--card);border:1px solid var(--stroke-strong);
+  }
+  .tile.off .sub{display:none}
+
+  .banner{display:flex;gap:9px;align-items:flex-start;padding:9px 11px;border-radius:6px;font-size:12.5px;line-height:17px}
+  .banner svg{width:15px;height:15px;flex:none;margin-top:1px}
+  .banner.warn{background:var(--warn-bg);border:1px solid var(--warn-stroke);color:var(--txt)}
+  .banner.warn svg{color:var(--warn)}
+  .banner.info{background:var(--info-bg);border:1px solid var(--info-stroke);color:var(--info)}
+
+  /* permission summary footer */
+  .summary{
+    margin-top:14px;display:flex;gap:10px;align-items:flex-start;padding:12px 14px;
+    border:1px solid var(--stroke-strong);border-radius:7px;background:var(--card-alt);
+  }
+  .summary svg{width:16px;height:16px;flex:none;margin-top:2px;color:var(--accent)}
+  .summary .txt{font-size:12.5px;line-height:18px;color:var(--txt2)}
+  .summary b{color:var(--txt);font-weight:600}
+  .pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+  .pill{font-size:11.5px;padding:2px 9px;border-radius:11px;border:1px solid var(--stroke-strong);
+    background:var(--card);color:var(--txt2)}
+  .pill.cloud{border-color:color-mix(in srgb,var(--accent) 45%,transparent);
+              color:var(--txt);background:color-mix(in srgb,var(--accent) 12%,var(--card))}
+
+  .validation{color:#c42b1c;font-size:12.5px;margin-top:10px;display:none}
+  html[data-theme="dark"] .validation{color:#ff99a4}
+  .validation.show{display:block}
+
+  /* ---------- OPTION B : compact rows ---------- */
+  .rows{border:1px solid var(--stroke-strong);border-radius:8px;overflow:hidden}
+  .row{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--card-alt);
+       border-bottom:1px solid var(--stroke)}
+  .row:last-child{border-bottom:0}
+  .row .ico{width:30px;height:30px;border-radius:7px;flex:none;display:grid;place-items:center;
+    background:var(--seg-bg);color:var(--txt2);border:1px solid var(--stroke)}
+  .row.on .ico{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+  .row .ico svg{width:16px;height:16px}
+  .row .mid{flex:1;min-width:0}
+  .row .nm{font-weight:600}
+  .row .state{font-size:12px;color:var(--txt3);line-height:16px}
+  .row.on .state{color:var(--txt2)}
+  .row .seg{width:330px;flex:none}
+  .rowextra{padding:0 14px 12px 56px;background:var(--card-alt);border-bottom:1px solid var(--stroke);
+            display:flex;flex-direction:column;gap:8px}
+
+  .actions{display:flex;justify-content:space-between;margin-top:20px}
+  .btn{font:inherit;padding:7px 20px;border-radius:5px;border:1px solid var(--stroke-strong);
+       background:var(--card);color:var(--txt);cursor:pointer}
+  .btn:hover{background:var(--card-alt)}
+  .btn.primary{background:var(--accent);color:var(--accent-fg);border-color:transparent;min-width:140px;font-weight:600}
+  .btn.primary:disabled{opacity:.45;cursor:default}
+
+  .notes{max-width:880px;margin:34px auto 0;padding:0 20px}
+  .notes h3{font-size:15px;margin-bottom:8px}
+  .notes table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  .notes th,.notes td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--stroke);vertical-align:top}
+  .notes th{color:var(--txt3);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+  .notes code{background:var(--seg-bg);padding:1px 5px;border-radius:3px;font-size:12px}
+  .notes ul{margin:8px 0 0;padding-left:18px;color:var(--txt2)}
+  .notes li{margin-bottom:5px}
+  .hidden{display:none !important}
+
+  @media (max-width:720px){ .tiles{grid-template-columns:1fr} .row{flex-wrap:wrap} .row .seg{width:100%} }
+</style>
+</head>
+<body>
+
+<!-- prototype chrome: NOT part of the proposed UI -->
+<div class="chrome">
+  <div class="brand">Wino · Account access redesign <small>&nbsp;prototype</small></div>
+  <div class="chromegroup"><span>Layout</span>
+    <button class="chip on" id="optA">A · Tiles</button>
+    <button class="chip" id="optB">B · Rows</button>
+  </div>
+  <div class="chromegroup"><span>Provider</span>
+    <button class="chip on" data-prov="outlook">Outlook</button>
+    <button class="chip" data-prov="gmail">Gmail</button>
+    <button class="chip" data-prov="imap">Custom IMAP</button>
+  </div>
+  <button class="chip" id="theme">Light / Dark</button>
+</div>
+
+<div class="stage">
+<div class="wizard">
+
+  <div class="titlebar">
+    <h1>Set up your account</h1>
+    <p>Choose what Wino may use this account for, and where each kind of data lives.</p>
+    <div class="steps">
+      <div class="dot done">✓</div><div class="bar done"></div>
+      <div class="dot done">✓</div><div class="bar done"></div>
+      <div class="dot cur">3</div>
+      <div class="lbl">Step 3 of 3 · Access</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="bd">
+
+      <div class="identity">
+        <div class="logo" id="provLogo">O</div>
+        <div>
+          <strong id="provName">Outlook</strong>
+          <span id="provDesc">Secure sign-in will request only the permissions you turn on below. Anything set to “This PC” never leaves your device.</span>
+        </div>
+      </div>
+
+      <div class="sectiontitle">
+        <h2>Use this account for</h2>
+        <span id="secHint">Pick a mode for each — cloud sync, or this PC only.</span>
+      </div>
+
+      <!-- ============ OPTION A ============ -->
+      <div class="tiles" id="viewA"></div>
+
+      <!-- ============ OPTION B ============ -->
+      <div class="rows hidden" id="viewB"></div>
+
+      <div class="summary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.4-3 8.2-7 9-4-.8-7-4.6-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+        <div class="txt">
+          <b id="sumHead">Wino will ask Outlook for permission to:</b>
+          <div class="pills" id="sumPills"></div>
+          <div id="sumLocal" style="margin-top:6px"></div>
+        </div>
+      </div>
+
+      <div class="validation" id="valid">Turn on at least one mode before continuing.</div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn">Back</button>
+    <button class="btn primary" id="continueBtn">Continue</button>
+  </div>
+</div>
+</div>
+
+<div class="notes">
+  <h3>What changed, and why</h3>
+  <table>
+    <tr><th>Problem today</th><th>In this proposal</th></tr>
+    <tr>
+      <td>Four stacked <code>SettingsExpander</code>s, each hiding a sub-card that repeats the same “Storage and synchronization” header and the same two radio buttons. ~700&nbsp;px tall, scrolls.</td>
+      <td>One decision per capability. The on/off toggle and the source radios collapse into a single 2–3 segment control: <em>Off · Sync · This PC</em>. No expanders, nothing hidden, ~330&nbsp;px tall.</td>
+    </tr>
+    <tr>
+      <td>“Provider contacts” vs “Local contacts” states <em>where</em> but never <em>what it costs you</em>.</td>
+      <td>A live consequence line under each capability restates the choice in outcome terms (“syncs to every device” vs “stays on this PC, no backup”), and cloud/device icons carry the same meaning in the segments.</td>
+    </tr>
+    <tr>
+      <td>Reads as a generic settings list; the OAuth consent screen that follows is a surprise.</td>
+      <td>Capability tiles with iconography and an accent-tinted “on” state, plus a permission summary that names exactly which scopes the provider will be asked for — the consent dialog stops being a surprise.</td>
+    </tr>
+    <tr>
+      <td>Provider-specific rules (IMAP has no provider tasks; CardDAV behind a flag) surface as extra InfoBar cards inside expanders.</td>
+      <td>Unavailable segments are simply disabled with the reason inline, so the tile count and layout never change between providers.</td>
+    </tr>
+  </table>
+
+  <h3 style="margin-top:24px">WinUI mapping (nothing here needs a custom control)</h3>
+  <ul>
+    <li><b>Tile / row</b> → <code>Border</code> in an <code>ItemsRepeater</code> with <code>UniformGridLayout</code> (A) or <code>StackLayout</code> (B). Option B is also a straight <code>SettingsCard</code> stack if you prefer zero custom templating.</li>
+    <li><b>Segmented mode picker</b> → <code>CommunityToolkit.WinUI.Controls.Segmented</code> with <code>SegmentedItem</code> (<code>Icon</code> + <code>Content</code>); <code>IsEnabled=false</code> per item for unavailable sources.</li>
+    <li><b>Consequence line</b> → <code>TextBlock</code> bound to a computed VM property per capability.</li>
+    <li><b>Mail range</b> → the existing <code>ComboBox</code>, moved inline into the Mail tile; the “Everything” warning stays a <code>muxc:InfoBar</code>.</li>
+    <li><b>Permission summary</b> → <code>ItemsControl</code> of pill <code>Border</code>s over a computed scope list.</li>
+  </ul>
+
+  <h3 style="margin-top:24px">View-model impact</h3>
+  <ul>
+    <li>Each capability’s <code>Is…AccessEnabled</code> + <code>Selected…SourceIndex</code> pair collapses into one enum property (<code>Off / Provider / Local</code>). The existing bools become computed passthroughs, so <code>WelcomeWizardContext</code> and the tests keep working.</li>
+    <li>The four <code>Is…ExpanderExpanded</code> properties are deleted outright — nothing expands any more.</li>
+    <li>Three new computed strings per capability (state summary, consequence text) plus one scope list for the summary block.</li>
+  </ul>
+</div>
+
+<script>
+(function(){
+  const I = {
+    mail:'<path d="M3 6.5h18v11H3z"/><path d="M3 7l9 6 9-6"/>',
+    cal:'<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 3v3M16 3v3"/>',
+    people:'<circle cx="9" cy="8" r="3"/><path d="M3.5 19c.6-3.1 2.8-5 5.5-5s4.9 1.9 5.5 5"/><path d="M16 6.2a3 3 0 010 5.6M17.5 14.4c2 .7 3.4 2.3 3.9 4.6"/>',
+    todo:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M3.5 6l1.4 1.4L7.5 4.8M3.5 12l1.4 1.4L7.5 10.8"/>',
+    cloud:'<path d="M7 18h10a4 4 0 000-8 6 6 0 00-11.6 1.8A3.5 3.5 0 006.5 18z"/>',
+    pc:'<rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8 20.5h8M12 16.5v4"/>',
+    off:'<path d="M6 12h12"/>',
+    info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.6v.8"/>',
+    warn:'<path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17v.6"/>'
+  };
+  const svg = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
+
+  // provider-specific vocabulary -------------------------------------------
+  const PROV = {
+    outlook:{ name:'Outlook', logo:'O', cls:'', sync:'Outlook',
+      desc:'Secure sign-in will request only the permissions you turn on below. Anything set to “This PC” never leaves your device.',
+      caps:{mail:true, cal:'provider', contacts:'provider', todo:'provider'} },
+    gmail:{ name:'Gmail', logo:'M', cls:'gmail', sync:'Google',
+      desc:'Secure sign-in will request only the permissions you turn on below. Anything set to “This PC” never leaves your device.',
+      caps:{mail:true, cal:'provider', contacts:'provider', todo:'provider'} },
+    imap:{ name:'Custom IMAP server', short:'IMAP', logo:'@', cls:'imap', sync:'your server',
+      desc:'Mail uses IMAP/SMTP. Calendar and contacts use CalDAV / CardDAV — server details are confirmed on the next step.',
+      caps:{mail:true, cal:'caldav', contacts:'carddav', todo:false} }
+  };
+
+  const CAPS = [
+    {key:'mail',     icon:I.mail,   label:'Mail',     modes:['off','sync']},
+    {key:'cal',      icon:I.cal,    label:'Calendar', modes:['off','sync','local']},
+    {key:'contacts', icon:I.people, label:'Contacts', modes:['off','sync','local']},
+    {key:'todo',     icon:I.todo,   label:'To Do',    modes:['off','sync','local']}
+  ];
+
+  // state
+  let prov = 'outlook';
+  let view = 'A';
+  const sel = {mail:'sync', cal:'off', contacts:'sync', todo:'off'};
+
+  function syncLabel(cap){
+    const k = PROV[prov].caps[cap];
+    if(k==='caldav') return 'CalDAV';
+    if(k==='carddav') return 'CardDAV';
+    return PROV[prov].short || PROV[prov].name;
+  }
+  function available(cap){ return PROV[prov].caps[cap] !== false; }
+
+  // one-line state summary next to the title
+  function stateText(cap){
+    const m = sel[cap];
+    if(m==='off') return 'Not used by Wino.';
+    if(m==='local') return 'On this PC only.';
+    return 'Synced with ' + syncLabel(cap) + '.';
+  }
+
+  // the consequence line — the whole point of the redesign
+  function why(cap){
+    const m = sel[cap], p = PROV[prov];
+    if(m==='off') return '';
+    if(m==='local') return {
+      cal:'Events are stored on this PC. They will not appear on your phone, and are lost if this PC is.',
+      contacts:'Contacts are stored on this PC. Nothing is uploaded, and nothing is backed up.',
+      todo:'Lists live on this PC. No sync, no backup, available offline.',
+      mail:''}[cap];
+    return {
+      mail:'Wino downloads and sends mail through ' + p.name + '. Read state and folders stay in sync.',
+      cal:'Events sync both ways with ' + syncLabel(cap) + ' — edits here show up on your other devices.',
+      contacts:'Contacts sync both ways with ' + syncLabel(cap) + ' — edits here show up on your other devices.',
+      todo:'Lists and tasks sync both ways with ' + syncLabel(cap) + '.'}[cap];
+  }
+
+  function segHtml(cap){
+    const c = CAPS.find(x=>x.key===cap);
+    const dis = !available(cap);
+    const btn = (mode, icon, text, disabled, title) =>
+      `<button data-cap="${cap}" data-mode="${mode}" aria-pressed="${sel[cap]===mode}" ${disabled?'disabled':''} ${title?`title="${title}"`:''}>${svg(icon)}<span>${text}</span></button>`;
+    let h = btn('off', I.off, 'Off', false);
+    h += btn('sync', I.cloud, syncLabel(cap), dis, dis?'Not available for this provider':'');
+    if(c.modes.includes('local')) h += btn('local', I.pc, 'This PC', false);
+    return `<div class="seg">${h}</div>`;
+  }
+
+  function extraHtml(cap){
+    let h = '';
+    if(cap==='mail' && sel.mail!=='off'){
+      h += `<div class="sub"><label>Download mail from the last</label>
+        <select id="range">
+          <option>3 months</option><option selected>6 months</option>
+          <option>9 months</option><option>1 year</option><option>Everything</option>
+        </select></div>`;
+    }
+    if(cap==='mail' && document.getElementById('range') && document.getElementById('range').value==='Everything'){
+      h += `<div class="banner warn">${svg(I.warn)}<div>Downloading everything uses a lot of disk space. A shorter range plus online search performs better.</div></div>`;
+    }
+    if(cap==='contacts' && sel.contacts==='sync' && prov==='imap'){
+      h += `<div class="banner info">${svg(I.info)}<div>Wino discovers CardDAV from your address. You can enter a different endpoint on the next step.</div></div>`;
+    }
+    if(cap==='todo' && !available('todo')){
+      h += `<div class="banner info">${svg(I.info)}<div>IMAP servers do not offer a task service, so To&nbsp;Do is available on this PC only.</div></div>`;
+    }
+    return h;
+  }
+
+  function renderA(){
+    document.getElementById('viewA').innerHTML = CAPS.map(c=>{
+      const on = sel[c.key]!=='off';
+      const w = why(c.key);
+      return `<div class="tile ${on?'on':'off'}">
+        <div class="top">
+          <div class="ico">${svg(c.icon)}</div>
+          <div style="min-width:0">
+            <div class="nm">${c.label}</div>
+            <div class="state">${stateText(c.key)}</div>
+          </div>
+        </div>
+        ${segHtml(c.key)}
+        ${w?`<div class="why">${svg(sel[c.key]==='local'?I.pc:I.cloud)}<div>${w}</div></div>`:''}
+        ${extraHtml(c.key)}
+      </div>`;
+    }).join('');
+  }
+
+  function renderB(){
+    document.getElementById('viewB').innerHTML = CAPS.map(c=>{
+      const on = sel[c.key]!=='off';
+      const w = why(c.key);
+      const extra = extraHtml(c.key);
+      const detail = (on && (w||extra))
+        ? `<div class="rowextra">${w?`<div class="why">${svg(sel[c.key]==='local'?I.pc:I.cloud)}<div>${w}</div></div>`:''}${extra}</div>`
+        : '';
+      return `<div class="row ${on?'on':''}">
+        <div class="ico">${svg(c.icon)}</div>
+        <div class="mid"><div class="nm">${c.label}</div><div class="state">${stateText(c.key)}</div></div>
+        ${segHtml(c.key)}
+      </div>${detail}`;
+    }).join('');
+  }
+
+  function renderSummary(){
+    const cloud = CAPS.filter(c=>sel[c.key]==='sync');
+    const local = CAPS.filter(c=>sel[c.key]==='local');
+    document.getElementById('sumHead').textContent = cloud.length
+      ? `Wino will ask ${PROV[prov].name} for permission to:`
+      : `Wino will not ask ${PROV[prov].name} for any data permissions.`;
+    document.getElementById('sumPills').innerHTML = cloud.map(c=>{
+      const verb = {mail:'Read and send mail', cal:'Read and write calendars',
+                    contacts:'Read and write contacts', todo:'Read and write tasks'}[c.key];
+      return `<span class="pill cloud">${verb}</span>`;
+    }).join('');
+    document.getElementById('sumLocal').innerHTML = local.length
+      ? `<span style="color:var(--txt3)">Kept on this PC only: </span>${local.map(c=>`<span class="pill">${c.label}</span>`).join(' ')}`
+      : '';
+  }
+
+  function render(){
+    const p = PROV[prov];
+    document.getElementById('provName').textContent = p.name;
+    document.getElementById('provDesc').textContent = p.desc;
+    const lg = document.getElementById('provLogo');
+    lg.textContent = p.logo; lg.className = 'logo ' + p.cls;
+    if(!available('todo') && sel.todo==='sync') sel.todo = 'local';
+
+    document.getElementById('viewA').classList.toggle('hidden', view!=='A');
+    document.getElementById('viewB').classList.toggle('hidden', view!=='B');
+    if(view==='A') renderA(); else renderB();
+    renderSummary();
+
+    const none = CAPS.every(c=>sel[c.key]==='off');
+    document.getElementById('valid').classList.toggle('show', none);
+    document.getElementById('continueBtn').disabled = none;
+  }
+
+  document.addEventListener('click', e=>{
+    const b = e.target.closest('.seg button');
+    if(b && !b.disabled){ sel[b.dataset.cap] = b.dataset.mode; render(); }
+  });
+  document.addEventListener('change', e=>{ if(e.target.id==='range') render(); });
+
+  document.getElementById('optA').onclick = e=>{view='A';optBtns(e.target);render();};
+  document.getElementById('optB').onclick = e=>{view='B';optBtns(e.target);render();};
+  function optBtns(t){ ['optA','optB'].forEach(id=>document.getElementById(id).classList.toggle('on', document.getElementById(id)===t)); }
+
+  document.querySelectorAll('[data-prov]').forEach(btn=>btn.onclick=()=>{
+    prov = btn.dataset.prov;
+    document.querySelectorAll('[data-prov]').forEach(b=>b.classList.toggle('on', b===btn));
+    render();
+  });
+
+  const root = document.documentElement;
+  root.dataset.theme = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  document.getElementById('theme').onclick = ()=>{ root.dataset.theme = root.dataset.theme==='dark'?'light':'dark'; };
+
+  render();
+})();
+</script>
+</body>
+</html>

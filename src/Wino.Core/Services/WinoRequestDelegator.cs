@@ -15,10 +15,12 @@ using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Contact;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Requests.Tasks;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Synchronizers.Mail;
 using Wino.Messaging.Server;
@@ -32,30 +34,30 @@ public class WinoRequestDelegator : IWinoRequestDelegator
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly ICalendarService _calendarService;
-    private readonly IContactService _contactService;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IImapChangeProcessor _imapChangeProcessor;
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly IApplicationLocalRequestExecutor _applicationLocalRequestExecutor;
 
     public WinoRequestDelegator(IWinoRequestProcessor winoRequestProcessor,
                                 IFolderService folderService,
                                 IMailDialogService dialogService,
                                 IAccountService accountService,
                                 ICalendarService calendarService,
-                                IContactService contactService,
                                 ISynchronizationManager synchronizationManager,
                                 IImapChangeProcessor imapChangeProcessor,
-                                IApplicationConfiguration applicationConfiguration)
+                                IApplicationConfiguration applicationConfiguration,
+                                IApplicationLocalRequestExecutor applicationLocalRequestExecutor)
     {
         _winoRequestProcessor = winoRequestProcessor;
         _folderService = folderService;
         _dialogService = dialogService;
         _accountService = accountService;
         _calendarService = calendarService;
-        _contactService = contactService;
         _synchronizationManager = synchronizationManager;
         _imapChangeProcessor = imapChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
+        _applicationLocalRequestExecutor = applicationLocalRequestExecutor;
     }
 
     public async Task ExecuteAsync(MailOperationPreperationRequest request)
@@ -276,33 +278,25 @@ public class WinoRequestDelegator : IWinoRequestDelegator
         if (valid.Count == 0)
             return;
 
+        var preparedRequests = new List<IContactActionRequest>();
+
         foreach (var preparationRequest in valid)
         {
-            var contact = preparationRequest.Contact;
-            switch (preparationRequest.Operation)
-            {
-                case ContactSynchronizerOperation.Create:
-                    await _contactService.StageCreateAsync(contact).ConfigureAwait(false);
-                    break;
-                case ContactSynchronizerOperation.Update:
-                    await _contactService.StageUpdateAsync(contact).ConfigureAwait(false);
-                    break;
-                case ContactSynchronizerOperation.Delete:
-                    await _contactService.StageDeleteAsync(contact.Id).ConfigureAwait(false);
-                    break;
-            }
+            var request = await _winoRequestProcessor
+                .PrepareContactRequestAsync(preparationRequest)
+                .ConfigureAwait(false);
 
-            await QueueRequestAsync(
-                new ContactActionRequest(contact, preparationRequest.Operation, preparationRequest.OriginalContact, preparationRequest.Photo),
-                contact.MailAccountId).ConfigureAwait(false);
+            preparedRequests.Add(request);
         }
 
-        foreach (var group in valid.GroupBy(request => request.Contact.MailAccountId))
+        foreach (var group in preparedRequests.GroupBy(request => request.MailAccountId))
         {
+            await QueueRequestsAsync(group.Cast<IRequestBase>(), group.Key).ConfigureAwait(false);
+
             WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
             {
                 AccountId = group.Key,
-                AddressBookId = group.First().Contact.AddressBookId,
+                AddressBookId = group.First().AddressBookId,
                 Type = ContactSynchronizationType.ExecuteRequests
             }));
         }
@@ -310,7 +304,29 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
     public async Task ExecuteAsync(Guid accountId, IEnumerable<IRequestBase> requests)
     {
-        var requestList = requests?.Where(a => a != null).ToList() ?? [];
+        var requestList = new List<IRequestBase>();
+
+        foreach (var request in requests?.Where(request => request is not null) ?? [])
+        {
+            if (request is TaskActionRequest taskRequest)
+            {
+                var prepared = await _winoRequestProcessor.PrepareTaskRequestAsync(new TaskOperationPreparationRequest(
+                    taskRequest.AccountId,
+                    taskRequest.Operation,
+                    taskRequest.List,
+                    taskRequest.Task,
+                    taskRequest.Step,
+                    taskRequest.OriginalList,
+                    taskRequest.OriginalTask,
+                    taskRequest.OriginalStep)).ConfigureAwait(false);
+
+                requestList.Add(prepared ?? taskRequest);
+                continue;
+            }
+
+            requestList.Add(request);
+        }
+
         if (requestList.Count == 0)
             return;
 
@@ -318,6 +334,9 @@ public class WinoRequestDelegator : IWinoRequestDelegator
 
         PublishSynchronizationRequests(accountId, requestList);
     }
+
+    public Task ExecuteLocalAsync(IRequestBase request)
+        => _applicationLocalRequestExecutor.ExecuteAsync(request);
 
     private async Task<IRequestBase> CreateCalendarEventRequestAsync(CalendarOperationPreparationRequest calendarPreparationRequest)
     {

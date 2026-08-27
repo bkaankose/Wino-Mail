@@ -4,6 +4,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Requests;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -18,13 +19,16 @@ namespace Wino.Mail.ViewModels.Data;
 /// </summary>
 public partial class TaskItemViewModel : ObservableObject
 {
-    public AccountTask Task { get; }
+    private readonly AccountTask _originalTask;
+
+    public AccountTask Task { get; private set; }
 
     public ObservableCollection<TaskStepViewModel> Steps { get; } = [];
 
     public TaskItemViewModel(AccountTask task, string listName)
     {
         Task = task;
+        _originalTask = RequestEntityCloner.Task(task);
         ListName = listName ?? string.Empty;
 
         foreach (var step in task.Steps ?? [])
@@ -33,9 +37,39 @@ public partial class TaskItemViewModel : ObservableObject
         Steps.CollectionChanged += (_, _) => RefreshStepSummary();
     }
 
+    public AccountTask CreateOriginalSnapshot() => RequestEntityCloner.Task(_originalTask);
+
+    /// <summary>Applies a request snapshot without requiring the page to mutate item state.</summary>
+    public void ApplySnapshot(AccountTask task)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+
+        Task = task;
+        Steps.Clear();
+
+        foreach (var step in task.Steps ?? [])
+            Steps.Add(new TaskStepViewModel(step));
+
+        OnPropertyChanged(nameof(Task));
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(Notes));
+        OnPropertyChanged(nameof(IsCompleted));
+        OnPropertyChanged(nameof(IsImportant));
+        OnPropertyChanged(nameof(DueDate));
+        OnPropertyChanged(nameof(MyDayDateUtc));
+        OnPropertyChanged(nameof(IsInMyDay));
+        OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(MyDayActionText));
+        OnPropertyChanged(nameof(ImportanceActionText));
+        OnPropertyChanged(nameof(HasNote));
+        RefreshDueDisplay();
+        RefreshStepSummary();
+    }
+
     public Guid Id => Task.Id;
 
-    public string ListName { get; }
+    [ObservableProperty]
+    public partial string ListName { get; set; }
 
     public string Title
     {
@@ -166,7 +200,8 @@ public partial class TaskItemViewModel : ObservableObject
         => string.Format(Translator.ToDoPage_CreatedOn, Task.CreatedAtUtc.ToLocalTime().ToString("ddd, MMMM d"));
 
     /// <summary>Metadata line label for the owning list. Hidden when the surface is a single list.</summary>
-    public bool ShowListName { get; set; }
+    [ObservableProperty]
+    public partial bool ShowListName { get; set; }
 
     public void RefreshStepSummary()
     {

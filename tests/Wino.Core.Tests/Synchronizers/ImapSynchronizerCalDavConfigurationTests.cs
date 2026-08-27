@@ -3,7 +3,9 @@ using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
@@ -13,6 +15,57 @@ namespace Wino.Core.Tests.Synchronizers;
 
 public class ImapSynchronizerCalDavConfigurationTests
 {
+    [Fact]
+    public async Task LegacyProviderCalendarSource_WithCalDavSupport_UsesCalDavForSyncAndRequests()
+    {
+        var tempDirectory = CreateTempDirectory();
+        var serverInformation = CreateServerInformation();
+        serverInformation.CalDavServiceUrl = "https://caldav.icloud.com/";
+        var calDavClient = new Mock<ICalDavClient>();
+        calDavClient
+            .Setup(client => client.DiscoverCalendarsAsync(
+                It.IsAny<CalDavConnectionSettings>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        var changeProcessor = new Mock<IImapChangeProcessor>();
+        changeProcessor
+            .Setup(processor => processor.GetAccountCalendarsAsync(It.IsAny<Guid>()))
+            .ReturnsAsync([]);
+
+        var synchronizer = CreateSynchronizer(
+            tempDirectory,
+            serverInformation,
+            configureAccount: account =>
+            {
+                account.SpecialImapProvider = SpecialImapProvider.iCloud;
+                account.CalendarIntegrationSource = AccountIntegrationSource.Provider;
+            },
+            calDavClient: calDavClient.Object,
+            changeProcessor: changeProcessor.Object);
+
+        try
+        {
+            synchronizer.Account.GetEffectiveCalendarIntegrationSource().Should().Be(AccountIntegrationSource.Dav);
+
+            var handler = InvokePrivate<object>(synchronizer, "ResolveCalendarOperationHandler");
+            var result = await synchronizer.SynchronizeCalendarEventsAsync(new()
+            {
+                Type = CalendarSynchronizationType.CalendarMetadata
+            });
+
+            handler.GetType().Name.Should().Be("CalDavCalendarOperationHandler");
+            result.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+            calDavClient.Verify(client => client.DiscoverCalendarsAsync(
+                It.IsAny<CalDavConnectionSettings>(),
+                It.IsAny<CancellationToken>()), Times.Once);
+        }
+        finally
+        {
+            await synchronizer.KillSynchronizerAsync();
+            DeleteDirectory(tempDirectory);
+        }
+    }
+
     [Fact]
     public async Task ResolveCalDavServiceUriAsync_UsesExplicitConfigurationBeforeAutoDiscovery()
     {
@@ -89,7 +142,10 @@ public class ImapSynchronizerCalDavConfigurationTests
 
     private static ImapSynchronizer CreateSynchronizer(string appDataFolder,
                                                        CustomServerInformation serverInformation,
-                                                       IAutoDiscoveryService? autoDiscoveryService = null)
+                                                       IAutoDiscoveryService? autoDiscoveryService = null,
+                                                       Action<MailAccount>? configureAccount = null,
+                                                       ICalDavClient? calDavClient = null,
+                                                       IImapChangeProcessor? changeProcessor = null)
     {
         var account = new MailAccount
         {
@@ -100,6 +156,8 @@ public class ImapSynchronizerCalDavConfigurationTests
             IsCalendarAccessGranted = true,
             ServerInformation = serverInformation
         };
+
+        configureAccount?.Invoke(account);
 
         var applicationConfiguration = new Mock<IApplicationConfiguration>();
         applicationConfiguration.SetupProperty(x => x.ApplicationDataFolderPath, appDataFolder);
@@ -114,11 +172,11 @@ public class ImapSynchronizerCalDavConfigurationTests
 
         return new ImapSynchronizer(
             account,
-            Mock.Of<IImapChangeProcessor>(),
+            changeProcessor ?? Mock.Of<IImapChangeProcessor>(),
             applicationConfiguration.Object,
             unifiedSynchronizer,
             Mock.Of<IImapSynchronizerErrorHandlerFactory>(),
-            Mock.Of<ICalDavClient>(),
+            calDavClient ?? Mock.Of<ICalDavClient>(),
             autoDiscoveryService ?? Mock.Of<IAutoDiscoveryService>(),
             Mock.Of<ICalendarService>());
     }

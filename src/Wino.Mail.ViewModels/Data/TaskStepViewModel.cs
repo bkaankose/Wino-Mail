@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Requests;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -9,9 +10,29 @@ namespace Wino.Mail.ViewModels.Data;
 /// </summary>
 public partial class TaskStepViewModel : ObservableObject
 {
-    public AccountTaskStep Step { get; }
+    private readonly AccountTaskStep _originalStep;
 
-    public TaskStepViewModel(AccountTaskStep step) => Step = step;
+    public AccountTaskStep Step { get; private set; }
+
+    public TaskStepViewModel(AccountTaskStep step)
+    {
+        Step = step;
+        _originalStep = RequestEntityCloner.TaskStep(step);
+    }
+
+    public AccountTaskStep CreateOriginalSnapshot() => RequestEntityCloner.TaskStep(_originalStep);
+
+    public void ApplySnapshot(AccountTaskStep step)
+    {
+        System.ArgumentNullException.ThrowIfNull(step);
+
+        Step = step;
+        OnPropertyChanged(nameof(Step));
+        OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(IsCompleted));
+        OnPropertyChanged(nameof(IsReadOnly));
+        OnPropertyChanged(nameof(IsEditable));
+    }
 
     public string Title
     {

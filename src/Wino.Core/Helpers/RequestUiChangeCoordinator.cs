@@ -115,6 +115,23 @@ public static class RequestUiChangeCoordinator
         MarkReverted(request);
     }
 
+    /// <summary>
+    /// Releases lifecycle tracking after a request has either been committed or reverted.
+    /// Request queues are intentionally in-memory, so completed entries must not retain the
+    /// entity snapshots carried by contact and task mutations.
+    /// </summary>
+    public static void CompleteRequests(IEnumerable<IRequestBase> requests)
+    {
+        if (requests is null)
+            return;
+
+        lock (StateLock)
+        {
+            foreach (var request in requests.Where(request => request is not null))
+                RequestStates.Remove(request);
+        }
+    }
+
     private static bool TryApplyBatchUiChanges(IReadOnlyList<IRequestBase> requests, bool apply)
     {
         if (requests == null || requests.Count <= 1)

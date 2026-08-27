@@ -1,11 +1,16 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Interfaces;
@@ -16,13 +21,14 @@ namespace Wino.Views.ToDo;
 
 public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
 {
+    private CancellationTokenSource? _searchCancellationTokenSource;
+
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool IsCompactLayout { get; set; }
+
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
     public SearchBarMode SearchMode => SearchBarMode.Tasks;
-    public string SearchText
-    {
-        get => ViewModel.SearchText;
-        set => ViewModel.SearchText = value ?? string.Empty;
-    }
+    public string SearchText { get; set; } = string.Empty;
 
     public string SearchPlaceholderText => Translator.ToDoPage_Search;
 
@@ -39,15 +45,67 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         TaskListView.ItemsSource = TaskCollectionViewSource.View;
     }
 
-    public Task OnTitleBarSearchTextChangedAsync() => Task.CompletedTask;
+    partial void OnIsCompactLayoutPropertyChanged(DependencyPropertyChangedEventArgs e)
+        => ViewModel.SetCompactLayout(IsCompactLayout);
+
+    public async Task OnTitleBarSearchTextChangedAsync()
+    {
+        _searchCancellationTokenSource?.Cancel();
+        _searchCancellationTokenSource?.Dispose();
+        _searchCancellationTokenSource = null;
+        SearchSuggestions.Clear();
+
+        var queryText = SearchText;
+        if (string.IsNullOrWhiteSpace(queryText))
+            return;
+
+        _searchCancellationTokenSource = new CancellationTokenSource();
+        var cancellationToken = _searchCancellationTokenSource.Token;
+        try
+        {
+            await Task.Delay(150, cancellationToken);
+            var tasks = await ViewModel.SearchTasksAsync(queryText, 6, cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested || !string.Equals(SearchText, queryText, StringComparison.Ordinal))
+                return;
+
+            foreach (var task in tasks)
+            {
+                SearchSuggestions.Add(new TitleBarSearchSuggestion(
+                    task.Title,
+                    ViewModel.GetTaskSearchSubtitle(task),
+                    task));
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
 
     public void OnTitleBarSearchSuggestionChosen(TitleBarSearchSuggestion suggestion)
         => SearchText = suggestion?.Title ?? string.Empty;
 
-    public Task OnTitleBarSearchSubmittedAsync(string queryText, TitleBarSearchSuggestion? chosenSuggestion)
+    public async Task OnTitleBarSearchSubmittedAsync(string queryText, TitleBarSearchSuggestion? chosenSuggestion)
     {
         SearchText = chosenSuggestion?.Title ?? queryText ?? string.Empty;
-        return Task.CompletedTask;
+
+        var task = chosenSuggestion?.Tag as AccountTask
+            ?? (await ViewModel.SearchTasksAsync(queryText, 1, CancellationToken.None)).FirstOrDefault();
+        if (task is null)
+            return;
+
+        SearchSuggestions.Clear();
+        var selectedItem = await ViewModel.LoadAndSelectTaskAsync(task.Id);
+        if (selectedItem is not null)
+            TaskListView.ScrollIntoView(selectedItem, ScrollIntoViewAlignment.Leading);
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        _searchCancellationTokenSource?.Cancel();
+        _searchCancellationTokenSource?.Dispose();
+        _searchCancellationTokenSource = null;
+        base.OnNavigatedFrom(e);
     }
 
     private async void TaskCheckBox_Click(object sender, RoutedEventArgs e)
@@ -110,9 +168,6 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
             await ViewModel.DeleteTaskCommand.ExecuteAsync(ViewModel.SelectedTask);
     }
 
-    private void CompletedGroupHeader_Click(object sender, RoutedEventArgs e)
-        => ViewModel.IsCompletedGroupExpanded = !ViewModel.IsCompletedGroupExpanded;
-
     /// <summary>Puts the caret in the header so the rename entry has somewhere to go.</summary>
     private void RenameListMenuItem_Click(object sender, RoutedEventArgs e)
     {
@@ -163,7 +218,4 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         if (ViewModel.SelectedTask is not null && ViewModel.CanEditSelectedTask)
             await ViewModel.SaveTaskCommand.ExecuteAsync(ViewModel.SelectedTask);
     }
-
-    private void Root_SizeChanged(object sender, SizeChangedEventArgs e)
-        => ViewModel.SetCompactLayout(e.NewSize.Width < 1008);
 }
