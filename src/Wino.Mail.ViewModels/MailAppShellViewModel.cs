@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -332,6 +332,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             {
                 mergedAccountMenuItem.RefreshSynchronizationProgress();
             }
+
+            RefreshShellSynchronizationState();
         });
     }
 
@@ -978,6 +980,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             clickedBaseAccountMenuItem.IsSelected = true;
 
             latestSelectedAccountMenuItem = clickedBaseAccountMenuItem;
+
+            RefreshShellSynchronizationState();
         }).ConfigureAwait(false);
 
         await MenuItems.ReplaceFoldersAsync(folders).ConfigureAwait(false);
@@ -1631,6 +1635,10 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             {
                 mergedAccountMenuItem.RefreshSynchronizationProgress();
             }
+
+            // The title bar button reads the manager itself, so it only needs to be told
+            // that something moved.
+            RefreshShellSynchronizationState();
         });
     }
 
@@ -1692,6 +1700,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 SelectedMenuItem = null;
                 MenuItems?.Clear();
                 MenuItems?.Add(CreateMailMenuItem);
+                RefreshShellSynchronizationState();
             });
 
             if (remainingAccounts.Any())
@@ -1711,6 +1720,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             {
                 latestSelectedAccountMenuItem = null;
                 SelectedMenuItem = null;
+                RefreshShellSynchronizationState();
             }
         });
 

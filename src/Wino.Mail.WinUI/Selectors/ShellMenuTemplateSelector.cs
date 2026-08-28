@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -25,14 +25,11 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
     public DataTemplate? SettingsShellWinoAccountItemTemplate { get; set; }
     public DataTemplate? SettingsShellWinoIntelligenceItemTemplate { get; set; }
     public DataTemplate? CalendarDatePickerTemplate { get; set; }
-    public DataTemplate? CalendarSyncTemplate { get; set; }
     public DataTemplate? AccountCalendarGroupTemplate { get; set; }
     public DataTemplate? CalendarNewEventTemplate { get; set; }
     public DataTemplate? NewContactTemplate { get; set; }
-    public DataTemplate? ContactsSyncTemplate { get; set; }
     public DataTemplate? NewAddressListTemplate { get; set; }
     public DataTemplate? NewTaskListTemplate { get; set; }
-    public DataTemplate? ToDoSyncTemplate { get; set; }
     public DataTemplate? MyDayTaskTemplate { get; set; }
     public DataTemplate? PlannedTaskTemplate { get; set; }
     public DataTemplate? ImportantTaskTemplate { get; set; }
@@ -69,16 +66,13 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
 
         // Calendar
         CalendarDatePickerMenuItem => CalendarDatePickerTemplate,
-        CalendarSyncMenuItem => CalendarSyncTemplate,
         AccountCalendarGroupMenuItem => AccountCalendarGroupTemplate,
         NewCalendarEventMenuItem => CalendarNewEventTemplate,
 
         // Contacts
         NewContactMenuItem => NewContactTemplate,
-        ContactsSyncMenuItem => ContactsSyncTemplate,
         NewAddressListMenuItem => NewAddressListTemplate,
         NewTaskListMenuItem => NewTaskListTemplate,
-        TaskSyncMenuItem => ToDoSyncTemplate,
         MyDayTaskMenuItem => MyDayTaskTemplate,
         PlannedTaskMenuItem => PlannedTaskTemplate,
         ImportantTaskMenuItem => ImportantTaskTemplate,

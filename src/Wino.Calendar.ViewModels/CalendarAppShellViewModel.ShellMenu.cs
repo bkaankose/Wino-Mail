@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Threading.Tasks;
@@ -21,7 +21,6 @@ public partial class CalendarAppShellViewModel
     private readonly ShellSectionHeaderMenuItem _calendarsSectionHeader = new(CalendarsSectionTitle);
 
     // These two carry the mode view model so their templates can bind straight to it.
-    private CalendarSyncMenuItem _syncMenuItem;
     private CalendarDatePickerMenuItem _datePickerMenuItem;
     private readonly Dictionary<GroupedAccountCalendarViewModel, AccountCalendarGroupMenuItem> _accountCalendarMenuItems = [];
 
@@ -49,10 +48,6 @@ public partial class CalendarAppShellViewModel
 
     private void BuildShellMenu()
     {
-        _syncMenuItem = new CalendarSyncMenuItem(this)
-        {
-            IsEnabled = CanSynchronizeCalendars
-        };
         _datePickerMenuItem = new CalendarDatePickerMenuItem(this);
 
         ShellMenu = new ShellMenu
@@ -120,8 +115,7 @@ public partial class CalendarAppShellViewModel
         var groups = AccountCalendarStateService.GroupedAccountCalendars;
         var desired = new List<IMenuItem>(groups.Count + 4)
         {
-            _newEventMenuItem,
-            _syncMenuItem
+            _newEventMenuItem
         };
 
         if (_isPaneCompact)

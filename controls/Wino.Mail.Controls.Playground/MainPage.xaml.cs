@@ -1,4 +1,4 @@
-using Microsoft.UI.Xaml.Controls;
+﻿using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.Controls.Playground.Pages;
 
 namespace Wino.Mail.Controls.Playground;
@@ -22,6 +22,7 @@ public sealed partial class MainPage : Page
             "searchBar" => typeof(SearchBarPage),
             "intelligenceHeader" => typeof(IntelligenceHeaderPage),
             "intelligenceProgress" => typeof(IntelligenceProgressPage),
+            "synchronizationButton" => typeof(SynchronizationButtonPage),
             _ => typeof(AccountIconPage),
         };
 

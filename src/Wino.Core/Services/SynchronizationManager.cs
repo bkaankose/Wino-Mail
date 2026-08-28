@@ -920,6 +920,18 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                     await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
                 }
             }
+            else if (result.CompletedState == SynchronizationCompletedState.Success &&
+                     options.Type != TaskSynchronizationType.ExecuteRequests &&
+                     synchronizer.Account.TaskIntegrationSource == AccountIntegrationSource.Provider)
+            {
+                synchronizer.Account.IsTaskReauthorizationRequired = false;
+                var persistedAccount = await _accountService.GetAccountAsync(options.AccountId).ConfigureAwait(false);
+                if (persistedAccount?.IsTaskReauthorizationRequired == true)
+                {
+                    persistedAccount.IsTaskReauthorizationRequired = false;
+                    await _accountService.UpdateAccountAsync(persistedAccount).ConfigureAwait(false);
+                }
+            }
             return result;
         }
         catch (AuthenticationAttentionException ex)

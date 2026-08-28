@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -18,7 +18,6 @@ namespace Wino.Mail.ViewModels;
 public partial class ContactsPageViewModel
 {
     private readonly NewContactMenuItem _newContactMenuItem = new();
-    private readonly ContactsSyncMenuItem _contactsSyncMenuItem = new();
     private readonly NewAddressListMenuItem _newAddressListMenuItem = new();
     private readonly Dictionary<ContactFilterGroup, ShellSectionHeaderMenuItem> _sectionHeaders = [];
 
@@ -121,8 +120,6 @@ public partial class ContactsPageViewModel
         {
             case NewContactMenuItem:
                 return AddContactAsync();
-            case ContactsSyncMenuItem:
-                return RefreshContactsCommand.ExecuteAsync(null);
             case NewAddressListMenuItem:
                 return CreateListCommand.ExecuteAsync(null);
             case ContactFilterViewModel filter:
@@ -174,7 +171,6 @@ public partial class ContactsPageViewModel
         var desired = new List<IMenuItem>(FilterGroups.Sum(group => group.Count) + FilterGroups.Count + 3)
         {
             _newContactMenuItem,
-            _contactsSyncMenuItem,
             _newAddressListMenuItem
         };
 
@@ -274,7 +270,6 @@ public partial class ContactsPageViewModel
         _newAddressListMenuItem.IsEnabled = _isMenuInteractionEnabled;
 
         // A refresh already in flight must not be re-entered from the pane.
-        _contactsSyncMenuItem.IsEnabled = _isMenuInteractionEnabled && !IsRefreshing;
 
         foreach (var filter in FilterGroups.SelectMany(group => group))
         {

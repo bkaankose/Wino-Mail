@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <winuiex:WindowEx
     x:Class="Wino.Mail.WinUI.ShellWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -13,6 +13,7 @@
     xmlns:searchControls="using:Wino.Mail.Controls.SearchBar"
     xmlns:searchCore="using:Wino.Mail.Controls.Core.SearchBar"
     xmlns:searchModels="using:Wino.Mail.WinUI.Models"
+    xmlns:syncButton="using:Wino.Mail.Controls.SynchronizationButton"
     xmlns:winuiex="using:WinUIEx"
     Title="ShellWindow"
     mc:Ignorable="d">
@@ -61,7 +62,6 @@
         <Grid Grid.RowSpan="2" Background="{ThemeResource WinoApplicationBackgroundColor}" />
         <TitleBar
             x:Name="ShellTitleBar"
-            Title="{x:Bind StatePersistanceService.AppModeTitle, Mode=OneTime}"
             Margin="-2"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
@@ -69,8 +69,53 @@
             Background="{ThemeResource AppBarBackgroundColor}"
             IsPaneToggleButtonVisible="True"
             IsTabStop="False"
-            PaneToggleRequested="PaneButtonClicked"
-            Subtitle="{x:Bind StatePersistanceService.CoreWindowTitle, Mode=OneTime}">
+            PaneToggleRequested="PaneButtonClicked">
+            <!--
+                One synchronization button for every mode, plus the title and subtitle. The
+                TitleBar's own Title/Subtitle are left unset and rendered here instead: that is
+                what lets a running synchronization fade them out without collapsing their
+                columns, which would slide the search box out of the middle of the window.
+                
+                The button itself keeps a fixed 36x36 footprint and overhangs its pill to the
+                right, so nothing in the title bar reflows while it is expanded either.
+            -->
+            <TitleBar.LeftHeader>
+                <Grid VerticalAlignment="Center">
+                    <StackPanel
+                        x:Name="ShellTitleHost"
+                        Margin="40,0,0,0"
+                        VerticalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <TextBlock
+                            x:Name="ShellTitleText"
+                            MinWidth="{ThemeResource TitleBarTitleMinWidth}"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="NoWrap" />
+                        <TextBlock
+                            x:Name="ShellSubtitleText"
+                            MinWidth="{ThemeResource TitleBarSubtitleMinWidth}"
+                            Margin="{ThemeResource TitleBarSubtitleMargin}"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource TitleBarSubtitleForegroundBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="NoWrap" />
+                    </StackPanel>
+                    <syncButton:WinoSynchronizationButton
+                        x:Name="ShellSynchronizationButton"
+                        Margin="-2,0,0,0"
+                        HorizontalAlignment="Left"
+                        AutomationProperties.AutomationId="ShellSynchronizationButton"
+                        Canvas.ZIndex="1"
+                        Click="ShellSynchronizationButtonClicked"
+                        Visibility="Collapsed" />
+                </Grid>
+            </TitleBar.LeftHeader>
             <!--<TitleBar.Resources>
                 <HorizontalAlignment x:Key="TitleBarContentHorizontalAlignment">Stretch</HorizontalAlignment>
                 <VerticalAlignment x:Key="TitleBarContentVerticalAlignment">Stretch</VerticalAlignment>

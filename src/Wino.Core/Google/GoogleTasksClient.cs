@@ -109,7 +109,7 @@ public sealed class GoogleTasksClient
     private async Task<T> GetAsync<T>(string uri, JsonTypeInfo<T> typeInfo, CancellationToken cancellationToken)
     {
         using var response = await _httpClient.GetAsync(uri, cancellationToken).ConfigureAwait(false);
-        await EnsureSuccessAsync(response).ConfigureAwait(false);
+        await GoogleApiErrorParser.ThrowIfUnsuccessfulAsync(response, cancellationToken).ConfigureAwait(false);
         return await response.Content.ReadFromJsonAsync(typeInfo, cancellationToken).ConfigureAwait(false);
     }
 
@@ -124,7 +124,7 @@ public sealed class GoogleTasksClient
         }
 
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        await EnsureSuccessAsync(response).ConfigureAwait(false);
+        await GoogleApiErrorParser.ThrowIfUnsuccessfulAsync(response, cancellationToken).ConfigureAwait(false);
         if (typeof(T) == typeof(object) || response.Content.Headers.ContentLength == 0)
             return default;
         return await response.Content.ReadFromJsonAsync(responseTypeInfo, cancellationToken).ConfigureAwait(false);
@@ -138,13 +138,6 @@ public sealed class GoogleTasksClient
             _ => throw new ArgumentException($"Unsupported Google Tasks request body: {body.GetType().Name}", nameof(body))
         };
 
-    private static async Task EnsureSuccessAsync(HttpResponseMessage response)
-    {
-        if (response.IsSuccessStatusCode)
-            return;
-        var body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-        throw new HttpRequestException($"Google Tasks returned {(int)response.StatusCode} ({response.ReasonPhrase}): {body}", null, response.StatusCode);
-    }
 }
 
 public sealed class GoogleTaskListPage

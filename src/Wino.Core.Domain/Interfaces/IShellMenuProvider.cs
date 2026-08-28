@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -50,4 +51,48 @@ public interface IShellMenuProvider : INotifyPropertyChanged
     /// subscriptions and releases anything the navigation view could otherwise keep alive.
     /// </summary>
     void ReleaseShellMenu();
+
+    #region Synchronization
+
+    // The shell title bar hosts a single synchronization button for every mode. It reads
+    // the members below off whichever provider is active and knows nothing about what is
+    // being synchronized. Modes that synchronize something override them and raise
+    // PropertyChanged for the ones that move; the defaults keep the button away from the
+    // modes that have nothing to synchronize.
+
+    /// <summary>
+    /// Whether this mode has anything to synchronize at all. False collapses the title bar
+    /// button entirely, which is how Settings opts out.
+    /// </summary>
+    bool IsSynchronizationSupported => false;
+
+    /// <summary>
+    /// Whether a synchronization can be started right now. False keeps the button visible
+    /// but disabled, so a mode never has to hide it to say "not at the moment".
+    /// </summary>
+    bool CanSynchronize => false;
+
+    /// <summary>
+    /// Live progress for whatever this mode considers selected, read straight out of the
+    /// synchronization manager rather than mirrored into the provider.
+    /// </summary>
+    ShellSynchronizationState SynchronizationState => ShellSynchronizationState.Idle;
+
+    /// <summary>
+    /// Label shown next to the ring while synchronizing, e.g. "Syncing Inbox". The mode
+    /// owns the wording; the button never composes it.
+    /// </summary>
+    string SynchronizationDescription => string.Empty;
+
+    /// <summary>
+    /// Tooltip shown while the button is collapsed, e.g. "Sync calendars".
+    /// </summary>
+    string SynchronizationToolTip => string.Empty;
+
+    /// <summary>
+    /// Starts this mode's own synchronization.
+    /// </summary>
+    Task SynchronizeAsync() => Task.CompletedTask;
+
+    #endregion
 }

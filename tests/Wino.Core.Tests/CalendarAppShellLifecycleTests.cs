@@ -47,7 +47,9 @@ public sealed class CalendarAppShellLifecycleTests
 
         viewModel.ShellMenu.Should().NotBeNull();
         viewModel.ShellMenu.Should().NotBeSameAs(firstMenu);
-        viewModel.ShellMenu!.Items.Should().HaveCount(3);
+        // New event and the date picker. Synchronization moved to the shell title bar, so
+        // the pane no longer carries an entry for it.
+        viewModel.ShellMenu!.Items.Should().HaveCount(2);
         accountCalendarState.VerifySet(service => service.Dispatcher = secondDispatcher, Times.Once);
     }
 

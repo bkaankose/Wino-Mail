@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -16,8 +16,6 @@ public sealed class NewTaskListMenuItem : MenuItemBase
 {
     public Func<Task> NewGroupRequested { get; set; }
 }
-
-public sealed class TaskSyncMenuItem : MenuItemBase { }
 
 public abstract partial class TaskSmartViewMenuItem : MenuItemBase<TaskViewKind>
 {

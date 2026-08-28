@@ -129,6 +129,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
         IReadOnlyList<ITaskActionRequest> requests,
         CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+    protected virtual bool ShouldReconcileTaskRequests(IReadOnlyList<ITaskActionRequest> requests) => true;
+
     protected virtual Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(
         TaskSynchronizationOptions options,
         CancellationToken cancellationToken = default) => Task.FromResult(TaskSynchronizationResult.Empty);
@@ -320,6 +322,12 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 var requestResult = firstFailure is null
                     ? TaskSynchronizationResult.Empty.MergeIssues(GetCapturedSynchronizationIssues())
                     : TaskSynchronizationResult.Failed(firstFailure).MergeIssues(GetCapturedSynchronizationIssues());
+
+                if (!ShouldReconcileTaskRequests(requests))
+                {
+                    Messenger.Send(new TaskSynchronizationCompleted(Account.Id, requestResult.CompletedState));
+                    return requestResult;
+                }
 
                 // Provider mutations are followed by a reconciliation pass. This commits
                 // remote identities/ETags and makes provider-authoritative conflict handling

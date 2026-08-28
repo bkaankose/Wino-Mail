@@ -9,4 +9,5 @@ public interface IAuthenticatorConfig
     string GmailAuthenticatorClientId { get; }
     string[] GetGmailScopes(ProviderAuthorizationRequest request);
     string GmailTokenStoreIdentifier { get; }
+    string GmailTokenStorePath { get; }
 }

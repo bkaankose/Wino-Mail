@@ -148,6 +148,10 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             .Where(account => account.IsContactAccessEnabled)
             .ToDictionary(account => account.Id);
 
+        // The title bar button is bound before this runs, so it has to be told that there
+        // is now something to synchronize.
+        RefreshShellSynchronizationState();
+
         await RefreshCardDavCreationAvailabilityAsync();
         await BuildFiltersAsync();
         await ReloadContactsAsync();

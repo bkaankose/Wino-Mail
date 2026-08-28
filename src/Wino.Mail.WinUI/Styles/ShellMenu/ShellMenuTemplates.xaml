@@ -1,4 +1,4 @@
-<ResourceDictionary
+﻿<ResourceDictionary
     x:Class="Wino.Mail.WinUI.Styles.ShellMenu.ShellMenuTemplates"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -244,7 +244,7 @@
         </controls:AccountNavigationItem>
     </DataTemplate>
 
-<!--  Clickable New Style Account Template  -->
+    <!--  Clickable New Style Account Template  -->
     <DataTemplate x:Key="ClickableAccountMenuTemplate" x:DataType="menu:AccountMenuItem">
         <controls:AccountNavigationItem
             x:Name="AccountItem"
@@ -833,7 +833,7 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-<!--  New event  -->
+    <!--  New event  -->
     <DataTemplate x:Key="CalendarNewEventTemplate" x:DataType="menu:NewCalendarEventMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="50"
@@ -848,23 +848,6 @@
                 VerticalAlignment="Center"
                 Style="{StaticResource BodyStrongTextBlockStyle}"
                 Text="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}" />
-        </coreControls:WinoNavigationViewItem>
-    </DataTemplate>
-
-    <!--  Synchronize calendars  -->
-    <DataTemplate x:Key="CalendarSyncTemplate" x:DataType="menu:CalendarSyncMenuItem">
-        <coreControls:WinoNavigationViewItem
-            Height="50"
-            AutomationProperties.AutomationId="CalendarPaneSyncHost"
-            AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
-            Content="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
-            DataContext="{x:Bind}"
-            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
-            SelectsOnInvoked="False"
-            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}">
-            <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="Sync" />
-            </coreControls:WinoNavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
@@ -976,7 +959,7 @@
         </muxc:NavigationViewItem>
     </DataTemplate>
 
-<!--  New contact  -->
+    <!--  New contact  -->
     <DataTemplate x:Key="NewContactTemplate" x:DataType="menu:NewContactMenuItem">
         <coreControls:WinoNavigationViewItem
             Height="50"
@@ -992,23 +975,6 @@
                 VerticalAlignment="Center"
                 Style="{StaticResource BodyStrongTextBlockStyle}"
                 Text="{x:Bind domain:Translator.ContactsPane_NewContact, Mode=OneTime}" />
-        </coreControls:WinoNavigationViewItem>
-    </DataTemplate>
-
-    <!--  Synchronize contacts  -->
-    <DataTemplate x:Key="ContactsSyncTemplate" x:DataType="menu:ContactsSyncMenuItem">
-        <coreControls:WinoNavigationViewItem
-            Height="50"
-            AutomationProperties.AutomationId="ContactsPaneSyncHost"
-            AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
-            Content="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
-            DataContext="{x:Bind}"
-            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
-            SelectsOnInvoked="False"
-            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}">
-            <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="Sync" />
-            </coreControls:WinoNavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
@@ -1121,7 +1087,7 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-<!--
+    <!--
         The pane's command row. "New list" is the navigation item itself; "New group" rides along
         as an icon button on the right, which is where Microsoft To Do puts it. The button handles
         its own click, so the two actions never collide.
@@ -1158,23 +1124,6 @@
                     <FontIcon FontSize="14" Glyph="&#xE8B7;" />
                 </Button>
             </Grid>
-        </coreControls:WinoNavigationViewItem>
-    </DataTemplate>
-
-    <!--  Synchronize tasks  -->
-    <DataTemplate x:Key="ToDoSyncTemplate" x:DataType="menu:TaskSyncMenuItem">
-        <coreControls:WinoNavigationViewItem
-            Height="50"
-            AutomationProperties.AutomationId="ToDoPaneSyncHost"
-            AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
-            Content="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
-            DataContext="{x:Bind}"
-            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
-            SelectsOnInvoked="False"
-            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}">
-            <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="Sync" />
-            </coreControls:WinoNavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
@@ -1393,11 +1342,11 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-<DataTemplate x:Key="SeperatorTemplate">
+    <DataTemplate x:Key="SeperatorTemplate">
         <muxc:NavigationViewItemSeparator Margin="-20,0" />
     </DataTemplate>
 
-<DataTemplate x:Key="SettingsShellPageItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
+    <DataTemplate x:Key="SettingsShellPageItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
         <coreControls:WinoNavigationViewItem
             AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem3"
             Content="{x:Bind Title}"
@@ -1408,7 +1357,7 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-<DataTemplate x:Key="SettingsShellWinoAccountItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
+    <DataTemplate x:Key="SettingsShellWinoAccountItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
         <coreControls:WinoNavigationViewItem
             AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem4"
             Content="{x:Bind Title}"
@@ -1419,7 +1368,7 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-<DataTemplate x:Key="SettingsShellWinoIntelligenceItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
+    <DataTemplate x:Key="SettingsShellWinoIntelligenceItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
         <coreControls:WinoNavigationViewItem
             AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem6"
             Content="{x:Bind Title}"
@@ -1430,7 +1379,7 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-<DataTemplate x:Key="SettingsShellSectionItemTemplate" x:DataType="menu:SettingsShellSectionMenuItem">
+    <DataTemplate x:Key="SettingsShellSectionItemTemplate" x:DataType="menu:SettingsShellSectionMenuItem">
         <coreControls:WinoNavigationViewItem
             Margin="0,12,0,4"
             HorizontalContentAlignment="Stretch"
@@ -1481,7 +1430,7 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-<DataTemplate x:Key="RatingItemTemplate" x:DataType="menu:RateMenuItem">
+    <DataTemplate x:Key="RatingItemTemplate" x:DataType="menu:RateMenuItem">
         <coreControls:WinoNavigationViewItem
             AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem7"
             Content="{x:Bind domain:Translator.MenuRate}"

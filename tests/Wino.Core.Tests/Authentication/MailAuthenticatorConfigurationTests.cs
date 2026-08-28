@@ -11,6 +11,19 @@ public sealed class MailAuthenticatorConfigurationTests
     private readonly MailAuthenticatorConfiguration _configuration = new();
 
     [Fact]
+    public void GmailTokenStorePath_UsesPublisherSharedFolderWhenAvailable()
+    {
+        var publisherFolder = Path.Combine(Path.GetTempPath(), "WinoShared");
+        var configuration = new MailAuthenticatorConfiguration(new ApplicationConfiguration
+        {
+            PublisherSharedFolderPath = publisherFolder
+        });
+
+        configuration.GmailTokenStorePath.Should().Be(
+            Path.Combine(publisherFolder, configuration.GmailTokenStoreIdentifier));
+    }
+
+    [Fact]
     public void GetGmailScopes_BaseMail_DoesNotRequestMailFilterPermission()
     {
         var scopes = _configuration.GetGmailScopes(new ProviderAuthorizationRequest(true, false, []));

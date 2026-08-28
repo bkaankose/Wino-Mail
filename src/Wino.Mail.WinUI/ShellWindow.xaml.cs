@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
@@ -9,6 +9,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Hosting;
 using Windows.UI;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -40,7 +41,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<WinoAccountProfileUpdatedMessage>,
     IRecipient<WinoAccountProfileDeletedMessage>,
     IRecipient<DailyBriefingStateChanged>,
-    IRecipient<WinoIntelligenceAccessChanged>
+    IRecipient<WinoIntelligenceAccessChanged>,
+    IRecipient<AccountSynchronizationProgressUpdatedMessage>
 {
     private const int AutomaticPlacementRestorationBehaviorValue = 1;
     private static readonly Guid ShellWindowPersistedStateId = new("6BEB6E1D-BEAF-4CE7-9967-13B2A4F46187");
@@ -56,6 +58,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private bool _calendarReminderServerStartAttempted;
     private ITitleBarSearchHost? _activeTitleBarSearchHost;
+    private IShellMenuProvider? _activeSynchronizationProvider;
+    private float? _shellTitleOpacity;
     private bool _isBackButtonVisibilityReady;
     private bool _isSynchronizingTitleBarSearch;
     private bool _hasDailyBriefingAccess;
@@ -80,6 +84,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         UpdateShellTitles();
         UpdateWinoAccountButtonVisibility();
         ApplyTitleBarSearchHost();
+        ApplyShellSynchronizationProvider();
         _ = RefreshDailyBriefingStateAsync();
 
         // Handle window closing event for terminate vs background/tray behavior.
@@ -204,6 +209,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         _isBackButtonVisibilityReady = true;
         ApplyTitleBarSearchHost();
+        ApplyShellSynchronizationProvider();
         RefreshBackButtonVisibility();
     }
 
@@ -234,6 +240,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         DispatcherQueue.TryEnqueue(() =>
         {
             ApplyTitleBarSearchHost();
+            ApplyShellSynchronizationProvider();
             RefreshBackButtonVisibility();
         });
     }
@@ -606,8 +613,10 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void UpdateShellTitles()
     {
-        ShellTitleBar.Title = StatePersistanceService.AppModeTitle;
-        ShellTitleBar.Subtitle = StatePersistanceService.CoreWindowTitle;
+        // The TitleBar's own Title/Subtitle stay unset. Rendering them ourselves is what
+        // lets a running synchronization fade them without collapsing their columns.
+        ShellTitleText.Text = StatePersistanceService.AppModeTitle;
+        ShellSubtitleText.Text = StatePersistanceService.CoreWindowTitle;
         Title = string.IsNullOrWhiteSpace(StatePersistanceService.CoreWindowTitle)
             ? StatePersistanceService.AppModeTitle
             : $"{StatePersistanceService.AppModeTitle} - {StatePersistanceService.CoreWindowTitle}";
@@ -638,6 +647,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         }
 
         DetachTitleBarSearchHost();
+        DetachShellSynchronizationProvider();
         CloseHostedPopoutWindows();
 
         if (MainShellFrame.Content is WinoAppShell shellPage)
@@ -667,6 +677,165 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         TitleBarSearchBox.DateOptionsSource = null;
         TitleBarSearchBox.SenderSuggestions = null;
     }
+
+    #region Title bar synchronization
+
+    /// <summary>
+    /// Rebinds the title bar's synchronization button to whichever mode is publishing a
+    /// menu. The window never learns what any mode synchronizes; it only forwards the
+    /// surface <see cref="IShellMenuProvider"/> exposes.
+    /// </summary>
+    private void ApplyShellSynchronizationProvider()
+    {
+        var provider = ResolveActiveShellMenuProvider();
+
+        if (!ReferenceEquals(_activeSynchronizationProvider, provider))
+        {
+            if (_activeSynchronizationProvider != null)
+            {
+                _activeSynchronizationProvider.PropertyChanged -= ShellSynchronizationProviderPropertyChanged;
+            }
+
+            _activeSynchronizationProvider = provider;
+
+            if (_activeSynchronizationProvider != null)
+            {
+                _activeSynchronizationProvider.PropertyChanged += ShellSynchronizationProviderPropertyChanged;
+            }
+        }
+
+        RefreshShellSynchronizationButton();
+    }
+
+    private IShellMenuProvider? ResolveActiveShellMenuProvider()
+        => MainShellFrame.Content is WinoAppShell shellPage ? shellPage.CurrentShellMenuProvider : null;
+
+    private void ShellSynchronizationProviderPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (!ReferenceEquals(sender, _activeSynchronizationProvider))
+            return;
+
+        if (e.PropertyName is not (nameof(IShellMenuProvider.IsSynchronizationSupported)
+            or nameof(IShellMenuProvider.CanSynchronize)
+            or nameof(IShellMenuProvider.SynchronizationState)
+            or nameof(IShellMenuProvider.SynchronizationDescription)
+            or nameof(IShellMenuProvider.SynchronizationToolTip)))
+        {
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(RefreshShellSynchronizationButton);
+    }
+
+    /// <summary>
+    /// The provider computes its state from the synchronization manager on every read, so
+    /// progress updates only have to nudge the button rather than carry a payload.
+    /// </summary>
+    public void Receive(AccountSynchronizationProgressUpdatedMessage message)
+        => DispatcherQueue.TryEnqueue(RefreshShellSynchronizationButton);
+
+    private void RefreshShellSynchronizationButton()
+    {
+        var provider = _activeSynchronizationProvider;
+
+        if (provider?.IsSynchronizationSupported != true)
+        {
+            ShellSynchronizationButton.Visibility = Visibility.Collapsed;
+            ShellSynchronizationButton.IsSynchronizing = false;
+
+            // Switching to a mode without synchronization while the pill was out must not
+            // leave the title faded behind it.
+            SetShellTitleFaded(false);
+
+            return;
+        }
+
+        var state = provider.SynchronizationState;
+
+        ShellSynchronizationButton.Visibility = Visibility.Visible;
+        ShellSynchronizationButton.IsSynchronizing = state.IsSynchronizing;
+        ShellSynchronizationButton.IsIndeterminate = state.IsIndeterminate;
+        ShellSynchronizationButton.Progress = state.ProgressPercentage;
+        ShellSynchronizationButton.Description = provider.SynchronizationDescription ?? string.Empty;
+        ShellSynchronizationButton.IdleToolTip = provider.SynchronizationToolTip ?? string.Empty;
+
+        // A running synchronization leaves the button looking enabled - the click handler
+        // is what refuses to restart it - because the disabled visual state dims the glyph,
+        // and dimming it would wash out the pill the state is being reported in.
+        ShellSynchronizationButton.IsEnabled = provider.CanSynchronize || state.IsSynchronizing;
+
+        // The expanded pill overhangs the title, so the title steps aside while it is out.
+        SetShellTitleFaded(state.IsSynchronizing);
+
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(ShellSynchronizationButton,
+            state.IsSynchronizing
+                ? provider.SynchronizationDescription ?? string.Empty
+                : provider.SynchronizationToolTip ?? string.Empty);
+    }
+
+    private async void ShellSynchronizationButtonClicked(object sender, RoutedEventArgs e)
+    {
+        var provider = _activeSynchronizationProvider;
+
+        if (provider?.IsSynchronizationSupported != true || !provider.CanSynchronize)
+            return;
+
+        try
+        {
+            await provider.SynchronizeAsync();
+        }
+        catch (Exception exception)
+        {
+            // Failures are reported by the synchronizers through the shell info bar. The
+            // button only has to stop claiming that something is running.
+            Serilog.Log.Error(exception, "Title bar synchronization request failed.");
+        }
+        finally
+        {
+            RefreshShellSynchronizationButton();
+        }
+    }
+
+    /// <summary>
+    /// Fades the title and subtitle while the synchronization pill is expanded over them.
+    /// Opacity, not visibility: their layout has to stay put or the search box slides out of
+    /// the middle of the window.
+    /// </summary>
+    private void SetShellTitleFaded(bool isFaded)
+    {
+        var targetOpacity = isFaded ? 0f : 1f;
+
+        if (_shellTitleOpacity is not null && Math.Abs(_shellTitleOpacity.Value - targetOpacity) < 0.001f)
+            return;
+
+        _shellTitleOpacity = targetOpacity;
+
+        var visual = ElementCompositionPreview.GetElementVisual(ShellTitleHost);
+        var compositor = visual.Compositor;
+
+        var animation = compositor.CreateScalarKeyFrameAnimation();
+        animation.InsertKeyFrame(1f, targetOpacity);
+        animation.Duration = TimeSpan.FromMilliseconds(isFaded ? 140 : 220);
+
+        // Coming back has to wait for the pill to finish collapsing over it.
+        if (!isFaded)
+        {
+            animation.DelayTime = TimeSpan.FromMilliseconds(90);
+        }
+
+        visual.StartAnimation("Opacity", animation);
+    }
+
+    private void DetachShellSynchronizationProvider()
+    {
+        if (_activeSynchronizationProvider != null)
+        {
+            _activeSynchronizationProvider.PropertyChanged -= ShellSynchronizationProviderPropertyChanged;
+            _activeSynchronizationProvider = null;
+        }
+    }
+
+    #endregion
 
     private static void CloseHostedPopoutWindows()
     {
@@ -728,6 +897,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Register<WinoAccountProfileDeletedMessage>(this);
         WeakReferenceMessenger.Default.Register<DailyBriefingStateChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Register<AccountSynchronizationProgressUpdatedMessage>(this);
     }
 
     private void UnregisterRecipients()
@@ -739,6 +909,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<WinoAccountProfileDeletedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<DailyBriefingStateChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
     }
 
     private void ShowInfoBarMessage(InfoBarMessageRequested message)

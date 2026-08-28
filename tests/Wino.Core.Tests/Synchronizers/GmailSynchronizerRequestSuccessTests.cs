@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using FluentAssertions;
+using Google;
 using global::Google.Apis.Gmail.v1.Data;
 using Moq;
 using Wino.Core.Domain.Entities.Calendar;
@@ -19,6 +20,7 @@ using Wino.Core.Google;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Requests.Tasks;
 using Wino.Core.Synchronizers.Mail;
 using Xunit;
 
@@ -92,6 +94,62 @@ public sealed class GmailSynchronizerRequestSuccessTests
         changeProcessor.Verify(
             x => x.IsMailExistsInFolderAsync(It.IsAny<string>(), It.IsAny<Guid>()),
             Times.Never);
+    }
+
+    [Fact]
+    public async Task SynchronizeTasksAsync_ApiDisabledForbidden_DoesNotRequestReauthorization()
+    {
+        var account = CreateTaskAccount();
+        var taskService = new Mock<ITaskService>(MockBehavior.Strict);
+        taskService.Setup(x => x.GetTaskListsAsync(account.Id)).ReturnsAsync([]);
+        var synchronizer = CreateTaskSynchronizer(account, taskService.Object, new TasksApiDisabledHandler());
+
+        var result = await synchronizer.SynchronizeTasksAsync(new TaskSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = TaskSynchronizationType.Delta
+        });
+
+        result.Exception.Should().BeOfType<GoogleApiException>();
+        result.Exception!.Message.Should().Contain("has not been used");
+        account.IsTaskReauthorizationRequired.Should().BeFalse();
+        taskService.Verify(
+            x => x.MarkTaskListsReadOnlyAsync(It.IsAny<Guid>(), It.IsAny<TaskSourceKind>(), It.IsAny<bool>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task SynchronizeTasksAsync_LocalFallbackRequest_DoesNotCallGoogleOrReconcileProvider()
+    {
+        var account = CreateTaskAccount();
+        account.IsTaskReauthorizationRequired = true;
+        var list = new AccountTaskList
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = account.Id,
+            SourceKind = TaskSourceKind.Local,
+            Title = "Local tasks"
+        };
+        var taskService = new Mock<ITaskService>(MockBehavior.Strict);
+        taskService
+            .Setup(x => x.CompleteListMutationAsync(list.Id, It.Is<AccountTaskList>(candidate => candidate.SourceKind == TaskSourceKind.Local), false))
+            .Returns(Task.CompletedTask);
+        var handler = new UnexpectedRequestHandler();
+        var synchronizer = CreateTaskSynchronizer(account, taskService.Object, handler);
+        synchronizer.QueueRequest(new TaskActionRequest(
+            account.Id,
+            TaskSynchronizerOperation.CreateList,
+            List: list));
+
+        var result = await synchronizer.SynchronizeTasksAsync(new TaskSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = TaskSynchronizationType.ExecuteRequests
+        });
+
+        result.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+        handler.RequestCount.Should().Be(0);
+        taskService.VerifyAll();
     }
 
     [Fact]
@@ -411,6 +469,27 @@ public sealed class GmailSynchronizerRequestSuccessTests
             messageHandler);
     }
 
+    private static MailAccount CreateTaskAccount() => new()
+    {
+        Id = Guid.NewGuid(),
+        Name = "Gmail",
+        Address = "user@example.com",
+        ProviderType = MailProviderType.Gmail,
+        TaskIntegrationSource = AccountIntegrationSource.Provider,
+        IsTaskAccessGranted = true
+    };
+
+    private static GmailSynchronizer CreateTaskSynchronizer(
+        MailAccount account,
+        ITaskService taskService,
+        HttpMessageHandler messageHandler)
+        => new(
+            account,
+            Mock.Of<IGmailChangeProcessor>(),
+            Mock.Of<IGmailSynchronizerErrorHandlerFactory>(),
+            messageHandler,
+            taskService: taskService);
+
     private static MailCopy CreateMailCopy(string id) =>
         new()
         {
@@ -527,6 +606,33 @@ public sealed class GmailSynchronizerRequestSuccessTests
                     {"items":[],"nextSyncToken":"fresh-token"}
                     """)
             });
+        }
+    }
+
+    private sealed class TasksApiDisabledHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+            => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden)
+            {
+                Content = new StringContent(
+                    """
+                    {"error":{"code":403,"message":"Google Tasks API has not been used in project 973025879644 before or it is disabled.","status":"PERMISSION_DENIED","errors":[{"reason":"accessNotConfigured"}]}}
+                    """)
+            });
+    }
+
+    private sealed class UnexpectedRequestHandler : HttpMessageHandler
+    {
+        public int RequestCount { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestCount++;
+            throw new InvalidOperationException("The provider API must not be called for a local fallback request.");
         }
     }
 }

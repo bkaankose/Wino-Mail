@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Globalization;
@@ -264,7 +264,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         AccountCalendarStateService.ClearGroupedAccountCalendars();
 
         _accountCalendarMenuItems.Clear();
-        _syncMenuItem = null;
         _datePickerMenuItem = null;
         ShellMenu = null;
 
@@ -292,12 +291,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         _ = ExecuteUIThread(() =>
         {
             OnPropertyChanged(nameof(CanSynchronizeCalendars));
-            if (_syncMenuItem != null)
-            {
-                _syncMenuItem.IsEnabled = CanSynchronizeCalendars;
-            }
-
             SyncCommand.NotifyCanExecuteChanged();
+            RefreshShellSynchronizationState();
         });
     }
 
@@ -377,6 +372,10 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             await Dispatcher.ExecuteOnUIThread(() =>
             {
                 AccountCalendarStateService.AddGroupedAccountCalendar(groupedAccountCalendarViewModel);
+
+                // The title bar button is bound before this runs, so it has to be told that
+                // there is now something to synchronize.
+                RefreshShellSynchronizationState();
             });
         }
     }
@@ -481,12 +480,6 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         {
             case NewMailMenuItem:
                 await NewEventAsync().ConfigureAwait(false);
-                break;
-            case CalendarSyncMenuItem:
-                if (SyncCommand.CanExecute(null))
-                {
-                    SyncCommand.Execute(null);
-                }
                 break;
             case SettingsItem:
                 NavigationService.Navigate(WinoPage.SettingsPage);

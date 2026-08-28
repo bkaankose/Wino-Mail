@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -180,7 +180,17 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         }
 
         ViewModel.SetShellMenu(provider);
+
+        // The title bar's synchronization button belongs to whichever mode is publishing a
+        // menu, so it has to be rebound whenever that changes.
+        NotifyTitleBarContentChanged();
     }
+
+    /// <summary>
+    /// The mode currently publishing a menu. Read by the shell window to bind the title
+    /// bar's synchronization button.
+    /// </summary>
+    public IShellMenuProvider? CurrentShellMenuProvider => ViewModel.CurrentProvider;
 
     private async void NavigationViewItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {

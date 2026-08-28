@@ -221,7 +221,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     protected override async Task ExecuteTaskRequestsInternalAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken = default)
     {
-        if (Account.TaskIntegrationSource == AccountIntegrationSource.Local)
+        if (Account.TaskIntegrationSource == AccountIntegrationSource.Local || requests.All(IsLocalTaskRequest))
         {
             await _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken).ConfigureAwait(false);
             return;
@@ -240,6 +240,16 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             throw new AuthenticationAttentionException(Account);
         }
     }
+
+    private static bool IsLocalTaskRequest(ITaskActionRequest request)
+        => request is TaskActionRequest taskRequest &&
+           (taskRequest.List?.SourceKind ??
+            taskRequest.Task?.SourceKind ??
+            taskRequest.Step?.SourceKind ??
+            taskRequest.Group?.SourceKind) == TaskSourceKind.Local;
+
+    protected override bool ShouldReconcileTaskRequests(IReadOnlyList<ITaskActionRequest> requests)
+        => !requests.All(IsLocalTaskRequest);
 
     protected override async Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
     {

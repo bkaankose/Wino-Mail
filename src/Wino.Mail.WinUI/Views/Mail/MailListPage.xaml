@@ -1,4 +1,4 @@
-<abstract:MailListPageAbstract
+﻿<abstract:MailListPageAbstract
     x:Class="Wino.Views.Mail.MailListPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -1725,31 +1725,6 @@
                             ToolTipService.ToolTip="{x:Bind domain:Translator.FolderOperation_Empty}"
                             Visibility="{x:Bind ViewModel.IsEmptyFolderButtonVisible, Mode=OneWay}">
                             <coreControls:WinoFontIcon FontSize="18" Icon="EmptyFolder" />
-                        </Button>
-                        <Button
-                            Width="36"
-                            Height="36"
-                            AutomationProperties.AutomationId="XBindDomainTranslatorButtonsSync"
-                            AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Sync}"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Command="{x:Bind ViewModel.SyncFolderCommand}"
-                            IsEnabled="{x:Bind ViewModel.CanSynchronize, Mode=OneWay}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Sync}"
-                            Visibility="{x:Bind ViewModel.IsSyncButtonVisible, Mode=OneWay}">
-                            <Grid>
-                                <coreControls:WinoFontIcon
-                                    x:Name="SyncFolderIcon"
-                                    x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsAccountSynchronizerInSynchronization), Mode=OneWay}"
-                                    FontSize="14"
-                                    Icon="Sync" />
-                                <ProgressRing
-                                    x:Name="SyncFolderProgressRing"
-                                    Width="16"
-                                    Height="16"
-                                    x:Load="{x:Bind ViewModel.IsAccountSynchronizerInSynchronization, Mode=OneWay}"
-                                    IsActive="{x:Bind ViewModel.IsAccountSynchronizerInSynchronization, Mode=OneWay}" />
-                            </Grid>
                         </Button>
                         <ToggleButton
                             x:Name="SelectionModeToggle"

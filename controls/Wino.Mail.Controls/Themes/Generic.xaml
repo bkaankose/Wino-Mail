@@ -1,10 +1,12 @@
 ﻿<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:intelligence="using:Wino.Mail.Controls.IntelligenceHeader"
     xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
     xmlns:local="using:Wino.Mail.Controls.SearchBar"
     xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
+    xmlns:syncButton="using:Wino.Mail.Controls.SynchronizationButton"
     xmlns:winoPrimitives="using:Wino.Mail.Controls.Primitives">
 
     <ResourceDictionary.MergedDictionaries>
@@ -28,6 +30,12 @@
             <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
+            <!--  The active pill is the system accent at low alpha so a user's Windows accent carries through.  -->
+            <SolidColorBrush
+                x:Key="WinoSynchronizationButtonActiveBackgroundBrush"
+                Opacity="0.10"
+                Color="{ThemeResource SystemAccentColor}" />
+            <StaticResource x:Key="WinoSynchronizationButtonActiveForegroundBrush" ResourceKey="AccentTextFillColorPrimaryBrush" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <StaticResource x:Key="WinoSearchBarPopupBackgroundBrush" ResourceKey="AcrylicInAppFillColorDefaultBrush" />
@@ -44,6 +52,12 @@
             <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
+            <!--  The active pill is the system accent at low alpha so a user's Windows accent carries through.  -->
+            <SolidColorBrush
+                x:Key="WinoSynchronizationButtonActiveBackgroundBrush"
+                Opacity="0.18"
+                Color="{ThemeResource SystemAccentColor}" />
+            <StaticResource x:Key="WinoSynchronizationButtonActiveForegroundBrush" ResourceKey="AccentTextFillColorPrimaryBrush" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <StaticResource x:Key="WinoIntelligenceIconBrush" ResourceKey="SystemColorWindowTextColorBrush" />
@@ -61,6 +75,8 @@
             <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="SystemColorGrayTextColorBrush" />
             <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
             <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="SystemColorButtonTextColorBrush" />
+            <StaticResource x:Key="WinoSynchronizationButtonActiveBackgroundBrush" ResourceKey="SystemColorHighlightColorBrush" />
+            <StaticResource x:Key="WinoSynchronizationButtonActiveForegroundBrush" ResourceKey="SystemColorHighlightTextColorBrush" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
@@ -1445,5 +1461,153 @@
             </Setter.Value>
         </Setter>
     </Style>
-</ResourceDictionary>
 
+    <!--
+        Title bar synchronization button. Idle it is a plain 32x32 icon button carrying the
+        WinoIcons Sync glyph; while synchronizing it swaps that glyph for a ProgressRing and
+        expands to the right to show its description. Nothing here names what is being
+        synchronized - the host supplies every string.
+    -->
+    <Style TargetType="syncButton:WinoSynchronizationButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Width" Value="36" />
+        <Setter Property="Height" Value="36" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="syncButton:WinoSynchronizationButton">
+                    <!--
+                        The button keeps a fixed 36x36 layout footprint, matching the pane toggle
+                        next to it, so growing the pill never reflows the title bar. Everything
+                        that grows lives in the Canvas below, which measures its child with
+                        unbounded width and does not clip it, so the pill overhangs to the right
+                        without taking any layout space.
+                    -->
+                    <!--
+                        No CornerRadius here on purpose: a rounded panel clips its children,
+                        which would cut the overhanging pill back to the 36px footprint. The
+                        radius lives on the hover layer and the pill instead.
+                    -->
+                    <Grid x:Name="LayoutRoot" Background="{TemplateBinding Background}">
+                        <Canvas>
+                            <!--
+                                Sized from the content rather than wrapping it, so the icon stays
+                                visible while the pill itself is collapsed. The width is applied in
+                                code: ActualWidth does not raise change notifications, so a binding
+                                to it would freeze at the collapsed size. Its visibility is what the
+                                implicit show/hide animations run on.
+                            -->
+                            <Border
+                                x:Name="PART_PillBackground"
+                                Canvas.Left="0"
+                                Canvas.Top="0"
+                                Width="36"
+                                Height="36"
+                                Background="{ThemeResource WinoSynchronizationButtonActiveBackgroundBrush}"
+                                BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                Visibility="Collapsed" />
+
+                            <Grid
+                                x:Name="HoverLayer"
+                                Canvas.Left="0"
+                                Canvas.Top="0"
+                                Width="36"
+                                Height="36"
+                                CornerRadius="{TemplateBinding CornerRadius}" />
+
+                            <StackPanel
+                                x:Name="PART_OverlayContent"
+                                Canvas.Left="0"
+                                Canvas.Top="0"
+                                Height="36"
+                                Orientation="Horizontal">
+                                <Grid Width="36" Height="36">
+                                    <!--
+                                        The controls library packages its own copy of WinoIcons.ttf, so the
+                                        Sync glyph resolves here without a reference back to the app.
+                                    -->
+                                    <accountIcon:WinoFontIcon
+                                        x:Name="PART_SyncIcon"
+                                        FontSize="14"
+                                        Foreground="{TemplateBinding Foreground}"
+                                        Glyph="&#xE895;" />
+                                    <ProgressRing
+                                        x:Name="PART_ProgressRing"
+                                        Width="16"
+                                        Height="16"
+                                        Foreground="{ThemeResource WinoSynchronizationButtonActiveForegroundBrush}"
+                                        IsActive="False"
+                                        IsIndeterminate="{Binding IsIndeterminate, RelativeSource={RelativeSource TemplatedParent}}"
+                                        Maximum="100"
+                                        Minimum="0"
+                                        Visibility="Collapsed"
+                                        Value="{Binding Progress, RelativeSource={RelativeSource TemplatedParent}}" />
+                                </Grid>
+
+                                <TextBlock
+                                    x:Name="PART_DescriptionText"
+                                    MaxWidth="260"
+                                    Margin="0,0,12,0"
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource WinoSynchronizationButtonActiveForegroundBrush}"
+                                    Style="{ThemeResource CaptionTextBlockStyle}"
+                                    Text="{Binding Description, RelativeSource={RelativeSource TemplatedParent}}"
+                                    TextTrimming="CharacterEllipsis"
+                                    TextWrapping="NoWrap"
+                                    Visibility="Collapsed" />
+                            </StackPanel>
+                        </Canvas>
+
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="HoverLayer.Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="HoverLayer.Background" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <!--
+                                        Only the glyph dims. The host keeps the button enabled while a
+                                        synchronization is running, so the pill is never washed out.
+                                    -->
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_OverlayContent.Opacity" Value="0.4" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+
+                            <!--  Idle draws the glyph; Synchronizing draws the ring and the description.  -->
+                            <VisualStateGroup x:Name="SynchronizationStates">
+                                <VisualState x:Name="Idle" />
+                                <VisualState x:Name="Synchronizing">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_SyncIcon.Visibility" Value="Collapsed" />
+                                        <Setter Target="PART_ProgressRing.Visibility" Value="Visible" />
+                                        <Setter Target="PART_ProgressRing.IsActive" Value="True" />
+                                        <Setter Target="PART_DescriptionText.Visibility" Value="Visible" />
+                                        <Setter Target="PART_PillBackground.Visibility" Value="Visible" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -42,7 +42,6 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly ICalendarService _calendarService;
     private readonly IMailDialogService _dialogService;
     private readonly NewTaskListMenuItem _newListMenuItem = new();
-    private readonly TaskSyncMenuItem _taskSyncMenuItem = new();
     private readonly SeperatorItem _commandSeparator = new();
     private readonly SeperatorItem _smartViewSeparator = new();
     private readonly SeperatorItem _accountSeparator = new();
@@ -887,9 +886,6 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         {
             case NewTaskListMenuItem:
                 return CreateListAsync();
-            case TaskSyncMenuItem:
-                Synchronize();
-                return Task.CompletedTask;
             case AccountTaskListAccountMenuItem account:
                 return ChangeSelectedAccountAsync(account.Parameter.Id);
             case TaskSmartViewMenuItem smartView:
@@ -2283,6 +2279,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
         while (Accounts.Count > desired.Count)
             Accounts.RemoveAt(Accounts.Count - 1);
+
+        // The title bar button is bound before the accounts arrive, so it has to be told
+        // that there is now something to synchronize.
+        RefreshShellSynchronizationState();
     }
 
     private void ReconcileTaskLists(IReadOnlyList<AccountTaskList> lists)
@@ -2456,7 +2456,6 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private IMenuItem[] GetShellMenuPrefix() =>
     [
         _newListMenuItem,
-        _taskSyncMenuItem,
         _commandSeparator,
         _myDayMenuItem,
         _plannedMenuItem,

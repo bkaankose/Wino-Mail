@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -80,6 +80,12 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
 
     public bool HandlesSelection => CurrentMenu?.HandlesSelection == true;
 
+    /// <summary>
+    /// The mode currently publishing a menu. The shell window reads its synchronization
+    /// surface for the title bar button; nothing else here looks at it.
+    /// </summary>
+    public IShellMenuProvider? CurrentProvider => _currentProvider;
+
     public object? SelectedMenuItem
     {
         get => _currentProvider?.SelectedMenuItem;
@@ -123,6 +129,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
 
         CurrentMenu = provider?.ShellMenu;
         OnPropertyChanged(nameof(SelectedMenuItem));
+        OnPropertyChanged(nameof(CurrentProvider));
     }
 
     /// <summary>

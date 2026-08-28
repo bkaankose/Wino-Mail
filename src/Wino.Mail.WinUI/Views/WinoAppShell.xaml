@@ -1,4 +1,4 @@
-<abstract:WinoAppShellAbstract
+﻿<abstract:WinoAppShellAbstract
     x:Class="Wino.Mail.WinUI.Views.WinoAppShell"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -26,10 +26,8 @@
             AccountTaskListTemplate="{StaticResource AccountTaskListTemplate}"
             CalendarDatePickerTemplate="{StaticResource CalendarDatePickerTemplate}"
             CalendarNewEventTemplate="{StaticResource CalendarNewEventTemplate}"
-            CalendarSyncTemplate="{StaticResource CalendarSyncTemplate}"
             ContactAccountFilterTemplate="{StaticResource ContactAccountFilterTemplate}"
             ContactFilterTemplate="{StaticResource ContactFilterTemplate}"
-            ContactsSyncTemplate="{StaticResource ContactsSyncTemplate}"
             CreateNewMailTemplate="{StaticResource CreateNewMailTemplate}"
             FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
             FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfigTemplate}"
@@ -53,8 +51,7 @@
             SettingsShellWinoIntelligenceItemTemplate="{StaticResource SettingsShellWinoIntelligenceItemTemplate}"
             SharedAccountMenuTemplate="{StaticResource SharedAccountMenuTemplate}"
             SharedCompactAccountMenuTemplate="{StaticResource SharedCompactAccountMenuTemplate}"
-            ShellSectionHeaderTemplate="{StaticResource ShellSectionHeaderTemplate}"
-            ToDoSyncTemplate="{StaticResource ToDoSyncTemplate}" />
+            ShellSectionHeaderTemplate="{StaticResource ShellSectionHeaderTemplate}" />
     </Page.Resources>
 
     <Grid x:Name="RootGrid">

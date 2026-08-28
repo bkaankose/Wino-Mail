@@ -205,7 +205,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
     protected override async Task ExecuteTaskRequestsInternalAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken = default)
     {
-        if (Account.TaskIntegrationSource == AccountIntegrationSource.Local)
+        if (Account.TaskIntegrationSource == AccountIntegrationSource.Local || requests.All(IsLocalTaskRequest))
         {
             await _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken).ConfigureAwait(false);
             return;
@@ -218,7 +218,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         {
             await ExecuteGoogleTaskRequestsAsync(requests, cancellationToken).ConfigureAwait(false);
         }
-        catch (HttpRequestException ex) when ((int?)ex.StatusCode is 401 or 403)
+        catch (GoogleApiException ex) when (IsTaskAuthenticationFailure(ex))
         {
             await MarkTaskAuthorizationRequiredAsync().ConfigureAwait(false);
             throw new AuthenticationAttentionException(Account);
@@ -237,11 +237,39 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         {
             return await SynchronizeGoogleTasksAsync(options, cancellationToken).ConfigureAwait(false);
         }
-        catch (HttpRequestException ex) when ((int?)ex.StatusCode is 401 or 403)
+        catch (GoogleApiException ex) when (IsTaskAuthenticationFailure(ex))
         {
             await MarkTaskAuthorizationRequiredAsync().ConfigureAwait(false);
             throw new AuthenticationAttentionException(Account);
         }
+    }
+
+    private static bool IsLocalTaskRequest(ITaskActionRequest request)
+        => request is TaskActionRequest taskRequest &&
+           (taskRequest.List?.SourceKind ??
+            taskRequest.Task?.SourceKind ??
+            taskRequest.Step?.SourceKind ??
+            taskRequest.Group?.SourceKind) == TaskSourceKind.Local;
+
+    protected override bool ShouldReconcileTaskRequests(IReadOnlyList<ITaskActionRequest> requests)
+        => !requests.All(IsLocalTaskRequest);
+
+    private static bool IsTaskAuthenticationFailure(GoogleApiException exception)
+    {
+        if (exception.HttpStatusCode == System.Net.HttpStatusCode.Unauthorized)
+            return true;
+
+        if (exception.HttpStatusCode != System.Net.HttpStatusCode.Forbidden)
+            return false;
+
+        var reason = exception.Error?.Errors?.FirstOrDefault()?.Reason ?? string.Empty;
+        var message = exception.Message ?? string.Empty;
+
+        return reason.Contains("auth", StringComparison.OrdinalIgnoreCase) ||
+               reason.Contains("credential", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("invalid credentials", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("insufficient authentication", StringComparison.OrdinalIgnoreCase) ||
+               message.Contains("login required", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task MarkTaskAuthorizationRequiredAsync()

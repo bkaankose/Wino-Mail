@@ -2840,5 +2840,14 @@
     "DavError_RateLimited": "The DAV server is temporarily limiting requests. Try again later.",
     "DavError_ServerUnavailable": "The DAV server is temporarily unavailable.",
     "DavError_Network": "Wino could not reach the DAV server.",
-    "DavError_InvalidResponse": "The DAV server returned an invalid response."
+    "DavError_InvalidResponse": "The DAV server returned an invalid response.",
+    "TitleBar_Sync_MailToolTip": "Synchronize mail",
+    "TitleBar_Sync_MailDescription": "Syncing {0}",
+    "TitleBar_Sync_MailDescriptionGeneric": "Syncing mail",
+    "TitleBar_Sync_CalendarToolTip": "Synchronize calendars",
+    "TitleBar_Sync_CalendarDescription": "Syncing calendars",
+    "TitleBar_Sync_ContactsToolTip": "Synchronize contacts",
+    "TitleBar_Sync_ContactsDescription": "Syncing contacts",
+    "TitleBar_Sync_TasksToolTip": "Synchronize tasks",
+    "TitleBar_Sync_TasksDescription": "Syncing tasks"
 }
