@@ -55,6 +55,19 @@ public class OutlookContactsClientTests
         capturedRequest.HttpMethod.Should().Be(Method.GET);
     }
 
+    [Fact]
+    public void CreatePhotoRequest_UsesEscapedContactPhotoValueEndpoint()
+    {
+        var (client, _) = CreateClient();
+
+        var request = client.CreatePhotoRequest("contact/id");
+
+        request.URI.AbsoluteUri.Should().Be("https://graph.microsoft.com/v1.0/me/contacts/contact%2Fid/photo/$value");
+        request.HttpMethod.Should().Be(Method.GET);
+        request.Headers.TryGetValue("Prefer", out var values).Should().BeTrue();
+        values.Should().Contain("IdType=\"ImmutableId\"");
+    }
+
     private static (OutlookContactsClient Client, Func<RequestInformation> Request) CreateClient()
     {
         RequestInformation capturedRequest = null;

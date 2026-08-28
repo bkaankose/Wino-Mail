@@ -1695,8 +1695,7 @@ public partial class App : WinoApplication,
         // Only transition when the account was created from the WelcomeWindow.
         if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
         {
-            EnsureAutoSynchronizationLoop();
-            QueueCreatedAccountSynchronization(message.Account);
+            _ = SynchronizeCreatedAccountAndStartAutoSynchronizationAsync(message.Account);
             return;
         }
 
@@ -1710,7 +1709,14 @@ public partial class App : WinoApplication,
                     : message.Account.IsTaskAccessGranted
                         ? WinoApplicationMode.Tasks
                     : WinoApplicationMode.Contacts;
-            CreateWindow(null, AppEntryConstants.GetModeLaunchArgument(initialMode));
+            CreateWindow(
+                null,
+                AppEntryConstants.GetModeLaunchArgument(initialMode),
+                new ShellModeActivationContext
+                {
+                    // Account setup owns the initial synchronization sequence below.
+                    SuppressStartupFlows = true
+                });
 
             // Keep the welcome window alive until the shell is active. Closing the only active
             // XAML window first can terminate the process natively before shell activation runs.
@@ -1719,73 +1725,55 @@ public partial class App : WinoApplication,
 
             CloseWelcomeWindowIfPresent();
 
-            if (message.Account.IsContactAccessGranted)
-            {
-                WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
-                {
-                    AccountId = message.Account.Id,
-                    Type = ContactSynchronizationType.Delta
-                }));
-            }
-
-            if (message.Account.IsTaskAccessGranted && !message.Account.IsTaskReauthorizationRequired)
-            {
-                WeakReferenceMessenger.Default.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
-                {
-                    AccountId = message.Account.Id,
-                    Type = TaskSynchronizationType.Delta
-                }));
-            }
-
-            if (message.Account.IsCalendarAccessGranted)
-            {
-                WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
-                {
-                    AccountId = message.Account.Id,
-                    Type = CalendarSynchronizationType.CalendarEvents
-                }));
-            }
+            await SynchronizeCreatedAccountAsync(message.Account);
 
             RestartAutoSynchronizationLoop();
         });
     }
 
-    private void QueueCreatedAccountSynchronization(Wino.Core.Domain.Entities.Shared.MailAccount account)
+    private async Task SynchronizeCreatedAccountAndStartAutoSynchronizationAsync(
+        Wino.Core.Domain.Entities.Shared.MailAccount account)
     {
-        if (account.IsContactAccessGranted)
-        {
-            WeakReferenceMessenger.Default.Send(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
-            {
-                AccountId = account.Id,
-                Type = ContactSynchronizationType.Delta
-            }));
-        }
+        await SynchronizeCreatedAccountAsync(account).ConfigureAwait(false);
+        EnsureAutoSynchronizationLoop();
+    }
 
-        if (account.IsTaskAccessGranted && !account.IsTaskReauthorizationRequired)
-        {
-            WeakReferenceMessenger.Default.Send(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
-            {
-                AccountId = account.Id,
-                Type = TaskSynchronizationType.Delta
-            }));
-        }
-
+    private async Task SynchronizeCreatedAccountAsync(Wino.Core.Domain.Entities.Shared.MailAccount account)
+    {
         if (account.IsMailAccessGranted)
         {
-            WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            await HandleMailSynchronizationRequestedAsync(new NewMailSynchronizationRequested(new MailSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = MailSynchronizationType.FullFolders
-            }));
+            })).ConfigureAwait(false);
         }
 
         if (account.IsCalendarAccessGranted)
         {
-            WeakReferenceMessenger.Default.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+            await HandleCalendarSynchronizationRequestedAsync(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = CalendarSynchronizationType.CalendarEvents
-            }));
+            })).ConfigureAwait(false);
+        }
+
+        if (account.IsContactAccessGranted)
+        {
+            await HandleContactSynchronizationRequestedAsync(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = ContactSynchronizationType.Delta
+            })).ConfigureAwait(false);
+        }
+
+        if (account.IsTaskAccessGranted && !account.IsTaskReauthorizationRequired)
+        {
+            await HandleTaskSynchronizationRequestedAsync(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = TaskSynchronizationType.Delta
+            })).ConfigureAwait(false);
         }
     }
 

@@ -56,9 +56,16 @@ public sealed class OutlookContactsClient
     public Task SetPhotoAsync(string remoteId, byte[] photo, CancellationToken cancellationToken = default)
         => SendNoContentAsync($"https://graph.microsoft.com/v1.0/me/contacts/{Uri.EscapeDataString(remoteId)}/photo/$value", Method.PUT, photo, cancellationToken);
 
+    internal RequestInformation CreatePhotoRequest(string remoteId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(remoteId);
+
+        return CreateRequest($"https://graph.microsoft.com/v1.0/me/contacts/{Uri.EscapeDataString(remoteId)}/photo/$value", Method.GET);
+    }
+
     public async Task<byte[]> GetPhotoAsync(string remoteId, CancellationToken cancellationToken = default)
     {
-        var request = CreateRequest($"https://graph.microsoft.com/v1.0/me/contacts/{Uri.EscapeDataString(remoteId)}/photo/$value", Method.GET);
+        var request = CreatePhotoRequest(remoteId);
         await using var photoStream = await _adapter.SendPrimitiveAsync<Stream>(request, ErrorMapping, cancellationToken).ConfigureAwait(false);
         if (photoStream is null)
             return [];

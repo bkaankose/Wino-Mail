@@ -707,31 +707,74 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var existingByRemoteId = existingContacts
             .Where(contact => !string.IsNullOrWhiteSpace(contact.RemoteId))
             .ToDictionary(contact => contact.RemoteId, StringComparer.Ordinal);
-        var pending = contacts.Where(contact => !string.IsNullOrWhiteSpace(contact.RemoteId)).ToList();
+        var pending = contacts
+            .Where(contact => !string.IsNullOrWhiteSpace(contact.RemoteId))
+            .Where(contact => !existingByRemoteId.TryGetValue(contact.RemoteId, out var existing) ||
+                              !TryReuseOutlookContactPhoto(contact, existing))
+            .ToList();
 
         await Parallel.ForEachAsync(
-            pending,
+            pending.Batch((int)MaximumAllowedBatchRequestSize),
             new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = cancellationToken },
-            async (contact, token) =>
+            async (batch, token) =>
             {
-                if (existingByRemoteId.TryGetValue(contact.RemoteId, out var existing) && TryReuseOutlookContactPhoto(contact, existing))
-                    return;
-
                 try
                 {
-                    var bytes = await _outlookContactsClient.GetPhotoAsync(contact.RemoteId, token).ConfigureAwait(false);
-                    if (bytes?.Length > 0)
-                        contact.ContactPictureFileId = await _contactPictureFileService.SaveContactPictureAsync(bytes).ConfigureAwait(false);
-                    else
-                        contact.RemotePhotoKey = BuildMissingPhotoKey(contact.RemotePhotoKey);
+                    await DownloadOutlookContactPhotoBatchAsync(batch, token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) { throw; }
-                catch (ODataError ex) when (ex.ResponseStatusCode == 404)
-                {
-                    contact.RemotePhotoKey = BuildMissingPhotoKey(contact.RemotePhotoKey);
-                }
-                catch (Exception ex) { _logger.Warning(ex, "Failed to cache Outlook contact photo {RemoteId}.", contact.RemoteId); }
+                catch (Exception ex) { _logger.Warning(ex, "Failed to cache a batch of Outlook contact photos."); }
             }).ConfigureAwait(false);
+    }
+
+    private async Task DownloadOutlookContactPhotoBatchAsync(
+        IEnumerable<AccountContact> contacts,
+        CancellationToken cancellationToken)
+    {
+        var batchContent = new BatchRequestContentCollection(_graphClient);
+        var contactsByRequestId = new Dictionary<string, AccountContact>();
+
+        foreach (var contact in contacts)
+        {
+            var request = _outlookContactsClient.CreatePhotoRequest(contact.RemoteId);
+            var requestId = await batchContent.AddBatchRequestStepAsync(request).ConfigureAwait(false);
+            contactsByRequestId[requestId] = contact;
+        }
+
+        var batchResponse = await _graphClient.Batch.PostAsync(batchContent, cancellationToken).ConfigureAwait(false);
+
+        foreach (var (requestId, contact) in contactsByRequestId)
+        {
+            using var response = await batchResponse.GetResponseByIdAsync(requestId).ConfigureAwait(false);
+            if (response is null)
+                continue;
+
+            if (response.StatusCode == HttpStatusCode.NotFound)
+            {
+                contact.RemotePhotoKey = BuildMissingPhotoKey(contact.RemotePhotoKey);
+                continue;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.Warning(
+                    "Failed to cache Outlook contact photo {RemoteId}. Graph returned {StatusCode}.",
+                    contact.RemoteId,
+                    (int)response.StatusCode);
+                continue;
+            }
+
+            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+            if (bytes.Length == 0)
+            {
+                contact.RemotePhotoKey = BuildMissingPhotoKey(contact.RemotePhotoKey);
+                continue;
+            }
+
+            contact.ContactPictureFileId = await _contactPictureFileService
+                .SaveContactPictureAsync(bytes)
+                .ConfigureAwait(false);
+        }
     }
 
     internal static bool TryReuseOutlookContactPhoto(AccountContact incoming, AccountContact existing)
