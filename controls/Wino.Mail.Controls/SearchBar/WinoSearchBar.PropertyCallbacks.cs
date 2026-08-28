@@ -6,7 +6,11 @@ namespace Wino.Mail.Controls.SearchBar;
 
 public sealed partial class WinoSearchBar
 {
-    partial void OnModeChanged(SearchBarMode newValue) => UpdateModeVisuals();
+    partial void OnModeChanged(SearchBarMode newValue)
+    {
+        UpdateModeState();
+        UpdateSemanticVisualStates();
+    }
 
     partial void OnTextChanged(string newValue)
     {
@@ -19,17 +23,15 @@ public sealed partial class WinoSearchBar
     partial void OnPlaceholderTextChanged(string newValue) => UpdatePlaceholder();
     partial void OnItemsSourceChanged(object? newValue) => UpdateSuggestions(useHistory: false);
     partial void OnItemTemplateChanged(DataTemplate? newValue) => UpdateSuggestions(useHistory: false);
-    partial void OnQueryIconChanged(IconElement? newValue) => UpdateQueryButton();
+    partial void OnQueryIconChanged(IconElement? newValue) => UpdateQueryIcon();
+    partial void OnIsCompactChanged(bool newValue) => UpdateCompactLayout();
     partial void OnSearchHistoryItemsSourceChanged(IEnumerable<string>? newValue) => UpdateHistorySource();
     partial void OnMaxHistorySuggestionCountChanged(int newValue) => RefreshHistoryItems();
     partial void OnIsSemanticSearchAvailableChanged(bool newValue) => UpdateSemanticState();
     partial void OnIsSemanticSearchEnabledChanged(bool newValue) => UpdateSemanticState();
     partial void OnIsSemanticSearchBusyChanged(bool newValue) => UpdateSemanticState();
-    partial void OnMeaningToggleTextChanged(string newValue) => UpdateAccessibleText();
     partial void OnSemanticPlaceholderTextChanged(string newValue) => UpdatePlaceholder();
-    partial void OnSemanticSearchExplanationTextChanged(string newValue) => UpdateAccessibleText();
-    partial void OnSemanticUnavailableReasonTextChanged(string newValue) => UpdateAccessibleText();
-    partial void OnSearchButtonTextChanged(string newValue) => UpdateAccessibleText();
-    partial void OnClearTextChanged(string newValue) => UpdateAccessibleText();
-
+    partial void OnSemanticSearchExplanationTextChanged(string newValue) => UpdateSemanticVisualStates();
+    partial void OnSemanticUnavailableReasonTextChanged(string newValue) => UpdateSemanticVisualStates();
+    partial void OnClearTextChanged(string newValue) => UpdateClearButtonText();
 }

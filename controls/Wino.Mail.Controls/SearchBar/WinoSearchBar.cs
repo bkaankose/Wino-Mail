@@ -21,29 +21,21 @@ namespace Wino.Mail.Controls.SearchBar;
 [TemplatePart(Name = PartLayoutRootName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartFieldBorderName, Type = typeof(Border))]
 [TemplatePart(Name = PartAutoSuggestBoxName, Type = typeof(AutoSuggestBox))]
-[TemplatePart(Name = PartQueryButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartQueryIconPresenterName, Type = typeof(ContentPresenter))]
+[TemplatePart(Name = PartCompactButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartCompactFieldHostName, Type = typeof(ContentControl))]
 [TemplatePart(Name = PartMeaningToggleButtonName, Type = typeof(ToggleButton))]
-[TemplatePart(Name = PartMeaningToggleLabelName, Type = typeof(TextBlock))]
-[TemplatePart(Name = PartSemanticBusyRingName, Type = typeof(WinoIntelligenceProgressRing))]
-[TemplatePart(Name = PartMeaningSparkleName, Type = typeof(FrameworkElement))]
-[TemplatePart(Name = PartSearchOptionsButtonName, Type = typeof(Button))]
 [TemplatePart(Name = PartSearchOptionsChevronIconName, Type = typeof(FontIcon))]
 [TemplatePart(Name = PartSearchPopupName, Type = typeof(Popup))]
 [TemplatePart(Name = PartSearchPopupRootName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartHistoryPanelName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartOptionsPanelName, Type = typeof(FrameworkElement))]
-[TemplatePart(Name = PartEmptyHistoryTextName, Type = typeof(TextBlock))]
-[TemplatePart(Name = PartHistoryHeadingTextName, Type = typeof(TextBlock))]
 [TemplatePart(Name = PartHistoryListName, Type = typeof(ListView))]
 [TemplatePart(Name = PartClearHistoryButtonName, Type = typeof(Button))]
-[TemplatePart(Name = PartMailOptionsPanelName, Type = typeof(FrameworkElement))]
-[TemplatePart(Name = PartSemanticExplanationPanelName, Type = typeof(FrameworkElement))]
-[TemplatePart(Name = PartSemanticExplanationTextBlockName, Type = typeof(TextBlock))]
 [TemplatePart(Name = PartScopeComboBoxName, Type = typeof(ComboBox))]
 [TemplatePart(Name = PartReachComboBoxName, Type = typeof(ComboBox))]
 [TemplatePart(Name = PartDateComboBoxName, Type = typeof(ComboBox))]
 [TemplatePart(Name = PartSenderSuggestBoxName, Type = typeof(AutoSuggestBox))]
-[TemplatePart(Name = PartSenderTokenName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartSenderTokenInitialsName, Type = typeof(TextBlock))]
 [TemplatePart(Name = PartSenderTokenNameName, Type = typeof(TextBlock))]
 [TemplatePart(Name = PartSenderTokenRemoveButtonName, Type = typeof(Button))]
@@ -51,7 +43,23 @@ namespace Wino.Mail.Controls.SearchBar;
 [TemplatePart(Name = PartUnreadButtonName, Type = typeof(ToggleButton))]
 [TemplatePart(Name = PartFlaggedButtonName, Type = typeof(ToggleButton))]
 [TemplatePart(Name = PartResetButtonName, Type = typeof(Button))]
-[TemplatePart(Name = PartPanelSearchButtonName, Type = typeof(Button))]
+[TemplateVisualState(Name = FieldRestStateName, GroupName = FieldStatesGroupName)]
+[TemplateVisualState(Name = FieldFocusedStateName, GroupName = FieldStatesGroupName)]
+[TemplateVisualState(Name = FieldMeaningStateName, GroupName = FieldStatesGroupName)]
+[TemplateVisualState(Name = WideLayoutStateName, GroupName = LayoutStatesGroupName)]
+[TemplateVisualState(Name = CompactLayoutStateName, GroupName = LayoutStatesGroupName)]
+[TemplateVisualState(Name = MailModeStateName, GroupName = ModeStatesGroupName)]
+[TemplateVisualState(Name = SettingsModeStateName, GroupName = ModeStatesGroupName)]
+[TemplateVisualState(Name = MeaningToggleVisibleStateName, GroupName = MeaningToggleStatesGroupName)]
+[TemplateVisualState(Name = MeaningToggleCollapsedStateName, GroupName = MeaningToggleStatesGroupName)]
+[TemplateVisualState(Name = SemanticIdleStateName, GroupName = SemanticBusyStatesGroupName)]
+[TemplateVisualState(Name = SemanticBusyStateName, GroupName = SemanticBusyStatesGroupName)]
+[TemplateVisualState(Name = SemanticExplanationHiddenStateName, GroupName = SemanticExplanationStatesGroupName)]
+[TemplateVisualState(Name = SemanticExplanationVisibleStateName, GroupName = SemanticExplanationStatesGroupName)]
+[TemplateVisualState(Name = NoSenderSelectedStateName, GroupName = SenderStatesGroupName)]
+[TemplateVisualState(Name = SenderSelectedStateName, GroupName = SenderStatesGroupName)]
+[TemplateVisualState(Name = HasHistoryStateName, GroupName = HistoryStatesGroupName)]
+[TemplateVisualState(Name = NoHistoryStateName, GroupName = HistoryStatesGroupName)]
 /// <summary>
 /// Provides search suggestions, recent searches, semantic-search state, and mail filters.
 /// </summary>
@@ -60,29 +68,21 @@ public sealed partial class WinoSearchBar : Control
     private const string PartLayoutRootName = "PART_LayoutRoot";
     private const string PartFieldBorderName = "PART_FieldBorder";
     private const string PartAutoSuggestBoxName = "PART_AutoSuggestBox";
-    private const string PartQueryButtonName = "PART_QueryButton";
+    private const string PartQueryIconPresenterName = "PART_QueryIconPresenter";
+    private const string PartCompactButtonName = "PART_CompactButton";
+    private const string PartCompactFieldHostName = "PART_CompactFieldHost";
     private const string PartMeaningToggleButtonName = "PART_MeaningToggleButton";
-    private const string PartMeaningToggleLabelName = "PART_MeaningToggleLabel";
-    private const string PartSemanticBusyRingName = "PART_SemanticBusyRing";
-    private const string PartMeaningSparkleName = "PART_MeaningSparkle";
-    private const string PartSearchOptionsButtonName = "PART_SearchOptionsButton";
     private const string PartSearchOptionsChevronIconName = "PART_SearchOptionsChevronIcon";
     private const string PartSearchPopupName = "PART_SearchPopup";
     private const string PartSearchPopupRootName = "PART_SearchPopupRoot";
     private const string PartHistoryPanelName = "PART_HistoryPanel";
     private const string PartOptionsPanelName = "PART_OptionsPanel";
-    private const string PartEmptyHistoryTextName = "PART_EmptyHistoryText";
-    private const string PartHistoryHeadingTextName = "PART_HistoryHeadingText";
     private const string PartHistoryListName = "PART_HistoryList";
     private const string PartClearHistoryButtonName = "PART_ClearHistoryButton";
-    private const string PartMailOptionsPanelName = "PART_MailOptionsPanel";
-    private const string PartSemanticExplanationPanelName = "PART_SemanticExplanationPanel";
-    private const string PartSemanticExplanationTextBlockName = "PART_SemanticExplanationTextBlock";
     private const string PartScopeComboBoxName = "PART_ScopeComboBox";
     private const string PartReachComboBoxName = "PART_ReachComboBox";
     private const string PartDateComboBoxName = "PART_DateComboBox";
     private const string PartSenderSuggestBoxName = "PART_SenderSuggestBox";
-    private const string PartSenderTokenName = "PART_SenderToken";
     private const string PartSenderTokenInitialsName = "PART_SenderTokenInitials";
     private const string PartSenderTokenNameName = "PART_SenderTokenName";
     private const string PartSenderTokenRemoveButtonName = "PART_SenderTokenRemoveButton";
@@ -90,7 +90,32 @@ public sealed partial class WinoSearchBar : Control
     private const string PartUnreadButtonName = "PART_UnreadButton";
     private const string PartFlaggedButtonName = "PART_FlaggedButton";
     private const string PartResetButtonName = "PART_ResetButton";
-    private const string PartPanelSearchButtonName = "PART_PanelSearchButton";
+    private const string FieldStatesGroupName = "FieldStates";
+    private const string FieldRestStateName = "FieldRest";
+    private const string FieldFocusedStateName = "FieldFocused";
+    private const string FieldMeaningStateName = "FieldMeaning";
+    private const string LayoutStatesGroupName = "LayoutStates";
+    private const string WideLayoutStateName = "WideLayout";
+    private const string CompactLayoutStateName = "CompactLayout";
+    private const string ModeStatesGroupName = "ModeStates";
+    private const string MailModeStateName = "MailMode";
+    private const string SettingsModeStateName = "SettingsMode";
+    private const string MeaningToggleStatesGroupName = "MeaningToggleStates";
+    private const string MeaningToggleVisibleStateName = "MeaningToggleVisible";
+    private const string MeaningToggleCollapsedStateName = "MeaningToggleCollapsed";
+    private const string SemanticBusyStatesGroupName = "SemanticBusyStates";
+    private const string SemanticIdleStateName = "SemanticIdle";
+    private const string SemanticBusyStateName = "SemanticBusy";
+    private const string SemanticExplanationStatesGroupName = "SemanticExplanationStates";
+    private const string SemanticExplanationHiddenStateName = "SemanticExplanationHidden";
+    private const string SemanticExplanationVisibleStateName = "SemanticExplanationVisible";
+    private const string SenderStatesGroupName = "SenderStates";
+    private const string NoSenderSelectedStateName = "NoSenderSelected";
+    private const string SenderSelectedStateName = "SenderSelected";
+    private const string HistoryStatesGroupName = "HistoryStates";
+    private const string HasHistoryStateName = "HasHistory";
+    private const string NoHistoryStateName = "NoHistory";
+
     private static readonly SearchBarOptionItem[] DefaultScopeOptions =
     [
         new((int)SearchBarScope.CurrentFolder, "Current folder"),
@@ -122,34 +147,24 @@ public sealed partial class WinoSearchBar : Control
     private FrameworkElement? _layoutRoot;
     private UIElement? _xamlRootContent;
     private Border? _fieldBorder;
-    private SolidColorBrush? _semanticFieldBrush;
-    private Windows.UI.Color? _semanticFieldBrushSource;
     private bool _isFieldFocused;
     private AutoSuggestBox? _autoSuggestBox;
-    private Button? _queryButton;
+    private ContentPresenter? _queryIconPresenter;
+    private Button? _compactButton;
+    private ContentControl? _compactFieldHost;
     private Button? _clearTextButton;
     private ToggleButton? _meaningToggle;
-    private TextBlock? _meaningToggleLabel;
-    private WinoIntelligenceProgressRing? _semanticBusyRing;
-    private FrameworkElement? _meaningSparkle;
-    private Button? _searchOptionsButton;
     private FontIcon? _searchOptionsChevronIcon;
     private Popup? _searchPopup;
     private FrameworkElement? _searchPopupRoot;
     private FrameworkElement? _historyPanel;
     private FrameworkElement? _optionsPanel;
-    private TextBlock? _emptyHistoryText;
-    private TextBlock? _historyHeadingText;
     private ListView? _historyList;
     private Button? _clearHistoryButton;
-    private FrameworkElement? _mailOptionsPanel;
-    private FrameworkElement? _semanticExplanationPanel;
-    private TextBlock? _semanticExplanationTextBlock;
     private ComboBox? _scopeComboBox;
     private ComboBox? _reachComboBox;
     private ComboBox? _dateComboBox;
     private AutoSuggestBox? _senderSuggestBox;
-    private FrameworkElement? _senderToken;
     private TextBlock? _senderTokenInitials;
     private TextBlock? _senderTokenName;
     private Button? _senderTokenRemoveButton;
@@ -157,7 +172,6 @@ public sealed partial class WinoSearchBar : Control
     private ToggleButton? _unreadButton;
     private ToggleButton? _flaggedButton;
     private Button? _resetButton;
-    private Button? _panelSearchButton;
 
     /// <summary>Gets or sets the <c>Mode</c> value.</summary>
     [GeneratedDependencyProperty(DefaultValue = SearchBarMode.Mail)]
@@ -182,6 +196,13 @@ public sealed partial class WinoSearchBar : Control
     /// <summary>Gets or sets the <c>QueryIcon</c> value.</summary>
     [GeneratedDependencyProperty]
     public partial IconElement? QueryIcon { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the bar renders as a single search icon that opens the field in a popup
+    /// beneath it. Driven by the host's adaptive triggers, not by the control itself.
+    /// </summary>
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool IsCompact { get; set; }
 
     /// <summary>Gets or sets the <c>SearchHistoryItemsSource</c> value.</summary>
     [GeneratedDependencyProperty]
@@ -366,30 +387,22 @@ public sealed partial class WinoSearchBar : Control
         _autoSuggestBox = GetTemplateChild(PartAutoSuggestBoxName) as AutoSuggestBox;
         _autoSuggestBox?.ApplyTemplate();
         FindVisualDescendant<TextBox>(_autoSuggestBox)?.ApplyTemplate();
-        _queryButton = GetTemplateChild(PartQueryButtonName) as Button ?? FindVisualDescendant<Button>(_autoSuggestBox, "WinoSearchBarQueryButton");
+        _queryIconPresenter = GetTemplateChild(PartQueryIconPresenterName) as ContentPresenter;
+        _compactButton = GetTemplateChild(PartCompactButtonName) as Button;
+        _compactFieldHost = GetTemplateChild(PartCompactFieldHostName) as ContentControl;
         _clearTextButton = FindVisualDescendant<Button>(_autoSuggestBox, "DeleteButton");
         _meaningToggle = GetTemplateChild(PartMeaningToggleButtonName) as ToggleButton ?? FindVisualDescendant<ToggleButton>(_autoSuggestBox, "WinoSearchBarMeaningToggle");
-        _meaningToggleLabel = GetTemplateChild(PartMeaningToggleLabelName) as TextBlock;
-        _semanticBusyRing = GetTemplateChild(PartSemanticBusyRingName) as WinoIntelligenceProgressRing ?? FindVisualDescendant<WinoIntelligenceProgressRing>(_autoSuggestBox, "WinoSearchBarSemanticBusyRing");
-        _meaningSparkle = GetTemplateChild(PartMeaningSparkleName) as FrameworkElement ?? FindVisualDescendant<FrameworkElement>(_autoSuggestBox, "WinoSearchBarMeaningSparkle");
-        _searchOptionsButton = GetTemplateChild(PartSearchOptionsButtonName) as Button;
         _searchOptionsChevronIcon = GetTemplateChild(PartSearchOptionsChevronIconName) as FontIcon;
         _searchPopup = GetTemplateChild(PartSearchPopupName) as Popup;
         _searchPopupRoot = GetTemplateChild(PartSearchPopupRootName) as FrameworkElement;
         _historyPanel = GetTemplateChild(PartHistoryPanelName) as FrameworkElement;
         _optionsPanel = GetTemplateChild(PartOptionsPanelName) as FrameworkElement;
-        _emptyHistoryText = GetTemplateChild(PartEmptyHistoryTextName) as TextBlock;
-        _historyHeadingText = GetTemplateChild(PartHistoryHeadingTextName) as TextBlock;
         _historyList = GetTemplateChild(PartHistoryListName) as ListView;
         _clearHistoryButton = GetTemplateChild(PartClearHistoryButtonName) as Button;
-        _mailOptionsPanel = GetTemplateChild(PartMailOptionsPanelName) as FrameworkElement;
-        _semanticExplanationPanel = GetTemplateChild(PartSemanticExplanationPanelName) as FrameworkElement;
-        _semanticExplanationTextBlock = GetTemplateChild(PartSemanticExplanationTextBlockName) as TextBlock;
         _scopeComboBox = GetTemplateChild(PartScopeComboBoxName) as ComboBox;
         _reachComboBox = GetTemplateChild(PartReachComboBoxName) as ComboBox;
         _dateComboBox = GetTemplateChild(PartDateComboBoxName) as ComboBox;
         _senderSuggestBox = GetTemplateChild(PartSenderSuggestBoxName) as AutoSuggestBox;
-        _senderToken = GetTemplateChild(PartSenderTokenName) as FrameworkElement;
         _senderTokenInitials = GetTemplateChild(PartSenderTokenInitialsName) as TextBlock;
         _senderTokenName = GetTemplateChild(PartSenderTokenNameName) as TextBlock;
         _senderTokenRemoveButton = GetTemplateChild(PartSenderTokenRemoveButtonName) as Button;
@@ -397,10 +410,13 @@ public sealed partial class WinoSearchBar : Control
         _unreadButton = GetTemplateChild(PartUnreadButtonName) as ToggleButton;
         _flaggedButton = GetTemplateChild(PartFlaggedButtonName) as ToggleButton;
         _resetButton = GetTemplateChild(PartResetButtonName) as Button;
-        _panelSearchButton = GetTemplateChild(PartPanelSearchButtonName) as Button;
         AttachTemplateHandlers();
         RefreshHistoryItems();
-        SynchronizeAll();
+        SynchronizeInputProperties();
+        SynchronizeOptionControls();
+        UpdateClearButtonText();
+        UpdateCompactLayout();
+        UpdateVisualStates(useTransitions: false);
     }
 
     private void AttachTemplateHandlers()
@@ -413,7 +429,7 @@ public sealed partial class WinoSearchBar : Control
             _autoSuggestBox.LostFocus += OnSearchLostFocus;
             _autoSuggestBox.KeyDown += OnSearchKeyDown;
         }
-        if (_queryButton is not null) _queryButton.Click += OnQueryButtonClicked;
+        if (_compactButton is not null) _compactButton.Click += OnCompactButtonClicked;
         if (_meaningToggle is not null) _meaningToggle.Click += OnMeaningToggleClicked;
         if (_clearHistoryButton is not null) _clearHistoryButton.Click += OnClearHistoryClicked;
         if (_searchPopup is not null) { _searchPopup.Opened += OnSearchPopupOpened; _searchPopup.Closed += OnSearchPopupClosed; }
@@ -444,7 +460,7 @@ public sealed partial class WinoSearchBar : Control
             _autoSuggestBox.LostFocus -= OnSearchLostFocus;
             _autoSuggestBox.KeyDown -= OnSearchKeyDown;
         }
-        if (_queryButton is not null) _queryButton.Click -= OnQueryButtonClicked;
+        if (_compactButton is not null) _compactButton.Click -= OnCompactButtonClicked;
         if (_meaningToggle is not null) _meaningToggle.Click -= OnMeaningToggleClicked;
         if (_clearHistoryButton is not null) _clearHistoryButton.Click -= OnClearHistoryClicked;
         if (_searchPopup is not null) { _searchPopup.Opened -= OnSearchPopupOpened; _searchPopup.Closed -= OnSearchPopupClosed; }
@@ -474,73 +490,14 @@ public sealed partial class WinoSearchBar : Control
     private void OnSearchGotFocus(object sender, RoutedEventArgs e)
     {
         _isFieldFocused = true;
-        SynchronizeFieldVisuals();
+        UpdateFieldState();
         ShowHistorySuggestions();
     }
 
     private void OnSearchLostFocus(object sender, RoutedEventArgs e)
     {
         _isFieldFocused = false;
-        SynchronizeFieldVisuals();
-    }
-
-    /// <summary>
-    /// The field is a plain <see cref="Border"/> wrapping a chrome-less <see cref="AutoSuggestBox"/>,
-    /// so focus and the semantic mode have to be painted here rather than by the text box's own
-    /// visual states. Meaning wins over focus: it is the state the user most needs to see.
-    /// </summary>
-    private void SynchronizeFieldVisuals()
-    {
-        if (_fieldBorder is null) return;
-
-        var semantic = IsSemanticSearchAvailable && IsSemanticSearchEnabled;
-
-        _fieldBorder.BorderBrush = semantic
-            ? ResolveBrush("AccentFillColorDefaultBrush", "TextControlBorderBrushFocused")
-            : _isFieldFocused
-                ? ResolveBrush("TextControlBorderBrushFocused", "TextControlBorderBrush")
-                : ResolveBrush("TextControlBorderBrush", "CardStrokeColorDefaultBrush");
-
-        // A tint, not a fill. The obvious accent background resources (selected-text, accent-default)
-        // are fully saturated and turn the field into a solid block that the placeholder cannot be
-        // read against, so the accent colour is used at low opacity instead.
-        _fieldBorder.Background = semantic
-            ? SemanticFieldBrush ?? ResolveBrush("TextControlBackgroundFocused", "TextControlBackground")
-            : _isFieldFocused
-                ? ResolveBrush("TextControlBackgroundFocused", "TextControlBackground")
-                : ResolveBrush("TextControlBackground", "ControlFillColorDefaultBrush");
-
-        // A focused Fluent text field thickens its bottom edge. Reproduce that here so the control
-        // still reads as a text field, and keep the semantic state on the full outline.
-        _fieldBorder.BorderThickness = semantic
-            ? new Thickness(1)
-            : _isFieldFocused ? new Thickness(1, 1, 1, 2) : new Thickness(1);
-    }
-
-    /// <summary>
-    /// Accent at 10% — enough to read as "this query is different", light enough to keep the
-    /// placeholder legible in both themes. Rebuilt when the accent changes rather than cached across
-    /// theme switches.
-    /// </summary>
-    private SolidColorBrush? SemanticFieldBrush
-    {
-        get
-        {
-            if (ResolveBrush("AccentFillColorDefaultBrush", "SystemAccentColorLight2") is not SolidColorBrush accent) return null;
-            if (_semanticFieldBrush is null || _semanticFieldBrushSource != accent.Color)
-            {
-                _semanticFieldBrushSource = accent.Color;
-                _semanticFieldBrush = new SolidColorBrush(accent.Color) { Opacity = 0.10 };
-            }
-            return _semanticFieldBrush;
-        }
-    }
-
-    private Brush? ResolveBrush(string key, string fallbackKey)
-    {
-        if (Application.Current.Resources.TryGetValue(key, out var value) && value is Brush brush) return brush;
-        if (Application.Current.Resources.TryGetValue(fallbackKey, out var fallback) && fallback is Brush fallbackBrush) return fallbackBrush;
-        return null;
+        UpdateFieldState();
     }
 
     private void OnSearchTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
@@ -555,6 +512,7 @@ public sealed partial class WinoSearchBar : Control
         if (e.Key == VirtualKey.Escape && _autoSuggestBox is not null)
         {
             _autoSuggestBox.IsSuggestionListOpen = false;
+            if (IsCompact) CloseSearchPopup();
             e.Handled = true;
         }
     }
@@ -568,12 +526,56 @@ public sealed partial class WinoSearchBar : Control
                 : SearchBarSubmissionOrigin.Suggestion;
         RaiseSearchSubmitted(origin, args.QueryText, args.ChosenSuggestion is string ? null : args.ChosenSuggestion);
         sender.IsSuggestionListOpen = false;
+        if (IsCompact) CloseSearchPopup();
     }
 
-    private void OnQueryButtonClicked(object sender, RoutedEventArgs e)
+    private void OnCompactButtonClicked(object sender, RoutedEventArgs e)
     {
-        RaiseSearchSubmitted(SearchBarSubmissionOrigin.KeyboardOrQueryIcon, Text, null);
-        _autoSuggestBox?.Focus(FocusState.Programmatic);
+        if (_searchPopup?.IsOpen == true) CloseSearchPopup();
+        else OpenCompactPopup();
+    }
+
+    /// <summary>
+    /// Compact mode hands the popup a single job: host the field under the icon. Recent searches are
+    /// left to the AutoSuggestBox's own suggestion flyout, exactly as in the wide layout, so the
+    /// popup does not show the same history twice.
+    /// </summary>
+    private void OpenCompactPopup()
+    {
+        if (_searchPopup is null || _searchPopupRoot is null) return;
+        if (_historyPanel is not null) _historyPanel.Visibility = Visibility.Collapsed;
+        if (_optionsPanel is not null) _optionsPanel.Visibility = Visibility.Collapsed;
+        UpdatePopupSize(false);
+        PositionSearchPopup();
+        _searchPopup.IsOpen = true;
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            PositionSearchPopup();
+            _autoSuggestBox?.Focus(FocusState.Programmatic);
+        });
+    }
+
+    /// <summary>
+    /// Moves the one and only field between the inline layout and the compact popup. Re-parenting
+    /// rather than templating a second field keeps the text, the caret and the suggestion state
+    /// across a resize.
+    /// </summary>
+    private void UpdateCompactLayout()
+    {
+        UpdateLayoutState();
+        if (_fieldBorder is null || _compactFieldHost is null || _layoutRoot is not Panel rootPanel) return;
+
+        if (IsCompact)
+        {
+            if (rootPanel.Children.Contains(_fieldBorder)) rootPanel.Children.Remove(_fieldBorder);
+            if (!ReferenceEquals(_compactFieldHost.Content, _fieldBorder)) _compactFieldHost.Content = _fieldBorder;
+        }
+        else
+        {
+            CloseSearchPopup();
+            if (ReferenceEquals(_compactFieldHost.Content, _fieldBorder)) _compactFieldHost.Content = null;
+            if (!rootPanel.Children.Contains(_fieldBorder)) rootPanel.Children.Insert(0, _fieldBorder);
+        }
     }
 
     private void OnMeaningToggleClicked(object sender, RoutedEventArgs e)
@@ -617,7 +619,7 @@ public sealed partial class WinoSearchBar : Control
 
     private void ShowHistoryPopup()
     {
-        if (Mode == SearchBarMode.Settings || _searchPopup is null || !string.IsNullOrEmpty(_autoSuggestBox?.Text ?? Text)) return;
+        if (IsCompact || Mode == SearchBarMode.Settings || _searchPopup is null || !string.IsNullOrEmpty(_autoSuggestBox?.Text ?? Text)) return;
 
         // An empty recent-search list has nothing to offer, so focusing the field must not throw an
         // empty flyout over the content. If the options popup is already open it stays open.
@@ -679,7 +681,7 @@ public sealed partial class WinoSearchBar : Control
         if (_searchPopup is null || _layoutRoot is null || _searchPopupRoot is null) return;
 
         var overhang = _layoutRoot.ActualWidth - _searchPopupRoot.Width;
-        var desired = IsCenteredPopupView ? overhang / 2 : overhang;
+        var desired = IsCompact ? 0 : IsCenteredPopupView ? overhang / 2 : overhang;
 
         // Keep the popup inside the window. When it is wider than the window min > max, and an
         // unordered Math.Clamp throws, so the bounds are ordered before clamping.
@@ -915,24 +917,14 @@ public sealed partial class WinoSearchBar : Control
     private void RefreshHistoryItems()
     {
         Replace(_historySuggestions, SearchHistoryItemsSource?.Where(x => !string.IsNullOrWhiteSpace(x)).Take(Math.Max(0, MaxHistorySuggestionCount)) ?? []);
-        if (_historyList is not null) { _historyList.ItemsSource = _historySuggestions; _historyList.Visibility = ToVisibility(_historySuggestions.Count > 0); }
-        if (_clearHistoryButton is not null) _clearHistoryButton.Visibility = ToVisibility(_historySuggestions.Count > 0);
-        if (_emptyHistoryText is not null) _emptyHistoryText.Visibility = ToVisibility(_historySuggestions.Count == 0);
+        if (_historyList is not null) _historyList.ItemsSource = _historySuggestions;
+        UpdateHistoryState();
     }
 
     private static void Replace<T>(ObservableCollection<T> collection, IEnumerable<T> source)
     {
         collection.Clear();
         foreach (var item in source) collection.Add(item);
-    }
-
-    private void SynchronizeAll()
-    {
-        SynchronizeInputProperties();
-        SynchronizeOptionControls();
-        UpdateModeVisuals();
-        SynchronizeLocalizedText();
-        SynchronizeFieldVisuals();
     }
 
     private void UpdatePlaceholder()
@@ -945,15 +937,15 @@ public sealed partial class WinoSearchBar : Control
         }
     }
 
-    private void UpdateQueryButton()
+    private void UpdateQueryIcon()
     {
-        if (_queryButton is null)
+        if (_queryIconPresenter is null)
         {
             return;
         }
 
-        _queryButton.Content = QueryIcon;
-        _queryButton.Visibility = ToVisibility(QueryIcon is not null);
+        _queryIconPresenter.Content = QueryIcon;
+        _queryIconPresenter.Visibility = ToVisibility(QueryIcon is not null);
     }
 
     private void UpdateSemanticState()
@@ -970,11 +962,9 @@ public sealed partial class WinoSearchBar : Control
         }
 
         UpdatePlaceholder();
-        UpdateModeVisuals();
-        SynchronizeFieldVisuals();
+        if (_reachComboBox is not null) _reachComboBox.IsEnabled = !IsSemanticSearchEnabled;
+        UpdateSemanticVisualStates();
     }
-
-    private void UpdateAccessibleText() => SynchronizeLocalizedText();
 
     private void SynchronizeInputProperties()
     {
@@ -982,7 +972,7 @@ public sealed partial class WinoSearchBar : Control
         if (!string.Equals(_autoSuggestBox.Text, Text, StringComparison.Ordinal)) _autoSuggestBox.Text = Text;
         _autoSuggestBox.PlaceholderText = IsSemanticSearchEnabled && !string.IsNullOrWhiteSpace(SemanticPlaceholderText) ? SemanticPlaceholderText : PlaceholderText;
         UpdateSuggestions(_autoSuggestBox.Text.Length == 0 && _autoSuggestBox.FocusState != FocusState.Unfocused);
-        if (_queryButton is not null) { _queryButton.Content = QueryIcon; _queryButton.Visibility = ToVisibility(QueryIcon is not null); }
+        UpdateQueryIcon();
     }
 
     private void SynchronizeOptionControls()
@@ -1002,7 +992,6 @@ public sealed partial class WinoSearchBar : Control
             {
                 _senderSuggestBox.ItemsSource = SenderSuggestions;
                 if (SenderSuggestionItemTemplate is not null) _senderSuggestBox.ItemTemplate = SenderSuggestionItemTemplate;
-                _senderSuggestBox.PlaceholderText = SenderPlaceholderText;
             }
             SynchronizeSenderVisuals();
         }
@@ -1020,53 +1009,83 @@ public sealed partial class WinoSearchBar : Control
     private void SynchronizeSenderVisuals()
     {
         var selected = SelectedSenderContact;
-        if (_senderToken is not null) _senderToken.Visibility = ToVisibility(selected is not null);
         if (_senderTokenInitials is not null) _senderTokenInitials.Text = selected?.Initials ?? string.Empty;
         if (_senderTokenName is not null) _senderTokenName.Text = selected?.DisplayName ?? string.Empty;
-        if (_senderSuggestBox is not null) _senderSuggestBox.Visibility = ToVisibility(selected is null);
+        UpdateSenderState();
     }
 
-    private void UpdateModeVisuals()
+    /// <summary>
+    /// Every visual state this control owns, applied at once. The control decides which state it is
+    /// in; the template decides what that state looks like.
+    /// </summary>
+    private void UpdateVisualStates(bool useTransitions = true)
+    {
+        UpdateFieldState(useTransitions);
+        UpdateLayoutState(useTransitions);
+        UpdateModeState(useTransitions);
+        UpdateSemanticVisualStates(useTransitions);
+        UpdateSenderState(useTransitions);
+        UpdateHistoryState(useTransitions);
+    }
+
+    /// <summary>
+    /// Meaning wins over focus: it is the state the user most needs to see, and it is the only one
+    /// that outlines the whole field.
+    /// </summary>
+    private void UpdateFieldState(bool useTransitions = true)
+        => GoToState(IsSemanticSearchAvailable && IsSemanticSearchEnabled
+            ? FieldMeaningStateName
+            : _isFieldFocused ? FieldFocusedStateName : FieldRestStateName, useTransitions);
+
+    private void UpdateLayoutState(bool useTransitions = true)
+        => GoToState(IsCompact ? CompactLayoutStateName : WideLayoutStateName, useTransitions);
+
+    private void UpdateModeState(bool useTransitions = true)
+        => GoToState(Mode == SearchBarMode.Mail ? MailModeStateName : SettingsModeStateName, useTransitions);
+
+    private void UpdateSemanticVisualStates(bool useTransitions = true)
     {
         var mail = Mode == SearchBarMode.Mail;
-        if (_mailOptionsPanel is not null) _mailOptionsPanel.Visibility = ToVisibility(mail);
-        if (_meaningToggle is not null)
-        {
-            _meaningToggle.Visibility = ToVisibility(mail && (IsSemanticSearchAvailable || !string.IsNullOrWhiteSpace(SemanticUnavailableReasonText)));
-            _meaningToggle.IsEnabled = IsSemanticSearchAvailable && !IsSemanticSearchBusy;
-            AutomationProperties.SetHelpText(_meaningToggle, IsSemanticSearchAvailable ? SemanticSearchExplanationText : SemanticUnavailableReasonText);
-            ToolTipService.SetToolTip(_meaningToggle, IsSemanticSearchAvailable ? SemanticSearchExplanationText : SemanticUnavailableReasonText);
-        }
-        if (_semanticBusyRing is not null)
-        {
-            _semanticBusyRing.IsActive = mail && IsSemanticSearchBusy;
-            _semanticBusyRing.Visibility = ToVisibility(mail && IsSemanticSearchBusy);
-        }
-        if (_meaningSparkle is not null) _meaningSparkle.Visibility = ToVisibility(!IsSemanticSearchBusy);
-        if (_semanticExplanationPanel is not null) _semanticExplanationPanel.Visibility = ToVisibility(IsSemanticSearchEnabled && !string.IsNullOrWhiteSpace(SemanticSearchExplanationText));
-        if (_semanticExplanationTextBlock is not null) _semanticExplanationTextBlock.Text = SemanticSearchExplanationText;
+
+        UpdateFieldState(useTransitions);
+        GoToState(mail && IsSemanticSearchBusy ? SemanticBusyStateName : SemanticIdleStateName, useTransitions);
+        GoToState(IsSemanticSearchEnabled && !string.IsNullOrWhiteSpace(SemanticSearchExplanationText)
+            ? SemanticExplanationVisibleStateName
+            : SemanticExplanationHiddenStateName, useTransitions);
+
+        // The toggle stays on screen while semantic search is unavailable but explainable, so the
+        // reason has somewhere to live; it only disappears when there is nothing to say about it.
+        GoToState(mail && (IsSemanticSearchAvailable || !string.IsNullOrWhiteSpace(SemanticUnavailableReasonText))
+            ? MeaningToggleVisibleStateName
+            : MeaningToggleCollapsedStateName, useTransitions);
+
+        if (_meaningToggle is null) return;
+
+        _meaningToggle.IsEnabled = IsSemanticSearchAvailable && !IsSemanticSearchBusy;
+
+        var helpText = IsSemanticSearchAvailable ? SemanticSearchExplanationText : SemanticUnavailableReasonText;
+        AutomationProperties.SetHelpText(_meaningToggle, helpText);
+        ToolTipService.SetToolTip(_meaningToggle, helpText);
     }
 
-    private void SynchronizeLocalizedText()
+    private void UpdateSenderState(bool useTransitions = true)
+        => GoToState(SelectedSenderContact is null ? NoSenderSelectedStateName : SenderSelectedStateName, useTransitions);
+
+    private void UpdateHistoryState(bool useTransitions = true)
+        => GoToState(_historySuggestions.Count > 0 ? HasHistoryStateName : NoHistoryStateName, useTransitions);
+
+    private void GoToState(string stateName, bool useTransitions)
+        => VisualStateManager.GoToState(this, stateName, useTransitions);
+
+    /// <summary>
+    /// The clear button belongs to the <see cref="AutoSuggestBox"/> template, outside this control's
+    /// namescope, so its text is the one label the template cannot bind for us.
+    /// </summary>
+    private void UpdateClearButtonText()
     {
-        if (_meaningToggleLabel is not null) _meaningToggleLabel.Text = MeaningToggleText;
-        if (_meaningToggle is not null) AutomationProperties.SetName(_meaningToggle, MeaningToggleText);
-        if (_queryButton is not null) { AutomationProperties.SetName(_queryButton, SearchButtonText); ToolTipService.SetToolTip(_queryButton, SearchButtonText); }
-        if (_searchOptionsButton is not null) { AutomationProperties.SetName(_searchOptionsButton, SearchOptionsText); ToolTipService.SetToolTip(_searchOptionsButton, SearchOptionsText); }
-        if (_historyHeadingText is not null) _historyHeadingText.Text = RecentSearchesText;
-        if (_clearHistoryButton is not null) _clearHistoryButton.Content = ClearHistoryText;
-        if (_clearTextButton is not null) { AutomationProperties.SetName(_clearTextButton, ClearText); ToolTipService.SetToolTip(_clearTextButton, ClearText); }
-        if (_emptyHistoryText is not null) _emptyHistoryText.Text = EmptyHistoryText;
-        if (_attachmentsButton is not null) _attachmentsButton.Content = AttachmentsFilterText;
-        if (_unreadButton is not null) _unreadButton.Content = UnreadFilterText;
-        if (_flaggedButton is not null) _flaggedButton.Content = FlaggedFilterText;
-        if (_resetButton is not null) _resetButton.Content = ResetText;
-        if (_panelSearchButton is not null) _panelSearchButton.Content = SearchButtonText;
-        if (_senderTokenRemoveButton is not null) AutomationProperties.SetName(_senderTokenRemoveButton, RemoveSenderText);
-        if (_scopeComboBox is not null) AutomationProperties.SetName(_scopeComboBox, ScopeLabelText);
-        if (_reachComboBox is not null) AutomationProperties.SetName(_reachComboBox, ReachLabelText);
-        if (_dateComboBox is not null) AutomationProperties.SetName(_dateComboBox, DateLabelText);
-        if (_senderSuggestBox is not null) AutomationProperties.SetName(_senderSuggestBox, SenderLabelText);
+        if (_clearTextButton is null) return;
+        AutomationProperties.SetName(_clearTextButton, ClearText);
+        ToolTipService.SetToolTip(_clearTextButton, ClearText);
     }
 
     private static T? FindVisualDescendant<T>(DependencyObject? root, string? automationId = null) where T : DependencyObject

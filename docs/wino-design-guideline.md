@@ -94,6 +94,7 @@ Color is semantic. Accent indicates primary action, selection, or focus. Success
 ### Shape and elevation
 
 - Use 4 epx rounding for controls and in-page backplates.
+- Use a fully rounded 16 epx radius for the compact 32 epx `WinoSearchBar`, matching the familiar Windows Settings search shape.
 - Use 8 epx rounding for dialogs, flyouts, TeachingTips, and top-level containers.
 - Do not round edges where adjacent panels intentionally meet flush.
 - Let built-in controls provide their appropriate elevation. Shadows explain hierarchy; they are not decoration.

@@ -20,7 +20,7 @@
 
     <!--  SystemBackdrop will be set by NewThemeService  -->
 
-    <Grid>
+    <Grid x:Name="ShellRoot">
         <Grid.Resources>
             <DataTemplate x:Key="TitleBarSenderSuggestionTemplate" x:DataType="searchCore:SearchBarContactSuggestion">
                 <Grid
@@ -60,356 +60,390 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.RowSpan="2" Background="{ThemeResource WinoApplicationBackgroundColor}" />
-        <TitleBar
-            x:Name="ShellTitleBar"
-            Margin="-2"
-            HorizontalContentAlignment="Stretch"
-            VerticalContentAlignment="Stretch"
-            BackRequested="BackButtonClicked"
-            Background="{ThemeResource AppBarBackgroundColor}"
-            IsPaneToggleButtonVisible="True"
-            IsTabStop="False"
-            PaneToggleRequested="PaneButtonClicked">
-            <!--
-                One synchronization button for every mode, plus the title and subtitle. The
-                TitleBar's own Title/Subtitle are left unset and rendered here instead: that is
-                what lets a running synchronization fade them out without collapsing their
-                columns, which would slide the search box out of the middle of the window.
-                
-                The button itself keeps a fixed 36x36 footprint and overhangs its pill to the
-                right, so nothing in the title bar reflows while it is expanded either.
-            -->
-            <TitleBar.LeftHeader>
-                <Grid VerticalAlignment="Center">
-                    <StackPanel
-                        x:Name="ShellTitleHost"
-                        Margin="40,0,0,0"
-                        VerticalAlignment="Center"
-                        Orientation="Horizontal"
-                        Spacing="8">
-                        <TextBlock
-                            x:Name="ShellTitleText"
-                            MinWidth="{ThemeResource TitleBarTitleMinWidth}"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            TextTrimming="CharacterEllipsis"
-                            TextWrapping="NoWrap" />
-                        <TextBlock
-                            x:Name="ShellSubtitleText"
-                            MinWidth="{ThemeResource TitleBarSubtitleMinWidth}"
-                            Margin="{ThemeResource TitleBarSubtitleMargin}"
-                            HorizontalAlignment="Left"
-                            VerticalAlignment="Center"
-                            Foreground="{ThemeResource TitleBarSubtitleForegroundBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            TextTrimming="CharacterEllipsis"
-                            TextWrapping="NoWrap" />
-                    </StackPanel>
-                    <syncButton:WinoSynchronizationButton
-                        x:Name="ShellSynchronizationButton"
-                        Margin="-2,0,0,0"
-                        HorizontalAlignment="Left"
-                        AutomationProperties.AutomationId="ShellSynchronizationButton"
-                        Canvas.ZIndex="1"
-                        Click="ShellSynchronizationButtonClicked"
-                        Visibility="Collapsed" />
-                </Grid>
-            </TitleBar.LeftHeader>
-            <!--<TitleBar.Resources>
-                <HorizontalAlignment x:Key="TitleBarContentHorizontalAlignment">Stretch</HorizontalAlignment>
-                <VerticalAlignment x:Key="TitleBarContentVerticalAlignment">Stretch</VerticalAlignment>
-            </TitleBar.Resources>-->
-            <TitleBar.Content>
-                <searchControls:WinoSearchBar
-                    x:Name="TitleBarSearchBox"
-                    MinWidth="400"
-                    MaxWidth="520"
-                    Margin="12,0,16,0"
-                    VerticalAlignment="Center"
-                    AttachmentsFilterText="{x:Bind domain:Translator.SearchBar_Attachments}"
-                    AutomationProperties.AutomationId="TitleBarSearchBox"
-                    AutomationProperties.Name="{x:Bind domain:Translator.SearchBarPlaceholder}"
-                    ClearHistoryText="{x:Bind domain:Translator.SearchBar_ClearHistory}"
-                    ClearSearchHistoryRequested="TitleBarClearSearchHistoryRequested"
-                    ClearText="{x:Bind domain:Translator.SearchBar_Close}"
-                    DateLabelText="{x:Bind domain:Translator.SearchBar_Date}"
-                    EmptyHistoryText="{x:Bind domain:Translator.SearchBar_NoRecentSearches}"
-                    FlaggedFilterText="{x:Bind domain:Translator.SearchBar_Flagged}"
-                    MeaningToggleText="{x:Bind domain:Translator.SearchBar_Meaning}"
-                    PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
-                    ReachLabelText="{x:Bind domain:Translator.SearchBar_Reach}"
-                    RecentSearchesText="{x:Bind domain:Translator.SearchBar_RecentSearches}"
-                    RemoveSenderText="{x:Bind domain:Translator.SearchBar_RemoveSender}"
-                    ResetText="{x:Bind domain:Translator.SearchBar_ResetFilters}"
-                    ScopeLabelText="{x:Bind domain:Translator.SearchBar_Scope}"
-                    SearchButtonText="{x:Bind domain:Translator.SearchBar_SearchButton}"
-                    SearchOptionsText="{x:Bind domain:Translator.SearchBar_SearchOptions}"
-                    SearchSubmitted="TitleBarSearchSubmitted"
-                    SearchTextChanged="TitleBarSearchTextChanged"
-                    SemanticPlaceholderText="{x:Bind domain:Translator.SearchBar_SemanticPlaceholder}"
-                    SemanticSearchExplanationText="{x:Bind domain:Translator.SearchBar_SemanticExplanation}"
-                    SenderLabelText="{x:Bind domain:Translator.SearchBar_Sender}"
-                    SenderPlaceholderText="{x:Bind domain:Translator.SearchBar_SenderPlaceholder}"
-                    SenderSuggestionItemTemplate="{StaticResource TitleBarSenderSuggestionTemplate}"
-                    SenderSuggestionsRequested="TitleBarSenderSuggestionsRequested"
-                    UnreadFilterText="{x:Bind domain:Translator.SearchBar_Unread}">
-                    <searchControls:WinoSearchBar.ItemTemplate>
-                        <DataTemplate x:DataType="searchModels:TitleBarSearchSuggestion">
-                            <Grid MinHeight="48" Padding="8,4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <mailControls:WinoContactPicture
-                                    Width="32"
-                                    Height="32"
-                                    Margin="0,0,10,0"
-                                    ContactPicture="{x:Bind ContactPicture, Mode=OneTime}"
-                                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.NotNullToVisibility(ContactPicture), Mode=OneTime}" />
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Style="{StaticResource CaptionTextBlockStyle}"
-                                        Text="{x:Bind Subtitle}"
-                                        TextTrimming="CharacterEllipsis" />
-                                </StackPanel>
-                            </Grid>
-                        </DataTemplate>
-                    </searchControls:WinoSearchBar.ItemTemplate>
-                </searchControls:WinoSearchBar>
-            </TitleBar.Content>
-            <TitleBar.RightHeader>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <ToggleButton
-                        x:Name="DailyBriefingToggleButton"
-                        Width="38"
-                        Height="38"
-                        Padding="0"
-                        AutomationProperties.AutomationId="ShellDailyBriefingToggleButton"
-                        AutomationProperties.Name="{x:Bind domain:Translator.DailyBriefing_Menu, Mode=OneTime}"
-                        Background="Transparent"
-                        BorderBrush="Transparent"
-                        Click="DailyBriefingToggleButtonClicked"
-                        ToolTipService.ToolTip="{x:Bind domain:Translator.DailyBriefing_Menu, Mode=OneTime}"
-                        Visibility="Collapsed">
-                        <Grid>
-                            <Viewbox
-                                Width="22"
-                                Height="22"
-                                Margin="0,0,4,0">
-                                <PathIcon Data="M17.75 2.007a2.25 2.25 0 0 1 2.245 2.096l.005.154v15.498A2.25 2.25 0 0 1 17.904 22l-.154.005H6.25a2.25 2.25 0 0 1-2.245-2.096L4 19.755V4.257a2.25 2.25 0 0 1 2.096-2.245l.154-.005h11.5ZM7.75 7a.75.75 0 1 0 0 1.5h8.5a.75.75 0 0 0 0-1.5h-8.5ZM7 11.75c0 .414.336.75.75.75h8.5a.75.75 0 0 0 0-1.5h-8.5a.75.75 0 0 0-.75.75ZM7.75 15a.75.75 0 1 0 0 1.5h8.5a.75.75 0 0 0 0-1.5h-8.5Z" />
-                            </Viewbox>
-                            <InfoBadge
-                                x:Name="DailyBriefingUnseenBadge"
-                                HorizontalAlignment="Right"
-                                VerticalAlignment="Top"
-                                Background="{ThemeResource SystemAccentColor}"
+        <UserControl x:Name="ShellTitleBarHost" IsTabStop="False">
+            <Grid x:Name="TitleBarStateHost">
+                <!--
+                    The title bar gives up its pieces in the order it can most afford to. First the search
+                    field collapses into a single icon that opens the field beneath itself, the way the
+                    Settings app does it; only when the window is narrower still do the app title and the
+                    folder subtitle go, leaving the pane toggle, the icon and the account button.
+
+                    Triggers are declared narrowest first: the last state whose trigger is active wins. The
+                    states carry no Setters. Setter.Target cannot reach ShellTitleHost or TitleBarSearchBox
+                    because the TitleBar hosts them through its own template, outside this namescope, so the
+                    width state is applied from ApplyTitleBarWidthState in the code-behind instead.
+                -->
+                <VisualStateManager.VisualStateGroups>
+                    <VisualStateGroup x:Name="TitleBarWidthStates">
+                        <VisualState x:Name="MinimalTitleBarState">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="0" />
+                            </VisualState.StateTriggers>
+                        </VisualState>
+                        <VisualState x:Name="CompactTitleBarState">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="560" />
+                            </VisualState.StateTriggers>
+                        </VisualState>
+                        <VisualState x:Name="WideTitleBarState">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="900" />
+                            </VisualState.StateTriggers>
+                        </VisualState>
+                    </VisualStateGroup>
+                </VisualStateManager.VisualStateGroups>
+                <TitleBar
+                    x:Name="ShellTitleBar"
+                    Margin="-2"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    BackRequested="BackButtonClicked"
+                    Background="{ThemeResource AppBarBackgroundColor}"
+                    IsPaneToggleButtonVisible="True"
+                    IsTabStop="False"
+                    PaneToggleRequested="PaneButtonClicked">
+                    <!--
+                        One synchronization button for every mode, plus the title and subtitle. The
+                        TitleBar's own Title/Subtitle are left unset and rendered here instead: that is
+                        what lets a running synchronization fade them out without collapsing their
+                        columns, which would slide the search box out of the middle of the window.
+            
+                        The button itself keeps a fixed 36x36 footprint and overhangs its pill to the
+                        right, so nothing in the title bar reflows while it is expanded either.
+                    -->
+                    <TitleBar.LeftHeader>
+                        <Grid VerticalAlignment="Center">
+                            <StackPanel
+                                x:Name="ShellTitleHost"
+                                Margin="40,0,0,0"
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="8">
+                                <TextBlock
+                                    x:Name="ShellTitleText"
+                                    MinWidth="{ThemeResource TitleBarTitleMinWidth}"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    TextTrimming="CharacterEllipsis"
+                                    TextWrapping="NoWrap" />
+                                <TextBlock
+                                    x:Name="ShellSubtitleText"
+                                    MinWidth="{ThemeResource TitleBarSubtitleMinWidth}"
+                                    Margin="{ThemeResource TitleBarSubtitleMargin}"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TitleBarSubtitleForegroundBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    TextTrimming="CharacterEllipsis"
+                                    TextWrapping="NoWrap" />
+                            </StackPanel>
+                            <syncButton:WinoSynchronizationButton
+                                x:Name="ShellSynchronizationButton"
+                                Margin="-2,0,0,0"
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="ShellSynchronizationButton"
+                                Canvas.ZIndex="1"
+                                Click="ShellSynchronizationButtonClicked"
                                 Visibility="Collapsed" />
                         </Grid>
-                    </ToggleButton>
-                    <Button
-                        x:Name="WinoAccountButton"
-                        AutomationProperties.AutomationId="WinoAccountButton"
-                        AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}"
-                        Background="Transparent"
-                        BorderBrush="Transparent"
-                        ToolTipService.ToolTip="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(PreferencesService.IsWinoAccountButtonHidden), Mode=OneTime}">
-                        <Button.Flyout>
-                            <Flyout x:Name="WinoAccountFlyout" Placement="Bottom">
-                                <Grid MinWidth="320" MaxWidth="360">
-                                    <!--  Signed Out View  -->
-                                    <StackPanel x:Name="WinoAccountSignedOutView" Spacing="16">
-
-                                        <!--  Hero header with gradient and icon  -->
-                                        <Border
-                                            Margin="-16,-16,-16,0"
-                                            Padding="20"
-                                            CornerRadius="8,8,0,0">
-                                            <Border.Background>
-                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                                    <GradientStop Offset="0" Color="#1A6EE7B7" />
-                                                    <GradientStop Offset="0.5" Color="#2038BDF8" />
-                                                    <GradientStop Offset="1" Color="#1A818CF8" />
-                                                </LinearGradientBrush>
-                                            </Border.Background>
-                                            <StackPanel Spacing="4">
-                                                <TextBlock
-                                                    Margin="0,8,0,0"
-                                                    Style="{StaticResource SubtitleTextBlockStyle}"
-                                                    Text="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}" />
-                                                <TextBlock
-                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutDescription}"
-                                                    TextWrapping="WrapWholeWords" />
-                                            </StackPanel>
-                                        </Border>
-
-                                        <!--  Benefit cards  -->
-                                        <StackPanel Spacing="8">
-                                            <Border
-                                                Padding="12"
-                                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                                                CornerRadius="8">
-                                                <Grid ColumnSpacing="12">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Border
-                                                        Width="32"
-                                                        Height="32"
-                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                                        CornerRadius="8"
-                                                        Opacity="0.15" />
-                                                    <FontIcon
-                                                        HorizontalAlignment="Center"
-                                                        VerticalAlignment="Center"
-                                                        FontSize="14"
-                                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                        Glyph="&#xE8D7;" />
-                                                    <StackPanel Grid.Column="1" Spacing="2">
-                                                        <TextBlock
-                                                            FontWeight="SemiBold"
-                                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                                            Text="{x:Bind domain:Translator.WinoAccount_Titlebar_SyncBenefitTitle}" />
-                                                        <TextBlock
-                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                                            Text="{x:Bind domain:Translator.WinoAccount_Titlebar_SyncBenefitDescription}"
-                                                            TextWrapping="WrapWholeWords" />
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Border>
-                                            <Border
-                                                Padding="12"
-                                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                                                CornerRadius="8">
-                                                <Grid ColumnSpacing="12">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <Border
-                                                        Width="32"
-                                                        Height="32"
-                                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                                        CornerRadius="8"
-                                                        Opacity="0.15" />
-                                                    <FontIcon
-                                                        HorizontalAlignment="Center"
-                                                        VerticalAlignment="Center"
-                                                        FontSize="14"
-                                                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                        Glyph="&#xE946;" />
-                                                    <StackPanel Grid.Column="1" Spacing="2">
-                                                        <TextBlock
-                                                            FontWeight="SemiBold"
-                                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                                            Text="{x:Bind domain:Translator.WinoAccount_Titlebar_AddonsBenefitTitle}" />
-                                                        <TextBlock
-                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                                            Text="{x:Bind domain:Translator.WinoAccount_Titlebar_AddonsBenefitDescription}"
-                                                            TextWrapping="WrapWholeWords" />
-                                                    </StackPanel>
-                                                </Grid>
-                                            </Border>
+                    </TitleBar.LeftHeader>
+                    <!--<TitleBar.Resources>
+                        <HorizontalAlignment x:Key="TitleBarContentHorizontalAlignment">Stretch</HorizontalAlignment>
+                        <VerticalAlignment x:Key="TitleBarContentVerticalAlignment">Stretch</VerticalAlignment>
+                    </TitleBar.Resources>-->
+                    <TitleBar.Content>
+                        <searchControls:WinoSearchBar
+                            x:Name="TitleBarSearchBox"
+                            MinWidth="400"
+                            MaxWidth="520"
+                            Margin="12,0,16,0"
+                            VerticalAlignment="Center"
+                            AttachmentsFilterText="{x:Bind domain:Translator.SearchBar_Attachments}"
+                            AutomationProperties.AutomationId="TitleBarSearchBox"
+                            AutomationProperties.Name="{x:Bind domain:Translator.SearchBarPlaceholder}"
+                            ClearHistoryText="{x:Bind domain:Translator.SearchBar_ClearHistory}"
+                            ClearSearchHistoryRequested="TitleBarClearSearchHistoryRequested"
+                            ClearText="{x:Bind domain:Translator.SearchBar_Close}"
+                            DateLabelText="{x:Bind domain:Translator.SearchBar_Date}"
+                            EmptyHistoryText="{x:Bind domain:Translator.SearchBar_NoRecentSearches}"
+                            FlaggedFilterText="{x:Bind domain:Translator.SearchBar_Flagged}"
+                            MeaningToggleText="{x:Bind domain:Translator.SearchBar_Meaning}"
+                            PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
+                            ReachLabelText="{x:Bind domain:Translator.SearchBar_Reach}"
+                            RecentSearchesText="{x:Bind domain:Translator.SearchBar_RecentSearches}"
+                            RemoveSenderText="{x:Bind domain:Translator.SearchBar_RemoveSender}"
+                            ResetText="{x:Bind domain:Translator.SearchBar_ResetFilters}"
+                            ScopeLabelText="{x:Bind domain:Translator.SearchBar_Scope}"
+                            SearchButtonText="{x:Bind domain:Translator.SearchBar_SearchButton}"
+                            SearchOptionsText="{x:Bind domain:Translator.SearchBar_SearchOptions}"
+                            SearchSubmitted="TitleBarSearchSubmitted"
+                            SearchTextChanged="TitleBarSearchTextChanged"
+                            SemanticPlaceholderText="{x:Bind domain:Translator.SearchBar_SemanticPlaceholder}"
+                            SemanticSearchExplanationText="{x:Bind domain:Translator.SearchBar_SemanticExplanation}"
+                            SenderLabelText="{x:Bind domain:Translator.SearchBar_Sender}"
+                            SenderPlaceholderText="{x:Bind domain:Translator.SearchBar_SenderPlaceholder}"
+                            SenderSuggestionItemTemplate="{StaticResource TitleBarSenderSuggestionTemplate}"
+                            SenderSuggestionsRequested="TitleBarSenderSuggestionsRequested"
+                            UnreadFilterText="{x:Bind domain:Translator.SearchBar_Unread}">
+                            <searchControls:WinoSearchBar.ItemTemplate>
+                                <DataTemplate x:DataType="searchModels:TitleBarSearchSuggestion">
+                                    <Grid MinHeight="48" Padding="8,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <mailControls:WinoContactPicture
+                                            Width="32"
+                                            Height="32"
+                                            Margin="0,0,10,0"
+                                            ContactPicture="{x:Bind ContactPicture, Mode=OneTime}"
+                                            IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                            IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
+                                            Visibility="{x:Bind helpers:XamlHelpers.NotNullToVisibility(ContactPicture), Mode=OneTime}" />
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="{x:Bind Subtitle}"
+                                                TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </searchControls:WinoSearchBar.ItemTemplate>
+                        </searchControls:WinoSearchBar>
+                    </TitleBar.Content>
+                    <TitleBar.RightHeader>
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ToggleButton
+                                x:Name="DailyBriefingToggleButton"
+                                Width="38"
+                                Height="38"
+                                Padding="0"
+                                AutomationProperties.AutomationId="ShellDailyBriefingToggleButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.DailyBriefing_Menu, Mode=OneTime}"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                Click="DailyBriefingToggleButtonClicked"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.DailyBriefing_Menu, Mode=OneTime}"
+                                Visibility="Collapsed">
+                                <Grid>
+                                    <Viewbox
+                                        Width="22"
+                                        Height="22"
+                                        Margin="0,0,4,0">
+                                        <PathIcon Data="M17.75 2.007a2.25 2.25 0 0 1 2.245 2.096l.005.154v15.498A2.25 2.25 0 0 1 17.904 22l-.154.005H6.25a2.25 2.25 0 0 1-2.245-2.096L4 19.755V4.257a2.25 2.25 0 0 1 2.096-2.245l.154-.005h11.5ZM7.75 7a.75.75 0 1 0 0 1.5h8.5a.75.75 0 0 0 0-1.5h-8.5ZM7 11.75c0 .414.336.75.75.75h8.5a.75.75 0 0 0 0-1.5h-8.5a.75.75 0 0 0-.75.75ZM7.75 15a.75.75 0 1 0 0 1.5h8.5a.75.75 0 0 0 0-1.5h-8.5Z" />
+                                    </Viewbox>
+                                    <InfoBadge
+                                        x:Name="DailyBriefingUnseenBadge"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        Background="{ThemeResource SystemAccentColor}"
+                                        Visibility="Collapsed" />
+                                </Grid>
+                            </ToggleButton>
+                            <Button
+                                x:Name="WinoAccountButton"
+                                AutomationProperties.AutomationId="WinoAccountButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}"
+                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(PreferencesService.IsWinoAccountButtonHidden), Mode=OneTime}">
+                                <Button.Flyout>
+                                    <Flyout x:Name="WinoAccountFlyout" Placement="Bottom">
+                                        <Grid MinWidth="320" MaxWidth="360">
+                                            <!--  Signed Out View  -->
+                                            <StackPanel x:Name="WinoAccountSignedOutView" Spacing="16">
 
-                                        <!--  Action buttons  -->
-                                        <Grid ColumnSpacing="8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-                                            <Button
-                                                HorizontalAlignment="Stretch"
-                                                AutomationProperties.AutomationId="ShellWindowButton"
-                                                Click="LoginWinoAccountClicked"
-                                                Content="{x:Bind domain:Translator.WinoAccount_LoginButton_Title}"
-                                                Style="{ThemeResource AccentButtonStyle}" />
-                                            <Button
-                                                Grid.Column="1"
-                                                HorizontalAlignment="Stretch"
-                                                AutomationProperties.AutomationId="ShellWindowButton2"
-                                                Click="RegisterWinoAccountClicked"
-                                                Content="{x:Bind domain:Translator.WinoAccount_RegisterButton_Title}" />
-                                        </Grid>
-                                    </StackPanel>
+                                                <!--  Hero header with gradient and icon  -->
+                                                <Border
+                                                    Margin="-16,-16,-16,0"
+                                                    Padding="20"
+                                                    CornerRadius="8,8,0,0">
+                                                    <Border.Background>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                            <GradientStop Offset="0" Color="#1A6EE7B7" />
+                                                            <GradientStop Offset="0.5" Color="#2038BDF8" />
+                                                            <GradientStop Offset="1" Color="#1A818CF8" />
+                                                        </LinearGradientBrush>
+                                                    </Border.Background>
+                                                    <StackPanel Spacing="4">
+                                                        <TextBlock
+                                                            Margin="0,8,0,0"
+                                                            Style="{StaticResource SubtitleTextBlockStyle}"
+                                                            Text="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}" />
+                                                        <TextBlock
+                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                                            Text="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutDescription}"
+                                                            TextWrapping="WrapWholeWords" />
+                                                    </StackPanel>
+                                                </Border>
 
-                                    <!--  Signed In View  -->
-                                    <StackPanel
-                                        x:Name="WinoAccountSignedInView"
-                                        Spacing="16"
-                                        Visibility="Collapsed">
+                                                <!--  Benefit cards  -->
+                                                <StackPanel Spacing="8">
+                                                    <Border
+                                                        Padding="12"
+                                                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                                        CornerRadius="8">
+                                                        <Grid ColumnSpacing="12">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border
+                                                                Width="32"
+                                                                Height="32"
+                                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                                CornerRadius="8"
+                                                                Opacity="0.15" />
+                                                            <FontIcon
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center"
+                                                                FontSize="14"
+                                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                                Glyph="&#xE8D7;" />
+                                                            <StackPanel Grid.Column="1" Spacing="2">
+                                                                <TextBlock
+                                                                    FontWeight="SemiBold"
+                                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                                    Text="{x:Bind domain:Translator.WinoAccount_Titlebar_SyncBenefitTitle}" />
+                                                                <TextBlock
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                                    Text="{x:Bind domain:Translator.WinoAccount_Titlebar_SyncBenefitDescription}"
+                                                                    TextWrapping="WrapWholeWords" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                    <Border
+                                                        Padding="12"
+                                                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                                                        CornerRadius="8">
+                                                        <Grid ColumnSpacing="12">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="Auto" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <Border
+                                                                Width="32"
+                                                                Height="32"
+                                                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                                                CornerRadius="8"
+                                                                Opacity="0.15" />
+                                                            <FontIcon
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center"
+                                                                FontSize="14"
+                                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                                Glyph="&#xE946;" />
+                                                            <StackPanel Grid.Column="1" Spacing="2">
+                                                                <TextBlock
+                                                                    FontWeight="SemiBold"
+                                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                                    Text="{x:Bind domain:Translator.WinoAccount_Titlebar_AddonsBenefitTitle}" />
+                                                                <TextBlock
+                                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                                    Text="{x:Bind domain:Translator.WinoAccount_Titlebar_AddonsBenefitDescription}"
+                                                                    TextWrapping="WrapWholeWords" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Border>
+                                                </StackPanel>
 
-                                        <!--  Profile header  -->
-                                        <Border
-                                            Margin="-16,-16,-16,0"
-                                            Padding="20"
-                                            CornerRadius="8,8,0,0">
-                                            <Border.Background>
-                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                                    <GradientStop Offset="0" Color="#1A6EE7B7" />
-                                                    <GradientStop Offset="0.5" Color="#2038BDF8" />
-                                                    <GradientStop Offset="1" Color="#1A818CF8" />
-                                                </LinearGradientBrush>
-                                            </Border.Background>
-                                            <StackPanel Orientation="Horizontal" Spacing="14">
-                                                <PersonPicture
-                                                    x:Name="WinoAccountFlyoutPicture"
-                                                    Width="48"
-                                                    Height="48"
-                                                    Initials="W" />
-                                                <StackPanel VerticalAlignment="Center" Spacing="2">
-                                                    <TextBlock
-                                                        x:Name="WinoAccountFlyoutEmailText"
-                                                        Style="{StaticResource BodyStrongTextBlockStyle}"
-                                                        TextWrapping="WrapWholeWords" />
+                                                <!--  Action buttons  -->
+                                                <Grid ColumnSpacing="8">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <Button
+                                                        HorizontalAlignment="Stretch"
+                                                        AutomationProperties.AutomationId="ShellWindowButton"
+                                                        Click="LoginWinoAccountClicked"
+                                                        Content="{x:Bind domain:Translator.WinoAccount_LoginButton_Title}"
+                                                        Style="{ThemeResource AccentButtonStyle}" />
+                                                    <Button
+                                                        Grid.Column="1"
+                                                        HorizontalAlignment="Stretch"
+                                                        AutomationProperties.AutomationId="ShellWindowButton2"
+                                                        Click="RegisterWinoAccountClicked"
+                                                        Content="{x:Bind domain:Translator.WinoAccount_RegisterButton_Title}" />
+                                                </Grid>
+                                            </StackPanel>
+
+                                            <!--  Signed In View  -->
+                                            <StackPanel
+                                                x:Name="WinoAccountSignedInView"
+                                                Spacing="16"
+                                                Visibility="Collapsed">
+
+                                                <!--  Profile header  -->
+                                                <Border
+                                                    Margin="-16,-16,-16,0"
+                                                    Padding="20"
+                                                    CornerRadius="8,8,0,0">
+                                                    <Border.Background>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                            <GradientStop Offset="0" Color="#1A6EE7B7" />
+                                                            <GradientStop Offset="0.5" Color="#2038BDF8" />
+                                                            <GradientStop Offset="1" Color="#1A818CF8" />
+                                                        </LinearGradientBrush>
+                                                    </Border.Background>
+                                                    <StackPanel Orientation="Horizontal" Spacing="14">
+                                                        <PersonPicture
+                                                            x:Name="WinoAccountFlyoutPicture"
+                                                            Width="48"
+                                                            Height="48"
+                                                            Initials="W" />
+                                                        <StackPanel VerticalAlignment="Center" Spacing="2">
+                                                            <TextBlock
+                                                                x:Name="WinoAccountFlyoutEmailText"
+                                                                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                                TextWrapping="WrapWholeWords" />
+                                                        </StackPanel>
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <!--  Account actions  -->
+                                                <StackPanel Spacing="8">
+                                                    <Button
+                                                        HorizontalAlignment="Stretch"
+                                                        AutomationProperties.AutomationId="WinoAccountFlyoutManageAccountButton"
+                                                        Click="ManageWinoAccountClicked"
+                                                        Content="{x:Bind domain:Translator.WinoAccount_Titlebar_ManageAccount}" />
+                                                    <Button
+                                                        HorizontalAlignment="Stretch"
+                                                        AutomationProperties.AutomationId="ShellWindowButton3"
+                                                        Click="SignOutWinoAccountClicked"
+                                                        Content="{x:Bind domain:Translator.WinoAccount_SignOutButton_Action}" />
                                                 </StackPanel>
                                             </StackPanel>
-                                        </Border>
-
-                                        <!--  Account actions  -->
-                                        <StackPanel Spacing="8">
-                                            <Button
-                                                HorizontalAlignment="Stretch"
-                                                AutomationProperties.AutomationId="WinoAccountFlyoutManageAccountButton"
-                                                Click="ManageWinoAccountClicked"
-                                                Content="{x:Bind domain:Translator.WinoAccount_Titlebar_ManageAccount}" />
-                                            <Button
-                                                HorizontalAlignment="Stretch"
-                                                AutomationProperties.AutomationId="ShellWindowButton3"
-                                                Click="SignOutWinoAccountClicked"
-                                                Content="{x:Bind domain:Translator.WinoAccount_SignOutButton_Action}" />
-                                        </StackPanel>
-                                    </StackPanel>
+                                        </Grid>
+                                    </Flyout>
+                                </Button.Flyout>
+                                <Grid>
+                                    <PersonPicture
+                                        x:Name="WinoAccountButtonPicture"
+                                        Width="30"
+                                        Height="30"
+                                        Initials="W"
+                                        Visibility="Collapsed" />
+                                    <Image
+                                        x:Name="WinoAccountSignedOutIcon"
+                                        Width="25"
+                                        Height="30"
+                                        Source="/Assets/AppEntries/MailAssets/StoreLogo.png" />
                                 </Grid>
-                            </Flyout>
-                        </Button.Flyout>
-                        <Grid>
-                            <PersonPicture
-                                x:Name="WinoAccountButtonPicture"
-                                Width="30"
-                                Height="30"
-                                Initials="W"
-                                Visibility="Collapsed" />
-                            <Image
-                                x:Name="WinoAccountSignedOutIcon"
-                                Width="25"
-                                Height="30"
-                                Source="/Assets/AppEntries/MailAssets/StoreLogo.png" />
-                        </Grid>
-                    </Button>
-                </StackPanel>
-            </TitleBar.RightHeader>
-        </TitleBar>
+                            </Button>
+                        </StackPanel>
+                    </TitleBar.RightHeader>
+                </TitleBar>
+            </Grid>
+        </UserControl>
 
         <Frame
             x:Name="MainShellFrame"

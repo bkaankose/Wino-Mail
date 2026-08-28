@@ -97,6 +97,39 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         RegisterMouseBackButtonListener();
 
         this.SetIcon("Assets/Wino_Icon.ico");
+
+        AttachTitleBarWidthStates();
+    }
+
+    /// <summary>
+    /// The adaptive triggers live in XAML; applying their result does not. A VisualState Setter can
+    /// only reach a named element in its own namescope, and everything the width states have to
+    /// touch sits inside the TitleBar's template, so the state change is forwarded here instead.
+    /// </summary>
+    private void AttachTitleBarWidthStates()
+    {
+        var group = VisualStateManager.GetVisualStateGroups(TitleBarStateHost).FirstOrDefault(x => x.Name == "TitleBarWidthStates");
+        if (group is null) return;
+
+        // The triggers move CurrentState on their own, but the change notification is not something
+        // to lean on here, so the state is also re-read after every resize and after load.
+        group.CurrentStateChanged += (_, e) => ApplyTitleBarWidthState(e.NewState?.Name);
+        TitleBarStateHost.Loaded += (_, _) => ApplyTitleBarWidthState(group.CurrentState?.Name);
+        ShellRoot.SizeChanged += (_, _) => DispatcherQueue.TryEnqueue(() => ApplyTitleBarWidthState(group.CurrentState?.Name));
+    }
+
+    private void ApplyTitleBarWidthState(string? stateName)
+    {
+        var isCompact = stateName is not null and not "WideTitleBarState";
+
+        ShellTitleHost.Visibility = stateName == "MinimalTitleBarState" ? Visibility.Collapsed : Visibility.Visible;
+        TitleBarSearchBox.IsCompact = isCompact;
+
+        // The icon is the whole control in compact mode, so the wide layout's width floor has to go
+        // with it; leaving MinWidth at 400 would keep an empty 400px hole in the middle of the bar.
+        TitleBarSearchBox.MinWidth = isCompact ? 0 : 400;
+        TitleBarSearchBox.MaxWidth = isCompact ? 48 : 520;
+        TitleBarSearchBox.HorizontalAlignment = isCompact ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
     }
 
     private void ConfigureTitleBar()

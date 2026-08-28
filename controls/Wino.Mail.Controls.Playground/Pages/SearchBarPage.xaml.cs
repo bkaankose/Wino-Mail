@@ -89,6 +89,20 @@ public sealed partial class SearchBarPage : Page
         AddTrace($"Semantic busy: {SemanticBusyToggle.IsOn}");
     }
 
+    private void SemanticEnabledToggled(object sender, RoutedEventArgs e)
+    {
+        if (SearchBar is null) return;
+        SearchBar.IsSemanticSearchEnabled = SemanticEnabledToggle.IsOn;
+        AddTrace($"Meaning enabled: {SearchBar.IsSemanticSearchEnabled}");
+    }
+
+    private void CompactLayoutToggled(object sender, RoutedEventArgs e)
+    {
+        if (SearchBar is null) return;
+        SearchBar.IsCompact = CompactLayoutToggle.IsOn;
+        AddTrace($"Compact layout: {CompactLayoutToggle.IsOn}");
+    }
+
     private void SearchBarTextChanged(object? sender, SearchBarTextChangedEventArgs e)
     {
         if (!e.IsUserInput) return;
@@ -167,6 +181,8 @@ public sealed partial class SearchBarPage : Page
         SearchBar.ItemsSource = Suggestions;
         SearchBar.IsSemanticSearchAvailable = SemanticAvailabilityToggle?.IsOn == true;
         SearchBar.IsSemanticSearchBusy = SemanticBusyToggle?.IsOn == true;
+        SearchBar.IsSemanticSearchEnabled = SemanticEnabledToggle?.IsOn == true;
+        SearchBar.IsCompact = CompactLayoutToggle?.IsOn == true;
         SearchBar.ScopeOptionsSource = new SearchBarOptionItem[]
         {
             new((int)SearchBarScope.CurrentFolder, "Current folder"),

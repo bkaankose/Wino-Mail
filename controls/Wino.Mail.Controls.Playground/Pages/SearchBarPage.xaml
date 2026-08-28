@@ -108,6 +108,18 @@
                     AutomationProperties.AutomationId="SearchBarSemanticBusyToggle"
                     Header="Semantic request busy"
                     Toggled="SemanticBusyToggled" />
+                <!--  Drives the FieldMeaning visual state without having to click the pill.  -->
+                <ToggleSwitch
+                    x:Name="SemanticEnabledToggle"
+                    AutomationProperties.AutomationId="SearchBarSemanticEnabledToggle"
+                    Header="Meaning enabled"
+                    Toggled="SemanticEnabledToggled" />
+                <!--  The host normally drives this from its adaptive triggers.  -->
+                <ToggleSwitch
+                    x:Name="CompactLayoutToggle"
+                    AutomationProperties.AutomationId="SearchBarCompactLayoutToggle"
+                    Header="Compact layout"
+                    Toggled="CompactLayoutToggled" />
             </StackPanel>
 
             <Border
