@@ -227,4 +227,67 @@ public sealed class DatabaseMigrationTests
                 Directory.Delete(directory, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task InitializeAsync_BackfillsAccountTaskSyncStateAndCreatesDeltaIndexesIdempotently()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"wino-task-delta-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var databasePath = Path.Combine(directory, "Wino200.db");
+        DatabaseService databaseService = null;
+        var accountId = Guid.NewGuid();
+
+        try
+        {
+            var legacy = new SQLiteAsyncConnection(databasePath);
+            await legacy.CreateTableAsync<AccountTaskList>();
+            await legacy.InsertAsync(new AccountTaskList
+            {
+                Id = Guid.NewGuid(),
+                MailAccountId = accountId,
+                SourceKind = TaskSourceKind.Outlook,
+                RemoteId = "list",
+                Title = "Tasks",
+                ListDeltaLink = "graph-list-cursor",
+                SubstrateGroupDeltaLink = "group-cursor",
+                SubstrateFolderDeltaLink = "folder-cursor"
+            });
+            await legacy.CloseAsync();
+
+            var configuration = new Mock<IApplicationConfiguration>();
+            configuration.SetupProperty(item => item.PublisherSharedFolderPath, directory);
+            databaseService = new DatabaseService(configuration.Object);
+
+            await databaseService.InitializeAsync();
+            await databaseService.InitializeAsync();
+
+            var state = (await databaseService.Connection.Table<AccountTaskSyncState>().ToListAsync()).Should().ContainSingle().Which;
+            state.MailAccountId.Should().Be(accountId);
+            state.SourceKind.Should().Be(TaskSourceKind.Outlook);
+            state.ListDeltaLink.Should().Be("graph-list-cursor");
+            state.SubstrateGroupDeltaLink.Should().Be("group-cursor");
+            state.SubstrateFolderDeltaLink.Should().Be("folder-cursor");
+
+            var indexes = await databaseService.Connection.QueryAsync<IndexRow>("PRAGMA index_list('TaskSyncState')");
+            indexes.Should().Contain(index => index.Name == "IX_TaskSyncState_Account_Source" && index.IsUnique == 1);
+            (await databaseService.Connection.GetTableInfoAsync("TaskList"))
+                .Should().Contain(column => column.Name == nameof(AccountTaskList.RemoteOrder));
+        }
+        finally
+        {
+            if (databaseService?.Connection != null)
+                await databaseService.Connection.CloseAsync();
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private sealed class IndexRow
+    {
+        [Column("name")]
+        public string Name { get; set; }
+
+        [Column("unique")]
+        public int IsUnique { get; set; }
+    }
 }

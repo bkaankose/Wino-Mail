@@ -17,11 +17,44 @@
     <!--
         The shell hosts a navigation menu but never builds one. Every item, template and
         command belongs to the mode view model of whatever the inner frame navigated to.
-        Mode template dictionaries are merged into the application resources the first time
-        that mode is opened, so a mail-only session never parses calendar or contacts XAML.
     -->
     <Page.Resources>
-        <coreSelectors:ShellMenuTemplateSelector x:Key="ShellMenuTemplateSelector" />
+        <coreSelectors:ShellMenuTemplateSelector
+            x:Key="ShellMenuTemplateSelector"
+            AccountCalendarGroupTemplate="{StaticResource AccountCalendarGroupTemplate}"
+            AccountTaskListGroupTemplate="{StaticResource AccountTaskListGroupTemplate}"
+            AccountTaskListTemplate="{StaticResource AccountTaskListTemplate}"
+            CalendarDatePickerTemplate="{StaticResource CalendarDatePickerTemplate}"
+            CalendarNewEventTemplate="{StaticResource CalendarNewEventTemplate}"
+            CalendarSyncTemplate="{StaticResource CalendarSyncTemplate}"
+            ContactAccountFilterTemplate="{StaticResource ContactAccountFilterTemplate}"
+            ContactFilterTemplate="{StaticResource ContactFilterTemplate}"
+            ContactsSyncTemplate="{StaticResource ContactsSyncTemplate}"
+            CreateNewMailTemplate="{StaticResource CreateNewMailTemplate}"
+            FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"
+            FixMissingFolderConfigTemplate="{StaticResource FixMissingFolderConfigTemplate}"
+            FolderMenuTemplate="{StaticResource FolderMenuTemplate}"
+            ImportantTaskTemplate="{StaticResource ImportantTaskTemplate}"
+            MailCategoryMenuTemplate="{StaticResource MailCategoryMenuTemplate}"
+            MergedAccountFolderMenuItemTemplate="{StaticResource MergedAccountFolderMenuItemTemplate}"
+            MergedAccountMoreFolderItemTemplate="{StaticResource MergedAccountMoreFolderItemTemplate}"
+            MergedAccountTemplate="{StaticResource MergedAccountTemplate}"
+            MergedMailCategoryMenuTemplate="{StaticResource MergedMailCategoryMenuTemplate}"
+            MyDayTaskTemplate="{StaticResource MyDayTaskTemplate}"
+            NewAddressListTemplate="{StaticResource NewAddressListTemplate}"
+            NewContactTemplate="{StaticResource NewContactTemplate}"
+            NewTaskListTemplate="{StaticResource NewTaskListTemplate}"
+            PlannedTaskTemplate="{StaticResource PlannedTaskTemplate}"
+            RatingItemTemplate="{StaticResource RatingItemTemplate}"
+            SeperatorTemplate="{StaticResource SeperatorTemplate}"
+            SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
+            SettingsShellSectionItemTemplate="{StaticResource SettingsShellSectionItemTemplate}"
+            SettingsShellWinoAccountItemTemplate="{StaticResource SettingsShellWinoAccountItemTemplate}"
+            SettingsShellWinoIntelligenceItemTemplate="{StaticResource SettingsShellWinoIntelligenceItemTemplate}"
+            SharedAccountMenuTemplate="{StaticResource SharedAccountMenuTemplate}"
+            SharedCompactAccountMenuTemplate="{StaticResource SharedCompactAccountMenuTemplate}"
+            ShellSectionHeaderTemplate="{StaticResource ShellSectionHeaderTemplate}"
+            ToDoSyncTemplate="{StaticResource ToDoSyncTemplate}" />
     </Page.Resources>
 
     <Grid x:Name="RootGrid">

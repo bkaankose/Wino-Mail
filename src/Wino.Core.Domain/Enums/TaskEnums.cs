@@ -33,6 +33,17 @@ public enum TaskViewKind
     Important = 4
 }
 
+/// <summary>
+/// Which completion states a task surface lists. One choice rather than additive toggles,
+/// so the header control cannot reach a state the surface has to correct.
+/// </summary>
+public enum TaskCompletionScope
+{
+    Active = 0,
+    Completed = 1,
+    All = 2
+}
+
 /// <summary>Client-side ordering applied to a task surface.</summary>
 public enum TaskSortKind
 {
@@ -53,5 +64,9 @@ public enum TaskSynchronizerOperation
     DeleteTask = 5,
     CreateStep = 6,
     UpdateStep = 7,
-    DeleteStep = 8
+    DeleteStep = 8,
+    CreateGroup = 9,
+    UpdateGroup = 10,
+    DeleteGroup = 11,
+    UpdateListPlacement = 12
 }

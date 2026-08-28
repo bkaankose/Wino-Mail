@@ -9,5 +9,6 @@ public interface ITaskActionRequest : IRequestBase
     Guid MailAccountId { get; }
     Guid? TaskListId { get; }
     Guid? TaskId { get; }
+    Guid? TaskGroupId { get; }
     TaskSynchronizerOperation Operation { get; }
 }

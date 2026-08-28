@@ -82,6 +82,7 @@ public class DatabaseService : IDatabaseService
             Connection.CreateTableAsync<CardDavQuarantine>(),
             Connection.CreateTableAsync<CardDavConflict>(),
             Connection.CreateTableAsync<AccountTaskListGroup>(),
+            Connection.CreateTableAsync<AccountTaskSyncState>(),
             Connection.CreateTableAsync<AccountTaskList>(),
             Connection.CreateTableAsync<AccountTask>(),
             Connection.CreateTableAsync<AccountTaskStep>(),
@@ -345,6 +346,31 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
         {
             await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.SortOrder)} INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
         }
+
+        if (!taskListColumns.Any(c => c.Name == nameof(AccountTaskList.RemoteOrder)))
+        {
+            await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.RemoteOrder)} TEXT NULL").ConfigureAwait(false);
+        }
+
+        if (!taskListColumns.Any(c => c.Name == nameof(AccountTaskList.SubstrateGroupDeltaLink)))
+        {
+            await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.SubstrateGroupDeltaLink)} TEXT NULL").ConfigureAwait(false);
+        }
+
+        if (!taskListColumns.Any(c => c.Name == nameof(AccountTaskList.SubstrateFolderDeltaLink)))
+        {
+            await Connection.ExecuteAsync($"ALTER TABLE {taskListTableName} ADD COLUMN {nameof(AccountTaskList.SubstrateFolderDeltaLink)} TEXT NULL").ConfigureAwait(false);
+        }
+
+        var taskGroupColumns = await Connection.GetTableInfoAsync("TaskListGroup").ConfigureAwait(false);
+        if (!taskGroupColumns.Any(c => c.Name == nameof(AccountTaskListGroup.RemoteVersion)))
+            await Connection.ExecuteAsync($"ALTER TABLE TaskListGroup ADD COLUMN {nameof(AccountTaskListGroup.RemoteVersion)} TEXT NULL").ConfigureAwait(false);
+        if (!taskGroupColumns.Any(c => c.Name == nameof(AccountTaskListGroup.RemoteOrder)))
+            await Connection.ExecuteAsync($"ALTER TABLE TaskListGroup ADD COLUMN {nameof(AccountTaskListGroup.RemoteOrder)} TEXT NULL").ConfigureAwait(false);
+        if (!taskGroupColumns.Any(c => c.Name == nameof(AccountTaskListGroup.PendingMutation)))
+            await Connection.ExecuteAsync($"ALTER TABLE TaskListGroup ADD COLUMN {nameof(AccountTaskListGroup.PendingMutation)} INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
+
+        await BackfillTaskSyncStateAsync().ConfigureAwait(false);
 
         if (!accountColumns.Any(c => c.Name == nameof(MailAccount.ProfilePictureFileId)))
         {
@@ -650,6 +676,8 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskListGroup_Account_Order ON TaskListGroup(MailAccountId, SortOrder)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskList_Account_Source ON TaskList(MailAccountId, SourceKind)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_TaskList_RemoteIdentity ON TaskList(MailAccountId, SourceKind, RemoteId) WHERE RemoteId IS NOT NULL AND RemoteId <> ''").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_TaskSyncState_Account_Source ON TaskSyncState(MailAccountId, SourceKind)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_TaskListGroup_RemoteIdentity ON TaskListGroup(MailAccountId, SourceKind, RemoteId) WHERE RemoteId IS NOT NULL AND RemoteId <> ''").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskCard_Account_List ON TaskCard(MailAccountId, TaskListId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_TaskCard_RemoteIdentity ON TaskCard(MailAccountId, SourceKind, TaskListId, RemoteId) WHERE RemoteId IS NOT NULL AND RemoteId <> ''").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskCard_Due_Completed ON TaskCard(DueDate, IsCompleted)").ConfigureAwait(false);
@@ -715,6 +743,36 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_SentMailReceiptState_MailUniqueId ON SentMailReceiptState(MailUniqueId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_SentMailReceiptState_AccountId_MessageId ON SentMailReceiptState(AccountId, MessageId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_SentMailReceiptState_Status ON SentMailReceiptState(Status)").ConfigureAwait(false);
+    }
+
+    private async Task BackfillTaskSyncStateAsync()
+    {
+        var lists = await Connection.Table<AccountTaskList>().ToListAsync().ConfigureAwait(false);
+        var states = await Connection.Table<AccountTaskSyncState>().ToListAsync().ConfigureAwait(false);
+
+        foreach (var accountLists in lists
+                     .Where(list => list.SourceKind is TaskSourceKind.Outlook or TaskSourceKind.Gmail)
+                     .GroupBy(list => (list.MailAccountId, list.SourceKind)))
+        {
+            if (states.Any(state => state.MailAccountId == accountLists.Key.MailAccountId &&
+                                    state.SourceKind == accountLists.Key.SourceKind))
+            {
+                continue;
+            }
+
+            var state = new AccountTaskSyncState
+            {
+                MailAccountId = accountLists.Key.MailAccountId,
+                SourceKind = accountLists.Key.SourceKind,
+                ListDeltaLink = accountLists.Select(list => list.ListDeltaLink).FirstOrDefault(link => !string.IsNullOrWhiteSpace(link)),
+                SubstrateGroupDeltaLink = accountLists.Select(list => list.SubstrateGroupDeltaLink).FirstOrDefault(link => !string.IsNullOrWhiteSpace(link)),
+                SubstrateFolderDeltaLink = accountLists.Select(list => list.SubstrateFolderDeltaLink).FirstOrDefault(link => !string.IsNullOrWhiteSpace(link)),
+                LastSuccessfulSyncUtc = accountLists.Max(list => list.LastSuccessfulSyncUtc)
+            };
+
+            await Connection.InsertAsync(state, typeof(AccountTaskSyncState)).ConfigureAwait(false);
+            states.Add(state);
+        }
     }
 
     private async Task MigrateLegacyContactsAsync()

@@ -24,7 +24,8 @@ public sealed record TaskStateChanged(
     AccountTask Task,
     AccountTaskStep Step,
     OptimisticEntityChange Change,
-    EntityUpdateSource Source) : UIMessageBase<TaskStateChanged>;
+    EntityUpdateSource Source,
+    AccountTaskListGroup Group = null) : UIMessageBase<TaskStateChanged>;
 
 /// <summary>Updates global contact-list presentation for the application-local request lane.</summary>
 public sealed record ContactListStateChanged(

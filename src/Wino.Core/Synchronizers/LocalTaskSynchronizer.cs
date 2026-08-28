@@ -58,6 +58,16 @@ public sealed class LocalTaskSynchronizer
                 case Domain.Enums.TaskSynchronizerOperation.DeleteStep:
                     await _taskService.CompleteStepMutationAsync(taskRequest.Step.Id, null, true).ConfigureAwait(false);
                     break;
+                case Domain.Enums.TaskSynchronizerOperation.CreateGroup:
+                case Domain.Enums.TaskSynchronizerOperation.UpdateGroup:
+                    await _taskService.CompleteTaskListGroupMutationAsync(taskRequest.Group.Id, taskRequest.Group, false).ConfigureAwait(false);
+                    break;
+                case Domain.Enums.TaskSynchronizerOperation.DeleteGroup:
+                    await _taskService.CompleteTaskListGroupMutationAsync(taskRequest.Group.Id, null, true).ConfigureAwait(false);
+                    break;
+                case Domain.Enums.TaskSynchronizerOperation.UpdateListPlacement:
+                    await _taskService.CompleteTaskListPlacementMutationAsync(taskRequest.List.Id, taskRequest.List).ConfigureAwait(false);
+                    break;
                 default:
                     throw new NotSupportedException($"Local task operation {taskRequest.Operation} is not supported.");
             }

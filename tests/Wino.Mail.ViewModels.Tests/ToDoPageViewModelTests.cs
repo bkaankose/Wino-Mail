@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.Messaging;
+﻿using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using Moq;
 using System.Collections.Specialized;
@@ -6,7 +6,9 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
 using Wino.Mail.ViewModels;
 using Wino.Messaging.Server;
@@ -70,6 +72,124 @@ public sealed class ToDoPageViewModelTests
         taskService.Verify(service => service.CreateTaskAsync(It.IsAny<AccountTask>()), Times.Never);
         delegator.Verify(service => service.ExecuteAsync(account.Id, It.Is<IEnumerable<IRequestBase>>(requests => IsFollowUpCreateRequest(requests))), Times.Once);
         viewModel.ComposerText.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SaveStep_QueuesTargetedUpdateWithRemoteIdentity()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var task = CreateTask(account.Id, list.Id, "Task");
+        var step = new AccountTaskStep
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = account.Id,
+            TaskId = task.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-step",
+            Title = "Before"
+        };
+        task.Steps.Add(step);
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, list.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync([task]);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        var requests = new List<IRequestBase>();
+        delegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, queued) => requests.AddRange(queued))
+            .Returns(Task.CompletedTask);
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = list;
+        await WaitUntilAsync(() => viewModel.TaskGroups.SelectMany(group => group).Any());
+        viewModel.SelectedTask = viewModel.TaskGroups.SelectMany(group => group).Single();
+        var stepViewModel = viewModel.SelectedTask.Steps.Single();
+        stepViewModel.Title = "After";
+
+        await viewModel.SaveStepCommand.ExecuteAsync(stepViewModel);
+
+        requests.Should().ContainSingle().Which.Should().BeOfType<TaskActionRequest>()
+            .Which.Should().Match<TaskActionRequest>(request =>
+                request.Operation == TaskSynchronizerOperation.UpdateStep &&
+                request.Step.Id == step.Id &&
+                request.Step.RemoteId == "remote-step" &&
+                request.Step.Title == "After" &&
+                request.OriginalStep.Title == "Before");
+    }
+
+    [Fact]
+    public async Task ToggleMyDay_QueuesAddAndRemoveSnapshotsForSelectedTask()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var task = CreateTask(account.Id, list.Id, "Task");
+        task.MyDayDateUtc = null;
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, list.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync([task]);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        var requests = new List<TaskActionRequest>();
+        delegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, queued) => requests.AddRange(queued.OfType<TaskActionRequest>()))
+            .Returns(Task.CompletedTask);
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = list;
+        await WaitUntilAsync(() => viewModel.TaskGroups.SelectMany(group => group).Any());
+        var item = viewModel.TaskGroups.SelectMany(group => group).Single();
+        viewModel.SelectedTask = item;
+
+        await viewModel.ToggleMyDayCommand.ExecuteAsync(item);
+        item.ApplySnapshot(requests.Single().Task);
+        await viewModel.ToggleMyDayCommand.ExecuteAsync(item);
+
+        requests.Should().SatisfyRespectively(
+            request => request.Should().Match<TaskActionRequest>(value =>
+                value.Operation == TaskSynchronizerOperation.UpdateTask &&
+                value.Task.MyDayDateUtc == DateTime.UtcNow.Date &&
+                value.OriginalTask.MyDayDateUtc == null),
+            request => request.Should().Match<TaskActionRequest>(value =>
+                value.Operation == TaskSynchronizerOperation.UpdateTask &&
+                value.Task.MyDayDateUtc == null &&
+                value.OriginalTask.MyDayDateUtc == DateTime.UtcNow.Date));
+    }
+
+    [Fact]
+    public async Task ContextActions_QueueDueDateAndMoveSnapshotsForTargetTask()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var sourceList = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var destinationList = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: false);
+        var task = CreateTask(account.Id, sourceList.Id, "Task");
+        task.SourceKind = TaskSourceKind.Outlook;
+        task.DueDate = null;
+        var taskService = CreateTaskService([sourceList, destinationList]);
+        taskService.Setup(service => service.GetTasksAsync(null, sourceList.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync([task]);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        var requests = new List<TaskActionRequest>();
+        delegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, queued) => requests.AddRange(queued.OfType<TaskActionRequest>()))
+            .Returns(Task.CompletedTask);
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = sourceList;
+        await WaitUntilAsync(() => viewModel.TaskGroups.SelectMany(group => group).Any());
+        var item = viewModel.TaskGroups.SelectMany(group => group).Single();
+        var tomorrow = DateTime.Now.Date.AddDays(1);
+
+        await viewModel.SetTaskDueDateAsync(item, tomorrow);
+        await viewModel.MoveTaskAsync(item, destinationList);
+
+        requests.Should().SatisfyRespectively(
+            request => request.Should().Match<TaskActionRequest>(value =>
+                value.Operation == TaskSynchronizerOperation.UpdateTask &&
+                value.Task.DueDate == tomorrow &&
+                value.OriginalTask.DueDate == null),
+            request => request.Should().Match<TaskActionRequest>(value =>
+                value.Operation == TaskSynchronizerOperation.UpdateTask &&
+                value.Task.TaskListId == destinationList.Id &&
+                value.OriginalTask.TaskListId == sourceList.Id));
     }
 
     [Fact]
@@ -140,7 +260,7 @@ public sealed class ToDoPageViewModelTests
     }
 
     [Fact]
-    public async Task Reload_PublishesOnlyStaticSmartViewsBeforeAccountGroups()
+    public async Task Reload_PublishesAccountSelectorsAndOnlyTheSelectedAccountHierarchy()
     {
         var firstAccount = CreateAccount(MailProviderType.Gmail, taskAccess: true);
         firstAccount.Name = "First";
@@ -156,13 +276,19 @@ public sealed class ToDoPageViewModelTests
 
         await viewModel.ReloadCommand.ExecuteAsync(null);
 
-        viewModel.ShellMenu.Items.Take(3).Should().SatisfyRespectively(
+        viewModel.ShellMenu.Items.OfType<TaskSmartViewMenuItem>().Should().SatisfyRespectively(
             item => item.Should().BeOfType<MyDayTaskMenuItem>(),
             item => item.Should().BeOfType<PlannedTaskMenuItem>(),
             item => item.Should().BeOfType<ImportantTaskMenuItem>());
         viewModel.ShellMenu.Items.OfType<TaskSmartViewMenuItem>().Should().HaveCount(3);
         viewModel.ShellMenu.Items.OfType<AccountTaskListAccountMenuItem>()
             .Select(item => item.AccountName).Should().Equal("First", "Second");
+        viewModel.ShellMenu.Items.OfType<AccountTaskListAccountMenuItem>()
+            .Select(item => item.IsSelected).Should().Equal(true, false);
+        viewModel.ShellMenu.Items.OfType<AccountTaskListGroupMenuItem>().Should().BeEmpty();
+        viewModel.ShellMenu.Items.OfType<AccountTaskListMenuItem>()
+            .Should().ContainSingle()
+            .Which.Parameter.MailAccountId.Should().Be(firstAccount.Id);
     }
 
     [Fact]
@@ -177,7 +303,8 @@ public sealed class ToDoPageViewModelTests
         await viewModel.ReloadCommand.ExecuteAsync(null);
         viewModel.SelectedList = list;
         await WaitUntilAsync(() => viewModel.SelectedList?.Id == list.Id);
-        var originalMenuItem = viewModel.ShellMenu.Items.OfType<AccountTaskListMenuItem>().Single();
+        var accountItem = GetAccountMenu(viewModel);
+        var originalMenuItem = accountItem.SubMenuItems.OfType<AccountTaskListMenuItem>().Single();
         var actions = new List<NotifyCollectionChangedAction>();
         viewModel.ShellMenu.Items.CollectionChanged += (_, args) => actions.Add(args.Action);
 
@@ -188,7 +315,7 @@ public sealed class ToDoPageViewModelTests
 
         await viewModel.ReloadCommand.ExecuteAsync(null);
 
-        viewModel.ShellMenu.Items.OfType<AccountTaskListMenuItem>().First(item => item.Parameter.Id == list.Id)
+        accountItem.SubMenuItems.OfType<AccountTaskListMenuItem>().First(item => item.Parameter.Id == list.Id)
             .Should().BeSameAs(originalMenuItem);
         originalMenuItem.Title.Should().Be("Renamed");
         viewModel.SelectedList.Should().BeSameAs(renamed);
@@ -201,18 +328,65 @@ public sealed class ToDoPageViewModelTests
         var account = CreateAccount(MailProviderType.Gmail, taskAccess: true);
         var populated = new AccountTaskListGroup { MailAccountId = account.Id, Title = "Work", SortOrder = 0 };
         var empty = new AccountTaskListGroup { MailAccountId = account.Id, Title = "Empty", SortOrder = 1 };
-        var list = CreateList(account.Id, TaskSourceKind.Gmail, isDefault: true);
-        list.GroupId = populated.Id;
-        var taskService = CreateTaskService([list]);
+        var groupedList = CreateList(account.Id, TaskSourceKind.Gmail, isDefault: true);
+        groupedList.GroupId = populated.Id;
+        var ungroupedList = CreateList(account.Id, TaskSourceKind.Gmail, isDefault: false);
+        var taskService = CreateTaskService([groupedList, ungroupedList]);
         taskService.Setup(service => service.GetTaskListGroupsAsync(null)).ReturnsAsync([populated, empty]);
         var viewModel = CreateViewModel(taskService.Object, [account]);
 
         await viewModel.ReloadCommand.ExecuteAsync(null);
 
-        var groups = viewModel.ShellMenu.Items.OfType<AccountTaskListGroupMenuItem>().ToList();
+        var accountItem = GetAccountMenu(viewModel);
+        var groups = accountItem.SubMenuItems.OfType<AccountTaskListGroupMenuItem>().ToList();
         groups.Select(group => group.Title).Should().Equal("Work", "Empty");
         groups[0].SubMenuItems.Should().ContainSingle().Which.Should().BeOfType<AccountTaskListMenuItem>();
         groups[1].SubMenuItems.Should().BeEmpty();
+        accountItem.SubMenuItems.Should().SatisfyRespectively(
+            item => item.Should().BeSameAs(groups[0]),
+            item => item.Should().BeSameAs(groups[1]),
+            item => item.Should().BeOfType<AccountTaskListMenuItem>()
+                .Which.Parameter.Should().BeSameAs(ungroupedList));
+    }
+
+    [Fact]
+    public async Task InvokingAccount_LoadsAndPublishesOnlyThatAccountsHierarchy()
+    {
+        var firstAccount = CreateAccount(MailProviderType.Gmail, taskAccess: true);
+        firstAccount.Order = 0;
+        var secondAccount = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        secondAccount.Order = 1;
+        var group = new AccountTaskListGroup
+        {
+            MailAccountId = secondAccount.Id,
+            Title = "Work",
+            IsExpanded = true
+        };
+        var firstList = CreateList(firstAccount.Id, TaskSourceKind.Gmail, isDefault: true);
+        var secondList = CreateList(secondAccount.Id, TaskSourceKind.Outlook, isDefault: true);
+        secondList.GroupId = group.Id;
+        var taskService = CreateTaskService([firstList, secondList]);
+        taskService.Setup(service => service.GetTaskListGroupsAsync(null)).ReturnsAsync([group]);
+        taskService.Setup(service => service.GetTaskListsAsync(secondAccount.Id)).ReturnsAsync([secondList]);
+        taskService.Setup(service => service.GetTaskListGroupsAsync(secondAccount.Id)).ReturnsAsync([group]);
+        var viewModel = CreateViewModel(taskService.Object, [firstAccount, secondAccount]);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        var accountItems = viewModel.ShellMenu.Items.OfType<AccountTaskListAccountMenuItem>().ToList();
+
+        await viewModel.OnMenuItemInvokedAsync(accountItems[1]);
+
+        accountItems.Select(item => item.IsSelected).Should().Equal(false, true);
+        viewModel.SelectedList.Should().BeSameAs(secondList);
+        taskService.Verify(service => service.GetTaskListsAsync(secondAccount.Id), Times.Once);
+        taskService.Verify(service => service.GetTaskListGroupsAsync(secondAccount.Id), Times.Once);
+        viewModel.ShellMenu.Items.OfType<AccountTaskListGroupMenuItem>()
+            .Should().ContainSingle()
+            .Which.Parameter.Should().BeSameAs(group);
+        viewModel.ShellMenu.Items.OfType<AccountTaskListMenuItem>().Should().BeEmpty();
+        viewModel.ShellMenu.Items.OfType<AccountTaskListGroupMenuItem>().Single()
+            .SubMenuItems.Should().ContainSingle()
+            .Which.Should().BeOfType<AccountTaskListMenuItem>()
+            .Which.Parameter.Should().BeSameAs(secondList);
     }
 
     [Fact]
@@ -225,11 +399,19 @@ public sealed class ToDoPageViewModelTests
         list.GroupId = first.Id;
         var taskService = CreateTaskService([list]);
         taskService.Setup(service => service.GetTaskListGroupsAsync(null)).ReturnsAsync([first, second]);
-        taskService.Setup(service => service.UpdateTaskListPlacementAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<int>()))
+        taskService.Setup(service => service.GetTaskListAsync(list.Id)).ReturnsAsync(list);
+        var requests = new List<IRequestBase>();
+        var requestDelegator = new Mock<IWinoRequestDelegator>();
+        requestDelegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, items) => requests.AddRange(items))
             .Returns(Task.CompletedTask);
-        var viewModel = CreateViewModel(taskService.Object, [account]);
+        var dialogService = new Mock<IMailDialogService>();
+        dialogService.Setup(service => service.ShowConfirmationDialogAsync(
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(true);
+        var viewModel = CreateViewModel(taskService.Object, [account], requestDelegator.Object, dialogService.Object);
         await viewModel.ReloadCommand.ExecuteAsync(null);
-        var groups = viewModel.ShellMenu.Items.OfType<AccountTaskListGroupMenuItem>().ToList();
+        var groups = GetAccountMenu(viewModel).SubMenuItems.OfType<AccountTaskListGroupMenuItem>().ToList();
         var listItem = groups[0].SubMenuItems.OfType<AccountTaskListMenuItem>().Single();
         var shellChanges = new List<NotifyCollectionChangedAction>();
         viewModel.ShellMenu.Items.CollectionChanged += (_, args) => shellChanges.Add(args.Action);
@@ -240,7 +422,48 @@ public sealed class ToDoPageViewModelTests
         groups[1].SubMenuItems.Should().ContainSingle().Which.Should().BeSameAs(listItem);
         list.GroupId.Should().Be(second.Id);
         shellChanges.Should().NotContain(NotifyCollectionChangedAction.Reset);
-        taskService.Verify(service => service.UpdateTaskListPlacementAsync(list.Id, second.Id, 0), Times.Once);
+        requests.Should().ContainSingle().Which.Should().BeOfType<TaskActionRequest>()
+            .Which.Should().Match<TaskActionRequest>(request =>
+                request.Operation == TaskSynchronizerOperation.UpdateListPlacement &&
+                request.List.Id == list.Id && request.List.GroupId == second.Id && request.List.SortOrder == 0);
+    }
+
+    [Fact]
+    public async Task OutlookDefaultList_CannotBeDeletedOrMovedIntoGroup()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var group = new AccountTaskListGroup
+        {
+            MailAccountId = account.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            Title = "Work"
+        };
+        var defaultList = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var taskService = CreateTaskService([defaultList]);
+        taskService.Setup(service => service.GetTaskListGroupsAsync(null)).ReturnsAsync([group]);
+        var requests = new List<IRequestBase>();
+        var requestDelegator = new Mock<IWinoRequestDelegator>();
+        requestDelegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, items) => requests.AddRange(items))
+            .Returns(Task.CompletedTask);
+        var viewModel = CreateViewModel(taskService.Object, [account], requestDelegator.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        var accountItem = GetAccountMenu(viewModel);
+        var listItem = accountItem.SubMenuItems.OfType<AccountTaskListMenuItem>().Single();
+        var groupItem = accountItem.SubMenuItems.OfType<AccountTaskListGroupMenuItem>().Single();
+
+        await listItem.DeleteRequested(listItem);
+        await listItem.MoveToGroupRequested(listItem, group.Id);
+        await groupItem.DropRequested(listItem, groupItem, false);
+        viewModel.SelectedList = defaultList;
+        await viewModel.DeleteListCommand.ExecuteAsync(null);
+
+        defaultList.IsOutlookDefaultList.Should().BeTrue();
+        listItem.CanDelete.Should().BeFalse();
+        listItem.CanMoveToGroup.Should().BeFalse();
+        viewModel.CanDeleteSelectedList.Should().BeFalse();
+        defaultList.GroupId.Should().BeNull();
+        requests.Should().BeEmpty();
     }
 
     [Fact]
@@ -251,16 +474,25 @@ public sealed class ToDoPageViewModelTests
         var second = new AccountTaskListGroup { MailAccountId = account.Id, Title = "Second", SortOrder = 1 };
         var taskService = CreateTaskService([]);
         taskService.Setup(service => service.GetTaskListGroupsAsync(null)).ReturnsAsync([first, second]);
-        taskService.Setup(service => service.UpdateTaskListGroupAsync(It.IsAny<AccountTaskListGroup>())).Returns(Task.CompletedTask);
-        var viewModel = CreateViewModel(taskService.Object, [account]);
+        taskService.Setup(service => service.GetTaskListGroupsAsync(account.Id)).ReturnsAsync([first, second]);
+        var requests = new List<IRequestBase>();
+        var requestDelegator = new Mock<IWinoRequestDelegator>();
+        requestDelegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, items) => requests.AddRange(items))
+            .Returns(Task.CompletedTask);
+        var viewModel = CreateViewModel(taskService.Object, [account], requestDelegator.Object);
         await viewModel.ReloadCommand.ExecuteAsync(null);
-        var original = viewModel.ShellMenu.Items.OfType<AccountTaskListGroupMenuItem>().ToList();
+        var accountItem = GetAccountMenu(viewModel);
+        var original = accountItem.SubMenuItems.OfType<AccountTaskListGroupMenuItem>().ToList();
 
         await original[1].DropRequested(original[0], original[1], true);
 
-        viewModel.ShellMenu.Items.OfType<AccountTaskListGroupMenuItem>().Should().Equal(original[1], original[0]);
+        accountItem.SubMenuItems.OfType<AccountTaskListGroupMenuItem>()
+            .Select(item => item.Parameter.Id).Should().Equal(second.Id, first.Id);
         original[0].Parameter.SortOrder.Should().Be(1);
         original[1].Parameter.SortOrder.Should().Be(0);
+        requests.OfType<TaskActionRequest>().Should().HaveCount(2)
+            .And.OnlyContain(request => request.Operation == TaskSynchronizerOperation.UpdateGroup);
     }
 
     [Fact]
@@ -310,24 +542,82 @@ public sealed class ToDoPageViewModelTests
         await WaitUntilAsync(() => VisibleTaskTitles(viewModel).Count() == 2);
         var queryCount = taskService.Invocations.Count(invocation => invocation.Method.Name == nameof(ITaskQueryService.GetTasksAsync));
 
+        VisibleTaskTitles(viewModel).Should().BeEquivalentTo("Open", "Open important");
+
         viewModel.IsImportantTasksFilterSelected = true;
         VisibleTaskTitles(viewModel).Should().Equal("Open important");
-        viewModel.SelectedTask = viewModel.TaskGroups.Single().Single();
+        viewModel.SelectedTask = viewModel.TaskGroups.Single().First();
+        viewModel.IsFiltered.Should().BeTrue();
 
-        viewModel.IsCompletedTasksFilterSelected = true;
-        viewModel.IsAllTasksFilterSelected.Should().BeTrue();
+        viewModel.SelectedCompletionScope = TaskCompletionScope.All;
+        viewModel.IsImportantTasksFilterSelected.Should().BeTrue();
         VisibleTaskTitles(viewModel).Should().BeEquivalentTo("Open important", "Completed important");
         viewModel.SelectedTask.Should().NotBeNull();
 
+        viewModel.SelectedCompletionScope = TaskCompletionScope.Completed;
+        VisibleTaskTitles(viewModel).Should().Equal("Completed important");
+        viewModel.SelectedTask.Should().BeNull();
+
         viewModel.IsImportantTasksFilterSelected = false;
+        VisibleTaskTitles(viewModel).Should().BeEquivalentTo("Completed", "Completed important");
+
+        viewModel.SelectedCompletionScope = TaskCompletionScope.All;
         VisibleTaskTitles(viewModel).Should().BeEquivalentTo("Open", "Open important", "Completed", "Completed important");
 
-        viewModel.FilterText = "important";
-        VisibleTaskTitles(viewModel).Should().BeEquivalentTo("Open important", "Completed important");
-        viewModel.FilterText = string.Empty;
+        viewModel.SelectedCompletionScope = TaskCompletionScope.Active;
+        VisibleTaskTitles(viewModel).Should().BeEquivalentTo("Open", "Open important");
+        viewModel.IsFiltered.Should().BeFalse();
 
-        viewModel.IsAllTasksFilterSelected = false;
-        viewModel.IsAllTasksFilterSelected.Should().BeTrue();
+        viewModel.FilterText = "important";
+        VisibleTaskTitles(viewModel).Should().Equal("Open important");
+        viewModel.IsFiltered.Should().BeTrue();
+
+        // Clear returns the surface to its unfiltered contents in one step.
+        viewModel.SelectedCompletionScope = TaskCompletionScope.Completed;
+        viewModel.IsImportantTasksFilterSelected = true;
+        viewModel.ClearFiltersCommand.Execute(null);
+
+        viewModel.FilterText.Should().BeEmpty();
+        viewModel.SelectedCompletionScope.Should().Be(TaskCompletionScope.Active);
+        viewModel.IsImportantTasksFilterSelected.Should().BeFalse();
+        viewModel.IsFiltered.Should().BeFalse();
+        VisibleTaskTitles(viewModel).Should().BeEquivalentTo("Open", "Open important");
+
+        taskService.Invocations.Count(invocation => invocation.Method.Name == nameof(ITaskQueryService.GetTasksAsync))
+            .Should().Be(queryCount);
+    }
+
+    [Fact]
+    public async Task SmartViewFilters_NarrowTheSurfaceWithoutReloading()
+    {
+        var account = CreateAccount(MailProviderType.Gmail, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Gmail, isDefault: true);
+        var today = DateTime.UtcNow.Date;
+        var plain = CreateTask(account.Id, list.Id, "Plain");
+        plain.MyDayDateUtc = today;
+        var important = CreateTask(account.Id, list.Id, "Important one", isImportant: true);
+        important.MyDayDateUtc = today;
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, null, TaskViewKind.MyDay, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync([plain, important]);
+        var viewModel = CreateViewModel(taskService.Object, [account]);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+
+        viewModel.SelectedView = TaskViewKind.MyDay;
+        await WaitUntilAsync(() => VisibleTaskTitles(viewModel).Count() == 2);
+        var queryCount = taskService.Invocations.Count(invocation => invocation.Method.Name == nameof(ITaskQueryService.GetTasksAsync));
+
+        viewModel.IsCompletedScopeAvailable.Should().BeFalse();
+
+        viewModel.IsImportantTasksFilterSelected = true;
+        VisibleTaskTitles(viewModel).Should().Equal("Important one");
+
+        viewModel.FilterText = "plain";
+        VisibleTaskTitles(viewModel).Should().BeEmpty();
+
+        viewModel.ClearFiltersCommand.Execute(null);
+        VisibleTaskTitles(viewModel).Should().BeEquivalentTo("Plain", "Important one");
+
         taskService.Invocations.Count(invocation => invocation.Method.Name == nameof(ITaskQueryService.GetTasksAsync))
             .Should().Be(queryCount);
     }
@@ -346,14 +636,13 @@ public sealed class ToDoPageViewModelTests
 
         viewModel.SelectedList = firstList;
         await WaitUntilAsync(() => viewModel.SelectedList?.Id == firstList.Id);
-        viewModel.IsCompletedTasksFilterSelected = true;
+        viewModel.SelectedCompletionScope = TaskCompletionScope.Completed;
         viewModel.IsImportantTasksFilterSelected = true;
 
         viewModel.SelectedList = secondList;
         await WaitUntilAsync(() => viewModel.SelectedList?.Id == secondList.Id);
 
-        viewModel.IsAllTasksFilterSelected.Should().BeTrue();
-        viewModel.IsCompletedTasksFilterSelected.Should().BeTrue();
+        viewModel.SelectedCompletionScope.Should().Be(TaskCompletionScope.Completed);
         viewModel.IsImportantTasksFilterSelected.Should().BeTrue();
     }
 
@@ -381,7 +670,7 @@ public sealed class ToDoPageViewModelTests
         selected.Should().NotBeNull();
         viewModel.SelectedList.Should().BeSameAs(list);
         viewModel.SelectedTask.Should().BeSameAs(selected);
-        viewModel.IsCompletedTasksFilterSelected.Should().BeTrue();
+        viewModel.SelectedCompletionScope.Should().Be(TaskCompletionScope.Completed);
         viewModel.GetTaskSearchSubtitle(task).Should().Be("Work • Launch");
     }
 
@@ -419,10 +708,44 @@ public sealed class ToDoPageViewModelTests
         actions.Should().NotContain(NotifyCollectionChangedAction.Reset);
     }
 
+    [Fact]
+    public async Task PendingMyDayUpdate_SurvivesAStaleSurfaceReload()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var task = CreateTask(account.Id, list.Id, "Today");
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, list.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync([task]);
+        taskService.Setup(service => service.GetTasksAsync(null, null, TaskViewKind.MyDay, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync([]);
+        var viewModel = CreateViewModel(taskService.Object, [account]);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = list;
+        await WaitUntilAsync(() => VisibleTaskTitles(viewModel).SequenceEqual(["Today"]));
+        var pending = RequestEntityCloner.Task(task);
+        pending.MyDayDateUtc = DateTime.UtcNow.Date;
+
+        ((IRecipient<TaskStateChanged>)viewModel).Receive(new TaskStateChanged(
+            TaskSynchronizerOperation.UpdateTask,
+            null,
+            pending,
+            null,
+            OptimisticEntityChange.Upsert,
+            EntityUpdateSource.ClientUpdated));
+        viewModel.SelectedList = null;
+        viewModel.SelectedView = TaskViewKind.MyDay;
+        await viewModel.ReloadTasksCommand.ExecuteAsync(null);
+
+        VisibleTaskTitles(viewModel).Should().Equal("Today");
+        viewModel.TaskGroups.Single().Single().IsInMyDay.Should().BeTrue();
+    }
+
     private static ToDoPageViewModel CreateViewModel(
         ITaskService taskService,
         IReadOnlyList<MailAccount> accounts,
-        IWinoRequestDelegator requestDelegator = null)
+        IWinoRequestDelegator requestDelegator = null,
+        IMailDialogService dialogService = null)
     {
         var accountService = new Mock<IAccountService>();
         accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync(accounts.ToList());
@@ -432,11 +755,14 @@ public sealed class ToDoPageViewModelTests
             requestDelegator ?? Mock.Of<IWinoRequestDelegator>(),
             Mock.Of<INavigationService>(),
             Mock.Of<ICalendarService>(),
-            Mock.Of<IMailDialogService>())
+            dialogService ?? Mock.Of<IMailDialogService>())
         {
             Dispatcher = new ImmediateDispatcher()
         };
     }
+
+    private static AccountTaskListAccountMenuItem GetAccountMenu(ToDoPageViewModel viewModel)
+        => viewModel.ShellMenu.Items.OfType<AccountTaskListAccountMenuItem>().Single();
 
     private static bool IsFollowUpCreateRequest(IEnumerable<IRequestBase> requests)
     {

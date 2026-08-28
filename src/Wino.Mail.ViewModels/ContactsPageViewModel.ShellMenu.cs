@@ -18,6 +18,7 @@ namespace Wino.Mail.ViewModels;
 public partial class ContactsPageViewModel
 {
     private readonly NewContactMenuItem _newContactMenuItem = new();
+    private readonly ContactsSyncMenuItem _contactsSyncMenuItem = new();
     private readonly NewAddressListMenuItem _newAddressListMenuItem = new();
     private readonly Dictionary<ContactFilterGroup, ShellSectionHeaderMenuItem> _sectionHeaders = [];
 
@@ -120,6 +121,8 @@ public partial class ContactsPageViewModel
         {
             case NewContactMenuItem:
                 return AddContactAsync();
+            case ContactsSyncMenuItem:
+                return RefreshContactsCommand.ExecuteAsync(null);
             case NewAddressListMenuItem:
                 return CreateListCommand.ExecuteAsync(null);
             case ContactFilterViewModel filter:
@@ -168,9 +171,10 @@ public partial class ContactsPageViewModel
         if (_shellMenu is null)
             return;
 
-        var desired = new List<IMenuItem>(FilterGroups.Sum(group => group.Count) + FilterGroups.Count + 2)
+        var desired = new List<IMenuItem>(FilterGroups.Sum(group => group.Count) + FilterGroups.Count + 3)
         {
             _newContactMenuItem,
+            _contactsSyncMenuItem,
             _newAddressListMenuItem
         };
 
@@ -261,10 +265,16 @@ public partial class ContactsPageViewModel
         ApplyMenuInteractionState();
     }
 
+    /// <summary>Keeps the pane's sync entry in step with a refresh started from anywhere.</summary>
+    partial void OnIsRefreshingChanged(bool value) => ApplyMenuInteractionState();
+
     private void ApplyMenuInteractionState()
     {
         _newContactMenuItem.IsEnabled = _isMenuInteractionEnabled;
         _newAddressListMenuItem.IsEnabled = _isMenuInteractionEnabled;
+
+        // A refresh already in flight must not be re-entered from the pane.
+        _contactsSyncMenuItem.IsEnabled = _isMenuInteractionEnabled && !IsRefreshing;
 
         foreach (var filter in FilterGroups.SelectMany(group => group))
         {

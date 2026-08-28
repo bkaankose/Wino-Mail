@@ -106,6 +106,7 @@ public static class RequestEntityCloner
                 SourceKind = source.SourceKind,
                 RemoteId = source.RemoteId,
                 RemoteVersion = source.RemoteVersion,
+                RemoteOrder = source.RemoteOrder,
                 ListDeltaLink = source.ListDeltaLink,
                 TaskDeltaLink = source.TaskDeltaLink,
                 Title = source.Title,
@@ -115,8 +116,32 @@ public static class RequestEntityCloner
                 IsDefault = source.IsDefault,
                 IsReadOnly = source.IsReadOnly,
                 DeltaLink = source.DeltaLink,
+                SubstrateGroupDeltaLink = source.SubstrateGroupDeltaLink,
+                SubstrateFolderDeltaLink = source.SubstrateFolderDeltaLink,
+                SortKind = source.SortKind,
+                SortAscending = source.SortAscending,
+                ShowCompletedTasks = source.ShowCompletedTasks,
                 LastSuccessfulSyncUtc = source.LastSuccessfulSyncUtc,
                 WatermarkUtc = source.WatermarkUtc,
+                PendingMutation = source.PendingMutation,
+                CreatedAtUtc = source.CreatedAtUtc,
+                ModifiedAtUtc = source.ModifiedAtUtc
+            };
+
+    public static AccountTaskListGroup TaskListGroup(AccountTaskListGroup source)
+        => source is null
+            ? null
+            : new AccountTaskListGroup
+            {
+                Id = source.Id,
+                MailAccountId = source.MailAccountId,
+                RemoteId = source.RemoteId,
+                RemoteVersion = source.RemoteVersion,
+                RemoteOrder = source.RemoteOrder,
+                SourceKind = source.SourceKind,
+                Title = source.Title,
+                SortOrder = source.SortOrder,
+                IsExpanded = source.IsExpanded,
                 PendingMutation = source.PendingMutation,
                 CreatedAtUtc = source.CreatedAtUtc,
                 ModifiedAtUtc = source.ModifiedAtUtc

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -35,13 +35,16 @@ public sealed class OutlookTasksClient
     public Task<OutlookTaskCollectionResponse> GetTasksDeltaAsync(string listId, string url = null, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(listId);
-        url ??= $"https://graph.microsoft.com/v1.0/me/todo/lists/{Uri.EscapeDataString(listId)}/tasks/delta()?$expand=checklistItems&$top=100";
+        // Graph rejects $top on the To Do task delta endpoint and reports it as the
+        // misleading "Delta query is not supported by this resource." Page size is
+        // negotiated through the Prefer header instead.
+        url ??= $"https://graph.microsoft.com/v1.0/me/todo/lists/{Uri.EscapeDataString(listId)}/tasks/delta()?$expand=checklistItems,extensions";
         url = NormalizeTaskDeltaUrl(url);
         return SendCollectionAsync(url, OutlookTaskCollectionResponse.CreateFromDiscriminatorValue, cancellationToken);
     }
 
     public Task<TodoTask> GetTaskAsync(string listId, string taskId, CancellationToken cancellationToken = default)
-        => SendAsync<TodoTask>($"{BuildTaskUrl(listId, taskId)}?$expand=checklistItems", Method.GET, TodoTask.CreateFromDiscriminatorValue, cancellationToken);
+        => SendAsync<TodoTask>($"{BuildTaskUrl(listId, taskId)}?$expand=checklistItems,extensions", Method.GET, TodoTask.CreateFromDiscriminatorValue, cancellationToken);
 
     public Task<TodoTaskList> GetTaskListAsync(string listId, CancellationToken cancellationToken = default)
         => SendAsync<TodoTaskList>($"https://graph.microsoft.com/v1.0/me/todo/lists/{Uri.EscapeDataString(listId)}", Method.GET, TodoTaskList.CreateFromDiscriminatorValue, cancellationToken);
@@ -75,6 +78,19 @@ public sealed class OutlookTasksClient
 
     public Task DeleteTaskAsync(string listId, string taskId, string ifMatch, CancellationToken cancellationToken = default)
         => SendNoContentAsync(BuildTaskUrl(listId, taskId), Method.DELETE, ifMatch, cancellationToken);
+
+    // Graph refuses checklistItems inside a task PATCH ("Update on checklistItems
+    // navigation property is not supported in PATCH request on task entity"), so step
+    // changes on an existing task go through this child collection. Checklist items
+    // carry no ETag, so these calls send no If-Match.
+    public Task<ChecklistItem> CreateChecklistItemAsync(string listId, string taskId, ChecklistItem item, CancellationToken cancellationToken = default)
+        => SendParsableAsync($"{BuildTaskUrl(listId, taskId)}/checklistItems", Method.POST, item, ChecklistItem.CreateFromDiscriminatorValue, null, cancellationToken);
+
+    public Task<ChecklistItem> UpdateChecklistItemAsync(string listId, string taskId, string checklistItemId, ChecklistItem item, CancellationToken cancellationToken = default)
+        => SendParsableAsync(BuildChecklistItemUrl(listId, taskId, checklistItemId), Method.PATCH, item, ChecklistItem.CreateFromDiscriminatorValue, null, cancellationToken);
+
+    public Task DeleteChecklistItemAsync(string listId, string taskId, string checklistItemId, CancellationToken cancellationToken = default)
+        => SendNoContentAsync(BuildChecklistItemUrl(listId, taskId, checklistItemId), Method.DELETE, null, cancellationToken);
 
     private async Task<T> SendCollectionAsync<T>(string url, ParsableFactory<T> factory, CancellationToken cancellationToken) where T : IParsable
     {
@@ -112,6 +128,9 @@ public sealed class OutlookTasksClient
 
     private static string BuildTaskUrl(string listId, string taskId)
         => $"https://graph.microsoft.com/v1.0/me/todo/lists/{Uri.EscapeDataString(listId)}/tasks/{Uri.EscapeDataString(taskId)}";
+
+    private static string BuildChecklistItemUrl(string listId, string taskId, string checklistItemId)
+        => $"{BuildTaskUrl(listId, taskId)}/checklistItems/{Uri.EscapeDataString(checklistItemId)}";
 
     private static string NormalizeTaskDeltaUrl(string url)
     {

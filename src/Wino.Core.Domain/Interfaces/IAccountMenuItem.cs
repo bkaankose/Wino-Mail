@@ -1,9 +1,26 @@
 using System.Collections.Generic;
+using System.ComponentModel;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces;
+
+/// <summary>
+/// Common presentation contract for account selectors used by shell modes.
+/// </summary>
+public interface IAccountNavigationMenuItem : IMenuItem, INotifyPropertyChanged
+{
+    MailAccount Account { get; }
+    string AccountName { get; }
+    string AccountAddress { get; }
+    int UnreadItemCount { get; }
+    bool IsSynchronizationProgressVisible { get; }
+    bool IsProgressIndeterminate { get; }
+    double SynchronizationProgressValue { get; }
+    bool IsAttentionRequired { get; }
+    bool SupportsMailAccountActions { get; }
+}
 
 public interface IAccountMenuItem : IMenuItem
 {

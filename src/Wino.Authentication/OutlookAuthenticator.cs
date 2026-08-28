@@ -17,9 +17,13 @@ using Wino.Core.Domain.Models.Authentication;
 
 namespace Wino.Authentication;
 
-public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
+public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, ISubstrateTaskTokenProvider
 {
     private const string TokenCacheFileName = "OutlookCache.bin";
+
+    // Exchange Online, not Graph. MSAL issues one token per resource, so this can never be
+    // folded into GetScope and has to be acquired on its own.
+    private static readonly string[] SubstrateTaskScopes = ["https://outlook.office.com/Tasks.ReadWrite"];
     private static readonly HttpClient GraphProfileHttpClient = new();
     private bool isTokenCacheAttached = false;
 
@@ -166,6 +170,61 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator
         }
 
         throw new AuthenticationException(Translator.Exception_UnknowErrorDuringAuthentication, new Exception(Translator.Exception_TokenGenerationFailed));
+    }
+
+    /// <summary>
+    /// Best-effort token for the To Do substrate API. Returns null whenever the account has not
+    /// consented to the Exchange Online resource, or the broker cannot serve it silently, so a
+    /// missing consent degrades group discovery instead of breaking task synchronization.
+    /// Deliberately never throws <see cref="AuthenticationAttentionException"/>.
+    /// </summary>
+    public async Task<string> GetSubstrateTaskTokenAsync(MailAccount account)
+    {
+        if (account is null)
+            return null;
+
+        try
+        {
+            await EnsureTokenCacheAttachedAsync().ConfigureAwait(false);
+
+            var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().ConfigureAwait(false)).ToList();
+            var storedAccount = FindStoredAccount(cachedAccounts, account);
+
+            if (storedAccount is null)
+                return null;
+
+            var authResult = await _publicClientApplication
+                .AcquireTokenSilent(SubstrateTaskScopes, storedAccount)
+                .ExecuteAsync()
+                .ConfigureAwait(false);
+
+            return authResult.AccessToken;
+        }
+        catch (MsalException)
+        {
+            return null;
+        }
+    }
+
+    public async Task EnsureSubstrateTaskConsentAsync(MailAccount account)
+    {
+        if (account is null)
+            throw new ArgumentNullException(nameof(account));
+
+        await EnsureTokenCacheAttachedAsync().ConfigureAwait(false);
+        var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().ConfigureAwait(false)).ToList();
+        var storedAccount = FindStoredAccount(cachedAccounts, account);
+        var builder = _publicClientApplication.AcquireTokenInteractive(SubstrateTaskScopes);
+        if (storedAccount is not null)
+            builder = builder.WithAccount(storedAccount);
+        else
+        {
+            var loginHint = GetAuthenticationAddress(account);
+            if (!string.IsNullOrWhiteSpace(loginHint))
+                builder = builder.WithLoginHint(loginHint);
+        }
+
+        await builder.ExecuteAsync().ConfigureAwait(false);
     }
 
     public async Task DeleteTokenInformationAsync(MailAccount account)

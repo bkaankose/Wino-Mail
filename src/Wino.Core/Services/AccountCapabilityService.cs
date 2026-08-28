@@ -16,17 +16,20 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
     private readonly IAccountService _accountService;
     private readonly IContactService _contactService;
     private readonly ITaskService _taskService;
+    private readonly IAuthenticationProvider _authenticationProvider;
 
     public AccountCapabilityService(
         ISynchronizationManager synchronizationManager,
         IAccountService accountService,
         IContactService contactService,
-        ITaskService taskService)
+        ITaskService taskService,
+        IAuthenticationProvider authenticationProvider = null)
     {
         _synchronizationManager = synchronizationManager;
         _accountService = accountService;
         _contactService = contactService;
         _taskService = taskService;
+        _authenticationProvider = authenticationProvider;
     }
 
     public async Task<MailAccount> ApplyAsync(
@@ -89,6 +92,20 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                     account,
                     account.ProviderType == MailProviderType.Gmail,
                     forceInteractive: true).ConfigureAwait(false);
+
+                if (includeTasks && account.ProviderType == MailProviderType.Outlook &&
+                    _authenticationProvider?.GetAuthenticator(account.ProviderType) is ISubstrateTaskTokenProvider substrateTokenProvider)
+                {
+                    try
+                    {
+                        await substrateTokenProvider.EnsureSubstrateTaskConsentAsync(account).ConfigureAwait(false);
+                    }
+                    catch (Exception)
+                    {
+                        // Exchange consent is optional. Graph task sync remains available and
+                        // cached groups stay visible when the separate resource is unavailable.
+                    }
+                }
             }
 
             if (includeContacts && !previousContacts)

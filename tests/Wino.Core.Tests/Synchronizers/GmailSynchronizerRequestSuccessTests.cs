@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using FluentAssertions;
+using global::Google.Apis.Gmail.v1.Data;
 using Moq;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
@@ -50,6 +51,47 @@ public sealed class GmailSynchronizerRequestSuccessTests
         var query = GmailSynchronizer.BuildGmailSearchQuery("in:archive", new DateTime(2026, 5, 15, 12, 30, 0, DateTimeKind.Utc));
 
         query.Should().Be("in:archive after:2026/05/15");
+    }
+
+    [Fact]
+    public async Task CreateNewMailPackagesAsync_UnmappedDraftWithoutAssignedFolder_DoesNotDereferenceFolder()
+    {
+        var localDraftId = Guid.NewGuid();
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        changeProcessor
+            .Setup(x => x.MapLocalDraftAsync(
+                It.IsAny<Guid>(), localDraftId, "remote-draft", null, "thread"))
+            .ReturnsAsync(false);
+        changeProcessor
+            .Setup(x => x.IsMailExistsAsync(It.IsAny<Guid>(), localDraftId))
+            .ReturnsAsync(false);
+
+        var synchronizer = CreateSynchronizer(changeProcessor.Object);
+        var message = new Message
+        {
+            Id = "remote-draft",
+            ThreadId = "thread",
+            LabelIds = ["DRAFT"],
+            Payload = new MessagePart
+            {
+                Headers =
+                [
+                    new MessagePartHeader
+                    {
+                        Name = Wino.Core.Domain.Constants.WinoLocalDraftHeader,
+                        Value = localDraftId.ToString()
+                    }
+                ]
+            }
+        };
+
+        var packages = await synchronizer.CreateNewMailPackagesAsync(message, assignedFolder: null);
+
+        packages.Should().ContainSingle();
+        packages[0].Copy.Id.Should().Be("remote-draft");
+        changeProcessor.Verify(
+            x => x.IsMailExistsInFolderAsync(It.IsAny<string>(), It.IsAny<Guid>()),
+            Times.Never);
     }
 
     [Fact]

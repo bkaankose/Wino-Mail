@@ -186,6 +186,7 @@ Published cross-repository dependencies must use unconditional `PackageReference
 - `x:Bind` does not convert `double` to `GridLength`. Use an existing helper.
 - Use typed `ItemTemplate` bindings and explicit `SelectedItem` for `ComboBox`.
 - Do not use `DisplayMemberPath` or `SelectedValuePath`.
+- Keep every shell navigation `DataTemplate` in `Styles/ShellMenu/ShellMenuTemplates.xaml` and its existing code-behind. Expose templates as public selector properties and wire them with `{StaticResource}`; do not resolve XAML resources through `Application.Current.Resources` or mutate its merged dictionaries at runtime.
 - Prefer `[GeneratedDependencyProperty]` over manual dependency-property registration.
 - Use command `CanExecute` and `[NotifyCanExecuteChangedFor]` instead of binding a command button's `IsEnabled` when possible.
 - Use `{ThemeResource}` for visual resources and preserve Light, Dark, High Contrast, keyboard, pointer, touch, and automation behavior.

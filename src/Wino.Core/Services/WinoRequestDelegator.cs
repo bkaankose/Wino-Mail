@@ -318,7 +318,9 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                     taskRequest.Step,
                     taskRequest.OriginalList,
                     taskRequest.OriginalTask,
-                    taskRequest.OriginalStep)).ConfigureAwait(false);
+                    taskRequest.OriginalStep,
+                    taskRequest.Group,
+                    taskRequest.OriginalGroup)).ConfigureAwait(false);
 
                 requestList.Add(prepared ?? taskRequest);
                 continue;

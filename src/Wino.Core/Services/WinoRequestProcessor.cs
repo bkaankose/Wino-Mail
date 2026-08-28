@@ -81,8 +81,8 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         if (request.AccountId == Guid.Empty)
             throw new ArgumentException("A task request requires an account.", nameof(request));
 
-        if (request.List is null && request.Task is null && request.Step is null)
-            throw new ArgumentException("A task request requires a list, task, or step snapshot.", nameof(request));
+        if (request.List is null && request.Task is null && request.Step is null && request.Group is null)
+            throw new ArgumentException("A task request requires a group, list, task, or step snapshot.", nameof(request));
 
         ITaskActionRequest prepared = new TaskActionRequest(
             request.AccountId,
@@ -92,7 +92,9 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             request.Step,
             request.OriginalList,
             request.OriginalTask,
-            request.OriginalStep);
+            request.OriginalStep,
+            request.Group,
+            request.OriginalGroup);
 
         return Task.FromResult(prepared);
     }

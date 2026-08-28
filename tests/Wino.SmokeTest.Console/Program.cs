@@ -39,8 +39,12 @@ internal static class Program
             return 0;
         }
 
-        var apiEnvironment = options.Stress?.Environment ??
-            (options.IndexAccountAddress is null && options.Smoke is null ? SelectApiEnvironment() : ApiEnvironment.Local);
+        var isInteractive = options.Stress is null &&
+                            options.Smoke is null &&
+                            options.DailyBriefingAddress is null &&
+                            options.IndexAccountAddress is null &&
+                            options.TodoGroupProbeAddress is null;
+        var apiEnvironment = options.Stress?.Environment ?? ApiEnvironment.Local;
         var apiUri = GetApiUri(apiEnvironment);
         var stressRunId = options.Stress is null ? null : $"{DateTimeOffset.UtcNow:yyyyMMddTHHmmssZ}-{Guid.NewGuid():N}"[..32];
         var paths = ResolvePaths(options);
@@ -66,7 +70,8 @@ internal static class Program
 
         try
         {
-            ConsoleOutput.Header($"\nAPI: {apiEnvironment} ({apiUri})");
+            if (!isInteractive)
+                ConsoleOutput.Header($"\nAPI: {apiEnvironment} ({apiUri})");
             System.Console.WriteLine($"Database folder: {paths.PublisherFolder}");
             System.Console.WriteLine($"Application data: {paths.ApplicationDataFolder}");
             ConsoleOutput.Success("Wino Mail is closed and the smoke-console database lock is active.\n");
@@ -78,7 +83,8 @@ internal static class Program
                 options.Smoke is null,
                 options.Stress,
                 stressRunId);
-            await InitializeServicesAsync(services, options.Smoke is null, cancellation.Token).ConfigureAwait(false);
+            await InitializeServicesAsync(services, !isInteractive && options.Smoke is null, cancellation.Token)
+                .ConfigureAwait(false);
             if (options.Smoke is not null)
             {
                 using var smokeRunner = new SmokeTestRunner(services);
@@ -94,6 +100,13 @@ internal static class Program
             if (options.DailyBriefingAddress is not null)
             {
                 return await RunDailyBriefingAsync(services, options.DailyBriefingAddress,
+                    cancellation.Token).ConfigureAwait(false);
+            }
+            if (options.TodoGroupProbeAddress is not null)
+            {
+                return await SubstrateTaskGroupProbe.RunAsync(
+                    options.TodoGroupProbeAddress,
+                    paths.PublisherFolder,
                     cancellation.Token).ConfigureAwait(false);
             }
             if (options.IndexAccountAddress is not null)
@@ -225,10 +238,13 @@ internal static class Program
         await services.GetRequiredService<ITranslationService>().InitializeAsync().ConfigureAwait(false);
         await services.GetRequiredService<SynchronizationManagerInitializer>().InitializeAsync().ConfigureAwait(false);
         if (initializeIntelligence)
-        {
-            await services.GetRequiredService<ILocalIntelligenceStore>().InitializeAsync().ConfigureAwait(false);
-            await services.GetRequiredService<ISemanticIndexCoordinator>().InitializeAsync().ConfigureAwait(false);
-        }
+            await InitializeIntelligenceServicesAsync(services).ConfigureAwait(false);
+    }
+
+    private static async Task InitializeIntelligenceServicesAsync(IServiceProvider services)
+    {
+        await services.GetRequiredService<ILocalIntelligenceStore>().InitializeAsync().ConfigureAwait(false);
+        await services.GetRequiredService<ISemanticIndexCoordinator>().InitializeAsync().ConfigureAwait(false);
     }
 
     private static async Task<int> RunAsync(
@@ -243,6 +259,26 @@ internal static class Program
         var messageResolver = services.GetRequiredService<IIntelligenceMessageContextResolver>();
         var localStore = services.GetRequiredService<ILocalIntelligenceStore>();
         var mailService = services.GetRequiredService<IMailService>();
+        var httpClient = services.GetRequiredService<HttpClient>();
+        ApiEnvironment? selectedApiEnvironment = null;
+        var intelligenceInitialized = false;
+
+        async Task EnsureIntelligenceReadyAsync(CancellationToken token)
+        {
+            if (selectedApiEnvironment is null)
+            {
+                selectedApiEnvironment = SelectApiEnvironment();
+                httpClient.BaseAddress = GetApiUri(selectedApiEnvironment.Value);
+                ConsoleOutput.Header($"\nAPI: {selectedApiEnvironment} ({httpClient.BaseAddress})");
+            }
+
+            if (intelligenceInitialized)
+                return;
+
+            token.ThrowIfCancellationRequested();
+            await InitializeIntelligenceServicesAsync(services).ConfigureAwait(false);
+            intelligenceInitialized = true;
+        }
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -260,7 +296,8 @@ internal static class Program
             try
             {
                 await RunAccountAsync(selected, accountService, coordinator, apiClient, authenticationProvider,
-                        messageResolver, localStore, mailService, services, attachmentsFolder, cancellationToken)
+                        messageResolver, localStore, mailService, services, attachmentsFolder,
+                        EnsureIntelligenceReadyAsync, cancellationToken)
                     .ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -490,6 +527,7 @@ internal static class Program
         IMailService mailService,
         IServiceProvider services,
         string attachmentsFolder,
+        Func<CancellationToken, Task> ensureIntelligenceReadyAsync,
         CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
@@ -499,12 +537,6 @@ internal static class Program
                 return;
 
             System.Console.WriteLine($"\n{FormatAccountSelection(account)}");
-            SemanticIndexAccountState? state = null;
-            if (IsSupportedAccount(account))
-            {
-                state = await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
-                PrintState(state);
-            }
             ConsoleOutput.Header("\nAccount actions:");
             System.Console.WriteLine("  1. Synchronize");
             System.Console.WriteLine("  2. Smoke tests");
@@ -529,11 +561,15 @@ internal static class Program
                             .ConfigureAwait(false);
                     }
                     break;
-                case "3" when state is not null:
+                case "3" when IsSupportedAccount(account):
+                    await ensureIntelligenceReadyAsync(cancellationToken).ConfigureAwait(false);
+                    var state = await coordinator.GetStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
+                    PrintState(state);
                     await RunSemanticSearchMenuAsync(
                         account, state, apiClient, messageResolver, mailService, cancellationToken).ConfigureAwait(false);
                     break;
-                case "4" when state is not null:
+                case "4" when IsSupportedAccount(account):
+                    await ensureIntelligenceReadyAsync(cancellationToken).ConfigureAwait(false);
                     await RunIntelligenceManagementMenuAsync(
                         account, accountService, coordinator, apiClient, authenticationProvider,
                         messageResolver, localStore, cancellationToken).ConfigureAwait(false);
@@ -1594,6 +1630,7 @@ internal static class Program
                 null,
                 null,
                 null,
+                null,
                 100,
                 false,
                 false,
@@ -1610,7 +1647,7 @@ internal static class Program
                 options = default;
                 return false;
             }
-            options = new CommandLineOptions(null, null, null, null, null, 100, false, false, stress, null, null);
+            options = new CommandLineOptions(null, null, null, null, null, null, 100, false, false, stress, null, null);
             return true;
         }
 
@@ -1619,6 +1656,7 @@ internal static class Program
         var help = false;
         string? dailyBriefingAddress = null;
         string? indexAccountAddress = null;
+        string? todoGroupProbeAddress = null;
         string? indexFolderName = null;
         string? attachmentsFolder = null;
         var indexMessageCount = 100;
@@ -1641,6 +1679,9 @@ internal static class Program
                     break;
                 case "--index-account" when index + 1 < args.Length:
                     indexAccountAddress = args[++index];
+                    break;
+                case "--todo-groups" when index + 1 < args.Length:
+                    todoGroupProbeAddress = args[++index];
                     break;
                 case "--folder" when index + 1 < args.Length:
                     indexFolderName = args[++index];
@@ -1667,6 +1708,7 @@ internal static class Program
             appData,
             dailyBriefingAddress,
             indexAccountAddress,
+            todoGroupProbeAddress,
             indexFolderName,
             indexMessageCount,
             resetIntelligence,
@@ -1695,6 +1737,7 @@ internal static class Program
         System.Console.WriteLine("          [--profile realistic|database|ai] [--start-rps 1] [--max-rps 256]");
         System.Console.WriteLine("          [--max-concurrency 512] [--stage-duration 5] [--sustain-duration 60]");
         System.Console.WriteLine("          [--ai-request-limit N] [--confirm-production-stress]");
+        System.Console.WriteLine("  --todo-groups <address>    Probe the substrate To Do foldergroups API");
         System.Console.WriteLine("  --help                     Show help");
     }
 }
@@ -1710,6 +1753,7 @@ internal readonly record struct CommandLineOptions(
     string? ApplicationDataFolder,
     string? DailyBriefingAddress,
     string? IndexAccountAddress,
+    string? TodoGroupProbeAddress,
     string? IndexFolderName,
     int IndexMessageCount,
     bool ResetIntelligence,

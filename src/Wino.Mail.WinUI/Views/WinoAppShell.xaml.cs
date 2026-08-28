@@ -35,19 +35,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     IRecipient<AccountCreatedMessage>,
     IRecipient<CreateNewMailWithMultipleAccountsRequested>
 {
-    // Instantiated by type rather than by Source: a resource dictionary with an x:Class
-    // only gets its x:Bind connections wired through its generated constructor, and loading
-    // it by Source produces a dictionary whose template bindings silently do nothing.
-    private static readonly Dictionary<WinoApplicationMode, Func<ResourceDictionary>> ModeTemplateDictionaries = new()
-    {
-        [WinoApplicationMode.Mail] = () => new Styles.ShellMenu.MailMenuTemplates(),
-        [WinoApplicationMode.Calendar] = () => new Styles.ShellMenu.CalendarMenuTemplates(),
-        [WinoApplicationMode.Contacts] = () => new Styles.ShellMenu.ContactsMenuTemplates(),
-        [WinoApplicationMode.Tasks] = () => new Styles.ShellMenu.ToDoMenuTemplates(),
-    };
-
-    private static readonly HashSet<WinoApplicationMode> MergedTemplateDictionaries = [];
-
     private readonly WinUIDispatcher _pageDispatcher;
     private WinoApplicationMode? _activeMode;
     private bool _isPreparedForWindowClose;
@@ -89,8 +76,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         }
 
         ReleaseActiveMode();
-        EnsureModeTemplates(mode);
-
         _activeMode = mode;
         ViewModel.SetCurrentMode(mode);
 
@@ -108,18 +93,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
             return;
 
         provider?.ReleaseShellMenu();
-    }
-
-    /// <summary>
-    /// Merges a mode's navigation item templates the first time that mode is opened, so a
-    /// session that never leaves mail never parses the other modes' XAML.
-    /// </summary>
-    private static void EnsureModeTemplates(WinoApplicationMode mode)
-    {
-        if (!MergedTemplateDictionaries.Add(mode) || !ModeTemplateDictionaries.TryGetValue(mode, out var createDictionary))
-            return;
-
-        Application.Current.Resources.MergedDictionaries.Add(createDictionary());
     }
 
     #endregion

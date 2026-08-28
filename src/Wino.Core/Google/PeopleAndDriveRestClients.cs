@@ -78,10 +78,14 @@ public sealed class PeopleServiceService : IDisposable
 
         public sealed class UpdateContactRequest : GoogleApiRequest<Person>
         {
-            private const string Fields = "names,emailAddresses,phoneNumbers,addresses,organizations,birthdays,nicknames,fileAses,biographies,urls,imClients,relations,photos,metadata";
+            private const string UpdateFields = "names,emailAddresses,phoneNumbers,addresses,organizations,birthdays,nicknames,biographies,urls,imClients,relations";
+            private const string ReturnFields = "names,emailAddresses,phoneNumbers,addresses,organizations,birthdays,nicknames,fileAses,biographies,urls,imClients,relations,photos,metadata";
             internal UpdateContactRequest(HttpClient client, object service, string resourceName, Person person)
                 : base(client, service, HttpMethod.Patch,
-                    () => GoogleUrl.AddQuery($"https://people.googleapis.com/v1/{GoogleUrl.Segment(resourceName).Replace("%2F", "/", StringComparison.OrdinalIgnoreCase)}:updateContact", ("updatePersonFields", Fields), ("personFields", Fields)),
+                    () => GoogleUrl.AddQuery(
+                        $"https://people.googleapis.com/v1/{GoogleUrl.Segment(resourceName).Replace("%2F", "/", StringComparison.OrdinalIgnoreCase)}:updateContact",
+                        ("updatePersonFields", UpdateFields),
+                        ("personFields", ReturnFields)),
                     GoogleApiJsonContext.Default.Person, () => GoogleJsonContent.Create(person, GoogleApiJsonContext.Default.Person)) { }
         }
 

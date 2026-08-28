@@ -32,6 +32,7 @@ using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Extensions;
 using Wino.Core.Google;
 using Wino.Core.Helpers;
@@ -304,6 +305,19 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                 case TaskSynchronizerOperation.DeleteStep:
                     await ExecuteGoogleStepMutationAsync(request, cancellationToken).ConfigureAwait(false);
                     break;
+                case TaskSynchronizerOperation.CreateGroup:
+                case TaskSynchronizerOperation.UpdateGroup:
+                    await _taskService.CompleteTaskListGroupMutationAsync(
+                        (request as TaskActionRequest).Group.Id, (request as TaskActionRequest).Group, false).ConfigureAwait(false);
+                    break;
+                case TaskSynchronizerOperation.DeleteGroup:
+                    await _taskService.CompleteTaskListGroupMutationAsync(
+                        (request as TaskActionRequest).Group.Id, null, true).ConfigureAwait(false);
+                    break;
+                case TaskSynchronizerOperation.UpdateListPlacement:
+                    await _taskService.CompleteTaskListPlacementMutationAsync(
+                        (request as TaskActionRequest).List.Id, (request as TaskActionRequest).List).ConfigureAwait(false);
+                    break;
             }
 
             MarkTaskRequestProcessed(request);
@@ -333,13 +347,54 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         }
 
         var payload = BuildGoogleTask(localTask);
-        var remote = request.Operation == TaskSynchronizerOperation.CreateTask || localTask.RemoteId is null
-            ? await _googleTasksClient.CreateTaskAsync(list.RemoteId, payload, cancellationToken: cancellationToken).ConfigureAwait(false)
-            : await _googleTasksClient.UpdateTaskAsync(list.RemoteId, localTask.RemoteId, payload, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
-        var mapped = MapGoogleTask(remote, list);
+        var originalTask = typedRequest?.OriginalTask;
+        var isMoving = request.Operation == TaskSynchronizerOperation.UpdateTask &&
+                       originalTask is not null &&
+                       originalTask.TaskListId != localTask.TaskListId &&
+                       !string.IsNullOrWhiteSpace(originalTask.RemoteId);
+        GoogleTask remote;
+        var movedSteps = new List<GoogleTask>();
+
+        if (isMoving)
+        {
+            var sourceList = await _taskService.GetTaskListAsync(originalTask.TaskListId).ConfigureAwait(false);
+            if (sourceList?.RemoteId is null)
+                throw new InvalidOperationException($"Source task list {originalTask.TaskListId} is unavailable for moving task {localTask.Id}.");
+
+            remote = await _googleTasksClient.CreateTaskAsync(list.RemoteId, payload, cancellationToken: cancellationToken).ConfigureAwait(false);
+            foreach (var step in localTask.Steps.OrderBy(step => step.Order))
+            {
+                movedSteps.Add(await _googleTasksClient
+                    .CreateTaskAsync(list.RemoteId, BuildGoogleStep(step), remote.Id, cancellationToken)
+                    .ConfigureAwait(false));
+            }
+
+            await _googleTasksClient
+                .DeleteTaskAsync(sourceList.RemoteId, originalTask.RemoteId, originalTask.RemoteVersion, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            remote = request.Operation == TaskSynchronizerOperation.CreateTask || localTask.RemoteId is null
+                ? await _googleTasksClient.CreateTaskAsync(list.RemoteId, payload, cancellationToken: cancellationToken).ConfigureAwait(false)
+                : await _googleTasksClient.UpdateTaskAsync(list.RemoteId, localTask.RemoteId, payload, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
+        }
+
+        var mapped = MapGoogleTask(remote, list, movedSteps);
 
         PreserveRequestedTaskState(mapped, localTask);
+        if (isMoving)
+            CorrelateMovedGoogleSteps(mapped, localTask);
         await _gmailChangeProcessor.CommitTaskMutationAsync(localTask.Id, mapped, false).ConfigureAwait(false);
+    }
+
+    private static void CorrelateMovedGoogleSteps(AccountTask mapped, AccountTask requested)
+    {
+        for (var index = 0; index < Math.Min(mapped.Steps.Count, requested.Steps.Count); index++)
+        {
+            mapped.Steps[index].Id = requested.Steps[index].Id;
+            mapped.Steps[index].TaskId = requested.Id;
+        }
     }
 
     private async Task ExecuteGoogleStepMutationAsync(ITaskActionRequest request, CancellationToken cancellationToken)
@@ -387,6 +442,9 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         mapped.SourceKind = requested.SourceKind;
         mapped.IsDefault = requested.IsDefault;
         mapped.ColorHex = requested.ColorHex;
+        mapped.GroupId = requested.GroupId;
+        mapped.SortOrder = requested.SortOrder;
+        mapped.RemoteOrder = requested.RemoteOrder;
     }
 
     private static void PreserveRequestedTaskState(AccountTask mapped, AccountTask requested)
@@ -407,31 +465,34 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
             .ToList();
         var remoteLists = await _googleTasksClient.GetTaskListsAsync(cancellationToken).ConfigureAwait(false);
         var remoteIds = remoteLists.Select(list => list.Id).Where(id => id is not null).ToHashSet(StringComparer.Ordinal);
-        var deleted = 0;
-        foreach (var stale in existingLists.Where(list => list.RemoteId is not null && !remoteIds.Contains(list.RemoteId)))
+        var deleted = existingLists.Count(list => list.PendingMutation == TaskPendingMutation.None &&
+                                                  list.RemoteId is not null && !remoteIds.Contains(list.RemoteId));
+
+        await _taskService.ApplyTaskTopologyDeltaAsync(new TaskTopologyDelta
         {
-            await _taskService.RemoveTaskListAsync(stale.Id).ConfigureAwait(false);
-            deleted++;
-        }
+            MailAccountId = Account.Id,
+            SourceKind = TaskSourceKind.Gmail,
+            Lists = remoteLists.Where(remote => !string.IsNullOrWhiteSpace(remote.Id)).Select(remote => new AccountTaskList
+            {
+                MailAccountId = Account.Id,
+                SourceKind = TaskSourceKind.Gmail,
+                RemoteId = remote.Id,
+                RemoteVersion = remote.Etag,
+                Title = remote.Title ?? "Tasks",
+                IsReadOnly = false
+            }).ToList(),
+            ReconcileLists = true
+        }).ConfigureAwait(false);
 
         var changed = 0;
+        var synchronizedLists = (await _taskService.GetTaskListsAsync(Account.Id).ConfigureAwait(false))
+            .Where(list => list.SourceKind == TaskSourceKind.Gmail && !string.IsNullOrWhiteSpace(list.RemoteId))
+            .ToDictionary(list => list.RemoteId, StringComparer.Ordinal);
         foreach (var remoteList in remoteLists.Where(list => !string.IsNullOrWhiteSpace(list.Id)))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var existing = existingLists.FirstOrDefault(list => list.RemoteId == remoteList.Id);
-            var list = await _taskService.UpsertRemoteTaskListAsync(new AccountTaskList
-            {
-                Id = existing?.Id ?? Guid.NewGuid(),
-                MailAccountId = Account.Id,
-                SourceKind = TaskSourceKind.Gmail,
-                RemoteId = remoteList.Id,
-                RemoteVersion = remoteList.Etag,
-                Title = remoteList.Title ?? "Tasks",
-                IsDefault = false,
-                IsReadOnly = false,
-                TaskDeltaLink = null,
-                WatermarkUtc = existing?.WatermarkUtc
-            }).ConfigureAwait(false);
+            if (!synchronizedLists.TryGetValue(remoteList.Id, out var list))
+                continue;
             var taskResult = await SynchronizeGoogleTaskListAsync(list, options.Type is TaskSynchronizationType.Full or TaskSynchronizationType.Strict, syncStart, cancellationToken).ConfigureAwait(false);
             changed += taskResult.ChangedCount;
             deleted += taskResult.DeletedCount;
@@ -442,13 +503,22 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
     private async Task<TaskSynchronizationResult> SynchronizeGoogleTaskListAsync(AccountTaskList list, bool full, DateTimeOffset syncStart, CancellationToken cancellationToken)
     {
-        var remoteTasks = await _googleTasksClient.GetTasksAsync(list.RemoteId, full ? null : list.WatermarkUtc is DateTime watermark ? new DateTimeOffset(watermark, TimeSpan.Zero) : null, cancellationToken).ConfigureAwait(false);
+        var updatedMin = full || list.WatermarkUtc is not DateTime watermark
+            ? (DateTimeOffset?)null
+            : new DateTimeOffset(watermark, TimeSpan.Zero).Subtract(TimeSpan.FromMinutes(5));
+        var remoteTasks = await _googleTasksClient.GetTasksAsync(list.RemoteId, updatedMin, cancellationToken).ConfigureAwait(false);
         var current = await _taskService.GetTasksAsync(listId: list.Id).ConfigureAwait(false);
-        var byRemoteId = full
-            ? new Dictionary<string, AccountTask>(StringComparer.Ordinal)
-            : current.Where(task => task.RemoteId is not null).ToDictionary(task => task.RemoteId, StringComparer.Ordinal);
-        var childrenByParent = remoteTasks.Where(task => !string.IsNullOrWhiteSpace(task.Parent)).GroupBy(task => task.Parent).ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
-        var deletedIds = new HashSet<string>(StringComparer.Ordinal);
+        var currentByRemoteId = current.Where(task => !string.IsNullOrWhiteSpace(task.RemoteId))
+            .ToDictionary(task => task.RemoteId, StringComparer.Ordinal);
+        var currentStepIds = current.SelectMany(task => task.Steps ?? [])
+            .Where(step => !string.IsNullOrWhiteSpace(step.RemoteId))
+            .Select(step => step.RemoteId)
+            .ToHashSet(StringComparer.Ordinal);
+        var childrenByParent = remoteTasks.Where(task => !task.Deleted && !string.IsNullOrWhiteSpace(task.Parent))
+            .GroupBy(task => task.Parent).ToDictionary(group => group.Key, group => group.ToList(), StringComparer.Ordinal);
+        var deletedTaskIds = new HashSet<string>(StringComparer.Ordinal);
+        var deletedStepIds = new HashSet<string>(StringComparer.Ordinal);
+        var changedTasks = new Dictionary<string, AccountTask>(StringComparer.Ordinal);
         var changed = 0;
 
         foreach (var remote in remoteTasks)
@@ -457,9 +527,10 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                 continue;
             if (remote.Deleted)
             {
-                deletedIds.Add(remote.Id);
-                if (string.IsNullOrWhiteSpace(remote.Parent))
-                    byRemoteId.Remove(remote.Id);
+                if (!string.IsNullOrWhiteSpace(remote.Parent) || currentStepIds.Contains(remote.Id))
+                    deletedStepIds.Add(remote.Id);
+                else
+                    deletedTaskIds.Add(remote.Id);
                 continue;
             }
             if (!string.IsNullOrWhiteSpace(remote.Parent))
@@ -469,13 +540,17 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                 ? remoteChildren
                 : [];
             var mapped = MapGoogleTask(remote, list, children);
-            var hasExistingParent = byRemoteId.TryGetValue(remote.Id, out var existingParent);
-            if (!full && hasExistingParent && children.Count == 0)
-                mapped.Steps = existingParent.Steps ?? [];
-            else if (!full && hasExistingParent)
+            var hasExistingParent = currentByRemoteId.TryGetValue(remote.Id, out var existingParent);
+
+            // A mapped task carries a fresh Guid. Adopting the stored identity keeps the row stable
+            // across syncs and stops a reconciliation racing a create from doubling the task.
+            if (hasExistingParent)
+                mapped.Id = existingParent.Id;
+
+            if (!full && hasExistingParent && children.Count > 0)
                 mapped.Steps = MergeGoogleChildren(existingParent, children);
 
-            byRemoteId[remote.Id] = mapped;
+            changedTasks[remote.Id] = mapped;
             changed++;
         }
 
@@ -484,29 +559,35 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         // dropping them as non-root tasks.
         if (!full)
         {
-            var changedRootIds = remoteTasks
-                .Where(task => !task.Deleted && string.IsNullOrWhiteSpace(task.Parent))
-                .Select(task => task.Id)
-                .ToHashSet(StringComparer.Ordinal);
             foreach (var remoteChild in remoteTasks.Where(task => !task.Deleted && !string.IsNullOrWhiteSpace(task.Parent)))
             {
-                if (byRemoteId.TryGetValue(remoteChild.Parent, out var parent))
+                if (changedTasks.TryGetValue(remoteChild.Parent, out var parent))
                 {
                     parent.Steps = MergeGoogleChildren(parent, [remoteChild]);
-                    if (!changedRootIds.Contains(remoteChild.Parent))
-                        changed++;
+                    continue;
                 }
+
+                if (!currentByRemoteId.TryGetValue(remoteChild.Parent, out var existingParent))
+                    continue;
+
+                var parentSnapshot = RequestEntityCloner.Task(existingParent);
+                parentSnapshot.Steps = MergeGoogleChildren(existingParent, [remoteChild]);
+                changedTasks[remoteChild.Parent] = parentSnapshot;
+                changed++;
             }
         }
 
-        foreach (var deletedId in deletedIds)
+        await _taskService.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta
         {
-            foreach (var task in byRemoteId.Values)
-                task.Steps = task.Steps.Where(step => step.RemoteId != deletedId).ToList();
-        }
-
-        await _taskService.ReplaceListAsync(list.Id, byRemoteId.Values.ToList(), null, syncStart.UtcDateTime).ConfigureAwait(false);
-        return TaskSynchronizationResult.Completed(byRemoteId.Count, changed, deletedIds.Count);
+            TaskListId = list.Id,
+            Tasks = changedTasks.Values.ToList(),
+            DeletedTaskRemoteIds = deletedTaskIds,
+            DeletedStepRemoteIds = deletedStepIds,
+            AuthoritativeStepParentRemoteIds = full ? changedTasks.Keys.ToList() : [],
+            IsFullSnapshot = full,
+            WatermarkUtc = syncStart.UtcDateTime
+        }).ConfigureAwait(false);
+        return TaskSynchronizationResult.Completed(changedTasks.Count, changed, deletedTaskIds.Count + deletedStepIds.Count);
     }
 
     private static AccountTaskList MapGoogleList(GoogleTaskList remote)
@@ -834,7 +915,22 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
 
     private static void MergeCommonFields(global::Google.Apis.PeopleService.v1.Data.Person person, AccountContact contact)
     {
-        person.Names = [new() { DisplayName = contact.DisplayName, HonorificPrefix = contact.HonorificPrefix, GivenName = contact.GivenName, MiddleName = contact.MiddleName, FamilyName = contact.Surname, HonorificSuffix = contact.HonorificSuffix }];
+        var hasStructuredName = !string.IsNullOrWhiteSpace(contact.HonorificPrefix) ||
+                                !string.IsNullOrWhiteSpace(contact.GivenName) ||
+                                !string.IsNullOrWhiteSpace(contact.MiddleName) ||
+                                !string.IsNullOrWhiteSpace(contact.Surname) ||
+                                !string.IsNullOrWhiteSpace(contact.HonorificSuffix);
+        person.Names =
+        [
+            new()
+            {
+                HonorificPrefix = contact.HonorificPrefix,
+                GivenName = hasStructuredName ? contact.GivenName : contact.DisplayName,
+                MiddleName = contact.MiddleName,
+                FamilyName = contact.Surname,
+                HonorificSuffix = contact.HonorificSuffix
+            }
+        ];
         person.EmailAddresses = contact.EmailAddresses.Select(item => new global::Google.Apis.PeopleService.v1.Data.EmailAddress { Value = item.Address, Type = item.Label }).ToList();
         person.PhoneNumbers = contact.PhoneNumbers.Select(item => new global::Google.Apis.PeopleService.v1.Data.PhoneNumber { Value = item.Number, Type = item.Kind.ToString().ToLowerInvariant() }).ToList();
         person.Addresses = contact.PostalAddresses.Select(item => new global::Google.Apis.PeopleService.v1.Data.Address { Type = item.Kind == ContactPostalAddressKind.Business ? "work" : item.Kind.ToString().ToLowerInvariant(), PoBox = item.PostOfficeBox, StreetAddress = item.Street, City = item.City, Region = item.Region, PostalCode = item.PostalCode, Country = item.Country }).ToList();
@@ -3656,8 +3752,15 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                         return null;
                     }
 
-                    if (await _gmailChangeProcessor.IsMailExistsInFolderAsync(baseMailCopy.Id, assignedFolder.Id).ConfigureAwait(false) ||
-                        await _gmailChangeProcessor.IsMailExistsAsync(Account.Id, localDraftCopyUniqueId).ConfigureAwait(false))
+                    var alreadyExistsInAssignedFolder = assignedFolder is not null &&
+                        await _gmailChangeProcessor
+                            .IsMailExistsInFolderAsync(baseMailCopy.Id, assignedFolder.Id)
+                            .ConfigureAwait(false);
+                    var localDraftStillExists = await _gmailChangeProcessor
+                        .IsMailExistsAsync(Account.Id, localDraftCopyUniqueId)
+                        .ConfigureAwait(false);
+
+                    if (alreadyExistsInAssignedFolder || localDraftStillExists)
                     {
                         _logger.Debug("Skipping duplicate remote draft {RemoteId} for local draft {LocalId}",
                             baseMailCopy.Id, localDraftCopyUniqueId);

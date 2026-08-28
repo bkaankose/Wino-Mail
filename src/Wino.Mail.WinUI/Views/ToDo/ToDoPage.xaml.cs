@@ -22,6 +22,7 @@ namespace Wino.Views.ToDo;
 public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
 {
     private CancellationTokenSource? _searchCancellationTokenSource;
+    private TaskItemViewModel? _moveTaskTarget;
 
     [GeneratedDependencyProperty(DefaultValue = false)]
     public partial bool IsCompactLayout { get; set; }
@@ -132,17 +133,82 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
             await ViewModel.ToggleImportanceCommand.ExecuteAsync(ViewModel.SelectedTask);
     }
 
-    private async void MyDayButton_Click(object sender, RoutedEventArgs e)
+    private async void TaskMyDayMenuItem_Click(object sender, RoutedEventArgs e)
     {
-        var item = ViewModel.SelectedTask;
-        if (item is null)
+        if (GetContextTask(sender) is { } item)
+            await ViewModel.ToggleMyDayCommand.ExecuteAsync(item);
+    }
+
+    private async void TaskImportanceMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextTask(sender) is { } item)
+            await ViewModel.ToggleImportanceCommand.ExecuteAsync(item);
+    }
+
+    private async void TaskCompletionMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextTask(sender) is { } item)
+            await ViewModel.ToggleTaskCommand.ExecuteAsync(item);
+    }
+
+    private async void TaskDueTodayMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextTask(sender) is { } item)
+            await ViewModel.SetTaskDueDateAsync(item, DateTime.Now.Date);
+    }
+
+    private async void TaskDueTomorrowMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextTask(sender) is { } item)
+            await ViewModel.SetTaskDueDateAsync(item, DateTime.Now.Date.AddDays(1));
+    }
+
+    private async void TaskPickDueDateMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextTask(sender) is not { } item || TaskDueDatePickerHost.Flyout is not DatePickerFlyout picker)
             return;
 
-        if (item.IsInMyDay)
-            await ViewModel.RemoveFromMyDayCommand.ExecuteAsync(item);
-        else
-            await ViewModel.AddToMyDayCommand.ExecuteAsync(item);
+        picker.Date = item.DueDate is { } dueDate
+            ? new DateTimeOffset(dueDate)
+            : new DateTimeOffset(DateTime.Now.Date);
+        var selectedDate = await picker.ShowAtAsync(TaskListView);
+        if (selectedDate is { } value)
+            await ViewModel.SetTaskDueDateAsync(item, value.Date);
     }
+
+    private void TaskMoveMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextTask(sender) is not { } item)
+            return;
+
+        _moveTaskTarget = item;
+        MoveTaskListView.ItemsSource = ViewModel.TaskLists
+            .Where(list => !list.IsReadOnly &&
+                           list.Id != item.Task.TaskListId &&
+                           list.MailAccountId == item.Task.MailAccountId &&
+                           list.SourceKind == item.Task.SourceKind)
+            .ToList();
+        MoveTaskFlyoutHost.Flyout.ShowAt(TaskListView);
+    }
+
+    private async void MoveTaskListView_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (_moveTaskTarget is not { } item || e.ClickedItem is not AccountTaskList destination)
+            return;
+
+        MoveTaskFlyoutHost.Flyout.Hide();
+        _moveTaskTarget = null;
+        await ViewModel.MoveTaskAsync(item, destination);
+    }
+
+    private async void TaskDeleteMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextTask(sender) is { } item)
+            await ViewModel.DeleteTaskCommand.ExecuteAsync(item);
+    }
+
+    private static TaskItemViewModel? GetContextTask(object sender)
+        => (sender as FrameworkElement)?.Tag as TaskItemViewModel;
 
     private async void SuggestionButton_Click(object sender, RoutedEventArgs e)
     {
@@ -156,6 +222,12 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
             await ViewModel.ToggleStepCommand.ExecuteAsync(step);
     }
 
+    private async void StepTitleTextBox_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: TaskStepViewModel step })
+            await ViewModel.SaveStepCommand.ExecuteAsync(step);
+    }
+
     private async void StepDeleteButton_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { DataContext: TaskStepViewModel step })
@@ -167,25 +239,6 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         if (ViewModel.SelectedTask is not null)
             await ViewModel.DeleteTaskCommand.ExecuteAsync(ViewModel.SelectedTask);
     }
-
-    /// <summary>Puts the caret in the header so the rename entry has somewhere to go.</summary>
-    private void RenameListMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        ListTitleTextBox.Focus(FocusState.Programmatic);
-        ListTitleTextBox.SelectAll();
-    }
-
-    private async void ListTitleTextBox_KeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key != Windows.System.VirtualKey.Enter)
-            return;
-
-        e.Handled = true;
-        await ViewModel.RenameListCommand.ExecuteAsync(ListTitleTextBox.Text);
-    }
-
-    private async void ListTitleTextBox_LostFocus(object sender, RoutedEventArgs e)
-        => await ViewModel.RenameListCommand.ExecuteAsync(ListTitleTextBox.Text);
 
     private void ComposerTextBox_GotFocus(object sender, RoutedEventArgs e)
         => ViewModel.IsComposerExpanded = true;
@@ -205,12 +258,6 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         e.Handled = true;
         await ViewModel.AddTaskCommand.ExecuteAsync(null);
     }
-
-    private void ComposerDueToday_Click(object sender, RoutedEventArgs e)
-        => ViewModel.ComposerDueDate = DateTime.Now.Date;
-
-    private void ComposerDueTomorrow_Click(object sender, RoutedEventArgs e)
-        => ViewModel.ComposerDueDate = DateTime.Now.Date.AddDays(1);
 
     /// <summary>Detail edits are committed when the field loses focus rather than on every keystroke.</summary>
     private async void DetailField_LostFocus(object sender, RoutedEventArgs e)

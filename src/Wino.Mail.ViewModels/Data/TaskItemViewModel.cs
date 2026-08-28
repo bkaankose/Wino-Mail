@@ -59,6 +59,7 @@ public partial class TaskItemViewModel : ObservableObject
         OnPropertyChanged(nameof(MyDayDateUtc));
         OnPropertyChanged(nameof(IsInMyDay));
         OnPropertyChanged(nameof(IsActive));
+        OnPropertyChanged(nameof(CompletionActionText));
         OnPropertyChanged(nameof(MyDayActionText));
         OnPropertyChanged(nameof(ImportanceActionText));
         OnPropertyChanged(nameof(HasNote));
@@ -107,6 +108,7 @@ public partial class TaskItemViewModel : ObservableObject
             Task.CompletedAtUtc = value ? DateTime.UtcNow : null;
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsActive));
+            OnPropertyChanged(nameof(CompletionActionText));
         }
     }
 
@@ -160,8 +162,9 @@ public partial class TaskItemViewModel : ObservableObject
     public bool IsReadOnly => Task.IsReadOnly;
     public bool IsEditable => !Task.IsReadOnly;
 
-    public string MyDayActionText => IsInMyDay ? Translator.ToDoPage_AddedToMyDay : Translator.ToDoPage_AddToMyDay;
+    public string MyDayActionText => IsInMyDay ? Translator.ToDoPage_RemoveFromMyDay : Translator.ToDoPage_AddToMyDay;
     public string ImportanceActionText => IsImportant ? Translator.ToDoPage_RemoveImportance : Translator.ToDoPage_MarkImportant;
+    public string CompletionActionText => IsCompleted ? Translator.ToDoPage_MarkNotCompleted : Translator.ToDoPage_MarkCompleted;
 
     public bool HasNote => !string.IsNullOrWhiteSpace(Task.Notes);
     public bool HasDueDate => Task.DueDate.HasValue;

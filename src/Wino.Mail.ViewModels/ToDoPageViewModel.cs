@@ -42,7 +42,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly ICalendarService _calendarService;
     private readonly IMailDialogService _dialogService;
     private readonly NewTaskListMenuItem _newListMenuItem = new();
-    private readonly NewTaskListGroupMenuItem _newListGroupMenuItem = new();
+    private readonly TaskSyncMenuItem _taskSyncMenuItem = new();
+    private readonly SeperatorItem _commandSeparator = new();
+    private readonly SeperatorItem _smartViewSeparator = new();
+    private readonly SeperatorItem _accountSeparator = new();
     private readonly MyDayTaskMenuItem _myDayMenuItem = new();
     private readonly PlannedTaskMenuItem _plannedMenuItem = new();
     private readonly ImportantTaskMenuItem _importantMenuItem = new();
@@ -53,21 +56,28 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly Dictionary<Guid, TaskItemViewModel> _taskItems = [];
     private readonly List<Guid> _taskOrder = [];
     private readonly Dictionary<Guid, AccountTask> _menuCountTasks = [];
+    private readonly Dictionary<Guid, AccountTask> _pendingTaskStates = [];
+    private readonly Dictionary<Guid, Guid> _pendingDeletedTaskIds = [];
+    private readonly Dictionary<Guid, AccountTaskList> _pendingListStates = [];
+    private readonly Dictionary<Guid, Guid> _pendingDeletedListIds = [];
     private readonly SemaphoreSlim _reloadSemaphore = new(1, 1);
     private bool _isPaneCompact;
     private bool _isPreparedForShellShutdown;
-    private bool _isApplyingNamedListFilters;
     private int _suppressSurfaceReloadDepth;
     private object _selectedMenuItem;
     private long _requestedFullReloadVersion;
     private long _completedFullReloadVersion;
     private long _taskReloadVersion;
+    private long _accountLoadVersion;
+    private Guid? _selectedAccountId;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEmpty))]
     public partial bool IsLoading { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFiltered))]
+    [NotifyCanExecuteChangedFor(nameof(ClearFiltersCommand))]
     public partial string FilterText { get; set; } = string.Empty;
 
     partial void OnFilterTextChanged(string value)
@@ -121,40 +131,31 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     [ObservableProperty]
     public partial DateTime? ComposerDueDate { get; set; }
 
+    /// <summary>
+    /// Which completion states the surface lists. A single choice, so there is no invalid
+    /// combination for the surface to correct after the fact.
+    /// </summary>
     [ObservableProperty]
-    public partial bool IsAllTasksFilterSelected { get; set; } = true;
+    [NotifyPropertyChangedFor(nameof(CompletionScopeDisplayText))]
+    [NotifyPropertyChangedFor(nameof(IsFiltered))]
+    [NotifyCanExecuteChangedFor(nameof(ClearFiltersCommand))]
+    public partial TaskCompletionScope SelectedCompletionScope { get; set; } = TaskCompletionScope.Active;
 
     [ObservableProperty]
-    public partial bool IsCompletedTasksFilterSelected { get; set; }
-
-    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFiltered))]
+    [NotifyCanExecuteChangedFor(nameof(ClearFiltersCommand))]
     public partial bool IsImportantTasksFilterSelected { get; set; }
 
     partial void OnSelectedSortChanged(TaskSortKind value)
         => _ = ReloadTasksAsync();
 
-    partial void OnIsAllTasksFilterSelectedChanged(bool value)
-    {
-        if (!value)
-        {
-            _isApplyingNamedListFilters = true;
-            IsAllTasksFilterSelected = true;
-            _isApplyingNamedListFilters = false;
-        }
+    partial void OnSelectedCompletionScopeChanged(TaskCompletionScope value) => ApplyFilterChange();
 
-        if (!_isApplyingNamedListFilters && SelectedList is not null)
-            ReconcileTaskGroups();
-    }
+    partial void OnIsImportantTasksFilterSelectedChanged(bool value) => ApplyFilterChange();
 
-    partial void OnIsCompletedTasksFilterSelectedChanged(bool value)
+    private void ApplyFilterChange()
     {
-        if (!_isApplyingNamedListFilters && SelectedList is not null)
-            ReconcileTaskGroups();
-    }
-
-    partial void OnIsImportantTasksFilterSelectedChanged(bool value)
-    {
-        if (!_isApplyingNamedListFilters && SelectedList is not null)
+        if (_suppressSurfaceReloadDepth == 0)
             ReconcileTaskGroups();
     }
 
@@ -179,20 +180,28 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     partial void OnSelectedListChanged(AccountTaskList value)
     {
         if (value is not null)
+        {
             SelectedView = TaskViewKind.All;
+
+            if (_selectedAccountId != value.MailAccountId)
+                _ = ChangeSelectedAccountAsync(value.MailAccountId, selectDefaultList: false);
+        }
 
         OnPropertyChanged(nameof(CanCreateTask));
         OnPropertyChanged(nameof(IsQuickAddVisible));
         OnPropertyChanged(nameof(IsNamedListSelected));
         OnPropertyChanged(nameof(IsSmartViewSelected));
+        OnPropertyChanged(nameof(IsCompletedScopeAvailable));
         OnPropertyChanged(nameof(IsMyDaySelected));
         OnPropertyChanged(nameof(CanEditSelectedList));
+        OnPropertyChanged(nameof(CanDeleteSelectedList));
         OnPropertyChanged(nameof(IsSelectedListReadOnly));
         OnPropertyChanged(nameof(CanEditSelectedTask));
         OnPropertyChanged(nameof(SelectedSurfaceTitle));
         OnPropertyChanged(nameof(SelectedSurfaceSubtitle));
         OnPropertyChanged(nameof(HasSurfaceSubtitle));
         OnPropertyChanged(nameof(ComposerPlaceholder));
+        RenameSelectedListCommand.NotifyCanExecuteChanged();
         UpdateSelectedMenuItemReference();
         if (_suppressSurfaceReloadDepth == 0)
             _ = ReloadTasksAsync();
@@ -230,6 +239,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     public bool IsSmartViewSelected => SelectedList is null;
     public bool IsMyDaySelected => SelectedList is null && SelectedView == TaskViewKind.MyDay;
     public bool CanEditSelectedList => SelectedList is { IsReadOnly: false };
+    public bool CanDeleteSelectedList => SelectedList is { IsReadOnly: false, IsOutlookDefaultList: false };
     public bool CanEditSelectedTask => SelectedTask is { IsReadOnly: false };
     public bool IsSelectedListReadOnly => SelectedList?.IsReadOnly ?? true;
 
@@ -242,11 +252,56 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _ => Translator.ToDoPage_Tasks
     };
 
-    /// <summary>Only My Day carries a subtitle, and it is today's date.</summary>
+    /// <summary>
+    /// Carries today's date on My Day, and always the count. The count lives here rather than
+    /// under the command bar so filtering never costs the header a second row.
+    /// </summary>
     public string SelectedSurfaceSubtitle
-        => IsMyDaySelected ? DateTime.Now.ToString("dddd, MMMM d") : string.Empty;
+        => IsMyDaySelected
+            ? $"{DateTime.Now:dddd, MMMM d} • {TaskCountText}"
+            : TaskCountText;
 
-    public bool HasSurfaceSubtitle => IsMyDaySelected;
+    public bool HasSurfaceSubtitle => !string.IsNullOrEmpty(SelectedSurfaceSubtitle);
+
+    /// <summary>
+    /// While filtered this reports what was kept, which is the question a narrowed list raises.
+    /// Otherwise it reports what the surface holds.
+    /// </summary>
+    private string TaskCountText
+    {
+        get
+        {
+            if (IsFiltered)
+                return string.Format(Translator.ToDoPage_ShowingCount, VisibleTaskCount, TotalTaskCount);
+
+            var completed = _taskItems.Values.Count(item => item.IsCompleted);
+            var open = _taskItems.Count - completed;
+            var openText = string.Format(Translator.ToDoPage_TaskCount, open);
+
+            return completed == 0
+                ? openText
+                : $"{openText} • {string.Format(Translator.ToDoPage_CompletedCount, completed)}";
+        }
+    }
+
+    private int VisibleTaskCount => _taskGroups.Sum(group => group.Count);
+    private int TotalTaskCount => _taskItems.Count;
+
+    /// <summary>True when anything narrows the surface. Drives the Clear command and the count text.</summary>
+    public bool IsFiltered
+        => !string.IsNullOrWhiteSpace(FilterText) ||
+           SelectedCompletionScope != TaskCompletionScope.Active ||
+           IsImportantTasksFilterSelected;
+
+    public string CompletionScopeDisplayText => SelectedCompletionScope switch
+    {
+        TaskCompletionScope.Completed => Translator.ToDoPage_Completed,
+        TaskCompletionScope.All => Translator.ToDoPage_All,
+        _ => Translator.ToDoPage_ScopeActive
+    };
+
+    /// <summary>Smart views never load completed tasks, so that scope has nothing to show there.</summary>
+    public bool IsCompletedScopeAvailable => IsNamedListSelected;
 
     public string ComposerPlaceholder
         => IsMyDaySelected ? Translator.ToDoPage_AddTaskToMyDayPlaceholder : Translator.ToDoPage_AddTaskPlaceholder;
@@ -332,11 +387,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             FooterItems = new MenuItemCollection(Dispatcher),
             HandlesSelection = true
         };
-        ShellMenu.Items.Add(_myDayMenuItem);
-        ShellMenu.Items.Add(_plannedMenuItem);
-        ShellMenu.Items.Add(_importantMenuItem);
-        ShellMenu.FooterItems.Add(_newListMenuItem);
-        ShellMenu.FooterItems.Add(_newListGroupMenuItem);
+        _newListMenuItem.NewGroupRequested = CreateGroupAsync;
+
+        foreach (var item in GetShellMenuPrefix())
+            ShellMenu.Items.Add(item);
+
         SyncShellMenuItems();
         OnPropertyChanged(nameof(IShellMenuProvider.ShellMenu));
     }
@@ -376,8 +431,13 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (message is null)
             return;
 
+        TrackPendingState(message);
+
         if (message.List is not null)
             ApplyTaskListState(message);
+
+        if (message.Group is not null)
+            ApplyTaskListGroupState(message);
 
         if (message.Task is not null)
             ApplyTaskItemState(message);
@@ -388,6 +448,80 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         OnPropertyChanged(nameof(IsEmpty));
         OnPropertyChanged(nameof(CanCreateTask));
         ApplyMenuCounts();
+    }
+
+    private void TrackPendingState(TaskStateChanged message)
+    {
+        if (message.Source == EntityUpdateSource.ClientReverted)
+        {
+            if (message.Task is not null)
+            {
+                _pendingTaskStates.Remove(message.Task.Id);
+                _pendingDeletedTaskIds.Remove(message.Task.Id);
+            }
+
+            if (message.List is not null)
+            {
+                _pendingListStates.Remove(message.List.Id);
+                _pendingDeletedListIds.Remove(message.List.Id);
+            }
+
+            return;
+        }
+
+        if (message.Source != EntityUpdateSource.ClientUpdated)
+            return;
+
+        if (message.Task is not null)
+        {
+            if (message.Change == OptimisticEntityChange.Delete)
+            {
+                _pendingTaskStates.Remove(message.Task.Id);
+                _pendingDeletedTaskIds[message.Task.Id] = message.Task.MailAccountId;
+            }
+            else
+            {
+                _pendingDeletedTaskIds.Remove(message.Task.Id);
+                _pendingTaskStates[message.Task.Id] = RequestEntityCloner.Task(message.Task);
+            }
+        }
+
+        if (message.List is not null)
+        {
+            if (message.Change == OptimisticEntityChange.Delete)
+            {
+                _pendingListStates.Remove(message.List.Id);
+                _pendingDeletedListIds[message.List.Id] = message.List.MailAccountId;
+            }
+            else
+            {
+                _pendingDeletedListIds.Remove(message.List.Id);
+                _pendingListStates[message.List.Id] = RequestEntityCloner.TaskList(message.List);
+            }
+        }
+    }
+
+    private void ApplyTaskListGroupState(TaskStateChanged message)
+    {
+        var existing = TaskListGroups.FirstOrDefault(group => group.Id == message.Group.Id);
+        if (message.Change == OptimisticEntityChange.Delete)
+        {
+            if (existing is not null)
+                TaskListGroups.Remove(existing);
+            _taskListGroupMenuItems.Remove(message.Group.Id);
+            SyncShellMenuItems();
+            return;
+        }
+
+        if (existing is null)
+            TaskListGroups.Add(message.Group);
+        else
+        {
+            var index = TaskListGroups.IndexOf(existing);
+            TaskListGroups[index] = message.Group;
+        }
+        ReconcileTaskListGroups(TaskListGroups.ToList());
+        SyncShellMenuItems();
     }
 
     private void ApplyTaskListState(TaskStateChanged message)
@@ -426,7 +560,34 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 item.ListName = message.List.Title ?? string.Empty;
         }
 
-        SyncShellMenuItems();
+        if (!TryApplyListMetadataOnly(message.List))
+            SyncShellMenuItems();
+    }
+
+    /// <summary>
+    /// A rename or a recolour leaves the list exactly where it was in the pane. Refreshing the
+    /// existing menu item is enough, and it spares the NavigationView a reconcile pass that would
+    /// otherwise rebuild containers and disturb the selection.
+    /// </summary>
+    private bool TryApplyListMetadataOnly(AccountTaskList list)
+    {
+        if (!_listMenuItems.TryGetValue(list.Id, out var item))
+            return false;
+
+        if (item.Parameter.GroupId != list.GroupId || item.Parameter.SortOrder != list.SortOrder)
+            return false;
+
+        var account = Accounts.FirstOrDefault(candidate => candidate.Id == list.MailAccountId);
+        if (account is null)
+            return false;
+
+        var accountGroups = TaskListGroups.Where(group => group.MailAccountId == account.Id)
+            .OrderBy(group => group.SortOrder)
+            .ThenBy(group => group.Id)
+            .ToList();
+
+        item.Update(list, account.Name, accountGroups);
+        return true;
     }
 
     private void ApplyTaskItemState(TaskStateChanged message)
@@ -564,6 +725,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (SelectedList?.MailAccountId == accountId)
             SelectSurface(TaskViewKind.MyDay, null);
 
+        if (_selectedAccountId == accountId)
+            _selectedAccountId = Accounts.FirstOrDefault()?.Id;
+
         SyncShellMenuItems();
         ReconcileTaskGroups();
         ApplyMenuCounts();
@@ -572,9 +736,38 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private async Task HandleTaskSynchronizationCompletedAsync(TaskSynchronizationCompleted message)
     {
         var isKnownAccount = false;
-        await ExecuteUIThread(() => isKnownAccount = Accounts.Any(account => account.Id == message.AccountId)).ConfigureAwait(false);
+        await ExecuteUIThread(() =>
+        {
+            isKnownAccount = Accounts.Any(account => account.Id == message.AccountId);
+            ClearPendingState(message.AccountId);
+        }).ConfigureAwait(false);
         if (isKnownAccount)
             await ReloadAsync().ConfigureAwait(false);
+    }
+
+    private void ClearPendingState(Guid accountId)
+    {
+        foreach (var taskId in _pendingTaskStates.Values
+                     .Where(task => task.MailAccountId == accountId)
+                     .Select(task => task.Id)
+                     .Concat(_pendingDeletedTaskIds.Where(pair => pair.Value == accountId).Select(pair => pair.Key))
+                     .Distinct()
+                     .ToList())
+        {
+            _pendingTaskStates.Remove(taskId);
+            _pendingDeletedTaskIds.Remove(taskId);
+        }
+
+        foreach (var listId in _pendingListStates.Values
+                     .Where(list => list.MailAccountId == accountId)
+                     .Select(list => list.Id)
+                     .Concat(_pendingDeletedListIds.Where(pair => pair.Value == accountId).Select(pair => pair.Key))
+                     .Distinct()
+                     .ToList())
+        {
+            _pendingListStates.Remove(listId);
+            _pendingDeletedListIds.Remove(listId);
+        }
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -643,20 +836,20 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         await ExecuteUIThread(() =>
         {
             _suppressSurfaceReloadDepth++;
-            _isApplyingNamedListFilters = true;
             try
             {
                 FilterText = string.Empty;
                 SelectedList = TaskLists.FirstOrDefault(candidate => candidate.Id == list.Id) ?? list;
                 SelectedView = TaskViewKind.All;
-                if (task.IsCompleted)
-                    IsCompletedTasksFilterSelected = true;
-                if (IsImportantTasksFilterSelected && !task.IsImportant)
-                    IsImportantTasksFilterSelected = false;
+
+                // Land on the one scope that can actually show this task.
+                SelectedCompletionScope = task.IsCompleted
+                    ? TaskCompletionScope.Completed
+                    : TaskCompletionScope.Active;
+                IsImportantTasksFilterSelected = false;
             }
             finally
             {
-                _isApplyingNamedListFilters = false;
                 _suppressSurfaceReloadDepth--;
             }
 
@@ -694,8 +887,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         {
             case NewTaskListMenuItem:
                 return CreateListAsync();
-            case NewTaskListGroupMenuItem:
-                return CreateGroupAsync();
+            case TaskSyncMenuItem:
+                Synchronize();
+                return Task.CompletedTask;
+            case AccountTaskListAccountMenuItem account:
+                return ChangeSelectedAccountAsync(account.Parameter.Id);
             case TaskSmartViewMenuItem smartView:
                 SelectSurface(smartView.Parameter, null);
                 return Task.CompletedTask;
@@ -705,6 +901,61 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             default:
                 return Task.CompletedTask;
         }
+    }
+
+    private async Task ChangeSelectedAccountAsync(Guid accountId, bool selectDefaultList = true)
+    {
+        if (_selectedAccountId == accountId || Accounts.All(account => account.Id != accountId))
+            return;
+
+        var loadVersion = Interlocked.Increment(ref _accountLoadVersion);
+        var listsTask = _taskService.GetTaskListsAsync(accountId);
+        var groupsTask = _taskService.GetTaskListGroupsAsync(accountId);
+        await Task.WhenAll(listsTask, groupsTask).ConfigureAwait(false);
+        var lists = listsTask.Result ?? [];
+        var groups = groupsTask.Result ?? [];
+
+        if (loadVersion != Volatile.Read(ref _accountLoadVersion))
+            return;
+
+        await ExecuteUIThread(() =>
+        {
+            if (loadVersion != Volatile.Read(ref _accountLoadVersion) ||
+                Accounts.All(account => account.Id != accountId))
+            {
+                return;
+            }
+
+            var effectiveLists = lists
+                .Where(list => !_pendingDeletedListIds.ContainsKey(list.Id) &&
+                               !_pendingListStates.ContainsKey(list.Id))
+                .Concat(_pendingListStates.Values.Where(list => list.MailAccountId == accountId))
+                .ToList();
+
+            ReconcileTaskLists(TaskLists
+                .Where(list => list.MailAccountId != accountId)
+                .Concat(effectiveLists)
+                .ToList());
+            ReconcileTaskListGroups(TaskListGroups
+                .Where(group => group.MailAccountId != accountId)
+                .Concat(groups)
+                .ToList());
+
+            _selectedAccountId = accountId;
+            var defaultList = TaskLists
+                .Where(list => list.MailAccountId == accountId)
+                .OrderByDescending(list => list.IsDefault)
+                .ThenBy(list => list.GroupId.HasValue)
+                .ThenBy(list => list.SortOrder)
+                .ThenBy(list => list.Id)
+                .FirstOrDefault();
+
+            SyncShellMenuItems();
+            if (selectDefaultList)
+                SelectSurface(defaultList is null ? TaskViewKind.MyDay : TaskViewKind.All, defaultList);
+            else
+                UpdateSelectedMenuItemReference();
+        }).ConfigureAwait(false);
     }
 
     public void ReleaseShellMenu() { }
@@ -722,7 +973,13 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _taskItems.Clear();
         _taskOrder.Clear();
         _menuCountTasks.Clear();
+        _pendingTaskStates.Clear();
+        _pendingDeletedTaskIds.Clear();
+        _pendingListStates.Clear();
+        _pendingDeletedListIds.Clear();
         _accountGroupMenuItems.Clear();
+        foreach (var groupMenuItem in _taskListGroupMenuItems.Values)
+            groupMenuItem.PropertyChanged -= TaskListGroupMenuItem_PropertyChanged;
         _taskListGroupMenuItems.Clear();
         _listMenuItems.Clear();
         Suggestions.Clear();
@@ -731,6 +988,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         SelectedTask = null;
         SelectedList = null;
         _selectedMenuItem = null;
+        _selectedAccountId = null;
     }
 
     [RelayCommand]
@@ -796,10 +1054,19 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 var selectedListId = SelectedList?.Id;
                 ReconcileAccounts(accounts);
                 ReconcileTaskListGroups(listGroups);
-                ReconcileTaskLists(lists);
+                ReconcileTaskLists(MergePendingLists(lists));
+
+                if (_selectedAccountId is not { } selectedAccountId ||
+                    Accounts.All(account => account.Id != selectedAccountId))
+                {
+                    _selectedAccountId = SelectedList is not null &&
+                                         Accounts.Any(account => account.Id == SelectedList.MailAccountId)
+                        ? SelectedList.MailAccountId
+                        : Accounts.FirstOrDefault()?.Id;
+                }
 
                 _menuCountTasks.Clear();
-                foreach (var task in allTasks)
+                foreach (var task in MergePendingTasks(allTasks))
                     _menuCountTasks[task.Id] = task;
 
                 _suppressSurfaceReloadDepth++;
@@ -839,7 +1106,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             SelectedList is null ? SelectedView : TaskViewKind.All,
             SelectedSort,
             IsMyDaySelected,
-            SelectedList is null)).ConfigureAwait(false);
+            SelectedList is null,
+            _pendingTaskStates.Values.Select(RequestEntityCloner.Task).ToList(),
+            _pendingDeletedTaskIds.Keys.ToHashSet())).ConfigureAwait(false);
 
         var tasks = await _taskService.GetTasksAsync(
             listId: snapshot.ListId,
@@ -856,7 +1125,12 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 return;
 
             var previousSelectionId = SelectedTask?.Id;
-            ReconcileLoadedTasks(tasks, snapshot.ShowListName);
+            var effectiveTasks = tasks
+                .Where(task => !snapshot.PendingDeletedTaskIds.Contains(task.Id) &&
+                               snapshot.PendingTasks.All(pending => pending.Id != task.Id))
+                .Concat(snapshot.PendingTasks)
+                .ToList();
+            ReconcileLoadedTasks(effectiveTasks, snapshot.ShowListName);
             ReconcileSuggestions(suggestions);
             ReconcileTaskGroups();
 
@@ -951,6 +1225,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private Task RemoveFromMyDayAsync(TaskItemViewModel item)
         => SetMyDayAsync(item, null);
 
+    [RelayCommand]
+    private Task ToggleMyDayAsync(TaskItemViewModel item)
+        => SetMyDayAsync(item, item?.IsInMyDay == true ? null : DateTime.UtcNow.Date);
+
     private async Task SetMyDayAsync(TaskItemViewModel item, DateTime? value)
     {
         if (item is null || item.IsReadOnly)
@@ -997,6 +1275,35 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             _ => TaskSortKind.DueDate
         };
 
+    /// <summary>Takes the scope as a string for the same reason <see cref="SetSort"/> does.</summary>
+    [RelayCommand]
+    private void SetCompletionScope(string scope)
+        => SelectedCompletionScope = scope switch
+        {
+            "completed" => TaskCompletionScope.Completed,
+            "all" => TaskCompletionScope.All,
+            _ => TaskCompletionScope.Active
+        };
+
+    /// <summary>Returns the surface to what it shows unfiltered. Disabled while nothing narrows it.</summary>
+    [RelayCommand(CanExecute = nameof(IsFiltered))]
+    private void ClearFilters()
+    {
+        _suppressSurfaceReloadDepth++;
+        try
+        {
+            FilterText = string.Empty;
+            SelectedCompletionScope = TaskCompletionScope.Active;
+            IsImportantTasksFilterSelected = false;
+        }
+        finally
+        {
+            _suppressSurfaceReloadDepth--;
+        }
+
+        ReconcileTaskGroups();
+    }
+
     /// <summary>Applies a relative due date from the detail drawer's preset flyout.</summary>
     [RelayCommand]
     private async Task SetDuePresetAsync(string preset)
@@ -1013,10 +1320,40 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             _ => null
         };
 
-        var original = SelectedTask.CreateOriginalSnapshot();
-        var desired = RequestEntityCloner.Task(SelectedTask.Task);
-        desired.DueDate = due;
-        SelectedTaskDueDate = due is { } value ? new DateTimeOffset(value) : null;
+        await SetTaskDueDateAsync(SelectedTask, due).ConfigureAwait(false);
+    }
+
+    public async Task SetTaskDueDateAsync(TaskItemViewModel item, DateTime? dueDate)
+    {
+        if (item is null || item.IsReadOnly)
+            return;
+
+        var original = RequestEntityCloner.Task(item.Task);
+        var desired = RequestEntityCloner.Task(item.Task);
+        desired.DueDate = dueDate?.Date;
+
+        if (SelectedTask?.Id == item.Id)
+            SelectedTaskDueDate = dueDate is { } value ? new DateTimeOffset(value.Date) : null;
+
+        await QueueMutationAsync(new TaskActionRequest(
+            desired.MailAccountId,
+            TaskSynchronizerOperation.UpdateTask,
+            Task: desired,
+            OriginalTask: original)).ConfigureAwait(false);
+    }
+
+    public async Task MoveTaskAsync(TaskItemViewModel item, AccountTaskList destination)
+    {
+        if (item is null || item.IsReadOnly || destination is null || destination.IsReadOnly ||
+            destination.Id == item.Task.TaskListId || destination.MailAccountId != item.Task.MailAccountId ||
+            destination.SourceKind != item.Task.SourceKind)
+        {
+            return;
+        }
+
+        var original = RequestEntityCloner.Task(item.Task);
+        var desired = RequestEntityCloner.Task(item.Task);
+        desired.TaskListId = destination.Id;
 
         await QueueMutationAsync(new TaskActionRequest(
             desired.MailAccountId,
@@ -1116,6 +1453,29 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     }
 
     [RelayCommand]
+    private async Task SaveStepAsync(TaskStepViewModel step)
+    {
+        if (step is null || !CanEditSelectedTask)
+            return;
+
+        var desired = RequestEntityCloner.TaskStep(step.Step);
+        var original = step.CreateOriginalSnapshot();
+        if (string.Equals(desired.Title, original.Title, StringComparison.Ordinal) &&
+            desired.IsCompleted == original.IsCompleted &&
+            desired.Order == original.Order)
+        {
+            return;
+        }
+
+        await QueueMutationAsync(new TaskActionRequest(
+            desired.MailAccountId,
+            TaskSynchronizerOperation.UpdateStep,
+            Task: SelectedTask?.Task,
+            Step: desired,
+            OriginalStep: original)).ConfigureAwait(false);
+    }
+
+    [RelayCommand]
     private async Task DeleteStepAsync(TaskStepViewModel step)
     {
         if (step is null || !CanEditSelectedTask)
@@ -1132,7 +1492,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     [RelayCommand]
     private async Task CreateListAsync()
     {
-        var account = Accounts.FirstOrDefault(account => account.IsTaskAccessEnabled);
+        var account = Accounts.FirstOrDefault(account => account.Id == _selectedAccountId)
+            ?? Accounts.FirstOrDefault(account => account.IsTaskAccessEnabled);
         if (account is null)
             return;
         await CreateListForAccountAsync(account, null).ConfigureAwait(false);
@@ -1162,9 +1523,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private async Task CreateGroupAsync()
     {
-        var account = SelectedList is null
-            ? Accounts.FirstOrDefault(candidate => candidate.IsTaskAccessEnabled)
-            : Accounts.FirstOrDefault(candidate => candidate.Id == SelectedList.MailAccountId);
+        var account = Accounts.FirstOrDefault(candidate => candidate.Id == _selectedAccountId)
+            ?? (SelectedList is null
+                ? Accounts.FirstOrDefault(candidate => candidate.IsTaskAccessEnabled)
+                : Accounts.FirstOrDefault(candidate => candidate.Id == SelectedList.MailAccountId));
         if (account is null || _taskMutationService is null)
             return;
 
@@ -1176,12 +1538,27 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (string.IsNullOrWhiteSpace(title))
             return;
 
-        var group = await _taskMutationService.CreateTaskListGroupAsync(account.Id, title).ConfigureAwait(false);
-        await ExecuteUIThread(() =>
+        var now = DateTime.UtcNow;
+        var sourceKind = ResolveTaskSource(account) == TaskSourceKind.Outlook
+            ? TaskSourceKind.Outlook
+            : TaskSourceKind.Local;
+        var group = new AccountTaskListGroup
         {
-            TaskListGroups.Add(group);
-            SyncShellMenuItems();
-        }).ConfigureAwait(false);
+            Id = Guid.NewGuid(),
+            MailAccountId = account.Id,
+            SourceKind = sourceKind,
+            Title = title.Trim(),
+            SortOrder = TaskListGroups.Count(item => item.MailAccountId == account.Id),
+            RemoteOrder = NextRemoteOrder(TaskListGroups.Where(item => item.MailAccountId == account.Id)
+                .Select(item => item.RemoteOrder)).ToString("O"),
+            PendingMutation = sourceKind == TaskSourceKind.Outlook ? TaskPendingMutation.Create : TaskPendingMutation.None,
+            CreatedAtUtc = now,
+            ModifiedAtUtc = now
+        };
+        await QueueMutationAsync(new TaskActionRequest(
+            account.Id,
+            TaskSynchronizerOperation.CreateGroup,
+            Group: group)).ConfigureAwait(false);
     }
 
     private Task CreateListInGroupAsync(AccountTaskListGroupMenuItem group)
@@ -1192,7 +1569,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private async Task RenameGroupAsync(AccountTaskListGroupMenuItem item)
     {
-        if (_taskMutationService is null)
+        if (_taskMutationService is null || !item.IsEditable)
             return;
         var title = await _dialogService.ShowTextInputDialogAsync(
             item.Title,
@@ -1202,35 +1579,54 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (string.IsNullOrWhiteSpace(title) || string.Equals(title.Trim(), item.Title, StringComparison.Ordinal))
             return;
 
-        item.Parameter.Title = title.Trim();
-        await _taskMutationService.UpdateTaskListGroupAsync(item.Parameter).ConfigureAwait(false);
-        await ExecuteUIThread(() =>
-        {
-            item.Update(item.Parameter);
-            SyncShellMenuItems();
-        }).ConfigureAwait(false);
+        var original = RequestEntityCloner.TaskListGroup(item.Parameter);
+        var desired = RequestEntityCloner.TaskListGroup(item.Parameter);
+        desired.Title = title.Trim();
+        desired.PendingMutation = desired.SourceKind == TaskSourceKind.Outlook ? TaskPendingMutation.Update : TaskPendingMutation.None;
+        desired.ModifiedAtUtc = DateTime.UtcNow;
+        await QueueMutationAsync(new TaskActionRequest(
+            desired.MailAccountId,
+            TaskSynchronizerOperation.UpdateGroup,
+            Group: desired,
+            OriginalGroup: original)).ConfigureAwait(false);
     }
 
     private async Task UngroupListsAsync(AccountTaskListGroupMenuItem item)
     {
-        if (_taskMutationService is null)
+        if (_taskMutationService is null || !item.IsEditable)
             return;
 
         var moved = TaskLists.Where(list => list.GroupId == item.Parameter.Id).ToList();
         var nextOrder = TaskLists.Count(list => list.MailAccountId == item.Parameter.MailAccountId && list.GroupId is null);
         foreach (var list in moved)
         {
-            list.GroupId = null;
-            list.SortOrder = nextOrder++;
-            await _taskMutationService.UpdateTaskListPlacementAsync(list.Id, null, list.SortOrder).ConfigureAwait(false);
+            await QueueListPlacementAsync(list, null, nextOrder++).ConfigureAwait(false);
         }
-        await _taskMutationService.DeleteTaskListGroupAsync(item.Parameter.Id).ConfigureAwait(false);
+        await QueueMutationAsync(new TaskActionRequest(
+            item.Parameter.MailAccountId,
+            TaskSynchronizerOperation.DeleteGroup,
+            Group: item.Parameter,
+            OriginalGroup: item.Parameter)).ConfigureAwait(false);
+    }
 
-        await ExecuteUIThread(() =>
-        {
-            TaskListGroups.Remove(TaskListGroups.FirstOrDefault(group => group.Id == item.Parameter.Id));
-            SyncShellMenuItems();
-        }).ConfigureAwait(false);
+    /// <summary>
+    /// Removes an empty group. The flyout only offers this once the group holds no lists — a
+    /// group that still has some is emptied with "ungroup lists" instead — and the emptiness is
+    /// re-checked here against storage, not the menu, so a stale pane cannot delete lists.
+    /// </summary>
+    private async Task DeleteGroupAsync(AccountTaskListGroupMenuItem item)
+    {
+        if (_taskMutationService is null || !item.IsEditable)
+            return;
+
+        if (TaskLists.Any(list => list.GroupId == item.Parameter.Id))
+            return;
+
+        await QueueMutationAsync(new TaskActionRequest(
+            item.Parameter.MailAccountId,
+            TaskSynchronizerOperation.DeleteGroup,
+            Group: item.Parameter,
+            OriginalGroup: item.Parameter)).ConfigureAwait(false);
     }
 
     private async Task RenameListFromMenuAsync(AccountTaskListMenuItem item)
@@ -1259,11 +1655,13 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         => MoveListAsync(item.Parameter, null, int.MaxValue);
 
     private Task MoveListToGroupAsync(AccountTaskListMenuItem item, Guid groupId)
-        => MoveListAsync(item.Parameter, groupId, int.MaxValue);
+        => item.CanMoveToGroup
+            ? MoveListAsync(item.Parameter, groupId, int.MaxValue)
+            : Task.CompletedTask;
 
     private async Task DeleteListFromMenuAsync(AccountTaskListMenuItem item)
     {
-        if (item.Parameter.IsReadOnly)
+        if (!item.CanDelete)
             return;
         var confirmed = await _dialogService.ShowConfirmationDialogAsync(
             Translator.ToDoPage_DeleteListConfirmBody,
@@ -1291,9 +1689,17 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             return;
 
         if (target is AccountTaskListGroupMenuItem destinationGroup)
+        {
+            if (!sourceList.CanMoveToGroup)
+                return;
+
             await MoveListAsync(sourceList.Parameter, destinationGroup.Parameter.Id, int.MaxValue).ConfigureAwait(false);
+        }
         else if (target is AccountTaskListMenuItem destinationList)
         {
+            if (!sourceList.CanMoveToGroup && destinationList.Parameter.GroupId is not null)
+                return;
+
             var siblings = TaskLists.Where(list => list.MailAccountId == destinationList.Parameter.MailAccountId && list.GroupId == destinationList.Parameter.GroupId)
                 .Where(list => list.Id != sourceList.Parameter.Id)
                 .OrderBy(list => list.SortOrder).ThenBy(list => list.Title, StringComparer.OrdinalIgnoreCase).ToList();
@@ -1304,8 +1710,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private async Task MoveListAsync(AccountTaskList list, Guid? destinationGroupId, int destinationIndex)
     {
-        if (_taskMutationService is null)
+        if (_taskMutationService is null || list.IsOutlookDefaultList && destinationGroupId is not null)
             return;
+        var originalPlacements = TaskLists.ToDictionary(
+            candidate => candidate.Id,
+            candidate => (candidate.GroupId, candidate.SortOrder, candidate.RemoteOrder));
         var oldGroupId = list.GroupId;
         var destination = TaskLists.Where(candidate => candidate.MailAccountId == list.MailAccountId && candidate.GroupId == destinationGroupId && candidate.Id != list.Id)
             .OrderBy(candidate => candidate.SortOrder).ThenBy(candidate => candidate.Title, StringComparer.OrdinalIgnoreCase).ToList();
@@ -1313,26 +1722,79 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         destination.Insert(destinationIndex, list);
         list.GroupId = destinationGroupId;
 
-        var affected = new HashSet<Guid>();
         for (var index = 0; index < destination.Count; index++)
-        {
             destination[index].SortOrder = index;
-            affected.Add(destination[index].Id);
-        }
         if (oldGroupId != destinationGroupId)
         {
             var oldSiblings = TaskLists.Where(candidate => candidate.MailAccountId == list.MailAccountId && candidate.GroupId == oldGroupId && candidate.Id != list.Id)
                 .OrderBy(candidate => candidate.SortOrder).ThenBy(candidate => candidate.Title, StringComparer.OrdinalIgnoreCase).ToList();
             for (var index = 0; index < oldSiblings.Count; index++)
-            {
                 oldSiblings[index].SortOrder = index;
-                affected.Add(oldSiblings[index].Id);
-            }
         }
 
-        foreach (var affectedList in TaskLists.Where(candidate => affected.Contains(candidate.Id)))
-            await _taskMutationService.UpdateTaskListPlacementAsync(affectedList.Id, affectedList.GroupId, affectedList.SortOrder).ConfigureAwait(false);
-        await ExecuteUIThread(SyncShellMenuItems).ConfigureAwait(false);
+        var movedIndex = destination.IndexOf(list);
+        var midpoint = TryGetRemoteOrderBetween(
+            movedIndex > 0 ? destination[movedIndex - 1].RemoteOrder : null,
+            movedIndex + 1 < destination.Count ? destination[movedIndex + 1].RemoteOrder : null);
+        if (midpoint.HasValue)
+        {
+            list.RemoteOrder = midpoint.Value.ToString("O");
+        }
+        else
+        {
+            var baseOrder = DateTimeOffset.UtcNow;
+            for (var index = 0; index < destination.Count; index++)
+                destination[index].RemoteOrder = baseOrder.AddSeconds(index).ToString("O");
+        }
+
+        // Reflect the hierarchy move before any provider request can yield. Both drag/drop and
+        // the context command arrive here, so they share the same immediate presentation path.
+        SyncShellMenuItems();
+
+        var requests = new List<TaskActionRequest>();
+        foreach (var affectedList in TaskLists.Where(candidate =>
+                     !originalPlacements.TryGetValue(candidate.Id, out var original) ||
+                     original.GroupId != candidate.GroupId ||
+                     original.SortOrder != candidate.SortOrder ||
+                     !string.Equals(original.RemoteOrder, candidate.RemoteOrder, StringComparison.Ordinal)))
+        {
+            var request = await CreateListPlacementRequestAsync(
+                affectedList,
+                affectedList.GroupId,
+                affectedList.SortOrder).ConfigureAwait(false);
+            if (request is not null)
+                requests.Add(request);
+        }
+
+        if (requests.Count > 0)
+            await _requestDelegator.ExecuteAsync(list.MailAccountId, requests).ConfigureAwait(false);
+    }
+
+    private async Task QueueListPlacementAsync(AccountTaskList list, Guid? groupId, int sortOrder)
+    {
+        var request = await CreateListPlacementRequestAsync(list, groupId, sortOrder).ConfigureAwait(false);
+        if (request is not null)
+            await QueueMutationAsync(request).ConfigureAwait(false);
+    }
+
+    private async Task<TaskActionRequest> CreateListPlacementRequestAsync(AccountTaskList list, Guid? groupId, int sortOrder)
+    {
+        if (list.IsOutlookDefaultList && groupId is not null)
+            return null;
+
+        var original = await _taskMutationService.GetTaskListAsync(list.Id).ConfigureAwait(false)
+            ?? RequestEntityCloner.TaskList(list);
+        var desired = RequestEntityCloner.TaskList(list);
+        desired.GroupId = groupId;
+        desired.SortOrder = sortOrder;
+        desired.RemoteOrder ??= DateTimeOffset.UtcNow.AddSeconds(sortOrder).ToString("O");
+        desired.PendingMutation = desired.SourceKind == TaskSourceKind.Outlook ? TaskPendingMutation.Update : TaskPendingMutation.None;
+        desired.ModifiedAtUtc = DateTime.UtcNow;
+        return new TaskActionRequest(
+            desired.MailAccountId,
+            TaskSynchronizerOperation.UpdateListPlacement,
+            List: desired,
+            OriginalList: original);
     }
 
     private async Task ReorderGroupAsync(AccountTaskListGroup source, AccountTaskListGroup target, bool insertAfter)
@@ -1341,22 +1803,75 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             .OrderBy(group => group.SortOrder).ThenBy(group => group.Title, StringComparer.OrdinalIgnoreCase).ToList();
         groups.Remove(source);
         groups.Insert(Math.Max(0, groups.IndexOf(target) + (insertAfter ? 1 : 0)), source);
+        var sourceIndex = groups.IndexOf(source);
+        var midpoint = TryGetRemoteOrderBetween(
+            sourceIndex > 0 ? groups[sourceIndex - 1].RemoteOrder : null,
+            sourceIndex + 1 < groups.Count ? groups[sourceIndex + 1].RemoteOrder : null);
+        if (midpoint.HasValue)
+        {
+            source.RemoteOrder = midpoint.Value.ToString("O");
+        }
+        else
+        {
+            var baseOrder = DateTimeOffset.UtcNow;
+            for (var index = 0; index < groups.Count; index++)
+                groups[index].RemoteOrder = baseOrder.AddSeconds(index).ToString("O");
+        }
         for (var index = 0; index < groups.Count; index++)
         {
+            var original = await _taskMutationService.GetTaskListGroupsAsync(groups[index].MailAccountId).ConfigureAwait(false) ?? [];
+            var originalGroup = RequestEntityCloner.TaskListGroup(
+                original.FirstOrDefault(item => item.Id == groups[index].Id) ?? groups[index]);
             groups[index].SortOrder = index;
-            await _taskMutationService.UpdateTaskListGroupAsync(groups[index]).ConfigureAwait(false);
+            var desired = RequestEntityCloner.TaskListGroup(groups[index]);
+            desired.PendingMutation = desired.SourceKind == TaskSourceKind.Outlook ? TaskPendingMutation.Update : TaskPendingMutation.None;
+            await QueueMutationAsync(new TaskActionRequest(
+                desired.MailAccountId,
+                TaskSynchronizerOperation.UpdateGroup,
+                Group: desired,
+                OriginalGroup: originalGroup)).ConfigureAwait(false);
         }
         await ExecuteUIThread(() =>
         {
-            ReconcileTaskListGroups(TaskListGroups.ToList());
+            ReconcileTaskListGroups(groups);
             SyncShellMenuItems();
         }).ConfigureAwait(false);
     }
 
+    private static DateTimeOffset NextRemoteOrder(IEnumerable<string> values)
+    {
+        var latest = values.Select(ParseRemoteOrder).Where(value => value.HasValue)
+            .Select(value => value.Value).DefaultIfEmpty(DateTimeOffset.UtcNow).Max();
+        return latest.AddSeconds(1);
+    }
+
+    private static DateTimeOffset? TryGetRemoteOrderBetween(string previousValue, string nextValue)
+    {
+        var previous = ParseRemoteOrder(previousValue);
+        var next = ParseRemoteOrder(nextValue);
+        if (previous.HasValue && next.HasValue)
+        {
+            var previousTicks = previous.Value.UtcTicks;
+            var nextTicks = next.Value.UtcTicks;
+            return nextTicks - previousTicks > 1
+                ? new DateTimeOffset(previousTicks + ((nextTicks - previousTicks) / 2), TimeSpan.Zero)
+                : null;
+        }
+        if (previous.HasValue)
+            return previous.Value.AddSeconds(1);
+        if (next.HasValue)
+            return next.Value.AddSeconds(-1);
+        return DateTimeOffset.UtcNow;
+    }
+
+    private static DateTimeOffset? ParseRemoteOrder(string value)
+        => DateTimeOffset.TryParse(value, System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AssumeUniversal, out var parsed) ? parsed.ToUniversalTime() : null;
+
     [RelayCommand]
     private async Task DeleteListAsync()
     {
-        if (SelectedList is null || SelectedList.IsReadOnly)
+        if (!CanDeleteSelectedList)
             return;
 
         var list = SelectedList;
@@ -1378,7 +1893,26 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             OriginalList: list)).ConfigureAwait(false);
     }
 
-    /// <summary>Commits an inline header rename. Called on Enter or when the header loses focus.</summary>
+    /// <summary>
+    /// Renames the selected list through the same dialog the shell menu uses, so there is one
+    /// rename experience wherever a list is renamed from.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanEditSelectedList))]
+    private async Task RenameSelectedListAsync()
+    {
+        if (SelectedList is null || SelectedList.IsReadOnly)
+            return;
+
+        var title = await _dialogService.ShowTextInputDialogAsync(
+            SelectedList.Title,
+            Translator.ToDoPage_RenameList,
+            Translator.ToDoPage_ListNamePrompt,
+            Translator.FolderOperation_Rename).ConfigureAwait(false);
+
+        await RenameListAsync(title).ConfigureAwait(false);
+    }
+
+    /// <summary>Commits a new list title. Ignores an unchanged or empty name.</summary>
     [RelayCommand]
     private async Task RenameListAsync(string title)
     {
@@ -1512,6 +2046,17 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         {
             SelectedList = list;
             SelectedView = list is null ? view : TaskViewKind.All;
+
+            // A list can carry the sort and completed-task visibility the provider stores for it.
+            // Without one, the current choice carries over as before.
+            if (list?.SortKind is { } listSort)
+                SelectedSort = listSort;
+
+            if (list is not null)
+            {
+                SelectedCompletionScope = TaskCompletionScope.Active;
+                IsImportantTasksFilterSelected = false;
+            }
         }
         finally
         {
@@ -1649,20 +2194,30 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             SelectedTask = null;
 
         OnPropertyChanged(nameof(IsEmpty));
+
+        // The subtitle reports the counts, so it is only correct once the groups are.
+        OnPropertyChanged(nameof(SelectedSurfaceSubtitle));
+        OnPropertyChanged(nameof(HasSurfaceSubtitle));
     }
 
+    /// <summary>
+    /// Applies to every surface, not just named lists. A smart view holds no completed tasks,
+    /// so the completion scope simply never excludes anything there.
+    /// </summary>
     private bool IsTaskVisible(TaskItemViewModel item)
     {
         if (!MatchesFilter(item.Task))
             return false;
 
-        if (SelectedList is null)
-            return !item.IsCompleted;
-
-        if (item.IsCompleted && !IsCompletedTasksFilterSelected)
+        if (IsImportantTasksFilterSelected && !item.IsImportant)
             return false;
 
-        return !IsImportantTasksFilterSelected || item.IsImportant;
+        return SelectedCompletionScope switch
+        {
+            TaskCompletionScope.Active => !item.IsCompleted,
+            TaskCompletionScope.Completed => item.IsCompleted,
+            _ => true
+        };
     }
 
     private IEnumerable<TaskItemViewModel> OrderVisibleTasks(IEnumerable<TaskItemViewModel> items)
@@ -1737,7 +2292,6 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             .ThenBy(list => list.GroupId.HasValue)
             .ThenBy(list => list.SortOrder)
             .ThenByDescending(list => list.IsDefault)
-            .ThenBy(list => list.Title, StringComparer.OrdinalIgnoreCase)
             .ThenBy(list => list.Id)
             .ToList();
 
@@ -1792,21 +2346,21 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (ShellMenu?.Items is null)
             return;
 
-        var desired = new List<IMenuItem> { _myDayMenuItem, _plannedMenuItem, _importantMenuItem };
+        var desired = new List<IMenuItem>(GetShellMenuPrefix());
+        var prefixCount = desired.Count;
         var activeAccountIds = new HashSet<Guid>();
         var activeListIds = new HashSet<Guid>();
+        IReadOnlyList<IMenuItem> selectedAccountChildren = [];
 
         foreach (var account in Accounts.OrderBy(account => account.Order).ThenBy(account => account.Name, StringComparer.OrdinalIgnoreCase))
         {
             var accountLists = TaskLists.Where(list => list.MailAccountId == account.Id).ToList();
+            // Ordering never keys on Title: a rename would move the item, and a moved item makes
+            // NavigationView rebuild its container and drop the selection.
             var accountGroups = TaskListGroups.Where(group => group.MailAccountId == account.Id)
                 .OrderBy(group => group.SortOrder)
-                .ThenBy(group => group.Title, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(group => group.Id)
                 .ToList();
-            if (accountLists.Count == 0 && accountGroups.Count == 0)
-                continue;
-
             activeAccountIds.Add(account.Id);
             if (!_accountGroupMenuItems.TryGetValue(account.Id, out var header))
             {
@@ -1818,8 +2372,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 header.UpdateAccount(account);
             }
 
-            if (!_isPaneCompact)
-                desired.Add(header);
+            var accountChildren = new List<IMenuItem>(accountGroups.Count + accountLists.Count);
 
             foreach (var group in accountGroups)
             {
@@ -1830,6 +2383,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                         NewListRequested = CreateListInGroupAsync,
                         RenameRequested = RenameGroupAsync,
                         UngroupRequested = UngroupListsAsync,
+                        DeleteRequested = DeleteGroupAsync,
                         DropRequested = HandleShellDropAsync
                     };
                     groupItem.PropertyChanged += TaskListGroupMenuItem_PropertyChanged;
@@ -1843,21 +2397,28 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 var childItems = accountLists
                     .Where(list => list.GroupId == group.Id)
                     .OrderBy(list => list.SortOrder)
-                    .ThenBy(list => list.Title, StringComparer.OrdinalIgnoreCase)
+                    .ThenBy(list => list.Id)
                     .Select(list => GetOrCreateListMenuItem(list, account, accountGroups, activeListIds))
                     .Cast<IMenuItem>()
                     .ToList();
                 ApplyDesiredSubMenuItems(groupItem, childItems);
-                desired.Add(groupItem);
+                accountChildren.Add(groupItem);
             }
 
             foreach (var list in accountLists.Where(list => list.GroupId is null)
                          .OrderBy(list => list.SortOrder)
                          .ThenByDescending(list => list.IsDefault)
-                         .ThenBy(list => list.Title, StringComparer.OrdinalIgnoreCase))
+                         .ThenBy(list => list.Id))
             {
-                desired.Add(GetOrCreateListMenuItem(list, account, accountGroups, activeListIds));
+                accountChildren.Add(GetOrCreateListMenuItem(list, account, accountGroups, activeListIds));
             }
+
+            ApplyDesiredSubMenuItems(header.SubMenuItems, accountChildren);
+            header.IsSelected = account.Id == _selectedAccountId;
+            desired.Add(header);
+
+            if (header.IsSelected)
+                selectedAccountChildren = accountChildren;
         }
 
         foreach (var accountId in _accountGroupMenuItems.Keys.Where(id => !activeAccountIds.Contains(id)).ToList())
@@ -1866,11 +2427,41 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             _listMenuItems.Remove(listId);
         var activeGroupIds = TaskListGroups.Select(group => group.Id).ToHashSet();
         foreach (var groupId in _taskListGroupMenuItems.Keys.Where(id => !activeGroupIds.Contains(id)).ToList())
+        {
+            _taskListGroupMenuItems[groupId].PropertyChanged -= TaskListGroupMenuItem_PropertyChanged;
             _taskListGroupMenuItems.Remove(groupId);
+        }
+
+        // Account selection is independent from NavigationView's selected smart view/list. The
+        // custom account item renders this second selection while the selected account's task
+        // hierarchy is projected as the only list section below all account rows.
+        if (desired.Count > prefixCount)
+        {
+            desired.Insert(prefixCount, _smartViewSeparator);
+            if (selectedAccountChildren.Count > 0)
+            {
+                desired.Add(_accountSeparator);
+                desired.AddRange(selectedAccountChildren);
+            }
+        }
 
         ApplyDesiredMenuItems(desired);
         UpdateSelectedMenuItemReference();
     }
+
+    /// <summary>
+    /// The fixed head of the pane: the commands, then the smart views. Held in one place so the
+    /// initial seed and every later reconcile agree on it.
+    /// </summary>
+    private IMenuItem[] GetShellMenuPrefix() =>
+    [
+        _newListMenuItem,
+        _taskSyncMenuItem,
+        _commandSeparator,
+        _myDayMenuItem,
+        _plannedMenuItem,
+        _importantMenuItem
+    ];
 
     private AccountTaskListMenuItem GetOrCreateListMenuItem(
         AccountTaskList list,
@@ -1898,18 +2489,26 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private static void ApplyDesiredSubMenuItems(AccountTaskListGroupMenuItem group, IReadOnlyList<IMenuItem> desired)
     {
+        ApplyDesiredSubMenuItems(group.SubMenuItems, desired);
+
+        // Emptying or filling a group flips whether it can be deleted.
+        group.NotifyChildrenChanged();
+    }
+
+    private static void ApplyDesiredSubMenuItems(ObservableCollection<IMenuItem> items, IReadOnlyList<IMenuItem> desired)
+    {
         for (var targetIndex = 0; targetIndex < desired.Count; targetIndex++)
         {
             var item = desired[targetIndex];
-            var currentIndex = group.SubMenuItems.IndexOf(item);
+            var currentIndex = items.IndexOf(item);
             if (currentIndex < 0)
-                group.SubMenuItems.Insert(targetIndex, item);
+                items.Insert(targetIndex, item);
             else if (currentIndex != targetIndex)
-                group.SubMenuItems.Move(currentIndex, targetIndex);
+                items.Move(currentIndex, targetIndex);
         }
 
-        while (group.SubMenuItems.Count > desired.Count)
-            group.SubMenuItems.RemoveAt(group.SubMenuItems.Count - 1);
+        while (items.Count > desired.Count)
+            items.RemoveAt(items.Count - 1);
     }
 
     private async void TaskListGroupMenuItem_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -1974,6 +2573,18 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private int GetAccountOrder(Guid accountId)
         => Accounts.FirstOrDefault(account => account.Id == accountId)?.Order ?? int.MaxValue;
 
+    private IReadOnlyList<AccountTask> MergePendingTasks(IReadOnlyList<AccountTask> stored)
+        => stored
+            .Where(task => !_pendingDeletedTaskIds.ContainsKey(task.Id) && !_pendingTaskStates.ContainsKey(task.Id))
+            .Concat(_pendingTaskStates.Values)
+            .ToList();
+
+    private IReadOnlyList<AccountTaskList> MergePendingLists(IReadOnlyList<AccountTaskList> stored)
+        => stored
+            .Where(list => !_pendingDeletedListIds.ContainsKey(list.Id) && !_pendingListStates.ContainsKey(list.Id))
+            .Concat(_pendingListStates.Values)
+            .ToList();
+
     private string GetAccountName(Guid accountId)
         => Accounts.FirstOrDefault(account => account.Id == accountId)?.Name ?? Translator.ToDoPage_Accounts;
 
@@ -1988,5 +2599,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         TaskViewKind View,
         TaskSortKind Sort,
         bool IsMyDaySelected,
-        bool ShowListName);
+        bool ShowListName,
+        IReadOnlyList<AccountTask> PendingTasks,
+        IReadOnlySet<Guid> PendingDeletedTaskIds);
 }

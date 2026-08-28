@@ -303,6 +303,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                     catch (Exception ex)
                     {
                         firstFailure ??= ex;
+                        Logger.Error(ex, "Task request {Operation} failed for account {AccountId}", request.Operation, Account.Id);
                         CaptureSynchronizationIssue(SynchronizationIssue.FromException(ex, $"Task:{request.Operation}"));
                         RequestUiChangeCoordinator.RevertRequests([request]);
                         RequestUiChangeCoordinator.CompleteRequests([request]);

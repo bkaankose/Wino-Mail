@@ -4,7 +4,9 @@ using System.Threading.Tasks;
 using FluentAssertions;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Domain.Misc;
+using Wino.Core.Requests;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
 using Xunit;
@@ -235,7 +237,7 @@ public sealed class TaskServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ReplaceListAsync_KeepsMyDayAcrossProviderReconciliation()
+    public async Task ApplyTaskHierarchyDeltaAsync_UpdatesInPlaceAndKeepsLocalState()
     {
         var list = await _taskService.GetOrCreateLocalTaskListAsync(_imapAccount.Id, _imapAccount.Name);
         var today = DateTime.UtcNow.Date;
@@ -251,24 +253,162 @@ public sealed class TaskServiceTests : IAsyncLifetime
             MyDayDateUtc = today
         });
 
-        // A delta sync wipes and reinserts the list. My Day exists nowhere upstream, and
-        // Google carries no importance, so both have to survive the round trip.
-        await _taskService.ReplaceListAsync(list.Id,
-        [
-            new AccountTask
-            {
-                MailAccountId = _imapAccount.Id,
-                TaskListId = list.Id,
-                SourceKind = TaskSourceKind.Gmail,
-                RemoteId = "remote-1",
-                Title = "Synced task"
-            }
-        ], taskDeltaLink: "delta");
+        await _taskService.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta
+        {
+            TaskListId = list.Id,
+            Tasks =
+            [
+                new AccountTask
+                {
+                    MailAccountId = _imapAccount.Id,
+                    TaskListId = list.Id,
+                    SourceKind = TaskSourceKind.Gmail,
+                    RemoteId = "remote-1",
+                    Title = "Provider title"
+                }
+            ],
+            TaskDeltaLink = "delta"
+        });
 
         var reconciled = (await _taskService.GetTasksAsync(listId: list.Id)).Single();
+        reconciled.Id.Should().Be(local.Id);
+        reconciled.Title.Should().Be("Provider title");
         reconciled.MyDayDateUtc.Should().Be(today);
         reconciled.IsImportant.Should().BeTrue();
-        reconciled.Id.Should().NotBe(local.Id, "the reconciliation reinserts the row under a new local id");
+        (await _taskService.GetTaskListAsync(list.Id)).TaskDeltaLink.Should().Be("delta");
+    }
+
+    [Fact]
+    public async Task ApplyTaskHierarchyDeltaAsync_PreservesPendingRowsAndTargetsExplicitTombstones()
+    {
+        var list = await _taskService.GetOrCreateLocalTaskListAsync(_imapAccount.Id, _imapAccount.Name);
+        var pending = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Gmail,
+            RemoteId = "pending",
+            Title = "Local edit",
+            PendingMutation = TaskPendingMutation.Update
+        });
+        var deleted = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Gmail,
+            RemoteId = "deleted",
+            Title = "Delete me"
+        });
+        var untouched = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Gmail,
+            RemoteId = "untouched",
+            Title = "Keep me"
+        });
+        deleted.PendingMutation = TaskPendingMutation.None;
+        untouched.PendingMutation = TaskPendingMutation.None;
+        await _database.Connection.UpdateAsync(deleted, typeof(AccountTask));
+        await _database.Connection.UpdateAsync(untouched, typeof(AccountTask));
+
+        await _taskService.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta
+        {
+            TaskListId = list.Id,
+            Tasks =
+            [
+                new AccountTask
+                {
+                    MailAccountId = _imapAccount.Id,
+                    TaskListId = list.Id,
+                    SourceKind = TaskSourceKind.Gmail,
+                    RemoteId = "pending",
+                    Title = "Stale provider title"
+                }
+            ],
+            DeletedTaskRemoteIds = ["deleted"]
+        });
+
+        var stored = await _taskService.GetTasksAsync(listId: list.Id);
+        stored.Should().Contain(task => task.Id == pending.Id && task.Title == "Local edit");
+        stored.Should().Contain(task => task.Id == untouched.Id);
+        stored.Should().NotContain(task => task.Id == deleted.Id);
+    }
+
+    [Fact]
+    public async Task ApplyTaskHierarchyDeltaAsync_PromotionAndDemotionPreserveTheLocalGuid()
+    {
+        var list = await _taskService.GetOrCreateLocalTaskListAsync(_imapAccount.Id, _imapAccount.Name);
+        var parent = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Gmail,
+            RemoteId = "parent",
+            Title = "Parent"
+        });
+        var child = await _taskService.CreateStepAsync(new AccountTaskStep
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskId = parent.Id,
+            SourceKind = TaskSourceKind.Gmail,
+            RemoteId = "moving",
+            Title = "Child"
+        });
+        parent.PendingMutation = TaskPendingMutation.None;
+        child.PendingMutation = TaskPendingMutation.None;
+        await _database.Connection.UpdateAsync(parent, typeof(AccountTask));
+        await _database.Connection.UpdateAsync(child, typeof(AccountTaskStep));
+
+        await _taskService.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta
+        {
+            TaskListId = list.Id,
+            Tasks =
+            [
+                new AccountTask
+                {
+                    MailAccountId = _imapAccount.Id,
+                    TaskListId = list.Id,
+                    SourceKind = TaskSourceKind.Gmail,
+                    RemoteId = "moving",
+                    Title = "Promoted"
+                }
+            ]
+        });
+
+        var promoted = (await _taskService.GetTasksAsync(listId: list.Id)).Single(task => task.RemoteId == "moving");
+        promoted.Id.Should().Be(child.Id);
+
+        await _taskService.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta
+        {
+            TaskListId = list.Id,
+            Tasks =
+            [
+                new AccountTask
+                {
+                    MailAccountId = _imapAccount.Id,
+                    TaskListId = list.Id,
+                    SourceKind = TaskSourceKind.Gmail,
+                    RemoteId = "parent",
+                    Title = "Parent",
+                    Steps =
+                    [
+                        new AccountTaskStep
+                        {
+                            MailAccountId = _imapAccount.Id,
+                            SourceKind = TaskSourceKind.Gmail,
+                            RemoteId = "moving",
+                            Title = "Demoted"
+                        }
+                    ]
+                }
+            ],
+            AuthoritativeStepParentRemoteIds = ["parent"]
+        });
+
+        var reloadedParent = (await _taskService.GetTasksAsync(listId: list.Id)).Single(task => task.RemoteId == "parent");
+        reloadedParent.Steps.Should().ContainSingle().Which.Id.Should().Be(child.Id);
+        (await _taskService.GetTasksAsync(listId: list.Id)).Should().NotContain(task => task.RemoteId == "moving");
     }
 
     [Fact]
@@ -310,6 +450,181 @@ public sealed class TaskServiceTests : IAsyncLifetime
         result.Steps.Should().ContainSingle();
         result.Steps[0].Title.Should().Be("Provider step");
         result.Steps[0].IsCompleted.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CompleteTaskMutationAsync_AdoptsRemoteDestinationListWithoutDuplicatingTask()
+    {
+        var source = await _taskService.GetOrCreateLocalTaskListAsync(_imapAccount.Id, "Source");
+        var destination = await _taskService.UpsertRemoteTaskListAsync(new AccountTaskList
+        {
+            MailAccountId = _imapAccount.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "destination-list",
+            Title = "Destination"
+        });
+        var local = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = source.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "source-remote-id",
+            Title = "Move me"
+        });
+
+        await _taskService.CompleteTaskMutationAsync(local.Id, new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = destination.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "destination-remote-id",
+            Title = "Move me"
+        }, deleted: false);
+
+        var moved = await _taskService.GetTaskAsync(local.Id);
+        moved.Should().NotBeNull();
+        moved!.TaskListId.Should().Be(destination.Id);
+        moved.RemoteId.Should().Be("destination-remote-id");
+        (await _taskService.GetTasksAsync(listId: source.Id)).Should().BeEmpty();
+        (await _taskService.GetTasksAsync(listId: destination.Id)).Should().ContainSingle()
+            .Which.Id.Should().Be(local.Id);
+    }
+
+    [Fact]
+    public async Task CompleteTaskMutationAsync_CommitsRequestedMyDayDate()
+    {
+        var list = await _taskService.UpsertRemoteTaskListAsync(new AccountTaskList
+        {
+            MailAccountId = _imapAccount.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "outlook-list",
+            Title = "Tasks"
+        });
+        var local = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "outlook-task",
+            Title = "Task"
+        });
+        var requestedDate = DateTime.UtcNow.Date;
+        var mutationResult = RequestEntityCloner.Task(local);
+        mutationResult.MyDayDateUtc = requestedDate;
+
+        await _taskService.CompleteTaskMutationAsync(local.Id, mutationResult, deleted: false);
+
+        var reloaded = await _taskService.GetTaskAsync(local.Id);
+        reloaded!.MyDayDateUtc.Should().Be(requestedDate);
+    }
+
+    [Fact]
+    public async Task CompleteTaskMutationAsync_MergesChecklistInPlaceAndPreservesPendingRows()
+    {
+        var list = await _taskService.GetOrCreateLocalTaskListAsync(_imapAccount.Id, _imapAccount.Name);
+        var task = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-task",
+            Title = "Task"
+        });
+        task.PendingMutation = TaskPendingMutation.None;
+        await _database.Connection.UpdateAsync(task);
+
+        var existing = await _taskService.CreateStepAsync(new AccountTaskStep
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskId = task.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-step",
+            Title = "Before"
+        });
+        existing.PendingMutation = TaskPendingMutation.None;
+        await _database.Connection.UpdateAsync(existing);
+
+        var pending = await _taskService.CreateStepAsync(new AccountTaskStep
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskId = task.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            Title = "Pending"
+        });
+        var createdAt = existing.CreatedAtUtc;
+
+        await _taskService.CompleteTaskMutationAsync(task.Id, new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-task",
+            Title = "Task",
+            Steps =
+            [
+                new AccountTaskStep
+                {
+                    RemoteId = "remote-step",
+                    Title = "After",
+                    IsCompleted = true
+                }
+            ]
+        }, deleted: false);
+
+        var result = await _taskService.GetTaskAsync(task.Id);
+        result.Steps.Should().HaveCount(2);
+        result.Steps.Single(step => step.RemoteId == "remote-step").Id.Should().Be(existing.Id);
+        result.Steps.Single(step => step.RemoteId == "remote-step").CreatedAtUtc.Should().Be(createdAt);
+        result.Steps.Single(step => step.RemoteId == "remote-step").Title.Should().Be("After");
+        result.Steps.Should().Contain(step => step.Id == pending.Id && step.PendingMutation == TaskPendingMutation.Create);
+    }
+
+    [Fact]
+    public async Task CompleteTaskMutationAsync_CorrelatesCreatedChecklistStepByLocalId()
+    {
+        var list = await _taskService.GetOrCreateLocalTaskListAsync(_imapAccount.Id, _imapAccount.Name);
+        var task = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-task",
+            Title = "Task"
+        });
+        task.PendingMutation = TaskPendingMutation.None;
+        await _database.Connection.UpdateAsync(task);
+
+        var pending = await _taskService.CreateStepAsync(new AccountTaskStep
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskId = task.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            Title = "New step"
+        });
+
+        await _taskService.CompleteTaskMutationAsync(task.Id, new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-task",
+            Title = "Task",
+            Steps =
+            [
+                new AccountTaskStep
+                {
+                    Id = pending.Id,
+                    RemoteId = "created-step",
+                    Title = "New step"
+                }
+            ]
+        }, deleted: false);
+
+        var result = await _taskService.GetTaskAsync(task.Id);
+        result.Steps.Should().ContainSingle();
+        result.Steps[0].Id.Should().Be(pending.Id);
+        result.Steps[0].RemoteId.Should().Be("created-step");
+        result.Steps[0].PendingMutation.Should().Be(TaskPendingMutation.None);
     }
 
     private Task<AccountTask> CreateAsync(

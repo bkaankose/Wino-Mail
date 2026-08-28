@@ -40,6 +40,46 @@ public class AuthenticationRetryHandlerTests
     }
 
     [Fact]
+    public async Task GmailHandler_ParallelUnauthorizedResponses_ShareOneRefresh()
+    {
+        var account = new MailAccount { Id = Guid.NewGuid() };
+        var authenticator = new Mock<IGmailAuthenticator>();
+        var transport = new RejectStaleTokenHandler();
+        var currentToken = "stale-token";
+
+        authenticator
+            .Setup(x => x.GetTokenInformationAsync(account))
+            .ReturnsAsync(() => new TokenInformationEx(currentToken, account.Address));
+        authenticator
+            .Setup(x => x.RefreshTokenInformationAsync(account))
+            .ReturnsAsync(() =>
+            {
+                currentToken = "fresh-token";
+                return new TokenInformationEx(currentToken, account.Address);
+            });
+
+        using var handler = new GmailClientMessageHandler(authenticator.Object, account)
+        {
+            InnerHandler = transport
+        };
+        using var client = new HttpClient(handler);
+
+        var responses = await Task.WhenAll(Enumerable.Range(0, 8)
+            .Select(index => client.GetAsync($"https://gmail.googleapis.com/gmail/v1/users/me/messages/{index}")));
+
+        try
+        {
+            responses.Should().OnlyContain(response => response.StatusCode == HttpStatusCode.OK);
+            authenticator.Verify(x => x.RefreshTokenInformationAsync(account), Times.Once);
+        }
+        finally
+        {
+            foreach (var response in responses)
+                response.Dispose();
+        }
+    }
+
+    [Fact]
     public async Task GraphHandler_UnauthorizedResponse_RefreshesSilentlyAndRetriesOnce()
     {
         var account = new MailAccount();
@@ -80,5 +120,16 @@ public class AuthenticationRetryHandlerTests
                     ? HttpStatusCode.Unauthorized
                     : HttpStatusCode.OK));
         }
+    }
+
+    private sealed class RejectStaleTokenHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+            => Task.FromResult(new HttpResponseMessage(
+                request.Headers.Authorization?.Parameter == "stale-token"
+                    ? HttpStatusCode.Unauthorized
+                    : HttpStatusCode.OK));
     }
 }

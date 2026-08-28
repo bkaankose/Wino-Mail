@@ -10,7 +10,7 @@ using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.MenuItems;
 
-public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IMailItemFolder, FolderMenuItem>>, IAccountMenuItem
+public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IMailItemFolder, FolderMenuItem>>, IAccountMenuItem, IAccountNavigationMenuItem
 {
     [ObservableProperty]
     public partial int UnreadItemCount { get; set; }
@@ -40,6 +40,9 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
     public partial string SynchronizationStatus { get; set; } = string.Empty;
 
     public bool IsAttentionRequired => AttentionReason != AccountAttentionReason.None;
+    public bool SupportsMailAccountActions => true;
+    public MailAccount Account => Parameter;
+    public string AccountAddress => Parameter.Address;
 
     public double SynchronizationProgress
     {
@@ -116,7 +119,9 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
         Parameter = account;
         AttentionReason = account.AttentionReason;
 
+        OnPropertyChanged(nameof(Account));
         OnPropertyChanged(nameof(AccountName));
+        OnPropertyChanged(nameof(AccountAddress));
         OnPropertyChanged(nameof(ProfilePictureFileId));
         OnPropertyChanged(nameof(AccountColorHex));
         OnPropertyChanged(nameof(IsAttentionRequired));

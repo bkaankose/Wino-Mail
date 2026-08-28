@@ -163,6 +163,16 @@ public static class XamlHelpers
         => (Brush)Application.Current.Resources[isFavorite ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush"];
     public static bool HasText(string value) => !string.IsNullOrWhiteSpace(value);
     public static ContactPhoneKind[] GetPhoneKinds() => Enum.GetValues<ContactPhoneKind>();
+    /// <summary>Each postal address slot is labelled with the glyph for its kind.</summary>
+    public static string GetPostalAddressKindGlyph(ContactPostalAddressKind kind) => kind switch
+    {
+        ContactPostalAddressKind.Home => "",
+        ContactPostalAddressKind.Business => "",
+        _ => "",
+    };
+
+    /// <summary>Section header badges show how many entries a collapsed section holds.</summary>
+    public static string CountToText(int value) => value.ToString();
 
     // To Do
     // The star reuses the contacts favorite idiom: filled glyph when set, outline when not.

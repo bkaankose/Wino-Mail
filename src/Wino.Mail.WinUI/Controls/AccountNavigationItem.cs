@@ -10,7 +10,7 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
 {
 
     public static readonly DependencyProperty IsActiveAccountProperty = DependencyProperty.Register(nameof(IsActiveAccount), typeof(bool), typeof(AccountNavigationItem), new PropertyMetadata(false, new PropertyChangedCallback(OnIsActiveAccountChanged)));
-    public static readonly DependencyProperty BindingDataProperty = DependencyProperty.Register(nameof(BindingData), typeof(IAccountMenuItem), typeof(AccountNavigationItem), new PropertyMetadata(null));
+    public static readonly DependencyProperty BindingDataProperty = DependencyProperty.Register(nameof(BindingData), typeof(IMenuItem), typeof(AccountNavigationItem), new PropertyMetadata(null));
 
 
     public bool IsActiveAccount
@@ -19,9 +19,9 @@ public partial class AccountNavigationItem : WinoNavigationViewItem
         set { SetValue(IsActiveAccountProperty, value); }
     }
 
-    public IAccountMenuItem BindingData
+    public IMenuItem BindingData
     {
-        get { return (IAccountMenuItem)GetValue(BindingDataProperty); }
+        get { return (IMenuItem)GetValue(BindingDataProperty); }
         set { SetValue(BindingDataProperty, value); }
     }
 

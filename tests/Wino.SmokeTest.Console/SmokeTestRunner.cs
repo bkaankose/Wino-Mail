@@ -315,7 +315,9 @@ internal sealed class SmokeTestRunner : IDisposable
                 System.Console.WriteLine($"  {index + 1}. {GetSynchronizationModeLabel(modes[index])}");
 
             var synchronizeAllSelection = modes.Count + 1;
+            var synchronizeMatrixSelection = modes.Count + 2;
             System.Console.WriteLine($"  {synchronizeAllSelection}. All enabled (sequential)");
+            System.Console.WriteLine($"  {synchronizeMatrixSelection}. All enabled (full + delta matrix)");
             System.Console.WriteLine("  0. Back");
             ConsoleOutput.Prompt("Selection: ");
 
@@ -335,6 +337,12 @@ internal sealed class SmokeTestRunner : IDisposable
                 continue;
             }
 
+            if (selection == synchronizeMatrixSelection)
+            {
+                await SynchronizeFullAndDeltaMatrixAsync(account, modes, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
             if (selection < 1 || selection > modes.Count)
             {
                 ConsoleOutput.Warning("Select a listed synchronization mode.");
@@ -342,6 +350,23 @@ internal sealed class SmokeTestRunner : IDisposable
             }
 
             await SynchronizeModeAsync(account, modes[selection - 1], cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task SynchronizeFullAndDeltaMatrixAsync(
+        MailAccount account,
+        IReadOnlyList<AccountSynchronizationMode> modes,
+        CancellationToken cancellationToken)
+    {
+        foreach (var pass in new[] { SynchronizationPass.Full, SynchronizationPass.Delta })
+        {
+            ConsoleOutput.Header($"\n{pass} synchronization pass:");
+            foreach (var mode in modes)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                ConsoleOutput.Muted($"Synchronizing {GetSynchronizationModeLabel(mode)} ({pass.ToString().ToLowerInvariant()})...");
+                await SynchronizeModePassAsync(account, mode, pass, cancellationToken).ConfigureAwait(false);
+            }
         }
     }
 
@@ -371,6 +396,31 @@ internal sealed class SmokeTestRunner : IDisposable
         }
     }
 
+    private async Task SynchronizeModePassAsync(
+        MailAccount account,
+        AccountSynchronizationMode mode,
+        SynchronizationPass pass,
+        CancellationToken cancellationToken)
+    {
+        switch (mode)
+        {
+            case AccountSynchronizationMode.Mail:
+                await SynchronizeMailInteractivelyAsync(account, cancellationToken).ConfigureAwait(false);
+                break;
+            case AccountSynchronizationMode.Calendar:
+                await SynchronizeCalendarInteractivelyAsync(account, cancellationToken, pass == SynchronizationPass.Full).ConfigureAwait(false);
+                break;
+            case AccountSynchronizationMode.Contacts:
+                await SynchronizeContactsInteractivelyAsync(account, cancellationToken, pass == SynchronizationPass.Full).ConfigureAwait(false);
+                break;
+            case AccountSynchronizationMode.Todo:
+                await SynchronizeTasksInteractivelyAsync(account, cancellationToken, pass == SynchronizationPass.Full).ConfigureAwait(false);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(mode), mode, null);
+        }
+    }
+
     private async Task SynchronizeMailInteractivelyAsync(MailAccount account, CancellationToken cancellationToken)
     {
         var mail = await _synchronizationHost.SynchronizeMailAsync(new MailSynchronizationOptions
@@ -381,12 +431,15 @@ internal sealed class SmokeTestRunner : IDisposable
         PrintMailResult(mail);
     }
 
-    private async Task SynchronizeCalendarInteractivelyAsync(MailAccount account, CancellationToken cancellationToken)
+    private async Task SynchronizeCalendarInteractivelyAsync(
+        MailAccount account,
+        CancellationToken cancellationToken,
+        bool full = false)
     {
         var calendar = await _synchronizationHost.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
         {
             AccountId = account.Id,
-            Type = CalendarSynchronizationType.CalendarEvents
+            Type = full ? CalendarSynchronizationType.Strict : CalendarSynchronizationType.CalendarEvents
         }, cancellationToken).ConfigureAwait(false);
         var changes = _synchronizationHost.LastCalendarChanges;
         var added = Math.Max(changes.Added, calendar.DownloadedEvents?.Count() ?? 0);
@@ -394,24 +447,30 @@ internal sealed class SmokeTestRunner : IDisposable
         PrintResultDetails(calendar.Exception, calendar.AllIssues);
     }
 
-    private async Task SynchronizeContactsInteractivelyAsync(MailAccount account, CancellationToken cancellationToken)
+    private async Task SynchronizeContactsInteractivelyAsync(
+        MailAccount account,
+        CancellationToken cancellationToken,
+        bool full = false)
     {
         var contacts = await _synchronizationHost.SynchronizeContactsAsync(new ContactSynchronizationOptions
         {
             AccountId = account.Id,
-            Type = ContactSynchronizationType.Delta
+            Type = full ? ContactSynchronizationType.Full : ContactSynchronizationType.Delta
         }, cancellationToken).ConfigureAwait(false);
         await VerifyCardDavDiscoveryAsync(account).ConfigureAwait(false);
         System.Console.WriteLine($"Contacts: {contacts.CompletedState}; added {contacts.DownloadedCount}, updated {contacts.ChangedCount}, removed {contacts.DeletedCount}.");
         PrintResultDetails(contacts.Exception, contacts.Issues);
     }
 
-    private async Task SynchronizeTasksInteractivelyAsync(MailAccount account, CancellationToken cancellationToken)
+    private async Task SynchronizeTasksInteractivelyAsync(
+        MailAccount account,
+        CancellationToken cancellationToken,
+        bool full = false)
     {
         var tasks = await _synchronizationHost.SynchronizeTasksAsync(new TaskSynchronizationOptions
         {
             AccountId = account.Id,
-            Type = TaskSynchronizationType.Delta
+            Type = full ? TaskSynchronizationType.Full : TaskSynchronizationType.Delta
         }, cancellationToken).ConfigureAwait(false);
         System.Console.WriteLine($"Todo: {tasks.CompletedState}; added {tasks.DownloadedCount}, updated {tasks.ChangedCount}, removed {tasks.DeletedCount}.");
         PrintResultDetails(tasks.Exception, tasks.Issues);
@@ -858,4 +917,10 @@ internal enum AccountSynchronizationMode
     Calendar,
     Contacts,
     Todo
+}
+
+internal enum SynchronizationPass
+{
+    Full,
+    Delta
 }

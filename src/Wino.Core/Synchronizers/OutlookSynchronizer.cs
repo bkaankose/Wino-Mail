@@ -36,6 +36,7 @@ using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Extensions;
 using Wino.Core.Http;
 using Wino.Core.Helpers;
@@ -80,6 +81,8 @@ public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 /// </summary>
 public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event, Contact>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
 {
+    private const string WinoTaskExtensionName = "com.winomail.taskIdentity";
+    private const string WinoTaskLocalIdProperty = "localTaskId";
     internal const string MissingContactPhotoPrefix = "outlook:no-photo:";
     internal const string DefaultContactFolderKey = "default";
 
@@ -150,6 +153,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
     private readonly SemaphoreSlim _concurrentDownloadSemaphore = new(10); // Limit to 10 concurrent downloads
 
+    private static readonly HttpClient SubstrateHttpClient = new() { Timeout = TimeSpan.FromSeconds(30) };
+    private readonly ISubstrateTaskTokenProvider _substrateTokenProvider;
+    private readonly OutlookSubstrateTasksClient _outlookSubstrateTasksClient;
+
     private static string FormatGraphDate(DateTime value)
         => value.ToString("yyyy'-'MM'-'dd", GlobalizationCultureInfo.InvariantCulture);
 
@@ -187,6 +194,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         _taskService = taskService;
         _localTaskSynchronizer = new LocalTaskSynchronizer(taskService);
         _outlookTasksClient = new OutlookTasksClient(_graphClient.RequestAdapter);
+        _substrateTokenProvider = authenticator as ISubstrateTaskTokenProvider;
+        _outlookSubstrateTasksClient = new OutlookSubstrateTasksClient(
+            SubstrateHttpClient,
+            () => _substrateTokenProvider is null ? Task.FromResult<string>(null) : _substrateTokenProvider.GetSubstrateTaskTokenAsync(Account));
         _cardDavSynchronizationEngine = cardDavSynchronizationEngine;
     }
 
@@ -277,6 +288,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
                     PreserveRequestedTaskListState(mapped, localList);
                     await _outlookChangeProcessor.CommitTaskListMutationAsync(localList.Id, mapped, false).ConfigureAwait(false);
+                    if (localList.GroupId is not null)
+                        await ApplyOutlookListPlacementAsync(mapped, cancellationToken).ConfigureAwait(false);
                     break;
                 }
                 case TaskSynchronizerOperation.UpdateList:
@@ -300,6 +313,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                                     ?? await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
                     if (localList?.RemoteId is null)
                         throw new InvalidOperationException($"Task list {request.TaskListId} is unavailable for deletion.");
+                    if (localList.IsOutlookDefaultList)
+                        throw new NotSupportedException("Outlook's default Tasks list cannot be deleted.");
 
                     await _outlookTasksClient.DeleteTaskListAsync(localList.RemoteId, localList.RemoteVersion, cancellationToken).ConfigureAwait(false);
                     await _outlookChangeProcessor.CommitTaskListMutationAsync(localList.Id, null, true).ConfigureAwait(false);
@@ -313,11 +328,155 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 case TaskSynchronizerOperation.DeleteStep:
                     await ExecuteOutlookTaskMutationAsync(request, cancellationToken).ConfigureAwait(false);
                     break;
+                case TaskSynchronizerOperation.CreateGroup:
+                case TaskSynchronizerOperation.UpdateGroup:
+                case TaskSynchronizerOperation.DeleteGroup:
+                    await ExecuteOutlookGroupMutationAsync(request as TaskActionRequest, cancellationToken).ConfigureAwait(false);
+                    break;
+                case TaskSynchronizerOperation.UpdateListPlacement:
+                {
+                    var requestedList = (request as TaskActionRequest)?.List
+                        ?? await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                    await ApplyOutlookListPlacementAsync(requestedList, cancellationToken).ConfigureAwait(false);
+                    break;
+                }
             }
 
             MarkTaskRequestProcessed(request);
         }
     }
+
+    private async Task ExecuteOutlookGroupMutationAsync(TaskActionRequest request, CancellationToken cancellationToken)
+    {
+        var group = request?.Group ?? request?.OriginalGroup;
+        if (group is null)
+            throw new InvalidOperationException("The task-group mutation has no group snapshot.");
+
+        if (group.SourceKind != TaskSourceKind.Outlook ||
+            string.IsNullOrWhiteSpace(group.RemoteId) && request.Operation != TaskSynchronizerOperation.CreateGroup)
+        {
+            await _taskService.CompleteTaskListGroupMutationAsync(
+                group.Id,
+                request.Operation == TaskSynchronizerOperation.DeleteGroup ? null : group,
+                request.Operation == TaskSynchronizerOperation.DeleteGroup).ConfigureAwait(false);
+            return;
+        }
+
+        if (request.Operation == TaskSynchronizerOperation.DeleteGroup)
+        {
+            await _outlookSubstrateTasksClient.DeleteFolderGroupAsync(
+                group.RemoteId, group.RemoteVersion, cancellationToken).ConfigureAwait(false);
+            await _taskService.CompleteTaskListGroupMutationAsync(group.Id, null, true).ConfigureAwait(false);
+            return;
+        }
+
+        var order = ParseRemoteOrder(group.RemoteOrder) ?? DateTimeOffset.UtcNow.AddSeconds(group.SortOrder);
+        SubstrateFolderGroup remote;
+        if (request.Operation == TaskSynchronizerOperation.CreateGroup || string.IsNullOrWhiteSpace(group.RemoteId))
+        {
+            try
+            {
+                remote = await _outlookSubstrateTasksClient.CreateFolderGroupAsync(
+                    group.Title, order, cancellationToken).ConfigureAwait(false);
+            }
+            catch (HttpRequestException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // A POST can reach the service even when its response is lost. Never post again:
+                // the unique generated timestamp is the correlation key for the recovery read.
+                var (groups, _) = await FetchSubstrateGroupsAsync(null, cancellationToken).ConfigureAwait(false);
+                var matches = groups.Where(candidate => candidate.OrderDateTime.HasValue &&
+                    candidate.OrderDateTime.Value.UtcTicks == order.UtcTicks).ToList();
+                if (matches.Count != 1)
+                    throw;
+                remote = matches[0];
+            }
+        }
+        else
+        {
+            remote = await _outlookSubstrateTasksClient.UpdateFolderGroupAsync(
+                group.RemoteId, group.Title, order, group.RemoteVersion, cancellationToken).ConfigureAwait(false);
+        }
+        await _taskService.CompleteTaskListGroupMutationAsync(group.Id, new AccountTaskListGroup
+        {
+            Id = group.Id,
+            MailAccountId = group.MailAccountId,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = remote.Id,
+            RemoteVersion = remote.ChangeKey,
+            RemoteOrder = FormatRemoteOrder(remote.OrderDateTime) ?? order.UtcDateTime.ToString("O", GlobalizationCultureInfo.InvariantCulture),
+            Title = remote.Name ?? group.Title,
+            SortOrder = group.SortOrder,
+            IsExpanded = group.IsExpanded
+        }, false).ConfigureAwait(false);
+    }
+
+    private async Task ApplyOutlookListPlacementAsync(AccountTaskList list, CancellationToken cancellationToken)
+    {
+        if (list is null)
+            throw new InvalidOperationException("The task-list placement mutation has no list snapshot.");
+        if (list.IsOutlookDefaultList && list.GroupId is not null)
+            throw new NotSupportedException("Outlook's default Tasks list cannot be placed in a task-list group.");
+        if (list.SourceKind != TaskSourceKind.Outlook || string.IsNullOrWhiteSpace(list.RemoteId))
+        {
+            await _taskService.CompleteTaskListPlacementMutationAsync(list.Id, list).ConfigureAwait(false);
+            return;
+        }
+
+        string remoteGroupId = null;
+        AccountTaskListGroup destinationGroup = null;
+        if (list.GroupId is Guid groupId)
+        {
+            destinationGroup = (await _taskService.GetTaskListGroupsAsync(list.MailAccountId).ConfigureAwait(false))
+                .FirstOrDefault(item => item.Id == groupId);
+            if (destinationGroup?.SourceKind != TaskSourceKind.Outlook || string.IsNullOrWhiteSpace(destinationGroup.RemoteId))
+            {
+                await _taskService.CompleteTaskListPlacementMutationAsync(list.Id, list).ConfigureAwait(false);
+                return;
+            }
+            remoteGroupId = destinationGroup.RemoteId;
+        }
+
+        var order = ParseRemoteOrder(list.RemoteOrder) ?? DateTimeOffset.UtcNow.AddSeconds(list.SortOrder);
+        SubstrateTaskFolder remote;
+        try
+        {
+            remote = await _outlookSubstrateTasksClient.UpdateTaskFolderAsync(
+                list.RemoteId, remoteGroupId, order, list.RemoteVersion, cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException exception) when (
+            exception.StatusCode == System.Net.HttpStatusCode.BadRequest && destinationGroup is not null)
+        {
+            var (remoteGroups, _) = await FetchSubstrateGroupsAsync(null, cancellationToken).ConfigureAwait(false);
+            if (remoteGroups.Any(group => string.Equals(group.Id, destinationGroup.RemoteId, StringComparison.Ordinal)))
+                throw;
+
+            // A previously created group can disappear upstream while its local topology remains.
+            // Repair that stale identity once, then execute the original placement unchanged.
+            var groupOrder = ParseRemoteOrder(destinationGroup.RemoteOrder)
+                ?? DateTimeOffset.UtcNow.AddSeconds(destinationGroup.SortOrder);
+            var repairedGroup = await _outlookSubstrateTasksClient.CreateFolderGroupAsync(
+                destinationGroup.Title, groupOrder, cancellationToken).ConfigureAwait(false);
+            var committedGroup = RequestEntityCloner.TaskListGroup(destinationGroup);
+            committedGroup.RemoteId = repairedGroup.Id;
+            committedGroup.RemoteVersion = repairedGroup.ChangeKey;
+            committedGroup.RemoteOrder = FormatRemoteOrder(repairedGroup.OrderDateTime)
+                ?? groupOrder.UtcDateTime.ToString("O", GlobalizationCultureInfo.InvariantCulture);
+            await _taskService.CompleteTaskListGroupMutationAsync(
+                destinationGroup.Id, committedGroup, false).ConfigureAwait(false);
+
+            remoteGroupId = repairedGroup.Id;
+            remote = await _outlookSubstrateTasksClient.UpdateTaskFolderAsync(
+                list.RemoteId, remoteGroupId, order, list.RemoteVersion, cancellationToken).ConfigureAwait(false);
+        }
+        var committed = RequestEntityCloner.TaskList(list);
+        committed.RemoteVersion = remote.ChangeKey ?? committed.RemoteVersion;
+        committed.RemoteOrder = FormatRemoteOrder(remote.OrderDateTime) ?? order.UtcDateTime.ToString("O", GlobalizationCultureInfo.InvariantCulture);
+        await _taskService.CompleteTaskListPlacementMutationAsync(list.Id, committed).ConfigureAwait(false);
+    }
+
+    private static DateTimeOffset? ParseRemoteOrder(string value)
+        => DateTimeOffset.TryParse(value, GlobalizationCultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AssumeUniversal, out var parsed) ? parsed : null;
 
     private async Task ExecuteOutlookTaskMutationAsync(ITaskActionRequest request, CancellationToken cancellationToken)
     {
@@ -344,16 +503,127 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
 
         ApplyRequestedStepMutation(localTask, typedRequest);
 
-        // Graph exposes checklist items through the task resource, so step requests send
-        // the desired complete checklist after optimistic UI state has been applied.
-        var payload = BuildRemoteTask(localTask);
-        var remote = request.Operation == TaskSynchronizerOperation.CreateTask || localTask.RemoteId is null
-            ? await _outlookTasksClient.CreateTaskAsync(list.RemoteId, payload, cancellationToken).ConfigureAwait(false)
-            : await _outlookTasksClient.UpdateTaskAsync(list.RemoteId, localTask.RemoteId, payload, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
+        var originalTask = typedRequest?.OriginalTask;
+        var isMoving = request.Operation == TaskSynchronizerOperation.UpdateTask &&
+                       originalTask is not null &&
+                       originalTask.TaskListId != localTask.TaskListId &&
+                       !string.IsNullOrWhiteSpace(originalTask.RemoteId);
+        var isCreate = request.Operation == TaskSynchronizerOperation.CreateTask || localTask.RemoteId is null || isMoving;
+        TodoTask remote;
+        if (isCreate)
+        {
+            // A task POST accepts the checklist inline, so a new task and its steps
+            // are created in a single call.
+            remote = await _outlookTasksClient
+                .CreateTaskAsync(list.RemoteId, BuildRemoteTask(localTask, includeChecklistItems: true, includeIdentity: true), cancellationToken)
+                .ConfigureAwait(false);
+
+            if (isMoving)
+            {
+                var sourceList = await _taskService.GetTaskListAsync(originalTask.TaskListId).ConfigureAwait(false);
+                if (sourceList?.RemoteId is null)
+                    throw new InvalidOperationException($"Source task list {originalTask.TaskListId} is unavailable for moving task {localTask.Id}.");
+
+                await _outlookTasksClient
+                    .DeleteTaskAsync(sourceList.RemoteId, originalTask.RemoteId, originalTask.RemoteVersion, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+        else if (IsStepOperation(request.Operation))
+        {
+            // Graph rejects checklistItems in a task PATCH, so a step change touches only
+            // the child collection and then re-reads the task for authoritative step ids.
+            remote = await ApplyOutlookStepMutationAsync(list, localTask, typedRequest, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            remote = await _outlookTasksClient
+                .UpdateTaskAsync(list.RemoteId, localTask.RemoteId, BuildRemoteTask(localTask, includeChecklistItems: false), localTask.RemoteVersion, cancellationToken)
+                .ConfigureAwait(false);
+        }
+
         var mapped = MapRemoteTask(remote, list);
 
         PreserveRequestedTaskState(mapped, localTask);
+        CorrelateRequestedStep(mapped, typedRequest);
+        if (isCreate)
+            CorrelateCreatedTaskSteps(mapped, localTask);
         await _outlookChangeProcessor.CommitTaskMutationAsync(localTask.Id, mapped, false).ConfigureAwait(false);
+    }
+
+    private static bool IsStepOperation(TaskSynchronizerOperation operation)
+        => operation is TaskSynchronizerOperation.CreateStep
+            or TaskSynchronizerOperation.UpdateStep
+            or TaskSynchronizerOperation.DeleteStep;
+
+    /// <summary>
+    /// Applies a single step change through the task's checklistItems collection and
+    /// returns the refreshed task. Graph does not accept checklistItems in a task PATCH.
+    /// </summary>
+    private async Task<TodoTask> ApplyOutlookStepMutationAsync(
+        AccountTaskList list, AccountTask localTask, TaskActionRequest request, CancellationToken cancellationToken)
+    {
+        var step = request?.Step;
+        if (step is not null)
+        {
+            if (request.Operation == TaskSynchronizerOperation.DeleteStep)
+            {
+                if (step.RemoteId is not null)
+                {
+                    await _outlookTasksClient
+                        .DeleteChecklistItemAsync(list.RemoteId, localTask.RemoteId, step.RemoteId, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+            else
+            {
+                var payload = new ChecklistItem { DisplayName = step.Title, IsChecked = step.IsCompleted };
+                if (step.RemoteId is null)
+                {
+                    var created = await _outlookTasksClient
+                        .CreateChecklistItemAsync(list.RemoteId, localTask.RemoteId, payload, cancellationToken)
+                        .ConfigureAwait(false);
+                    step.RemoteId = created?.Id;
+
+                    var taskStep = localTask.Steps.FirstOrDefault(candidate => candidate.Id == step.Id);
+                    if (taskStep is not null)
+                        taskStep.RemoteId = created?.Id;
+                }
+                else
+                {
+                    await _outlookTasksClient
+                        .UpdateChecklistItemAsync(list.RemoteId, localTask.RemoteId, step.RemoteId, payload, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+        }
+
+        return await _outlookTasksClient
+            .GetTaskAsync(list.RemoteId, localTask.RemoteId, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static void CorrelateRequestedStep(AccountTask mappedTask, TaskActionRequest request)
+    {
+        if (request?.Step is null || string.IsNullOrWhiteSpace(request.Step.RemoteId))
+            return;
+
+        var mappedStep = mappedTask.Steps.FirstOrDefault(step =>
+            string.Equals(step.RemoteId, request.Step.RemoteId, StringComparison.Ordinal));
+        if (mappedStep is not null)
+            mappedStep.Id = request.Step.Id;
+    }
+
+    private static void CorrelateCreatedTaskSteps(AccountTask mappedTask, AccountTask requestedTask)
+    {
+        var mappedSteps = mappedTask.Steps.OrderBy(step => step.Order).ToList();
+        var requestedSteps = requestedTask.Steps.OrderBy(step => step.Order).ToList();
+        if (mappedSteps.Count != requestedSteps.Count)
+            return;
+
+        for (var index = 0; index < mappedSteps.Count; index++)
+            mappedSteps[index].Id = requestedSteps[index].Id;
     }
 
     private static void ApplyRequestedStepMutation(AccountTask task, TaskActionRequest request)
@@ -374,6 +644,9 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         mapped.SourceKind = requested.SourceKind;
         mapped.IsDefault = requested.IsDefault;
         mapped.ColorHex = requested.ColorHex;
+        mapped.GroupId = requested.GroupId;
+        mapped.SortOrder = requested.SortOrder;
+        mapped.RemoteOrder = requested.RemoteOrder;
     }
 
     private static void PreserveRequestedTaskState(AccountTask mapped, AccountTask requested)
@@ -392,13 +665,84 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             .Where(list => list.SourceKind == TaskSourceKind.Outlook)
             .ToList();
         var full = options.Type is TaskSynchronizationType.Full or TaskSynchronizationType.Strict;
-        var listUrl = full ? null : existingLists.Select(list => list.ListDeltaLink).FirstOrDefault(link => !string.IsNullOrWhiteSpace(link));
-        // The delta endpoint also provides the initial full representation and a
-        // continuation link. Starting every full sync there gives the next run a
-        // durable list watermark instead of falling back to a non-delta list query.
-        var listResponse = await _outlookTasksClient
-            .GetTaskListsDeltaAsync(full ? null : listUrl, cancellationToken)
-            .ConfigureAwait(false);
+        var syncState = await _taskService.GetTaskSyncStateAsync(Account.Id, TaskSourceKind.Outlook).ConfigureAwait(false);
+
+        // Substrate topology is fetched first and staged in memory. Graph remains authoritative
+        // for list existence; both streams are applied together after every page is complete.
+        var substrateGroups = new List<SubstrateFolderGroup>();
+        var substrateFolders = new List<SubstrateTaskFolder>();
+        string groupDeltaLink = null;
+        string folderDeltaLink = null;
+        var groupStreamCompleted = false;
+        var folderStreamCompleted = false;
+        var reconcileSubstrateGroups = full;
+        if (_substrateTokenProvider is not null)
+        {
+            try
+            {
+                (substrateGroups, groupDeltaLink) = await FetchSubstrateGroupsAsync(
+                    full ? null : syncState.SubstrateGroupDeltaLink, cancellationToken).ConfigureAwait(false);
+                groupStreamCompleted = !string.IsNullOrWhiteSpace(groupDeltaLink);
+            }
+            catch (SubstrateDeltaCursorInvalidException) when (!full && !string.IsNullOrWhiteSpace(syncState.SubstrateGroupDeltaLink))
+            {
+                try
+                {
+                    (substrateGroups, groupDeltaLink) = await FetchSubstrateGroupsAsync(null, cancellationToken).ConfigureAwait(false);
+                    groupStreamCompleted = !string.IsNullOrWhiteSpace(groupDeltaLink);
+                    reconcileSubstrateGroups = true;
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    Log.Warning(exception, "Substrate full task-group retry failed for {Account}.", Account.Id);
+                    substrateGroups = [];
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                Log.Warning(exception, "Substrate task-group delta failed for {Account}.", Account.Id);
+                substrateGroups = [];
+            }
+
+            try
+            {
+                (substrateFolders, folderDeltaLink) = await FetchSubstrateFoldersAsync(
+                    full ? null : syncState.SubstrateFolderDeltaLink, cancellationToken).ConfigureAwait(false);
+                folderStreamCompleted = !string.IsNullOrWhiteSpace(folderDeltaLink);
+            }
+            catch (SubstrateDeltaCursorInvalidException) when (!full && !string.IsNullOrWhiteSpace(syncState.SubstrateFolderDeltaLink))
+            {
+                try
+                {
+                    (substrateFolders, folderDeltaLink) = await FetchSubstrateFoldersAsync(null, cancellationToken).ConfigureAwait(false);
+                    folderStreamCompleted = !string.IsNullOrWhiteSpace(folderDeltaLink);
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    Log.Warning(exception, "Substrate full task-folder retry failed for {Account}.", Account.Id);
+                    substrateFolders = [];
+                }
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                Log.Warning(exception, "Substrate task-folder delta failed for {Account}.", Account.Id);
+                substrateFolders = [];
+            }
+        }
+
+        var listCursorReset = false;
+        OutlookTaskListCollectionResponse listResponse;
+        try
+        {
+            listResponse = await _outlookTasksClient
+                .GetTaskListsDeltaAsync(full ? null : syncState.ListDeltaLink, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (ApiException exception) when (!full && !string.IsNullOrWhiteSpace(syncState.ListDeltaLink) && IsInvalidDeltaCursor(exception))
+        {
+            listResponse = await _outlookTasksClient.GetTaskListsDeltaAsync(null, cancellationToken).ConfigureAwait(false);
+            listCursorReset = true;
+        }
 
         var remoteLists = new List<TodoTaskList>();
         var removedListIds = new HashSet<string>(StringComparer.Ordinal);
@@ -422,46 +766,61 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             listResponse = await _outlookTasksClient.GetTaskListsDeltaAsync(listResponse.NextLink, cancellationToken).ConfigureAwait(false);
         }
 
-        var changed = 0;
-        var deleted = 0;
-        var activeRemoteIds = new HashSet<string>(remoteLists.Select(list => list.Id), StringComparer.Ordinal);
-        foreach (var removedId in removedListIds)
-        {
-            var local = existingLists.FirstOrDefault(list => list.RemoteId == removedId);
-            if (local is not null)
+        var mappedGroups = substrateGroups
+            .Where(group => group is not null && !string.IsNullOrWhiteSpace(group.Id) && !IsSubstrateDeleted(group.Reason))
+            .Select(group => new AccountTaskListGroup
             {
-                await _taskService.RemoveTaskListAsync(local.Id).ConfigureAwait(false);
-                deleted++;
-            }
-        }
-
-        if (full)
-        {
-            foreach (var local in existingLists.Where(list => list.RemoteId is not null && !activeRemoteIds.Contains(list.RemoteId)))
-            {
-                await _taskService.RemoveTaskListAsync(local.Id).ConfigureAwait(false);
-                deleted++;
-            }
-        }
-
-        foreach (var remoteList in remoteLists)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var existing = existingLists.FirstOrDefault(list => list.RemoteId == remoteList.Id);
-            await _taskService.UpsertRemoteTaskListAsync(new AccountTaskList
-            {
-                Id = existing?.Id ?? Guid.NewGuid(),
                 MailAccountId = Account.Id,
                 SourceKind = TaskSourceKind.Outlook,
-                RemoteId = remoteList.Id,
-                RemoteVersion = GetRemoteVersion(remoteList),
-                Title = remoteList.DisplayName ?? "Tasks",
-                IsDefault = remoteList.WellknownListName == WellknownListName.DefaultList,
-                IsReadOnly = remoteList.IsOwner == false,
-                ListDeltaLink = listDeltaLink ?? existing?.ListDeltaLink,
-                TaskDeltaLink = existing?.TaskDeltaLink
-            }).ConfigureAwait(false);
-        }
+                RemoteId = group.Id,
+                RemoteVersion = group.ChangeKey,
+                RemoteOrder = FormatRemoteOrder(group.OrderDateTime),
+                Title = group.Name ?? "Group"
+            }).ToList();
+        var deletedGroupIds = new HashSet<string>(substrateGroups
+            .Where(group => group is not null && IsSubstrateDeleted(group.Reason))
+            .Select(group => group.Id).Where(id => id is not null), StringComparer.Ordinal);
+        var placements = substrateFolders
+            .Where(folder => folder is not null && !string.IsNullOrWhiteSpace(folder.Id) && !IsSubstrateDeleted(folder.Reason))
+            .Select(folder => new TaskListPlacementDelta
+            {
+                ListRemoteId = folder.Id,
+                GroupRemoteId = folder.ParentFolderGroupId,
+                RemoteVersion = folder.ChangeKey,
+                RemoteOrder = FormatRemoteOrder(folder.OrderDateTime),
+                ColorHex = SubstrateTaskMetadata.TryGetColorHex(folder.ThemeColor, out var color) ? color : null,
+                SortKind = SubstrateTaskMetadata.TryGetSortKind(folder.SortType, out var sort) ? sort : null,
+                SortAscending = folder.SortAscending,
+                ShowCompletedTasks = folder.ShowCompletedTasks
+            }).ToList();
+
+        await _taskService.ApplyTaskTopologyDeltaAsync(new TaskTopologyDelta
+        {
+            MailAccountId = Account.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            Groups = mappedGroups,
+            DeletedGroupRemoteIds = deletedGroupIds,
+            Lists = remoteLists.Select(remote => new AccountTaskList
+            {
+                MailAccountId = Account.Id,
+                SourceKind = TaskSourceKind.Outlook,
+                RemoteId = remote.Id,
+                RemoteVersion = GetRemoteVersion(remote),
+                Title = remote.DisplayName ?? "Tasks",
+                IsDefault = remote.WellknownListName == WellknownListName.DefaultList,
+                IsReadOnly = remote.IsOwner == false
+            }).ToList(),
+            DeletedListRemoteIds = removedListIds,
+            Placements = placements,
+            ReconcileGroups = reconcileSubstrateGroups && groupStreamCompleted,
+            ReconcileLists = full || listCursorReset,
+            ListDeltaLink = listDeltaLink,
+            SubstrateGroupDeltaLink = groupStreamCompleted ? groupDeltaLink : null,
+            SubstrateFolderDeltaLink = folderStreamCompleted ? folderDeltaLink : null
+        }).ConfigureAwait(false);
+
+        var changed = 0;
+        var deleted = removedListIds.Count;
 
         // A list delta only reports list metadata changes. Task changes are tracked by
         // a separate delta link per list, so reconcile every remaining owned list on
@@ -472,7 +831,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         foreach (var list in listsToSynchronize)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var taskResult = await SynchronizeOutlookTaskListAsync(list, full, listDeltaLink, cancellationToken).ConfigureAwait(false);
+            var taskResult = await SynchronizeOutlookTaskListAsync(list, full, cancellationToken).ConfigureAwait(false);
             changed += taskResult.ChangedCount;
             deleted += taskResult.DeletedCount;
         }
@@ -480,14 +839,22 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return TaskSynchronizationResult.Completed(remoteLists.Count, changed, deleted);
     }
 
-    private async Task<TaskSynchronizationResult> SynchronizeOutlookTaskListAsync(AccountTaskList list, bool full, string listDeltaLink, CancellationToken cancellationToken)
+    private async Task<TaskSynchronizationResult> SynchronizeOutlookTaskListAsync(AccountTaskList list, bool full, CancellationToken cancellationToken)
     {
         var taskUrl = full ? null : list.TaskDeltaLink;
-        var response = await _outlookTasksClient.GetTasksDeltaAsync(list.RemoteId, taskUrl, cancellationToken).ConfigureAwait(false);
+        var taskCursorReset = false;
+        OutlookTaskCollectionResponse response;
+        try
+        {
+            response = await _outlookTasksClient.GetTasksDeltaAsync(list.RemoteId, taskUrl, cancellationToken).ConfigureAwait(false);
+        }
+        catch (ApiException exception) when (!full && !string.IsNullOrWhiteSpace(taskUrl) && IsInvalidDeltaCursor(exception))
+        {
+            response = await _outlookTasksClient.GetTasksDeltaAsync(list.RemoteId, null, cancellationToken).ConfigureAwait(false);
+            taskCursorReset = true;
+        }
         var current = await _taskService.GetTasksAsync(listId: list.Id).ConfigureAwait(false);
-        var byRemoteId = full
-            ? new Dictionary<string, AccountTask>(StringComparer.Ordinal)
-            : current.Where(task => task.RemoteId is not null).ToDictionary(task => task.RemoteId, StringComparer.Ordinal);
+        var changedTasks = new List<AccountTask>();
         var deletedIds = new HashSet<string>(StringComparer.Ordinal);
         var changed = 0;
         string taskDeltaLink = null;
@@ -503,7 +870,37 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                     continue;
                 }
 
-                byRemoteId[remote.Id] = MapRemoteTask(remote, list);
+                var mapped = MapRemoteTask(remote, list);
+                var storedTask = current.FirstOrDefault(task => string.Equals(task.RemoteId, remote.Id, StringComparison.Ordinal));
+                var extensionId = GetWinoTaskId(remote);
+                storedTask ??= extensionId.HasValue ? current.FirstOrDefault(task => task.Id == extensionId.Value) : null;
+                if (storedTask is null && !string.IsNullOrWhiteSpace(mapped.RemoteVersion))
+                {
+                    // Graph answers with one id encoding from the create response and a different
+                    // one from this delta, so a task Wino just created arrives under an id no local
+                    // row carries. The change key is identical across both encodings, so it is what
+                    // joins them. This cannot be gated on a pending create: the create commit has
+                    // already cleared that flag by the time the delta runs. Requiring a single
+                    // match keeps an ambiguous pair from being merged into the wrong row.
+                    var changeKeyMatches = current
+                        .Where(task => string.Equals(task.RemoteVersion, mapped.RemoteVersion, StringComparison.Ordinal))
+                        .ToList();
+                    if (changeKeyMatches.Count == 1)
+                        storedTask = changeKeyMatches[0];
+                }
+
+                if (storedTask is not null)
+                    mapped.Id = storedTask.Id;
+                else if (extensionId.HasValue)
+                {
+                    // The extension allows another Wino installation to establish the same local
+                    // identity. A GUID already used by a different cached task is not safe to adopt.
+                    var conflictingIdentity = await _taskService.GetTaskAsync(extensionId.Value).ConfigureAwait(false);
+                    if (conflictingIdentity is null)
+                        mapped.Id = extensionId.Value;
+                }
+
+                changedTasks.Add(mapped);
                 changed++;
             }
 
@@ -514,23 +911,60 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             response = await _outlookTasksClient.GetTasksDeltaAsync(list.RemoteId, response.NextLink, cancellationToken).ConfigureAwait(false);
         }
 
-        foreach (var deletedId in deletedIds)
-            byRemoteId.Remove(deletedId);
-        if (full)
+        await _taskService.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta
         {
-            var remoteIds = new HashSet<string>(byRemoteId.Values.Select(task => task.RemoteId), StringComparer.Ordinal);
-            foreach (var stale in current.Where(task => task.RemoteId is not null && !remoteIds.Contains(task.RemoteId)))
-                byRemoteId.Remove(stale.RemoteId);
-        }
-
-        await _taskService.ReplaceListAsync(
-            list.Id,
-            byRemoteId.Values.ToList(),
-            taskDeltaLink ?? list.TaskDeltaLink,
-            watermarkUtc: null,
-            listDeltaLink: listDeltaLink ?? list.ListDeltaLink).ConfigureAwait(false);
-        return TaskSynchronizationResult.Completed(byRemoteId.Count, changed, deletedIds.Count);
+            TaskListId = list.Id,
+            Tasks = changedTasks,
+            DeletedTaskRemoteIds = deletedIds,
+            AuthoritativeStepParentRemoteIds = changedTasks.Select(task => task.RemoteId).Where(id => id is not null).ToList(),
+            IsFullSnapshot = full || taskCursorReset,
+            TaskDeltaLink = taskDeltaLink ?? list.TaskDeltaLink
+        }).ConfigureAwait(false);
+        return TaskSynchronizationResult.Completed(changedTasks.Count, changed, deletedIds.Count);
     }
+
+    private static bool IsSubstrateDeleted(string reason)
+        => string.Equals(reason, "deleted", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<(List<SubstrateFolderGroup> Items, string DeltaLink)> FetchSubstrateGroupsAsync(
+        string cursor, CancellationToken cancellationToken)
+    {
+        var items = new List<SubstrateFolderGroup>();
+        string deltaLink = null;
+        var response = await _outlookSubstrateTasksClient.GetFolderGroupsAsync(cursor, cancellationToken).ConfigureAwait(false);
+        while (response is not null)
+        {
+            items.AddRange(response.Value ?? []);
+            deltaLink = response.DeltaLink ?? deltaLink;
+            if (string.IsNullOrWhiteSpace(response.NextLink))
+                break;
+            response = await _outlookSubstrateTasksClient.GetFolderGroupsAsync(response.NextLink, cancellationToken).ConfigureAwait(false);
+        }
+        return (items, deltaLink);
+    }
+
+    private async Task<(List<SubstrateTaskFolder> Items, string DeltaLink)> FetchSubstrateFoldersAsync(
+        string cursor, CancellationToken cancellationToken)
+    {
+        var items = new List<SubstrateTaskFolder>();
+        string deltaLink = null;
+        var response = await _outlookSubstrateTasksClient.GetTaskFoldersAsync(cursor, cancellationToken).ConfigureAwait(false);
+        while (response is not null)
+        {
+            items.AddRange(response.Value ?? []);
+            deltaLink = response.DeltaLink ?? deltaLink;
+            if (string.IsNullOrWhiteSpace(response.NextLink))
+                break;
+            response = await _outlookSubstrateTasksClient.GetTaskFoldersAsync(response.NextLink, cancellationToken).ConfigureAwait(false);
+        }
+        return (items, deltaLink);
+    }
+
+    private static bool IsInvalidDeltaCursor(ApiException exception)
+        => exception.ResponseStatusCode is 400 or 404 or 410;
+
+    private static string FormatRemoteOrder(DateTimeOffset? value)
+        => value?.UtcDateTime.ToString("O", GlobalizationCultureInfo.InvariantCulture);
 
     private static bool IsSupportedOutlookTaskList(TodoTaskList list)
         => list.IsOwner != false && list.IsShared != true && list.WellknownListName != WellknownListName.FlaggedEmails;
@@ -581,7 +1015,12 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return task;
     }
 
-    private static TodoTask BuildRemoteTask(AccountTask task)
+    /// <summary>
+    /// Builds the Graph payload for a task. Checklist items may only travel inline on a
+    /// task POST; a PATCH carrying them is rejected, so updates must leave them out and
+    /// use the checklistItems child collection instead.
+    /// </summary>
+    private static TodoTask BuildRemoteTask(AccountTask task, bool includeChecklistItems, bool includeIdentity = false)
         => new()
         {
             Title = task.Title,
@@ -589,13 +1028,48 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             Status = task.IsCompleted ? GraphTaskStatus.Completed : GraphTaskStatus.NotStarted,
             Importance = task.IsImportant ? Microsoft.Graph.Models.Importance.High : Microsoft.Graph.Models.Importance.Normal,
             DueDateTime = task.DueDate is DateTime due ? new DateTimeTimeZone { DateTime = due.ToString("yyyy-MM-ddT00:00:00", GlobalizationCultureInfo.InvariantCulture), TimeZone = "UTC" } : null,
-            ChecklistItems = task.Steps?.OrderBy(step => step.Order).Select(step => new ChecklistItem
-            {
-                Id = step.RemoteId,
-                DisplayName = step.Title,
-                IsChecked = step.IsCompleted
-            }).ToList()
+            ChecklistItems = includeChecklistItems
+                ? task.Steps?.OrderBy(step => step.Order).Select(step => new ChecklistItem
+                {
+                    Id = step.RemoteId,
+                    DisplayName = step.Title,
+                    IsChecked = step.IsCompleted
+                }).ToList()
+                : null,
+            Extensions = includeIdentity
+                ?
+                [
+                    new OpenTypeExtension
+                    {
+                        ExtensionName = WinoTaskExtensionName,
+                        AdditionalData = new Dictionary<string, object>
+                        {
+                            [WinoTaskLocalIdProperty] = task.Id.ToString("D")
+                        }
+                    }
+                ]
+                : null
         };
+
+    private static Guid? GetWinoTaskId(TodoTask task)
+    {
+        foreach (var extension in task?.Extensions?.OfType<OpenTypeExtension>() ?? [])
+        {
+            if (!string.Equals(extension.ExtensionName, WinoTaskExtensionName, StringComparison.Ordinal) &&
+                !string.Equals(extension.Id, WinoTaskExtensionName, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            if (extension.AdditionalData?.TryGetValue(WinoTaskLocalIdProperty, out var value) == true &&
+                Guid.TryParse(value?.ToString(), out var localTaskId))
+            {
+                return localTaskId;
+            }
+        }
+
+        return null;
+    }
 
     private static DateTime? ParseGraphDate(string value)
         => DateTime.TryParse(value, GlobalizationCultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out var parsed)

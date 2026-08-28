@@ -13,81 +13,113 @@ using Wino.Mail.ViewModels.Data;
 namespace Wino.Mail.WinUI.Selectors;
 
 /// <summary>
-/// Maps a navigation menu item to the template that renders it. Templates are looked up by
-/// key at selection time rather than wired as properties, so each mode's template dictionary
-/// can be merged into the application resources the first time that mode is opened.
+/// Maps a navigation menu item to one of the templates supplied by the shell's resource dictionary.
 /// </summary>
 public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
 {
-    protected override DataTemplate? SelectTemplateCore(object item) => Resolve(GetTemplateKey(item));
+    public DataTemplate? SeperatorTemplate { get; set; }
+    public DataTemplate? ShellSectionHeaderTemplate { get; set; }
+    public DataTemplate? RatingItemTemplate { get; set; }
+    public DataTemplate? SettingsShellSectionItemTemplate { get; set; }
+    public DataTemplate? SettingsShellPageItemTemplate { get; set; }
+    public DataTemplate? SettingsShellWinoAccountItemTemplate { get; set; }
+    public DataTemplate? SettingsShellWinoIntelligenceItemTemplate { get; set; }
+    public DataTemplate? CalendarDatePickerTemplate { get; set; }
+    public DataTemplate? CalendarSyncTemplate { get; set; }
+    public DataTemplate? AccountCalendarGroupTemplate { get; set; }
+    public DataTemplate? CalendarNewEventTemplate { get; set; }
+    public DataTemplate? NewContactTemplate { get; set; }
+    public DataTemplate? ContactsSyncTemplate { get; set; }
+    public DataTemplate? NewAddressListTemplate { get; set; }
+    public DataTemplate? NewTaskListTemplate { get; set; }
+    public DataTemplate? ToDoSyncTemplate { get; set; }
+    public DataTemplate? MyDayTaskTemplate { get; set; }
+    public DataTemplate? PlannedTaskTemplate { get; set; }
+    public DataTemplate? ImportantTaskTemplate { get; set; }
+    public DataTemplate? SharedAccountMenuTemplate { get; set; }
+    public DataTemplate? SharedCompactAccountMenuTemplate { get; set; }
+    public DataTemplate? AccountTaskListGroupTemplate { get; set; }
+    public DataTemplate? AccountTaskListTemplate { get; set; }
+    public DataTemplate? ContactAccountFilterTemplate { get; set; }
+    public DataTemplate? ContactFilterTemplate { get; set; }
+    public DataTemplate? CreateNewMailTemplate { get; set; }
+    public DataTemplate? MergedAccountTemplate { get; set; }
+    public DataTemplate? MergedAccountMoreFolderItemTemplate { get; set; }
+    public DataTemplate? MergedAccountFolderMenuItemTemplate { get; set; }
+    public DataTemplate? MailCategoryMenuTemplate { get; set; }
+    public DataTemplate? MergedMailCategoryMenuTemplate { get; set; }
+    public DataTemplate? FolderMenuTemplate { get; set; }
+    public DataTemplate? FixMissingFolderConfigTemplate { get; set; }
+    public DataTemplate? FixAuthenticationIssueTemplate { get; set; }
+
+    protected override DataTemplate? SelectTemplateCore(object item) => GetTemplate(item);
 
     protected override DataTemplate? SelectTemplateCore(object item, DependencyObject container) => SelectTemplateCore(item);
 
-    private static string? GetTemplateKey(object item) => item switch
+    private DataTemplate? GetTemplate(object item) => item switch
     {
         // Shared
-        SeperatorItem => "SeperatorTemplate",
-        ShellSectionHeaderMenuItem => "ShellSectionHeaderTemplate",
-        RateMenuItem => "RatingItemTemplate",
+        SeperatorItem => SeperatorTemplate,
+        ShellSectionHeaderMenuItem => ShellSectionHeaderTemplate,
+        RateMenuItem => RatingItemTemplate,
 
         // Settings
-        SettingsShellSectionMenuItem => "SettingsShellSectionItemTemplate",
-        SettingsShellPageMenuItem settingsShellPageMenuItem => GetSettingsPageTemplateKey(settingsShellPageMenuItem),
+        SettingsShellSectionMenuItem => SettingsShellSectionItemTemplate,
+        SettingsShellPageMenuItem settingsShellPageMenuItem => GetSettingsPageTemplate(settingsShellPageMenuItem),
 
         // Calendar
-        CalendarDatePickerMenuItem => "CalendarDatePickerTemplate",
-        CalendarSyncMenuItem => "CalendarSyncTemplate",
-        AccountCalendarGroupMenuItem => "AccountCalendarGroupTemplate",
-        NewCalendarEventMenuItem => "CalendarNewEventTemplate",
+        CalendarDatePickerMenuItem => CalendarDatePickerTemplate,
+        CalendarSyncMenuItem => CalendarSyncTemplate,
+        AccountCalendarGroupMenuItem => AccountCalendarGroupTemplate,
+        NewCalendarEventMenuItem => CalendarNewEventTemplate,
 
         // Contacts
-        NewContactMenuItem => "NewContactTemplate",
-        NewAddressListMenuItem => "NewAddressListTemplate",
-        NewTaskListMenuItem => "NewTaskListTemplate",
-        NewTaskListGroupMenuItem => "NewTaskListGroupTemplate",
-        MyDayTaskMenuItem => "MyDayTaskTemplate",
-        PlannedTaskMenuItem => "PlannedTaskTemplate",
-        ImportantTaskMenuItem => "ImportantTaskTemplate",
-        AccountTaskListAccountMenuItem => "AccountTaskListAccountTemplate",
-        AccountTaskListGroupMenuItem => "AccountTaskListGroupTemplate",
-        AccountTaskListMenuItem => "AccountTaskListTemplate",
-        ContactFilterViewModel { HasAccountIcon: true } => "ContactAccountFilterTemplate",
-        ContactFilterViewModel => "ContactFilterTemplate",
+        NewContactMenuItem => NewContactTemplate,
+        ContactsSyncMenuItem => ContactsSyncTemplate,
+        NewAddressListMenuItem => NewAddressListTemplate,
+        NewTaskListMenuItem => NewTaskListTemplate,
+        TaskSyncMenuItem => ToDoSyncTemplate,
+        MyDayTaskMenuItem => MyDayTaskTemplate,
+        PlannedTaskMenuItem => PlannedTaskTemplate,
+        ImportantTaskMenuItem => ImportantTaskTemplate,
+        AccountTaskListAccountMenuItem => GetAccountTemplate(),
+        AccountTaskListGroupMenuItem => AccountTaskListGroupTemplate,
+        AccountTaskListMenuItem => AccountTaskListTemplate,
+        ContactFilterViewModel { HasAccountIcon: true } => ContactAccountFilterTemplate,
+        ContactFilterViewModel => ContactFilterTemplate,
 
         // Mail. NewCalendarEventMenuItem derives from NewMailMenuItem, so it must be
         // matched before this arm is reached.
-        NewMailMenuItem => "CreateNewMailTemplate",
-        AccountMenuItem => IsCompactAccountMenuEnabled() ? "CompactClickableAccountMenuTemplate" : "ClickableAccountMenuTemplate",
-        MergedAccountMenuItem => "MergedAccountTemplate",
-        MergedAccountMoreFolderMenuItem => "MergedAccountMoreFolderItemTemplate",
-        MergedAccountFolderMenuItem => "MergedAccountFolderMenuItemTemplate",
-        MailCategoryMenuItem => "MailCategoryMenuTemplate",
-        MergedMailCategoryMenuItem => "MergedMailCategoryMenuTemplate",
-        FolderMenuItem => "FolderMenuTemplate",
+        NewMailMenuItem => CreateNewMailTemplate,
+        AccountMenuItem => GetAccountTemplate(),
+        MergedAccountMenuItem => MergedAccountTemplate,
+        MergedAccountMoreFolderMenuItem => MergedAccountMoreFolderItemTemplate,
+        MergedAccountFolderMenuItem => MergedAccountFolderMenuItemTemplate,
+        MailCategoryMenuItem => MailCategoryMenuTemplate,
+        MergedMailCategoryMenuItem => MergedMailCategoryMenuTemplate,
+        FolderMenuItem => FolderMenuTemplate,
         FixAccountIssuesMenuItem fixAccountIssuesMenuItem =>
             fixAccountIssuesMenuItem.Account.AttentionReason == AccountAttentionReason.MissingSystemFolderConfiguration
-                ? "FixMissingFolderConfigTemplate"
-                : "FixAuthenticationIssueTemplate",
+                ? FixMissingFolderConfigTemplate
+                : FixAuthenticationIssueTemplate,
 
         _ => null
     };
 
-    private static string GetSettingsPageTemplateKey(SettingsShellPageMenuItem item)
+    private DataTemplate? GetSettingsPageTemplate(SettingsShellPageMenuItem item)
     {
         if (string.Equals(item.Title, Translator.WinoAccount_SettingsSection_Title, System.StringComparison.Ordinal))
-            return "SettingsShellWinoAccountItemTemplate";
+            return SettingsShellWinoAccountItemTemplate;
 
         if (string.Equals(item.Title, Translator.WinoIntelligence_SettingsTitle, System.StringComparison.Ordinal))
-            return "SettingsShellWinoIntelligenceItemTemplate";
+            return SettingsShellWinoIntelligenceItemTemplate;
 
-        return "SettingsShellPageItemTemplate";
+        return SettingsShellPageItemTemplate;
     }
 
     private static bool IsCompactAccountMenuEnabled()
         => WinoApplication.Current.Services.GetRequiredService<IPreferencesService>().IsCompactAccountMenuItemEnabled;
 
-    private static DataTemplate? Resolve(string? key)
-        => key != null && Application.Current.Resources.TryGetValue(key, out var value)
-            ? value as DataTemplate
-            : null;
+    private DataTemplate? GetAccountTemplate()
+        => IsCompactAccountMenuEnabled() ? SharedCompactAccountMenuTemplate : SharedAccountMenuTemplate;
 }

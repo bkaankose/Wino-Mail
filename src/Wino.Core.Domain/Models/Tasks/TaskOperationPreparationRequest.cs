@@ -12,4 +12,6 @@ public sealed record TaskOperationPreparationRequest(
     AccountTaskStep Step = null,
     AccountTaskList OriginalList = null,
     AccountTask OriginalTask = null,
-    AccountTaskStep OriginalStep = null);
+    AccountTaskStep OriginalStep = null,
+    AccountTaskListGroup Group = null,
+    AccountTaskListGroup OriginalGroup = null);
