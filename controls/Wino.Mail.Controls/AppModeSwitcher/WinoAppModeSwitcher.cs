@@ -16,12 +16,11 @@ using Windows.UI.ViewManagement;
 namespace Wino.Mail.Controls.AppModeSwitcher;
 
 /// <summary>
-/// A strip of mutually exclusive modes with a separate settings affordance beside it.
+/// A strip of mutually exclusive modes with a settings affordance in the same pill.
 ///
-/// The two halves are deliberately not peers: the modes live inside a card and share a
-/// sliding selection tile, while settings sits outside the card as a quieter, smaller
-/// button. Choosing a mode and opening settings are different kinds of action, and the
-/// layout says so before anything is clicked.
+/// The shared surface groups the app's global destinations, while the interaction contract
+/// keeps settings distinct: modes share a sliding selection tile and raise
+/// <see cref="ModeInvoked"/>, while settings raises <see cref="SettingsInvoked"/>.
 ///
 /// The control carries no visual states. Every appearance change is applied from code and
 /// every transition is a Composition animation, so there is no storyboard and no
@@ -36,12 +35,11 @@ namespace Wino.Mail.Controls.AppModeSwitcher;
 [ContentProperty(Name = nameof(Items))]
 public sealed partial class WinoAppModeSwitcher : Control
 {
-    private const string ModeCardPartName = "PART_ModeCard";
+    private const string PillHostPartName = "PART_PillHost";
     private const string ModeHostPartName = "PART_ModeHost";
     private const string SelectionIndicatorPartName = "PART_SelectionIndicator";
     private const string SettingsButtonPartName = "PART_SettingsButton";
     private const string SettingsIconPartName = "PART_SettingsIcon";
-    private const string RailSeparatorPartName = "PART_RailSeparator";
 
     private const string NormalIconState = "Normal";
     private const string PointerOverIconState = "PointerOver";
@@ -71,12 +69,11 @@ public sealed partial class WinoAppModeSwitcher : Control
     private readonly UISettings _uiSettings = new();
     private readonly List<Border> _containers = [];
 
-    private Border? _modeCard;
+    private Grid? _pillHost;
     private Grid? _modeHost;
     private Border? _selectionIndicator;
     private Grid? _settingsButton;
     private AnimatedIcon? _settingsIcon;
-    private Border? _railSeparator;
     private bool _isTemplateApplied;
 
     /// <summary>
@@ -159,6 +156,7 @@ public sealed partial class WinoAppModeSwitcher : Control
         DefaultStyleKey = typeof(WinoAppModeSwitcher);
 
         Items.CollectionChanged += OnItemsChanged;
+        ActualThemeChanged += OnActualThemeChanged;
     }
 
     protected override void OnApplyTemplate()
@@ -167,12 +165,11 @@ public sealed partial class WinoAppModeSwitcher : Control
 
         DetachTemplateParts();
 
-        _modeCard = GetTemplateChild(ModeCardPartName) as Border;
+        _pillHost = GetTemplateChild(PillHostPartName) as Grid;
         _modeHost = GetTemplateChild(ModeHostPartName) as Grid;
         _selectionIndicator = GetTemplateChild(SelectionIndicatorPartName) as Border;
         _settingsButton = GetTemplateChild(SettingsButtonPartName) as Grid;
         _settingsIcon = GetTemplateChild(SettingsIconPartName) as AnimatedIcon;
-        _railSeparator = GetTemplateChild(RailSeparatorPartName) as Border;
 
         if (_modeHost is not null)
         {
@@ -203,7 +200,6 @@ public sealed partial class WinoAppModeSwitcher : Control
 
         RebuildItems();
         ApplyOrientation();
-        ApplySettingsVisibility();
         ApplySettingsSelection();
         ApplySettingsLabel();
 
@@ -281,7 +277,7 @@ public sealed partial class WinoAppModeSwitcher : Control
                 IsTabStop = true,
                 UseSystemFocusVisuals = true,
                 Tag = index,
-                Child = item.Icon
+                Child = GetIconForTheme(item)
             };
 
             AutomationProperties.SetName(container, item.Label);
@@ -299,6 +295,19 @@ public sealed partial class WinoAppModeSwitcher : Control
 
             _containers.Add(container);
             _modeHost.Children.Add(container);
+        }
+    }
+
+    private IconElement? GetIconForTheme(WinoAppModeSwitcherItem item)
+        => ActualTheme == ElementTheme.Light
+            ? item.LightThemeIcon ?? item.Icon
+            : item.Icon;
+
+    private void OnActualThemeChanged(FrameworkElement sender, object args)
+    {
+        for (var index = 0; index < _containers.Count && index < Items.Count; index++)
+        {
+            _containers[index].Child = GetIconForTheme(Items[index]);
         }
     }
 
@@ -358,8 +367,8 @@ public sealed partial class WinoAppModeSwitcher : Control
     #region Layout
 
     /// <summary>
-    /// The strip runs along one axis and the settings button follows the card on that same
-    /// axis, so the item host and the root grid are rebuilt together.
+    /// The modes and settings share one pill and run along the same axis, so both hosts are
+    /// rebuilt together when the orientation changes.
     /// </summary>
     private void ApplyOrientation()
     {
@@ -409,40 +418,34 @@ public sealed partial class WinoAppModeSwitcher : Control
             : double.NaN;
         _modeHost.Width = isVertical ? ItemExtent : double.NaN;
 
-        ApplyRootLayout(isVertical);
         ApplySettingsVisibility();
     }
 
     private void ApplyRootLayout(bool isVertical)
     {
-        if (_modeCard is null || _settingsButton is null || _railSeparator is null)
+        if (_pillHost is null || _settingsButton is null)
             return;
 
-        if (_modeCard.Parent is not Grid root)
-            return;
-
-        root.ColumnDefinitions.Clear();
-        root.RowDefinitions.Clear();
+        _pillHost.ColumnDefinitions.Clear();
+        _pillHost.RowDefinitions.Clear();
+        _pillHost.ColumnSpacing = 0d;
+        _pillHost.RowSpacing = isVertical && IsSettingsVisible ? VerticalItemSpacing : 0d;
 
         if (isVertical)
         {
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _pillHost.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            _pillHost.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-            SetCell(_modeCard, 0, 0);
-            SetCell(_railSeparator, 1, 0);
-            SetCell(_settingsButton, 2, 0);
+            SetCell(_modeHost, 0, 0);
+            SetCell(_settingsButton, 1, 0);
         }
         else
         {
-            root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            _pillHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            _pillHost.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-            SetCell(_modeCard, 0, 0);
-            SetCell(_railSeparator, 0, 1);
-            SetCell(_settingsButton, 0, 2);
+            SetCell(_modeHost, 0, 0);
+            SetCell(_settingsButton, 0, 1);
         }
     }
 
@@ -739,14 +742,7 @@ public sealed partial class WinoAppModeSwitcher : Control
             _settingsButton.Visibility = IsSettingsVisible ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        if (_railSeparator is not null)
-        {
-            // The separator only earns its place in the rail, where the gear sits under the
-            // card instead of beside it.
-            _railSeparator.Visibility = IsSettingsVisible && Orientation == Orientation.Vertical
-                ? Visibility.Visible
-                : Visibility.Collapsed;
-        }
+        ApplyRootLayout(Orientation == Orientation.Vertical);
     }
 
     private void ApplySettingsLabel()

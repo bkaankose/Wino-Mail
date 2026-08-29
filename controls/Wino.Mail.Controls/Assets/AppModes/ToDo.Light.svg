@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="182" height="182" viewBox="37 37 182 182" fill="none">
+  <title>To do</title>
+  <!-- Light-theme variant: the check background uses a dark neutral on the light control surface. -->
+  <defs>
+    <linearGradient id="todoCard" gradientUnits="userSpaceOnUse" x1="128" y1="72" x2="128" y2="184">
+      <stop offset="0" stop-color="#2d3436"/>
+      <stop offset="1" stop-color="#2d3436"/>
+    </linearGradient>
+    <linearGradient id="todoCheck" gradientUnits="userSpaceOnUse" x1="128" y1="98" x2="128" y2="158">
+      <stop offset="0" stop-color="#00B5FE"/>
+      <stop offset="1" stop-color="#009AF9"/>
+    </linearGradient>
+  </defs>
+  <rect x="72" y="72" width="112" height="112" rx="28" ry="28" fill="url(#todoCard)"/>
+  <path d="M97.5 128.5 L119 150 L157.1 106.5" fill="none" stroke="url(#todoCheck)" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

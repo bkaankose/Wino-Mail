@@ -18,6 +18,13 @@ public sealed partial class WinoAppModeSwitcherItem : DependencyObject
     public partial IconElement? Icon { get; set; }
 
     /// <summary>
+    /// Optional icon shown while the switcher uses the light theme. When omitted,
+    /// <see cref="Icon"/> is used for both themes.
+    /// </summary>
+    [GeneratedDependencyProperty]
+    public partial IconElement? LightThemeIcon { get; set; }
+
+    /// <summary>
     /// Tooltip and automation name for the item, e.g. "Mail".
     /// </summary>
     [GeneratedDependencyProperty(DefaultValue = "")]

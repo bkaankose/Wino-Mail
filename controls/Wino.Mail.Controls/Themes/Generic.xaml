@@ -394,104 +394,6 @@
             <Setter.Value>
                 <ControlTemplate TargetType="local:WinoSearchBar">
                     <Grid x:Name="PART_LayoutRoot">
-
-                        <!--
-                            The control only names the state it is in; every property that state
-                            implies is set here. Field chrome is one group of three mutually
-                            exclusive states rather than separate focus and semantic groups: two
-                            groups writing the same three properties would make the winner depend on
-                            which GoToState ran last, and Meaning has to win over focus.
-                        -->
-                        <VisualStateManager.VisualStateGroups>
-                            <VisualStateGroup x:Name="FieldStates">
-                                <VisualState x:Name="FieldRest" />
-                                <VisualState x:Name="FieldFocused">
-                                    <VisualState.Setters>
-                                        <!--  A focused Fluent text field thickens its bottom edge; here that edge is the whole border.  -->
-                                        <Setter Target="PART_FieldBorder.Background" Value="{ThemeResource WinoSearchBarFieldFocusedBackgroundBrush}" />
-                                        <Setter Target="PART_FieldBorder.BorderBrush" Value="{ThemeResource WinoSearchBarFieldFocusedBorderBrush}" />
-                                        <Setter Target="PART_FieldBorder.BorderThickness" Value="{ThemeResource WinoSearchBarFieldFocusedBorderThickness}" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                                <VisualState x:Name="FieldMeaning">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_FieldBorder.Background" Value="{ThemeResource WinoSearchBarSemanticBackgroundBrush}" />
-                                        <Setter Target="PART_FieldBorder.BorderBrush" Value="{ThemeResource WinoSearchBarSemanticBorderBrush}" />
-                                        <Setter Target="PART_FieldBorder.BorderThickness" Value="1" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="LayoutStates">
-                                <VisualState x:Name="WideLayout" />
-                                <VisualState x:Name="CompactLayout">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_CompactButton.Visibility" Value="Visible" />
-                                        <Setter Target="PART_CompactFieldHost.Visibility" Value="Visible" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="ModeStates">
-                                <VisualState x:Name="MailMode" />
-                                <VisualState x:Name="SettingsMode">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_MailOptionsPanel.Visibility" Value="Collapsed" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="MeaningToggleStates">
-                                <VisualState x:Name="MeaningToggleVisible" />
-                                <VisualState x:Name="MeaningToggleCollapsed">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_MeaningToggleButton.Visibility" Value="Collapsed" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="SemanticBusyStates">
-                                <VisualState x:Name="SemanticIdle" />
-                                <VisualState x:Name="SemanticBusy">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_MeaningSparkle.Visibility" Value="Collapsed" />
-                                        <Setter Target="PART_SemanticBusyRing.Visibility" Value="Visible" />
-                                        <Setter Target="PART_SemanticBusyRing.IsActive" Value="True" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="SemanticExplanationStates">
-                                <VisualState x:Name="SemanticExplanationHidden" />
-                                <VisualState x:Name="SemanticExplanationVisible">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_SemanticExplanationPanel.Visibility" Value="Visible" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="SenderStates">
-                                <VisualState x:Name="NoSenderSelected" />
-                                <VisualState x:Name="SenderSelected">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_SenderToken.Visibility" Value="Visible" />
-                                        <Setter Target="PART_SenderSuggestBox.Visibility" Value="Collapsed" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="HistoryStates">
-                                <VisualState x:Name="HasHistory" />
-                                <VisualState x:Name="NoHistory">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_HistoryList.Visibility" Value="Collapsed" />
-                                        <Setter Target="PART_ClearHistoryButton.Visibility" Value="Collapsed" />
-                                        <Setter Target="PART_EmptyHistoryText.Visibility" Value="Visible" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-                        </VisualStateManager.VisualStateGroups>
-
                         <!--
                             TextControlThemeMinHeight (32px) is the stock AutoSuggestBox height. The bar
                             has to match it so it drops into the app TitleBar without growing the row.
@@ -914,6 +816,103 @@
                                 </Grid>
                             </Border>
                         </Popup>
+
+                        <!--
+                            The control only names the state it is in; every property that state
+                            implies is set here. Field chrome is one group of three mutually
+                            exclusive states rather than separate focus and semantic groups: two
+                            groups writing the same three properties would make the winner depend on
+                            which GoToState ran last, and Meaning has to win over focus.
+                        -->
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="FieldStates">
+                                <VisualState x:Name="FieldRest" />
+                                <VisualState x:Name="FieldFocused">
+                                    <VisualState.Setters>
+                                        <!--  A focused Fluent text field thickens its bottom edge; here that edge is the whole border.  -->
+                                        <Setter Target="PART_FieldBorder.Background" Value="{ThemeResource WinoSearchBarFieldFocusedBackgroundBrush}" />
+                                        <Setter Target="PART_FieldBorder.BorderBrush" Value="{ThemeResource WinoSearchBarFieldFocusedBorderBrush}" />
+                                        <Setter Target="PART_FieldBorder.BorderThickness" Value="{ThemeResource WinoSearchBarFieldFocusedBorderThickness}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="FieldMeaning">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_FieldBorder.Background" Value="{ThemeResource WinoSearchBarSemanticBackgroundBrush}" />
+                                        <Setter Target="PART_FieldBorder.BorderBrush" Value="{ThemeResource WinoSearchBarSemanticBorderBrush}" />
+                                        <Setter Target="PART_FieldBorder.BorderThickness" Value="1" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+
+                            <VisualStateGroup x:Name="LayoutStates">
+                                <VisualState x:Name="WideLayout" />
+                                <VisualState x:Name="CompactLayout">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_CompactButton.Visibility" Value="Visible" />
+                                        <Setter Target="PART_CompactFieldHost.Visibility" Value="Visible" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+
+                            <VisualStateGroup x:Name="ModeStates">
+                                <VisualState x:Name="MailMode" />
+                                <VisualState x:Name="SettingsMode">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_MailOptionsPanel.Visibility" Value="Collapsed" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+
+                            <VisualStateGroup x:Name="MeaningToggleStates">
+                                <VisualState x:Name="MeaningToggleVisible" />
+                                <VisualState x:Name="MeaningToggleCollapsed">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_MeaningToggleButton.Visibility" Value="Collapsed" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+
+                            <VisualStateGroup x:Name="SemanticBusyStates">
+                                <VisualState x:Name="SemanticIdle" />
+                                <VisualState x:Name="SemanticBusy">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_MeaningSparkle.Visibility" Value="Collapsed" />
+                                        <Setter Target="PART_SemanticBusyRing.Visibility" Value="Visible" />
+                                        <Setter Target="PART_SemanticBusyRing.IsActive" Value="True" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+
+                            <VisualStateGroup x:Name="SemanticExplanationStates">
+                                <VisualState x:Name="SemanticExplanationHidden" />
+                                <VisualState x:Name="SemanticExplanationVisible">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_SemanticExplanationPanel.Visibility" Value="Visible" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+
+                            <VisualStateGroup x:Name="SenderStates">
+                                <VisualState x:Name="NoSenderSelected" />
+                                <VisualState x:Name="SenderSelected">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_SenderToken.Visibility" Value="Visible" />
+                                        <Setter Target="PART_SenderSuggestBox.Visibility" Value="Collapsed" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+
+                            <VisualStateGroup x:Name="HistoryStates">
+                                <VisualState x:Name="HasHistory" />
+                                <VisualState x:Name="NoHistory">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_HistoryList.Visibility" Value="Collapsed" />
+                                        <Setter Target="PART_ClearHistoryButton.Visibility" Value="Collapsed" />
+                                        <Setter Target="PART_EmptyHistoryText.Visibility" Value="Visible" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
                     </Grid>
                 </ControlTemplate>
             </Setter.Value>
@@ -1833,9 +1832,8 @@
     </Style>
 
     <!--
-        The mode strip and the settings button are not peers. The modes share a card and a
-        sliding pill; settings sits outside that card, smaller and quieter, because opening
-        settings is not the same kind of action as choosing what the window shows.
+        The modes and settings share one card because they are the app's global destinations.
+        Settings remains a dedicated command rather than becoming another selectable mode.
 
         There are no visual states here on purpose. Selection, hover, press and orientation
         are all applied from WinoAppModeSwitcher and animated through the Composition API,
@@ -1853,14 +1851,14 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="appMode:WinoAppModeSwitcher">
-                    <Grid ColumnSpacing="6" RowSpacing="6">
-                        <Border
-                            x:Name="PART_ModeCard"
-                            Padding="3"
-                            Background="{ThemeResource WinoAppModeSwitcherCardBackgroundBrush}"
-                            BorderBrush="{ThemeResource WinoAppModeSwitcherCardBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8">
+                    <Border
+                        x:Name="PART_ModeCard"
+                        Padding="3"
+                        Background="{ThemeResource WinoAppModeSwitcherCardBackgroundBrush}"
+                        BorderBrush="{ThemeResource WinoAppModeSwitcherCardBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <Grid x:Name="PART_PillHost">
                             <!--  Item containers are created by the control, not templated.  -->
                             <Grid x:Name="PART_ModeHost">
                                 <!--
@@ -1880,39 +1878,30 @@
                                     CornerRadius="7"
                                     IsHitTestVisible="False" />
                             </Grid>
-                        </Border>
-                        <!--  Only earns its place in the vertical rail, where the gear sits under the card.  -->
-                        <Border
-                            x:Name="PART_RailSeparator"
-                            Width="24"
-                            Height="1"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Background="{ThemeResource WinoAppModeSwitcherSeparatorBrush}"
-                            Visibility="Collapsed" />
-                        <Grid
-                            x:Name="PART_SettingsButton"
-                            Width="28"
-                            Height="28"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
-                            Background="Transparent"
-                            CornerRadius="6"
-                            IsTabStop="True"
-                            UseSystemFocusVisuals="True">
-                            <AnimatedIcon
-                                x:Name="PART_SettingsIcon"
-                                Width="16"
-                                Height="16"
+                            <Grid
+                                x:Name="PART_SettingsButton"
+                                Width="30"
+                                Height="30"
                                 HorizontalAlignment="Center"
-                                VerticalAlignment="Center">
-                                <animatedVisuals:AnimatedSettingsVisualSource />
-                                <AnimatedIcon.FallbackIconSource>
-                                    <SymbolIconSource Symbol="Setting" />
-                                </AnimatedIcon.FallbackIconSource>
-                            </AnimatedIcon>
+                                VerticalAlignment="Center"
+                                Background="Transparent"
+                                CornerRadius="6"
+                                IsTabStop="True"
+                                UseSystemFocusVisuals="True">
+                                <AnimatedIcon
+                                    x:Name="PART_SettingsIcon"
+                                    Width="16"
+                                    Height="16"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center">
+                                    <animatedVisuals:AnimatedSettingsVisualSource />
+                                    <AnimatedIcon.FallbackIconSource>
+                                        <SymbolIconSource Symbol="Setting" />
+                                    </AnimatedIcon.FallbackIconSource>
+                                </AnimatedIcon>
+                            </Grid>
                         </Grid>
-                    </Grid>
+                    </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
