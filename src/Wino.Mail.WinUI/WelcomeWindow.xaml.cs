@@ -52,10 +52,7 @@ public sealed partial class WelcomeWindow : WindowEx, IWinoFrameProvider
         if (_allowClose || (Application.Current as App)?.IsExiting == true)
             return;
 
-        e.Cancel = true;
-
-        var windowManager = WinoApplication.Current.Services.GetService<IWinoWindowManager>();
-        windowManager?.HideWindow(this);
+        (Application.Current as App)?.ExitApplication();
     }
 
     public void AllowClose()

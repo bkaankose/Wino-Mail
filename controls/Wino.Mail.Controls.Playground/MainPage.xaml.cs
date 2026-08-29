@@ -23,6 +23,7 @@ public sealed partial class MainPage : Page
             "intelligenceHeader" => typeof(IntelligenceHeaderPage),
             "intelligenceProgress" => typeof(IntelligenceProgressPage),
             "synchronizationButton" => typeof(SynchronizationButtonPage),
+            "appModeSwitcher" => typeof(AppModeSwitcherPage),
             _ => typeof(AccountIconPage),
         };
 

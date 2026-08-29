@@ -41,6 +41,11 @@
     <Content Include="Assets\WinoIcons.ttf"
              TargetPath="Assets\WinoIcons.ttf"
              CopyToOutputDirectory="PreserveNewest" />
+    <!--
+      The app mode glyphs: each app icon with its tile removed. WinoAppModeSwitcher pairs
+      one with the matching tile brush from AppModeSwitcher\WinoAppModeTiles.xaml.
+    -->
+    <Content Include="Assets\AppModes\*.svg" CopyToOutputDirectory="PreserveNewest" />
     <InternalsVisibleTo Include="Wino.Mail.Controls.Tests" />
   </ItemGroup>
 </Project>

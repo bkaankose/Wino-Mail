@@ -48,6 +48,11 @@
                 Content="Synchronization button"
                 Icon="Refresh"
                 Tag="synchronizationButton" />
+            <NavigationViewItem
+                AutomationProperties.AutomationId="AppModeSwitcherNavigationItem"
+                Content="App mode switcher"
+                Icon="AllApps"
+                Tag="appModeSwitcher" />
         </NavigationView.MenuItems>
         <Frame x:Name="ContentFrame" />
     </NavigationView>

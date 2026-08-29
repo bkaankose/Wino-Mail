@@ -1,19 +1,33 @@
-using CommunityToolkit.WinUI.Controls;
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain;
+using Wino.Mail.Controls.AppModeSwitcher;
 
 namespace Wino.Mail.WinUI.Controls;
 
-public sealed partial class AppModeFooterSwitcherControl : Segmented
+/// <summary>
+/// Binds the pane footer switcher to the shell. The control underneath knows nothing about
+/// modes; this is where an index becomes a <see cref="WinoApplicationMode"/> and back.
+/// </summary>
+public sealed partial class AppModeFooterSwitcherControl : UserControl
 {
-    private const double VerticalItemExtent = 44;
+    /// <summary>
+    /// The modes the strip offers, in the order they appear. Settings is absent on purpose:
+    /// it is reached from the switcher's own settings button, not from a segment.
+    /// </summary>
+    private static readonly WinoApplicationMode[] Modes =
+    [
+        WinoApplicationMode.Mail,
+        WinoApplicationMode.Calendar,
+        WinoApplicationMode.Contacts,
+        WinoApplicationMode.Tasks
+    ];
+
     private readonly IStatePersistanceService _statePersistenceService;
     private readonly INavigationService _navigationService;
-    private bool _isUpdatingSelection;
 
     public static readonly DependencyProperty OrientationProperty = DependencyProperty.Register(
         nameof(Orientation),
@@ -37,13 +51,15 @@ public sealed partial class AppModeFooterSwitcherControl : Segmented
 
     private static void OnOrientationChanged(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs _)
     {
-        ((AppModeFooterSwitcherControl)dependencyObject).UpdateOrientationState();
+        ((AppModeFooterSwitcherControl)dependencyObject).Switcher.Orientation =
+            ((AppModeFooterSwitcherControl)dependencyObject).Orientation;
     }
 
     private void ControlLoaded(object sender, RoutedEventArgs e)
     {
         _statePersistenceService.StatePropertyChanged += StatePropertyChanged;
-        UpdateOrientationState();
+
+        Switcher.Orientation = Orientation;
         UpdateSelection(_statePersistenceService.ApplicationMode);
     }
 
@@ -51,6 +67,7 @@ public sealed partial class AppModeFooterSwitcherControl : Segmented
     {
         _statePersistenceService.StatePropertyChanged -= StatePropertyChanged;
     }
+
     private void StatePropertyChanged(object? sender, string propertyName)
     {
         if (propertyName != nameof(IStatePersistanceService.ApplicationMode))
@@ -59,19 +76,12 @@ public sealed partial class AppModeFooterSwitcherControl : Segmented
         DispatcherQueue.TryEnqueue(() => UpdateSelection(_statePersistenceService.ApplicationMode));
     }
 
-    private void ModeSegmentedControlSelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void ModeInvoked(object? sender, WinoAppModeInvokedEventArgs e)
     {
-        if (_isUpdatingSelection)
+        if (e.Index < 0 || e.Index >= Modes.Length)
             return;
 
-        var selectedMode = SelectedIndex switch
-        {
-            1 => WinoApplicationMode.Calendar,
-            2 => WinoApplicationMode.Contacts,
-            3 => WinoApplicationMode.Tasks,
-            4 => WinoApplicationMode.Settings,
-            _ => WinoApplicationMode.Mail
-        };
+        var selectedMode = Modes[e.Index];
 
         if (selectedMode == _statePersistenceService.ApplicationMode)
             return;
@@ -79,37 +89,21 @@ public sealed partial class AppModeFooterSwitcherControl : Segmented
         _navigationService.ChangeApplicationMode(selectedMode);
     }
 
-    private void UpdateSelection(WinoApplicationMode mode)
+    private void SettingsInvoked(object? sender, EventArgs e)
     {
-        _isUpdatingSelection = true;
-        SelectedIndex = mode switch
-        {
-            WinoApplicationMode.Calendar => 1,
-            WinoApplicationMode.Contacts => 2,
-            WinoApplicationMode.Tasks => 3,
-            WinoApplicationMode.Settings => 4,
-            _ => 0
-        };
-        _isUpdatingSelection = false;
+        if (_statePersistenceService.ApplicationMode == WinoApplicationMode.Settings)
+            return;
+
+        _navigationService.ChangeApplicationMode(WinoApplicationMode.Settings);
     }
 
-    private void UpdateOrientationState()
+    /// <summary>
+    /// Settings is not one of the modes, so it lights the settings button and leaves the
+    /// strip with nothing selected rather than borrowing a segment.
+    /// </summary>
+    private void UpdateSelection(WinoApplicationMode mode)
     {
-        foreach (var item in Items)
-        {
-            if (item is not SegmentedItem segmentedItem)
-                continue;
-
-            if (Orientation == Orientation.Vertical)
-            {
-                segmentedItem.Width = VerticalItemExtent;
-                segmentedItem.Height = VerticalItemExtent;
-            }
-            else
-            {
-                segmentedItem.ClearValue(WidthProperty);
-                segmentedItem.ClearValue(HeightProperty);
-            }
-        }
+        Switcher.SelectedIndex = Array.IndexOf(Modes, mode);
+        Switcher.IsSettingsSelected = mode == WinoApplicationMode.Settings;
     }
 }

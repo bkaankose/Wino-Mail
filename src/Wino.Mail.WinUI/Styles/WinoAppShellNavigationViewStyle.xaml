@@ -7,10 +7,6 @@
     xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
     xmlns:winoControls="using:Wino.Mail.WinUI.Controls">
 
-    <ItemsPanelTemplate x:Key="FooterAppModeSwitcherVerticalItemsPanelTemplate">
-        <StackPanel Orientation="Vertical" />
-    </ItemsPanelTemplate>
-
     <Style x:Key="WinoAppShellNavigationViewStyle" TargetType="controls:NavigationView">
         <Setter Property="PaneToggleButtonStyle" Value="{StaticResource PaneToggleButtonStyle}" />
         <Setter Property="IsTabStop" Value="False" />
@@ -402,13 +398,15 @@
                                                 VerticalContentAlignment="Stretch"
                                                 IsTabStop="False" />
 
+                                            <!--
+                                                A bare layout container: the card the modes sit in belongs to the
+                                                switcher itself, which is what lets its settings button sit outside
+                                                that card.
+                                            -->
                                             <Border
                                                 x:Name="FooterAppModeSwitcherBorder"
                                                 Grid.Row="3"
-                                                Margin="8,8,8,12"
-                                                Padding="8"
-                                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                                                CornerRadius="8">
+                                                Margin="8,8,8,12">
                                                 <winoControls:AppModeFooterSwitcherControl x:Name="FooterAppModeSwitcher" />
                                             </Border>
 
@@ -547,13 +545,8 @@
                                         <Setter Target="PaneAutoSuggestBoxPresenter.Visibility" Value="Collapsed" />
                                         <Setter Target="PaneAutoSuggestButton.Visibility" Value="Visible" />
                                         <Setter Target="PaneCustomContentBorder.Visibility" Value="Collapsed" />
-                                        <Setter Target="FooterAppModeSwitcher.ItemsPanel" Value="{StaticResource FooterAppModeSwitcherVerticalItemsPanelTemplate}" />
                                         <Setter Target="FooterAppModeSwitcher.Orientation" Value="Vertical" />
-                                        <Setter Target="FooterAppModeSwitcherBorder.Margin" Value="0" />
-                                        <Setter Target="FooterAppModeSwitcherBorder.Padding" Value="0" />
-                                        <Setter Target="FooterAppModeSwitcherBorder.Background" Value="Transparent" />
-                                        <Setter Target="FooterAppModeSwitcher.BorderThickness" Value="0" />
-                                        <Setter Target="FooterAppModeSwitcher.Background" Value="Transparent" />
+                                        <Setter Target="FooterAppModeSwitcherBorder.Margin" Value="0,8,0,12" />
                                     </VisualState.Setters>
                                 </VisualState>
                             </VisualStateGroup>

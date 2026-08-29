@@ -116,6 +116,10 @@
     <None Remove="Assets\UpdateNotes\Images\More.svg" />
     <None Remove="Assets\UpdateNotes\Images\Mail.svg" />
     <None Remove="Assets\UpdateNotes\Images\Customize.svg" />
+    <None Remove="Assets\AppEntries\Mail.svg" />
+    <None Remove="Assets\AppEntries\ToDo.svg" />
+    <None Remove="Assets\AppEntries\Calendar.svg" />
+    <None Remove="Assets\AppEntries\People.svg" />
     <None Remove="BackgroundImages\Acrylic.jpg" />
     <None Remove="BackgroundImages\Clouds.jpg" />
     <None Remove="BackgroundImages\Forest.jpg" />
@@ -165,6 +169,10 @@
     <Content Include="Assets\UpdateNotes\Images\More.svg" />
     <Content Include="Assets\UpdateNotes\Images\Mail.svg" />
     <Content Include="Assets\UpdateNotes\Images\Customize.svg" />
+    <Content Include="Assets\AppEntries\Mail.svg" />
+    <Content Include="Assets\AppEntries\ToDo.svg" />
+    <Content Include="Assets\AppEntries\Calendar.svg" />
+    <Content Include="Assets\AppEntries\People.svg" />
     <Content Include="Assets\Wino_Icon.ico" />
     <Content Include="Assets\WinoLogo.png" />
     <Content Include="BackgroundImages\Acrylic.jpg" />

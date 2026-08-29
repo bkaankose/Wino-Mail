@@ -31,7 +31,7 @@
                     Height="128"
                     Margin="0,0,0,12"
                     HorizontalAlignment="Center"
-                    Source="ms-appx:///Assets/AppEntries/MailAssets/StoreLogo.scale-400.png"
+                    Source="ms-appx:///Assets/AppEntries/Mail.svg"
                     Stretch="Uniform" />
                 <TextBlock
                     HorizontalAlignment="Center"

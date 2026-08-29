@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <title>Wino Calendar</title>
+  <defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="200" y2="200" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#007DE3"/><stop offset="1" stop-color="#0046AC"/>
+  </linearGradient>
+  <linearGradient id="paper" x1="0" y1="20" x2="0" y2="180" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#F1F5FB"/>
+  </linearGradient>
+  <linearGradient id="acc" x1="0" y1="50" x2="0" y2="160" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#00BCFF"/><stop offset="1" stop-color="#0090F7"/>
+  </linearGradient>
+  <filter id="sh" x="-30%" y="-30%" width="160%" height="180%">
+    <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#001B44" flood-opacity="0.34"/>
+  </filter>
+  <filter id="shs" x="-40%" y="-40%" width="180%" height="200%">
+    <feDropShadow dx="0" dy="2" stdDeviation="2.4" flood-color="#001B44" flood-opacity="0.38"/>
+  </filter>
+
+  <linearGradient id="hdr" x1="38.36317135549872" y1="30.17902813299233" x2="161.6368286445013" y2="48.593350383631716" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#4A93FD"/><stop offset="1" stop-color="#1A5AFE"/>
+  </linearGradient>
+  <linearGradient id="ring" x1="0" y1="23.529411764705884" x2="0" y2="40.92071611253198" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#E2E4E7"/><stop offset="1" stop-color="#CDD0D5"/>
+  </linearGradient>
+  <clipPath id="page"><rect x="38.363" y="30.179" width="123.274" height="120.716" rx="6.138"/></clipPath>
+</defs>
+  <rect x="0" y="0" width="200" height="200" rx="45.5" fill="url(#bg)"/>
+
+  <g filter="url(#shs)"><rect x="61.637" y="23.529" width="6.138" height="17.391" rx="3.069" fill="url(#ring)"/><rect x="96.419" y="23.529" width="6.138" height="17.391" rx="3.069" fill="url(#ring)"/><rect x="131.202" y="23.529" width="6.138" height="17.391" rx="3.069" fill="url(#ring)"/></g>
+  <g filter="url(#sh)">
+    <rect x="38.363" y="30.179" width="123.274" height="120.716" rx="6.138" fill="url(#paper)"/>
+    <g clip-path="url(#page)">
+      <rect x="38.363" y="30.179" width="123.274" height="18.414" fill="url(#hdr)"/>
+    </g>
+  </g>
+  <g><rect x="71.739" y="61.893" width="16.368" height="12.276" rx="2.558" fill="#D1E3FD"/><rect x="91.816" y="61.893" width="16.368" height="12.276" rx="2.558" fill="#D1E2FD"/><rect x="111.893" y="61.893" width="16.368" height="12.276" rx="2.558" fill="#71B9FD"/><rect x="131.969" y="61.893" width="16.368" height="12.276" rx="2.558" fill="#7DDDFD"/><rect x="51.662" y="76.854" width="16.368" height="12.276" rx="2.558" fill="#D4E4FD"/><rect x="71.739" y="76.854" width="16.368" height="12.276" rx="2.558" fill="#D0E3FD"/><rect x="91.816" y="76.854" width="16.368" height="12.276" rx="2.558" fill="#2684FD"/><rect x="111.893" y="76.854" width="16.368" height="12.276" rx="2.558" fill="#63BBFD"/><rect x="131.969" y="76.854" width="16.368" height="12.276" rx="2.558" fill="#52DBFD"/><rect x="51.662" y="91.816" width="16.368" height="12.276" rx="2.558" fill="#84C4FC"/><rect x="71.739" y="91.816" width="16.368" height="12.276" rx="2.558" fill="#2685FD"/><rect x="91.816" y="91.816" width="16.368" height="12.276" rx="2.558" fill="#5DAFFE"/><rect x="111.893" y="91.816" width="16.368" height="12.276" rx="2.558" fill="#65B6FD"/><rect x="131.969" y="91.816" width="16.368" height="12.276" rx="2.558" fill="#6CD9FD"/><rect x="51.662" y="106.777" width="16.368" height="12.276" rx="2.558" fill="#44C4FD"/><rect x="71.739" y="106.777" width="16.368" height="12.276" rx="2.558" fill="#1574FE"/><rect x="91.816" y="106.777" width="16.368" height="12.276" rx="2.558" fill="#CBDEFD"/><rect x="111.893" y="106.777" width="16.368" height="12.276" rx="2.558" fill="#C8DBFD"/><rect x="131.969" y="106.777" width="16.368" height="12.276" rx="2.558" fill="#CDDDFD"/><rect x="51.662" y="121.739" width="16.368" height="12.276" rx="2.558" fill="#97D4FD"/><rect x="71.739" y="121.739" width="16.368" height="12.276" rx="2.558" fill="#C9DDFD"/><rect x="91.816" y="121.739" width="16.368" height="12.276" rx="2.558" fill="#CBDEFD"/><rect x="111.893" y="121.739" width="16.368" height="12.276" rx="2.558" fill="#CBDDFD"/><rect x="131.969" y="121.739" width="16.368" height="12.276" rx="2.558" fill="#CBE0FD"/></g>
+  <g filter="url(#shs)"><rect x="61.637" y="23.529" width="6.138" height="17.391" rx="3.069" fill="url(#ring)"/><rect x="96.419" y="23.529" width="6.138" height="17.391" rx="3.069" fill="url(#ring)"/><rect x="131.202" y="23.529" width="6.138" height="17.391" rx="3.069" fill="url(#ring)"/></g>
+
+</svg>

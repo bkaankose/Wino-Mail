@@ -462,7 +462,7 @@ public partial class App : WinoApplication,
         return Task.CompletedTask;
     }
 
-    private void ExitApplication()
+    internal void ExitApplication()
     {
         if (_isExiting)
             return;

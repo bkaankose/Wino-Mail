@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="182" height="182" viewBox="37 37 182 182" fill="none">
+  <title>Wino To Do</title>
+  <defs>
+    <!-- App tile background: 45deg gradient, top-left -> bottom-right -->
+    <linearGradient id="todoTile" gradientUnits="userSpaceOnUse" x1="37" y1="37" x2="219" y2="219">
+      <stop offset="0" stop-color="#007DE3"/>
+      <stop offset="1" stop-color="#0046AC"/>
+    </linearGradient>
+    <!-- Card: vertical gradient -->
+    <linearGradient id="todoCard" gradientUnits="userSpaceOnUse" x1="128" y1="72" x2="128" y2="184">
+      <stop offset="0" stop-color="#FEFEFF"/>
+      <stop offset="1" stop-color="#F2F6FC"/>
+    </linearGradient>
+    <!-- Check: vertical gradient -->
+    <linearGradient id="todoCheck" gradientUnits="userSpaceOnUse" x1="128" y1="98" x2="128" y2="158">
+      <stop offset="0" stop-color="#00B5FE"/>
+      <stop offset="1" stop-color="#009AF9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle tile (continuous-curvature corners) -->
+  <path fill="url(#todoTile)"
+        d="M80.91 37 H175.09
+           C185.31 37 197.53 39.11 207.21 48.79
+           C216.89 58.47 219 70.69 219 80.91
+           V175.09
+           C219 185.31 216.89 197.53 207.21 207.21
+           C197.53 216.89 185.31 219 175.09 219
+           H80.91
+           C70.69 219 58.47 216.89 48.79 207.21
+           C39.11 197.53 37 185.31 37 175.09
+           V80.91
+           C37 70.69 39.11 58.47 48.79 48.79
+           C58.47 39.11 70.69 37 80.91 37 Z"/>
+
+  <!-- Card -->
+  <rect x="72" y="72" width="112" height="112" rx="28" ry="28" fill="url(#todoCard)"/>
+
+  <!-- Check mark -->
+  <path d="M97.5 128.5 L119 150 L157.1 106.5"
+        fill="none"
+        stroke="url(#todoCheck)"
+        stroke-width="17"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>

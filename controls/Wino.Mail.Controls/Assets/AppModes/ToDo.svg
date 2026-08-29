@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="182" height="182" viewBox="37 37 182 182" fill="none">
+  <title>To do</title>
+  <!--
+    The Wino To Do app icon with its tile removed. The viewBox is the tile's, so the card
+    lands exactly where the app icon has it once the switcher paints the tile behind it.
+  -->
+  <defs>
+    <!-- Card: vertical gradient -->
+    <linearGradient id="todoCard" gradientUnits="userSpaceOnUse" x1="128" y1="72" x2="128" y2="184">
+      <stop offset="0" stop-color="#FEFEFF"/>
+      <stop offset="1" stop-color="#F2F6FC"/>
+    </linearGradient>
+    <!-- Check: vertical gradient -->
+    <linearGradient id="todoCheck" gradientUnits="userSpaceOnUse" x1="128" y1="98" x2="128" y2="158">
+      <stop offset="0" stop-color="#00B5FE"/>
+      <stop offset="1" stop-color="#009AF9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Card -->
+  <rect x="72" y="72" width="112" height="112" rx="28" ry="28" fill="url(#todoCard)"/>
+
+  <!-- Check mark -->
+  <path d="M97.5 128.5 L119 150 L157.1 106.5"
+        fill="none"
+        stroke="url(#todoCheck)"
+        stroke-width="17"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+</svg>

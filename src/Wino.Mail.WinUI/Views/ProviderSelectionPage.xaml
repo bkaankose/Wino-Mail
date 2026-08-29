@@ -7,10 +7,10 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:winoctrl="using:Wino.Controls"
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:winoctrl="using:Wino.Controls"
     x:Name="root"
     mc:Ignorable="d">
 
@@ -20,852 +20,867 @@
         HorizontalAlignment="Stretch"
         Spacing="20">
 
-            <StackPanel Spacing="6">
-                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Title}" />
+        <StackPanel Spacing="6">
+            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.ProviderSelection_Title}" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource BodyTextBlockStyle}"
+                Text="{x:Bind domain:Translator.ProviderSelection_Subtitle}" />
+
+            <StackPanel Margin="0,8,0,0" Spacing="8">
                 <TextBlock
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource BodyTextBlockStyle}"
-                    Text="{x:Bind domain:Translator.ProviderSelection_Subtitle}" />
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind ViewModel.StepProgressText, Mode=OneWay}" />
+                <ProgressBar
+                    Maximum="7"
+                    Minimum="0"
+                    Value="{x:Bind ViewModel.StepProgressValue, Mode=OneWay}" />
+            </StackPanel>
+        </StackPanel>
 
-                <StackPanel Margin="0,8,0,0" Spacing="8">
+        <Border
+            x:Name="ProviderStepPanel"
+            Padding="12"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{x:Bind ViewModel.IsProviderStepVisible, Mode=OneWay}">
+            <StackPanel Spacing="12">
+                <StackPanel Spacing="2">
+                    <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_ProviderSectionTitle, Mode=OneTime}" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind ViewModel.StepProgressText, Mode=OneWay}" />
-                    <ProgressBar
-                        Maximum="7"
-                        Minimum="0"
-                        Value="{x:Bind ViewModel.StepProgressValue, Mode=OneWay}" />
+                        Text="{x:Bind domain:Translator.ProviderSelection_ProviderSectionDescription, Mode=OneTime}"
+                        TextWrapping="WrapWholeWords" />
                 </StackPanel>
+
+                <ItemsView
+                    HorizontalContentAlignment="Stretch"
+                    ItemsSource="{x:Bind ViewModel.Providers, Mode=OneWay}"
+                    SelectionChanged="ProviderSelectionChanged"
+                    SelectionMode="Single">
+                    <ItemsView.ItemTemplate>
+                        <DataTemplate x:DataType="interfaces:IProviderDetail">
+                            <ItemContainer
+                                Padding="12,10"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.HelpText="{x:Bind Description}"
+                                AutomationProperties.Name="{x:Bind Name}">
+                                <Grid Padding="16" ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Image
+                                        Width="32"
+                                        Height="32"
+                                        Source="{x:Bind ProviderImage}" />
+
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Spacing="2">
+                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind Name}" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind Description}"
+                                            TextWrapping="WrapWholeWords" />
+                                    </StackPanel>
+                                </Grid>
+                            </ItemContainer>
+                        </DataTemplate>
+                    </ItemsView.ItemTemplate>
+                </ItemsView>
             </StackPanel>
+        </Border>
 
-            <Border
-                x:Name="ProviderStepPanel"
-                Padding="12"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Visibility="{x:Bind ViewModel.IsProviderStepVisible, Mode=OneWay}">
-                <StackPanel Spacing="12">
-                    <StackPanel Spacing="2">
-                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_ProviderSectionTitle, Mode=OneTime}" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.ProviderSelection_ProviderSectionDescription, Mode=OneTime}"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-
-                    <ItemsView
-                        HorizontalContentAlignment="Stretch"
-                        ItemsSource="{x:Bind ViewModel.Providers, Mode=OneWay}"
-                        SelectionChanged="ProviderSelectionChanged"
-                        SelectionMode="Single">
-                        <ItemsView.ItemTemplate>
-                            <DataTemplate x:DataType="interfaces:IProviderDetail">
-                                <ItemContainer
-                                    Padding="12,10"
-                                    HorizontalAlignment="Stretch"
-                                    AutomationProperties.HelpText="{x:Bind Description}"
-                                    AutomationProperties.Name="{x:Bind Name}">
-                                    <Grid Padding="16" ColumnSpacing="12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <Image
-                                            Width="32"
-                                            Height="32"
-                                            Source="{x:Bind ProviderImage}" />
-
-                                        <StackPanel
-                                            Grid.Column="1"
-                                            VerticalAlignment="Center"
-                                            Spacing="2">
-                                            <TextBlock FontWeight="SemiBold" Text="{x:Bind Name}" />
-                                            <TextBlock
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind Description}"
-                                                TextWrapping="WrapWholeWords" />
-                                        </StackPanel>
-                                    </Grid>
-                                </ItemContainer>
-                            </DataTemplate>
-                        </ItemsView.ItemTemplate>
-                    </ItemsView>
+        <Border
+            x:Name="IdentityStepPanel"
+            Padding="12"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{x:Bind ViewModel.IsIdentityStepVisible, Mode=OneWay}">
+            <StackPanel Spacing="16">
+                <StackPanel Spacing="2">
+                    <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_IdentityTitle, Mode=OneTime}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ProviderSelection_IdentityDescription, Mode=OneTime}"
+                        TextWrapping="WrapWholeWords" />
                 </StackPanel>
-            </Border>
 
-            <Border
-                x:Name="IdentityStepPanel"
-                Padding="12"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Visibility="{x:Bind ViewModel.IsIdentityStepVisible, Mode=OneWay}">
-                <StackPanel Spacing="16">
-                    <StackPanel Spacing="2">
-                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_IdentityTitle, Mode=OneTime}" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.ProviderSelection_IdentityDescription, Mode=OneTime}"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-
-                    <Border
-                        Padding="12"
-                        Background="{ThemeResource LayerFillColorDefaultBrush}"
-                        CornerRadius="8">
-                        <Grid ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-
-                            <Image
-                                Width="28"
-                                Height="28"
-                                VerticalAlignment="Center"
-                                Source="{x:Bind helpers:XamlHelpers.StringToBitmapImage(ViewModel.SelectedProviderImage), Mode=OneWay}" />
-
-                            <StackPanel Grid.Column="1" Spacing="2">
-                                <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectedProviderName, Mode=OneWay}" />
-                                <TextBlock
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind ViewModel.SelectedProviderDescription, Mode=OneWay}"
-                                    TextWrapping="WrapWholeWords" />
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-
+                <Border
+                    Padding="12"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}"
+                    CornerRadius="8">
                     <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBox
-                            AutomationProperties.AutomationId="ProviderSelectionPageTextBox"
-                            Header="{x:Bind domain:Translator.ProviderSelection_AccountNameHeader, Mode=OneTime}"
-                            PlaceholderText="{x:Bind domain:Translator.ProviderSelection_AccountNamePlaceholder, Mode=OneTime}"
-                            Text="{x:Bind ViewModel.AccountName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Image
+                            Width="28"
+                            Height="28"
+                            VerticalAlignment="Center"
+                            Source="{x:Bind helpers:XamlHelpers.StringToBitmapImage(ViewModel.SelectedProviderImage), Mode=OneWay}" />
 
-                        <Button
-                            AutomationProperties.AutomationId="XBindDomainTranslatorAccountDetailsPageColorPickerTitleModeOneTime"
-                            Grid.Column="1"
-                            Padding="12,8"
-                            VerticalAlignment="Bottom"
-                            AutomationProperties.HelpText="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Description, Mode=OneTime}"
-                            AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.ProviderSelection_ClearColor, Mode=OneTime}">
-                            <Grid>
-                                <FontIcon
-                                    FontSize="16"
-                                    Glyph="&#xE771;"
-                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
-                                <Ellipse
-                                    Width="16"
-                                    Height="16"
-                                    Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
-                                    Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
-                            </Grid>
-                            <Button.Flyout>
-                                <Flyout x:Name="AccountColorFlyout" Placement="TopEdgeAlignedLeft">
-                                    <StackPanel Spacing="8">
-                                        <GridView
-                                            AutomationProperties.AutomationId="AccountColorGridView"
-                                            x:Name="AccountColorGridView"
-                                            Width="150"
-                                            AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
-                                            ItemTemplate="{StaticResource AccountColorTemplate}"
-                                            ItemsSource="{x:Bind ViewModel.AvailableColors, Mode=OneWay}"
-                                            SelectedItem="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}" />
-                                        <HyperlinkButton
-                                            AutomationProperties.AutomationId="ProviderSelectionPageHyperlinkButton"
-                                            HorizontalAlignment="Center"
-                                            Command="{x:Bind ViewModel.ClearColorCommand}"
-                                            Content="{x:Bind domain:Translator.ProviderSelection_ClearColor, Mode=OneTime}"
-                                            Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
-                                    </StackPanel>
-                                </Flyout>
-                            </Button.Flyout>
-                        </Button>
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectedProviderName, Mode=OneWay}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.SelectedProviderDescription, Mode=OneWay}"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
                     </Grid>
-                </StackPanel>
-            </Border>
+                </Border>
 
-            <Border
-                x:Name="CapabilityAccountStrip"
-                Padding="12"
-                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Visibility="{x:Bind ViewModel.IsCapabilityFlowVisible, Mode=OneWay}">
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <Image
-                        Width="28"
-                        Height="28"
-                        VerticalAlignment="Center"
-                        Source="{x:Bind helpers:XamlHelpers.StringToBitmapImage(ViewModel.SelectedProviderImage), Mode=OneWay}" />
+                    <TextBox
+                        AutomationProperties.AutomationId="ProviderSelectionPageTextBox"
+                        Header="{x:Bind domain:Translator.ProviderSelection_AccountNameHeader, Mode=OneTime}"
+                        PlaceholderText="{x:Bind domain:Translator.ProviderSelection_AccountNamePlaceholder, Mode=OneTime}"
+                        Text="{x:Bind ViewModel.AccountName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectedProviderName, Mode=OneWay}" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind ViewModel.AccountName, Mode=OneWay}"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
+                    <Button
+                        Grid.Column="1"
+                        Padding="12,8"
+                        VerticalAlignment="Bottom"
+                        AutomationProperties.AutomationId="XBindDomainTranslatorAccountDetailsPageColorPickerTitleModeOneTime"
+                        AutomationProperties.HelpText="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Description, Mode=OneTime}"
+                        AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.ProviderSelection_ClearColor, Mode=OneTime}">
+                        <Grid>
+                            <FontIcon
+                                FontSize="16"
+                                Glyph="&#xE771;"
+                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
+                            <Ellipse
+                                Width="16"
+                                Height="16"
+                                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
+                        </Grid>
+                        <Button.Flyout>
+                            <Flyout x:Name="AccountColorFlyout" Placement="TopEdgeAlignedLeft">
+                                <StackPanel Spacing="8">
+                                    <GridView
+                                        x:Name="AccountColorGridView"
+                                        Width="150"
+                                        AutomationProperties.AutomationId="AccountColorGridView"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
+                                        ItemTemplate="{StaticResource AccountColorTemplate}"
+                                        ItemsSource="{x:Bind ViewModel.AvailableColors, Mode=OneWay}"
+                                        SelectedItem="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}" />
+                                    <HyperlinkButton
+                                        HorizontalAlignment="Center"
+                                        AutomationProperties.AutomationId="ProviderSelectionPageHyperlinkButton"
+                                        Command="{x:Bind ViewModel.ClearColorCommand}"
+                                        Content="{x:Bind domain:Translator.ProviderSelection_ClearColor, Mode=OneTime}"
+                                        Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
                 </Grid>
-            </Border>
+            </StackPanel>
+        </Border>
 
-            <Border
-                x:Name="MailStepPanel"
-                Padding="12"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Visibility="{x:Bind ViewModel.IsMailStepVisible, Mode=OneWay}">
-                <StackPanel Spacing="16">
-                    <StackPanel HorizontalAlignment="Center" Spacing="8">
-                        <Image
-                            Width="72"
-                            Height="72"
-                            AutomationProperties.AccessibilityView="Raw"
-                            Source="ms-appx:///Assets/AppEntries/MailAssets/StoreLogo.scale-400.png"
-                            Stretch="Uniform">
-                            <Image.Transitions>
-                                <TransitionCollection>
-                                    <EntranceThemeTransition FromHorizontalOffset="40" IsStaggeringEnabled="False" />
-                                </TransitionCollection>
-                            </Image.Transitions>
-                        </Image>
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            Style="{StaticResource SubtitleTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.ProviderSelection_MailStepTitle, Mode=OneTime}"
-                            TextAlignment="Center"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <winoctrl:CapabilityChoiceCard
-                            AutomationProperties.AutomationId="ProviderSelectionMailProviderChoice"
-                            Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
-                            CommandParameter="Mail:Provider"
-                            Description="{x:Bind ViewModel.MailProviderChoiceDescription, Mode=OneWay}"
-                            Glyph="&#xE753;"
-                            IsRecommended="True"
-                            IsSelected="{x:Bind ViewModel.IsMailChoiceProvider, Mode=OneWay}"
-                            Title="{x:Bind ViewModel.MailProviderChoiceTitle, Mode=OneWay}" />
-
-                        <winoctrl:CapabilityChoiceCard
-                            AutomationProperties.AutomationId="ProviderSelectionMailOffChoice"
-                            Grid.Column="1"
-                            Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
-                            CommandParameter="Mail:Off"
-                            Description="{x:Bind ViewModel.MailOffConsequenceText, Mode=OneWay}"
-                            Glyph="&#xE738;"
-                            IsSelected="{x:Bind ViewModel.IsMailChoiceOff, Mode=OneWay}"
-                            Title="{x:Bind domain:Translator.ProviderSelection_Choice_Off, Mode=OneTime}" />
-                    </Grid>
-
-                    <Grid ColumnSpacing="8" Visibility="{x:Bind ViewModel.IsMailSynchronizationRangeVisible, Mode=OneWay}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock
-                            VerticalAlignment="Center"
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.ProviderSelection_MailRangeHeader, Mode=OneTime}"
-                            TextWrapping="WrapWholeWords" />
-                        <ComboBox
-                            AutomationProperties.AutomationId="ProviderSelectionMailSynchronizationRange"
-                            Grid.Column="1"
-                            MinWidth="130"
-                            AutomationProperties.Name="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title, Mode=OneTime}"
-                            ItemsSource="{x:Bind ViewModel.InitialSynchronizationRanges, Mode=OneWay}"
-                            SelectedItem="{x:Bind ViewModel.SelectedInitialSynchronizationRange, Mode=TwoWay}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="accounts:InitialSynchronizationRangeOption">
-                                    <TextBlock Text="{x:Bind DisplayText}" />
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </Grid>
-
-                    <muxc:InfoBar
-                        AutomationProperties.AutomationId="ProviderSelectionMailSynchronizationWarning"
-                        Title="{x:Bind domain:Translator.GeneralTitle_Warning, Mode=OneTime}"
-                        IsClosable="False"
-                        IsOpen="True"
-                        Message="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_EverythingWarning, Mode=OneTime}"
-                        Severity="Warning"
-                        Visibility="{x:Bind ViewModel.IsInitialSynchronizationWarningVisible, Mode=OneWay}" />
-
-                </StackPanel>
-            </Border>
-
-            <Border
-                x:Name="CalendarStepPanel"
-                Padding="12"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Visibility="{x:Bind ViewModel.IsCalendarStepVisible, Mode=OneWay}">
-                <StackPanel Spacing="16">
-                    <StackPanel HorizontalAlignment="Center" Spacing="8">
-                        <Image
-                            Width="72"
-                            Height="72"
-                            AutomationProperties.AccessibilityView="Raw"
-                            Source="ms-appx:///Assets/AppEntries/CalendarAssets/StoreLogo.scale-400.png"
-                            Stretch="Uniform">
-                            <Image.Transitions>
-                                <TransitionCollection>
-                                    <EntranceThemeTransition FromHorizontalOffset="40" IsStaggeringEnabled="False" />
-                                </TransitionCollection>
-                            </Image.Transitions>
-                        </Image>
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            Style="{StaticResource SubtitleTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.ProviderSelection_CalendarStepTitle, Mode=OneTime}"
-                            TextAlignment="Center"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <winoctrl:CapabilityChoiceCard
-                            AutomationProperties.AutomationId="ProviderSelectionCalendarProviderChoice"
-                            Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
-                            CommandParameter="Calendar:Provider"
-                            Description="{x:Bind ViewModel.CalendarProviderChoiceDescription, Mode=OneWay}"
-                            Glyph="&#xE753;"
-                            IsRecommended="True"
-                            IsSelected="{x:Bind ViewModel.IsCalendarChoiceProvider, Mode=OneWay}"
-                            Title="{x:Bind ViewModel.CalendarProviderChoiceTitle, Mode=OneWay}" />
-
-                        <winoctrl:CapabilityChoiceCard
-                            AutomationProperties.AutomationId="ProviderSelectionCalendarLocalChoice"
-                            Grid.Column="1"
-                            Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
-                            CommandParameter="Calendar:Local"
-                            Description="{x:Bind domain:Translator.ProviderSelection_Why_CalendarLocal, Mode=OneTime}"
-                            Glyph="&#xE977;"
-                            IsSelected="{x:Bind ViewModel.IsCalendarChoiceLocal, Mode=OneWay}"
-                            Title="{x:Bind domain:Translator.ProviderSelection_Choice_Local, Mode=OneTime}" />
-
-                        <winoctrl:CapabilityChoiceCard
-                            AutomationProperties.AutomationId="ProviderSelectionCalendarOffChoice"
-                            Grid.Column="2"
-                            Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
-                            CommandParameter="Calendar:Off"
-                            Description="{x:Bind ViewModel.CalendarOffConsequenceText, Mode=OneWay}"
-                            Glyph="&#xE738;"
-                            IsSelected="{x:Bind ViewModel.IsCalendarChoiceOff, Mode=OneWay}"
-                            Title="{x:Bind domain:Translator.ProviderSelection_Choice_Off, Mode=OneTime}" />
-                    </Grid>
-
-                    <muxc:InfoBar
-                        AutomationProperties.AutomationId="ProviderSelectionCalendarOnlyHint"
-                        IsClosable="False"
-                        IsOpen="True"
-                        Message="{x:Bind domain:Translator.ProviderSelection_CalendarOnlyServerHint, Mode=OneTime}"
-                        Severity="Informational"
-                        Visibility="{x:Bind ViewModel.IsCalendarOnlyServerHintVisible, Mode=OneWay}" />
-
-                </StackPanel>
-            </Border>
-
-            <Border
-                x:Name="ContactsStepPanel"
-                Padding="12"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Visibility="{x:Bind ViewModel.IsContactStepVisible, Mode=OneWay}">
-                <StackPanel Spacing="16">
-                    <StackPanel HorizontalAlignment="Center" Spacing="8">
-                        <Image
-                            Width="72"
-                            Height="72"
-                            AutomationProperties.AccessibilityView="Raw"
-                            Source="ms-appx:///Assets/AppEntries/PeopleAssets/StoreLogo.scale-400.png"
-                            Stretch="Uniform">
-                            <Image.Transitions>
-                                <TransitionCollection>
-                                    <EntranceThemeTransition FromHorizontalOffset="40" IsStaggeringEnabled="False" />
-                                </TransitionCollection>
-                            </Image.Transitions>
-                        </Image>
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            Style="{StaticResource SubtitleTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.ProviderSelection_ContactsStepTitle, Mode=OneTime}"
-                            TextAlignment="Center"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <winoctrl:CapabilityChoiceCard
-                            AutomationProperties.AutomationId="ProviderSelectionContactProviderChoice"
-                            Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
-                            CommandParameter="Contacts:Provider"
-                            Description="{x:Bind ViewModel.ContactProviderChoiceDescription, Mode=OneWay}"
-                            Glyph="&#xE753;"
-                            IsRecommended="True"
-                            IsSelected="{x:Bind ViewModel.IsContactChoiceProvider, Mode=OneWay}"
-                            Title="{x:Bind ViewModel.ContactProviderChoiceTitle, Mode=OneWay}" />
-
-                        <winoctrl:CapabilityChoiceCard
-                            AutomationProperties.AutomationId="ProviderSelectionContactLocalChoice"
-                            Grid.Column="1"
-                            Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
-                            CommandParameter="Contacts:Local"
-                            Description="{x:Bind domain:Translator.ProviderSelection_Why_ContactsLocal, Mode=OneTime}"
-                            Glyph="&#xE977;"
-                            IsSelected="{x:Bind ViewModel.IsContactChoiceLocal, Mode=OneWay}"
-                            Title="{x:Bind domain:Translator.ProviderSelection_Choice_Local, Mode=OneTime}" />
-
-                        <winoctrl:CapabilityChoiceCard
-                            AutomationProperties.AutomationId="ProviderSelectionContactOffChoice"
-                            Grid.Column="2"
-                            Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
-                            CommandParameter="Contacts:Off"
-                            Description="{x:Bind ViewModel.ContactOffConsequenceText, Mode=OneWay}"
-                            Glyph="&#xE738;"
-                            IsSelected="{x:Bind ViewModel.IsContactChoiceOff, Mode=OneWay}"
-                            Title="{x:Bind domain:Translator.ProviderSelection_Choice_Off, Mode=OneTime}" />
-                    </Grid>
-
-                    <muxc:InfoBar
-                        AutomationProperties.AutomationId="ProviderSelectionCardDavDiscoveryHint"
-                        IsClosable="False"
-                        IsOpen="True"
-                        Message="{x:Bind ViewModel.DavContactAvailabilityMessage, Mode=OneWay}"
-                        Severity="Informational"
-                        Visibility="{x:Bind ViewModel.IsCardDavDiscoveryHintVisible, Mode=OneWay}" />
-
-                </StackPanel>
-            </Border>
-
-            <Border
-                x:Name="TasksStepPanel"
-                Padding="12"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Visibility="{x:Bind ViewModel.IsTaskStepVisible, Mode=OneWay}">
-                <StackPanel Spacing="16">
-                    <StackPanel HorizontalAlignment="Center" Spacing="8">
-                        <Image
-                            Width="72"
-                            Height="72"
-                            AutomationProperties.AccessibilityView="Raw"
-                            Source="ms-appx:///Assets/AppEntries/ToDoAssets/StoreLogo.scale-400.png"
-                            Stretch="Uniform">
-                            <Image.Transitions>
-                                <TransitionCollection>
-                                    <EntranceThemeTransition FromHorizontalOffset="40" IsStaggeringEnabled="False" />
-                                </TransitionCollection>
-                            </Image.Transitions>
-                        </Image>
-                        <TextBlock
-                            HorizontalAlignment="Center"
-                            Style="{StaticResource SubtitleTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.ProviderSelection_TasksStepTitle, Mode=OneTime}"
-                            TextAlignment="Center"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-
-                    <Grid ColumnSpacing="10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="{x:Bind helpers:XamlHelpers.GetColumnWidthByVisibility(ViewModel.IsTaskProviderModeAvailable), Mode=OneWay}" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <winoctrl:CapabilityChoiceCard
-                            AutomationProperties.AutomationId="ProviderSelectionTaskProviderChoice"
-                            Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
-                            CommandParameter="Tasks:Provider"
-                            Description="{x:Bind ViewModel.TaskProviderChoiceDescription, Mode=OneWay}"
-                            Glyph="&#xE753;"
-                            IsRecommended="True"
-                            IsSelected="{x:Bind ViewModel.IsTaskChoiceProvider, Mode=OneWay}"
-                            Title="{x:Bind ViewModel.TaskProviderChoiceTitle, Mode=OneWay}"
-                            Visibility="{x:Bind ViewModel.IsTaskProviderModeAvailable, Mode=OneWay}" />
-
-                        <winoctrl:CapabilityChoiceCard
-                            AutomationProperties.AutomationId="ProviderSelectionTaskLocalChoice"
-                            Grid.Column="1"
-                            Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
-                            CommandParameter="Tasks:Local"
-                            Description="{x:Bind domain:Translator.ProviderSelection_Why_TasksLocal, Mode=OneTime}"
-                            Glyph="&#xE977;"
-                            IsRecommended="{x:Bind ViewModel.IsTaskLocalRecommended, Mode=OneWay}"
-                            IsSelected="{x:Bind ViewModel.IsTaskChoiceLocal, Mode=OneWay}"
-                            Title="{x:Bind domain:Translator.ProviderSelection_Choice_Local, Mode=OneTime}" />
-
-                        <winoctrl:CapabilityChoiceCard
-                            AutomationProperties.AutomationId="ProviderSelectionTaskOffChoice"
-                            Grid.Column="2"
-                            Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
-                            CommandParameter="Tasks:Off"
-                            Description="{x:Bind ViewModel.TaskOffConsequenceText, Mode=OneWay}"
-                            Glyph="&#xE738;"
-                            IsSelected="{x:Bind ViewModel.IsTaskChoiceOff, Mode=OneWay}"
-                            Title="{x:Bind domain:Translator.ProviderSelection_Choice_Off, Mode=OneTime}" />
-                    </Grid>
-
-                    <muxc:InfoBar
-                        AutomationProperties.AutomationId="ProviderSelectionTasksProviderUnavailableHint"
-                        IsClosable="False"
-                        IsOpen="True"
-                        Message="{x:Bind domain:Translator.ProviderSelection_TaskProviderUnavailable, Mode=OneTime}"
-                        Severity="Informational"
-                        Visibility="{x:Bind ViewModel.IsTaskProviderUnavailableHintVisible, Mode=OneWay}" />
-
-                </StackPanel>
-            </Border>
-
-            <Border
-                x:Name="SummaryStepPanel"
-                Padding="12"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8"
-                Visibility="{x:Bind ViewModel.IsSummaryStepVisible, Mode=OneWay}">
-                <StackPanel Spacing="16">
-                    <StackPanel Spacing="2">
-                        <TextBlock
-                            Style="{StaticResource SubtitleTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.ProviderSelection_SummaryTitle, Mode=OneTime}"
-                            TextWrapping="WrapWholeWords" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource BodyTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.ProviderSelection_SummaryDescription, Mode=OneTime}"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-
-                    <Grid RowSpacing="12" ColumnSpacing="12">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-
-                        <Border
-                            AutomationProperties.AutomationId="ProviderSelectionSummaryMailRow"
-                            Padding="16"
-                            Background="{ThemeResource LayerFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8">
-                            <StackPanel HorizontalAlignment="Center" Spacing="6">
-                                <Grid Width="72" Height="72">
-                                    <Image
-                                        Width="56"
-                                        Height="56"
-                                        AutomationProperties.AccessibilityView="Raw"
-                                        Opacity="{x:Bind ViewModel.MailSummaryIconOpacity, Mode=OneWay}"
-                                        Source="ms-appx:///Assets/AppEntries/MailAssets/StoreLogo.scale-400.png"
-                                        Stretch="Uniform" />
-                                    <Border
-                                        Width="24"
-                                        Height="24"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Bottom"
-                                        Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
-                                        CornerRadius="12"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsMailAccessEnabled), Mode=OneWay}">
-                                        <SymbolIcon Foreground="{ThemeResource SystemFillColorSuccessBrush}" Symbol="Accept" />
-                                    </Border>
-                                    <Border
-                                        Width="24"
-                                        Height="24"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Bottom"
-                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                        CornerRadius="12"
-                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsMailAccessEnabled), Mode=OneWay}">
-                                        <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Cancel" />
-                                    </Border>
-                                </Grid>
-                                <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}" />
-                                <TextBlock
-                                    HorizontalAlignment="Center"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind ViewModel.MailStateText, Mode=OneWay}"
-                                    TextAlignment="Center"
-                                    TextWrapping="WrapWholeWords" />
-                                <HyperlinkButton
-                                    AutomationProperties.AutomationId="ProviderSelectionSummaryMailAction"
-                                    HorizontalAlignment="Center"
-                                    Command="{x:Bind ViewModel.GoToStepCommand}"
-                                    CommandParameter="Mail"
-                                    Content="{x:Bind ViewModel.MailSummaryActionText, Mode=OneWay}" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border
-                            AutomationProperties.AutomationId="ProviderSelectionSummaryCalendarRow"
-                            Grid.Column="1"
-                            Padding="16"
-                            Background="{ThemeResource LayerFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8">
-                            <StackPanel HorizontalAlignment="Center" Spacing="6">
-                                <Grid Width="72" Height="72">
-                                    <Image
-                                        Width="56"
-                                        Height="56"
-                                        AutomationProperties.AccessibilityView="Raw"
-                                        Opacity="{x:Bind ViewModel.CalendarSummaryIconOpacity, Mode=OneWay}"
-                                        Source="ms-appx:///Assets/AppEntries/CalendarAssets/StoreLogo.scale-400.png"
-                                        Stretch="Uniform" />
-                                    <Border
-                                        Width="24"
-                                        Height="24"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Bottom"
-                                        Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
-                                        CornerRadius="12"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCalendarAccessEnabled), Mode=OneWay}">
-                                        <SymbolIcon Foreground="{ThemeResource SystemFillColorSuccessBrush}" Symbol="Accept" />
-                                    </Border>
-                                    <Border
-                                        Width="24"
-                                        Height="24"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Bottom"
-                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                        CornerRadius="12"
-                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsCalendarAccessEnabled), Mode=OneWay}">
-                                        <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Cancel" />
-                                    </Border>
-                                </Grid>
-                                <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}" />
-                                <TextBlock
-                                    HorizontalAlignment="Center"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind ViewModel.CalendarStateText, Mode=OneWay}"
-                                    TextAlignment="Center"
-                                    TextWrapping="WrapWholeWords" />
-                                <HyperlinkButton
-                                    AutomationProperties.AutomationId="ProviderSelectionSummaryCalendarAction"
-                                    HorizontalAlignment="Center"
-                                    Command="{x:Bind ViewModel.GoToStepCommand}"
-                                    CommandParameter="Calendar"
-                                    Content="{x:Bind ViewModel.CalendarSummaryActionText, Mode=OneWay}" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border
-                            AutomationProperties.AutomationId="ProviderSelectionSummaryContactsRow"
-                            Grid.Row="1"
-                            Padding="16"
-                            Background="{ThemeResource LayerFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8">
-                            <StackPanel HorizontalAlignment="Center" Spacing="6">
-                                <Grid Width="72" Height="72">
-                                    <Image
-                                        Width="56"
-                                        Height="56"
-                                        AutomationProperties.AccessibilityView="Raw"
-                                        Opacity="{x:Bind ViewModel.ContactSummaryIconOpacity, Mode=OneWay}"
-                                        Source="ms-appx:///Assets/AppEntries/PeopleAssets/StoreLogo.scale-400.png"
-                                        Stretch="Uniform" />
-                                    <Border
-                                        Width="24"
-                                        Height="24"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Bottom"
-                                        Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
-                                        CornerRadius="12"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsContactAccessEnabled), Mode=OneWay}">
-                                        <SymbolIcon Foreground="{ThemeResource SystemFillColorSuccessBrush}" Symbol="Accept" />
-                                    </Border>
-                                    <Border
-                                        Width="24"
-                                        Height="24"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Bottom"
-                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                        CornerRadius="12"
-                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsContactAccessEnabled), Mode=OneWay}">
-                                        <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Cancel" />
-                                    </Border>
-                                </Grid>
-                                <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}" />
-                                <TextBlock
-                                    HorizontalAlignment="Center"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind ViewModel.ContactStateText, Mode=OneWay}"
-                                    TextAlignment="Center"
-                                    TextWrapping="WrapWholeWords" />
-                                <HyperlinkButton
-                                    AutomationProperties.AutomationId="ProviderSelectionSummaryContactsAction"
-                                    HorizontalAlignment="Center"
-                                    Command="{x:Bind ViewModel.GoToStepCommand}"
-                                    CommandParameter="Contacts"
-                                    Content="{x:Bind ViewModel.ContactSummaryActionText, Mode=OneWay}" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border
-                            AutomationProperties.AutomationId="ProviderSelectionSummaryTasksRow"
-                            Grid.Row="1"
-                            Grid.Column="1"
-                            Padding="16"
-                            Background="{ThemeResource LayerFillColorDefaultBrush}"
-                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8">
-                            <StackPanel HorizontalAlignment="Center" Spacing="6">
-                                <Grid Width="72" Height="72">
-                                    <Image
-                                        Width="56"
-                                        Height="56"
-                                        AutomationProperties.AccessibilityView="Raw"
-                                        Opacity="{x:Bind ViewModel.TaskSummaryIconOpacity, Mode=OneWay}"
-                                        Source="ms-appx:///Assets/AppEntries/ToDoAssets/StoreLogo.scale-400.png"
-                                        Stretch="Uniform" />
-                                    <Border
-                                        Width="24"
-                                        Height="24"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Bottom"
-                                        Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
-                                        CornerRadius="12"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsTaskAccessEnabled), Mode=OneWay}">
-                                        <SymbolIcon Foreground="{ThemeResource SystemFillColorSuccessBrush}" Symbol="Accept" />
-                                    </Border>
-                                    <Border
-                                        Width="24"
-                                        Height="24"
-                                        HorizontalAlignment="Right"
-                                        VerticalAlignment="Bottom"
-                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                        CornerRadius="12"
-                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsTaskAccessEnabled), Mode=OneWay}">
-                                        <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Cancel" />
-                                    </Border>
-                                </Grid>
-                                <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}" />
-                                <TextBlock
-                                    HorizontalAlignment="Center"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind ViewModel.TaskStateText, Mode=OneWay}"
-                                    TextAlignment="Center"
-                                    TextWrapping="WrapWholeWords" />
-                                <HyperlinkButton
-                                    AutomationProperties.AutomationId="ProviderSelectionSummaryTasksAction"
-                                    HorizontalAlignment="Center"
-                                    Command="{x:Bind ViewModel.GoToStepCommand}"
-                                    CommandParameter="Tasks"
-                                    Content="{x:Bind ViewModel.TaskSummaryActionText, Mode=OneWay}" />
-                            </StackPanel>
-                        </Border>
-                    </Grid>
-
-                    <muxc:InfoBar
-                        AutomationProperties.AutomationId="ProviderSelectionSummaryCalendarOnlyHint"
-                        IsClosable="False"
-                        IsOpen="True"
-                        Message="{x:Bind domain:Translator.ProviderSelection_CalendarOnlyServerHint, Mode=OneTime}"
-                        Severity="Informational"
-                        Visibility="{x:Bind ViewModel.IsCalendarOnlyServerHintVisible, Mode=OneWay}" />
-
-                    <TextBlock
-                        Margin="2,0"
-                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                        Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind domain:Translator.ProviderSelection_CapabilityValidationMessage, Mode=OneTime}"
-                        Visibility="{x:Bind ViewModel.IsCapabilitySelectionMissing, Mode=OneWay}" />
-
-                </StackPanel>
-            </Border>
-
+        <Border
+            x:Name="CapabilityAccountStrip"
+            Padding="12"
+            Background="{ThemeResource LayerFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{x:Bind ViewModel.IsCapabilityFlowVisible, Mode=OneWay}">
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Button
-                    AutomationProperties.AutomationId="ProviderSelectionPageButton"
-                    Command="{x:Bind ViewModel.GoBackCommand}"
-                    Content="{x:Bind domain:Translator.Buttons_Back, Mode=OneTime}"
-                    Visibility="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" />
+                <Image
+                    Width="28"
+                    Height="28"
+                    VerticalAlignment="Center"
+                    Source="{x:Bind helpers:XamlHelpers.StringToBitmapImage(ViewModel.SelectedProviderImage), Mode=OneWay}" />
 
                 <StackPanel
                     Grid.Column="1"
-                    HorizontalAlignment="Right"
-                    Orientation="Horizontal"
-                    Spacing="12">
-                    <HyperlinkButton
-                        AutomationProperties.AutomationId="ProviderSelectionSkipRestButton"
-                        VerticalAlignment="Center"
-                        Command="{x:Bind ViewModel.SkipRemainingCapabilitiesCommand}"
-                        Content="{x:Bind domain:Translator.ProviderSelection_SkipRest, Mode=OneTime}"
-                        Visibility="{x:Bind ViewModel.IsSkipRestVisible, Mode=OneWay}" />
-
-                    <Button
-                        AutomationProperties.AutomationId="ProviderSelectionPageButton2"
-                        MinWidth="140"
-                        Command="{x:Bind ViewModel.ContinueCommand}"
-                        Content="{x:Bind ViewModel.ContinueButtonText, Mode=OneWay}"
-                        Style="{StaticResource AccentButtonStyle}" />
+                    VerticalAlignment="Center"
+                    Spacing="2">
+                    <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectedProviderName, Mode=OneWay}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind ViewModel.AccountName, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
                 </StackPanel>
             </Grid>
-        </StackPanel>
+        </Border>
+
+        <Border
+            x:Name="MailStepPanel"
+            Padding="12"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{x:Bind ViewModel.IsMailStepVisible, Mode=OneWay}">
+            <StackPanel Spacing="16">
+                <StackPanel HorizontalAlignment="Center" Spacing="8">
+                    <Image
+                        Width="86"
+                        Height="86"
+                        AutomationProperties.AccessibilityView="Raw"
+                        Source="ms-appx:///Assets/AppEntries/Mail.svg"
+                        Stretch="Uniform">
+                        <Image.Transitions>
+                            <TransitionCollection>
+                                <EntranceThemeTransition FromHorizontalOffset="40" IsStaggeringEnabled="False" />
+                            </TransitionCollection>
+                        </Image.Transitions>
+                    </Image>
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ProviderSelection_MailStepTitle, Mode=OneTime}"
+                        TextAlignment="Center"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <winoctrl:CapabilityChoiceCard
+                        Title="{x:Bind ViewModel.MailProviderChoiceTitle, Mode=OneWay}"
+                        AutomationProperties.AutomationId="ProviderSelectionMailProviderChoice"
+                        Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
+                        CommandParameter="Mail:Provider"
+                        Description="{x:Bind ViewModel.MailProviderChoiceDescription, Mode=OneWay}"
+                        Glyph="&#xE753;"
+                        IsRecommended="True"
+                        IsSelected="{x:Bind ViewModel.IsMailChoiceProvider, Mode=OneWay}" />
+
+                    <winoctrl:CapabilityChoiceCard
+                        Title="{x:Bind domain:Translator.ProviderSelection_Choice_Off, Mode=OneTime}"
+                        Grid.Column="1"
+                        AutomationProperties.AutomationId="ProviderSelectionMailOffChoice"
+                        Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
+                        CommandParameter="Mail:Off"
+                        Description="{x:Bind ViewModel.MailOffConsequenceText, Mode=OneWay}"
+                        Glyph="&#xE738;"
+                        IsSelected="{x:Bind ViewModel.IsMailChoiceOff, Mode=OneWay}" />
+                </Grid>
+
+                <Grid ColumnSpacing="8" Visibility="{x:Bind ViewModel.IsMailSynchronizationRangeVisible, Mode=OneWay}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ProviderSelection_MailRangeHeader, Mode=OneTime}"
+                        TextWrapping="WrapWholeWords" />
+                    <ComboBox
+                        Grid.Column="1"
+                        MinWidth="130"
+                        AutomationProperties.AutomationId="ProviderSelectionMailSynchronizationRange"
+                        AutomationProperties.Name="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title, Mode=OneTime}"
+                        ItemsSource="{x:Bind ViewModel.InitialSynchronizationRanges, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedInitialSynchronizationRange, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="accounts:InitialSynchronizationRangeOption">
+                                <TextBlock Text="{x:Bind DisplayText}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+
+                <muxc:InfoBar
+                    Title="{x:Bind domain:Translator.GeneralTitle_Warning, Mode=OneTime}"
+                    AutomationProperties.AutomationId="ProviderSelectionMailSynchronizationWarning"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_EverythingWarning, Mode=OneTime}"
+                    Severity="Warning"
+                    Visibility="{x:Bind ViewModel.IsInitialSynchronizationWarningVisible, Mode=OneWay}" />
+
+            </StackPanel>
+        </Border>
+
+        <Border
+            x:Name="CalendarStepPanel"
+            Padding="12"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{x:Bind ViewModel.IsCalendarStepVisible, Mode=OneWay}">
+            <StackPanel Spacing="16">
+                <StackPanel HorizontalAlignment="Center" Spacing="8">
+                    <Image
+                        Width="72"
+                        Height="72"
+                        AutomationProperties.AccessibilityView="Raw"
+                        Source="ms-appx:///Assets/AppEntries/Calendar.svg"
+                        Stretch="Uniform">
+                        <Image.Transitions>
+                            <TransitionCollection>
+                                <EntranceThemeTransition FromHorizontalOffset="40" IsStaggeringEnabled="False" />
+                            </TransitionCollection>
+                        </Image.Transitions>
+                    </Image>
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ProviderSelection_CalendarStepTitle, Mode=OneTime}"
+                        TextAlignment="Center"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <winoctrl:CapabilityChoiceCard
+                        Title="{x:Bind ViewModel.CalendarProviderChoiceTitle, Mode=OneWay}"
+                        AutomationProperties.AutomationId="ProviderSelectionCalendarProviderChoice"
+                        Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
+                        CommandParameter="Calendar:Provider"
+                        Description="{x:Bind ViewModel.CalendarProviderChoiceDescription, Mode=OneWay}"
+                        Glyph="&#xE753;"
+                        IsRecommended="True"
+                        IsSelected="{x:Bind ViewModel.IsCalendarChoiceProvider, Mode=OneWay}" />
+
+                    <winoctrl:CapabilityChoiceCard
+                        Title="{x:Bind domain:Translator.ProviderSelection_Choice_Local, Mode=OneTime}"
+                        Grid.Column="1"
+                        AutomationProperties.AutomationId="ProviderSelectionCalendarLocalChoice"
+                        Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
+                        CommandParameter="Calendar:Local"
+                        Description="{x:Bind domain:Translator.ProviderSelection_Why_CalendarLocal, Mode=OneTime}"
+                        Glyph="&#xE977;"
+                        IsSelected="{x:Bind ViewModel.IsCalendarChoiceLocal, Mode=OneWay}" />
+
+                    <winoctrl:CapabilityChoiceCard
+                        Title="{x:Bind domain:Translator.ProviderSelection_Choice_Off, Mode=OneTime}"
+                        Grid.Column="2"
+                        AutomationProperties.AutomationId="ProviderSelectionCalendarOffChoice"
+                        Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
+                        CommandParameter="Calendar:Off"
+                        Description="{x:Bind ViewModel.CalendarOffConsequenceText, Mode=OneWay}"
+                        Glyph="&#xE738;"
+                        IsSelected="{x:Bind ViewModel.IsCalendarChoiceOff, Mode=OneWay}" />
+                </Grid>
+
+                <muxc:InfoBar
+                    AutomationProperties.AutomationId="ProviderSelectionCalendarOnlyHint"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind domain:Translator.ProviderSelection_CalendarOnlyServerHint, Mode=OneTime}"
+                    Severity="Informational"
+                    Visibility="{x:Bind ViewModel.IsCalendarOnlyServerHintVisible, Mode=OneWay}" />
+
+            </StackPanel>
+        </Border>
+
+        <Border
+            x:Name="ContactsStepPanel"
+            Padding="12"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{x:Bind ViewModel.IsContactStepVisible, Mode=OneWay}">
+            <StackPanel Spacing="16">
+                <StackPanel HorizontalAlignment="Center" Spacing="8">
+                    <Image
+                        Width="72"
+                        Height="72"
+                        AutomationProperties.AccessibilityView="Raw"
+                        Source="ms-appx:///Assets/AppEntries/People.svg"
+                        Stretch="Uniform">
+                        <Image.Transitions>
+                            <TransitionCollection>
+                                <EntranceThemeTransition FromHorizontalOffset="40" IsStaggeringEnabled="False" />
+                            </TransitionCollection>
+                        </Image.Transitions>
+                    </Image>
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ProviderSelection_ContactsStepTitle, Mode=OneTime}"
+                        TextAlignment="Center"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <winoctrl:CapabilityChoiceCard
+                        Title="{x:Bind ViewModel.ContactProviderChoiceTitle, Mode=OneWay}"
+                        AutomationProperties.AutomationId="ProviderSelectionContactProviderChoice"
+                        Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
+                        CommandParameter="Contacts:Provider"
+                        Description="{x:Bind ViewModel.ContactProviderChoiceDescription, Mode=OneWay}"
+                        Glyph="&#xE753;"
+                        IsRecommended="True"
+                        IsSelected="{x:Bind ViewModel.IsContactChoiceProvider, Mode=OneWay}" />
+
+                    <winoctrl:CapabilityChoiceCard
+                        Title="{x:Bind domain:Translator.ProviderSelection_Choice_Local, Mode=OneTime}"
+                        Grid.Column="1"
+                        AutomationProperties.AutomationId="ProviderSelectionContactLocalChoice"
+                        Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
+                        CommandParameter="Contacts:Local"
+                        Description="{x:Bind domain:Translator.ProviderSelection_Why_ContactsLocal, Mode=OneTime}"
+                        Glyph="&#xE977;"
+                        IsSelected="{x:Bind ViewModel.IsContactChoiceLocal, Mode=OneWay}" />
+
+                    <winoctrl:CapabilityChoiceCard
+                        Title="{x:Bind domain:Translator.ProviderSelection_Choice_Off, Mode=OneTime}"
+                        Grid.Column="2"
+                        AutomationProperties.AutomationId="ProviderSelectionContactOffChoice"
+                        Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
+                        CommandParameter="Contacts:Off"
+                        Description="{x:Bind ViewModel.ContactOffConsequenceText, Mode=OneWay}"
+                        Glyph="&#xE738;"
+                        IsSelected="{x:Bind ViewModel.IsContactChoiceOff, Mode=OneWay}" />
+                </Grid>
+
+                <muxc:InfoBar
+                    AutomationProperties.AutomationId="ProviderSelectionCardDavDiscoveryHint"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind ViewModel.DavContactAvailabilityMessage, Mode=OneWay}"
+                    Severity="Informational"
+                    Visibility="{x:Bind ViewModel.IsCardDavDiscoveryHintVisible, Mode=OneWay}" />
+
+            </StackPanel>
+        </Border>
+
+        <Border
+            x:Name="TasksStepPanel"
+            Padding="12"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{x:Bind ViewModel.IsTaskStepVisible, Mode=OneWay}">
+            <StackPanel Spacing="16">
+                <StackPanel HorizontalAlignment="Center" Spacing="8">
+                    <Image
+                        Width="72"
+                        Height="72"
+                        AutomationProperties.AccessibilityView="Raw"
+                        Source="ms-appx:///Assets/AppEntries/ToDo.svg"
+                        Stretch="Uniform">
+                        <Image.Transitions>
+                            <TransitionCollection>
+                                <EntranceThemeTransition FromHorizontalOffset="40" IsStaggeringEnabled="False" />
+                            </TransitionCollection>
+                        </Image.Transitions>
+                    </Image>
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ProviderSelection_TasksStepTitle, Mode=OneTime}"
+                        TextAlignment="Center"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="{x:Bind helpers:XamlHelpers.GetColumnWidthByVisibility(ViewModel.IsTaskProviderModeAvailable), Mode=OneWay}" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <winoctrl:CapabilityChoiceCard
+                        Title="{x:Bind ViewModel.TaskProviderChoiceTitle, Mode=OneWay}"
+                        AutomationProperties.AutomationId="ProviderSelectionTaskProviderChoice"
+                        Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
+                        CommandParameter="Tasks:Provider"
+                        Description="{x:Bind ViewModel.TaskProviderChoiceDescription, Mode=OneWay}"
+                        Glyph="&#xE753;"
+                        IsRecommended="True"
+                        IsSelected="{x:Bind ViewModel.IsTaskChoiceProvider, Mode=OneWay}"
+                        Visibility="{x:Bind ViewModel.IsTaskProviderModeAvailable, Mode=OneWay}" />
+
+                    <winoctrl:CapabilityChoiceCard
+                        Title="{x:Bind domain:Translator.ProviderSelection_Choice_Local, Mode=OneTime}"
+                        Grid.Column="1"
+                        AutomationProperties.AutomationId="ProviderSelectionTaskLocalChoice"
+                        Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
+                        CommandParameter="Tasks:Local"
+                        Description="{x:Bind domain:Translator.ProviderSelection_Why_TasksLocal, Mode=OneTime}"
+                        Glyph="&#xE977;"
+                        IsRecommended="{x:Bind ViewModel.IsTaskLocalRecommended, Mode=OneWay}"
+                        IsSelected="{x:Bind ViewModel.IsTaskChoiceLocal, Mode=OneWay}" />
+
+                    <winoctrl:CapabilityChoiceCard
+                        Title="{x:Bind domain:Translator.ProviderSelection_Choice_Off, Mode=OneTime}"
+                        Grid.Column="2"
+                        AutomationProperties.AutomationId="ProviderSelectionTaskOffChoice"
+                        Command="{x:Bind ViewModel.ChooseCapabilityCommand}"
+                        CommandParameter="Tasks:Off"
+                        Description="{x:Bind ViewModel.TaskOffConsequenceText, Mode=OneWay}"
+                        Glyph="&#xE738;"
+                        IsSelected="{x:Bind ViewModel.IsTaskChoiceOff, Mode=OneWay}" />
+                </Grid>
+
+                <muxc:InfoBar
+                    AutomationProperties.AutomationId="ProviderSelectionTasksProviderUnavailableHint"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind domain:Translator.ProviderSelection_TaskProviderUnavailable, Mode=OneTime}"
+                    Severity="Informational"
+                    Visibility="{x:Bind ViewModel.IsTaskProviderUnavailableHintVisible, Mode=OneWay}" />
+
+            </StackPanel>
+        </Border>
+
+        <Border
+            x:Name="SummaryStepPanel"
+            Padding="12"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{x:Bind ViewModel.IsSummaryStepVisible, Mode=OneWay}">
+            <StackPanel Spacing="16">
+                <StackPanel Spacing="2">
+                    <TextBlock
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ProviderSelection_SummaryTitle, Mode=OneTime}"
+                        TextWrapping="WrapWholeWords" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ProviderSelection_SummaryDescription, Mode=OneTime}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+
+                <Grid ColumnSpacing="12" RowSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border
+                        Padding="16"
+                        AutomationProperties.AutomationId="ProviderSelectionSummaryMailRow"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel HorizontalAlignment="Center" Spacing="6">
+                            <Grid Width="72" Height="72">
+                                <Image
+                                    Width="56"
+                                    Height="56"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    Opacity="{x:Bind ViewModel.MailSummaryIconOpacity, Mode=OneWay}"
+                                    Source="ms-appx:///Assets/AppEntries/Mail.svg"
+                                    Stretch="Uniform" />
+                                <Border
+                                    Width="24"
+                                    Height="24"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                    CornerRadius="12"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsMailAccessEnabled), Mode=OneWay}">
+                                    <SymbolIcon Foreground="{ThemeResource SystemFillColorSuccessBrush}" Symbol="Accept" />
+                                </Border>
+                                <Border
+                                    Width="24"
+                                    Height="24"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                    CornerRadius="12"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsMailAccessEnabled), Mode=OneWay}">
+                                    <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Cancel" />
+                                </Border>
+                            </Grid>
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}" />
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.MailStateText, Mode=OneWay}"
+                                TextAlignment="Center"
+                                TextWrapping="WrapWholeWords" />
+                            <HyperlinkButton
+                                HorizontalAlignment="Center"
+                                AutomationProperties.AutomationId="ProviderSelectionSummaryMailAction"
+                                Command="{x:Bind ViewModel.GoToStepCommand}"
+                                CommandParameter="Mail"
+                                Content="{x:Bind ViewModel.MailSummaryActionText, Mode=OneWay}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Grid.Column="1"
+                        Padding="16"
+                        AutomationProperties.AutomationId="ProviderSelectionSummaryCalendarRow"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel HorizontalAlignment="Center" Spacing="6">
+                            <Grid Width="72" Height="72">
+                                <Image
+                                    Width="56"
+                                    Height="56"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    Opacity="{x:Bind ViewModel.CalendarSummaryIconOpacity, Mode=OneWay}"
+                                    Source="ms-appx:///Assets/AppEntries/Calendar.svg"
+                                    Stretch="Uniform" />
+                                <Border
+                                    Width="24"
+                                    Height="24"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                    CornerRadius="12"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCalendarAccessEnabled), Mode=OneWay}">
+                                    <SymbolIcon Foreground="{ThemeResource SystemFillColorSuccessBrush}" Symbol="Accept" />
+                                </Border>
+                                <Border
+                                    Width="24"
+                                    Height="24"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                    CornerRadius="12"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsCalendarAccessEnabled), Mode=OneWay}">
+                                    <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Cancel" />
+                                </Border>
+                            </Grid>
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}" />
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.CalendarStateText, Mode=OneWay}"
+                                TextAlignment="Center"
+                                TextWrapping="WrapWholeWords" />
+                            <HyperlinkButton
+                                HorizontalAlignment="Center"
+                                AutomationProperties.AutomationId="ProviderSelectionSummaryCalendarAction"
+                                Command="{x:Bind ViewModel.GoToStepCommand}"
+                                CommandParameter="Calendar"
+                                Content="{x:Bind ViewModel.CalendarSummaryActionText, Mode=OneWay}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Grid.Row="1"
+                        Padding="16"
+                        AutomationProperties.AutomationId="ProviderSelectionSummaryContactsRow"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel HorizontalAlignment="Center" Spacing="6">
+                            <Grid Width="72" Height="72">
+                                <Image
+                                    Width="56"
+                                    Height="56"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    Opacity="{x:Bind ViewModel.ContactSummaryIconOpacity, Mode=OneWay}"
+                                    Source="ms-appx:///Assets/AppEntries/People.svg"
+                                    Stretch="Uniform" />
+                                <Border
+                                    Width="24"
+                                    Height="24"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                    CornerRadius="12"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsContactAccessEnabled), Mode=OneWay}">
+                                    <SymbolIcon Foreground="{ThemeResource SystemFillColorSuccessBrush}" Symbol="Accept" />
+                                </Border>
+                                <Border
+                                    Width="24"
+                                    Height="24"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                    CornerRadius="12"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsContactAccessEnabled), Mode=OneWay}">
+                                    <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Cancel" />
+                                </Border>
+                            </Grid>
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}" />
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.ContactStateText, Mode=OneWay}"
+                                TextAlignment="Center"
+                                TextWrapping="WrapWholeWords" />
+                            <HyperlinkButton
+                                HorizontalAlignment="Center"
+                                AutomationProperties.AutomationId="ProviderSelectionSummaryContactsAction"
+                                Command="{x:Bind ViewModel.GoToStepCommand}"
+                                CommandParameter="Contacts"
+                                Content="{x:Bind ViewModel.ContactSummaryActionText, Mode=OneWay}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Padding="16"
+                        AutomationProperties.AutomationId="ProviderSelectionSummaryTasksRow"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                        <StackPanel HorizontalAlignment="Center" Spacing="6">
+                            <Grid Width="72" Height="72">
+                                <Image
+                                    Width="56"
+                                    Height="56"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    Opacity="{x:Bind ViewModel.TaskSummaryIconOpacity, Mode=OneWay}"
+                                    Source="ms-appx:///Assets/AppEntries/ToDo.svg"
+                                    Stretch="Uniform" />
+                                <Border
+                                    Width="24"
+                                    Height="24"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                    CornerRadius="12"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsTaskAccessEnabled), Mode=OneWay}">
+                                    <SymbolIcon Foreground="{ThemeResource SystemFillColorSuccessBrush}" Symbol="Accept" />
+                                </Border>
+                                <Border
+                                    Width="24"
+                                    Height="24"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                    CornerRadius="12"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsTaskAccessEnabled), Mode=OneWay}">
+                                    <SymbolIcon Foreground="{ThemeResource TextFillColorSecondaryBrush}" Symbol="Cancel" />
+                                </Border>
+                            </Grid>
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                FontWeight="SemiBold"
+                                Text="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}" />
+                            <TextBlock
+                                HorizontalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.TaskStateText, Mode=OneWay}"
+                                TextAlignment="Center"
+                                TextWrapping="WrapWholeWords" />
+                            <HyperlinkButton
+                                HorizontalAlignment="Center"
+                                AutomationProperties.AutomationId="ProviderSelectionSummaryTasksAction"
+                                Command="{x:Bind ViewModel.GoToStepCommand}"
+                                CommandParameter="Tasks"
+                                Content="{x:Bind ViewModel.TaskSummaryActionText, Mode=OneWay}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <muxc:InfoBar
+                    AutomationProperties.AutomationId="ProviderSelectionSummaryCalendarOnlyHint"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind domain:Translator.ProviderSelection_CalendarOnlyServerHint, Mode=OneTime}"
+                    Severity="Informational"
+                    Visibility="{x:Bind ViewModel.IsCalendarOnlyServerHintVisible, Mode=OneWay}" />
+
+                <TextBlock
+                    Margin="2,0"
+                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.ProviderSelection_CapabilityValidationMessage, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsCapabilitySelectionMissing, Mode=OneWay}" />
+
+            </StackPanel>
+        </Border>
+
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Button
+                AutomationProperties.AutomationId="ProviderSelectionPageButton"
+                Command="{x:Bind ViewModel.GoBackCommand}"
+                Content="{x:Bind domain:Translator.Buttons_Back, Mode=OneTime}"
+                Visibility="{x:Bind ViewModel.CanGoBack, Mode=OneWay}" />
+
+            <StackPanel
+                Grid.Column="1"
+                HorizontalAlignment="Right"
+                Orientation="Horizontal"
+                Spacing="12">
+                <HyperlinkButton
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="ProviderSelectionSkipRestButton"
+                    Command="{x:Bind ViewModel.SkipRemainingCapabilitiesCommand}"
+                    Content="{x:Bind domain:Translator.ProviderSelection_SkipRest, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsSkipRestVisible, Mode=OneWay}" />
+
+                <Button
+                    MinWidth="140"
+                    AutomationProperties.AutomationId="ProviderSelectionPageButton2"
+                    Command="{x:Bind ViewModel.ContinueCommand}"
+                    Content="{x:Bind ViewModel.ContinueButtonText, Mode=OneWay}"
+                    Style="{StaticResource AccentButtonStyle}" />
+            </StackPanel>
+        </Grid>
+    </StackPanel>
 </abstract:ProviderSelectionPageAbstract>
