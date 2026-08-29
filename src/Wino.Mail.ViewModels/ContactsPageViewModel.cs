@@ -218,7 +218,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                 IsPendingRemoteOperation = true
             };
 
-            await _requestDelegator.ExecuteAsync(account.Id, [new AddressBookActionRequest(
+            await _requestDelegator.ExecuteAsync(account.Id, (IRequestBase[])[new AddressBookActionRequest(
                 ContactSynchronizerOperation.CreateAddressBook,
                 addressBook)]).ConfigureAwait(false);
         }
@@ -1082,7 +1082,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             desired.DisplayName = remoteName.Trim();
             desired.IsPendingRemoteOperation = true;
 
-            await _requestDelegator.ExecuteAsync(desired.MailAccountId, [new AddressBookActionRequest(
+            await _requestDelegator.ExecuteAsync(desired.MailAccountId, (IRequestBase[])[new AddressBookActionRequest(
                 ContactSynchronizerOperation.RenameAddressBook,
                 desired,
                 original)]).ConfigureAwait(false);
@@ -1123,7 +1123,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                 Translator.ContactsPage_DeleteAddressBookTitle,
                 Translator.ContactConfirmDialog_DeleteButton);
             if (!remoteConfirmed) return;
-            await _requestDelegator.ExecuteAsync(filter.AddressBook.MailAccountId, [new AddressBookActionRequest(
+            await _requestDelegator.ExecuteAsync(filter.AddressBook.MailAccountId, (IRequestBase[])[new AddressBookActionRequest(
                 ContactSynchronizerOperation.DeleteAddressBook,
                 filter.AddressBook,
                 filter.AddressBook)]).ConfigureAwait(false);
@@ -1247,7 +1247,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             await _requestDelegator.ExecuteLocalAsync(new ApplicationLocalContactRequest(
                 ApplicationLocalContactOperation.RemoveMembership,
                 list: list,
-                contactIds: [contact.Id])).ConfigureAwait(false);
+                contactIds: (Guid[])[contact.Id])).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

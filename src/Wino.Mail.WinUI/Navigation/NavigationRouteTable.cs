@@ -57,6 +57,8 @@ public static class NavigationRouteTable
         Settings(WinoPage.MailNotificationSettingsPage, typeof(MailNotificationSettingsPage)),
         Settings(WinoPage.ReadComposePanePage, typeof(ReadComposePanePage)),
         Settings(WinoPage.AppPreferencesPage, typeof(AppPreferencesPage)),
+        Settings(WinoPage.MailPreferencesPage, typeof(MailPreferencesPage)),
+        Settings(WinoPage.BackupRestorePage, typeof(BackupRestorePage)),
         Settings(WinoPage.AliasManagementPage, typeof(AliasManagementPage)),
         Settings(WinoPage.MailCategoryManagementPage, typeof(MailCategoryManagementPage)),
         Settings(WinoPage.MailFiltersPage, typeof(MailFiltersPage)),

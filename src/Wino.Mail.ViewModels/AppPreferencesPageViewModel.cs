@@ -5,33 +5,35 @@ using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Ai;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Translations;
 
 namespace Wino.Mail.ViewModels;
 
+/// <summary>
+/// App-wide settings that belong to no single mode: display language, how Wino starts, and what
+/// happens when the window is closed. Mail behavior lives on <see cref="MailPreferencesPageViewModel"/>
+/// and the AI action languages live with Wino Intelligence.
+/// </summary>
 public partial class AppPreferencesPageViewModel : MailBaseViewModel
 {
+    private readonly IMailDialogService _dialogService;
+    private readonly IStartupBehaviorService _startupBehaviorService;
+    private readonly ITranslationService _translationService;
+
+    private bool _isLanguageInitialized;
+    private string _selectedCloseBehaviorMode;
+
     public AppPreferencesPageViewModel(
         IMailDialogService dialogService,
         IPreferencesService preferencesService,
         IStartupBehaviorService startupBehaviorService,
-        ITranslationService translationService,
-        IAiActionOptionsService aiActionOptionsService)
+        ITranslationService translationService)
     {
         _dialogService = dialogService;
         PreferencesService = preferencesService;
         _startupBehaviorService = startupBehaviorService;
         _translationService = translationService;
-        _aiActionOptionsService = aiActionOptionsService;
-
-        SearchModes =
-        [
-            Translator.SettingsAppPreferences_SearchMode_Local,
-            Translator.SettingsAppPreferences_SearchMode_Online,
-            Translator.SettingsAppPreferences_SearchMode_Semantic
-        ];
 
         CloseBehaviorModes =
         [
@@ -40,17 +42,10 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             Translator.SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title
         ];
 
-        SelectedDefaultSearchMode = SearchModes[(int)PreferencesService.DefaultSearchMode];
-        SelectedCloseBehaviorMode = CloseBehaviorModes[(int)PreferencesService.AppCloseBehavior];
-        EmailSyncIntervalMinutes = PreferencesService.EmailSyncIntervalMinutes;
-        UndoSendingDraftsIntervalInSeconds = PreferencesService.UndoSendingDraftsIntervalInSeconds;
-        UndoDeletingMailsIntervalInSeconds = PreferencesService.UndoDeletingMailsIntervalInSeconds;
+        _selectedCloseBehaviorMode = CloseBehaviorModes[(int)PreferencesService.AppCloseBehavior];
     }
 
     public IPreferencesService PreferencesService { get; }
-
-    [ObservableProperty]
-    public partial List<string> SearchModes { get; set; }
 
     [ObservableProperty]
     public partial List<string> CloseBehaviorModes { get; set; }
@@ -62,77 +57,12 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     public partial AppLanguageModel SelectedLanguage { get; set; }
 
     [ObservableProperty]
-    public partial List<AiTranslateLanguageOption> AvailableAiLanguages { get; set; } = [];
-
-    [ObservableProperty]
-    public partial AiTranslateLanguageOption SelectedDefaultTranslationLanguage { get; set; }
-
-    [ObservableProperty]
-    public partial AiTranslateLanguageOption SelectedSummarizeLanguage { get; set; }
-
-    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorDisabled))]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorEnabled))]
     public partial StartupBehaviorResult StartupBehaviorResult { get; set; }
 
-    private readonly IMailDialogService _dialogService;
-    private readonly IStartupBehaviorService _startupBehaviorService;
-    private readonly ITranslationService _translationService;
-    private readonly IAiActionOptionsService _aiActionOptionsService;
-    private bool _isLanguageInitialized;
-    private bool _isAiPreferencesInitialized;
-    private int _emailSyncIntervalMinutes;
-    private int _undoSendingDraftsIntervalInSeconds;
-    private int _undoDeletingMailsIntervalInSeconds;
-    private string _selectedDefaultSearchMode;
-    private string _selectedCloseBehaviorMode;
-
-    public int EmailSyncIntervalMinutes
-    {
-        get => _emailSyncIntervalMinutes;
-        set
-        {
-            SetProperty(ref _emailSyncIntervalMinutes, value);
-            PreferencesService.EmailSyncIntervalMinutes = value;
-        }
-    }
-
-    public int UndoSendingDraftsIntervalInSeconds
-    {
-        get => _undoSendingDraftsIntervalInSeconds;
-        set
-        {
-            if (!SetProperty(ref _undoSendingDraftsIntervalInSeconds, value))
-                return;
-
-            PreferencesService.UndoSendingDraftsIntervalInSeconds = value;
-        }
-    }
-
-    public int UndoDeletingMailsIntervalInSeconds
-    {
-        get => _undoDeletingMailsIntervalInSeconds;
-        set
-        {
-            if (!SetProperty(ref _undoDeletingMailsIntervalInSeconds, value))
-                return;
-
-            PreferencesService.UndoDeletingMailsIntervalInSeconds = value;
-        }
-    }
-
     public bool IsStartupBehaviorDisabled => !IsStartupBehaviorEnabled;
     public bool IsStartupBehaviorEnabled => StartupBehaviorResult == StartupBehaviorResult.Enabled;
-
-    public string SelectedDefaultSearchMode
-    {
-        get => _selectedDefaultSearchMode;
-        set
-        {
-            SetProperty(ref _selectedDefaultSearchMode, value);
-            PreferencesService.DefaultSearchMode = (SearchMode)SearchModes.IndexOf(value);
-        }
-    }
 
     public string SelectedCloseBehaviorMode
     {
@@ -151,28 +81,30 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         }
     }
 
+    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+
+        var availableLanguages = _translationService.GetAvailableLanguages();
+        var startupBehaviorResult = await _startupBehaviorService.GetCurrentStartupBehaviorAsync();
+
+        await ExecuteUIThread(() =>
+        {
+            AvailableLanguages = availableLanguages;
+            SelectedLanguage = AvailableLanguages.Find(language => language.Language == PreferencesService.CurrentLanguage)
+                               ?? (AvailableLanguages.Count > 0 ? AvailableLanguages[0] : null);
+            _isLanguageInitialized = true;
+
+            StartupBehaviorResult = startupBehaviorResult;
+        });
+    }
+
     partial void OnSelectedLanguageChanged(AppLanguageModel value)
     {
         if (!_isLanguageInitialized || value == null)
             return;
 
         _ = _translationService.InitializeLanguageAsync(value.Language);
-    }
-
-    partial void OnSelectedDefaultTranslationLanguageChanged(AiTranslateLanguageOption value)
-    {
-        if (!_isAiPreferencesInitialized || value == null)
-            return;
-
-        PreferencesService.AiDefaultTranslationLanguageCode = value.Code;
-    }
-
-    partial void OnSelectedSummarizeLanguageChanged(AiTranslateLanguageOption value)
-    {
-        if (!_isAiPreferencesInitialized || value == null)
-            return;
-
-        PreferencesService.AiSummarizeLanguageCode = value.Code;
     }
 
     [RelayCommand]
@@ -220,41 +152,5 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         {
             _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.SettingsAppPreferences_StartupBehavior_FatalError, InfoBarMessageType.Error);
         }
-    }
-
-    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
-    {
-        base.OnNavigatedTo(mode, parameters);
-
-        var availableLanguages = _translationService.GetAvailableLanguages();
-        var availableAiLanguages = new List<AiTranslateLanguageOption>(_aiActionOptionsService.GetTranslateLanguageOptions());
-        var startupBehaviorResult = await _startupBehaviorService.GetCurrentStartupBehaviorAsync();
-
-        await ExecuteUIThread(() =>
-        {
-            AvailableLanguages = availableLanguages;
-            SelectedLanguage = AvailableLanguages.Find(language => language.Language == PreferencesService.CurrentLanguage)
-                               ?? (AvailableLanguages.Count > 0 ? AvailableLanguages[0] : null);
-            _isLanguageInitialized = true;
-
-            AvailableAiLanguages = availableAiLanguages;
-            SelectedDefaultTranslationLanguage = FindAiLanguageOption(PreferencesService.AiDefaultTranslationLanguageCode)
-                                                 ?? FindAiLanguageOption("en-US")
-                                                 ?? (AvailableAiLanguages.Count > 0 ? AvailableAiLanguages[0] : null);
-            SelectedSummarizeLanguage = FindAiLanguageOption(PreferencesService.AiSummarizeLanguageCode)
-                                        ?? FindAiLanguageOption("en-US")
-                                        ?? (AvailableAiLanguages.Count > 0 ? AvailableAiLanguages[0] : null);
-            _isAiPreferencesInitialized = true;
-
-            StartupBehaviorResult = startupBehaviorResult;
-        });
-    }
-
-    private AiTranslateLanguageOption FindAiLanguageOption(string languageCode)
-    {
-        if (string.IsNullOrWhiteSpace(languageCode))
-            return null;
-
-        return AvailableAiLanguages.Find(option => option.Code == languageCode);
     }
 }

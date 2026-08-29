@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Ai;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.ViewModels.Data;
@@ -35,6 +36,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private readonly IWinoAccountApiClient _apiClient;
     private readonly IAccountService _accountService;
     private readonly ISemanticIndexCoordinator _semanticIndexCoordinator;
+    private readonly IPreferencesService _preferencesService;
+    private readonly IAiActionOptionsService _aiActionOptionsService;
+    private bool _isAiLanguageInitialized;
     private readonly IWinoAccountIntelligenceSnapshotService? _snapshotService;
     private readonly WinoAddOnItemViewModel _aiPackAddOn;
     private readonly WinoAddOnItemViewModel _unlimitedAccountsAddOn;
@@ -174,6 +178,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                                                IWinoAccountApiClient apiClient,
                                                IAccountService accountService,
                                                ISemanticIndexCoordinator semanticIndexCoordinator,
+                                               IPreferencesService preferencesService,
+                                               IAiActionOptionsService aiActionOptionsService,
                                                IWinoAccountIntelligenceSnapshotService? snapshotService = null)
     {
         _profileService = profileService;
@@ -183,6 +189,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         _apiClient = apiClient;
         _accountService = accountService;
         _semanticIndexCoordinator = semanticIndexCoordinator;
+        _preferencesService = preferencesService;
+        _aiActionOptionsService = aiActionOptionsService;
         _snapshotService = snapshotService;
 
         _aiPackAddOn = CreateAddOnItem(WinoAddOnProductType.AI_PACK);
@@ -192,6 +200,60 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
         ApplySubtitleTexts();
         ApplyAccountUsage(mailAccountCount: 0, hasUnlimitedAccounts: false);
+        InitializeAiLanguageOptions();
+    }
+
+    /// <summary>
+    /// Target languages for the AI actions Wino Intelligence performs on a message.
+    /// </summary>
+    public List<AiTranslateLanguageOption> AvailableAiLanguages { get; } = [];
+
+    [ObservableProperty]
+    public partial AiTranslateLanguageOption? SelectedDefaultTranslationLanguage { get; set; }
+
+    [ObservableProperty]
+    public partial AiTranslateLanguageOption? SelectedSummarizeLanguage { get; set; }
+
+    private void InitializeAiLanguageOptions()
+    {
+        var translateLanguageOptions = _aiActionOptionsService?.GetTranslateLanguageOptions();
+
+        if (translateLanguageOptions is not null)
+        {
+            AvailableAiLanguages.AddRange(translateLanguageOptions);
+        }
+
+        SelectedDefaultTranslationLanguage = FindAiLanguageOption(_preferencesService.AiDefaultTranslationLanguageCode);
+        SelectedSummarizeLanguage = FindAiLanguageOption(_preferencesService.AiSummarizeLanguageCode);
+
+        _isAiLanguageInitialized = true;
+    }
+
+    private AiTranslateLanguageOption? FindAiLanguageOption(string languageCode)
+    {
+        var option = string.IsNullOrWhiteSpace(languageCode)
+            ? null
+            : AvailableAiLanguages.Find(candidate => candidate.Code == languageCode);
+
+        return option
+               ?? AvailableAiLanguages.Find(candidate => candidate.Code == "en-US")
+               ?? AvailableAiLanguages.FirstOrDefault();
+    }
+
+    partial void OnSelectedDefaultTranslationLanguageChanged(AiTranslateLanguageOption? value)
+    {
+        if (!_isAiLanguageInitialized || value is null)
+            return;
+
+        _preferencesService.AiDefaultTranslationLanguageCode = value.Code;
+    }
+
+    partial void OnSelectedSummarizeLanguageChanged(AiTranslateLanguageOption? value)
+    {
+        if (!_isAiLanguageInitialized || value is null)
+            return;
+
+        _preferencesService.AiSummarizeLanguageCode = value.Code;
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)

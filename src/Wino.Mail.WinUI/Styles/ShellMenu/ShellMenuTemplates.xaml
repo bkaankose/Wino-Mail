@@ -1379,6 +1379,21 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
+    <DataTemplate x:Key="SettingsShellGroupItemTemplate" x:DataType="menu:SettingsShellGroupMenuItem">
+        <coreControls:WinoNavigationViewItem
+            AutomationProperties.AutomationId="SettingsShellGroupNavigationViewItem"
+            AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
+            Content="{x:Bind Title, Mode=OneWay}"
+            DataContext="{x:Bind}"
+            IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+            MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
+            SelectsOnInvoked="False">
+            <muxc:NavigationViewItem.Icon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph}" />
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
     <DataTemplate x:Key="SettingsShellSectionItemTemplate" x:DataType="menu:SettingsShellSectionMenuItem">
         <coreControls:WinoNavigationViewItem
             Margin="0,12,0,4"

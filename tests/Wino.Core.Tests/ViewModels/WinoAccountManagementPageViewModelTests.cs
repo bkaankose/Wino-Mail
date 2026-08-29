@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Moq;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -57,7 +57,9 @@ public sealed class WinoAccountManagementPageViewModelTests
             billingService.Object,
             Mock.Of<IWinoAccountApiClient>(),
             Mock.Of<IAccountService>(),
-            Mock.Of<ISemanticIndexCoordinator>());
+            Mock.Of<ISemanticIndexCoordinator>(),
+            Mock.Of<IPreferencesService>(),
+            Mock.Of<IAiActionOptionsService>());
 
         viewModel.OnNavigatedTo(
             NavigationMode.New,
@@ -139,7 +141,9 @@ public sealed class WinoAccountManagementPageViewModelTests
             billingService.Object,
             apiClient.Object,
             accountService.Object,
-            coordinator.Object);
+            coordinator.Object,
+            Mock.Of<IPreferencesService>(),
+            Mock.Of<IAiActionOptionsService>());
 
         viewModel.OnNavigatedTo(NavigationMode.New, null!);
 
@@ -322,7 +326,9 @@ public sealed class WinoAccountManagementPageViewModelTests
             billingService.Object,
             apiClient.Object,
             accountService.Object,
-            Mock.Of<ISemanticIndexCoordinator>());
+            Mock.Of<ISemanticIndexCoordinator>(),
+            Mock.Of<IPreferencesService>(),
+            Mock.Of<IAiActionOptionsService>());
     }
 
     private static WinoAccountManagementPageViewModel CreateConsentViewModel(
@@ -355,7 +361,9 @@ public sealed class WinoAccountManagementPageViewModelTests
             billingService.Object,
             apiClient.Object,
             accountService,
-            coordinator);
+            coordinator,
+            Mock.Of<IPreferencesService>(),
+            Mock.Of<IAiActionOptionsService>());
     }
 
     private static IntelligenceMailboxStatusDto CreateIntelligenceStatus(Guid mailboxId, long size)

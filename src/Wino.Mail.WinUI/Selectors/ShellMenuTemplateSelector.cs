@@ -21,6 +21,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
     public DataTemplate? ShellSectionHeaderTemplate { get; set; }
     public DataTemplate? RatingItemTemplate { get; set; }
     public DataTemplate? SettingsShellSectionItemTemplate { get; set; }
+    public DataTemplate? SettingsShellGroupItemTemplate { get; set; }
     public DataTemplate? SettingsShellPageItemTemplate { get; set; }
     public DataTemplate? SettingsShellWinoAccountItemTemplate { get; set; }
     public DataTemplate? SettingsShellWinoIntelligenceItemTemplate { get; set; }
@@ -62,6 +63,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
 
         // Settings
         SettingsShellSectionMenuItem => SettingsShellSectionItemTemplate,
+        SettingsShellGroupMenuItem => SettingsShellGroupItemTemplate,
         SettingsShellPageMenuItem settingsShellPageMenuItem => GetSettingsPageTemplate(settingsShellPageMenuItem),
 
         // Calendar

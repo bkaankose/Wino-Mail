@@ -15,10 +15,10 @@
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
     <UseNativeAot Condition="'$(UseNativeAot)' == ''">true</UseNativeAot>
-    <PublishAot Condition="'$(Configuration)' == 'Release'">$(UseNativeAot)</PublishAot>
-    <PublishTrimmed Condition="'$(Configuration)' == 'Release'">$(UseNativeAot)</PublishTrimmed>
-    <TrimMode Condition="'$(Configuration)' == 'Release'">full</TrimMode>
-    <IncludePublishItemsOutputGroup Condition="'$(Configuration)' == 'Release' and '$(PublishAot)' == 'true'">true</IncludePublishItemsOutputGroup>
+    <PublishAot Condition="'$(WinoIsReleaseBuild)' == 'true'">$(UseNativeAot)</PublishAot>
+    <PublishTrimmed Condition="'$(WinoIsReleaseBuild)' == 'true'">$(UseNativeAot)</PublishTrimmed>
+    <TrimMode Condition="'$(WinoIsReleaseBuild)' == 'true'">full</TrimMode>
+    <IncludePublishItemsOutputGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">true</IncludePublishItemsOutputGroup>
     <!--
       Ical.Net 5.2.3 intentionally reflects over its RFC 5545 model and serializer types,
       MimeKit's otherwise-unused default context probes SQLite dynamically, and CsWinRT's
@@ -31,7 +31,7 @@
       Ordinary Release analyzer builds remain unsuppressed and continue to reject
       first-party IL warnings.
     -->
-    <NoWarn Condition="'$(Configuration)' == 'Release' and '$(PublishAot)' == 'true'">$(NoWarn);IL2026;IL2070;IL2072;IL2075;IL2077;IL2080;IL2081;IL2087;IL3053</NoWarn>
+    <NoWarn Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">$(NoWarn);IL2026;IL2070;IL2072;IL2075;IL2077;IL2080;IL2081;IL2087;IL3053</NoWarn>
     <Nullable>enable</Nullable>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<!-- Single instancing -->
@@ -233,7 +233,7 @@
 	<ProjectReference Include="..\..\controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
 	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
   </ItemGroup>
-  <ItemGroup Condition="'$(Configuration)' == 'Release' and '$(PublishAot)' == 'true'">
+  <ItemGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">
     <TrimmerRootAssembly Include="Ical.Net" />
     <TrimmerRootDescriptor Include="ILLink.AotRoots.xml" />
   </ItemGroup>
@@ -405,14 +405,54 @@
   <!-- Publish Properties -->
   <PropertyGroup>  
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
-    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
-    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
+    <GenerateAppInstallerFile>True</GenerateAppInstallerFile>
+    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <AppxBundle>Always</AppxBundle>
-    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
-    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+    <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
+    <HoursBetweenUpdateChecks>4</HoursBetweenUpdateChecks>
     <PackageCertificateThumbprint>4D0220C9CA6C704D170471B1A2335F76F94EB9DC</PackageCertificateThumbprint>
+    <AppInstallerUri>https://download.winomail.app/Wino.appinstaller</AppInstallerUri>
   </PropertyGroup>
+
+  <PropertyGroup Condition="'$(WinoIsSideloadBuild)' == 'true'">
+    <WinoSideloadPackageIdentityName>WinoMail.Sideload</WinoSideloadPackageIdentityName>
+    <WinoSideloadPublisherSubject>CN=Burak Kaan Köse, O=Burak Kaan Köse, L=Wroclaw, S=Dolnośląskie, C=PL</WinoSideloadPublisherSubject>
+    <WinoSideloadManifestPath>$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\Package.Sideload.appxmanifest</WinoSideloadManifestPath>
+    <AppxPackageDir>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)\..\..\artifacts'))</AppxPackageDir>
+    <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
+    <GenerateTemporaryStoreCertificate>false</GenerateTemporaryStoreCertificate>
+    <UapAppxPackageBuildMode>SideloadOnly</UapAppxPackageBuildMode>
+    <ValidatePresenceOfAppxManifestItemsDependsOn>PrepareWinoSideloadManifest;$(ValidatePresenceOfAppxManifestItemsDependsOn)</ValidatePresenceOfAppxManifestItemsDependsOn>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(WinoIsSideloadBuild)' == 'true'">
+    <AppxManifest Include="$(WinoSideloadManifestPath)" />
+  </ItemGroup>
+
+  <Target Name="PrepareWinoSideloadManifest" Condition="'$(WinoIsSideloadBuild)' == 'true'">
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(WinoSideloadManifestPath)'))" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Package.appxmanifest"
+          DestinationFiles="$(WinoSideloadManifestPath)" />
+    <XmlPoke XmlInputPath="$(WinoSideloadManifestPath)"
+             Query="/*[local-name()='Package']/*[local-name()='Identity']/@Name"
+             Value="$(WinoSideloadPackageIdentityName)" />
+    <XmlPoke XmlInputPath="$(WinoSideloadManifestPath)"
+             Query="/*[local-name()='Package']/*[local-name()='Identity']/@Publisher"
+             Value="$(WinoSideloadPublisherSubject)" />
+    <XmlPeek XmlInputPath="$(WinoSideloadManifestPath)"
+             Query="/*[local-name()='Package']/*[local-name()='Identity']/@Name">
+      <Output TaskParameter="Result" PropertyName="_WinoGeneratedSideloadIdentityName" />
+    </XmlPeek>
+    <XmlPeek XmlInputPath="$(WinoSideloadManifestPath)"
+             Query="/*[local-name()='Package']/*[local-name()='Identity']/@Publisher">
+      <Output TaskParameter="Result" PropertyName="_WinoGeneratedSideloadPublisher" />
+    </XmlPeek>
+    <Error Condition="'$(_WinoGeneratedSideloadIdentityName)' != '$(WinoSideloadPackageIdentityName)'"
+           Text="The generated sideload manifest identity name is invalid: '$(_WinoGeneratedSideloadIdentityName)'." />
+    <Error Condition="'$(_WinoGeneratedSideloadPublisher)' != '$(WinoSideloadPublisherSubject)'"
+           Text="The generated sideload manifest publisher is invalid: '$(_WinoGeneratedSideloadPublisher)'." />
+  </Target>
 </Project>

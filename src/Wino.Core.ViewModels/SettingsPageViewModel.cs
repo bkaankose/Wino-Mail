@@ -78,6 +78,30 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
             accountSearchText,
             includeDestination: false);
 
+        if (account.IsContactAccessGranted)
+        {
+            yield return CreateAccountSearchItem(
+                account,
+                Translator.AccountDetailsPage_PeopleSourceTitle,
+                Translator.AccountDetailsPage_PeopleSourceDescription,
+                WinoPage.AccountDetailsPage,
+                AccountDetailsTab.People,
+                "contacts people address book source",
+                includeDestination: false);
+        }
+
+        if (account.IsTaskAccessGranted)
+        {
+            yield return CreateAccountSearchItem(
+                account,
+                Translator.AccountDetailsPage_TasksSourceTitle,
+                Translator.AccountDetailsPage_TasksSourceDescription,
+                WinoPage.AccountDetailsPage,
+                AccountDetailsTab.ToDo,
+                "tasks to do list source",
+                includeDestination: false);
+        }
+
         if (!account.IsMailAccessGranted)
             yield break;
 

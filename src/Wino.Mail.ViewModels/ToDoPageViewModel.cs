@@ -2057,7 +2057,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     }
 
     private async Task QueueMutationAsync(TaskActionRequest request)
-        => await _requestDelegator.ExecuteAsync(request.MailAccountId, [request]).ConfigureAwait(false);
+        => await _requestDelegator.ExecuteAsync(request.MailAccountId, (IRequestBase[])[request]).ConfigureAwait(false);
 
     private static TaskSourceKind ResolveTaskSource(MailAccount account)
         => account.TaskIntegrationSource == AccountIntegrationSource.Provider && account.IsTaskAccessGranted

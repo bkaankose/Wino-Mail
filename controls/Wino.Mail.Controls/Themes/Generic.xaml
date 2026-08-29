@@ -36,7 +36,14 @@
                 Opacity="0.10"
                 Color="{ThemeResource SystemAccentColor}" />
             <StaticResource x:Key="WinoSynchronizationButtonActiveForegroundBrush" ResourceKey="AccentTextFillColorPrimaryBrush" />
-            <!--  The field is borderless at rest; focus adds the bottom edge and Meaning the full accent outline.  -->
+            <!--
+                Light theme puts a near-white field on a near-white surface, so unlike dark it needs a
+                resting hairline to read as a search box at all - the same call the Settings app makes.
+                Focus keeps that hairline and thickens the bottom edge on top of it.
+            -->
+            <Thickness x:Key="WinoSearchBarFieldBorderThickness">1</Thickness>
+            <Thickness x:Key="WinoSearchBarFieldFocusedBorderThickness">1,1,1,2</Thickness>
+            <StaticResource x:Key="WinoSearchBarFieldBorderBrush" ResourceKey="TextControlBorderBrush" />
             <StaticResource x:Key="WinoSearchBarFieldBackgroundBrush" ResourceKey="TextControlBackground" />
             <StaticResource x:Key="WinoSearchBarFieldFocusedBackgroundBrush" ResourceKey="TextControlBackgroundFocused" />
             <StaticResource x:Key="WinoSearchBarFieldFocusedBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
@@ -68,7 +75,10 @@
                 Opacity="0.18"
                 Color="{ThemeResource SystemAccentColor}" />
             <StaticResource x:Key="WinoSynchronizationButtonActiveForegroundBrush" ResourceKey="AccentTextFillColorPrimaryBrush" />
-            <!--  The field is borderless at rest; focus adds the bottom edge and Meaning the full accent outline.  -->
+            <!--  Dark keeps the field borderless at rest: the fill alone separates it from the surface.  -->
+            <Thickness x:Key="WinoSearchBarFieldBorderThickness">0</Thickness>
+            <Thickness x:Key="WinoSearchBarFieldFocusedBorderThickness">0,0,0,2</Thickness>
+            <StaticResource x:Key="WinoSearchBarFieldBorderBrush" ResourceKey="TextControlBorderBrush" />
             <StaticResource x:Key="WinoSearchBarFieldBackgroundBrush" ResourceKey="TextControlBackground" />
             <StaticResource x:Key="WinoSearchBarFieldFocusedBackgroundBrush" ResourceKey="TextControlBackgroundFocused" />
             <StaticResource x:Key="WinoSearchBarFieldFocusedBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
@@ -97,6 +107,9 @@
             <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="SystemColorButtonTextColorBrush" />
             <StaticResource x:Key="WinoSynchronizationButtonActiveBackgroundBrush" ResourceKey="SystemColorHighlightColorBrush" />
             <StaticResource x:Key="WinoSynchronizationButtonActiveForegroundBrush" ResourceKey="SystemColorHighlightTextColorBrush" />
+            <Thickness x:Key="WinoSearchBarFieldBorderThickness">1</Thickness>
+            <Thickness x:Key="WinoSearchBarFieldFocusedBorderThickness">1,1,1,2</Thickness>
+            <StaticResource x:Key="WinoSearchBarFieldBorderBrush" ResourceKey="SystemColorWindowTextColorBrush" />
             <StaticResource x:Key="WinoSearchBarFieldBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
             <StaticResource x:Key="WinoSearchBarFieldFocusedBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
             <StaticResource x:Key="WinoSearchBarFieldFocusedBorderBrush" ResourceKey="SystemColorHighlightColorBrush" />
@@ -366,7 +379,7 @@
                                         <!--  A focused Fluent text field thickens its bottom edge; here that edge is the whole border.  -->
                                         <Setter Target="PART_FieldBorder.Background" Value="{ThemeResource WinoSearchBarFieldFocusedBackgroundBrush}" />
                                         <Setter Target="PART_FieldBorder.BorderBrush" Value="{ThemeResource WinoSearchBarFieldFocusedBorderBrush}" />
-                                        <Setter Target="PART_FieldBorder.BorderThickness" Value="0,0,0,2" />
+                                        <Setter Target="PART_FieldBorder.BorderThickness" Value="{ThemeResource WinoSearchBarFieldFocusedBorderThickness}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="FieldMeaning">
@@ -460,7 +473,8 @@
                             Padding="9,0,2,0"
                             VerticalAlignment="Center"
                             Background="{ThemeResource WinoSearchBarFieldBackgroundBrush}"
-                            BorderThickness="0"
+                            BorderBrush="{ThemeResource WinoSearchBarFieldBorderBrush}"
+                            BorderThickness="{ThemeResource WinoSearchBarFieldBorderThickness}"
                             CornerRadius="16">
                             <Grid ColumnSpacing="2">
                                 <Grid.ColumnDefinitions>

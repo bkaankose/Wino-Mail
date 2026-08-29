@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -64,6 +64,7 @@ public sealed class WinoIntelligenceCoordinatorTests
             Mock.Of<IAccountService>(),
             Mock.Of<IWinoRequestDelegator>(),
             Mock.Of<ITranslationService>(),
+            Mock.Of<IPreferencesService>(),
             Mock.Of<IWinoLogger>(),
             Mock.Of<IIntelligenceBackend>(),
             Mock.Of<IContentEnvelopeEncryptor>(),
@@ -136,7 +137,8 @@ public sealed class WinoIntelligenceCoordinatorTests
             profile.Object, api.Object, Mock.Of<ISemanticIndexCoordinator>(),
             Mock.Of<IIntelligenceMessageContextResolver>(), localStore.Object,
             Mock.Of<IMimeFileService>(), Mock.Of<IMailService>(), Mock.Of<IAccountService>(),
-            Mock.Of<IWinoRequestDelegator>(), Mock.Of<ITranslationService>(), Mock.Of<IWinoLogger>(),
+            Mock.Of<IWinoRequestDelegator>(), Mock.Of<ITranslationService>(), Mock.Of<IPreferencesService>(),
+            Mock.Of<IWinoLogger>(),
             Mock.Of<IIntelligenceBackend>(), Mock.Of<IContentEnvelopeEncryptor>(), new MailContentProjector(),
             accountSnapshotService.Object);
 
@@ -155,7 +157,8 @@ public sealed class WinoIntelligenceCoordinatorTests
             profile.Object, api.Object, Mock.Of<ISemanticIndexCoordinator>(),
             Mock.Of<IIntelligenceMessageContextResolver>(), Mock.Of<ILocalIntelligenceStore>(),
             Mock.Of<IMimeFileService>(), Mock.Of<IMailService>(), Mock.Of<IAccountService>(),
-            Mock.Of<IWinoRequestDelegator>(), Mock.Of<ITranslationService>(), Mock.Of<IWinoLogger>(),
+            Mock.Of<IWinoRequestDelegator>(), Mock.Of<ITranslationService>(), Mock.Of<IPreferencesService>(),
+            Mock.Of<IWinoLogger>(),
             Mock.Of<IIntelligenceBackend>(), Mock.Of<IContentEnvelopeEncryptor>(), new MailContentProjector(),
             accountSnapshotService);
 

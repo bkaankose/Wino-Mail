@@ -2,6 +2,22 @@
 	<PropertyGroup>
 		<LangVersion>preview</LangVersion>
 		<IsAotCompatible>true</IsAotCompatible>
-		<Configurations>Debug;Release</Configurations>
+		<Configurations>Debug;Release;ReleaseSideload</Configurations>
+		<WinoIsReleaseBuild Condition="'$(Configuration)' == 'Release' or '$(Configuration)' == 'ReleaseSideload'">true</WinoIsReleaseBuild>
+		<WinoIsSideloadBuild Condition="'$(Configuration)' == 'ReleaseSideload'">true</WinoIsSideloadBuild>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(WinoIsSideloadBuild)' == 'true'">
+		<!-- Custom configurations do not inherit the SDK's built-in Release defaults. -->
+		<Optimize>true</Optimize>
+		<DebugSymbols>false</DebugSymbols>
+		<DebugType>portable</DebugType>
+		<DefineConstants>$(DefineConstants);RELEASE</DefineConstants>
+		<!-- A single Visual Studio bundle build restores every referenced project for all inner architectures. -->
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<!-- Bundle inner builds select Platform but do not propagate the app publish profile to project references. -->
+		<RuntimeIdentifier Condition="'$(Platform)' == 'x86'">win-x86</RuntimeIdentifier>
+		<RuntimeIdentifier Condition="'$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
+		<RuntimeIdentifier Condition="'$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
 	</PropertyGroup>
 </Project>

@@ -46,6 +46,7 @@
             RatingItemTemplate="{StaticResource RatingItemTemplate}"
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
             SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
+            SettingsShellGroupItemTemplate="{StaticResource SettingsShellGroupItemTemplate}"
             SettingsShellSectionItemTemplate="{StaticResource SettingsShellSectionItemTemplate}"
             SettingsShellWinoAccountItemTemplate="{StaticResource SettingsShellWinoAccountItemTemplate}"
             SettingsShellWinoIntelligenceItemTemplate="{StaticResource SettingsShellWinoIntelligenceItemTemplate}"

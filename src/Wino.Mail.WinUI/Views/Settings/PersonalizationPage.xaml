@@ -1,18 +1,15 @@
-<abstract:PersonalizationPageAbstract
+﻿<abstract:PersonalizationPageAbstract
     x:Class="Wino.Views.Settings.PersonalizationPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
-    xmlns:controls1="using:Wino.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:coreSelectors="using:Wino.Mail.WinUI.Selectors"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
-    xmlns:mailSelectors="using:Wino.Selectors"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:personalization="using:Wino.Mail.WinUI.Models.Personalization"
     xmlns:personalization1="using:Wino.Core.Domain.Models.Personalization"
@@ -24,33 +21,6 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <DataTemplate x:Key="CompactDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
-            <controls1:MailItemDisplayInformationControl
-                DisplayMode="Compact"
-                MailItemInformation="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailItemInformation}"
-                ShowPreviewText="False" />
-        </DataTemplate>
-
-        <DataTemplate x:Key="MediumDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
-            <controls1:MailItemDisplayInformationControl
-                DisplayMode="Medium"
-                MailItemInformation="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailItemInformation}"
-                ShowPreviewText="True" />
-        </DataTemplate>
-
-        <DataTemplate x:Key="SpaciousDisplayModePreviewTemplate" x:DataType="enums:MailListDisplayMode">
-            <controls1:MailItemDisplayInformationControl
-                DisplayMode="Spacious"
-                MailItemInformation="{Binding ElementName=root, Path=ViewModel.DemoPreviewMailItemInformation}"
-                ShowPreviewText="True" />
-        </DataTemplate>
-
-        <mailSelectors:MailItemDisplayModePreviewTemplateSelector
-            x:Key="MailItemDisplayModePreviewTemplateSelector"
-            CompactTemplate="{StaticResource CompactDisplayModePreviewTemplate}"
-            MediumTemplate="{StaticResource MediumDisplayModePreviewTemplate}"
-            SpaciousTemplate="{StaticResource SpaciousDisplayModePreviewTemplate}" />
-
         <DataTemplate x:Key="PersonalizationCustomAppThemeTemplate" x:DataType="personalization:CustomAppTheme">
             <Grid
                 Width="175"
@@ -206,6 +176,63 @@
                         IsOn="{x:Bind ViewModel.PreferencesService.IsCompactAccountMenuItemEnabled, Mode=TwoWay}" />
                 </controls:SettingsCard.Content>
             </controls:SettingsCard>
+
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="PersonalizationHideWinoAccountButtonCard"
+                Description="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7E8;" />
+                </controls:SettingsCard.HeaderIcon>
+                <controls:SettingsCard.Content>
+                    <ToggleSwitch AutomationProperties.AutomationId="PersonalizationHideWinoAccountButtonToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsWinoAccountButtonHidden, Mode=TwoWay}" />
+                </controls:SettingsCard.Content>
+            </controls:SettingsCard>
+
+            <!--  Profile pictures. These drive Mail, Calendar and People surfaces, not just the mail list.  -->
+            <controls:SettingsExpander
+                AutomationProperties.AutomationId="PersonalizationSenderPicturesExpander"
+                Description="{x:Bind domain:Translator.SettingsShowSenderPictures_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsShowSenderPictures_Title, Mode=OneTime}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <SymbolIcon Symbol="Contact" />
+                </controls:SettingsExpander.HeaderIcon>
+                <ToggleSwitch AutomationProperties.AutomationId="PersonalizationShowSenderPicturesToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=TwoWay}" />
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="PersonalizationGravatarCard"
+                        Description="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Title, Mode=OneTime}">
+                        <controls:SettingsCard.Content>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="PersonalizationGravatarToggleSwitch"
+                                IsEnabled="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.PreferencesService.IsGravatarEnabled, Mode=TwoWay}" />
+                        </controls:SettingsCard.Content>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="PersonalizationFaviconCard"
+                        Description="{x:Bind domain:Translator.SettingsEnableFavicons_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.SettingsEnableFavicons_Title, Mode=OneTime}">
+                        <controls:SettingsCard.Content>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="PersonalizationFaviconToggleSwitch"
+                                IsEnabled="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.PreferencesService.IsFaviconEnabled, Mode=TwoWay}" />
+                        </controls:SettingsCard.Content>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard AutomationProperties.AutomationId="PersonalizationClearAvatarsCacheCard">
+                        <controls:SettingsCard.Content>
+                            <Button
+                                AutomationProperties.AutomationId="PersonalizationClearAvatarsCacheButton"
+                                Command="{x:Bind ViewModel.ClearAvatarsCacheCommand}"
+                                Content="{x:Bind domain:Translator.SettingsMailList_ClearAvatarsCache_Button, Mode=OneTime}" />
+                        </controls:SettingsCard.Content>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
 
             <!--  App Themes  -->
             <controls:SettingsExpander

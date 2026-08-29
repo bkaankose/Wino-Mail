@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -154,24 +156,42 @@ public partial class SettingsMenuProvider(INavigationService navigationService) 
 
         var selectedPage = (SelectedMenuItem as SettingsShellPageMenuItem)?.PageType ?? WinoPage.SettingOptionsPage;
 
+        // Expansion is pane state and survives a rebuild, which happens on every activation and
+        // on language change. Capture it before the items are replaced.
+        var expandedGroups = _shellMenu.Items
+            .OfType<SettingsShellGroupMenuItem>()
+            .Where(group => group.IsExpanded)
+            .Select(group => group.Title)
+            .ToHashSet(StringComparer.Ordinal);
+
         _shellMenu.Items.Clear();
 
-        foreach (var item in SettingsNavigationInfoProvider.GetNavigationItems())
+        foreach (var node in SettingsNavigationInfoProvider.GetPaneNodes())
         {
-            if (item.IsSeparator)
+            if (!node.IsGroup)
             {
-                _shellMenu.Items.Add(new SettingsShellSectionMenuItem(item.Title, item.Glyph));
+                _shellMenu.Items.Add(CreatePageMenuItem(node.Item));
                 continue;
             }
 
-            if (!item.PageType.HasValue)
-                continue;
+            var group = new SettingsShellGroupMenuItem(node.Title, node.Glyph)
+            {
+                IsExpanded = expandedGroups.Contains(node.Title)
+            };
 
-            _shellMenu.Items.Add(new SettingsShellPageMenuItem(item.PageType.Value, item.Title, item.Description, item.Glyph));
+            foreach (var child in node.Children)
+            {
+                group.SubMenuItems.Add(CreatePageMenuItem(child));
+            }
+
+            _shellMenu.Items.Add(group);
         }
 
         SetSelectedRootPage(selectedPage);
     }
+
+    private static SettingsShellPageMenuItem CreatePageMenuItem(SettingsNavigationItemInfo item)
+        => new(item.PageType.Value, item.Title, item.Description, item.Glyph);
 
     private void SetSelectedRootPage(WinoPage pageType)
     {
@@ -179,13 +199,51 @@ public partial class SettingsMenuProvider(INavigationService navigationService) 
             return;
 
         var rootPage = SettingsNavigationInfoProvider.GetRootPage(pageType);
-        var selectedItem = _shellMenu.Items.OfType<SettingsShellPageMenuItem>()
-            .FirstOrDefault(item => item.PageType == rootPage);
+        var selectedItem = EnumerateAllPageMenuItems().FirstOrDefault(item => item.PageType == rootPage);
+
+        // Deep links and settings search can land inside a collapsed group, which would otherwise
+        // leave the pane showing no selection at all.
+        ExpandGroupContaining(selectedItem);
 
         if (ReferenceEquals(SelectedMenuItem, selectedItem))
             return;
 
         SelectedMenuItem = selectedItem;
+    }
+
+    private IEnumerable<SettingsShellPageMenuItem> EnumerateAllPageMenuItems()
+    {
+        foreach (var item in _shellMenu.Items)
+        {
+            if (item is SettingsShellPageMenuItem pageMenuItem)
+            {
+                yield return pageMenuItem;
+                continue;
+            }
+
+            if (item is not SettingsShellGroupMenuItem group)
+                continue;
+
+            foreach (var child in group.SubMenuItems)
+            {
+                yield return child;
+            }
+        }
+    }
+
+    private void ExpandGroupContaining(SettingsShellPageMenuItem menuItem)
+    {
+        if (menuItem is null)
+            return;
+
+        var owningGroup = _shellMenu.Items
+            .OfType<SettingsShellGroupMenuItem>()
+            .FirstOrDefault(group => group.SubMenuItems.Contains(menuItem));
+
+        if (owningGroup is { IsExpanded: false })
+        {
+            owningGroup.IsExpanded = true;
+        }
     }
 
     protected override void RegisterRecipients()

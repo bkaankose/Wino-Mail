@@ -1,0 +1,6 @@
+{
+  "Endpoint": "https://<region>.codesigning.azure.net/",
+  "CodeSigningAccountName": "<artifact-signing-account-name>",
+  "CertificateProfileName": "<public-trust-certificate-profile-name>",
+  "PublisherSubject": "CN=<exact-certificate-profile-subject>"
+}

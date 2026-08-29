@@ -24,6 +24,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
 
     private readonly IDialogServiceBase _dialogService;
     private readonly INewThemeService _newThemeService;
+    private readonly IThumbnailService _thumbnailService;
 
     private bool isPropChangeDisabled = false;
 
@@ -51,20 +52,10 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         new ElementThemeContainer(ApplicationElementTheme.Dark, Translator.ElementTheme_Dark),
     ];
 
-    public List<MailListDisplayMode> InformationDisplayModes { get; set; } =
-    [
-        MailListDisplayMode.Compact,
-        MailListDisplayMode.Medium,
-        MailListDisplayMode.Spacious
-    ];
-
     public List<AppThemeBase> AppThemes { get; set; }
 
     [ObservableProperty]
     public partial ElementThemeContainer SelectedElementTheme { get; set; }
-
-    [ObservableProperty]
-    public partial MailListDisplayMode SelectedInfoDisplayMode { get; set; }
 
     private AppColorViewModel _selectedAppColor;
 
@@ -145,10 +136,12 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     public PersonalizationPageViewModel(IDialogServiceBase dialogService,
                                         IStatePersistanceService statePersistanceService,
                                         INewThemeService newThemeService,
-                                        IPreferencesService preferencesService)
+                                        IPreferencesService preferencesService,
+                                        IThumbnailService thumbnailService)
     {
         _dialogService = dialogService;
         _newThemeService = newThemeService;
+        _thumbnailService = thumbnailService;
 
         StatePersistenceService = statePersistanceService;
         PreferencesService = preferencesService;
@@ -242,7 +235,6 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     {
         SelectedElementTheme = ElementThemes.Find(a => a.NativeTheme == _newThemeService.RootTheme)
             ?? ElementThemes.FirstOrDefault();
-        SelectedInfoDisplayMode = PreferencesService.MailItemDisplayMode;
 
         var currentAccentColor = _newThemeService.AccentColor;
 
@@ -359,12 +351,16 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         }
         else
         {
-            if (e.PropertyName == nameof(SelectedInfoDisplayMode))
-                PreferencesService.MailItemDisplayMode = SelectedInfoDisplayMode;
-            else if (e.PropertyName == nameof(SelectedAppColor))
+            if (e.PropertyName == nameof(SelectedAppColor))
                 _newThemeService.AccentColor = SelectedAppColor.Hex;
         }
     }
+
+    /// <summary>
+    /// Drops the cached Gravatar and favicon images so the next render fetches them again.
+    /// </summary>
+    [RelayCommand]
+    private async Task ClearAvatarsCacheAsync() => await _thumbnailService.ClearCache();
 
     private sealed class DemoMailItemDisplayInformation(
         string fromName,

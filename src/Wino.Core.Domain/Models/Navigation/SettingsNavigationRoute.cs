@@ -20,7 +20,9 @@ public enum AccountDetailsTab
 {
     General,
     Mail,
-    Calendar
+    Calendar,
+    People,
+    ToDo
 }
 
 public sealed record AccountDetailsNavigationContext(Guid AccountId, AccountDetailsTab SelectedTab);

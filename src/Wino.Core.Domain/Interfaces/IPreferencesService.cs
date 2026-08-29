@@ -26,20 +26,45 @@ public interface IPreferencesService : INotifyPropertyChanged
     AppLanguage CurrentLanguage { get; set; }
 
     /// <summary>
-    /// Setting: Whether the navigation pane is opened on the last session or not.
+    /// Diagnostic ID for the application.
+    /// Changes per-install.
     /// </summary>
-    bool IsNavigationPaneOpened { get; set; }
+    string DiagnosticId { get; set; }
+
+    /// <summary>
+    /// Setting: Whether Microsoft Store update notifications should be shown.
+    /// </summary>
+    bool IsStoreUpdateNotificationsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the system tray icon should be created while the shell is available.
+    /// </summary>
+    bool IsSystemTrayIconEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: What Wino should do when the shell window is closed.
+    /// </summary>
+    AppCloseBehavior AppCloseBehavior { get; set; }
+
+    /// <summary>
+    /// Serializes the current syncable preferences snapshot.
+    /// </summary>
+    string ExportPreferences();
+
+    /// <summary>
+    /// Deserializes and applies a preferences snapshot.
+    /// Returns the applied and failed property counts.
+    /// </summary>
+    (int appliedCount, int failedCount) ImportPreferences(string settingsJson);
+
+    #endregion
+
+    #region Mail
 
     /// <summary>
     /// Setting: Preferred time format for mail list and reader display.
     /// </summary>
     TimeFormatPreference MailTimeFormatPreference { get; set; }
-
-    /// <summary>
-    /// Diagnostic ID for the application.
-    /// Changes per-install.
-    /// </summary>
-    string DiagnosticId { get; set; }
 
     /// <summary>
     /// Setting: Defines the user's preference of default search mode in mail list.
@@ -51,11 +76,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// Setting: Interval in minutes for background email synchronization.
     /// </summary>
     int EmailSyncIntervalMinutes { get; set; }
-
-    /// <summary>
-    /// Setting: Whether Microsoft Store update notifications should be shown.
-    /// </summary>
-    bool IsStoreUpdateNotificationsEnabled { get; set; }
 
     /// <summary>
     /// Setting: Whether sending drafts should be held briefly so it can be undone.
@@ -78,49 +98,9 @@ public interface IPreferencesService : INotifyPropertyChanged
     int UndoDeletingMailsIntervalInSeconds { get; set; }
 
     /// <summary>
-    /// Setting: Whether the system tray icon should be created while the shell is available.
-    /// </summary>
-    bool IsSystemTrayIconEnabled { get; set; }
-
-    /// <summary>
-    /// Setting: What Wino should do when the shell window is closed.
-    /// </summary>
-    AppCloseBehavior AppCloseBehavior { get; set; }
-
-    /// <summary>
-    /// Setting: Whether the Wino account profile button in the shell title bar should be hidden.
-    /// </summary>
-    bool IsWinoAccountButtonHidden { get; set; }
-
-    /// <summary>
-    /// Setting: Default target language code used for AI translation actions.
-    /// </summary>
-    string AiDefaultTranslationLanguageCode { get; set; }
-
-    /// <summary>
-    /// Setting: Preferred target language code for AI summarize actions.
-    /// </summary>
-    string AiSummarizeLanguageCode { get; set; }
-
-    /// <summary>
     /// Setting: Render messages with the offline simplified Reader View.
     /// </summary>
     bool IsReaderViewEnabled { get; set; }
-
-    /// <summary>
-    /// Serializes the current syncable preferences snapshot.
-    /// </summary>
-    string ExportPreferences();
-
-    /// <summary>
-    /// Deserializes and applies a preferences snapshot.
-    /// Returns the applied and failed property counts.
-    /// </summary>
-    (int appliedCount, int failedCount) ImportPreferences(string settingsJson);
-
-    #endregion
-
-    #region Mail
 
     /// <summary>
     /// Setting: For changing the mail display container mode.
@@ -308,6 +288,34 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// Setting: The position of the account nickname indicator.
     /// </summary>
     AccountNicknamePosition AccountNicknamePosition { get; set; }
+
+    #endregion
+
+    #region Intelligence
+
+    /// <summary>
+    /// Setting: Default target language code used for AI translation actions.
+    /// </summary>
+    string AiDefaultTranslationLanguageCode { get; set; }
+
+    /// <summary>
+    /// Setting: Preferred target language code for AI summarize actions.
+    /// </summary>
+    string AiSummarizeLanguageCode { get; set; }
+
+    #endregion
+
+    #region Shell
+
+    /// <summary>
+    /// Setting: Whether the navigation pane is opened on the last session or not.
+    /// </summary>
+    bool IsNavigationPaneOpened { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the Wino account profile button in the shell title bar should be hidden.
+    /// </summary>
+    bool IsWinoAccountButtonHidden { get; set; }
 
     #endregion
 

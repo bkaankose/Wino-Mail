@@ -155,6 +155,26 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public bool IsTaskReauthorizationRequired => Account?.IsTaskReauthorizationRequired == true;
     public bool IsContactReauthorizationRequired => Account?.IsContactReauthorizationRequired == true;
     public bool IsOAuthCapabilityEditable => Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
+
+    /// <summary>
+    /// Gets whether the sender display name is worth showing for this account.
+    /// <para>
+    /// Only IMAP accounts build their own From header locally, so only there does this value reach
+    /// the recipient. Outlook has Exchange stamp the mailbox's directory display name over it, and
+    /// Gmail's alias sync always supplies a per-alias sender name that takes precedence. On both,
+    /// the value is additionally overwritten by the next provider profile sync, so the field is
+    /// hidden rather than shown as read-only. Per-alias sender names remain editable under Aliases.
+    /// </para>
+    /// </summary>
+    public bool IsSenderNameEditable => Account?.ProviderType == MailProviderType.IMAP4;
+
+    public string ContactIntegrationSourceText => GetIntegrationSourceText(Account?.ContactIntegrationSource);
+    public string TaskIntegrationSourceText => GetIntegrationSourceText(Account?.TaskIntegrationSource);
+
+    private static string GetIntegrationSourceText(AccountIntegrationSource? source)
+        => source == AccountIntegrationSource.Local
+            ? Translator.AccountDetailsPage_IntegrationSourceLocal
+            : Translator.AccountDetailsPage_IntegrationSourceProvider;
     public string ProviderIconPath => Account?.SpecialImapProvider != SpecialImapProvider.None
         ? $"ms-appx:///Assets/Providers/{Account.SpecialImapProvider}.png"
         : $"ms-appx:///Assets/Providers/{Account?.ProviderType}.png";
@@ -943,6 +963,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(IsTaskReauthorizationRequired));
         OnPropertyChanged(nameof(IsContactReauthorizationRequired));
         OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
+        OnPropertyChanged(nameof(IsSenderNameEditable));
+        OnPropertyChanged(nameof(ContactIntegrationSourceText));
+        OnPropertyChanged(nameof(TaskIntegrationSourceText));
         OnPropertyChanged(nameof(HasProfilePicture));
         OnPropertyChanged(nameof(CanRefreshProfilePicture));
         ChangeProfilePictureCommand.NotifyCanExecuteChanged();
@@ -1096,16 +1119,29 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         });
     }
 
+    /// <summary>
+    /// Revoking a capability hides its tab, so a selection left pointing at it would show an empty
+    /// page. Fall back to the first tab the account still has.
+    /// </summary>
     private void EnsureSelectedTabForCapabilities()
     {
-        if (SelectedTabIndex == 1 && !HasMailAccess)
+        var isSelectedTabAvailable = (AccountDetailsTab)SelectedTabIndex switch
         {
-            SelectedTabIndex = HasCalendarAccess ? 2 : 0;
-        }
-        else if (SelectedTabIndex == 2 && !HasCalendarAccess)
-        {
-            SelectedTabIndex = HasMailAccess ? 1 : 0;
-        }
+            AccountDetailsTab.Mail => HasMailAccess,
+            AccountDetailsTab.Calendar => HasCalendarAccess,
+            AccountDetailsTab.People => HasContactAccess,
+            AccountDetailsTab.ToDo => HasTaskAccess,
+            _ => true
+        };
+
+        if (isSelectedTabAvailable)
+            return;
+
+        SelectedTabIndex = (int)(HasMailAccess ? AccountDetailsTab.Mail
+            : HasCalendarAccess ? AccountDetailsTab.Calendar
+            : HasContactAccess ? AccountDetailsTab.People
+            : HasTaskAccess ? AccountDetailsTab.ToDo
+            : AccountDetailsTab.General);
     }
 }
 

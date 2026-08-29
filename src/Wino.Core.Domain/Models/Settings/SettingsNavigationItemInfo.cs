@@ -24,6 +24,38 @@ public sealed class SettingsNavigationItemInfo(
     public SettingsNavigationRoute NavigationRoute { get; } = navigationRoute;
 }
 
+/// <summary>
+/// One row of the settings pane: either a page at the root, or a collapsible mode group.
+/// </summary>
+public sealed class SettingsNavigationPaneNode
+{
+    public SettingsNavigationPaneNode(SettingsNavigationItemInfo item)
+    {
+        Item = item;
+        Title = item.Title;
+        Glyph = item.Glyph;
+    }
+
+    public SettingsNavigationPaneNode(string title, string glyph, IReadOnlyList<SettingsNavigationItemInfo> children)
+    {
+        Title = title;
+        Glyph = glyph;
+        Children = children;
+    }
+
+    /// <summary>The page this row navigates to. Null for a group.</summary>
+    public SettingsNavigationItemInfo Item { get; }
+
+    public string Title { get; }
+
+    public string Glyph { get; }
+
+    /// <summary>The pages inside this group. Null for a root-level page.</summary>
+    public IReadOnlyList<SettingsNavigationItemInfo> Children { get; }
+
+    public bool IsGroup => Children is not null;
+}
+
 public static class SettingsNavigationInfoProvider
 {
     public static IReadOnlyList<SettingsNavigationItemInfo> GetNavigationItems(string manageAccountsDescription = "")
@@ -48,29 +80,39 @@ public static class SettingsNavigationInfoProvider
                 Translator.WinoIntelligence_SettingsTitle,
                 Translator.WinoIntelligence_SettingsDescription,
                 "\uE945",
-                searchKeywords: "AI summarize translate insights semantic search"),
+                searchKeywords: Translator.SettingsSearch_WinoIntelligence_Keywords),
             new(null, Translator.SettingsOptions_GeneralSection, string.Empty, "\uE713", isSeparator: true),
             new(WinoPage.AppPreferencesPage,
-                Translator.SettingsAppPreferences_Title,
-                Translator.SettingsAppPreferences_Description,
+                Translator.SettingsGeneral_Title,
+                Translator.SettingsGeneral_Description,
                 "\uE770",
-                searchKeywords: Translator.SettingsSearch_AppPreferences_Keywords),
-            new(WinoPage.KeyboardShortcutsPage,
-                Translator.Settings_KeyboardShortcuts_Title,
-                Translator.Settings_KeyboardShortcuts_Description,
-                "\uE765",
-                searchKeywords: Translator.SettingsSearch_KeyboardShortcuts_Keywords),
+                searchKeywords: Translator.SettingsSearch_General_Keywords),
             new(WinoPage.PersonalizationPage,
                 Translator.SettingsPersonalization_Title,
                 Translator.SettingsPersonalization_Description,
                 "\uE771",
                 searchKeywords: Translator.SettingsSearch_Personalization_Keywords),
+            new(WinoPage.KeyboardShortcutsPage,
+                Translator.Settings_KeyboardShortcuts_Title,
+                Translator.Settings_KeyboardShortcuts_Description,
+                "\uE765",
+                searchKeywords: Translator.SettingsSearch_KeyboardShortcuts_Keywords),
+            new(WinoPage.BackupRestorePage,
+                Translator.SettingsBackupRestore_Title,
+                Translator.SettingsBackupRestore_Description,
+                "\uE8F7",
+                searchKeywords: Translator.SettingsSearch_BackupRestore_Keywords),
             new(WinoPage.AboutPage,
                 Translator.SettingsAbout_Title,
                 Translator.SettingsAbout_Description,
                 "\uE946",
                 searchKeywords: Translator.SettingsSearch_About_Keywords),
             new(null, Translator.SettingsOptions_MailSection, string.Empty, "\uE715", isSeparator: true),
+            new(WinoPage.MailPreferencesPage,
+                Translator.SettingsMailPreferences_Title,
+                Translator.SettingsMailPreferences_Description,
+                "\uE713",
+                searchKeywords: Translator.SettingsSearch_MailPreferences_Keywords),
             new(WinoPage.MessageListPage,
                 Translator.SettingsMessageList_Title,
                 Translator.SettingsMessageList_Description,
@@ -132,6 +174,63 @@ public static class SettingsNavigationInfoProvider
         ];
     }
 
+    /// <summary>
+    /// The pane projection of <see cref="GetNavigationItems"/>. Entries before the first separator
+    /// stay flat at the root; every separator afterwards becomes a collapsible group holding the
+    /// entries that follow it.
+    /// <para>
+    /// This is a presentation shape only. Groups are never navigation targets, so
+    /// <see cref="GetRootPage"/>, <see cref="GetPageTitle"/> and settings search continue to work
+    /// against the flat list.
+    /// </para>
+    /// </summary>
+    public static IReadOnlyList<SettingsNavigationPaneNode> GetPaneNodes(string manageAccountsDescription = "")
+    {
+        var nodes = new List<SettingsNavigationPaneNode>();
+        List<SettingsNavigationItemInfo> currentGroupItems = null;
+
+        foreach (var item in GetNavigationItems(manageAccountsDescription))
+        {
+            if (item.IsSeparator)
+            {
+                currentGroupItems = [];
+                nodes.Add(new SettingsNavigationPaneNode(item.Title, item.Glyph, currentGroupItems));
+                continue;
+            }
+
+            if (!item.PageType.HasValue)
+                continue;
+
+            if (currentGroupItems is null)
+            {
+                nodes.Add(new SettingsNavigationPaneNode(item));
+                continue;
+            }
+
+            currentGroupItems.Add(item);
+        }
+
+        // A separator with nothing under it would render as an empty, unopenable group.
+        return [.. nodes.Where(node => !node.IsGroup || node.Children.Count > 0)];
+    }
+
+    /// <summary>
+    /// Finds the group that owns a page, so the pane can expand it when navigation or settings
+    /// search lands inside a collapsed group. Returns null for a root-level page.
+    /// </summary>
+    public static string GetOwningGroupTitle(WinoPage pageType, string manageAccountsDescription = "")
+    {
+        var rootPage = GetRootPage(pageType);
+
+        foreach (var node in GetPaneNodes(manageAccountsDescription))
+        {
+            if (node.IsGroup && node.Children.Any(child => child.PageType == rootPage))
+                return node.Title;
+        }
+
+        return null;
+    }
+
     public static IReadOnlyList<SettingsNavigationItemInfo> Search(string query, string manageAccountsDescription = "")
         => Search(query, manageAccountsDescription, []);
 
@@ -187,7 +286,9 @@ public static class SettingsNavigationInfoProvider
             WinoPage.MessageListPage => Translator.SettingsMessageList_Title,
             WinoPage.MailNotificationSettingsPage => Translator.SettingsMailNotifications_Title,
             WinoPage.ReadComposePanePage => Translator.SettingsReadComposePane_Title,
-            WinoPage.AppPreferencesPage => Translator.SettingsAppPreferences_Title,
+            WinoPage.AppPreferencesPage => Translator.SettingsGeneral_Title,
+            WinoPage.MailPreferencesPage => Translator.SettingsMailPreferences_Title,
+            WinoPage.BackupRestorePage => Translator.SettingsBackupRestore_Title,
             WinoPage.CalendarSettingsPage => Translator.CalendarSettings_Preferences_Title,
             WinoPage.CalendarRenderingSettingsPage => Translator.CalendarSettings_Rendering_Title,
             WinoPage.CalendarNotificationSettingsPage => Translator.CalendarSettings_Notifications_Title,

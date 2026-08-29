@@ -26,6 +26,8 @@ public enum WinoPage
     MailListPage,
     ReadComposePanePage,
     AppPreferencesPage,
+    MailPreferencesPage,
+    BackupRestorePage,
     SettingOptionsPage,
     AliasManagementPage,
     MailCategoryManagementPage,

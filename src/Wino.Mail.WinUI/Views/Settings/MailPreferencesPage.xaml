@@ -1,0 +1,178 @@
+<abstract:MailPreferencesPageAbstract
+    x:Class="Wino.Views.Settings.MailPreferencesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="MailPreferencesStartupItemCard"
+            Description="{x:Bind domain:Translator.SettingsStartupItem_Description}"
+            Header="{x:Bind domain:Translator.SettingsStartupItem_Title}">
+            <controls:SettingsCard.HeaderIcon>
+                <SymbolIcon Symbol="Home" />
+            </controls:SettingsCard.HeaderIcon>
+            <ComboBox
+                MinWidth="180"
+                AutomationProperties.AutomationId="MailPreferencesStartupItemComboBox"
+                ItemsSource="{x:Bind ViewModel.StartupAccounts, Mode=OneWay}"
+                SelectedItem="{x:Bind ViewModel.StartupAccount, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="interfaces:IAccountProviderDetailViewModel">
+                        <TextBlock Text="{x:Bind StartupEntityTitle}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="MailPreferencesEmailSyncIntervalCard"
+            Description="{x:Bind domain:Translator.SettingsAppPreferences_EmailSyncInterval_Description}"
+            Header="{x:Bind domain:Translator.SettingsAppPreferences_EmailSyncInterval_Title}">
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE895;" />
+            </controls:SettingsCard.HeaderIcon>
+            <NumberBox
+                AutomationProperties.AutomationId="MailPreferencesEmailSyncIntervalNumberBox"
+                Minimum="1"
+                PlaceholderText="3"
+                SpinButtonPlacementMode="Inline"
+                Value="{x:Bind ViewModel.EmailSyncIntervalMinutes, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="MailPreferencesDefaultSearchModeCard"
+            Description="{x:Bind domain:Translator.SettingsAppPreferences_SearchMode_Description}"
+            Header="{x:Bind domain:Translator.SettingsAppPreferences_SearchMode_Title}">
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE721;" />
+            </controls:SettingsCard.HeaderIcon>
+            <ComboBox
+                MinWidth="180"
+                AutomationProperties.AutomationId="MailPreferencesDefaultSearchModeComboBox"
+                ItemsSource="{x:Bind ViewModel.SearchModes}"
+                SelectedItem="{x:Bind ViewModel.SelectedDefaultSearchMode, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="MailPreferencesUndoActionsExpander"
+            Description="{x:Bind domain:Translator.SettingsAppPreferences_UndoActions_Description}"
+            Header="{x:Bind domain:Translator.SettingsAppPreferences_UndoActions_Title}">
+            <controls:SettingsExpander.HeaderIcon>
+                <SymbolIcon Symbol="Undo" />
+            </controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="MailPreferencesUndoSendingDraftsCard"
+                    Description="{x:Bind domain:Translator.SettingsAppPreferences_UndoSendingDrafts_Description}"
+                    Header="{x:Bind domain:Translator.SettingsAppPreferences_UndoSendingDrafts_Title}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <SymbolIcon Symbol="Send" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <ToggleSwitch AutomationProperties.AutomationId="MailPreferencesUndoSendingDraftsToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsUndoSendingDraftsEnabled, Mode=TwoWay}" />
+                        <NumberBox
+                            AutomationProperties.AutomationId="MailPreferencesUndoSendingDraftsIntervalNumberBox"
+                            IsEnabled="{x:Bind ViewModel.PreferencesService.IsUndoSendingDraftsEnabled, Mode=OneWay}"
+                            Maximum="10"
+                            Minimum="1"
+                            SmallChange="1"
+                            SpinButtonPlacementMode="Inline"
+                            Value="{x:Bind ViewModel.UndoSendingDraftsIntervalInSeconds, Mode=TwoWay}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="MailPreferencesUndoDeletingMailsCard"
+                    Description="{x:Bind domain:Translator.SettingsAppPreferences_UndoDeletingMails_Description}"
+                    Header="{x:Bind domain:Translator.SettingsAppPreferences_UndoDeletingMails_Title}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <SymbolIcon Symbol="Delete" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <ToggleSwitch AutomationProperties.AutomationId="MailPreferencesUndoDeletingMailsToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsUndoDeletingMailsEnabled, Mode=TwoWay}" />
+                        <NumberBox
+                            AutomationProperties.AutomationId="MailPreferencesUndoDeletingMailsIntervalNumberBox"
+                            IsEnabled="{x:Bind ViewModel.PreferencesService.IsUndoDeletingMailsEnabled, Mode=OneWay}"
+                            Maximum="10"
+                            Minimum="1"
+                            SmallChange="1"
+                            SpinButtonPlacementMode="Inline"
+                            Value="{x:Bind ViewModel.UndoDeletingMailsIntervalInSeconds, Mode=TwoWay}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="MailPreferencesMarkAsReadExpander"
+            Description="{x:Bind domain:Translator.SettingsMarkAsRead_Description}"
+            Header="{x:Bind domain:Translator.SettingsMarkAsRead_Title}">
+            <controls:SettingsExpander.HeaderIcon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8C3;" />
+            </controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="MailPreferencesMarkAsReadCard"
+                    ContentAlignment="Vertical">
+                    <StackPanel>
+                        <RadioButtons SelectedIndex="{x:Bind ViewModel.SelectedMarkAsOptionIndex, Mode=TwoWay}">
+                            <RadioButton AutomationProperties.AutomationId="MailPreferencesMarkAsWhenSelectedRadio" Content="{x:Bind domain:Translator.SettingsMarkAsRead_WhenSelected}" />
+                            <RadioButton AutomationProperties.AutomationId="MailPreferencesMarkAsDontChangeRadio" Content="{x:Bind domain:Translator.SettingsMarkAsRead_DontChange}" />
+                            <RadioButton
+                                x:Name="MailPreferencesMarkAsTimerRadio"
+                                AutomationProperties.AutomationId="MailPreferencesMarkAsTimerRadio"
+                                Content="{x:Bind domain:Translator.SettingsMarkAsRead_Timer}"
+                                Visibility="Collapsed" />
+                        </RadioButtons>
+
+                        <NumberBox
+                            HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="MailPreferencesMarkAsDelayNumberBox"
+                            Header="{x:Bind domain:Translator.SettingsMarkAsRead_SecondsToWait}"
+                            IsEnabled="{x:Bind MailPreferencesMarkAsTimerRadio.IsChecked.GetValueOrDefault(), Mode=OneWay}"
+                            Text="{x:Bind ViewModel.PreferencesService.MarkAsDelay, Mode=TwoWay}"
+                            Visibility="Collapsed" />
+                    </StackPanel>
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="MailPreferencesAutoSelectNextItemCard"
+            Description="{x:Bind domain:Translator.SettingsAutoSelectNextItem_Description}"
+            Header="{x:Bind domain:Translator.SettingsAutoSelectNextItem_Title}">
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FD;" />
+            </controls:SettingsCard.HeaderIcon>
+            <ToggleSwitch AutomationProperties.AutomationId="MailPreferencesAutoSelectNextItemToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.AutoSelectNextItem, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="MailPreferencesDeleteProtectionCard"
+            Description="{x:Bind domain:Translator.SettingsDeleteProtection_Description}"
+            Header="{x:Bind domain:Translator.SettingsDeleteProtection_Title}">
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE730;" />
+            </controls:SettingsCard.HeaderIcon>
+            <ToggleSwitch AutomationProperties.AutomationId="MailPreferencesDeleteProtectionToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsHardDeleteProtectionEnabled, Mode=TwoWay}" />
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="MailPreferencesEmptyJunkCard"
+            Description="{x:Bind domain:Translator.SettingsEmptyJunkFolderCommand_Description}"
+            Header="{x:Bind domain:Translator.SettingsEmptyJunkFolderCommand_Title}">
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE74D;" />
+            </controls:SettingsCard.HeaderIcon>
+            <ToggleSwitch AutomationProperties.AutomationId="MailPreferencesEmptyJunkToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsShowEmptyJunkFolderEnabled, Mode=TwoWay}" />
+        </controls:SettingsCard>
+    </StackPanel>
+</abstract:MailPreferencesPageAbstract>
