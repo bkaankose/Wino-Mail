@@ -9,7 +9,8 @@ public record ContactCreateDestination(
     ContactSourceKind SourceKind,
     string AccountName,
     string AddressBookName,
-    bool IsDefault)
+    bool IsDefault,
+    bool IsReadOnly = false)
 {
     public string DisplayName => $"{AccountName} · {AddressBookName}";
 }

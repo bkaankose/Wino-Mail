@@ -192,40 +192,6 @@
                     </controls:SettingsCard>
 
                     <controls:SettingsCard
-                        HorizontalContentAlignment="Stretch"
-                        VerticalContentAlignment="Stretch"
-                        AutomationProperties.AutomationId="AppPreferencesPageSettingsCard10"
-                        ContentAlignment="Vertical"
-                        Description="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarySavePath_Description}"
-                        Header="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarySavePath_Title}">
-                        <StackPanel Spacing="8">
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBox
-                                    Grid.Column="0"
-                                    AutomationProperties.AutomationId="AppPreferencesAiSummarySavePathTextBox"
-                                    IsReadOnly="True"
-                                    PlaceholderText="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarySavePath_Placeholder}"
-                                    Text="{x:Bind ViewModel.SummarySavePath, Mode=OneWay}" />
-                                <Button
-                                    Grid.Column="1"
-                                    AutomationProperties.AutomationId="AppPreferencesAiSummaryBrowseButton"
-                                    Command="{x:Bind ViewModel.BrowseSummarySavePathCommand}"
-                                    Content="{x:Bind domain:Translator.Buttons_Browse}" />
-                            </Grid>
-                            <TextBlock
-                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.SettingsAppPreferences_AiSummarySavePath_InvalidHint}"
-                                TextWrapping="WrapWholeWords"
-                                Visibility="{x:Bind ViewModel.HasInvalidSummarySavePath, Mode=OneWay}" />
-                        </StackPanel>
-                    </controls:SettingsCard>
-
-                    <controls:SettingsCard
                         AutomationProperties.AutomationId="AppPreferencesPageSettingsCard11"
                         Description="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Description}"
                         Header="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Title}">

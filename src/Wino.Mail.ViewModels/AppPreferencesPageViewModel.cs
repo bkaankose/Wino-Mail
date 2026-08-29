@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -46,7 +45,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         EmailSyncIntervalMinutes = PreferencesService.EmailSyncIntervalMinutes;
         UndoSendingDraftsIntervalInSeconds = PreferencesService.UndoSendingDraftsIntervalInSeconds;
         UndoDeletingMailsIntervalInSeconds = PreferencesService.UndoDeletingMailsIntervalInSeconds;
-        SummarySavePath = PreferencesService.AiSummarySavePath;
     }
 
     public IPreferencesService PreferencesService { get; }
@@ -71,12 +69,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     public partial AiTranslateLanguageOption SelectedSummarizeLanguage { get; set; }
-
-    [ObservableProperty]
-    public partial string SummarySavePath { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial bool HasInvalidSummarySavePath { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStartupBehaviorDisabled))]
@@ -183,15 +175,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         PreferencesService.AiSummarizeLanguageCode = value.Code;
     }
 
-    partial void OnSummarySavePathChanged(string value)
-    {
-        if (!_isAiPreferencesInitialized)
-            return;
-
-        PreferencesService.AiSummarySavePath = value ?? string.Empty;
-        RefreshSummarySavePathState();
-    }
-
     [RelayCommand]
     private async Task ToggleStartupBehaviorAsync()
     {
@@ -239,16 +222,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         }
     }
 
-    [RelayCommand]
-    private async Task BrowseSummarySavePathAsync()
-    {
-        var pickedPath = await _dialogService.PickWindowsFolderAsync();
-        if (string.IsNullOrWhiteSpace(pickedPath))
-            return;
-
-        await ExecuteUIThread(() => SummarySavePath = pickedPath);
-    }
-
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
@@ -271,8 +244,6 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             SelectedSummarizeLanguage = FindAiLanguageOption(PreferencesService.AiSummarizeLanguageCode)
                                         ?? FindAiLanguageOption("en-US")
                                         ?? (AvailableAiLanguages.Count > 0 ? AvailableAiLanguages[0] : null);
-            SummarySavePath = PreferencesService.AiSummarySavePath;
-            RefreshSummarySavePathState();
             _isAiPreferencesInitialized = true;
 
             StartupBehaviorResult = startupBehaviorResult;
@@ -285,10 +256,5 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             return null;
 
         return AvailableAiLanguages.Find(option => option.Code == languageCode);
-    }
-
-    private void RefreshSummarySavePathState()
-    {
-        HasInvalidSummarySavePath = !string.IsNullOrWhiteSpace(SummarySavePath) && !Directory.Exists(SummarySavePath);
     }
 }

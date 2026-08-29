@@ -15,6 +15,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -231,6 +232,26 @@ public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<S
         await HandleDialogPresentationAsync(accountPicker);
 
         return accountPicker.PickedAccount ?? null!;
+    }
+
+    public async Task<ContactCreateDestination?> ShowContactDestinationPickerDialogAsync(IReadOnlyList<ContactCreateDestination> destinations)
+    {
+        var dialog = new ContactDestinationPickerDialog(destinations)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+        await HandleDialogPresentationAsync(dialog);
+        return dialog.PickedDestination;
+    }
+
+    public async Task<AccountTaskList?> ShowTaskListPickerDialogAsync(IReadOnlyList<AccountTaskList> taskLists)
+    {
+        var dialog = new TaskListPickerDialog(taskLists)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+        await HandleDialogPresentationAsync(dialog);
+        return dialog.PickedList;
     }
 
     public async Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups)

@@ -41,6 +41,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly INavigationService _navigationService;
     private readonly ICalendarService _calendarService;
     private readonly IMailDialogService _dialogService;
+    private readonly IPreferencesService _preferencesService;
+    private readonly ITaskCompletionSoundPlayer _completionSoundPlayer;
     private readonly NewTaskListMenuItem _newListMenuItem = new();
     private readonly SeperatorItem _commandSeparator = new();
     private readonly SeperatorItem _smartViewSeparator = new();
@@ -62,6 +64,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly SemaphoreSlim _reloadSemaphore = new(1, 1);
     private bool _isPaneCompact;
     private bool _isPreparedForShellShutdown;
+    private bool _applyStartViewOnReload;
+    private bool _isCompletionScopeExplicit;
     private int _suppressSurfaceReloadDepth;
     private object _selectedMenuItem;
     private long _requestedFullReloadVersion;
@@ -148,7 +152,11 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     partial void OnSelectedSortChanged(TaskSortKind value)
         => _ = ReloadTasksAsync();
 
-    partial void OnSelectedCompletionScopeChanged(TaskCompletionScope value) => ApplyFilterChange();
+    partial void OnSelectedCompletionScopeChanged(TaskCompletionScope value)
+    {
+        _isCompletionScopeExplicit = true;
+        ApplyFilterChange();
+    }
 
     partial void OnIsImportantTasksFilterSelectedChanged(bool value) => ApplyFilterChange();
 
@@ -364,7 +372,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         IWinoRequestDelegator requestDelegator,
         INavigationService navigationService,
         ICalendarService calendarService,
-        IMailDialogService dialogService)
+        IMailDialogService dialogService,
+        IPreferencesService preferencesService = null,
+        ITaskCompletionSoundPlayer completionSoundPlayer = null)
     {
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;
@@ -373,6 +383,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _navigationService = navigationService;
         _calendarService = calendarService;
         _dialogService = dialogService;
+        _preferencesService = preferencesService;
+        _completionSoundPlayer = completionSoundPlayer;
         TaskGroups = new ReadOnlyObservableCollection<TaskGroup>(_taskGroups);
     }
 
@@ -773,6 +785,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     {
         base.OnNavigatedTo(mode, parameters);
         _isPreparedForShellShutdown = false;
+        _applyStartViewOnReload = parameters is null && _preferencesService is not null;
         _ = ReloadAsync();
     }
 
@@ -1068,9 +1081,17 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
                 _suppressSurfaceReloadDepth++;
                 try
                 {
-                    SelectedList = selectedListId is { } id
-                        ? TaskLists.FirstOrDefault(list => list.Id == id)
-                        : null;
+                    if (_applyStartViewOnReload)
+                    {
+                        ApplyPreferredStartView();
+                        _applyStartViewOnReload = false;
+                    }
+                    else
+                    {
+                        SelectedList = selectedListId is { } id
+                            ? TaskLists.FirstOrDefault(list => list.Id == id)
+                            : null;
+                    }
                 }
                 finally
                 {
@@ -1147,7 +1168,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     [RelayCommand(CanExecute = nameof(CanCreateTask))]
     private async Task AddTaskAsync()
     {
-        var destination = SelectedList ?? GetWritableDestinationList();
+        var destination = SelectedList ?? (_preferencesService is null
+            ? GetWritableDestinationList()
+            : await ResolveNewTaskDestinationAsync().ConfigureAwait(false));
         if (destination is null)
             return;
 
@@ -1170,6 +1193,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             task.MailAccountId,
             TaskSynchronizerOperation.CreateTask,
             Task: task)).ConfigureAwait(false);
+
+        if (_preferencesService is not null)
+            _preferencesService.LastUsedTaskListId = destination.Id;
 
         await ExecuteUIThread(() =>
         {
@@ -1194,6 +1220,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             TaskSynchronizerOperation.UpdateTask,
             Task: desired,
             OriginalTask: original)).ConfigureAwait(false);
+
+        if (desired.IsCompleted && _preferencesService?.IsTaskCompletionSoundEnabled == true)
+            _completionSoundPlayer?.Play();
     }
 
     [RelayCommand]
@@ -1274,12 +1303,20 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     /// <summary>Takes the scope as a string for the same reason <see cref="SetSort"/> does.</summary>
     [RelayCommand]
     private void SetCompletionScope(string scope)
-        => SelectedCompletionScope = scope switch
+    {
+        _isCompletionScopeExplicit = true;
+        var selectedScope = scope switch
         {
             "completed" => TaskCompletionScope.Completed,
             "all" => TaskCompletionScope.All,
             _ => TaskCompletionScope.Active
         };
+
+        if (SelectedCompletionScope == selectedScope)
+            ApplyFilterChange();
+        else
+            SelectedCompletionScope = selectedScope;
+    }
 
     /// <summary>Returns the surface to what it shows unfiltered. Disabled while nothing narrows it.</summary>
     [RelayCommand(CanExecute = nameof(IsFiltered))]
@@ -1391,6 +1428,15 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (item is null || item.IsReadOnly)
             return;
 
+        if (_preferencesService?.IsTaskDeleteConfirmationEnabled == true &&
+            !await _dialogService.ShowConfirmationDialogAsync(
+                Translator.ToDoSettings_DeleteTask_Message,
+                Translator.ToDoSettings_DeleteTask_Title,
+                Translator.Buttons_Delete))
+        {
+            return;
+        }
+
         await QueueMutationAsync(new TaskActionRequest(
             item.Task.MailAccountId,
             TaskSynchronizerOperation.DeleteTask,
@@ -1476,6 +1522,15 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     {
         if (step is null || !CanEditSelectedTask)
             return;
+
+        if (_preferencesService?.IsTaskDeleteConfirmationEnabled == true &&
+            !await _dialogService.ShowConfirmationDialogAsync(
+                Translator.ToDoSettings_DeleteStep_Message,
+                Translator.ToDoSettings_DeleteStep_Title,
+                Translator.Buttons_Delete))
+        {
+            return;
+        }
 
         await QueueMutationAsync(new TaskActionRequest(
             step.Step.MailAccountId,
@@ -2023,6 +2078,62 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             .ThenBy(list => list.Id)
             .FirstOrDefault();
 
+    private async Task<AccountTaskList> ResolveNewTaskDestinationAsync()
+    {
+        var writableLists = TaskLists.Where(list => !list.IsReadOnly).ToList();
+        var preferredId = _preferencesService.TaskCreationBehavior switch
+        {
+            NewItemDestinationBehavior.Specific => _preferencesService.SpecificTaskListId,
+            NewItemDestinationBehavior.LastUsed => _preferencesService.LastUsedTaskListId,
+            _ => null
+        };
+        var preferred = preferredId.HasValue
+            ? writableLists.FirstOrDefault(list => list.Id == preferredId.Value)
+            : null;
+
+        if (_preferencesService.TaskCreationBehavior == NewItemDestinationBehavior.Specific && preferred is null)
+        {
+            _preferencesService.TaskCreationBehavior = NewItemDestinationBehavior.AskEachTime;
+            _preferencesService.SpecificTaskListId = null;
+        }
+
+        if (_preferencesService.TaskCreationBehavior == NewItemDestinationBehavior.AskEachTime)
+            return await _dialogService.ShowTaskListPickerDialogAsync(writableLists);
+
+        return preferred ?? GetWritableDestinationList();
+    }
+
+    private void ApplyPreferredStartView()
+    {
+        _isCompletionScopeExplicit = false;
+        SelectedList = null;
+        switch (_preferencesService?.ToDoStartView ?? ToDoStartView.MyDay)
+        {
+            case ToDoStartView.Planned:
+                SelectedView = TaskViewKind.Planned;
+                break;
+            case ToDoStartView.AllTasks:
+                SelectedView = TaskViewKind.All;
+                break;
+            case ToDoStartView.SpecificList:
+                SelectedList = TaskLists.FirstOrDefault(list => list.Id == _preferencesService.ToDoStartTaskListId);
+                if (SelectedList is null)
+                {
+                    _preferencesService.ToDoStartView = ToDoStartView.MyDay;
+                    _preferencesService.ToDoStartTaskListId = null;
+                    SelectedView = TaskViewKind.MyDay;
+                }
+                else
+                {
+                    SelectedView = TaskViewKind.All;
+                }
+                break;
+            default:
+                SelectedView = TaskViewKind.MyDay;
+                break;
+        }
+    }
+
     private static bool RequiresLocalFallbackList(MailAccount account)
         => account.IsTaskAccessEnabled &&
            (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook) ||
@@ -2038,6 +2149,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             return;
 
         _suppressSurfaceReloadDepth++;
+        _isCompletionScopeExplicit = false;
         try
         {
             SelectedList = list;
@@ -2058,6 +2170,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         {
             _suppressSurfaceReloadDepth--;
         }
+
+        _isCompletionScopeExplicit = false;
 
         UpdateSelectedMenuItemReference();
         _ = ReloadTasksAsync();
@@ -2123,7 +2237,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (SelectedList is not null)
             return task.TaskListId == SelectedList.Id;
 
-        if (task.IsCompleted)
+        if (_preferencesService is null && task.IsCompleted)
             return false;
 
         return SelectedView switch
@@ -2131,6 +2245,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             TaskViewKind.MyDay => task.MyDayDateUtc == DateTime.UtcNow.Date,
             TaskViewKind.Planned => task.DueDate.HasValue,
             TaskViewKind.Important => task.IsImportant,
+            TaskViewKind.All => true,
             _ => false
         };
     }
@@ -2208,6 +2323,27 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (IsImportantTasksFilterSelected && !item.IsImportant)
             return false;
 
+        if (_preferencesService is null)
+        {
+            return SelectedCompletionScope switch
+            {
+                TaskCompletionScope.Active => !item.IsCompleted,
+                TaskCompletionScope.Completed => item.IsCompleted,
+                _ => true
+            };
+        }
+
+        if (!_isCompletionScopeExplicit)
+        {
+            return (_preferencesService?.CompletedTaskTreatment ?? CompletedTaskTreatment.StayVisible) switch
+            {
+                CompletedTaskTreatment.StayVisible or CompletedTaskTreatment.MoveToBottom => true,
+                CompletedTaskTreatment.HideAfterPeriod => !item.IsCompleted ||
+                    item.Task.CompletedAtUtc >= DateTime.UtcNow.AddDays(-(int)(_preferencesService?.CompletedTaskHideDelay ?? CompletedTaskHideDelay.OneDay)),
+                _ => !item.IsCompleted
+            };
+        }
+
         return SelectedCompletionScope switch
         {
             TaskCompletionScope.Active => !item.IsCompleted,
@@ -2218,7 +2354,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private IEnumerable<TaskItemViewModel> OrderVisibleTasks(IEnumerable<TaskItemViewModel> items)
     {
-        var ordered = items.OrderBy(item => item.IsCompleted);
+        var ordered = !_isCompletionScopeExplicit &&
+                      _preferencesService?.CompletedTaskTreatment == CompletedTaskTreatment.MoveToBottom
+            ? items.OrderBy(item => item.IsCompleted)
+            : items.OrderBy(_ => 0);
         ordered = SelectedSort switch
         {
             TaskSortKind.Importance => ordered.ThenByDescending(item => item.IsImportant).ThenBy(item => item.DueDate ?? DateTime.MaxValue),

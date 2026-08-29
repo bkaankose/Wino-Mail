@@ -504,7 +504,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
                 TitleBarSearchBox.SemanticUnavailableReasonText = mailHost.SemanticUnavailableReasonText;
                 TitleBarSearchBox.SenderSuggestions = mailHost.SenderSuggestions;
                 if (resetMeaning)
-                    TitleBarSearchBox.IsSemanticSearchEnabled = false;
+                    ApplyDefaultSearchMode();
             }
             else
             {
@@ -517,6 +517,24 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         {
             _isSynchronizingTitleBarSearch = false;
         }
+    }
+
+    /// <summary>
+    /// Seeds the search bar from the user's default search mode. This only decides where a search
+    /// starts; changing the meaning toggle or the reach option during a search still wins, and the
+    /// reset button still returns to the neutral local defaults.
+    /// </summary>
+    private void ApplyDefaultSearchMode()
+    {
+        var defaultSearchMode = PreferencesService.DefaultSearchMode;
+
+        // Semantic search can be unavailable for the active accounts, so never force the toggle on.
+        TitleBarSearchBox.IsSemanticSearchEnabled = defaultSearchMode == SearchMode.Semantic
+                                                    && TitleBarSearchBox.IsSemanticSearchAvailable;
+
+        TitleBarSearchBox.SearchReach = defaultSearchMode == SearchMode.Online
+            ? SearchBarReach.IncludeServer
+            : SearchBarReach.DownloadedOnly;
     }
 
     private async void TitleBarSearchTextChanged(object? sender, SearchBarTextChangedEventArgs args)

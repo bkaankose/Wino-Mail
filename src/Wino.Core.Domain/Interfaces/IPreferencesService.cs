@@ -103,11 +103,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     string AiSummarizeLanguageCode { get; set; }
 
     /// <summary>
-    /// Setting: Preferred folder path used when saving AI summaries.
-    /// </summary>
-    string AiSummarySavePath { get; set; }
-
-    /// <summary>
     /// Setting: Render messages with the offline simplified Reader View.
     /// </summary>
     bool IsReaderViewEnabled { get; set; }
@@ -359,6 +354,30 @@ public interface IPreferencesService : INotifyPropertyChanged
     NotificationSoundEvent CalendarNotificationSoundEvent { get; set; }
 
     CalendarSettings GetCurrentCalendarSettings();
+
+    #endregion
+
+    #region People
+
+    NewItemDestinationBehavior ContactCreationBehavior { get; set; }
+    Guid? SpecificContactAddressBookId { get; set; }
+    Guid? LastUsedContactAddressBookId { get; set; }
+    ContactNameDisplayFormat ContactNameDisplayFormat { get; set; }
+    ContactSortOrder ContactSortOrder { get; set; }
+
+    #endregion
+
+    #region To Do
+
+    NewItemDestinationBehavior TaskCreationBehavior { get; set; }
+    Guid? SpecificTaskListId { get; set; }
+    Guid? LastUsedTaskListId { get; set; }
+    ToDoStartView ToDoStartView { get; set; }
+    Guid? ToDoStartTaskListId { get; set; }
+    CompletedTaskTreatment CompletedTaskTreatment { get; set; }
+    CompletedTaskHideDelay CompletedTaskHideDelay { get; set; }
+    bool IsTaskCompletionSoundEnabled { get; set; }
+    bool IsTaskDeleteConfirmationEnabled { get; set; }
 
     #endregion
 }

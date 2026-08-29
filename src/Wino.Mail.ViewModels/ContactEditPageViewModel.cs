@@ -19,11 +19,11 @@ namespace Wino.Mail.ViewModels;
 
 public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackNavigation
 {
-    private static Guid? _lastSuccessfulDestinationId;
     private readonly IContactQueryService _contactService;
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly INavigationService _navigationService;
-    private readonly IDialogServiceBase _dialogService;
+    private readonly IMailDialogService _dialogService;
+    private readonly IPreferencesService _preferencesService;
     private readonly IContactPictureFileService _pictureFileService;
     private AccountContact _original;
     private byte[] _photoBytes;
@@ -109,13 +109,15 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     public double BirthdayDayValue { get => BirthdayDay ?? double.NaN; set { BirthdayDay = double.IsNaN(value) ? null : (int)value; IsDirty = true; } }
 
     public ContactEditPageViewModel(IContactQueryService contactService, IWinoRequestDelegator requestDelegator,
-        INavigationService navigationService, IDialogServiceBase dialogService, IContactPictureFileService pictureFileService)
+        INavigationService navigationService, IMailDialogService dialogService, IContactPictureFileService pictureFileService,
+        IPreferencesService preferencesService = null)
     {
         _contactService = contactService;
         _requestDelegator = requestDelegator;
         _navigationService = navigationService;
         _dialogService = dialogService;
         _pictureFileService = pictureFileService;
+        _preferencesService = preferencesService;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -175,10 +177,23 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
             }
             else
             {
-                SelectedDestination = Destinations.FirstOrDefault(destination => destination.AddressBookId == _lastSuccessfulDestinationId)
-                    ?? Destinations.OrderByDescending(destination => destination.SourceKind != ContactSourceKind.Local)
+                var preferredDestinationId = _preferencesService?.ContactCreationBehavior switch
+                {
+                    NewItemDestinationBehavior.Specific => _preferencesService.SpecificContactAddressBookId,
+                    NewItemDestinationBehavior.LastUsed => _preferencesService.LastUsedContactAddressBookId,
+                    _ => null
+                };
+                SelectedDestination = Destinations.FirstOrDefault(destination => !destination.IsReadOnly && destination.AddressBookId == preferredDestinationId)
+                    ?? Destinations.Where(destination => !destination.IsReadOnly).OrderByDescending(destination => destination.SourceKind != ContactSourceKind.Local)
                     .ThenByDescending(destination => destination.IsDefault).FirstOrDefault()
-                    ?? Destinations.FirstOrDefault();
+                    ?? Destinations.FirstOrDefault(destination => !destination.IsReadOnly);
+
+                if (_preferencesService?.ContactCreationBehavior == NewItemDestinationBehavior.Specific &&
+                    preferredDestinationId.HasValue && SelectedDestination?.AddressBookId != preferredDestinationId)
+                {
+                    _preferencesService.ContactCreationBehavior = NewItemDestinationBehavior.AskEachTime;
+                    _preferencesService.SpecificContactAddressBookId = null;
+                }
 
                 if (parameter.ImportDraft is { } importDraft)
                 {
@@ -208,6 +223,16 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
+        if (!IsEditMode && _preferencesService?.ContactCreationBehavior == NewItemDestinationBehavior.AskEachTime)
+        {
+            var pickedDestination = await _dialogService.ShowContactDestinationPickerDialogAsync(
+                Destinations.Where(destination => !destination.IsReadOnly).ToList());
+            if (pickedDestination is null)
+                return;
+
+            SelectedDestination = pickedDestination;
+        }
+
         var error = Validate();
         if (error is not null) { ErrorMessage = error; IsErrorOpen = true; return; }
         IsSaving = true;
@@ -255,7 +280,8 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
                 desiredListIds: desiredListIds,
                 originalListIds: _originalListIds)).ConfigureAwait(false);
 
-            _lastSuccessfulDestinationId = contact.AddressBookId;
+            if (_preferencesService is not null)
+                _preferencesService.LastUsedContactAddressBookId = contact.AddressBookId;
 
             await ExecuteUIThread(() =>
             {

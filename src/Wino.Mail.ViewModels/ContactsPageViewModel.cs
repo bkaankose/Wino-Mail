@@ -56,6 +56,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     private readonly IMailDialogService _dialogService;
     private readonly ILaunchProtocolService _launchProtocolService;
     private readonly ICardDavSynchronizationStore _cardDavSynchronizationStore;
+    private readonly IPreferencesService _preferencesService;
     private readonly SemaphoreSlim _loadSemaphore = new(1, 1);
     private readonly ContactFilterGroup _primaryFilterGroup;
     private readonly ContactFilterGroup _addressBookFilterGroup;
@@ -113,7 +114,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         ISynchronizationManager synchronizationManager, IWinoRequestDelegator requestDelegator,
         INavigationService navigationService, IMailDialogService dialogService,
         ILaunchProtocolService launchProtocolService,
-        ICardDavSynchronizationStore cardDavSynchronizationStore = null)
+        ICardDavSynchronizationStore cardDavSynchronizationStore = null,
+        IPreferencesService preferencesService = null)
     {
         _contactService = contactService;
         _accountService = accountService;
@@ -122,6 +124,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         _navigationService = navigationService;
         _dialogService = dialogService;
         _launchProtocolService = launchProtocolService;
+        _preferencesService = preferencesService;
         _cardDavSynchronizationStore = cardDavSynchronizationStore;
         _primaryFilterGroup = new ContactFilterGroup(string.Empty);
         _addressBookFilterGroup = new ContactFilterGroup(Translator.ContactsPage_AddressBooks);
@@ -774,7 +777,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                 var filter = SelectedFilter?.ToQueryFilter(null)
                     ?? new ContactQueryFilter(ExcludeRootContacts: true);
 
-                var page = await _contactService.GetContactsPageAsync(filter, _currentOffset, ContactPageSize).ConfigureAwait(false);
+                var page = await _contactService.GetContactsPageAsync(filter, _currentOffset, ContactPageSize, _preferencesService?.ContactSortOrder ?? ContactSortOrder.ProviderDisplayName).ConfigureAwait(false);
 
                 if (queryVersion != _currentQueryVersion)
                     return;
@@ -790,7 +793,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                     foreach (var contact in page.Contacts)
                     {
                         _accounts.TryGetValue(contact.MailAccountId, out var account);
-                        var item = new AccountContactViewModel(contact, account?.Name, account is null || !account.IsContactReauthorizationRequired);
+                        var item = CreateContactViewModel(contact);
                         Contacts.Add(item);
                         AppendToGroup(item);
                     }
@@ -824,12 +827,12 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
         var filter = SelectedFilter?.ToQueryFilter(search)
             ?? new ContactQueryFilter(SearchQuery: search, ExcludeRootContacts: true);
-        var page = await _contactService.GetContactsPageAsync(filter, 0, Math.Max(1, limit)).ConfigureAwait(false);
+        var page = await _contactService.GetContactsPageAsync(filter, 0, Math.Max(1, limit), _preferencesService?.ContactSortOrder ?? ContactSortOrder.ProviderDisplayName).ConfigureAwait(false);
 
         return page.Contacts.Select(contact =>
         {
             _accounts.TryGetValue(contact.MailAccountId, out var account);
-            return new AccountContactViewModel(contact, account?.Name, account is null || !account.IsContactReauthorizationRequired);
+            return CreateContactViewModel(contact);
         }).ToList();
     }
 
@@ -1344,7 +1347,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             var filter = SelectedFilter?.ToQueryFilter(null)
                 ?? new ContactQueryFilter(ExcludeRootContacts: true);
             var pageSize = Math.Max(ContactPageSize, Contacts.Count);
-            var page = await _contactService.GetContactsPageAsync(filter, 0, pageSize).ConfigureAwait(false);
+            var page = await _contactService.GetContactsPageAsync(filter, 0, pageSize, _preferencesService?.ContactSortOrder ?? ContactSortOrder.ProviderDisplayName).ConfigureAwait(false);
 
             if (queryVersion != _currentQueryVersion)
                 return;
@@ -1371,7 +1374,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         return new AccountContactViewModel(
             contact,
             account?.Name,
-            account is null || !account.IsContactReauthorizationRequired);
+            account is null || !account.IsContactReauthorizationRequired,
+            _preferencesService?.ContactNameDisplayFormat ?? ContactNameDisplayFormat.ProviderDisplayName,
+            _preferencesService?.ContactSortOrder ?? ContactSortOrder.ProviderDisplayName);
     }
 
     private void ReconcileContacts(

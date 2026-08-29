@@ -780,7 +780,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         filtered = view switch
         {
             TaskViewKind.Completed => filtered.Where(task => task.IsCompleted),
-            TaskViewKind.Planned => filtered.Where(task => !task.IsCompleted && task.DueDate.HasValue),
+            TaskViewKind.Planned => filtered.Where(task => task.DueDate.HasValue),
             TaskViewKind.MyDay => filtered.Where(task => task.MyDayDateUtc == today),
             TaskViewKind.Important => filtered.Where(task => task.IsImportant),
             _ => filtered

@@ -436,6 +436,90 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(CalendarNotificationSoundEvent), value);
     }
 
+    public NewItemDestinationBehavior ContactCreationBehavior
+    {
+        get => _configurationService.Get(nameof(ContactCreationBehavior), NewItemDestinationBehavior.AskEachTime);
+        set => SetPropertyAndSave(nameof(ContactCreationBehavior), value);
+    }
+
+    public Guid? SpecificContactAddressBookId
+    {
+        get => _configurationService.Get<Guid?>(nameof(SpecificContactAddressBookId), null);
+        set => SetPropertyAndSave(nameof(SpecificContactAddressBookId), value);
+    }
+
+    public Guid? LastUsedContactAddressBookId
+    {
+        get => _configurationService.Get<Guid?>(nameof(LastUsedContactAddressBookId), null);
+        set => SetPropertyAndSave(nameof(LastUsedContactAddressBookId), value);
+    }
+
+    public ContactNameDisplayFormat ContactNameDisplayFormat
+    {
+        get => _configurationService.Get(nameof(ContactNameDisplayFormat), ContactNameDisplayFormat.ProviderDisplayName);
+        set => SetPropertyAndSave(nameof(ContactNameDisplayFormat), value);
+    }
+
+    public ContactSortOrder ContactSortOrder
+    {
+        get => _configurationService.Get(nameof(ContactSortOrder), ContactSortOrder.ProviderDisplayName);
+        set => SetPropertyAndSave(nameof(ContactSortOrder), value);
+    }
+
+    public NewItemDestinationBehavior TaskCreationBehavior
+    {
+        get => _configurationService.Get(nameof(TaskCreationBehavior), NewItemDestinationBehavior.AskEachTime);
+        set => SetPropertyAndSave(nameof(TaskCreationBehavior), value);
+    }
+
+    public Guid? SpecificTaskListId
+    {
+        get => _configurationService.Get<Guid?>(nameof(SpecificTaskListId), null);
+        set => SetPropertyAndSave(nameof(SpecificTaskListId), value);
+    }
+
+    public Guid? LastUsedTaskListId
+    {
+        get => _configurationService.Get<Guid?>(nameof(LastUsedTaskListId), null);
+        set => SetPropertyAndSave(nameof(LastUsedTaskListId), value);
+    }
+
+    public ToDoStartView ToDoStartView
+    {
+        get => _configurationService.Get(nameof(ToDoStartView), ToDoStartView.MyDay);
+        set => SetPropertyAndSave(nameof(ToDoStartView), value);
+    }
+
+    public Guid? ToDoStartTaskListId
+    {
+        get => _configurationService.Get<Guid?>(nameof(ToDoStartTaskListId), null);
+        set => SetPropertyAndSave(nameof(ToDoStartTaskListId), value);
+    }
+
+    public CompletedTaskTreatment CompletedTaskTreatment
+    {
+        get => _configurationService.Get(nameof(CompletedTaskTreatment), CompletedTaskTreatment.StayVisible);
+        set => SetPropertyAndSave(nameof(CompletedTaskTreatment), value);
+    }
+
+    public CompletedTaskHideDelay CompletedTaskHideDelay
+    {
+        get => _configurationService.Get(nameof(CompletedTaskHideDelay), CompletedTaskHideDelay.OneDay);
+        set => SetPropertyAndSave(nameof(CompletedTaskHideDelay), value);
+    }
+
+    public bool IsTaskCompletionSoundEnabled
+    {
+        get => _configurationService.Get(nameof(IsTaskCompletionSoundEnabled), true);
+        set => SetPropertyAndSave(nameof(IsTaskCompletionSoundEnabled), value);
+    }
+
+    public bool IsTaskDeleteConfirmationEnabled
+    {
+        get => _configurationService.Get(nameof(IsTaskDeleteConfirmationEnabled), true);
+        set => SetPropertyAndSave(nameof(IsTaskDeleteConfirmationEnabled), value);
+    }
+
     public NewEventButtonBehavior NewEventButtonBehavior
     {
         get => _configurationService.Get(nameof(NewEventButtonBehavior), NewEventButtonBehavior.AskEachTime);
@@ -552,12 +636,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(AiSummarizeLanguageCode), "en-US");
         set => SetPropertyAndSave(nameof(AiSummarizeLanguageCode), string.IsNullOrWhiteSpace(value) ? "en-US" : value.Trim());
-    }
-
-    public string AiSummarySavePath
-    {
-        get => _configurationService.Get(nameof(AiSummarySavePath), string.Empty);
-        set => SetPropertyAndSave(nameof(AiSummarySavePath), value?.Trim() ?? string.Empty);
     }
 
     public CalendarSettings GetCurrentCalendarSettings()

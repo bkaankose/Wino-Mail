@@ -501,6 +501,7 @@ public partial class App : WinoApplication,
         services.AddSingleton<INavigationReentryRule, ModeRootReentryRule>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IMailDialogService, DialogService>();
+        services.AddSingleton<ITaskCompletionSoundPlayer, TaskCompletionSoundPlayer>();
         services.AddSingleton<IAiActionOptionsService, AiActionOptionsService>();
         services.AddSingleton<ISearchHistoryService, SearchHistoryService>();
         services.AddSingleton<ReleaseLocalAccountDataCleanupService>();
@@ -570,6 +571,8 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(CalendarRenderingSettingsPageViewModel));
         services.AddTransient(typeof(CalendarNotificationSettingsPageViewModel));
         services.AddTransient(typeof(CalendarPreferenceSettingsPageViewModel));
+        services.AddTransient(typeof(ContactsPreferenceSettingsPageViewModel));
+        services.AddTransient(typeof(ToDoPreferenceSettingsPageViewModel));
         services.AddTransient(typeof(CalendarAccountSettingsPageViewModel));
         services.AddTransient(typeof(EventDetailsPageViewModel));
         services.AddTransient(typeof(CalendarEventComposePageViewModel));

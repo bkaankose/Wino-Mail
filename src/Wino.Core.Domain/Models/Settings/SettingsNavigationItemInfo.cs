@@ -116,7 +116,19 @@ public static class SettingsNavigationInfoProvider
                 Translator.CalendarSettings_Preferences_Title,
                 Translator.CalendarSettings_Preferences_Description,
                 "\uE713",
-                searchKeywords: Translator.SettingsSearch_CalendarSettings_Keywords)
+                searchKeywords: Translator.SettingsSearch_CalendarSettings_Keywords),
+            new(null, Translator.SettingsOptions_PeopleSection, string.Empty, "\uE77B", isSeparator: true),
+            new(WinoPage.ContactsPreferenceSettingsPage,
+                Translator.PeopleSettings_Title,
+                Translator.PeopleSettings_Description,
+                "\uE713",
+                searchKeywords: Translator.PeopleSettings_SearchKeywords),
+            new(null, Translator.SettingsOptions_ToDoSection, string.Empty, "\uE823", isSeparator: true),
+            new(WinoPage.ToDoPreferenceSettingsPage,
+                Translator.ToDoSettings_Title,
+                Translator.ToDoSettings_Description,
+                "\uE713",
+                searchKeywords: Translator.ToDoSettings_SearchKeywords)
         ];
     }
 
@@ -180,6 +192,8 @@ public static class SettingsNavigationInfoProvider
             WinoPage.CalendarRenderingSettingsPage => Translator.CalendarSettings_Rendering_Title,
             WinoPage.CalendarNotificationSettingsPage => Translator.CalendarSettings_Notifications_Title,
             WinoPage.CalendarPreferenceSettingsPage => Translator.CalendarSettings_Preferences_Title,
+            WinoPage.ContactsPreferenceSettingsPage => Translator.PeopleSettings_Title,
+            WinoPage.ToDoPreferenceSettingsPage => Translator.ToDoSettings_Title,
             WinoPage.SignatureAndEncryptionPage => Translator.SettingsSignatureAndEncryption_Title,
             WinoPage.KeyboardShortcutsPage => Translator.Settings_KeyboardShortcuts_Title,
             WinoPage.StoragePage => Translator.SettingsStorage_Title,

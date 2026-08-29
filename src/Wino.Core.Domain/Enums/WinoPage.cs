@@ -39,6 +39,8 @@ public enum WinoPage
     CalendarNotificationSettingsPage,
     CalendarPreferenceSettingsPage,
     CalendarAccountSettingsPage,
+    ContactsPreferenceSettingsPage,
+    ToDoPreferenceSettingsPage,
     EventDetailsPage,
     CalendarEventComposePage,
     SignatureAndEncryptionPage,

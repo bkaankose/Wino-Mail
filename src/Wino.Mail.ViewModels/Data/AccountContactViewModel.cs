@@ -12,6 +12,8 @@ namespace Wino.Mail.ViewModels.Data;
 
 public partial class AccountContactViewModel : ObservableObject, IMailItemDisplayInformation
 {
+    private readonly ContactNameDisplayFormat _displayFormat;
+    private readonly ContactSortOrder _sortOrder;
     public AccountContact SourceContact { get; private set; }
     public string Address { get; set; }
     public string Name { get; set; }
@@ -57,7 +59,7 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     {
         get
         {
-            var source = SourceContact.SortKey;
+            var source = GetSortValue(SourceContact, _sortOrder);
             if (string.IsNullOrWhiteSpace(source))
                 source = SourceContact.DisplayValue;
 
@@ -66,11 +68,15 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
         }
     }
 
-    public AccountContactViewModel(AccountContact contact, string accountName = null, bool isAuthorized = true)
+    public AccountContactViewModel(AccountContact contact, string accountName = null, bool isAuthorized = true,
+        ContactNameDisplayFormat displayFormat = ContactNameDisplayFormat.ProviderDisplayName,
+        ContactSortOrder sortOrder = ContactSortOrder.ProviderDisplayName)
     {
+        _displayFormat = displayFormat;
+        _sortOrder = sortOrder;
         SourceContact = contact;
         Address = contact.Address;
-        Name = contact.Name;
+        Name = GetDisplayName(contact, displayFormat);
         ContactPictureFileId = contact.ContactPictureFileId;
         IsRootContact = contact.IsRootContact;
         IsOverridden = contact.IsOverridden;
@@ -85,7 +91,7 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
 
         SourceContact = contact;
         Address = contact.Address;
-        Name = contact.Name;
+        Name = GetDisplayName(contact, _displayFormat);
         ContactPictureFileId = contact.ContactPictureFileId;
         IsRootContact = contact.IsRootContact;
         IsOverridden = contact.IsOverridden;
@@ -103,6 +109,25 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
         OnPropertyChanged(nameof(DisplayName));
         OnPropertyChanged(nameof(SenderContact));
     }
+
+    private static string GetDisplayName(AccountContact contact, ContactNameDisplayFormat format)
+    {
+        var structured = format switch
+        {
+            ContactNameDisplayFormat.FirstNameFirst => string.Join(" ", new[] { contact.GivenName, contact.MiddleName, contact.Surname }.Where(value => !string.IsNullOrWhiteSpace(value))),
+            ContactNameDisplayFormat.LastNameFirst => string.Join(" ", new[] { contact.Surname, contact.GivenName, contact.MiddleName }.Where(value => !string.IsNullOrWhiteSpace(value))),
+            _ => contact.DisplayName
+        };
+        return string.IsNullOrWhiteSpace(structured) ? contact.DisplayValue : structured;
+    }
+
+    private static string GetSortValue(AccountContact contact, ContactSortOrder order)
+        => order switch
+        {
+            ContactSortOrder.FirstName => contact.GivenName ?? contact.Surname ?? contact.SortKey,
+            ContactSortOrder.LastName => contact.Surname ?? contact.GivenName ?? contact.SortKey,
+            _ => contact.SortKey
+        };
 
     /// <summary>
     /// Gets or sets whether the contact is the current account.

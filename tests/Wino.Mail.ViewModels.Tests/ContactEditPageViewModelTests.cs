@@ -32,7 +32,7 @@ public class ContactEditPageViewModelTests
             contactService.Object,
             delegator.Object,
             Mock.Of<INavigationService>(),
-            Mock.Of<IDialogServiceBase>(),
+            Mock.Of<IMailDialogService>(),
             Mock.Of<IContactPictureFileService>());
         byte[] photoBytes = [1, 2, 3, 4];
         var importedContact = new AccountContact
@@ -80,7 +80,7 @@ public class ContactEditPageViewModelTests
     [InlineData(2001, 2, 28, true)]
     public async Task Save_RejectsBirthdaysThatAreNotRealCalendarDates(int year, int month, int day, bool isValid)
     {
-        var viewModel = new ContactEditPageViewModel(Mock.Of<IContactService>(), Mock.Of<IWinoRequestDelegator>(), Mock.Of<INavigationService>(), Mock.Of<IDialogServiceBase>(), Mock.Of<IContactPictureFileService>());
+        var viewModel = new ContactEditPageViewModel(Mock.Of<IContactService>(), Mock.Of<IWinoRequestDelegator>(), Mock.Of<INavigationService>(), Mock.Of<IMailDialogService>(), Mock.Of<IContactPictureFileService>());
         var destination = new ContactCreateDestination(Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Local, "Test", "Local contacts", true);
         viewModel.Destinations.Add(destination);
         viewModel.SelectedDestination = destination;
@@ -99,7 +99,7 @@ public class ContactEditPageViewModelTests
     [InlineData(true)]
     public async Task CanNavigateBack_DirtyEditor_FollowsTheDiscardConfirmation(bool confirmed)
     {
-        var dialogs = new Mock<IDialogServiceBase>();
+        var dialogs = new Mock<IMailDialogService>();
         dialogs.Setup(service => service.ShowConfirmationDialogAsync(
                 It.IsAny<string>(),
                 It.IsAny<string>(),
@@ -116,7 +116,7 @@ public class ContactEditPageViewModelTests
     [Fact]
     public async Task CanNavigateBack_CleanEditor_LeavesWithoutPrompting()
     {
-        var dialogs = new Mock<IDialogServiceBase>();
+        var dialogs = new Mock<IMailDialogService>();
         var viewModel = CreateViewModel(dialogs: dialogs.Object);
 
         var canNavigateBack = await viewModel.CanNavigateBackAsync();
@@ -142,12 +142,12 @@ public class ContactEditPageViewModelTests
 
     private static ContactEditPageViewModel CreateViewModel(
         INavigationService navigation = null,
-        IDialogServiceBase dialogs = null)
+        IMailDialogService dialogs = null)
         => new(
             Mock.Of<IContactService>(),
             Mock.Of<IWinoRequestDelegator>(),
             navigation ?? Mock.Of<INavigationService>(),
-            dialogs ?? Mock.Of<IDialogServiceBase>(),
+            dialogs ?? Mock.Of<IMailDialogService>(),
             Mock.Of<IContactPictureFileService>());
 
     private static async Task WaitForAsync(Func<bool> predicate)
@@ -163,7 +163,7 @@ public class ContactEditPageViewModelTests
     public async Task ChooseAndRemovePhoto_UpdatesTheEditorPreviewImmediately()
     {
         byte[] imageBytes = [0x89, 0x50, 0x4E, 0x47];
-        var dialogs = new Mock<IDialogServiceBase>();
+        var dialogs = new Mock<IMailDialogService>();
         dialogs.Setup(service => service.PickFilesAsync(It.IsAny<object[]>()))
             .ReturnsAsync([new SharedFile("contact.png", imageBytes)]);
         var viewModel = new ContactEditPageViewModel(
@@ -189,7 +189,7 @@ public class ContactEditPageViewModelTests
     {
         byte[] imageBytes = [0x89, 0x50, 0x4E, 0x47];
         var pictureId = Guid.NewGuid();
-        var dialogs = new Mock<IDialogServiceBase>();
+        var dialogs = new Mock<IMailDialogService>();
         dialogs.Setup(service => service.PickFilesAsync(It.IsAny<object[]>()))
             .ReturnsAsync([new SharedFile("contact.png", imageBytes)]);
         var pictureService = new Mock<IContactPictureFileService>();

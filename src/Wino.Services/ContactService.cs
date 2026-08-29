@@ -100,7 +100,8 @@ public class ContactService : BaseDatabaseService, IContactService
                     book.SourceKind,
                     account.Name,
                     book.DisplayName,
-                    book.IsDefault))
+                    book.IsDefault,
+                    book.IsReadOnly))
             .ToList();
     }
 
@@ -446,7 +447,7 @@ public class ContactService : BaseDatabaseService, IContactService
         return results;
     }
 
-    public async Task<PagedContactsResult> GetContactsPageAsync(ContactQueryFilter filter, int offset, int pageSize)
+    public async Task<PagedContactsResult> GetContactsPageAsync(ContactQueryFilter filter, int offset, int pageSize, ContactSortOrder sortOrder = ContactSortOrder.ProviderDisplayName)
     {
         filter ??= ContactQueryFilter.All;
         offset = Math.Max(0, offset);
@@ -493,8 +494,14 @@ public class ContactService : BaseDatabaseService, IContactService
         var where = $"{Environment.NewLine}FROM ContactCard c{Environment.NewLine}WHERE {string.Join($"{Environment.NewLine}  AND ", clauses)}";
         var filterArguments = arguments.ToArray();
         var totalCount = await Connection.ExecuteScalarAsync<int>($"SELECT COUNT(*) {where}", filterArguments).ConfigureAwait(false);
+        var orderBy = sortOrder switch
+        {
+            ContactSortOrder.FirstName => "c.GivenName COLLATE NOCASE, c.Surname COLLATE NOCASE, c.SortKey COLLATE NOCASE",
+            ContactSortOrder.LastName => "c.Surname COLLATE NOCASE, c.GivenName COLLATE NOCASE, c.SortKey COLLATE NOCASE",
+            _ => "c.SortKey COLLATE NOCASE"
+        };
         var contacts = await Connection.QueryAsync<AccountContact>(
-            $"SELECT c.* {where} ORDER BY c.SortKey, c.Id LIMIT ? OFFSET ?",
+            $"SELECT c.* {where} ORDER BY {orderBy}, c.Id LIMIT ? OFFSET ?",
             [.. filterArguments, pageSize, offset]).ConfigureAwait(false);
 
         await LoadChildrenAsync(contacts).ConfigureAwait(false);

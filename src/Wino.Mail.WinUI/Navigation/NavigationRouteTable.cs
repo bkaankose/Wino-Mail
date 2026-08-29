@@ -75,6 +75,8 @@ public static class NavigationRouteTable
         Settings(WinoPage.CalendarRenderingSettingsPage, typeof(CalendarRenderingSettingsPage)),
         Settings(WinoPage.CalendarNotificationSettingsPage, typeof(CalendarNotificationSettingsPage)),
         Settings(WinoPage.CalendarAccountSettingsPage, typeof(CalendarAccountSettingsPage)),
+        Settings(WinoPage.ContactsPreferenceSettingsPage, typeof(ContactsPreferenceSettingsPage)),
+        Settings(WinoPage.ToDoPreferenceSettingsPage, typeof(ToDoPreferenceSettingsPage)),
 
         // ---- Account setup wizard ------------------------------------------------
         new(WinoPage.WelcomeHostPage, typeof(WelcomeHostPage), null, NavigationReferenceFrame.ShellFrame, RouteKind.Standalone),

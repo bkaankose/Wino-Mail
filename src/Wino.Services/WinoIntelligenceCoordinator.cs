@@ -37,6 +37,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
     private readonly IAccountService _accountService;
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly ITranslationService _translationService;
+    private readonly IPreferencesService _preferencesService;
     private readonly IWinoLogger _logger;
     private readonly IIntelligenceBackend _intelligenceBackend;
     private readonly IContentEnvelopeEncryptor _envelopeEncryptor;
@@ -55,6 +56,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         IAccountService accountService,
         IWinoRequestDelegator requestDelegator,
         ITranslationService translationService,
+        IPreferencesService preferencesService,
         IWinoLogger logger,
         IIntelligenceBackend intelligenceBackend,
         IContentEnvelopeEncryptor envelopeEncryptor,
@@ -71,6 +73,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         _accountService = accountService;
         _requestDelegator = requestDelegator;
         _translationService = translationService;
+        _preferencesService = preferencesService;
         _logger = logger;
         _intelligenceBackend = intelligenceBackend;
         _envelopeEncryptor = envelopeEncryptor;
@@ -188,6 +191,19 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         await _semanticIndexCoordinator.IndexMessageAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Summaries follow the language chosen in Wino Intelligence settings. When the user has not
+    /// chosen one, they follow the app display language.
+    /// </summary>
+    private string ResolveSummaryLanguage()
+    {
+        var preferredLanguage = _preferencesService.AiSummarizeLanguageCode;
+
+        return !string.IsNullOrWhiteSpace(preferredLanguage)
+            ? preferredLanguage
+            : _translationService.CurrentLanguageModel?.Code ?? "en-US";
+    }
+
     public Task<WinoIntelligenceOperationResult<string>> SummarizeAsync(
         WinoIntelligenceContext context,
         Guid requestId,
@@ -197,7 +213,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
             var snapshot = await GetSnapshotAsync(context, token).ConfigureAwait(false);
             if (!snapshot.IsSummaryAvailable)
                 throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
-            var language = _translationService.CurrentLanguageModel?.Code ?? "en-US";
+            var language = ResolveSummaryLanguage();
             var projection = context.InferenceProjection ??
                              _contentProjector.Project(context.Html, MailContentProjectionProfile.Inference).Projection;
             var cacheKey = CreateSummaryCacheKey(projection, language);
