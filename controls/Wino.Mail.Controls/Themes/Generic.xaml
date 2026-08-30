@@ -2,7 +2,6 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
-    xmlns:animatedVisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
     xmlns:appMode="using:Wino.Mail.Controls.AppModeSwitcher"
     xmlns:intelligence="using:Wino.Mail.Controls.IntelligenceHeader"
     xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
@@ -58,15 +57,18 @@
             <StaticResource x:Key="WinoAppModeSwitcherCardBackgroundBrush" ResourceKey="CardBackgroundFillColorDefaultBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherCardBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
             <!--
-                Fallback only: the control derives the real tile from the accent, the same way
-                it derives the resting chip, and assigns it. This value is what shows under
-                high contrast, where a derived colour would defeat the mode.
+                The selection tile. Deliberately far lighter than a control fill: this strip is
+                on screen for the whole session, so the tile only has to be findable, not
+                emphatic. Anything heavier reads as a pressed button and wears on the eye.
             -->
-            <StaticResource x:Key="WinoAppModeSwitcherIndicatorBrush" ResourceKey="ControlStrongFillColorDefaultBrush" />
+            <SolidColorBrush x:Key="WinoAppModeSwitcherIndicatorBrush" Color="#14000000" />
             <StaticResource x:Key="WinoAppModeSwitcherForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherHoverForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
-            <!--  Whatever sits on the tile has to invert with it.  -->
-            <SolidColorBrush x:Key="WinoAppModeSwitcherSelectedForegroundBrush" Color="#FFFFFF" />
+            <!--
+                The tile is a tint rather than a fill now, so the glyph on it stays the
+                ordinary primary text colour instead of inverting to white against it.
+            -->
+            <StaticResource x:Key="WinoAppModeSwitcherSelectedForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherSettingsForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherSeparatorBrush" ResourceKey="DividerStrokeColorDefaultBrush" />
         </ResourceDictionary>
@@ -106,11 +108,11 @@
             <StaticResource x:Key="WinoSearchBarSemanticBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherCardBackgroundBrush" ResourceKey="CardBackgroundFillColorDefaultBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherCardBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
-            <!--  Fallback only; see the Light dictionary.  -->
-            <StaticResource x:Key="WinoAppModeSwitcherIndicatorBrush" ResourceKey="ControlStrongFillColorDefaultBrush" />
+            <!--  A touch more than Light takes: the same weight of ink reads lighter on a dark card.  -->
+            <SolidColorBrush x:Key="WinoAppModeSwitcherIndicatorBrush" Color="#1FFFFFFF" />
             <StaticResource x:Key="WinoAppModeSwitcherForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherHoverForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
-            <SolidColorBrush x:Key="WinoAppModeSwitcherSelectedForegroundBrush" Color="#FFFFFF" />
+            <StaticResource x:Key="WinoAppModeSwitcherSelectedForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherSettingsForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherSeparatorBrush" ResourceKey="DividerStrokeColorDefaultBrush" />
         </ResourceDictionary>
@@ -1839,9 +1841,9 @@
         destinations. Settings is the last cell of that grid, so the selection tile reaches
         it the same way it reaches a mode.
         
-        There are no visual states here on purpose. Selection, hover, press, orientation,
-        and the resting chips are all applied from WinoAppModeSwitcher and animated through
-        the Composition API, so this template only describes the resting appearance.
+        There are no visual states here on purpose. Selection, hover, press and orientation
+        are all applied from WinoAppModeSwitcher and animated through the Composition API,
+        so this template only describes the resting appearance.
     -->
     <Style TargetType="appMode:WinoAppModeSwitcher">
         <Setter Property="IsTabStop" Value="False" />
@@ -1852,7 +1854,8 @@
         <Setter Property="ModeHoverForeground" Value="{ThemeResource WinoAppModeSwitcherHoverForegroundBrush}" />
         <Setter Property="ModeSelectedForeground" Value="{ThemeResource WinoAppModeSwitcherSelectedForegroundBrush}" />
         <Setter Property="SettingsForeground" Value="{ThemeResource WinoAppModeSwitcherSettingsForegroundBrush}" />
-        <!--  Monochrome only: the coloured strip has a chip under every cell and no room for a wash.  -->
+        <Setter Property="SelectionBrush" Value="{ThemeResource WinoAppModeSwitcherIndicatorBrush}" />
+        <!--  Monochrome only: the coloured strip says hover with the glyph, not with a wash.  -->
         <Setter Property="ModeHoverBackground" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
         <Setter Property="ModePressedBackground" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
         <Setter Property="Template">
@@ -1865,7 +1868,7 @@
                         BorderBrush="{ThemeResource WinoAppModeSwitcherCardBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="8">
-                        <!--  Item containers and their chips are created by the control, not templated.  -->
+                        <!--  Item containers are created by the control, not templated.  -->
                         <Grid x:Name="PART_ModeHost">
                             <!--
                                 The tile fills a whole cell rather than sitting as a square
@@ -1878,13 +1881,11 @@
                                 x:Name="PART_SelectionIndicator"
                                 HorizontalAlignment="Stretch"
                                 VerticalAlignment="Stretch"
-                                Background="{ThemeResource WinoAppModeSwitcherIndicatorBrush}"
                                 CornerRadius="8"
                                 IsHitTestVisible="False" />
                             <!--
-                                The settings cell keeps the animated icon rather than taking
-                                app artwork, but it is a cell like any other: same footprint,
-                                same resting chip, same tile.
+                                The settings cell takes a drawn gear rather than app artwork,
+                                but it is a cell like any other: same footprint, same tile.
                             -->
                             <Grid
                                 x:Name="PART_SettingsButton"
@@ -1894,36 +1895,29 @@
                                 CornerRadius="8"
                                 IsTabStop="True"
                                 UseSystemFocusVisuals="True">
-                                <AnimatedIcon
-                                    x:Name="PART_SettingsIcon"
-                                    Width="18"
-                                    Height="18"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center">
-                                    <animatedVisuals:AnimatedSettingsVisualSource />
-                                    <AnimatedIcon.FallbackIconSource>
-                                        <SymbolIconSource Symbol="Setting" />
-                                    </AnimatedIcon.FallbackIconSource>
-                                </AnimatedIcon>
                                 <!--
-                                    The monochrome settings glyph. It is a gear drawn to the
-                                    same weight and the same 30px box as the monochrome mode
-                                    artwork, rather than the animated icon, which is a finer
-                                    line and reads as a different family beside them. The
-                                    control decides which of the two is showing and paints
-                                    this one's stroke.
-                                    
+                                    The settings glyph: a gear drawn to the same weight as the
+                                    monochrome mode artwork, in both modes. An AnimatedIcon
+                                    stood here once and bought a hover animation at the cost of
+                                    a finer line that read as a different family beside the
+                                    app glyphs. The control paints this one's stroke.
+
+                                    Smaller than the 30px the modes get. The gear fills its box
+                                    corner to corner where the app artwork keeps a margin
+                                    inside its own, so matching the boxes would leave the gear
+                                    visibly the largest thing in the strip. Settings is the
+                                    secondary destination here and is entitled to look it.
+
                                     The geometry is authored in the artwork's 200 unit box and
                                     scaled by the Viewbox, so its stroke thins with the glyph
                                     instead of staying a fixed width at every size.
                                 -->
                                 <Viewbox
                                     x:Name="PART_SettingsMonochromeIcon"
-                                    Width="30"
-                                    Height="30"
+                                    Width="26"
+                                    Height="26"
                                     HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Visibility="Collapsed">
+                                    VerticalAlignment="Center">
                                     <Canvas Width="200" Height="200">
                                         <Path
                                             x:Name="PART_SettingsMonochromeGlyph"

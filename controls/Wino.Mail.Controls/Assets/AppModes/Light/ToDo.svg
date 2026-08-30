@@ -1,8 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="182" height="182" viewBox="37 37 182 182" fill="none">
   <title>To do</title>
   <!--
-    The Wino To Do app icon with its tile removed, drawn for a dark surface: its paper
-    regions need no keyline, because the card behind them is already darker than they are.
+    The Wino To Do app icon with its tile removed, drawn for a light surface.
+
+    The card is the entire silhouette here, so this is the icon a white surface costs the
+    most: without a keyline there is nothing but the check. The card is inset by half the
+    stroke width and its radius reduced to match, so the stroked shape occupies exactly the
+    bounds the Dark variant's filled card does.
+
     Every colour comes from the shared switcher palette and is substituted at runtime by
     AppModeGlyphPalette.
   -->
@@ -10,7 +15,7 @@
     <!-- Card: vertical gradient -->
     <linearGradient id="todoCard" gradientUnits="userSpaceOnUse" x1="128" y1="72" x2="128" y2="184">
       <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#F1F5FB"/>
+      <stop offset="1" stop-color="#E8EFF9"/>
     </linearGradient>
     <!-- Check: vertical gradient -->
     <linearGradient id="todoCheck" gradientUnits="userSpaceOnUse" x1="128" y1="98" x2="128" y2="158">
@@ -20,7 +25,10 @@
   </defs>
 
   <!-- Card -->
-  <rect x="72" y="72" width="112" height="112" rx="28" ry="28" fill="url(#todoCard)"/>
+  <rect x="76" y="76" width="104" height="104" rx="24" ry="24"
+        fill="url(#todoCard)"
+        stroke="#005FE4"
+        stroke-width="8"/>
 
   <!-- Check mark -->
   <path d="M97.5 128.5 L119 150 L157.1 106.5"

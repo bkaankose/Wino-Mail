@@ -15,6 +15,7 @@
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
                 <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls/Themes/WinoIntelligenceBranding.xaml" />
                 <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls/Themes/WinoIllustrations.xaml" />
+                <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls/Themes/WinoAppIcons.xaml" />
                 <ResourceDictionary Source="/Styles/Colors.xaml" />
                 <ResourceDictionary Source="/Styles/ContentPresenters.xaml" />
                 <ResourceDictionary Source="/Styles/Converters.xaml" />

@@ -15,14 +15,14 @@
                 <TextBlock
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Style="{ThemeResource BodyTextBlockStyle}"
-                    Text="A strip of mutually exclusive destinations, Settings included: every cell shares one sliding tile, so exactly one is ever lit. Each mode glyph is an app icon minus its tile, recoloured at runtime so its blues follow the app accent. In Light every glyph rests on a chip tinted from that same accent, which becomes the selection tile when the mode is picked. Nothing here uses a storyboard or a visual state."
+                    Text="A strip of mutually exclusive destinations, Settings included: every cell shares one sliding tile, so exactly one is ever lit. Each mode glyph is an app icon minus its tile, taken from {ThemeResource AppIconMail} and friends: the theme dictionary picks the Light or Dark artwork, and the control recolours its blues to follow the app accent. Nothing here uses a storyboard or a visual state."
                     TextWrapping="Wrap" />
             </StackPanel>
 
             <!--
                 Both orientations at the widths they actually get: an open navigation pane
-                and a collapsed rail. The tile and the chips are only judgeable in context,
-                so the surrounding surfaces match the shell rather than the page.
+                and a collapsed rail. The tile is only judgeable in context, so the
+                surrounding surfaces match the shell rather than the page.
             -->
             <StackPanel Orientation="Horizontal" Spacing="24">
                 <StackPanel Spacing="8">
@@ -46,19 +46,19 @@
                             SettingsInvoked="SwitcherSettingsInvoked"
                             SettingsLabel="Settings">
                             <appMode:WinoAppModeSwitcherItem
-                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg"
+                                Glyph="{ThemeResource AppIconMail}"
                                 MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Mail.svg"
                                 Label="Mail" />
                             <appMode:WinoAppModeSwitcherItem
-                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg"
+                                Glyph="{ThemeResource AppIconCalendar}"
                                 MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Calendar.svg"
                                 Label="Calendar" />
                             <appMode:WinoAppModeSwitcherItem
-                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg"
+                                Glyph="{ThemeResource AppIconPeople}"
                                 MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/People.svg"
                                 Label="Contacts" />
                             <appMode:WinoAppModeSwitcherItem
-                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg"
+                                Glyph="{ThemeResource AppIconToDo}"
                                 MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/ToDo.svg"
                                 Label="To do" />
                         </appMode:WinoAppModeSwitcher>
@@ -87,19 +87,19 @@
                             SettingsInvoked="SwitcherSettingsInvoked"
                             SettingsLabel="Settings">
                             <appMode:WinoAppModeSwitcherItem
-                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg"
+                                Glyph="{ThemeResource AppIconMail}"
                                 MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Mail.svg"
                                 Label="Mail" />
                             <appMode:WinoAppModeSwitcherItem
-                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg"
+                                Glyph="{ThemeResource AppIconCalendar}"
                                 MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Calendar.svg"
                                 Label="Calendar" />
                             <appMode:WinoAppModeSwitcherItem
-                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg"
+                                Glyph="{ThemeResource AppIconPeople}"
                                 MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/People.svg"
                                 Label="Contacts" />
                             <appMode:WinoAppModeSwitcherItem
-                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg"
+                                Glyph="{ThemeResource AppIconToDo}"
                                 MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/ToDo.svg"
                                 Label="To do" />
                         </appMode:WinoAppModeSwitcher>
@@ -112,7 +112,7 @@
                 <TextBlock
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Style="{ThemeResource CaptionTextBlockStyle}"
-                    Text="Mutates SystemAccentColor the way the theme service does, then tells the control to look again. The glyph blues and the Light resting chip both follow; the chip keeps the same weight whichever accent is chosen, so only its hue moves."
+                    Text="Mutates SystemAccentColor the way the theme service does, then tells the control to look again. The glyph blues follow, keylines included; the selection tile does not, because it is a plain theme brush."
                     TextWrapping="Wrap" />
                 <StackPanel
                     x:Name="AccentSwatches"
