@@ -5,6 +5,7 @@
     xmlns:appMode="using:Wino.Mail.Controls.AppModeSwitcher"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Loaded="PageLoaded"
     mc:Ignorable="d">
 
     <ScrollViewer Padding="24">
@@ -19,11 +20,8 @@
                     TextWrapping="Wrap" />
             </StackPanel>
 
-            <!--
-                Both orientations at the widths they actually get: an open navigation pane
-                and a collapsed rail. The tile is only judgeable in context, so the
-                surrounding surfaces match the shell rather than the page.
-            -->
+            <!--  These samples keep the page-local surface setting visible. The footer copy is
+                  the same control hosted by the playground NavigationView, like the real app.  -->
             <StackPanel Orientation="Horizontal" Spacing="24">
                 <StackPanel Spacing="8">
                     <TextBlock
@@ -106,6 +104,12 @@
                     </Border>
                 </StackPanel>
             </StackPanel>
+
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{ThemeResource CaptionTextBlockStyle}"
+                Text="The live footer switcher is hosted by the navigation pane. Its monochrome artwork follows the State setting below along with these samples."
+                TextWrapping="Wrap" />
 
             <StackPanel Spacing="12">
                 <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Accent" />

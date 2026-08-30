@@ -42,10 +42,21 @@ public sealed partial class AppModeSwitcherPage : Page
 
     private void SurfaceThemeChanged(object sender, SelectionChangedEventArgs e)
     {
+        ApplySurfaceTheme();
+    }
+
+    private void PageLoaded(object sender, RoutedEventArgs e)
+    {
+        ApplySurfaceTheme();
+        ApplyState();
+    }
+
+    private void ApplySurfaceTheme()
+    {
         if (PaneSurface is null || RailSurface is null || SurfaceThemeBox?.SelectedItem is not ComboBoxItem item)
             return;
 
-        var theme = item.Tag as string switch
+        var theme = (item.Tag as string) switch
         {
             "Light" => ElementTheme.Light,
             "Dark" => ElementTheme.Dark,
@@ -68,6 +79,18 @@ public sealed partial class AppModeSwitcherPage : Page
     }
 
     private void SwitcherSettingsInvoked(object? sender, EventArgs e)
+    {
+        SelectionButtons.SelectedIndex = NoSelectionOptionIndex;
+        SettingsSelectedToggle.IsOn = true;
+    }
+
+    public void SelectModeFromFooter(int index)
+    {
+        SettingsSelectedToggle.IsOn = false;
+        SelectionButtons.SelectedIndex = index;
+    }
+
+    public void SelectSettingsFromFooter()
     {
         SelectionButtons.SelectedIndex = NoSelectionOptionIndex;
         SettingsSelectedToggle.IsOn = true;
@@ -98,6 +121,26 @@ public sealed partial class AppModeSwitcherPage : Page
     {
         yield return PaneSwitcher;
         yield return RailSwitcher;
+
+        if (FindFooterSwitcher() is { } footerSwitcher)
+        {
+            yield return footerSwitcher;
+        }
+    }
+
+    private WinoAppModeSwitcher? FindFooterSwitcher()
+    {
+        DependencyObject? current = this;
+
+        while (current is not null)
+        {
+            if (current is NavigationView navigationView)
+                return navigationView.PaneFooter is Border { Child: WinoAppModeSwitcher switcher } ? switcher : null;
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return null;
     }
 
     private void BuildAccentSwatches()
