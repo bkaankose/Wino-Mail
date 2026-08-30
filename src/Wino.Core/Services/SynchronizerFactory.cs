@@ -33,6 +33,12 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IContactPictureFileService _contactPictureFileService;
     private readonly ITaskService _taskService;
     private readonly ICardDavSynchronizationEngine _cardDavSynchronizationEngine;
+    private readonly IPop3ClientFactory _pop3ClientFactory;
+    private readonly IPop3PersistenceService _pop3PersistenceService;
+    private readonly IMailService _mailService;
+    private readonly IFolderService _folderService;
+    private readonly ISmtpTransport _smtpTransport;
+    private readonly IMimeFileService _mimeFileService;
 
     private readonly List<IWinoSynchronizerBase> synchronizerCache = new();
 
@@ -55,7 +61,13 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IContactService contactService,
                                IContactPictureFileService contactPictureFileService,
                                ITaskService taskService = null,
-                               ICardDavSynchronizationEngine cardDavSynchronizationEngine = null)
+                               ICardDavSynchronizationEngine cardDavSynchronizationEngine = null,
+                               IPop3ClientFactory pop3ClientFactory = null,
+                               IPop3PersistenceService pop3PersistenceService = null,
+                               IMailService mailService = null,
+                               IFolderService folderService = null,
+                               ISmtpTransport smtpTransport = null,
+                               IMimeFileService mimeFileService = null)
     {
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
@@ -77,6 +89,12 @@ public class SynchronizerFactory : ISynchronizerFactory
         _contactPictureFileService = contactPictureFileService;
         _taskService = taskService;
         _cardDavSynchronizationEngine = cardDavSynchronizationEngine;
+        _pop3ClientFactory = pop3ClientFactory;
+        _pop3PersistenceService = pop3PersistenceService;
+        _mailService = mailService;
+        _folderService = folderService;
+        _smtpTransport = smtpTransport;
+        _mimeFileService = mimeFileService;
     }
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
@@ -125,7 +143,18 @@ public class SynchronizerFactory : ISynchronizerFactory
                     _serverCertificateTrustService,
                     _cardDavSynchronizationEngine,
                     _contactService,
-                    _taskService);
+                    _taskService,
+                    _smtpTransport);
+            case Domain.Enums.MailProviderType.POP3:
+                return new Pop3Synchronizer(
+                    mailAccount,
+                    _pop3ClientFactory ?? throw new InvalidOperationException("POP3 client factory is not registered."),
+                    _pop3PersistenceService ?? throw new InvalidOperationException("POP3 persistence service is not registered."),
+                    _mailService ?? throw new InvalidOperationException("Mail service is not registered."),
+                    _folderService ?? throw new InvalidOperationException("Folder service is not registered."),
+                    _accountService,
+                    _smtpTransport ?? throw new InvalidOperationException("SMTP transport is not registered."),
+                    _mimeFileService ?? throw new InvalidOperationException("MIME file service is not registered."));
             default:
                 break;
         }

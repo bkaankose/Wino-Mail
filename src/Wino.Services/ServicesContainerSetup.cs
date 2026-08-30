@@ -36,6 +36,7 @@ public static class ServicesContainerSetup
 
         services.AddTransient<ICalendarService, CalendarService>();
         services.AddTransient<IMailService, MailService>();
+        services.AddTransient<IPop3PersistenceService, Pop3PersistenceService>();
         services.AddTransient<IMailCategoryService, MailCategoryService>();
         services.AddTransient<IMailFilterService, MailFilterService>();
         services.AddTransient<IAccountProviderFeatureService, AccountProviderFeatureService>();

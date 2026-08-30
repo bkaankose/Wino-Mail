@@ -10,7 +10,8 @@ namespace Wino.Core.Diagnostics;
 public enum MailProtocol
 {
     Imap,
-    Smtp
+    Smtp,
+    Pop3
 }
 
 /// <summary>
@@ -22,6 +23,7 @@ public sealed class WinoProtocolLogger : IProtocolLogger
     public const string ProtocolLogFolderName = "ProtocolLogs";
     public const string ImapProtocolLogFileName = "imap.log";
     public const string SmtpProtocolLogFileName = "smtp.log";
+    public const string Pop3ProtocolLogFileName = "pop3.log";
 
     private static readonly ConcurrentDictionary<string, object> FileLocks = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Regex LiteralMarkerRegex = new(@"\{(?<length>\d+)\+?\}\r?\n$", RegexOptions.Compiled);
@@ -32,6 +34,7 @@ public sealed class WinoProtocolLogger : IProtocolLogger
     private readonly object _writeLock;
     private readonly DirectionState _clientState = new();
     private readonly DirectionState _serverState = new();
+    private bool _pop3MessageResponseExpected;
     private bool _disposed;
 
     public IAuthenticationSecretDetector AuthenticationSecretDetector
@@ -72,6 +75,7 @@ public sealed class WinoProtocolLogger : IProtocolLogger
         {
             MailProtocol.Imap => ImapProtocolLogFileName,
             MailProtocol.Smtp => SmtpProtocolLogFileName,
+            MailProtocol.Pop3 => Pop3ProtocolLogFileName,
             _ => throw new ArgumentOutOfRangeException(nameof(protocol), protocol, null)
         };
 
@@ -168,6 +172,19 @@ public sealed class WinoProtocolLogger : IProtocolLogger
                 continue;
             }
 
+            if (_protocol == MailProtocol.Pop3 && !isClient && state.IsPop3MessageData)
+            {
+                WriteRedactionNoticeIfNeeded(state, isClient);
+
+                if (IsMultilineTerminator(line))
+                {
+                    state.IsPop3MessageData = false;
+                    Write(line, isClient);
+                }
+
+                continue;
+            }
+
             Write(line, isClient);
             UpdateRedactionState(line, state, isClient);
         }
@@ -184,6 +201,28 @@ public sealed class WinoProtocolLogger : IProtocolLogger
             {
                 state.RedactedBytesRemaining = literalLength;
                 state.RedactionNoticePending = literalLength > 0;
+            }
+
+            return;
+        }
+
+        if (_protocol == MailProtocol.Pop3)
+        {
+            if (isClient)
+            {
+                var command = text.TrimStart();
+                _pop3MessageResponseExpected = command.StartsWith("RETR ", StringComparison.OrdinalIgnoreCase)
+                    || command.StartsWith("TOP ", StringComparison.OrdinalIgnoreCase);
+            }
+            else if (_pop3MessageResponseExpected)
+            {
+                _pop3MessageResponseExpected = false;
+
+                if (text.StartsWith("+OK", StringComparison.OrdinalIgnoreCase))
+                {
+                    state.IsPop3MessageData = true;
+                    state.RedactionNoticePending = true;
+                }
             }
 
             return;
@@ -209,6 +248,9 @@ public sealed class WinoProtocolLogger : IProtocolLogger
     }
 
     private static bool IsSmtpDataTerminator(byte[] line)
+        => IsMultilineTerminator(line);
+
+    private static bool IsMultilineTerminator(byte[] line)
         => Encoding.ASCII.GetString(line).TrimEnd('\r', '\n') == ".";
 
     private void WriteRedactionNoticeIfNeeded(DirectionState state, bool isClient)
@@ -254,6 +296,13 @@ public sealed class WinoProtocolLogger : IProtocolLogger
 
         var pending = state.LineBuffer.ToArray();
         state.LineBuffer.SetLength(0);
+
+        if (state.IsSmtpData || state.IsPop3MessageData)
+        {
+            WriteRedactionNoticeIfNeeded(state, isClient);
+            return;
+        }
+
         Write(pending, isClient);
     }
 
@@ -263,5 +312,6 @@ public sealed class WinoProtocolLogger : IProtocolLogger
         public long RedactedBytesRemaining { get; set; }
         public bool RedactionNoticePending { get; set; }
         public bool IsSmtpData { get; set; }
+        public bool IsPop3MessageData { get; set; }
     }
 }

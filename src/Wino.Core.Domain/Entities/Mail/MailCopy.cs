@@ -42,6 +42,12 @@ public class MailCopy
     public uint ImapUidValidity { get; set; }
 
     /// <summary>
+    /// Opaque POP3 UIDL. Sequence numbers are deliberately never persisted because they can
+    /// change whenever the mailbox is compacted or messages are removed.
+    /// </summary>
+    public string Pop3Uidl { get; set; }
+
+    /// <summary>
     /// Conversation id for the mail.
     /// </summary>
     public string ThreadId { get; set; }

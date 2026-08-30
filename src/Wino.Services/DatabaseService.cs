@@ -120,6 +120,8 @@ VALUES
     {
         await Task.WhenAll(
             Connection.CreateTableAsync<MailCopy>(),
+            Connection.CreateTableAsync<Pop3PendingServerDeletion>(),
+            Connection.CreateTableAsync<Pop3RemoteMessageState>(),
             Connection.CreateTableAsync<MailCategory>(),
             Connection.CreateTableAsync<MailCategoryAssignment>(),
             Connection.CreateTableAsync<MailFilter>(),
@@ -271,6 +273,13 @@ SET {nameof(MailCopy.ImapUidValidity)} = COALESCE((
     WHERE {nameof(MailItemFolder)}.{nameof(MailItemFolder.Id)} = {nameof(MailCopy)}.{nameof(MailCopy.FolderId)}
 ), 0)
 WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
+        }
+
+        if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.Pop3Uidl)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailCopy)} ADD COLUMN {nameof(MailCopy.Pop3Uidl)} TEXT NULL")
+                .ConfigureAwait(false);
         }
 
         var accountColumns = await Connection.GetTableInfoAsync(nameof(MailAccount)).ConfigureAwait(false);
@@ -751,6 +760,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_FolderId ON MailCopy(FolderId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_Id_FolderId ON MailCopy(Id, FolderId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_FolderId_ImapUid ON MailCopy(FolderId, ImapUidValidity, ImapUid)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_FolderId_Pop3Uidl ON MailCopy(FolderId, Pop3Uidl)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_ThreadId ON MailCopy(ThreadId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_MessageId ON MailCopy(MessageId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_MailCopy_FolderId_IsRead ON MailCopy(FolderId, IsRead)").ConfigureAwait(false);

@@ -51,6 +51,7 @@ public class ContextMenuItemService : IContextMenuItemService
         bool isArchiveFolder = selectedItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Archive);
         bool isDraftOrSent = selectedItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft || a.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent);
         bool isJunkFolder = selectedItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk);
+        bool isPop3 = selectedItems.All(a => a.AssignedAccount?.ProviderType == MailProviderType.POP3);
 
         bool isSingleItem = selectedItems.Count == 1;
 
@@ -125,9 +126,9 @@ public class ContextMenuItemService : IContextMenuItemService
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
 
         // Junk folder
-        if (isJunkFolder)
+        if (isJunkFolder && !isPop3)
             operationList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk));
-        else if (!isDraftOrSent)
+        else if (!isDraftOrSent && !isPop3)
             operationList.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk));
 
         AddFocusedInboxActions(operationList, selectedItems);
@@ -190,9 +191,9 @@ public class ContextMenuItemService : IContextMenuItemService
         else
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
 
-        if (mailItem.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+        if (mailItem.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk && mailItem.AssignedAccount?.ProviderType != MailProviderType.POP3)
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk, true, true));
-        else if (!mailItem.IsDraft && mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Sent)
+        else if (!mailItem.IsDraft && mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Sent && mailItem.AssignedAccount?.ProviderType != MailProviderType.POP3)
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
 
         if (IsOutlookInboxMail(mailItem))

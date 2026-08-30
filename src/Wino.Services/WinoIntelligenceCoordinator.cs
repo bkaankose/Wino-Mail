@@ -131,7 +131,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
                 return WinoIntelligenceSnapshot.Hidden;
             }
 
-            var isSupportedProvider = context.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.IMAP4;
+            var isSupportedProvider = context.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.IMAP4 or MailProviderType.POP3;
             var candidate = access.HasIntelligenceConsent && isSupportedProvider
                 ? await _messageResolver.FindCandidateAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false)
                 : null;

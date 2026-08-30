@@ -13,6 +13,43 @@ namespace Wino.Core.Tests.Services;
 public sealed class DatabaseMigrationTests
 {
     [Fact]
+    public async Task InitializeAsync_AddsPop3IdentityAndDeletionPersistence()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"wino-pop3-schema-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var databasePath = Path.Combine(directory, DatabaseService.CurrentDatabaseName);
+        DatabaseService databaseService = null;
+
+        try
+        {
+            var legacyConnection = new SQLiteAsyncConnection(databasePath);
+            await legacyConnection.CreateTableAsync<MailCopy>();
+            await legacyConnection.ExecuteAsync($"ALTER TABLE {nameof(MailCopy)} DROP COLUMN {nameof(MailCopy.Pop3Uidl)}");
+            await MarkCompleted210Async(legacyConnection);
+            await legacyConnection.CloseAsync();
+
+            var configuration = new Mock<IApplicationConfiguration>();
+            configuration.SetupProperty(item => item.PublisherSharedFolderPath, directory);
+            databaseService = new DatabaseService(configuration.Object);
+            await databaseService.InitializeAsync();
+
+            (await databaseService.Connection.GetTableInfoAsync(nameof(MailCopy)))
+                .Should().Contain(column => column.Name == nameof(MailCopy.Pop3Uidl));
+            (await databaseService.Connection.GetTableInfoAsync(nameof(Pop3PendingServerDeletion)))
+                .Should().NotBeEmpty();
+            (await databaseService.Connection.GetTableInfoAsync(nameof(Pop3RemoteMessageState)))
+                .Should().NotBeEmpty();
+        }
+        finally
+        {
+            if (databaseService?.Connection != null)
+                await databaseService.Connection.CloseAsync();
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task InitializeAsync_NewCardDavCreationCapability_ForcesOneTimeRediscovery()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"wino-carddav-capability-{Guid.NewGuid():N}");

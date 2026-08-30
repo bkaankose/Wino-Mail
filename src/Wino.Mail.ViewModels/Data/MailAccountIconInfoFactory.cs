@@ -44,6 +44,7 @@ public static class MailAccountIconInfoFactory
             MailProviderType.Outlook => AccountIconProvider.Microsoft,
             MailProviderType.Gmail => AccountIconProvider.Google,
             MailProviderType.IMAP4 => AccountIconProvider.Imap,
+            MailProviderType.POP3 => AccountIconProvider.Imap,
             _ => AccountIconProvider.Imap,
         },
     };

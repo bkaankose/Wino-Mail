@@ -166,7 +166,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     /// hidden rather than shown as read-only. Per-alias sender names remain editable under Aliases.
     /// </para>
     /// </summary>
-    public bool IsSenderNameEditable => Account?.ProviderType == MailProviderType.IMAP4;
+    public bool IsSenderNameEditable => Account?.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3;
 
     public string ContactIntegrationSourceText => GetIntegrationSourceText(Account?.ContactIntegrationSource);
     public string TaskIntegrationSourceText => GetIntegrationSourceText(Account?.TaskIntegrationSource);

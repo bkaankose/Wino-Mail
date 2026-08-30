@@ -156,7 +156,7 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 "categories labels");
         }
 
-        if (account.ProviderType == MailProviderType.IMAP4)
+        if (account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3)
         {
             yield return CreateAccountSearchItem(
                 account,
@@ -164,7 +164,7 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 Translator.ImapCalDavSettingsPage_Subtitle,
                 WinoPage.ImapCalDavSettingsPage,
                 AccountDetailsTab.General,
-                "IMAP SMTP CalDAV server connection");
+                "incoming SMTP mail server connection");
         }
     }
 

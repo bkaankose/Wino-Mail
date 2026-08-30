@@ -84,6 +84,23 @@ public class MailKitConnectionPolicyTests
         MailKitSmtpConnectionPolicy.GetSocketOptions(information).Should().Be(SecureSocketOptions.Auto);
     }
 
+    [Theory]
+    [InlineData(ImapConnectionSecurity.Auto, SecureSocketOptions.Auto)]
+    [InlineData(ImapConnectionSecurity.None, SecureSocketOptions.None)]
+    [InlineData(ImapConnectionSecurity.StartTls, SecureSocketOptions.StartTls)]
+    [InlineData(ImapConnectionSecurity.SslTls, SecureSocketOptions.SslOnConnect)]
+    public void Pop3Policy_MapsConfiguredTransportExactly(
+        ImapConnectionSecurity configured,
+        SecureSocketOptions expected)
+    {
+        var information = new CustomServerInformation
+        {
+            IncomingServerSocketOption = configured
+        };
+
+        MailKitPop3ConnectionPolicy.GetSocketOptions(information).Should().Be(expected);
+    }
+
     [Fact]
     public void Autodiscovery_PreservesTransportAndSupportedAuthentication()
     {

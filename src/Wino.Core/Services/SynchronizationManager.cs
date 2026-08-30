@@ -1441,7 +1441,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             ["calendar_enabled"] = (account?.IsCalendarAccessGranted == true).ToString()
         };
 
-        if (account?.ProviderType == MailProviderType.IMAP4 && account.ServerInformation != null)
+        if (account?.ProviderType is (MailProviderType.IMAP4 or MailProviderType.POP3) && account.ServerInformation != null)
         {
             foreach (var property in ImapSetupTelemetrySanitizer.CreateServerProperties(account.ServerInformation))
             {

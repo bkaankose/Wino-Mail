@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Misc;
 using Wino.Messaging.Client.Calendar;
@@ -248,7 +249,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         foreach (var account in accounts)
         {
             // Load IMAP server configuration.
-            if (account.ProviderType == MailProviderType.IMAP4)
+            if (account.ProviderType.IsCustomMailProvider())
                 account.ServerInformation = await GetAccountCustomServerInformationAsync(account.Id);
 
             // Load MergedInbox information.
@@ -435,9 +436,11 @@ public class AccountService : BaseDatabaseService, IAccountService
             }
         }
 
-        if (account.ProviderType == MailProviderType.IMAP4)
+        if (account.ProviderType.IsCustomMailProvider())
         {
             await Connection.Table<CustomServerInformation>().DeleteAsync(a => a.AccountId == account.Id);
+            await Connection.Table<Pop3PendingServerDeletion>().DeleteAsync(a => a.AccountId == account.Id);
+            await Connection.Table<Pop3RemoteMessageState>().DeleteAsync(a => a.AccountId == account.Id);
             await _serverCertificateTrustService.DeleteAccountTrustsAsync(account.Id).ConfigureAwait(false);
         }
 
@@ -505,7 +508,7 @@ public class AccountService : BaseDatabaseService, IAccountService
             var authenticator = _authenticationProvider.GetAuthenticator(account.ProviderType);
             await authenticator.DeleteTokenInformationAsync(account).ConfigureAwait(false);
         }
-        else if (account.ProviderType == MailProviderType.IMAP4)
+        else if (account.ProviderType.IsCustomMailProvider())
         {
             var serverInformation = await GetAccountCustomServerInformationAsync(account.Id).ConfigureAwait(false);
 
@@ -631,7 +634,7 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
         else
         {
-            if (account.ProviderType == MailProviderType.IMAP4)
+            if (account.ProviderType.IsCustomMailProvider())
                 account.ServerInformation = await GetAccountCustomServerInformationAsync(account.Id);
 
             account.Preferences = await GetAccountPreferencesAsync(account.Id);
@@ -975,13 +978,54 @@ public class AccountService : BaseDatabaseService, IAccountService
             customServerInformation.PendingCertificateTrusts.Clear();
         }
 
-        var shouldCreateLocalCalendar = account.ProviderType == MailProviderType.IMAP4
+        if (account.ProviderType == MailProviderType.POP3)
+        {
+            await EnsurePop3LocalFoldersAsync(account.Id).ConfigureAwait(false);
+        }
+
+        var shouldCreateLocalCalendar = account.ProviderType.IsCustomMailProvider()
             ? customServerInformation?.CalendarSupportMode == ImapCalendarSupportMode.LocalOnly
             : account.IsCalendarAccessEnabled && !account.IsCalendarAccessGranted;
 
         if (shouldCreateLocalCalendar)
         {
             await EnsureDefaultLocalCalendarAsync(account.Id).ConfigureAwait(false);
+        }
+    }
+
+    private async Task EnsurePop3LocalFoldersAsync(Guid accountId)
+    {
+        var existing = await Connection.Table<MailItemFolder>()
+            .Where(folder => folder.MailAccountId == accountId)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var definitions = new (string Id, string Name, SpecialFolderType Type)[]
+        {
+            ("local-inbox", Translator.POP3Folder_Inbox, SpecialFolderType.Inbox),
+            ("local-drafts", Translator.POP3Folder_Drafts, SpecialFolderType.Draft),
+            ("local-sent", Translator.POP3Folder_Sent, SpecialFolderType.Sent),
+            ("local-archive", Translator.POP3Folder_Archive, SpecialFolderType.Archive),
+            ("local-deleted", Translator.POP3Folder_Deleted, SpecialFolderType.Deleted)
+        };
+
+        foreach (var definition in definitions)
+        {
+            if (existing.Any(folder => folder.SpecialFolderType == definition.Type))
+                continue;
+
+            await Connection.InsertAsync(new MailItemFolder
+            {
+                Id = Guid.NewGuid(),
+                MailAccountId = accountId,
+                RemoteFolderId = definition.Id,
+                FolderName = definition.Name,
+                SpecialFolderType = definition.Type,
+                IsSystemFolder = true,
+                IsSticky = true,
+                IsSynchronizationEnabled = definition.Type == SpecialFolderType.Inbox,
+                ShowUnreadCount = definition.Type != SpecialFolderType.Deleted
+            }, typeof(MailItemFolder)).ConfigureAwait(false);
         }
     }
 

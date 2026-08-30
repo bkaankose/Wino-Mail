@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using FluentAssertions;
 using Wino.Core.Domain.Models.AutoDiscovery;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Services;
 using Xunit;
 
@@ -10,6 +11,81 @@ namespace Wino.Core.Tests.Services;
 
 public class AutoDiscoveryServiceTests
 {
+    [Fact]
+    public async Task GetAutoDiscoverySettings_SelectsPop3OnlyWhenRequested()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            if (request.RequestUri!.Host.StartsWith("autoconfig", StringComparison.OrdinalIgnoreCase))
+            {
+                return CreateXmlResponse("""
+                    <clientConfig version="1.1">
+                      <emailProvider id="example.com">
+                        <incomingServer type="imap">
+                          <hostname>imap.example.com</hostname><port>993</port><socketType>SSL</socketType>
+                        </incomingServer>
+                        <incomingServer type="pop3">
+                          <hostname>pop.example.com</hostname><port>995</port><socketType>SSL</socketType>
+                        </incomingServer>
+                        <outgoingServer type="smtp">
+                          <hostname>smtp.example.com</hostname><port>587</port><socketType>STARTTLS</socketType>
+                        </outgoingServer>
+                      </emailProvider>
+                    </clientConfig>
+                    """, request);
+            }
+
+            return CreateStatusResponse(HttpStatusCode.NotFound, request);
+        });
+        using var client = new HttpClient(handler);
+        var sut = new AutoDiscoveryService(client);
+
+        var settings = await sut.GetAutoDiscoverySettings(new AutoDiscoveryMinimalSettings
+        {
+            Email = "user@example.com",
+            Password = "secret",
+            IncomingServerType = CustomIncomingServerType.POP3
+        });
+        settings!.UserMinimalSettings = new AutoDiscoveryMinimalSettings
+        {
+            Email = "user@example.com",
+            Password = "secret",
+            IncomingServerType = CustomIncomingServerType.POP3
+        };
+
+        settings.GetPop3Settings()!.Address.Should().Be("pop.example.com");
+        settings.GetImapSettings().Should().BeNull();
+        settings.ToServerInformation()!.IncomingServerType.Should().Be(CustomIncomingServerType.POP3);
+    }
+
+    [Fact]
+    public async Task GetAutoDiscoverySettings_UsesPop3SrvRecordsWithoutQueryingImapSrv()
+    {
+        var handler = new StubHttpMessageHandler(request =>
+        {
+            var uri = request.RequestUri!.ToString();
+            if (uri.Contains("_pop3s._tcp.example.com", StringComparison.OrdinalIgnoreCase))
+                return CreateJsonResponse("{\"Answer\":[{\"data\":\"0 0 995 pop.example.com.\"}]}", request);
+            if (uri.Contains("_submissions._tcp.example.com", StringComparison.OrdinalIgnoreCase))
+                return CreateJsonResponse("{\"Answer\":[{\"data\":\"0 0 465 smtp.example.com.\"}]}", request);
+            if (uri.Contains("dns.google", StringComparison.OrdinalIgnoreCase))
+                return CreateJsonResponse("{\"Status\":0}", request);
+
+            return CreateStatusResponse(HttpStatusCode.NotFound, request);
+        });
+        using var client = new HttpClient(handler);
+        var sut = new AutoDiscoveryService(client);
+
+        var settings = await sut.GetAutoDiscoverySettings(new AutoDiscoveryMinimalSettings
+        {
+            Email = "user@example.com",
+            IncomingServerType = CustomIncomingServerType.POP3
+        });
+
+        settings!.GetPop3Settings()!.Port.Should().Be(995);
+        handler.RequestedUris.Should().NotContain(uri => uri.Contains("_imap", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact]
     public async Task GetAutoDiscoverySettings_UsesThunderbirdAutoconfig_WhenAvailable()
     {

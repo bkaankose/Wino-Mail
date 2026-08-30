@@ -17,7 +17,9 @@ public class ProviderDetail : IProviderDetail
         {
             if (SpecialImapProvider == SpecialImapProvider.None)
             {
-                return $"/Assets/Providers/{Type}.png";
+                return Type == MailProviderType.POP3
+                    ? "/Assets/Providers/IMAP4.png"
+                    : $"/Assets/Providers/{Type}.png";
             }
             else
             {
@@ -26,7 +28,7 @@ public class ProviderDetail : IProviderDetail
         }
     }
 
-    public bool IsSupported => Type == MailProviderType.Outlook || Type == MailProviderType.Gmail || Type == MailProviderType.IMAP4;
+    public bool IsSupported => Type is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.IMAP4 or MailProviderType.POP3;
 
     public ProviderDetail(MailProviderType type, SpecialImapProvider specialImapProvider)
     {
@@ -62,6 +64,10 @@ public class ProviderDetail : IProviderDetail
                         break;
                 }
 
+                break;
+            case MailProviderType.POP3:
+                Name = Translator.ProviderDetail_POP3_Title;
+                Description = Translator.ProviderDetail_POP3_Description;
                 break;
         }
     }

@@ -32,6 +32,8 @@ public class InMemoryDatabaseService : IDatabaseService
     {
         // Keep table creation sequential for in-memory SQLite to avoid connection contention.
         await Connection.CreateTableAsync<MailCopy>();
+        await Connection.CreateTableAsync<Pop3PendingServerDeletion>();
+        await Connection.CreateTableAsync<Pop3RemoteMessageState>();
         await Connection.CreateTableAsync<MailCategory>();
         await Connection.CreateTableAsync<MailCategoryAssignment>();
         await Connection.CreateTableAsync<MailFilter>();

@@ -26,18 +26,21 @@ public class AutoDiscoverySettings
 
     public CustomServerInformation ToServerInformation()
     {
-        var imapSettings = GetImapSettings();
+        var incomingType = UserMinimalSettings?.IncomingServerType ?? CustomIncomingServerType.IMAP4;
+        var incomingSettings = incomingType == CustomIncomingServerType.POP3
+            ? GetPop3Settings()
+            : GetImapSettings();
         var smtpSettings = GetSmptpSettings();
 
-        if (imapSettings == null || smtpSettings == null) return null;
+        if (incomingSettings == null || smtpSettings == null) return null;
 
-        string imapUrl = imapSettings.Address;
+        string incomingUrl = incomingSettings.Address;
         string smtpUrl = smtpSettings.Address;
 
-        string imapUsername = imapSettings.Username;
+        string incomingUsername = incomingSettings.Username;
         string smtpUsername = smtpSettings.Username;
 
-        int imapPort = imapSettings.Port;
+        int incomingPort = incomingSettings.Port;
         int smtpPort = smtpSettings.Port;
 
         var serverInfo = new CustomServerInformation
@@ -47,16 +50,16 @@ public class AutoDiscoverySettings
             Address = UserMinimalSettings.Email,
             IncomingServerPassword = UserMinimalSettings.Password,
             OutgoingServerPassword = UserMinimalSettings.Password,
-            IncomingAuthenticationMethod = GetAuthenticationMethod(imapSettings),
+            IncomingAuthenticationMethod = GetAuthenticationMethod(incomingSettings),
             OutgoingAuthenticationMethod = GetAuthenticationMethod(smtpSettings),
             OutgoingServerSocketOption = GetConnectionSecurity(smtpSettings.Secure),
-            IncomingServerSocketOption = GetConnectionSecurity(imapSettings.Secure),
-            IncomingServer = imapUrl,
+            IncomingServerSocketOption = GetConnectionSecurity(incomingSettings.Secure),
+            IncomingServer = incomingUrl,
             OutgoingServer = smtpUrl,
-            IncomingServerPort = imapPort.ToString(),
+            IncomingServerPort = incomingPort.ToString(),
             OutgoingServerPort = smtpPort.ToString(),
-            IncomingServerType = Enums.CustomIncomingServerType.IMAP4,
-            IncomingServerUsername = imapUsername,
+            IncomingServerType = incomingType,
+            IncomingServerUsername = incomingUsername,
             OutgoingServerUsername = smtpUsername,
             MaxConcurrentClients = 5,
             ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected
@@ -67,6 +70,9 @@ public class AutoDiscoverySettings
 
     public AutoDiscoveryProviderSetting GetImapSettings()
         => Settings?.Find(a => string.Equals(a.Protocol, "IMAP", StringComparison.OrdinalIgnoreCase));
+
+    public AutoDiscoveryProviderSetting GetPop3Settings()
+        => Settings?.Find(a => string.Equals(a.Protocol, "POP3", StringComparison.OrdinalIgnoreCase));
 
     public AutoDiscoveryProviderSetting GetSmptpSettings()
         => Settings?.Find(a => string.Equals(a.Protocol, "SMTP", StringComparison.OrdinalIgnoreCase));

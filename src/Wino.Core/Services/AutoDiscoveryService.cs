@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Xml.Linq;
 using Serilog;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Domain.Validation;
@@ -49,13 +50,18 @@ public class AutoDiscoveryService : IAutoDiscoveryService
             return null;
 
         var cancellationToken = CancellationToken.None;
+        var incomingProtocol = autoDiscoveryMinimalSettings.IncomingServerType == CustomIncomingServerType.POP3
+            ? "POP3"
+            : "IMAP";
 
-        var settings = await TryGetThunderbirdSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, cancellationToken).ConfigureAwait(false)
-                       ?? await TryGetIspdbSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, cancellationToken).ConfigureAwait(false)
-                       ?? await TryGetMxBasedSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, cancellationToken).ConfigureAwait(false)
-                       ?? await TryGetSrvBasedSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, cancellationToken).ConfigureAwait(false)
-                       ?? await TryGetGuessedHostSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, cancellationToken).ConfigureAwait(false)
-                       ?? await GetSettingsFromFiretrustAsync(autoDiscoveryMinimalSettings.Email, cancellationToken).ConfigureAwait(false);
+        var settings = await TryGetThunderbirdSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false)
+                       ?? await TryGetIspdbSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false)
+                       ?? await TryGetMxBasedSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false)
+                       ?? await TryGetSrvBasedSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, incomingProtocol, cancellationToken).ConfigureAwait(false)
+                       ?? await TryGetGuessedHostSettingsAsync(domain, autoDiscoveryMinimalSettings.Email, incomingProtocol, cancellationToken).ConfigureAwait(false)
+                       ?? (incomingProtocol == "IMAP"
+                           ? await GetSettingsFromFiretrustAsync(autoDiscoveryMinimalSettings.Email, cancellationToken).ConfigureAwait(false)
+                           : null);
 
         if (settings != null && string.IsNullOrWhiteSpace(settings.Domain))
         {
@@ -100,11 +106,12 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         string lookupDomain,
         string email,
         string localPart,
+        string incomingProtocol,
         CancellationToken cancellationToken)
     {
         foreach (var endpoint in BuildThunderbirdEndpoints(lookupDomain, email))
         {
-            var settings = await TryGetSettingsFromXmlEndpointAsync(endpoint, email, localPart, lookupDomain, cancellationToken).ConfigureAwait(false);
+            var settings = await TryGetSettingsFromXmlEndpointAsync(endpoint, email, localPart, lookupDomain, incomingProtocol, cancellationToken).ConfigureAwait(false);
             if (settings != null)
                 return settings;
         }
@@ -116,16 +123,18 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         string lookupDomain,
         string email,
         string localPart,
+        string incomingProtocol,
         CancellationToken cancellationToken)
     {
         var endpoint = $"{ThunderbirdIspdbUrl}{lookupDomain}?emailaddress={Uri.EscapeDataString(email)}";
-        return await TryGetSettingsFromXmlEndpointAsync(endpoint, email, localPart, lookupDomain, cancellationToken).ConfigureAwait(false);
+        return await TryGetSettingsFromXmlEndpointAsync(endpoint, email, localPart, lookupDomain, incomingProtocol, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<AutoDiscoverySettings> TryGetMxBasedSettingsAsync(
         string domain,
         string email,
         string localPart,
+        string incomingProtocol,
         CancellationToken cancellationToken)
     {
         var mxDomains = await GetMxSearchDomainsAsync(domain, cancellationToken).ConfigureAwait(false);
@@ -135,8 +144,8 @@ public class AutoDiscoveryService : IAutoDiscoveryService
             if (IgnoreCase.Equals(mxDomain, domain))
                 continue;
 
-            var settings = await TryGetThunderbirdSettingsAsync(mxDomain, email, localPart, cancellationToken).ConfigureAwait(false)
-                           ?? await TryGetIspdbSettingsAsync(mxDomain, email, localPart, cancellationToken).ConfigureAwait(false);
+            var settings = await TryGetThunderbirdSettingsAsync(mxDomain, email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false)
+                           ?? await TryGetIspdbSettingsAsync(mxDomain, email, localPart, incomingProtocol, cancellationToken).ConfigureAwait(false);
 
             if (settings != null)
                 return settings;
@@ -148,10 +157,14 @@ public class AutoDiscoveryService : IAutoDiscoveryService
     private async Task<AutoDiscoverySettings> TryGetSrvBasedSettingsAsync(
         string domain,
         string email,
+        string incomingProtocol,
         CancellationToken cancellationToken)
     {
-        var incoming = await TryResolveSrvRecordAsync($"_imaps._tcp.{domain}", "IMAP", "SSL", cancellationToken).ConfigureAwait(false)
-                      ?? await TryResolveSrvRecordAsync($"_imap._tcp.{domain}", "IMAP", "STARTTLS", cancellationToken).ConfigureAwait(false);
+        var incoming = incomingProtocol == "POP3"
+            ? await TryResolveSrvRecordAsync($"_pop3s._tcp.{domain}", "POP3", "SSL", cancellationToken).ConfigureAwait(false)
+              ?? await TryResolveSrvRecordAsync($"_pop3._tcp.{domain}", "POP3", "STARTTLS", cancellationToken).ConfigureAwait(false)
+            : await TryResolveSrvRecordAsync($"_imaps._tcp.{domain}", "IMAP", "SSL", cancellationToken).ConfigureAwait(false)
+              ?? await TryResolveSrvRecordAsync($"_imap._tcp.{domain}", "IMAP", "STARTTLS", cancellationToken).ConfigureAwait(false);
 
         var outgoing = await TryResolveSrvRecordAsync($"_submissions._tcp.{domain}", "SMTP", "SSL", cancellationToken).ConfigureAwait(false)
                       ?? await TryResolveSrvRecordAsync($"_submission._tcp.{domain}", "SMTP", "STARTTLS", cancellationToken).ConfigureAwait(false)
@@ -173,17 +186,20 @@ public class AutoDiscoveryService : IAutoDiscoveryService
     private async Task<AutoDiscoverySettings> TryGetGuessedHostSettingsAsync(
         string domain,
         string email,
+        string incomingProtocol,
         CancellationToken cancellationToken)
     {
-        var imapHost = await GetFirstResolvableHostAsync(
-            [$"imap.{domain}", $"mail.{domain}", domain],
+        var incomingHost = await GetFirstResolvableHostAsync(
+            incomingProtocol == "POP3"
+                ? [$"pop.{domain}", $"pop3.{domain}", $"mail.{domain}", domain]
+                : [$"imap.{domain}", $"mail.{domain}", domain],
             cancellationToken).ConfigureAwait(false);
 
         var smtpHost = await GetFirstResolvableHostAsync(
             [$"smtp.{domain}", $"mail.{domain}", domain],
             cancellationToken).ConfigureAwait(false);
 
-        if (string.IsNullOrWhiteSpace(imapHost) || string.IsNullOrWhiteSpace(smtpHost))
+        if (string.IsNullOrWhiteSpace(incomingHost) || string.IsNullOrWhiteSpace(smtpHost))
             return null;
 
         return new AutoDiscoverySettings
@@ -193,9 +209,9 @@ public class AutoDiscoveryService : IAutoDiscoveryService
             [
                 new AutoDiscoveryProviderSetting
                 {
-                    Protocol = "IMAP",
-                    Address = imapHost,
-                    Port = 993,
+                    Protocol = incomingProtocol,
+                    Address = incomingHost,
+                    Port = incomingProtocol == "POP3" ? 995 : 993,
                     Secure = "SSL",
                     Username = email
                 },
@@ -216,6 +232,7 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         string email,
         string localPart,
         string domain,
+        string incomingProtocol,
         CancellationToken cancellationToken)
     {
         try
@@ -225,7 +242,7 @@ public class AutoDiscoveryService : IAutoDiscoveryService
                 return null;
 
             var content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            return ParseThunderbirdSettings(content, email, localPart, domain);
+            return ParseThunderbirdSettings(content, email, localPart, domain, incomingProtocol);
         }
         catch (OperationCanceledException)
         {
@@ -238,7 +255,7 @@ public class AutoDiscoveryService : IAutoDiscoveryService
         }
     }
 
-    private static AutoDiscoverySettings ParseThunderbirdSettings(string xmlContent, string email, string localPart, string domain)
+    private static AutoDiscoverySettings ParseThunderbirdSettings(string xmlContent, string email, string localPart, string domain, string incomingProtocol)
     {
         if (string.IsNullOrWhiteSpace(xmlContent))
             return null;
@@ -250,8 +267,8 @@ public class AutoDiscoveryService : IAutoDiscoveryService
             var incomingServers = document
                 .Descendants()
                 .Where(e => e.Name.LocalName == "incomingServer")
-                .Where(e => string.Equals((string)e.Attribute("type"), "imap", StringComparison.OrdinalIgnoreCase))
-                .Select(e => ParseThunderbirdServer(e, "IMAP", email, localPart, domain))
+                .Where(e => string.Equals((string)e.Attribute("type"), incomingProtocol, StringComparison.OrdinalIgnoreCase))
+                .Select(e => ParseThunderbirdServer(e, incomingProtocol, email, localPart, domain))
                 .Where(e => e != null)
                 .ToList();
 

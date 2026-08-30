@@ -35,6 +35,7 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Misc;
+using Wino.Core.Services;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services;
@@ -102,6 +103,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     private readonly ICalendarService _calendarService;
     private readonly IMailFilterExecutor _mailFilterExecutor;
     private readonly IServerCertificateTrustService _serverCertificateTrustService;
+    private readonly ISmtpTransport _smtpTransport;
     private readonly SemaphoreSlim _calDavDiscoveryLock = new(1, 1);
     private Uri _cachedCalDavServiceUri;
     private bool _isCalDavDiscoveryAttempted;
@@ -121,7 +123,8 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                             IServerCertificateTrustService serverCertificateTrustService = null,
                             ICardDavSynchronizationEngine cardDavSynchronizationEngine = null,
                             IContactService contactService = null,
-                            ITaskService taskService = null) : base(account, WeakReferenceMessenger.Default)
+                            ITaskService taskService = null,
+                            ISmtpTransport smtpTransport = null) : base(account, WeakReferenceMessenger.Default)
     {
         _imapChangeProcessor = imapChangeProcessor;
         _applicationConfiguration = applicationConfiguration;
@@ -132,6 +135,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
         _calendarService = calendarService;
         _mailFilterExecutor = mailFilterExecutor;
         _serverCertificateTrustService = serverCertificateTrustService;
+        _smtpTransport = smtpTransport ?? new MailKitSmtpTransport(applicationConfiguration, serverCertificateTrustService);
         _cardDavSynchronizationEngine = cardDavSynchronizationEngine;
         _localContactSynchronizer = new LocalContactSynchronizer(contactService);
         _localTaskSynchronizer = new LocalTaskSynchronizer(taskService);
@@ -373,39 +377,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             var singleRequest = request.Request;
 
-            using var smtpClient = Account.IsProtocolLogEnabled
-                ? new MailKit.Net.Smtp.SmtpClient(WinoProtocolLogger.CreateAccountLogger(
-                    _applicationConfiguration.ApplicationDataFolderPath,
-                    Account.Id,
-                    MailProtocol.Smtp))
-                : new MailKit.Net.Smtp.SmtpClient();
-
-            if (!smtpClient.IsConnected)
-                await MailKitSmtpConnectionPolicy.ConnectAndAuthenticateAsync(
-                    smtpClient,
-                    Account.ServerInformation,
-                    _serverCertificateTrustService).ConfigureAwait(false);
-
-            // Keep the original MIME intact because its local draft header is used to map
-            // drafts uploaded through IMAP. Only the outgoing SMTP/sent copy is sanitized.
-            var smtpMessage = CreateSmtpMessage(singleRequest.Mime);
-
-            // TODO: Transfer progress implementation as popup in the UI.
-            await smtpClient.SendAsync(smtpMessage, default).ConfigureAwait(false);
-
-            // SMTP acceptance is irreversible. Nothing after this point may fail the request and
-            // cause the UI/request processor to offer or perform the send again.
-            try
-            {
-                await smtpClient.DisconnectAsync(true).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.Warning(ex,
-                    "SMTP accepted message {MailId}, but disconnect failed for account {AccountId}.",
-                    singleRequest.MailItem.Id,
-                    Account.Id);
-            }
+            var smtpMessage = await _smtpTransport.SendAsync(Account, singleRequest.Mime).ConfigureAwait(false);
 
             await FinalizeAcceptedDraftAsync(client, singleRequest, smtpMessage).ConfigureAwait(false);
         }, request, request);
@@ -517,17 +489,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
     }
 
     internal static MimeMessage CreateSmtpMessage(MimeMessage draftMessage)
-    {
-        ArgumentNullException.ThrowIfNull(draftMessage);
-
-        using var stream = new MemoryStream();
-        draftMessage.WriteTo(stream);
-        stream.Position = 0;
-
-        var smtpMessage = MimeMessage.Load(stream);
-        smtpMessage.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
-        return smtpMessage;
-    }
+        => MailKitSmtpTransport.CreateSmtpMessage(draftMessage);
 
     public async Task<SemanticMailContent> GetSemanticBodyAsync(
         MailBodyLocator locator,

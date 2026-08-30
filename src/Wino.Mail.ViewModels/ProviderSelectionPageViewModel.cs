@@ -100,13 +100,13 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     #region Capability tiles
 
     public bool IsMailProviderModeAvailable => true;
-    public bool IsCalendarProviderModeAvailable => true;
-    public bool IsContactProviderModeAvailable => true;
+    public bool IsCalendarProviderModeAvailable => !IsPop3;
+    public bool IsContactProviderModeAvailable => !IsPop3;
     public bool IsTaskProviderModeAvailable => IsOAuthProvider;
 
     public string MailProviderModeLabel => IsOAuthProvider
         ? SelectedProviderName
-        : Translator.ProviderSelection_ModeImap;
+        : IsPop3 ? Translator.ProviderSelection_ModePop3 : Translator.ProviderSelection_ModeImap;
 
     public string CalendarProviderModeLabel => IsOAuthProvider
         ? SelectedProviderName
@@ -303,6 +303,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public string SelectedProviderCapabilityDescription => GetSelectedProviderCapabilityDescription();
     public bool IsOAuthProvider => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
     public bool IsImapFamily => SelectedProvider?.Type == MailProviderType.IMAP4;
+    public bool IsPop3 => SelectedProvider?.Type == MailProviderType.POP3;
     public bool IsDavContactChoiceAvailable => IsImapFamily;
     public bool IsFixedLocalTaskSource => IsImapFamily;
     public string DavContactAvailabilityMessage => Translator.ProviderSelection_CardDavSetupGuidance;
@@ -391,6 +392,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(SelectedProviderCapabilityDescription));
         OnPropertyChanged(nameof(IsOAuthProvider));
         OnPropertyChanged(nameof(IsImapFamily));
+        OnPropertyChanged(nameof(IsPop3));
         OnPropertyChanged(nameof(IsDavContactChoiceAvailable));
         OnPropertyChanged(nameof(IsFixedLocalTaskSource));
         OnPropertyChanged(nameof(DavContactAvailabilityMessage));
@@ -634,7 +636,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                 ? ImapCalendarSupportMode.LocalOnly
                 : ImapCalendarSupportMode.CalDav;
 
-        if (WizardContext.IsGenericImap)
+        if (WizardContext.IsGenericCustomMail)
         {
             var context = _hostMode == ProviderSelectionHostMode.SettingsAddAccount
                 ? ImapCalDavSettingsNavigationContext.CreateForAddAccountMode(
@@ -729,12 +731,16 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     /// </summary>
     private void CoerceUnavailableModes()
     {
+        if (!IsCalendarProviderModeAvailable && CalendarMode == AccountCapabilityMode.Provider)
+            CalendarMode = AccountCapabilityMode.Local;
+
         if (!IsContactProviderModeAvailable && ContactMode == AccountCapabilityMode.Provider)
             ContactMode = AccountCapabilityMode.Local;
 
         if (!IsTaskProviderModeAvailable && TaskMode == AccountCapabilityMode.Provider)
             TaskMode = AccountCapabilityMode.Local;
 
+        OnPropertyChanged(nameof(IsCalendarProviderModeAvailable));
         OnPropertyChanged(nameof(IsContactProviderModeAvailable));
         OnPropertyChanged(nameof(IsTaskProviderModeAvailable));
         OnPropertyChanged(nameof(IsTaskLocalRecommended));

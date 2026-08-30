@@ -975,7 +975,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 context.HandlingFolders,
                 context.CancellationToken).ConfigureAwait(false);
             ApplyPendingOperationBusyStates(viewModels, pendingOperationUniqueIds);
-
             if (!IsCurrentMailLoad(context))
                 return;
 
@@ -2586,6 +2585,20 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             context.Trace?.Mark(MailListLoadStage.PivotsResolved);
 
             var isDoingSearch = !string.IsNullOrWhiteSpace(context.Query);
+            var supportsOnlineSearch = true;
+            if (isDoingSearch)
+            {
+                foreach (var accountId in context.HandlingFolders.Select(folder => folder.MailAccountId).Distinct())
+                {
+                    var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+                    if (account?.ProviderType == MailProviderType.POP3)
+                    {
+                        supportsOnlineSearch = false;
+                        break;
+                    }
+                }
+            }
+
             var isDoingSemanticSearch = isDoingSearch &&
                 context.SearchCriteria.ExecutionMode == SearchMode.Semantic &&
                 _intelligenceSearchService is not null;
@@ -2736,7 +2749,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 FinishedLoading = !page.HasMore;
                 HasNoOnlineSearchResult = (isDoingOnlineSearch || isDoingSemanticSearch) && page.Items.Count == 0;
                 OnPropertyChanged(nameof(HasNoOnlineSearchResult));
-                IsOnlineSearchButtonVisible = isDoingSearch && !isDoingOnlineSearch && !isDoingSemanticSearch;
+                IsOnlineSearchButtonVisible = supportsOnlineSearch && isDoingSearch && !isDoingOnlineSearch && !isDoingSemanticSearch;
 
                 IsInitializingFolder = false;
                 OnPropertyChanged(nameof(CanSynchronize));

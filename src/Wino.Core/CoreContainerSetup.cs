@@ -3,6 +3,7 @@ using Serilog.Core;
 using Wino.Authentication;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Integration;
 using Wino.Core.Services;
 using Wino.Core.Synchronizers.Errors;
 using Wino.Core.Synchronizers.Errors.Gmail;
@@ -42,6 +43,9 @@ public static class CoreContainerSetup
         services.AddTransient<IAccountCapabilityService, AccountCapabilityService>();
         services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();
         services.AddTransient<IImapTestService, ImapTestService>();
+        services.AddTransient<IPop3TestService, Pop3TestService>();
+        services.AddTransient<IPop3ClientFactory, MailKitPop3ClientFactory>();
+        services.AddTransient<ISmtpTransport, MailKitSmtpTransport>();
         services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
         services.AddTransient<IFontService, FontService>();

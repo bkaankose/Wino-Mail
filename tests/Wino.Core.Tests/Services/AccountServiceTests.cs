@@ -66,6 +66,45 @@ public class AccountServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CreateAccountAsync_Pop3_CreatesFixedLocalFoldersAndLocalCalendar()
+    {
+        var accountId = Guid.NewGuid();
+        var account = new MailAccount
+        {
+            Id = accountId,
+            Name = "POP3",
+            Address = "pop3@test.local",
+            ProviderType = MailProviderType.POP3,
+            IsCalendarAccessEnabled = true,
+            CalendarIntegrationSource = AccountIntegrationSource.Local
+        };
+        var server = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId,
+            IncomingServerType = CustomIncomingServerType.POP3,
+            CalendarSupportMode = ImapCalendarSupportMode.LocalOnly
+        };
+
+        await _accountService.CreateAccountAsync(account, server, shouldAppendMessagesToSentFolder: false);
+
+        var folders = await _databaseService.Connection.Table<MailItemFolder>()
+            .Where(folder => folder.MailAccountId == accountId)
+            .ToListAsync();
+        folders.Select(folder => folder.SpecialFolderType).Should().BeEquivalentTo([
+            SpecialFolderType.Inbox,
+            SpecialFolderType.Draft,
+            SpecialFolderType.Sent,
+            SpecialFolderType.Archive,
+            SpecialFolderType.Deleted]);
+        folders.Single(folder => folder.SpecialFolderType == SpecialFolderType.Inbox).IsSynchronizationEnabled.Should().BeTrue();
+        folders.Where(folder => folder.SpecialFolderType != SpecialFolderType.Inbox)
+            .Should().OnlyContain(folder => !folder.IsSynchronizationEnabled);
+        (await _databaseService.Connection.Table<Wino.Core.Domain.Entities.Calendar.AccountCalendar>()
+            .CountAsync(calendar => calendar.AccountId == accountId)).Should().Be(1);
+    }
+
+    [Fact]
     public async Task CreateAccountAsync_ImapCalDav_DoesNotCreateDefaultLocalCalendar()
     {
         var accountId = Guid.NewGuid();

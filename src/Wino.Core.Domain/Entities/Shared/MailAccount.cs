@@ -145,7 +145,7 @@ public class MailAccount
     public bool IsTaskReauthorizationRequired { get; set; }
 
     /// <summary>
-    /// Gets or sets whether MailKit IMAP and SMTP protocol diagnostics are captured for this account.
+    /// Gets or sets whether MailKit incoming-mail and SMTP protocol diagnostics are captured for this account.
     /// Protocol logging is opt-in and disabled by default.
     /// </summary>
     public bool IsProtocolLogEnabled { get; set; }

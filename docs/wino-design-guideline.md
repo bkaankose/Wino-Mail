@@ -182,6 +182,14 @@ Every collection, request, and editor needs intentional normal and non-normal st
 | Saving / sync | Show status near the affected content. Prevent duplicate submission without silently discarding work. |
 | Privacy / intelligence | State availability, data scope, origin, and user control in text. Do not imply an AI result is authoritative action. |
 
+### POP3 account messaging
+
+- Explain before account creation that POP3 downloads mail on a schedule and does not provide push/IDLE updates.
+- State that Inbox, Drafts, Sent, Archive, and Deleted are local folders. Read, flag, move, archive, and draft state does not change another mail client.
+- Keep messages on the server by default. Only an explicit permanent delete schedules a server deletion.
+- Present the UIDL requirement as validation, not jargon: the server must provide stable message identifiers so Wino can prevent duplicates.
+- Keep the limitation text inline and non-blocking. Use a confirmation only for permanent deletion, where the consequence-led action is **Delete permanently**.
+
 ## 11. Accessibility is a release requirement
 
 Accessibility preserves Wino’s core purpose for people using keyboard navigation, screen readers, magnification, text scaling, contrast themes, touch, or voice input. It is not a final polish pass.

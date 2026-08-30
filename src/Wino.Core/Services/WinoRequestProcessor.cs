@@ -228,7 +228,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             MailItemFolder archiveFolder = null;
 
             bool shouldRequireArchiveFolder = mailItem.AssignedAccount.ProviderType == MailProviderType.Outlook
-                                              || mailItem.AssignedAccount.ProviderType == MailProviderType.IMAP4;
+                                              || mailItem.AssignedAccount.ProviderType is (MailProviderType.IMAP4 or MailProviderType.POP3);
 
             if (shouldRequireArchiveFolder)
             {
