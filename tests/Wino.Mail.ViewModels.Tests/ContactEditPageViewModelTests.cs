@@ -15,6 +15,109 @@ namespace Wino.Mail.ViewModels.Tests;
 public class ContactEditPageViewModelTests
 {
     [Fact]
+    public async Task OnNavigatedTo_ResetsTheEditorToContactInformation()
+    {
+        var destination = new ContactCreateDestination(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            ContactSourceKind.Local,
+            "Test",
+            "Local contacts",
+            true);
+        var contactService = new Mock<IContactService>();
+        contactService.Setup(service => service.GetCreateDestinationsAsync()).ReturnsAsync([destination]);
+        contactService.Setup(service => service.GetContactListsAsync()).ReturnsAsync([]);
+        var viewModel = new ContactEditPageViewModel(
+            contactService.Object,
+            Mock.Of<IWinoRequestDelegator>(),
+            Mock.Of<INavigationService>(),
+            Mock.Of<IMailDialogService>(),
+            Mock.Of<IContactPictureFileService>())
+        {
+            SelectedCategory = ContactEditorCategory.Notes
+        };
+
+        viewModel.OnNavigatedTo(NavigationMode.New, new ContactEditNavigationParameter());
+
+        await WaitForAsync(() => viewModel.SelectedDestination == destination);
+
+        viewModel.SelectedCategory.Should().Be(ContactEditorCategory.ContactInformation);
+    }
+
+    [Theory]
+    [InlineData("destination", ContactEditorCategory.ContactInformation)]
+    [InlineData("display", ContactEditorCategory.ContactInformation)]
+    [InlineData("invalid-email", ContactEditorCategory.ContactInformation)]
+    [InlineData("duplicate-email", ContactEditorCategory.ContactInformation)]
+    [InlineData("birthday", ContactEditorCategory.Other)]
+    public async Task Save_ValidationError_SelectsTheCategoryContainingTheInvalidField(
+        string errorCase,
+        ContactEditorCategory expectedCategory)
+    {
+        var viewModel = CreateViewModel();
+        var destination = new ContactCreateDestination(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            ContactSourceKind.Local,
+            "Test",
+            "Local contacts",
+            true);
+        viewModel.Destinations.Add(destination);
+        viewModel.SelectedDestination = errorCase == "destination" ? null : destination;
+        viewModel.DisplayName = errorCase == "display" ? null : "Validation Test";
+        viewModel.SelectedCategory = ContactEditorCategory.Notes;
+
+        if (errorCase == "invalid-email")
+            viewModel.EmailAddresses.Add(new ContactEmailAddress { Address = "not-an-email" });
+        else if (errorCase == "duplicate-email")
+        {
+            viewModel.EmailAddresses.Add(new ContactEmailAddress { Address = "person@example.com" });
+            viewModel.EmailAddresses.Add(new ContactEmailAddress { Address = "PERSON@example.com" });
+        }
+        else if (errorCase == "birthday")
+        {
+            viewModel.BirthdayYear = 2001;
+            viewModel.BirthdayMonth = 2;
+            viewModel.BirthdayDay = 29;
+        }
+
+        await viewModel.SaveCommand.ExecuteAsync(null);
+
+        viewModel.IsErrorOpen.Should().BeTrue();
+        viewModel.SelectedCategory.Should().Be(expectedCategory);
+    }
+
+    [Fact]
+    public async Task Save_ProviderFailureKeepsTheCurrentCategory()
+    {
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteAsync(It.IsAny<IReadOnlyList<ContactOperationPreparationRequest>>()))
+            .ThrowsAsync(new InvalidOperationException("Provider rejected the contact."));
+        var viewModel = new ContactEditPageViewModel(
+            Mock.Of<IContactService>(),
+            delegator.Object,
+            Mock.Of<INavigationService>(),
+            Mock.Of<IMailDialogService>(),
+            Mock.Of<IContactPictureFileService>());
+        var destination = new ContactCreateDestination(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            ContactSourceKind.Outlook,
+            "Outlook",
+            "Contacts",
+            true);
+        viewModel.Destinations.Add(destination);
+        viewModel.SelectedDestination = destination;
+        viewModel.DisplayName = "Provider Failure";
+        viewModel.SelectedCategory = ContactEditorCategory.Work;
+
+        await viewModel.SaveCommand.ExecuteAsync(null);
+
+        viewModel.IsErrorOpen.Should().BeTrue();
+        viewModel.SelectedCategory.Should().Be(ContactEditorCategory.Work);
+    }
+
+    [Fact]
     public async Task ImportedDraft_PopulatesUnsavedEditorAndKeepsNormalDestinationSelection()
     {
         var destination = new ContactCreateDestination(

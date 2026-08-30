@@ -45,6 +45,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     public bool HasLists => ListMemberships.Count > 0;
 
     [ObservableProperty] public partial ContactCreateDestination SelectedDestination { get; set; }
+    [ObservableProperty] public partial ContactEditorCategory SelectedCategory { get; set; }
     [ObservableProperty] public partial bool IsEditMode { get; set; }
     [ObservableProperty] public partial bool IsDirty { get; set; }
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SaveCommand))] public partial bool IsSaving { get; set; }
@@ -129,6 +130,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
         _previewPhotoPath = null;
         _deletePhoto = false;
         IsEditMode = false;
+        SelectedCategory = ContactEditorCategory.ContactInformation;
         var parameter = parameters as ContactEditNavigationParameter ?? new();
         var destinations = await _contactService.GetCreateDestinationsAsync().ConfigureAwait(false);
         var original = parameter.ContactId is Guid contactId
@@ -362,13 +364,31 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
 
     private string Validate()
     {
-        if (!IsEditMode && SelectedDestination is null) return Translator.ContactEditor_DestinationRequired;
-        if (string.IsNullOrWhiteSpace(DisplayName) && string.IsNullOrWhiteSpace(CompanyName) && EmailAddresses.All(item => string.IsNullOrWhiteSpace(item.Address)) && PhoneNumbers.All(item => string.IsNullOrWhiteSpace(item.Number))) return Translator.ContactEditor_DisplayValueRequired;
+        if (!IsEditMode && SelectedDestination is null)
+            return ValidationError(ContactEditorCategory.ContactInformation, Translator.ContactEditor_DestinationRequired);
+
+        if (string.IsNullOrWhiteSpace(DisplayName) && string.IsNullOrWhiteSpace(CompanyName) && EmailAddresses.All(item => string.IsNullOrWhiteSpace(item.Address)) && PhoneNumbers.All(item => string.IsNullOrWhiteSpace(item.Number)))
+            return ValidationError(ContactEditorCategory.ContactInformation, Translator.ContactEditor_DisplayValueRequired);
+
         var emails = EmailAddresses.Where(item => !string.IsNullOrWhiteSpace(item.Address)).Select(item => item.Address.Trim()).ToList();
-        if (emails.Any(email => !MailAddress.TryCreate(email, out _))) return Translator.ContactEditor_InvalidEmail;
-        if (emails.Distinct(StringComparer.OrdinalIgnoreCase).Count() != emails.Count) return Translator.ContactEditor_DuplicateValue;
-        if (!IsBirthdayValid()) return Translator.ContactEditor_InvalidBirthday;
+
+        if (emails.Any(email => !MailAddress.TryCreate(email, out _)))
+            return ValidationError(ContactEditorCategory.ContactInformation, Translator.ContactEditor_InvalidEmail);
+
+        if (emails.Distinct(StringComparer.OrdinalIgnoreCase).Count() != emails.Count)
+            return ValidationError(ContactEditorCategory.ContactInformation, Translator.ContactEditor_DuplicateValue);
+
+        if (!IsBirthdayValid())
+            return ValidationError(ContactEditorCategory.Other, Translator.ContactEditor_InvalidBirthday);
+
         return null;
+    }
+
+    private string ValidationError(ContactEditorCategory category, string message)
+    {
+        SelectedCategory = category;
+
+        return message;
     }
 
     private bool IsBirthdayValid()
