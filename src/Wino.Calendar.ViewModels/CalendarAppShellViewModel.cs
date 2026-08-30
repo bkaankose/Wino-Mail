@@ -132,6 +132,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         base.OnDispatcherAssigned();
 
         _isPreparedForShellShutdown = false;
+        _hasCompletedAccountCalendarInitialization = false;
         AccountCalendarStateService.Dispatcher = Dispatcher;
         MenuItems = new MenuItemCollection(Dispatcher);
         FooterItems = new MenuItemCollection(Dispatcher);
@@ -175,7 +176,15 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         {
             await RefreshFooterItemsAsync(false);
         }
+
+        if (e == nameof(IPreferencesService.IsCalendarAccountsGrouped))
+        {
+            await ApplyCalendarGroupingPreferenceChangeAsync();
+        }
     }
+
+    internal Task ApplyCalendarGroupingPreferenceChangeAsync()
+        => ExecuteUIThread(SyncShellMenuItems);
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
@@ -263,7 +272,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         FooterItems?.Clear();
         AccountCalendarStateService.ClearGroupedAccountCalendars();
 
-        _accountCalendarMenuItems.Clear();
+        ClearShellMenuItemCaches();
         _datePickerMenuItem = null;
         ShellMenu = null;
 
@@ -353,30 +362,39 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
     private async Task InitializeAccountCalendarsAsync()
     {
-        await Dispatcher.ExecuteOnUIThread(() => AccountCalendarStateService.ClearGroupedAccountCalendars());
-
-        var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
-
-        foreach (var account in accounts)
+        _isAccountCalendarInitializationInProgress = true;
+        try
         {
-            if (!GroupedAccountCalendarViewModel.SupportsCalendar(account))
-                continue;
+            await Dispatcher.ExecuteOnUIThread(() => AccountCalendarStateService.ClearGroupedAccountCalendars());
 
-            var accountCalendars = await _calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
-            if (accountCalendars.Count == 0)
-                continue;
+            var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
 
-            var calendarViewModels = accountCalendars.Select(calendar => new AccountCalendarViewModel(account, calendar)).ToList();
-            var groupedAccountCalendarViewModel = new GroupedAccountCalendarViewModel(account, calendarViewModels);
-
-            await Dispatcher.ExecuteOnUIThread(() =>
+            foreach (var account in accounts)
             {
-                AccountCalendarStateService.AddGroupedAccountCalendar(groupedAccountCalendarViewModel);
+                if (!GroupedAccountCalendarViewModel.SupportsCalendar(account))
+                    continue;
 
-                // The title bar button is bound before this runs, so it has to be told that
-                // there is now something to synchronize.
-                RefreshShellSynchronizationState();
-            });
+                var accountCalendars = await _calendarService.GetAccountCalendarsAsync(account.Id).ConfigureAwait(false);
+                if (accountCalendars.Count == 0)
+                    continue;
+
+                var calendarViewModels = accountCalendars.Select(calendar => new AccountCalendarViewModel(account, calendar)).ToList();
+                var groupedAccountCalendarViewModel = new GroupedAccountCalendarViewModel(account, calendarViewModels);
+
+                await Dispatcher.ExecuteOnUIThread(() =>
+                {
+                    AccountCalendarStateService.AddGroupedAccountCalendar(groupedAccountCalendarViewModel);
+
+                    // The title bar button is bound before this runs, so it has to be told that
+                    // there is now something to synchronize.
+                    RefreshShellSynchronizationState();
+                });
+            }
+        }
+        finally
+        {
+            _isAccountCalendarInitializationInProgress = false;
+            await ExecuteUIThread(CompleteAccountCalendarInitialization);
         }
     }
 
@@ -478,6 +496,12 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     {
         switch (menuItem)
         {
+            case CalendarAccountMenuItem accountMenuItem:
+                SelectCalendarAccount(accountMenuItem.Account.Id);
+                break;
+            case UngroupedCalendarMenuItem calendarMenuItem:
+                calendarMenuItem.Toggle();
+                break;
             case NewMailMenuItem:
                 await NewEventAsync().ConfigureAwait(false);
                 break;

@@ -7,48 +7,99 @@
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
-        <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
-            <controls:SettingsCard
+    <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="CalendarPreferenceAccountLayoutSettingsCard"
+            Description="{x:Bind domain:Translator.CalendarSettings_AccountGrouping_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.CalendarSettings_AccountGrouping_Header, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon Glyph="&#xE8B7;" />
+            </controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.Content>
+                <StackPanel Spacing="12">
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="CalendarPreferenceAccountGroupingToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_AccountGrouping_Header, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.CalendarSettings_AccountGrouping_Header, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.IsCalendarAccountsGrouped, Mode=TwoWay}"
+                        OffContent="{x:Bind domain:Translator.CalendarSettings_Toggle_Off, Mode=OneTime}"
+                        OnContent="{x:Bind domain:Translator.CalendarSettings_Toggle_On, Mode=OneTime}" />
 
-                AutomationProperties.AutomationId="CalendarPreferenceSettingsPageSettingsCard" Description="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Description}" Header="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Header}">
-                <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE163;" />
-                </controls:SettingsCard.HeaderIcon>
-                <controls:SettingsCard.Content>
-                    <StackPanel Spacing="12">
+                    <StackPanel
+                        Spacing="6"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.ShouldShowCalendarStartupAccount), Mode=OneWay}">
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.CalendarSettings_StartupAccount_Description, Mode=OneTime}"
+                            TextWrapping="Wrap" />
                         <ComboBox
-
-                            AutomationProperties.AutomationId="CalendarPreferenceSettingsPageComboBox" ItemsSource="{x:Bind ViewModel.NewEventBehaviorOptions, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.SelectedNewEventBehaviorOption, Mode=TwoWay}">
+                            AutomationProperties.AutomationId="CalendarPreferenceStartupAccountComboBox"
+                            Header="{x:Bind domain:Translator.CalendarSettings_StartupAccount_Header, Mode=OneTime}"
+                            ItemsSource="{x:Bind ViewModel.CalendarStartupAccounts, Mode=OneWay}"
+                            SelectedItem="{x:Bind ViewModel.SelectedCalendarStartupAccount, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="calendarViewModels:CalendarNewEventBehaviorOption">
-                                    <TextBlock Text="{x:Bind DisplayText}" />
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-
-                        <ComboBox
-                            AutomationProperties.AutomationId="CalendarPreferenceSettingsPageComboBox2"
-                            ItemsSource="{x:Bind ViewModel.AvailableNewEventCalendars, Mode=OneWay}"
-                            SelectedItem="{x:Bind ViewModel.SelectedNewEventCalendar, Mode=TwoWay}"
-                            Visibility="{x:Bind ViewModel.ShouldShowSpecificNewEventCalendar, Mode=OneWay}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate x:DataType="data:AccountCalendarViewModel">
-                                    <StackPanel Orientation="Vertical" Spacing="2">
-                                        <TextBlock Text="{x:Bind Name}" />
+                                <DataTemplate x:DataType="shared:MailAccount">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock Text="{x:Bind Name, Mode=OneTime}" />
                                         <TextBlock
                                             FontSize="12"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Text="{x:Bind Account.Address}" />
+                                            Text="{x:Bind Address, Mode=OneTime}" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                     </StackPanel>
-                </controls:SettingsCard.Content>
-            </controls:SettingsCard>
-        </StackPanel>
+                </StackPanel>
+            </controls:SettingsCard.Content>
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="CalendarPreferenceNewEventSettingsCard"
+            Description="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Header, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon Glyph="&#xE163;" />
+            </controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.Content>
+                <StackPanel Spacing="12">
+                    <ComboBox
+                        AutomationProperties.AutomationId="CalendarPreferenceNewEventBehaviorComboBox"
+                        ItemsSource="{x:Bind ViewModel.NewEventBehaviorOptions, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedNewEventBehaviorOption, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="calendarViewModels:CalendarNewEventBehaviorOption">
+                                <TextBlock Text="{x:Bind DisplayText, Mode=OneTime}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <ComboBox
+                        AutomationProperties.AutomationId="CalendarPreferenceNewEventCalendarComboBox"
+                        ItemsSource="{x:Bind ViewModel.AvailableNewEventCalendars, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.SelectedNewEventCalendar, Mode=TwoWay}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.ShouldShowSpecificNewEventCalendar), Mode=OneWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate x:DataType="data:AccountCalendarViewModel">
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="{x:Bind Name, Mode=OneWay}" />
+                                    <TextBlock
+                                        FontSize="12"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Bind Account.Address, Mode=OneWay}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </StackPanel>
+            </controls:SettingsCard.Content>
+        </controls:SettingsCard>
+    </StackPanel>
 </abstract:CalendarPreferenceSettingsPageAbstract>

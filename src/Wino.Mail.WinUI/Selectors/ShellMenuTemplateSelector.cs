@@ -27,6 +27,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
     public DataTemplate? SettingsShellWinoIntelligenceItemTemplate { get; set; }
     public DataTemplate? CalendarDatePickerTemplate { get; set; }
     public DataTemplate? AccountCalendarGroupTemplate { get; set; }
+    public DataTemplate? UngroupedCalendarTemplate { get; set; }
     public DataTemplate? CalendarNewEventTemplate { get; set; }
     public DataTemplate? NewContactTemplate { get; set; }
     public DataTemplate? NewAddressListTemplate { get; set; }
@@ -68,6 +69,8 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
         // Calendar
         CalendarDatePickerMenuItem => CalendarDatePickerTemplate,
         AccountCalendarGroupMenuItem => AccountCalendarGroupTemplate,
+        CalendarAccountMenuItem => SharedAccountMenuTemplate,
+        UngroupedCalendarMenuItem => UngroupedCalendarTemplate,
         NewCalendarEventMenuItem => CalendarNewEventTemplate,
 
         // Contacts

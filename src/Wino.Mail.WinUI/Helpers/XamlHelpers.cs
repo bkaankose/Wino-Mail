@@ -624,6 +624,9 @@ public static class XamlHelpers
     public static string GetCalendarsForAccountAutomationName(string? accountName)
         => string.Format(Translator.Accessibility_CalendarsForAccount, accountName ?? string.Empty);
 
+    public static string GetCalendarToggleAutomationName(string? calendarName)
+        => string.Format(Translator.Accessibility_CalendarToggle, calendarName ?? string.Empty);
+
     private static string GetAccountSetupStepStatusText(AccountSetupStepStatus status)
         => status switch
         {

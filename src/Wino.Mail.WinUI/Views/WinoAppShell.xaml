@@ -50,7 +50,8 @@
             SettingsShellWinoIntelligenceItemTemplate="{StaticResource SettingsShellWinoIntelligenceItemTemplate}"
             SharedAccountMenuTemplate="{StaticResource SharedAccountMenuTemplate}"
             SharedCompactAccountMenuTemplate="{StaticResource SharedCompactAccountMenuTemplate}"
-            ShellSectionHeaderTemplate="{StaticResource ShellSectionHeaderTemplate}" />
+            ShellSectionHeaderTemplate="{StaticResource ShellSectionHeaderTemplate}"
+            UngroupedCalendarTemplate="{StaticResource UngroupedCalendarTemplate}" />
     </Page.Resources>
 
     <Grid x:Name="RootGrid">

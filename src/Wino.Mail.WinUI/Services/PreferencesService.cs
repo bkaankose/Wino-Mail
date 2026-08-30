@@ -532,6 +532,24 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(DefaultNewEventCalendarId), value);
     }
 
+    public bool IsCalendarAccountsGrouped
+    {
+        get => _configurationService.Get(nameof(IsCalendarAccountsGrouped), true);
+        set => SetPropertyAndSave(nameof(IsCalendarAccountsGrouped), value);
+    }
+
+    public Guid? CalendarStartupAccountId
+    {
+        get => _configurationService.Get<Guid?>(nameof(CalendarStartupAccountId), null);
+        set => SetPropertyAndSave(nameof(CalendarStartupAccountId), value);
+    }
+
+    public bool IsCalendarDatePickerExpanded
+    {
+        get => _configurationService.Get(nameof(IsCalendarDatePickerExpanded), true);
+        set => SetPropertyAndSave(nameof(IsCalendarDatePickerExpanded), value);
+    }
+
     public int EmailSyncIntervalMinutes
     {
         get => _configurationService.Get(nameof(EmailSyncIntervalMinutes), 3);

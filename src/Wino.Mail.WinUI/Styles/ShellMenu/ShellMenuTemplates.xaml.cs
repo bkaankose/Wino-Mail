@@ -40,6 +40,9 @@ public sealed partial class ShellMenuTemplates
         InitializeComponent();
     }
 
+    private void UngroupedCalendarCheckBoxTapped(object sender, TappedRoutedEventArgs e)
+        => e.Handled = true;
+
     private static IMailShellClient MailClient
         => WinoApplication.Current.Services.GetRequiredService<IMailShellClient>();
 

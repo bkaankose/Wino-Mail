@@ -357,6 +357,21 @@ public interface IPreferencesService : INotifyPropertyChanged
     Guid? DefaultNewEventCalendarId { get; set; }
 
     /// <summary>
+    /// Setting: Whether calendar accounts are shown as expandable groups in the shell pane.
+    /// </summary>
+    bool IsCalendarAccountsGrouped { get; set; }
+
+    /// <summary>
+    /// Setting: Account selected when the ungrouped calendar shell pane is initialized.
+    /// </summary>
+    Guid? CalendarStartupAccountId { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the compact calendar date picker is expanded in the shell pane.
+    /// </summary>
+    bool IsCalendarDatePickerExpanded { get; set; }
+
+    /// <summary>
     /// Setting: System sound played for calendar reminder notifications.
     /// </summary>
     NotificationSoundEvent CalendarNotificationSoundEvent { get; set; }

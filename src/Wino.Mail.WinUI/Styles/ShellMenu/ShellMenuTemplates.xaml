@@ -619,11 +619,15 @@
     <!--  Visible date range picker  -->
     <DataTemplate x:Key="CalendarDatePickerTemplate" x:DataType="menu:CalendarDatePickerMenuItem">
         <muxc:NavigationViewItem AutomationProperties.AutomationId="CalendarPaneDatePickerHost" Style="{StaticResource ShellPaneHostNavigationViewItemStyle}">
-            <muxc:CalendarView
+            <coreControls:ShellCalendarView
                 Margin="12,0,12,8"
                 HorizontalAlignment="Stretch"
                 behaviors:CalendarViewRangeBehavior.Client="{x:Bind Parameter, Mode=OneTime}"
                 AutomationProperties.AutomationId="VisibleDateRangeCalendarView"
+                ExpansionAutomationName="{x:Bind ExpansionAutomationName, Mode=OneWay}"
+                ExpansionGlyph="{x:Bind ExpansionGlyph, Mode=OneWay}"
+                ExpansionToolTip="{x:Bind ExpansionToolTip, Mode=OneWay}"
+                IsPaneExpanded="{x:Bind IsCalendarExpanded, Mode=TwoWay}"
                 SelectionMode="Multiple"
                 Style="{StaticResource WinoCalendarViewStyle}" />
         </muxc:NavigationViewItem>
@@ -696,7 +700,7 @@
                                     HorizontalContentAlignment="Stretch"
                                     VerticalContentAlignment="Stretch"
                                     AutomationProperties.AutomationId="AccountCalendarCheckBox"
-                                    AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
+                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Name), Mode=OneWay}"
                                     IsChecked="{x:Bind IsChecked, Mode=TwoWay}">
                                     <Grid Margin="0,0,0,5" ColumnSpacing="6">
                                         <Grid.ColumnDefinitions>
@@ -722,6 +726,45 @@
                 </muxc:Expander.Content>
             </muxc:Expander>
         </muxc:NavigationViewItem>
+    </DataTemplate>
+
+    <!--  Calendars for the active account in the ungrouped account layout.  -->
+    <DataTemplate x:Key="UngroupedCalendarTemplate" x:DataType="data:UngroupedCalendarMenuItem">
+        <coreControls:WinoNavigationViewItem
+            MinHeight="40"
+            Margin="8,0"
+            HorizontalContentAlignment="Stretch"
+            AutomationProperties.AutomationId="UngroupedCalendarNavigationItem"
+            AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Parameter.Name), Mode=OneWay}"
+            DataContext="{x:Bind}"
+            SelectsOnInvoked="False">
+            <CheckBox
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                AutomationProperties.AutomationId="UngroupedCalendarCheckBox"
+                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Parameter.Name), Mode=OneWay}"
+                IsChecked="{x:Bind Parameter.IsChecked, Mode=TwoWay}"
+                Tapped="UngroupedCalendarCheckBoxTapped">
+                <Grid Margin="0,2" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Ellipse
+                        Width="16"
+                        Height="16"
+                        VerticalAlignment="Center"
+                        Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Parameter.BackgroundColorHex), Mode=OneWay}" />
+
+                    <TextBlock
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Text="{x:Bind Parameter.Name, Mode=OneWay}"
+                        TextTrimming="CharacterEllipsis" />
+                </Grid>
+            </CheckBox>
+        </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
     <!--  New contact  -->
