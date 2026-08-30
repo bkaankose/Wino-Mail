@@ -1,19 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="182" height="182" viewBox="37 37 182 182" fill="none">
   <title>To do</title>
   <!--
-    The Wino To Do app icon with its tile removed. The viewBox is the tile's, so the card
-    lands exactly where the app icon has it once the switcher paints the tile behind it.
+    The Wino To Do app icon with its tile removed. Every colour comes from the shared
+    switcher palette and is substituted at runtime by AppModeGlyphPalette.
   -->
   <defs>
     <!-- Card: vertical gradient -->
     <linearGradient id="todoCard" gradientUnits="userSpaceOnUse" x1="128" y1="72" x2="128" y2="184">
-      <stop offset="0" stop-color="#FEFEFF"/>
-      <stop offset="1" stop-color="#F2F6FC"/>
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F1F5FB"/>
     </linearGradient>
     <!-- Check: vertical gradient -->
     <linearGradient id="todoCheck" gradientUnits="userSpaceOnUse" x1="128" y1="98" x2="128" y2="158">
-      <stop offset="0" stop-color="#00B5FE"/>
-      <stop offset="1" stop-color="#009AF9"/>
+      <stop offset="0" stop-color="#00AAFF"/>
+      <stop offset="1" stop-color="#0090F7"/>
     </linearGradient>
   </defs>
 

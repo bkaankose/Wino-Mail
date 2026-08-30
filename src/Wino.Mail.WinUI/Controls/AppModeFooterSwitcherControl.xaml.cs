@@ -15,8 +15,8 @@ namespace Wino.Mail.WinUI.Controls;
 public sealed partial class AppModeFooterSwitcherControl : UserControl
 {
     /// <summary>
-    /// The modes the strip offers, in the order they appear. Settings is absent on purpose:
-    /// it is reached from the switcher's own settings button, not from a segment.
+    /// The modes the strip offers, in the order they appear. Settings is absent because the
+    /// control owns that cell itself and reports it through its own event.
     /// </summary>
     private static readonly WinoApplicationMode[] Modes =
     [
@@ -28,6 +28,7 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
 
     private readonly IStatePersistanceService _statePersistenceService;
     private readonly INavigationService _navigationService;
+    private readonly INewThemeService _themeService;
 
     public static readonly DependencyProperty OrientationProperty = DependencyProperty.Register(
         nameof(Orientation),
@@ -45,6 +46,7 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
     {
         _statePersistenceService = WinoApplication.Current.Services.GetRequiredService<IStatePersistanceService>();
         _navigationService = WinoApplication.Current.Services.GetRequiredService<INavigationService>();
+        _themeService = WinoApplication.Current.Services.GetRequiredService<INewThemeService>();
 
         InitializeComponent();
     }
@@ -58,6 +60,7 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
     private void ControlLoaded(object sender, RoutedEventArgs e)
     {
         _statePersistenceService.StatePropertyChanged += StatePropertyChanged;
+        _themeService.AccentColorChanged += AccentColorChanged;
 
         Switcher.Orientation = Orientation;
         UpdateSelection(_statePersistenceService.ApplicationMode);
@@ -66,7 +69,16 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
     private void ControlUnloaded(object sender, RoutedEventArgs e)
     {
         _statePersistenceService.StatePropertyChanged -= StatePropertyChanged;
+        _themeService.AccentColorChanged -= AccentColorChanged;
     }
+
+    /// <summary>
+    /// The glyphs are recoloured from the accent, and the accent lives in an application
+    /// resource that is mutated in place, so nothing about it raises a property change the
+    /// control could see. Telling it is this control's job.
+    /// </summary>
+    private void AccentColorChanged(object? sender, string accentColor)
+        => DispatcherQueue.TryEnqueue(Switcher.RefreshAccent);
 
     private void StatePropertyChanged(object? sender, string propertyName)
     {
@@ -98,8 +110,9 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
     }
 
     /// <summary>
-    /// Settings is not one of the modes, so it lights the settings button and leaves the
-    /// strip with nothing selected rather than borrowing a segment.
+    /// Settings is not one of the modes, so it lights the settings cell and leaves the mode
+    /// index unmatched rather than borrowing a segment. The control resolves the two into a
+    /// single lit cell.
     /// </summary>
     private void UpdateSelection(WinoApplicationMode mode)
     {

@@ -5,25 +5,23 @@
     xmlns:appMode="using:Wino.Mail.Controls.AppModeSwitcher"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-
     mc:Ignorable="d">
 
-
     <ScrollViewer Padding="24">
-        <StackPanel MaxWidth="820" Spacing="20">
+        <StackPanel MaxWidth="980" Spacing="20">
 
             <StackPanel Spacing="4">
                 <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="App mode switcher" />
                 <TextBlock
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Style="{ThemeResource BodyTextBlockStyle}"
-                    Text="A strip of mutually exclusive modes with Settings grouped into the same pill. Each glyph is an app icon minus its tile; selecting a mode slides an accent tile back under it, so it reads as that app icon again and follows the app's accent colour. Settings remains a dedicated command rather than becoming a fifth mode. Nothing here uses a storyboard or a visual state."
+                    Text="A strip of mutually exclusive destinations, Settings included: every cell shares one sliding tile, so exactly one is ever lit. Each mode glyph is an app icon minus its tile, recoloured at runtime so its blues follow the app accent. In Light every glyph rests on a chip tinted from that same accent, which becomes the selection tile when the mode is picked. Nothing here uses a storyboard or a visual state."
                     TextWrapping="Wrap" />
             </StackPanel>
 
             <!--
                 Both orientations at the widths they actually get: an open navigation pane
-                and a collapsed rail. The tile and the gear are only judgeable in context,
+                and a collapsed rail. The tile and the chips are only judgeable in context,
                 so the surrounding surfaces match the shell rather than the page.
             -->
             <StackPanel Orientation="Horizontal" Spacing="24">
@@ -33,6 +31,7 @@
                         Style="{ThemeResource CaptionTextBlockStyle}"
                         Text="Open pane (248px)" />
                     <Border
+                        x:Name="PaneSurface"
                         Width="248"
                         Padding="8,8,8,12"
                         VerticalAlignment="Bottom"
@@ -46,62 +45,10 @@
                             ModeInvoked="SwitcherModeInvoked"
                             SettingsInvoked="SwitcherSettingsInvoked"
                             SettingsLabel="Settings">
-                            <appMode:WinoAppModeSwitcherItem Label="Mail">
-                                <appMode:WinoAppModeSwitcherItem.Icon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg" />
-                                </appMode:WinoAppModeSwitcherItem.Icon>
-                                <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.Light.svg" />
-                                </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                            </appMode:WinoAppModeSwitcherItem>
-                            <appMode:WinoAppModeSwitcherItem Label="Calendar">
-                                <appMode:WinoAppModeSwitcherItem.Icon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg" />
-                                </appMode:WinoAppModeSwitcherItem.Icon>
-                                <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.Light.svg" />
-                                </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                            </appMode:WinoAppModeSwitcherItem>
-                            <appMode:WinoAppModeSwitcherItem Label="Contacts">
-                                <appMode:WinoAppModeSwitcherItem.Icon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg" />
-                                </appMode:WinoAppModeSwitcherItem.Icon>
-                                <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.Light.svg" />
-                                </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                            </appMode:WinoAppModeSwitcherItem>
-                            <appMode:WinoAppModeSwitcherItem Label="To do">
-                                <appMode:WinoAppModeSwitcherItem.Icon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg" />
-                                </appMode:WinoAppModeSwitcherItem.Icon>
-                                <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.Light.svg" />
-                                </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                            </appMode:WinoAppModeSwitcherItem>
+                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg" Label="Mail" />
+                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg" Label="Calendar" />
+                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg" Label="Contacts" />
+                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg" Label="To do" />
                         </appMode:WinoAppModeSwitcher>
                     </Border>
                 </StackPanel>
@@ -112,6 +59,7 @@
                         Style="{ThemeResource CaptionTextBlockStyle}"
                         Text="Collapsed rail (48px)" />
                     <Border
+                        x:Name="RailSurface"
                         Width="48"
                         Padding="0,8"
                         VerticalAlignment="Bottom"
@@ -126,71 +74,43 @@
                             Orientation="Vertical"
                             SettingsInvoked="SwitcherSettingsInvoked"
                             SettingsLabel="Settings">
-                            <appMode:WinoAppModeSwitcherItem Label="Mail">
-                                <appMode:WinoAppModeSwitcherItem.Icon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg" />
-                                </appMode:WinoAppModeSwitcherItem.Icon>
-                                <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.Light.svg" />
-                                </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                            </appMode:WinoAppModeSwitcherItem>
-                            <appMode:WinoAppModeSwitcherItem Label="Calendar">
-                                <appMode:WinoAppModeSwitcherItem.Icon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg" />
-                                </appMode:WinoAppModeSwitcherItem.Icon>
-                                <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.Light.svg" />
-                                </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                            </appMode:WinoAppModeSwitcherItem>
-                            <appMode:WinoAppModeSwitcherItem Label="Contacts">
-                                <appMode:WinoAppModeSwitcherItem.Icon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg" />
-                                </appMode:WinoAppModeSwitcherItem.Icon>
-                                <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.Light.svg" />
-                                </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                            </appMode:WinoAppModeSwitcherItem>
-                            <appMode:WinoAppModeSwitcherItem Label="To do">
-                                <appMode:WinoAppModeSwitcherItem.Icon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg" />
-                                </appMode:WinoAppModeSwitcherItem.Icon>
-                                <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                                    <ImageIcon
-                                        Width="30"
-                                        Height="30"
-                                        Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.Light.svg" />
-                                </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                            </appMode:WinoAppModeSwitcherItem>
+                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg" Label="Mail" />
+                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg" Label="Calendar" />
+                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg" Label="Contacts" />
+                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg" Label="To do" />
                         </appMode:WinoAppModeSwitcher>
                     </Border>
                 </StackPanel>
             </StackPanel>
 
             <StackPanel Spacing="12">
+                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Accent" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{ThemeResource CaptionTextBlockStyle}"
+                    Text="Mutates SystemAccentColor the way the theme service does, then tells the control to look again. The glyph blues and the Light resting chip both follow; the chip keeps the same weight whichever accent is chosen, so only its hue moves."
+                    TextWrapping="Wrap" />
+                <StackPanel
+                    x:Name="AccentSwatches"
+                    Orientation="Horizontal"
+                    Spacing="8" />
+            </StackPanel>
+
+            <StackPanel Spacing="12">
                 <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="State" />
 
-                <!--  "None" is the state a host uses while settings owns the window.  -->
+                <ComboBox
+                    x:Name="SurfaceThemeBox"
+                    Width="220"
+                    Header="Surface theme"
+                    SelectedIndex="0"
+                    SelectionChanged="SurfaceThemeChanged">
+                    <ComboBoxItem Content="Inherit" Tag="Default" />
+                    <ComboBoxItem Content="Light" Tag="Light" />
+                    <ComboBoxItem Content="Dark" Tag="Dark" />
+                </ComboBox>
+
+                <!--  "None" is the state a host uses while some other surface owns the window.  -->
                 <RadioButtons
                     x:Name="SelectionButtons"
                     AutomationProperties.AutomationId="PlaygroundAppModeSelection"

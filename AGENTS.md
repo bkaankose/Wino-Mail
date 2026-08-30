@@ -102,6 +102,8 @@ Obey these package rules:
 
 ## WinApp UI verification
 
+WinApp CLI is the only supported way to run the application and capture visual evidence. Never use desktop automation, computer use, screen capture of the whole desktop, or any tool that drives the mouse and keyboard against the running app. Those tools front the wrong window, capture the wrong monitor, and produce evidence that cannot be trusted. Use `winapp run` to launch and `winapp ui` to inspect, interact, and screenshot. This applies to the playground and every other packaged project in this repository, not only to `Wino.Mail.WinUI`.
+
 After the current x64 Debug build has been deployed and started, use WinApp CLI directly against the running process:
 
 ```powershell

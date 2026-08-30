@@ -12,12 +12,12 @@
 
     <!--
         The switcher itself is domain agnostic, so the modes, their wording and what a click
-        means all live here. Settings is deliberately not one of the items: it remains a
-        dedicated command even though the control groups it into the same destination pill.
+        means all live here. Settings is one of the cells rather than a separate command
+        surface, but it still resolves to its own application mode.
 
-        Each glyph is an app icon with its tile removed, so selecting a mode slides a tile
-        back under it and it reads as the app icon again. The tile takes the app's accent
-        rather than the icon's own blue, so it follows whatever accent the user has set.
+        Each glyph is an app icon with its tile removed, handed over as an asset rather than
+        as a ready-made icon: the control recolours it, so the artwork follows the app accent
+        and takes whichever paper colour reads against the surface it lands on.
     -->
     <appMode:WinoAppModeSwitcher
         x:Name="Switcher"
@@ -25,61 +25,9 @@
         ModeInvoked="ModeInvoked"
         SettingsInvoked="SettingsInvoked"
         SettingsLabel="{x:Bind domain:Translator.MenuSettings}">
-        <appMode:WinoAppModeSwitcherItem Label="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}">
-            <appMode:WinoAppModeSwitcherItem.Icon>
-                <ImageIcon
-                    Width="30"
-                    Height="30"
-                    Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg" />
-            </appMode:WinoAppModeSwitcherItem.Icon>
-            <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                <ImageIcon
-                    Width="30"
-                    Height="30"
-                    Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.Light.svg" />
-            </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-        </appMode:WinoAppModeSwitcherItem>
-        <appMode:WinoAppModeSwitcherItem Label="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}">
-            <appMode:WinoAppModeSwitcherItem.Icon>
-                <ImageIcon
-                    Width="30"
-                    Height="30"
-                    Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg" />
-            </appMode:WinoAppModeSwitcherItem.Icon>
-            <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                <ImageIcon
-                    Width="30"
-                    Height="30"
-                    Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.Light.svg" />
-            </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-        </appMode:WinoAppModeSwitcherItem>
-        <appMode:WinoAppModeSwitcherItem Label="{x:Bind domain:Translator.ContactsPage_Title}">
-            <appMode:WinoAppModeSwitcherItem.Icon>
-                <ImageIcon
-                    Width="30"
-                    Height="30"
-                    Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg" />
-            </appMode:WinoAppModeSwitcherItem.Icon>
-            <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                <ImageIcon
-                    Width="30"
-                    Height="30"
-                    Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.Light.svg" />
-            </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-        </appMode:WinoAppModeSwitcherItem>
-        <appMode:WinoAppModeSwitcherItem Label="{x:Bind domain:Translator.ToDoPage_Title}">
-            <appMode:WinoAppModeSwitcherItem.Icon>
-                <ImageIcon
-                    Width="30"
-                    Height="30"
-                    Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg" />
-            </appMode:WinoAppModeSwitcherItem.Icon>
-            <appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-                <ImageIcon
-                    Width="30"
-                    Height="30"
-                    Source="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.Light.svg" />
-            </appMode:WinoAppModeSwitcherItem.LightThemeIcon>
-        </appMode:WinoAppModeSwitcherItem>
+        <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg" Label="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}" />
+        <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg" Label="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}" />
+        <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg" Label="{x:Bind domain:Translator.ContactsPage_Title}" />
+        <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg" Label="{x:Bind domain:Translator.ToDoPage_Title}" />
     </appMode:WinoAppModeSwitcher>
 </UserControl>

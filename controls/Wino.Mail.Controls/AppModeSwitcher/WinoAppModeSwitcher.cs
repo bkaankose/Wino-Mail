@@ -16,11 +16,21 @@ using Windows.UI.ViewManagement;
 namespace Wino.Mail.Controls.AppModeSwitcher;
 
 /// <summary>
-/// A strip of mutually exclusive modes with a settings affordance in the same pill.
+/// A strip of mutually exclusive destinations: the app's modes, with settings as the last
+/// one. Every cell shares a single sliding selection tile, so exactly one is ever lit.
 ///
-/// The shared surface groups the app's global destinations, while the interaction contract
-/// keeps settings distinct: modes share a sliding selection tile and raise
-/// <see cref="ModeInvoked"/>, while settings raises <see cref="SettingsInvoked"/>.
+/// Settings is still distinct in what it means - it raises <see cref="SettingsInvoked"/>
+/// rather than <see cref="ModeInvoked"/>, and the host tracks it separately - but it is not
+/// distinct in how it behaves. It is the one cell drawn from an <see cref="AnimatedIcon"/>
+/// instead of app artwork, so it has no resting chip: a line glyph has no white regions to
+/// rescue from the card.
+///
+/// The artwork is recoloured rather than shipped per theme: <see cref="AppModeGlyphPalette"/>
+/// substitutes the app accent into the glyph blues, so one asset serves both themes. Light
+/// rests each glyph on a chip tinted from that same accent, which becomes the selection tile
+/// when the mode is picked. Dark needs no chip, because its card is already darker than the
+/// artwork; its tile lifts away from the card instead of inverting against it, which is what
+/// keeps the white regions of the artwork readable in every state.
 ///
 /// The control carries no visual states. Every appearance change is applied from code and
 /// every transition is a Composition animation, so there is no storyboard and no
@@ -29,13 +39,12 @@ namespace Wino.Mail.Controls.AppModeSwitcher;
 /// and would overwrite it on the next layout pass.
 ///
 /// The control is domain agnostic: it never names mail, calendars, contacts or tasks. The
-/// host fills <see cref="Items"/>, handles <see cref="ModeInvoked"/>, and decides whether
-/// the selection actually moves.
+/// host fills <see cref="Items"/>, handles the events, and decides whether the selection
+/// actually moves.
 /// </summary>
 [ContentProperty(Name = nameof(Items))]
 public sealed partial class WinoAppModeSwitcher : Control
 {
-    private const string PillHostPartName = "PART_PillHost";
     private const string ModeHostPartName = "PART_ModeHost";
     private const string SelectionIndicatorPartName = "PART_SelectionIndicator";
     private const string SettingsButtonPartName = "PART_SettingsButton";
@@ -55,26 +64,45 @@ public sealed partial class WinoAppModeSwitcher : Control
     private const float SelectionPopScale = 1.12f;
 
     /// <summary>
-    /// The item footprint, shared by both orientations so the collapsed rail and the open
-    /// pane present the same target size.
+    /// The artwork size. Only the glyph is this big; the cell around it is larger.
     /// </summary>
-    private const double ItemExtent = 30d;
+    private const double GlyphExtent = 30d;
 
     /// <summary>
-    /// The collapsed rail needs enough separation for its stacked app icons to scan as
-    /// distinct destinations. Horizontal mode remains compact because it has more room.
+    /// The cell's minor axis - its height when horizontal, its width when vertical. Larger
+    /// than the glyph so the artwork has room off the tile's edges instead of touching them.
     /// </summary>
-    private const double VerticalItemSpacing = 4d;
+    private const double CellExtent = 38d;
+
+    /// <summary>
+    /// Cells are star sized, so they meet edge to edge and their chips would fuse into one
+    /// bar without this. It also keeps the stacked rail icons scanning as distinct targets.
+    /// </summary>
+    private const double CellSpacing = 4d;
+
+    /// <summary>
+    /// Cells are wider than they are tall in an open pane, so the radius is the tile's own
+    /// rather than the app tiles' 24% of their width.
+    /// </summary>
+    private static readonly CornerRadius CellCornerRadius = new(8d);
 
     private readonly UISettings _uiSettings = new();
+    private readonly AccessibilitySettings _accessibilitySettings = new();
     private readonly List<Border> _containers = [];
+    private readonly List<Border> _wells = [];
 
-    private Grid? _pillHost;
     private Grid? _modeHost;
     private Border? _selectionIndicator;
     private Grid? _settingsButton;
+    private Border? _settingsChip;
     private AnimatedIcon? _settingsIcon;
     private bool _isTemplateApplied;
+
+    /// <summary>
+    /// Glyphs are built asynchronously, so a rebuild that starts while an earlier one is
+    /// still running has to be able to discard it rather than let it land late.
+    /// </summary>
+    private int _glyphGeneration;
 
     /// <summary>
     /// The modes, in the order they appear. Filled as the control's XAML content.
@@ -95,14 +123,15 @@ public sealed partial class WinoAppModeSwitcher : Control
     public partial Orientation Orientation { get; set; }
 
     /// <summary>
-    /// Accents the settings button. Independent of <see cref="SelectedIndex"/> because
-    /// settings is not one of the modes.
+    /// Moves the selection onto the settings cell. Kept separate from
+    /// <see cref="SelectedIndex"/> because settings is not one of the items, but the two
+    /// resolve to a single lit cell: settings wins while it is set.
     /// </summary>
     [GeneratedDependencyProperty(DefaultValue = false)]
     public partial bool IsSettingsSelected { get; set; }
 
     /// <summary>
-    /// Tooltip and automation name for the settings button.
+    /// Tooltip and automation name for the settings cell.
     /// </summary>
     [GeneratedDependencyProperty(DefaultValue = "")]
     public partial string SettingsLabel { get; set; }
@@ -118,7 +147,8 @@ public sealed partial class WinoAppModeSwitcher : Control
     // and it hands them over here.
 
     /// <summary>
-    /// A mode at rest.
+    /// A mode at rest. Only reaches items that supply their own
+    /// <see cref="WinoAppModeSwitcherItem.Icon"/>; recoloured artwork carries its own colour.
     /// </summary>
     [GeneratedDependencyProperty]
     public partial Brush? ModeForeground { get; set; }
@@ -130,16 +160,25 @@ public sealed partial class WinoAppModeSwitcher : Control
     public partial Brush? ModeHoverForeground { get; set; }
 
     /// <summary>
-    /// The selected mode, and the settings button while it owns the window.
+    /// Whatever sits on the selection tile, which in practice is the settings glyph: the
+    /// tile is a near-neutral, so this is its contrasting foreground rather than an accent.
     /// </summary>
     [GeneratedDependencyProperty]
     public partial Brush? ModeSelectedForeground { get; set; }
 
     /// <summary>
-    /// The settings button at rest. Quieter than a mode, because it is not one.
+    /// The settings glyph at rest.
     /// </summary>
     [GeneratedDependencyProperty]
     public partial Brush? SettingsForeground { get; set; }
+
+    /// <summary>
+    /// Overrides the resting chip. Left unset - which is the normal case - the chip is
+    /// derived from the app accent and the theme, so it stays a fixed weight whatever accent
+    /// the user has picked and disappears in Dark.
+    /// </summary>
+    [GeneratedDependencyProperty]
+    public partial Brush? RestingWellBrush { get; set; }
 
     /// <summary>
     /// Raised when an item is clicked or activated from the keyboard.
@@ -147,7 +186,7 @@ public sealed partial class WinoAppModeSwitcher : Control
     public event EventHandler<WinoAppModeInvokedEventArgs>? ModeInvoked;
 
     /// <summary>
-    /// Raised when the settings button is clicked or activated from the keyboard.
+    /// Raised when the settings cell is clicked or activated from the keyboard.
     /// </summary>
     public event EventHandler? SettingsInvoked;
 
@@ -165,7 +204,6 @@ public sealed partial class WinoAppModeSwitcher : Control
 
         DetachTemplateParts();
 
-        _pillHost = GetTemplateChild(PillHostPartName) as Grid;
         _modeHost = GetTemplateChild(ModeHostPartName) as Grid;
         _selectionIndicator = GetTemplateChild(SelectionIndicatorPartName) as Border;
         _settingsButton = GetTemplateChild(SettingsButtonPartName) as Grid;
@@ -178,9 +216,24 @@ public sealed partial class WinoAppModeSwitcher : Control
             _modeHost.SizeChanged += OnModeHostSizeChanged;
         }
 
+        if (XamlRoot is not null)
+        {
+            // Moving the window to a display with a different scale changes what "sharp"
+            // means, and a stream-loaded glyph cannot re-rasterise itself.
+            XamlRoot.Changed += OnXamlRootChanged;
+        }
+
         if (_selectionIndicator is not null)
         {
             ElementCompositionPreview.SetIsTranslationEnabled(_selectionIndicator, true);
+        }
+
+        if (_settingsButton is not null && _settingsChip is null)
+        {
+            // Settings takes a chip like any other cell. It is the odd glyph out - a line
+            // icon rather than app artwork - and without one it reads as a gap in the strip.
+            _settingsChip = CreateChip();
+            _modeHost?.Children.Insert(0, _settingsChip);
         }
 
         if (_settingsButton is not null)
@@ -200,13 +253,19 @@ public sealed partial class WinoAppModeSwitcher : Control
 
         RebuildItems();
         ApplyOrientation();
-        ApplySettingsSelection();
         ApplySettingsLabel();
 
         // Arriving in a state is not a transition; the control simply shows what the host
         // already set.
         UpdateSelection(animate: false);
     }
+
+    /// <summary>
+    /// Rebuilds the artwork against the accent the app is using now. The accent lives in an
+    /// application resource that is mutated in place, so nothing raises a property change
+    /// the control could listen to: the host says when.
+    /// </summary>
+    public void RefreshAccent() => UpdateSelection(animate: false, popSelection: false);
 
     #region Property callbacks
 
@@ -218,9 +277,13 @@ public sealed partial class WinoAppModeSwitcher : Control
         UpdateSelection(animate: false);
     }
 
-    partial void OnIsSettingsSelectedChanged(bool newValue) => ApplySettingsSelection();
+    partial void OnIsSettingsSelectedChanged(bool newValue) => UpdateSelection(animate: true);
 
-    partial void OnIsSettingsVisibleChanged(bool newValue) => ApplySettingsVisibility();
+    partial void OnIsSettingsVisibleChanged(bool newValue)
+    {
+        ApplyOrientation();
+        UpdateSelection(animate: false);
+    }
 
     partial void OnSettingsLabelChanged(string newValue) => ApplySettingsLabel();
 
@@ -232,13 +295,11 @@ public sealed partial class WinoAppModeSwitcher : Control
 
     partial void OnModeSelectedForegroundChanged(Brush? newValue) => RefreshForegrounds();
 
-    partial void OnSettingsForegroundChanged(Brush? newValue) => ApplySettingsSelection();
+    partial void OnSettingsForegroundChanged(Brush? newValue) => RefreshForegrounds();
 
-    private void RefreshForegrounds()
-    {
-        UpdateSelection(animate: false, popSelection: false);
-        ApplySettingsSelection();
-    }
+    partial void OnRestingWellBrushChanged(Brush? newValue) => UpdateSelection(animate: false, popSelection: false);
+
+    private void RefreshForegrounds() => UpdateSelection(animate: false, popSelection: false);
 
     private void OnItemsChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
@@ -261,23 +322,31 @@ public sealed partial class WinoAppModeSwitcher : Control
             return;
 
         ClearContainers();
+        ClearWells();
 
         for (var index = 0; index < Items.Count; index++)
         {
             var item = Items[index];
 
+            var well = CreateChip();
+
+            // Chips sit under the selection tile so a slide still reads as the tile moving,
+            // not as a fill on the hit-test container above it.
+            _modeHost.Children.Insert(_wells.Count, well);
+            _wells.Add(well);
+
+            // The container fills its star sized cell so the whole cell is the hit target,
+            // and the glyph sits centred inside it at its own smaller size.
             var container = new Border
             {
-                Width = ItemExtent,
-                Height = ItemExtent,
-                CornerRadius = new CornerRadius(6),
+                CornerRadius = CellCornerRadius,
                 Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                VerticalAlignment = VerticalAlignment.Stretch,
                 IsTabStop = true,
                 UseSystemFocusVisuals = true,
                 Tag = index,
-                Child = GetIconForTheme(item)
+                Child = item.GlyphSource is null ? item.Icon : CreateGlyphHost()
             };
 
             AutomationProperties.SetName(container, item.Label);
@@ -298,18 +367,37 @@ public sealed partial class WinoAppModeSwitcher : Control
         }
     }
 
-    private IconElement? GetIconForTheme(WinoAppModeSwitcherItem item)
-        => ActualTheme == ElementTheme.Light
-            ? item.LightThemeIcon ?? item.Icon
-            : item.Icon;
+    /// <summary>
+    /// The recoloured artwork arrives later than layout does, so the container gets its
+    /// image host straight away and the source is filled in when it is ready.
+    /// </summary>
+    private static ImageIcon CreateGlyphHost()
+        => new()
+        {
+            Width = GlyphExtent,
+            Height = GlyphExtent,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+    /// <summary>
+    /// The fill behind a resting glyph. It fills the whole cell, so selecting the cell reads
+    /// as this chip deepening in place rather than as a different shape arriving.
+    /// </summary>
+    private static Border CreateChip()
+        => new()
+        {
+            CornerRadius = CellCornerRadius,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Stretch,
+            IsHitTestVisible = false
+        };
 
     private void OnActualThemeChanged(FrameworkElement sender, object args)
-    {
-        for (var index = 0; index < _containers.Count && index < Items.Count; index++)
-        {
-            _containers[index].Child = GetIconForTheme(Items[index]);
-        }
-    }
+        => UpdateSelection(animate: false, popSelection: false);
+
+    private void OnXamlRootChanged(XamlRoot sender, XamlRootChangedEventArgs args)
+        => UpdateSelection(animate: false, popSelection: false);
 
     private void ClearContainers()
     {
@@ -320,6 +408,16 @@ public sealed partial class WinoAppModeSwitcher : Control
         }
 
         _containers.Clear();
+    }
+
+    private void ClearWells()
+    {
+        foreach (var well in _wells)
+        {
+            _modeHost?.Children.Remove(well);
+        }
+
+        _wells.Clear();
     }
 
     private void DetachContainer(Border container)
@@ -334,18 +432,24 @@ public sealed partial class WinoAppModeSwitcher : Control
         container.KeyDown -= OnItemKeyDown;
         container.SizeChanged -= OnElementSizeChanged;
 
-        // The icon belongs to the item, not the container, so it has to be released before
-        // the container goes away or the next rebuild cannot reparent it.
+        // A host-supplied icon belongs to the item, not the container, so it has to be
+        // released before the container goes away or the next rebuild cannot reparent it.
         container.Child = null;
     }
 
     private void DetachTemplateParts()
     {
         ClearContainers();
+        ClearWells();
 
         if (_modeHost is not null)
         {
             _modeHost.SizeChanged -= OnModeHostSizeChanged;
+        }
+
+        if (XamlRoot is not null)
+        {
+            XamlRoot.Changed -= OnXamlRootChanged;
         }
 
         if (_settingsButton is not null)
@@ -367,8 +471,28 @@ public sealed partial class WinoAppModeSwitcher : Control
     #region Layout
 
     /// <summary>
-    /// The modes and settings share one pill and run along the same axis, so both hosts are
-    /// rebuilt together when the orientation changes.
+    /// The number of cells the tile can land on: the modes, plus settings when it is shown.
+    /// </summary>
+    private int CellCount => _containers.Count + (IsSettingsVisible ? 1 : 0);
+
+    /// <summary>
+    /// Settings and the modes are one selection. Settings wins while it is set, so a host
+    /// that leaves <see cref="SelectedIndex"/> pointing at a mode still shows settings lit.
+    /// </summary>
+    private int SelectedCellIndex
+    {
+        get
+        {
+            if (IsSettingsSelected && IsSettingsVisible)
+                return _containers.Count;
+
+            return SelectedIndex >= 0 && SelectedIndex < _containers.Count ? SelectedIndex : -1;
+        }
+    }
+
+    /// <summary>
+    /// Modes and settings are cells of the same grid, so they share the tile and the spacing
+    /// rather than being laid out against each other.
     /// </summary>
     private void ApplyOrientation()
     {
@@ -377,11 +501,22 @@ public sealed partial class WinoAppModeSwitcher : Control
 
         var isVertical = Orientation == Orientation.Vertical;
 
+        if (_settingsButton is not null)
+        {
+            _settingsButton.Visibility = IsSettingsVisible ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        if (_settingsChip is not null)
+        {
+            _settingsChip.Visibility = IsSettingsVisible ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         _modeHost.ColumnDefinitions.Clear();
         _modeHost.RowDefinitions.Clear();
-        _modeHost.RowSpacing = isVertical ? VerticalItemSpacing : 0d;
+        _modeHost.RowSpacing = isVertical ? CellSpacing : 0d;
+        _modeHost.ColumnSpacing = isVertical ? 0d : CellSpacing;
 
-        var cellCount = Math.Max(_containers.Count, 1);
+        var cellCount = Math.Max(CellCount, 1);
 
         for (var index = 0; index < cellCount; index++)
         {
@@ -397,68 +532,54 @@ public sealed partial class WinoAppModeSwitcher : Control
 
         for (var index = 0; index < _containers.Count; index++)
         {
-            var container = _containers[index];
+            SetCell(_containers[index], index, isVertical);
 
-            Grid.SetRow(container, isVertical ? index : 0);
-            Grid.SetColumn(container, isVertical ? 0 : index);
+            if (index < _wells.Count)
+            {
+                SetCell(_wells[index], index, isVertical);
+            }
+        }
+
+        if (IsSettingsVisible)
+        {
+            if (_settingsButton is not null)
+            {
+                SetCell(_settingsButton, _containers.Count, isVertical);
+            }
+
+            if (_settingsChip is not null)
+            {
+                SetCell(_settingsChip, _containers.Count, isVertical);
+            }
         }
 
         if (_selectionIndicator is not null)
         {
-            // The pill lives in the first cell and is moved by translation, so it always
+            // The tile lives in the first cell and is moved by translation, so it always
             // measures to exactly one cell without anything having to compute its size.
             Grid.SetRow(_selectionIndicator, 0);
             Grid.SetColumn(_selectionIndicator, 0);
         }
 
-        // A vertical rail stacks the items, so the host needs the height of the whole stack
-        // rather than a single row.
+        // Only the minor axis is fixed. The major axis is left to the host: horizontal cells
+        // divide the pane's width between them, which is what makes the tile span a cell
+        // rather than sit as a small square inside one.
         _modeHost.Height = isVertical
-            ? (ItemExtent * cellCount) + (VerticalItemSpacing * (cellCount - 1))
-            : double.NaN;
-        _modeHost.Width = isVertical ? ItemExtent : double.NaN;
-
-        ApplySettingsVisibility();
+            ? (CellExtent * cellCount) + (CellSpacing * (cellCount - 1))
+            : CellExtent;
+        _modeHost.Width = isVertical ? CellExtent : double.NaN;
     }
 
-    private void ApplyRootLayout(bool isVertical)
+    private static void SetCell(FrameworkElement element, int index, bool isVertical)
     {
-        if (_pillHost is null || _settingsButton is null)
-            return;
-
-        _pillHost.ColumnDefinitions.Clear();
-        _pillHost.RowDefinitions.Clear();
-        _pillHost.ColumnSpacing = 0d;
-        _pillHost.RowSpacing = isVertical && IsSettingsVisible ? VerticalItemSpacing : 0d;
-
-        if (isVertical)
-        {
-            _pillHost.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            _pillHost.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-            SetCell(_modeHost, 0, 0);
-            SetCell(_settingsButton, 1, 0);
-        }
-        else
-        {
-            _pillHost.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            _pillHost.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            SetCell(_modeHost, 0, 0);
-            SetCell(_settingsButton, 0, 1);
-        }
-    }
-
-    private static void SetCell(FrameworkElement element, int row, int column)
-    {
-        Grid.SetRow(element, row);
-        Grid.SetColumn(element, column);
+        Grid.SetRow(element, isVertical ? index : 0);
+        Grid.SetColumn(element, isVertical ? 0 : index);
     }
 
     private void OnModeHostSizeChanged(object sender, SizeChangedEventArgs e)
     {
         // A resize is not a selection change, so the tile is re-seated rather than slid.
-        UpdateSelection(animate: false);
+        UpdateSelection(animate: false, popSelection: false);
     }
 
     private static void OnElementSizeChanged(object sender, SizeChangedEventArgs e)
@@ -482,33 +603,130 @@ public sealed partial class WinoAppModeSwitcher : Control
         if (!_isTemplateApplied || _modeHost is null)
             return;
 
-        var selectedIndex = SelectedIndex;
-        var hasSelection = selectedIndex >= 0 && selectedIndex < _containers.Count;
+        var selectedCell = SelectedCellIndex;
+        var accent = AppModeGlyphPalette.ResolveAccent();
+        var chip = ResolveChipBrush(accent);
 
         for (var index = 0; index < _containers.Count; index++)
         {
-            ApplyItemForeground(index, isSelected: hasSelection && index == selectedIndex, isPointerOver: false);
+            var isSelected = index == selectedCell;
+
+            ApplyItemForeground(index, isSelected, isPointerOver: false);
+            ApplyChip(index, isSelected, chip);
         }
+
+        ApplySettingsForeground();
+        ApplySettingsChip(selectedCell, chip);
+        ApplySelectionTile(accent);
+        _ = UpdateGlyphsAsync(accent);
 
         if (_selectionIndicator is null)
             return;
 
         var visual = ElementCompositionPreview.GetElementVisual(_selectionIndicator);
 
-        if (!hasSelection)
+        if (selectedCell < 0)
         {
-            // The tile keeps its position while it is hidden, so coming back to a mode fades
-            // it in where that mode is instead of sliding it out of a stale cell.
+            // The tile keeps its position while it is hidden, so coming back to a cell fades
+            // it in where that cell is instead of sliding it out of a stale one.
             SetOpacity(visual, 0f, animate);
             return;
         }
 
-        MoveIndicator(visual, selectedIndex, animate);
+        MoveIndicator(visual, selectedCell, animate);
         SetOpacity(visual, 1f, animate);
 
         if (popSelection && AreAnimationsEnabled)
         {
-            PlaySelectionPop(_containers[selectedIndex]);
+            PlaySelectionPop(selectedCell);
+        }
+    }
+
+    /// <summary>
+    /// The chip is derived rather than themed: it is the accent pinned to a fixed weight, so
+    /// it separates white artwork from the card without changing depth when the accent does.
+    /// High contrast is the exception, where a derived colour would defeat the whole point of
+    /// the mode and the system palette has to win.
+    /// </summary>
+    private Brush ResolveChipBrush(Windows.UI.Color accent)
+    {
+        if (RestingWellBrush is not null)
+            return RestingWellBrush;
+
+        if (TryGetHighContrastBrush("SystemColorButtonFaceColorBrush", out var systemBrush))
+            return systemBrush;
+
+        return new SolidColorBrush(AppModeGlyphPalette.ResolveRestingChip(accent, ActualTheme));
+    }
+
+    /// <summary>
+    /// The tile is the chip taken darker, so it is derived from the accent for the same
+    /// reason and left to the template only under high contrast.
+    /// </summary>
+    private void ApplySelectionTile(Windows.UI.Color accent)
+    {
+        if (_selectionIndicator is null || _accessibilitySettings.HighContrast)
+            return;
+
+        _selectionIndicator.Background =
+            new SolidColorBrush(AppModeGlyphPalette.ResolveSelectionTile(accent, ActualTheme));
+    }
+
+    private bool TryGetHighContrastBrush(string key, out Brush brush)
+    {
+        brush = null!;
+
+        if (!_accessibilitySettings.HighContrast)
+            return false;
+
+        if (Application.Current?.Resources.TryGetValue(key, out var value) == true && value is Brush found)
+        {
+            brush = found;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// The glyph size in device pixels. The artwork is rasterised to exactly this, so it has
+    /// to follow the display scale: a glyph rasterised for 100% and shown at 150% is a
+    /// resampled bitmap, which is precisely how these icons lose their edges.
+    /// </summary>
+    private int GlyphPixelSize
+        => (int)Math.Ceiling(GlyphExtent * (XamlRoot?.RasterizationScale ?? 1d));
+
+    /// <summary>
+    /// Recolours every glyph for the accent. Only the first build of a given accent and
+    /// display scale does any work; the rest come from the cache, so selection and theme
+    /// changes are free.
+    /// </summary>
+    private async Task UpdateGlyphsAsync(Windows.UI.Color accent)
+    {
+        var generation = ++_glyphGeneration;
+
+        for (var index = 0; index < _containers.Count && index < Items.Count; index++)
+        {
+            var source = Items[index].GlyphSource;
+
+            if (source is null || _containers[index].Child is not ImageIcon host)
+                continue;
+
+            var glyph = await AppModeGlyphPalette.CreateGlyphAsync(
+                source,
+                accent,
+                AppModeGlyphPalette.Paper,
+                GlyphPixelSize);
+
+            // Another rebuild started while this one was awaiting, so its glyphs are the
+            // current ones and these would land on top of them.
+            if (generation != _glyphGeneration)
+                return;
+
+            if (glyph is not null)
+            {
+                host.Source = glyph;
+            }
         }
     }
 
@@ -518,11 +736,12 @@ public sealed partial class WinoAppModeSwitcher : Control
             return;
 
         var isVertical = Orientation == Orientation.Vertical;
-        var cellCount = Math.Max(_containers.Count, 1);
-        var extent = isVertical
-            ? ((_modeHost.ActualHeight - (_modeHost.RowSpacing * (cellCount - 1))) / cellCount)
-                + _modeHost.RowSpacing
-            : _modeHost.ActualWidth / cellCount;
+        var cellCount = Math.Max(CellCount, 1);
+
+        // One cell plus the gap after it, which is the distance from a cell to the next.
+        var spacing = isVertical ? _modeHost.RowSpacing : _modeHost.ColumnSpacing;
+        var available = isVertical ? _modeHost.ActualHeight : _modeHost.ActualWidth;
+        var extent = ((available - (spacing * (cellCount - 1))) / cellCount) + spacing;
 
         if (extent <= 0d)
             return;
@@ -563,20 +782,33 @@ public sealed partial class WinoAppModeSwitcher : Control
     }
 
     /// <summary>
-    /// A short overshoot on the icon that just became selected. Without it a mode switch
-    /// reads as a repaint: the tile arrives, but nothing acknowledges the click itself.
+    /// A short overshoot on the glyph that just became selected. Without it a switch reads as
+    /// a repaint: the tile arrives, but nothing acknowledges the click itself.
     /// </summary>
-    private static void PlaySelectionPop(Border container)
+    private void PlaySelectionPop(int cellIndex)
     {
-        if (container.Child is not UIElement icon)
+        var host = cellIndex < _containers.Count
+            ? _containers[cellIndex]
+            : _settingsButton as FrameworkElement;
+
+        var glyph = host switch
+        {
+            Border border => border.Child,
+            Grid grid when grid.Children.Count > 0 => grid.Children[0],
+            _ => null
+        };
+
+        if (host is null || glyph is null)
             return;
 
-        var visual = ElementCompositionPreview.GetElementVisual(icon);
+        var visual = ElementCompositionPreview.GetElementVisual(glyph);
         var compositor = visual.Compositor;
 
+        // The cell is star sized, so its declared size is NaN and only the arranged size
+        // says where the middle is.
         visual.CenterPoint = new Vector3(
-            (float)container.Width / 2f,
-            (float)container.Height / 2f,
+            (float)host.ActualWidth / 2f,
+            (float)host.ActualHeight / 2f,
             0f);
 
         var animation = compositor.CreateVector3KeyFrameAnimation();
@@ -593,7 +825,8 @@ public sealed partial class WinoAppModeSwitcher : Control
         if (index < 0 || index >= _containers.Count)
             return;
 
-        if (_containers[index].Child is not IconElement icon)
+        // Recoloured artwork carries its own colour; only a host-supplied icon takes one.
+        if (_containers[index].Child is not IconElement icon || icon is ImageIcon)
             return;
 
         // Foregrounds are assigned rather than animated. A brush cannot be driven by the
@@ -611,6 +844,27 @@ public sealed partial class WinoAppModeSwitcher : Control
         }
     }
 
+    /// <summary>
+    /// Settings sits on the same chip as the modes, and hides it under the tile the same way.
+    /// </summary>
+    private void ApplySettingsChip(int selectedCell, Brush chip)
+    {
+        if (_settingsChip is null)
+            return;
+
+        _settingsChip.Background = chip;
+        _settingsChip.Opacity = selectedCell == _containers.Count ? 0d : 1d;
+    }
+
+    private void ApplyChip(int index, bool isSelected, Brush chip)
+    {
+        if (index < 0 || index >= _wells.Count)
+            return;
+
+        _wells[index].Background = chip;
+        _wells[index].Opacity = isSelected ? 0d : 1d;
+    }
+
     #endregion
 
     #region Item interaction
@@ -623,7 +877,7 @@ public sealed partial class WinoAppModeSwitcher : Control
         ScaleTo(container, HoverScale);
 
         var index = (int)container.Tag;
-        ApplyItemForeground(index, isSelected: index == SelectedIndex, isPointerOver: true);
+        ApplyItemForeground(index, isSelected: index == SelectedCellIndex, isPointerOver: true);
     }
 
     private void OnItemPointerExited(object sender, PointerRoutedEventArgs e)
@@ -634,7 +888,7 @@ public sealed partial class WinoAppModeSwitcher : Control
         ScaleTo(container, 1f);
 
         var index = (int)container.Tag;
-        ApplyItemForeground(index, isSelected: index == SelectedIndex, isPointerOver: false);
+        ApplyItemForeground(index, isSelected: index == SelectedCellIndex, isPointerOver: false);
     }
 
     private void OnItemPointerPressed(object sender, PointerRoutedEventArgs e)
@@ -722,27 +976,17 @@ public sealed partial class WinoAppModeSwitcher : Control
         AnimatedIcon.SetState(_settingsIcon, state);
     }
 
-    private void ApplySettingsSelection()
+    private void ApplySettingsForeground()
     {
         if (_settingsIcon is null)
             return;
 
-        var brush = IsSettingsSelected ? ModeSelectedForeground : SettingsForeground;
+        var brush = IsSettingsSelected && IsSettingsVisible ? ModeSelectedForeground : SettingsForeground;
 
         if (brush is not null)
         {
             _settingsIcon.Foreground = brush;
         }
-    }
-
-    private void ApplySettingsVisibility()
-    {
-        if (_settingsButton is not null)
-        {
-            _settingsButton.Visibility = IsSettingsVisible ? Visibility.Visible : Visibility.Collapsed;
-        }
-
-        ApplyRootLayout(Orientation == Orientation.Vertical);
     }
 
     private void ApplySettingsLabel()

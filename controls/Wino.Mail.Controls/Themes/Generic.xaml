@@ -57,13 +57,17 @@
             <StaticResource x:Key="WinoSearchBarSemanticBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherCardBackgroundBrush" ResourceKey="CardBackgroundFillColorDefaultBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherCardBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
-            <!--  The accent brush is mutated in place when the app accent changes, so the tile follows it.  -->
-            <StaticResource x:Key="WinoAppModeSwitcherIndicatorBrush" ResourceKey="AccentFillColorDefaultBrush" />
+            <!--
+                Fallback only: the control derives the real tile from the accent, the same way
+                it derives the resting chip, and assigns it. This value is what shows under
+                high contrast, where a derived colour would defeat the mode.
+            -->
+            <StaticResource x:Key="WinoAppModeSwitcherIndicatorBrush" ResourceKey="ControlStrongFillColorDefaultBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherHoverForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
-            <StaticResource x:Key="WinoAppModeSwitcherSelectedForegroundBrush" ResourceKey="AccentTextFillColorPrimaryBrush" />
-            <!--  Settings is not a mode, so it rests one step quieter than the modes beside it.  -->
-            <StaticResource x:Key="WinoAppModeSwitcherSettingsForegroundBrush" ResourceKey="TextFillColorTertiaryBrush" />
+            <!--  Whatever sits on the tile has to invert with it.  -->
+            <SolidColorBrush x:Key="WinoAppModeSwitcherSelectedForegroundBrush" Color="#FFFFFF" />
+            <StaticResource x:Key="WinoAppModeSwitcherSettingsForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherSeparatorBrush" ResourceKey="DividerStrokeColorDefaultBrush" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
@@ -102,13 +106,12 @@
             <StaticResource x:Key="WinoSearchBarSemanticBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherCardBackgroundBrush" ResourceKey="CardBackgroundFillColorDefaultBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherCardBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
-            <!--  The accent brush is mutated in place when the app accent changes, so the tile follows it.  -->
-            <StaticResource x:Key="WinoAppModeSwitcherIndicatorBrush" ResourceKey="AccentFillColorDefaultBrush" />
+            <!--  Fallback only; see the Light dictionary.  -->
+            <StaticResource x:Key="WinoAppModeSwitcherIndicatorBrush" ResourceKey="ControlStrongFillColorDefaultBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherHoverForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
-            <StaticResource x:Key="WinoAppModeSwitcherSelectedForegroundBrush" ResourceKey="AccentTextFillColorPrimaryBrush" />
-            <!--  Settings is not a mode, so it rests one step quieter than the modes beside it.  -->
-            <StaticResource x:Key="WinoAppModeSwitcherSettingsForegroundBrush" ResourceKey="TextFillColorTertiaryBrush" />
+            <SolidColorBrush x:Key="WinoAppModeSwitcherSelectedForegroundBrush" Color="#FFFFFF" />
+            <StaticResource x:Key="WinoAppModeSwitcherSettingsForegroundBrush" ResourceKey="TextFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoAppModeSwitcherSeparatorBrush" ResourceKey="DividerStrokeColorDefaultBrush" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
@@ -1832,12 +1835,13 @@
     </Style>
 
     <!--
-        The modes and settings share one card because they are the app's global destinations.
-        Settings remains a dedicated command rather than becoming another selectable mode.
+        The modes and settings share one card and one grid because they are the app's global
+        destinations. Settings is the last cell of that grid, so the selection tile reaches
+        it the same way it reaches a mode.
 
-        There are no visual states here on purpose. Selection, hover, press and orientation
-        are all applied from WinoAppModeSwitcher and animated through the Composition API,
-        so this template only describes the resting appearance.
+        There are no visual states here on purpose. Selection, hover, press, orientation,
+        and the resting chips are all applied from WinoAppModeSwitcher and animated through
+        the Composition API, so this template only describes the resting appearance.
     -->
     <Style TargetType="appMode:WinoAppModeSwitcher">
         <Setter Property="IsTabStop" Value="False" />
@@ -1858,34 +1862,33 @@
                         BorderBrush="{ThemeResource WinoAppModeSwitcherCardBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="8">
-                        <Grid x:Name="PART_PillHost">
-                            <!--  Item containers are created by the control, not templated.  -->
-                            <Grid x:Name="PART_ModeHost">
-                                <!--
-                                    A square tile rather than a wide pill, so the selected glyph -
-                                    an app icon with its own tile removed - reads as that icon
-                                    again. The corner radius is the app tiles' own 24% of their
-                                    width; the fill is the accent rather than the icon's blue, so
-                                    it follows whatever accent the app is set to.
-                                -->
-                                <Border
-                                    x:Name="PART_SelectionIndicator"
-                                    Width="30"
-                                    Height="30"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Background="{ThemeResource WinoAppModeSwitcherIndicatorBrush}"
-                                    CornerRadius="7"
-                                    IsHitTestVisible="False" />
-                            </Grid>
+                        <!--  Item containers and their chips are created by the control, not templated.  -->
+                        <Grid x:Name="PART_ModeHost">
+                            <!--
+                                The tile fills a whole cell rather than sitting as a square
+                                inside one, so selection covers the same footprint the cell
+                                already offers as a hit target. The control sizes and colours
+                                it; the cell it lands in is star sized, so nothing here fixes
+                                a width.
+                            -->
+                            <Border
+                                x:Name="PART_SelectionIndicator"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
+                                Background="{ThemeResource WinoAppModeSwitcherIndicatorBrush}"
+                                CornerRadius="8"
+                                IsHitTestVisible="False" />
+                            <!--
+                                The settings cell keeps the animated icon rather than taking
+                                app artwork, but it is a cell like any other: same footprint,
+                                same resting chip, same tile.
+                            -->
                             <Grid
                                 x:Name="PART_SettingsButton"
-                                Width="30"
-                                Height="30"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"
                                 Background="Transparent"
-                                CornerRadius="6"
+                                CornerRadius="8"
                                 IsTabStop="True"
                                 UseSystemFocusVisuals="True">
                                 <AnimatedIcon
