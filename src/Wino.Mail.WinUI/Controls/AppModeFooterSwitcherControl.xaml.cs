@@ -29,6 +29,7 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
     private readonly IStatePersistanceService _statePersistenceService;
     private readonly INavigationService _navigationService;
     private readonly INewThemeService _themeService;
+    private readonly IPreferencesService _preferencesService;
 
     public static readonly DependencyProperty OrientationProperty = DependencyProperty.Register(
         nameof(Orientation),
@@ -47,6 +48,7 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
         _statePersistenceService = WinoApplication.Current.Services.GetRequiredService<IStatePersistanceService>();
         _navigationService = WinoApplication.Current.Services.GetRequiredService<INavigationService>();
         _themeService = WinoApplication.Current.Services.GetRequiredService<INewThemeService>();
+        _preferencesService = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>();
 
         InitializeComponent();
     }
@@ -61,8 +63,10 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
     {
         _statePersistenceService.StatePropertyChanged += StatePropertyChanged;
         _themeService.AccentColorChanged += AccentColorChanged;
+        _preferencesService.PreferenceChanged += PreferenceChanged;
 
         Switcher.Orientation = Orientation;
+        Switcher.IsMonochrome = _preferencesService.IsMonochromeAppModeSwitcherEnabled;
         UpdateSelection(_statePersistenceService.ApplicationMode);
     }
 
@@ -70,6 +74,16 @@ public sealed partial class AppModeFooterSwitcherControl : UserControl
     {
         _statePersistenceService.StatePropertyChanged -= StatePropertyChanged;
         _themeService.AccentColorChanged -= AccentColorChanged;
+        _preferencesService.PreferenceChanged -= PreferenceChanged;
+    }
+
+    private void PreferenceChanged(object? sender, string propertyName)
+    {
+        if (propertyName != nameof(IPreferencesService.IsMonochromeAppModeSwitcherEnabled))
+            return;
+
+        DispatcherQueue.TryEnqueue(() =>
+            Switcher.IsMonochrome = _preferencesService.IsMonochromeAppModeSwitcherEnabled);
     }
 
     /// <summary>

@@ -220,6 +220,12 @@ public static class XamlHelpers
     public static bool GetGravatarEnabled() => PreferencesService?.IsGravatarEnabled ?? true;
     public static bool GetFaviconEnabled() => PreferencesService?.IsFaviconEnabled ?? true;
 
+    /// <summary>
+    /// Every shell pane draws account identity at one size, so a row reads the same
+    /// in mail, contacts and tasks.
+    /// </summary>
+    public const double ShellAccountIconSize = 28d;
+
     public static IAccountIconInfo? GetAccountIconInfo(MailAccount? account)
         => account is null
             ? null
@@ -239,8 +245,7 @@ public static class XamlHelpers
             : new WinoAccountIcon
             {
                 Account = GetAccountIconInfo(account),
-                IconSize = 20,
-                ProfilePictureIconSize = 28
+                IconSize = ShellAccountIconSize
             };
 
     public static object GetContactPicture(

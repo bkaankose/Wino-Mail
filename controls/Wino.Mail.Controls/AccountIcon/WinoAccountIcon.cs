@@ -16,6 +16,13 @@ public sealed partial class WinoAccountIcon : IconSourceElement
 {
     private const double DefaultIconSize = 20d;
 
+    /// <summary>
+    /// Provider glyphs draw their ink inside the font em box, while a profile picture
+    /// fills its whole element. Insetting the glyph by this factor gives both
+    /// presentations the same drawn size at any <see cref="IconSize"/>.
+    /// </summary>
+    private const double GlyphInkScale = 0.8d;
+
     private CancellationTokenSource? _loadCancellation;
     private long? _foregroundChangedCallbackToken;
     private int _presentationVersion;
@@ -28,13 +35,6 @@ public sealed partial class WinoAccountIcon : IconSourceElement
 
     [GeneratedDependencyProperty(DefaultValue = DefaultIconSize)]
     public partial double IconSize { get; set; }
-
-    /// <summary>
-    /// Optional size used after the account resolves to a bitmap profile picture.
-    /// A non-positive value keeps <see cref="IconSize"/> for both presentations.
-    /// </summary>
-    [GeneratedDependencyProperty(DefaultValue = 0d)]
-    public partial double ProfilePictureIconSize { get; set; }
 
     public WinoAccountIcon()
     {
@@ -55,14 +55,6 @@ public sealed partial class WinoAccountIcon : IconSourceElement
     partial void OnIconSizeChanged(double newValue)
     {
         UpdatePresentation();
-    }
-
-    partial void OnProfilePictureIconSizeChanged(double newValue)
-    {
-        if (IconSource is BitmapIconSource)
-        {
-            UpdateSize(GetEffectiveProfilePictureIconSize());
-        }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs args)
@@ -133,7 +125,7 @@ public sealed partial class WinoAccountIcon : IconSourceElement
         var iconSource = new WinoFontIconSource
         {
             Glyph = AccountIconGlyphs.GetGlyph(account.Provider),
-            FontSize = GetEffectiveIconSize(),
+            FontSize = GetEffectiveIconSize() * GlyphInkScale,
         };
 
         if (TryGetAccountColor(account.AccountColorHex, out var color))
@@ -182,7 +174,6 @@ public sealed partial class WinoAccountIcon : IconSourceElement
             UriSource = iconUri,
             ShowAsMonochrome = false,
         };
-        UpdateSize(GetEffectiveProfilePictureIconSize());
     }
 
     private void CancelPendingLoad()
@@ -200,11 +191,6 @@ public sealed partial class WinoAccountIcon : IconSourceElement
     private double GetEffectiveIconSize() => double.IsFinite(IconSize) && IconSize > 0
         ? IconSize
         : DefaultIconSize;
-
-    private double GetEffectiveProfilePictureIconSize()
-        => double.IsFinite(ProfilePictureIconSize) && ProfilePictureIconSize > 0
-            ? ProfilePictureIconSize
-            : GetEffectiveIconSize();
 
     private static bool TryGetAccountColor(string? accountColorHex, out Color color)
     {

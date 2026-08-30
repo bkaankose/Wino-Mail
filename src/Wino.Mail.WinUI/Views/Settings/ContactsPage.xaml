@@ -311,10 +311,11 @@
                 VerticalAlignment="Center"
                 x:Load="{x:Bind ViewModel.IsEmpty, Mode=OneWay}"
                 Spacing="10">
-                <FontIcon
-                    FontSize="40"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Glyph="&#xE716;" />
+                <illustrations:WinoNoContactsIllustration
+                    Width="118"
+                    Height="118"
+                    Margin="0,0,0,4"
+                    HorizontalAlignment="Center" />
                 <TextBlock
                     HorizontalAlignment="Center"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"

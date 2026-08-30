@@ -84,8 +84,8 @@
                             IsTabStop="false"
                             UseSystemFocusVisuals="{TemplateBinding UseSystemFocusVisuals}">
                             <primitives:NavigationViewItemPresenter.Resources>
-                                <!--  WinUI defaults the left-pane icon Viewbox to 16 px.  -->
-                                <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">20</x:Double>
+                                <!--  WinUI defaults the left-pane icon Viewbox to 16 px. Account rows draw identity at 28.  -->
+                                <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">28</x:Double>
                             </primitives:NavigationViewItemPresenter.Resources>
                             <ContentPresenter Content="{TemplateBinding Content}" />
                         </primitives:NavigationViewItemPresenter>

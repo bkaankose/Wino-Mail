@@ -25,7 +25,7 @@ public enum ContactFilterKind
 /// <see cref="ContactQueryFilter"/> the contact list is loaded with, and for list entries
 /// also accepts contacts dropped onto it.
 /// </summary>
-public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget
+public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget, IAccountNavigationMenuItem
 {
     /// <summary>
     /// Supplied by <see cref="ContactsPageViewModel"/> so the item can service a drop
@@ -39,7 +39,9 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget
     internal Action<ContactFilterViewModel> DeleteRequested { get; set; }
 
     public ContactFilterKind Kind { get; }
-    [ObservableProperty] public partial string Name { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AccountName))]
+    public partial string Name { get; set; }
     public string Glyph { get; init; }
     public Guid? AddressBookId { get; init; }
     public Guid? AccountId { get; init; }
@@ -47,14 +49,35 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget
     public ContactList List { get; init; }
     public ContactAddressBook AddressBook { get; init; }
 
-    [ObservableProperty] public partial int Count { get; set; }
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UnreadItemCount))]
+    public partial int Count { get; set; }
     [ObservableProperty] public partial bool IsDraggingItemOver { get; set; }
+
+    #region Account navigation presentation
+
+    // Address book entries are drawn by the shell's shared account row, so they read
+    // the same as an account does in mail and tasks. Nothing here syncs or needs
+    // attention, and the mail-only context actions stay hidden.
+
+    public string AccountName => Name;
+    public string AccountAddress => Account?.Address ?? string.Empty;
+    public int UnreadItemCount => Count;
+    public bool IsSynchronizationProgressVisible => false;
+    public bool IsProgressIndeterminate => false;
+    public double SynchronizationProgressValue => 0;
+    public bool IsAttentionRequired => false;
+    public bool SupportsMailAccountActions => false;
+
+    /// <summary>An address book is the destination itself, not a parent of one.</summary>
+    public bool SelectsOnInvoked => true;
+
+    #endregion
 
     public bool IsList => Kind == ContactFilterKind.List;
     public bool CanManageRemoteAddressBook => AddressBook?.SourceKind == ContactSourceKind.CardDav && !AddressBook.IsReadOnly;
     public bool CanRenameOrDelete => IsList || CanManageRemoteAddressBook;
     public bool HasAccountIcon => Kind == ContactFilterKind.AddressBook && Account is not null;
-    public bool HasGlyphIcon => !HasAccountIcon;
     public Guid? ListId => List?.Id;
 
     private ContactFilterViewModel(ContactFilterKind kind) => Kind = kind;

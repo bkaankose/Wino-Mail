@@ -1838,7 +1838,7 @@
         The modes and settings share one card and one grid because they are the app's global
         destinations. Settings is the last cell of that grid, so the selection tile reaches
         it the same way it reaches a mode.
-
+        
         There are no visual states here on purpose. Selection, hover, press, orientation,
         and the resting chips are all applied from WinoAppModeSwitcher and animated through
         the Composition API, so this template only describes the resting appearance.
@@ -1852,6 +1852,9 @@
         <Setter Property="ModeHoverForeground" Value="{ThemeResource WinoAppModeSwitcherHoverForegroundBrush}" />
         <Setter Property="ModeSelectedForeground" Value="{ThemeResource WinoAppModeSwitcherSelectedForegroundBrush}" />
         <Setter Property="SettingsForeground" Value="{ThemeResource WinoAppModeSwitcherSettingsForegroundBrush}" />
+        <!--  Monochrome only: the coloured strip has a chip under every cell and no room for a wash.  -->
+        <Setter Property="ModeHoverBackground" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+        <Setter Property="ModePressedBackground" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="appMode:WinoAppModeSwitcher">
@@ -1893,8 +1896,8 @@
                                 UseSystemFocusVisuals="True">
                                 <AnimatedIcon
                                     x:Name="PART_SettingsIcon"
-                                    Width="16"
-                                    Height="16"
+                                    Width="18"
+                                    Height="18"
                                     HorizontalAlignment="Center"
                                     VerticalAlignment="Center">
                                     <animatedVisuals:AnimatedSettingsVisualSource />
@@ -1902,6 +1905,35 @@
                                         <SymbolIconSource Symbol="Setting" />
                                     </AnimatedIcon.FallbackIconSource>
                                 </AnimatedIcon>
+                                <!--
+                                    The monochrome settings glyph. It is a gear drawn to the
+                                    same weight and the same 30px box as the monochrome mode
+                                    artwork, rather than the animated icon, which is a finer
+                                    line and reads as a different family beside them. The
+                                    control decides which of the two is showing and paints
+                                    this one's stroke.
+                                    
+                                    The geometry is authored in the artwork's 200 unit box and
+                                    scaled by the Viewbox, so its stroke thins with the glyph
+                                    instead of staying a fixed width at every size.
+                                -->
+                                <Viewbox
+                                    x:Name="PART_SettingsMonochromeIcon"
+                                    Width="30"
+                                    Height="30"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Visibility="Collapsed">
+                                    <Canvas Width="200" Height="200">
+                                        <Path
+                                            x:Name="PART_SettingsMonochromeGlyph"
+                                            Data="M 100 74 a 26 26 0 1 0 0 52 a 26 26 0 0 0 0 -52 Z M 86 34 h 28 l 3.5 19 a 49 49 0 0 1 13.3 7.7 l 18 -6.9 l 14 24.2 l -14.5 12.6 a 49 49 0 0 1 0 15.4 L 163 119 l -14 24.2 l -18 -6.9 a 49 49 0 0 1 -13.3 7.7 L 114 163 H 86 l -3.5 -19 a 49 49 0 0 1 -13.3 -7.7 l -18 6.9 L 37 119 l 14.5 -12.6 a 49 49 0 0 1 0 -15.4 L 37 78.4 l 14 -24.2 l 18 6.9 A 49 49 0 0 1 82.5 53 Z"
+                                            StrokeEndLineCap="Round"
+                                            StrokeLineJoin="Round"
+                                            StrokeStartLineCap="Round"
+                                            StrokeThickness="11" />
+                                    </Canvas>
+                                </Viewbox>
                             </Grid>
                         </Grid>
                     </Border>

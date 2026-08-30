@@ -19,10 +19,9 @@ public partial class ContactsPageViewModel
 {
     private readonly NewContactMenuItem _newContactMenuItem = new();
     private readonly NewAddressListMenuItem _newAddressListMenuItem = new();
-    private readonly Dictionary<ContactFilterGroup, ShellSectionHeaderMenuItem> _sectionHeaders = [];
+    private readonly Dictionary<ContactFilterGroup, SeperatorItem> _groupSeparators = [];
 
     private ShellMenu _shellMenu;
-    private bool _isPaneCompact;
     private bool _isMenuInteractionEnabled = true;
     private bool _isPreparedForShellShutdown;
 
@@ -91,7 +90,7 @@ public partial class ContactsPageViewModel
         _isMenuInteractionEnabled = true;
         _shellMenu?.Items.Clear();
         _shellMenu = null;
-        _sectionHeaders.Clear();
+        _groupSeparators.Clear();
 
         Contacts.Clear();
         SelectedContacts.Clear();
@@ -144,19 +143,9 @@ public partial class ContactsPageViewModel
     }
 
     /// <summary>
-    /// A collapsed pane is an icon-only strip. Section captions have no icon at all, and
-    /// address books draw an account picture in their content rather than in the navigation
-    /// item's icon slot, so both are dropped rather than clipped.
+    /// Every entry draws an icon, so a collapsed pane keeps the whole list.
     /// </summary>
-    public void SetPaneCompact(bool isCompact)
-    {
-        if (_isPaneCompact == isCompact)
-            return;
-
-        _isPaneCompact = isCompact;
-
-        _ = ExecuteUIThread(SyncShellMenuItems);
-    }
+    public void SetPaneCompact(bool isCompact) { }
 
     /// <summary>
     /// Projects the reconciled filter groups onto the flat navigation item collection.
@@ -174,18 +163,23 @@ public partial class ContactsPageViewModel
             _newAddressListMenuItem
         };
 
+        var isFirstGroup = true;
+
         foreach (var group in FilterGroups)
         {
-            if (group.HasTitle && !_isPaneCompact)
+            // The primary filters sit directly under the command entries; every group
+            // after them is fenced off with a rule instead of a caption.
+            if (!isFirstGroup)
             {
-                desired.Add(GetSectionHeader(group));
+                desired.Add(GetGroupSeparator(group));
             }
 
-            desired.AddRange(group.Where(CanRenderInCurrentPane));
+            desired.AddRange(group);
+            isFirstGroup = false;
         }
 
         ApplyDesiredMenuItems(desired);
-        PruneSectionHeaders();
+        PruneGroupSeparators();
         ApplyMenuInteractionState();
 
         // The selected entry may have just been hidden or brought back; nudge the shell so
@@ -193,27 +187,24 @@ public partial class ContactsPageViewModel
         OnPropertyChanged(nameof(IShellMenuProvider.SelectedMenuItem));
     }
 
-    private bool CanRenderInCurrentPane(ContactFilterViewModel filter)
-        => !_isPaneCompact || filter.HasGlyphIcon;
-
-    private ShellSectionHeaderMenuItem GetSectionHeader(ContactFilterGroup group)
+    private SeperatorItem GetGroupSeparator(ContactFilterGroup group)
     {
-        if (!_sectionHeaders.TryGetValue(group, out var header))
+        if (!_groupSeparators.TryGetValue(group, out var separator))
         {
-            header = new ShellSectionHeaderMenuItem(group.Title);
-            _sectionHeaders.Add(group, header);
+            separator = new SeperatorItem();
+            _groupSeparators.Add(group, separator);
         }
 
-        return header;
+        return separator;
     }
 
-    private void PruneSectionHeaders()
+    private void PruneGroupSeparators()
     {
-        foreach (var group in _sectionHeaders.Keys.ToList())
+        foreach (var group in _groupSeparators.Keys.ToList())
         {
             if (!FilterGroups.Contains(group))
             {
-                _sectionHeaders.Remove(group);
+                _groupSeparators.Remove(group);
             }
         }
     }

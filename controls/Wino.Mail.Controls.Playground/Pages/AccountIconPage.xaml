@@ -126,8 +126,7 @@
                         <controls:SettingsCard.HeaderIcon>
                             <accountIcon:WinoAccountIcon
                                 Account="{x:Bind ViewModel.Account, Mode=OneWay}"
-                                IconSize="20"
-                                ProfilePictureIconSize="28"
+                                IconSize="28"
                                 IsProfilePictureEnabled="{x:Bind ViewModel.IsProfilePictureEnabled, Mode=OneWay}" />
                         </controls:SettingsCard.HeaderIcon>
                         <ToggleSwitch

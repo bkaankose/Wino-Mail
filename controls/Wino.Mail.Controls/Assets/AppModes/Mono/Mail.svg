@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="182" height="182" viewBox="37 37 182 182">
+  <title>Mail</title>
+  <!--
+    The monochrome Mail glyph. One ink: #101010 is the token AppModeGlyphPalette substitutes,
+    and nothing else here carries colour.
+
+    The flap is not painted, it is subtracted. A second colour would have to be the colour of
+    whatever the glyph is resting on, and the cell behind it moves - a hover wash, the
+    selection glow - so a painted flap would ghost against it. An even-odd hole shows whatever
+    is actually there.
+  -->
+  <path fill="#101010" fill-rule="evenodd"
+        d="M80 75.2 H176 A15 15 0 0 1 191 90.2 V165.25 A15 15 0 0 1 176 180.25 H80 A15 15 0 0 1 65 165.25 V90.2 A15 15 0 0 1 80 75.2 Z
+           M65 93.3 V90.2 A15 15 0 0 1 80 75.2 H176 A15 15 0 0 1 191 90.2 V93.3 L135.3 136.8 Q128 142.5 120.7 136.8 Z" />
+</svg>

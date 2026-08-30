@@ -177,6 +177,21 @@
                 </controls:SettingsCard.Content>
             </controls:SettingsCard>
 
+            <!--  The app mode switcher's artwork. Off is the recoloured app icons; on is one ink with the accent reserved for the current mode.  -->
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="PersonalizationMonochromeAppModeSwitcherCard"
+                Description="{x:Bind domain:Translator.SettingsMonochromeAppModeSwitcher_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsMonochromeAppModeSwitcher_Title, Mode=OneTime}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE790;" />
+                </controls:SettingsCard.HeaderIcon>
+                <controls:SettingsCard.Content>
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="PersonalizationMonochromeAppModeSwitcherToggleSwitch"
+                        IsOn="{x:Bind ViewModel.PreferencesService.IsMonochromeAppModeSwitcherEnabled, Mode=TwoWay}" />
+                </controls:SettingsCard.Content>
+            </controls:SettingsCard>
+
             <controls:SettingsCard
                 AutomationProperties.AutomationId="PersonalizationHideWinoAccountButtonCard"
                 Description="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Description, Mode=OneTime}"

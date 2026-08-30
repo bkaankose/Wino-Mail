@@ -45,10 +45,22 @@
                             ModeInvoked="SwitcherModeInvoked"
                             SettingsInvoked="SwitcherSettingsInvoked"
                             SettingsLabel="Settings">
-                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg" Label="Mail" />
-                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg" Label="Calendar" />
-                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg" Label="Contacts" />
-                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg" Label="To do" />
+                            <appMode:WinoAppModeSwitcherItem
+                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg"
+                                MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Mail.svg"
+                                Label="Mail" />
+                            <appMode:WinoAppModeSwitcherItem
+                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg"
+                                MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Calendar.svg"
+                                Label="Calendar" />
+                            <appMode:WinoAppModeSwitcherItem
+                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg"
+                                MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/People.svg"
+                                Label="Contacts" />
+                            <appMode:WinoAppModeSwitcherItem
+                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg"
+                                MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/ToDo.svg"
+                                Label="To do" />
                         </appMode:WinoAppModeSwitcher>
                     </Border>
                 </StackPanel>
@@ -74,10 +86,22 @@
                             Orientation="Vertical"
                             SettingsInvoked="SwitcherSettingsInvoked"
                             SettingsLabel="Settings">
-                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg" Label="Mail" />
-                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg" Label="Calendar" />
-                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg" Label="Contacts" />
-                            <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg" Label="To do" />
+                            <appMode:WinoAppModeSwitcherItem
+                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg"
+                                MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Mail.svg"
+                                Label="Mail" />
+                            <appMode:WinoAppModeSwitcherItem
+                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg"
+                                MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Calendar.svg"
+                                Label="Calendar" />
+                            <appMode:WinoAppModeSwitcherItem
+                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg"
+                                MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/People.svg"
+                                Label="Contacts" />
+                            <appMode:WinoAppModeSwitcherItem
+                                GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg"
+                                MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/ToDo.svg"
+                                Label="To do" />
                         </appMode:WinoAppModeSwitcher>
                     </Border>
                 </StackPanel>
@@ -123,6 +147,11 @@
                     <x:String>3 - To do</x:String>
                     <x:String>-1 - None</x:String>
                 </RadioButtons>
+
+                <ToggleSwitch
+                    x:Name="MonochromeToggle"
+                    Header="Monochrome"
+                    Toggled="StateChanged" />
 
                 <ToggleSwitch
                     x:Name="SettingsSelectedToggle"

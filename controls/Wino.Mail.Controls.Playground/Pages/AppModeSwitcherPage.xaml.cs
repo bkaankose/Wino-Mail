@@ -89,6 +89,7 @@ public sealed partial class AppModeSwitcherPage : Page
             switcher.SelectedIndex = selectedIndex;
             switcher.IsSettingsSelected = SettingsSelectedToggle.IsOn;
             switcher.IsSettingsVisible = SettingsVisibleToggle.IsOn;
+            switcher.IsMonochrome = MonochromeToggle.IsOn;
             switcher.SettingsLabel = SettingsLabelBox.Text;
         }
     }

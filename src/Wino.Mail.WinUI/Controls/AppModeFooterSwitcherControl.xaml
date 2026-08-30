@@ -18,6 +18,10 @@
         Each glyph is an app icon with its tile removed, handed over as an asset rather than
         as a ready-made icon: the control recolours it, so the artwork follows the app accent
         and takes whichever paper colour reads against the surface it lands on.
+
+        The monochrome asset beside it is the same mode drawn in one ink, for users who have
+        turned the app artwork off. It is a second file rather than a recolouring: collapsing
+        the artwork to one ink turns its cards into outlines and its paper regions into holes.
     -->
     <appMode:WinoAppModeSwitcher
         x:Name="Switcher"
@@ -25,9 +29,21 @@
         ModeInvoked="ModeInvoked"
         SettingsInvoked="SettingsInvoked"
         SettingsLabel="{x:Bind domain:Translator.MenuSettings}">
-        <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg" Label="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}" />
-        <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg" Label="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}" />
-        <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg" Label="{x:Bind domain:Translator.ContactsPage_Title}" />
-        <appMode:WinoAppModeSwitcherItem GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg" Label="{x:Bind domain:Translator.ToDoPage_Title}" />
+        <appMode:WinoAppModeSwitcherItem
+            GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mail.svg"
+            MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Mail.svg"
+            Label="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}" />
+        <appMode:WinoAppModeSwitcherItem
+            GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Calendar.svg"
+            MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Calendar.svg"
+            Label="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}" />
+        <appMode:WinoAppModeSwitcherItem
+            GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/People.svg"
+            MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/People.svg"
+            Label="{x:Bind domain:Translator.ContactsPage_Title}" />
+        <appMode:WinoAppModeSwitcherItem
+            GlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/ToDo.svg"
+            MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/ToDo.svg"
+            Label="{x:Bind domain:Translator.ToDoPage_Title}" />
     </appMode:WinoAppModeSwitcher>
 </UserControl>

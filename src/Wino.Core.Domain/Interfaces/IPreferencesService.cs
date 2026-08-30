@@ -113,6 +113,12 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsCompactAccountMenuItemEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Draw the app mode switcher in a single ink, with the accent reserved for the
+    /// mode that is current, instead of the recoloured app artwork on chips.
+    /// </summary>
+    bool IsMonochromeAppModeSwitcherEnabled { get; set; }
+
+    /// <summary>
     /// Setting: Show locally ignored Daily Briefing items for review.
     /// </summary>
     bool IsDailyBriefingShowingIgnored { get; set; }

@@ -39,6 +39,13 @@ internal static partial class AppModeGlyphPalette
     private const string PaperDimToken = "#CDD0D5";
 
     /// <summary>
+    /// The single token the monochrome artwork is authored in. Those assets carry no second
+    /// colour at all: their light regions are either holes or the same ink at a lower alpha,
+    /// so one substitution paints the whole glyph.
+    /// </summary>
+    private const string InkToken = "#101010";
+
+    /// <summary>
     /// Used when nothing has published <c>SystemAccentColor</c> yet, which happens in the
     /// designer and in the first moments of a cold start.
     /// </summary>
@@ -116,6 +123,16 @@ internal static partial class AppModeGlyphPalette
         => theme == ElementTheme.Dark ? DarkSelection : Tint(accent, LightSelectionLightness);
 
     /// <summary>
+    /// The fill behind the selected glyph in monochrome. It is the accent itself at a low
+    /// alpha rather than a tint of it: the monochrome glyph is already the accent, so the cell
+    /// only has to say which one it is, not carry the contrast the glyph is carrying. Alpha
+    /// rather than a mixed colour because whatever is behind the strip shows through the
+    /// glyph's own holes, and the two have to agree.
+    /// </summary>
+    public static Color ResolveSelectionGlow(Color accent, ElementTheme theme)
+        => Color.FromArgb(theme == ElementTheme.Dark ? (byte)0x33 : (byte)0x26, accent.R, accent.G, accent.B);
+
+    /// <summary>
     /// Pulls the accent most of the way to a neutral, then pins the result to a lightness.
     /// </summary>
     private static Color Tint(Color accent, double lightness)
@@ -145,10 +162,30 @@ internal static partial class AppModeGlyphPalette
     /// Results are cached by asset, accent, paper and size, so the repeated calls that
     /// selection and theme changes cause cost nothing after the first.
     /// </summary>
-    public static async Task<SvgImageSource?> CreateGlyphAsync(Uri source, Color accent, Color paper, int pixelSize)
-    {
-        var key = $"{source}|{accent}|{paper}|{pixelSize}";
+    public static Task<SvgImageSource?> CreateGlyphAsync(Uri source, Color accent, Color paper, int pixelSize)
+        => CreateAsync(
+            source,
+            $"{source}|{accent}|{paper}|{pixelSize}",
+            markup => Substitute(markup, accent, paper),
+            pixelSize);
 
+    /// <summary>
+    /// Builds a monochrome glyph in a single ink.
+    ///
+    /// There is no paper colour, and that is the point. A second colour would have to be the
+    /// colour of whatever the glyph is resting on, and in monochrome the cell behind it moves:
+    /// a hover wash, the selection glow. The monochrome assets carry their light regions as
+    /// holes and as alpha instead, so the surface shows through whatever it happens to be.
+    /// </summary>
+    public static Task<SvgImageSource?> CreateMonochromeGlyphAsync(Uri source, Color ink, int pixelSize)
+        => CreateAsync(
+            source,
+            $"{source}|ink|{ink}|{pixelSize}",
+            markup => markup.Replace(InkToken, ToHex(ink), StringComparison.OrdinalIgnoreCase),
+            pixelSize);
+
+    private static async Task<SvgImageSource?> CreateAsync(Uri source, string key, Func<string, string> recolour, int pixelSize)
+    {
         if (_glyphCache.TryGetValue(key, out var cached))
             return cached;
 
@@ -157,7 +194,7 @@ internal static partial class AppModeGlyphPalette
         if (markup is null)
             return null;
 
-        var recoloured = Substitute(markup, accent, paper);
+        var recoloured = recolour(markup);
 
         var image = new SvgImageSource
         {

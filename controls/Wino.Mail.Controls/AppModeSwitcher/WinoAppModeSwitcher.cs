@@ -32,6 +32,11 @@ namespace Wino.Mail.Controls.AppModeSwitcher;
 /// artwork; its tile lifts away from the card instead of inverting against it, which is what
 /// keeps the white regions of the artwork readable in every state.
 ///
+/// <see cref="IsMonochrome"/> replaces that whole scheme rather than tinting it: one ink, no
+/// chips, no tile, and the accent spent only on the mode that is current. The artwork changes
+/// with it - the monochrome assets are separate files, because a single ink turns a card into
+/// an outline and a paper region into a hole rather than into a paler version of itself.
+///
 /// The control carries no visual states. Every appearance change is applied from code and
 /// every transition is a Composition animation, so there is no storyboard and no
 /// <see cref="VisualStateManager"/> in the control or its template. The selection tile
@@ -49,6 +54,8 @@ public sealed partial class WinoAppModeSwitcher : Control
     private const string SelectionIndicatorPartName = "PART_SelectionIndicator";
     private const string SettingsButtonPartName = "PART_SettingsButton";
     private const string SettingsIconPartName = "PART_SettingsIcon";
+    private const string SettingsMonochromeIconPartName = "PART_SettingsMonochromeIcon";
+    private const string SettingsMonochromeGlyphPartName = "PART_SettingsMonochromeGlyph";
 
     private const string NormalIconState = "Normal";
     private const string PointerOverIconState = "PointerOver";
@@ -91,11 +98,19 @@ public sealed partial class WinoAppModeSwitcher : Control
     private readonly List<Border> _containers = [];
     private readonly List<Border> _wells = [];
 
+    /// <summary>
+    /// Cells are transparent at rest but must still be hit testable, and monochrome swaps this
+    /// in and out on every pointer event, so it is worth not allocating one each time.
+    /// </summary>
+    private readonly SolidColorBrush _transparentBrush = new(Microsoft.UI.Colors.Transparent);
+
     private Grid? _modeHost;
     private Border? _selectionIndicator;
     private Grid? _settingsButton;
     private Border? _settingsChip;
     private AnimatedIcon? _settingsIcon;
+    private FrameworkElement? _settingsMonochromeIcon;
+    private Microsoft.UI.Xaml.Shapes.Path? _settingsMonochromeGlyph;
     private bool _isTemplateApplied;
 
     /// <summary>
@@ -142,6 +157,21 @@ public sealed partial class WinoAppModeSwitcher : Control
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool IsSettingsVisible { get; set; }
 
+    /// <summary>
+    /// Draws the strip in a single ink instead of recoloured app artwork.
+    ///
+    /// It is a different design rather than a different palette. The chips and the tile both
+    /// go: the chip existed to stop white regions in the artwork dissolving into a light card,
+    /// and monochrome has no white regions to rescue. What is left says the selection with the
+    /// accent - the selected glyph is painted in it, over a wash of it - and says hover with a
+    /// fill the cell only has while the pointer is on it.
+    ///
+    /// Items need a <see cref="WinoAppModeSwitcherItem.MonochromeGlyphSource"/> to follow;
+    /// one without keeps its colour artwork.
+    /// </summary>
+    [GeneratedDependencyProperty(DefaultValue = false)]
+    public partial bool IsMonochrome { get; set; }
+
     // The per-state foregrounds are properties rather than resource lookups because the
     // brushes live in this control's own theme dictionary: only the template can reach them,
     // and it hands them over here.
@@ -171,6 +201,21 @@ public sealed partial class WinoAppModeSwitcher : Control
     /// </summary>
     [GeneratedDependencyProperty]
     public partial Brush? SettingsForeground { get; set; }
+
+    /// <summary>
+    /// The fill a cell takes while the pointer is over it. Monochrome only: with a chip under
+    /// every glyph there is nothing for a wash to sit on, so the coloured strip says hover
+    /// with the glyph instead.
+    /// </summary>
+    [GeneratedDependencyProperty]
+    public partial Brush? ModeHoverBackground { get; set; }
+
+    /// <summary>
+    /// The fill a cell takes while it is being pressed. Monochrome only, as with
+    /// <see cref="ModeHoverBackground"/>.
+    /// </summary>
+    [GeneratedDependencyProperty]
+    public partial Brush? ModePressedBackground { get; set; }
 
     /// <summary>
     /// Overrides the resting chip. Left unset - which is the normal case - the chip is
@@ -208,6 +253,8 @@ public sealed partial class WinoAppModeSwitcher : Control
         _selectionIndicator = GetTemplateChild(SelectionIndicatorPartName) as Border;
         _settingsButton = GetTemplateChild(SettingsButtonPartName) as Grid;
         _settingsIcon = GetTemplateChild(SettingsIconPartName) as AnimatedIcon;
+        _settingsMonochromeIcon = GetTemplateChild(SettingsMonochromeIconPartName) as FrameworkElement;
+        _settingsMonochromeGlyph = GetTemplateChild(SettingsMonochromeGlyphPartName) as Microsoft.UI.Xaml.Shapes.Path;
 
         if (_modeHost is not null)
         {
@@ -287,6 +334,19 @@ public sealed partial class WinoAppModeSwitcher : Control
 
     partial void OnSettingsLabelChanged(string newValue) => ApplySettingsLabel();
 
+    // The glyphs come from different assets in each mode, so this is a rebuild rather than a
+    // repaint.
+    partial void OnIsMonochromeChanged(bool newValue)
+    {
+        RebuildItems();
+        ApplyOrientation();
+        UpdateSelection(animate: false);
+    }
+
+    partial void OnModeHoverBackgroundChanged(Brush? newValue) => RefreshForegrounds();
+
+    partial void OnModePressedBackgroundChanged(Brush? newValue) => RefreshForegrounds();
+
     // A theme change swaps the brushes underneath, so the assigned foregrounds have to be
     // re-applied rather than left on the old theme's colours.
     partial void OnModeForegroundChanged(Brush? newValue) => RefreshForegrounds();
@@ -340,13 +400,13 @@ public sealed partial class WinoAppModeSwitcher : Control
             var container = new Border
             {
                 CornerRadius = CellCornerRadius,
-                Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+                Background = _transparentBrush,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
                 IsTabStop = true,
                 UseSystemFocusVisuals = true,
                 Tag = index,
-                Child = item.GlyphSource is null ? item.Icon : CreateGlyphHost()
+                Child = ResolveGlyphSource(item) is null ? item.Icon : CreateGlyphHost()
             };
 
             AutomationProperties.SetName(container, item.Label);
@@ -366,6 +426,23 @@ public sealed partial class WinoAppModeSwitcher : Control
             _modeHost.Children.Add(container);
         }
     }
+
+    /// <summary>
+    /// Monochrome is a design, and high contrast is already one: it decides its own colours,
+    /// and a strip that answered to both would be neither. Under high contrast the switcher
+    /// keeps its chips and its solid tile whatever this property says, and only the artwork
+    /// stays monochrome - a single ink is exactly what a high contrast theme wants.
+    /// </summary>
+    private bool IsMonochromeActive => IsMonochrome && !_accessibilitySettings.HighContrast;
+
+    /// <summary>
+    /// Which artwork an item draws with. An item that supplies no monochrome asset keeps its
+    /// colour artwork rather than going without a glyph.
+    /// </summary>
+    private Uri? ResolveGlyphSource(WinoAppModeSwitcherItem item)
+        => IsMonochrome && item.MonochromeGlyphSource is not null
+            ? item.MonochromeGlyphSource
+            : item.GlyphSource;
 
     /// <summary>
     /// The recoloured artwork arrives later than layout does, so the container gets its
@@ -615,10 +692,11 @@ public sealed partial class WinoAppModeSwitcher : Control
             ApplyChip(index, isSelected, chip);
         }
 
-        ApplySettingsForeground();
+        ApplySettingsIconMode();
+        ApplySettingsForeground(selectedCell, accent);
         ApplySettingsChip(selectedCell, chip);
         ApplySelectionTile(accent);
-        _ = UpdateGlyphsAsync(accent);
+        _ = UpdateGlyphsAsync(accent, selectedCell);
 
         if (_selectionIndicator is null)
             return;
@@ -650,6 +728,11 @@ public sealed partial class WinoAppModeSwitcher : Control
     /// </summary>
     private Brush ResolveChipBrush(Windows.UI.Color accent)
     {
+        // Monochrome has nothing for a chip to do: the artwork has no white regions to lift
+        // off the card, and a fill under every cell would leave hover with nowhere to land.
+        if (IsMonochromeActive)
+            return _transparentBrush;
+
         if (RestingWellBrush is not null)
             return RestingWellBrush;
 
@@ -668,8 +751,12 @@ public sealed partial class WinoAppModeSwitcher : Control
         if (_selectionIndicator is null || _accessibilitySettings.HighContrast)
             return;
 
-        _selectionIndicator.Background =
-            new SolidColorBrush(AppModeGlyphPalette.ResolveSelectionTile(accent, ActualTheme));
+        // Monochrome keeps the tile as a shape - it still slides, so the strip still reads as
+        // one selection rather than four buttons - but empties it out to a wash of the accent,
+        // because the glyph on it is already carrying the accent at full strength.
+        _selectionIndicator.Background = new SolidColorBrush(IsMonochromeActive
+            ? AppModeGlyphPalette.ResolveSelectionGlow(accent, ActualTheme)
+            : AppModeGlyphPalette.ResolveSelectionTile(accent, ActualTheme));
     }
 
     private bool TryGetHighContrastBrush(string key, out Brush brush)
@@ -701,22 +788,33 @@ public sealed partial class WinoAppModeSwitcher : Control
     /// display scale does any work; the rest come from the cache, so selection and theme
     /// changes are free.
     /// </summary>
-    private async Task UpdateGlyphsAsync(Windows.UI.Color accent)
+    private async Task UpdateGlyphsAsync(Windows.UI.Color accent, int selectedCell)
     {
         var generation = ++_glyphGeneration;
 
         for (var index = 0; index < _containers.Count && index < Items.Count; index++)
         {
-            var source = Items[index].GlyphSource;
+            var item = Items[index];
+            var source = ResolveGlyphSource(item);
 
             if (source is null || _containers[index].Child is not ImageIcon host)
                 continue;
 
-            var glyph = await AppModeGlyphPalette.CreateGlyphAsync(
-                source,
-                accent,
-                AppModeGlyphPalette.Paper,
-                GlyphPixelSize);
+            var isMonochromeGlyph = source == item.MonochromeGlyphSource;
+
+            // The ink's own alpha stays on the element rather than being baked into the
+            // markup: the theme's text brushes are translucent, and a glyph flattened against
+            // an assumed surface would not match the text it sits beside.
+            var ink = isMonochromeGlyph ? ResolveInk(index == selectedCell, accent) : default;
+            host.Opacity = isMonochromeGlyph ? ink.A / 255d : 1d;
+
+            var glyph = isMonochromeGlyph
+                ? await AppModeGlyphPalette.CreateMonochromeGlyphAsync(source, ink, GlyphPixelSize)
+                : await AppModeGlyphPalette.CreateGlyphAsync(
+                    source,
+                    accent,
+                    AppModeGlyphPalette.Paper,
+                    GlyphPixelSize);
 
             // Another rebuild started while this one was awaiting, so its glyphs are the
             // current ones and these would land on top of them.
@@ -820,6 +918,58 @@ public sealed partial class WinoAppModeSwitcher : Control
         visual.StartAnimation("Scale", animation);
     }
 
+    /// <summary>
+    /// The colour a monochrome glyph is painted in. Rest is the strip's own foreground, which
+    /// leaves the modes reading as the neutral furniture they are; selected is the accent,
+    /// which without a tile is the only thing saying which mode is current.
+    /// </summary>
+    private Windows.UI.Color ResolveInk(bool isSelected, Windows.UI.Color accent)
+        => isSelected && IsMonochromeActive
+            ? accent
+            : ResolveBrushColour(isSelected ? ModeSelectedForeground : ModeForeground, accent);
+
+    /// <summary>
+    /// A brush's colour with its own alpha and the brush's opacity folded together. The theme's
+    /// text brushes are translucent, and a glyph that dropped that would sit heavier than the
+    /// text beside it.
+    /// </summary>
+    private static Windows.UI.Color ResolveBrushColour(Brush? brush, Windows.UI.Color fallback)
+    {
+        if (brush is not SolidColorBrush solid)
+            return fallback;
+
+        var colour = solid.Color;
+
+        return Windows.UI.Color.FromArgb(
+            (byte)Math.Clamp(Math.Round(colour.A * solid.Opacity), 0d, 255d),
+            colour.R,
+            colour.G,
+            colour.B);
+    }
+
+    /// <summary>
+    /// The fill a cell carries at rest, under the pointer and while pressed. Only monochrome
+    /// has one: elsewhere the chip already fills the cell, and a wash over it would read as a
+    /// second surface rather than as a state.
+    /// </summary>
+    private void ApplyCellBackground(FrameworkElement? cell, Brush? brush)
+    {
+        if (cell is null)
+            return;
+
+        var fill = IsMonochromeActive ? brush ?? _transparentBrush : _transparentBrush;
+
+        switch (cell)
+        {
+            case Border border:
+                border.Background = fill;
+                break;
+            case Panel panel:
+                panel.Background = fill;
+                break;
+        }
+    }
+
     private void ApplyItemForeground(int index, bool isSelected, bool isPointerOver)
     {
         if (index < 0 || index >= _containers.Count)
@@ -875,6 +1025,7 @@ public sealed partial class WinoAppModeSwitcher : Control
             return;
 
         ScaleTo(container, HoverScale);
+        ApplyCellBackground(container, ModeHoverBackground);
 
         var index = (int)container.Tag;
         ApplyItemForeground(index, isSelected: index == SelectedCellIndex, isPointerOver: true);
@@ -886,6 +1037,7 @@ public sealed partial class WinoAppModeSwitcher : Control
             return;
 
         ScaleTo(container, 1f);
+        ApplyCellBackground(container, null);
 
         var index = (int)container.Tag;
         ApplyItemForeground(index, isSelected: index == SelectedCellIndex, isPointerOver: false);
@@ -896,6 +1048,7 @@ public sealed partial class WinoAppModeSwitcher : Control
         if (sender is Border container)
         {
             ScaleTo(container, PressedScale);
+            ApplyCellBackground(container, ModePressedBackground);
         }
     }
 
@@ -904,6 +1057,7 @@ public sealed partial class WinoAppModeSwitcher : Control
         if (sender is Border container)
         {
             ScaleTo(container, HoverScale);
+            ApplyCellBackground(container, ModeHoverBackground);
         }
     }
 
@@ -932,24 +1086,28 @@ public sealed partial class WinoAppModeSwitcher : Control
     {
         SetSettingsIconState(PointerOverIconState);
         ScaleSender(sender, HoverScale);
+        ApplyCellBackground(_settingsButton, ModeHoverBackground);
     }
 
     private void OnSettingsPointerExited(object sender, PointerRoutedEventArgs e)
     {
         SetSettingsIconState(NormalIconState);
         ScaleSender(sender, 1f);
+        ApplyCellBackground(_settingsButton, null);
     }
 
     private void OnSettingsPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         SetSettingsIconState(PressedIconState);
         ScaleSender(sender, PressedScale);
+        ApplyCellBackground(_settingsButton, ModePressedBackground);
     }
 
     private void OnSettingsPointerReleased(object sender, PointerRoutedEventArgs e)
     {
         SetSettingsIconState(PointerOverIconState);
         ScaleSender(sender, HoverScale);
+        ApplyCellBackground(_settingsButton, ModeHoverBackground);
     }
 
     private void OnSettingsTapped(object sender, TappedRoutedEventArgs e)
@@ -976,12 +1134,46 @@ public sealed partial class WinoAppModeSwitcher : Control
         AnimatedIcon.SetState(_settingsIcon, state);
     }
 
-    private void ApplySettingsForeground()
+    /// <summary>
+    /// Which settings glyph is showing. The animated icon holds its own against app artwork,
+    /// but beside four flat monochrome glyphs it is the odd weight out, so monochrome swaps it
+    /// for a gear drawn to match them. It costs the hover animation, which is what a line
+    /// weight that matches the rest of the strip is worth.
+    /// </summary>
+    private void ApplySettingsIconMode()
     {
+        if (_settingsIcon is not null)
+        {
+            _settingsIcon.Visibility = IsMonochrome ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        if (_settingsMonochromeIcon is not null)
+        {
+            _settingsMonochromeIcon.Visibility = IsMonochrome ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private void ApplySettingsForeground(int selectedCell, Windows.UI.Color accent)
+    {
+        var isSelected = selectedCell == _containers.Count && IsSettingsVisible;
+
+        if (_settingsMonochromeGlyph is not null)
+        {
+            var ink = isSelected && IsMonochromeActive
+                ? accent
+                : ResolveBrushColour(isSelected ? ModeSelectedForeground : SettingsForeground, accent);
+
+            // The stroke takes the colour and the element takes the alpha, so the gear thins
+            // out with the theme's text brushes rather than against them.
+            _settingsMonochromeGlyph.Stroke =
+                new SolidColorBrush(Windows.UI.Color.FromArgb(255, ink.R, ink.G, ink.B));
+            _settingsMonochromeGlyph.Opacity = ink.A / 255d;
+        }
+
         if (_settingsIcon is null)
             return;
 
-        var brush = IsSettingsSelected && IsSettingsVisible ? ModeSelectedForeground : SettingsForeground;
+        var brush = isSelected ? ModeSelectedForeground : SettingsForeground;
 
         if (brush is not null)
         {

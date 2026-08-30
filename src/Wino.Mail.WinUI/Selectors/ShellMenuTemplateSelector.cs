@@ -38,7 +38,6 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
     public DataTemplate? SharedCompactAccountMenuTemplate { get; set; }
     public DataTemplate? AccountTaskListGroupTemplate { get; set; }
     public DataTemplate? AccountTaskListTemplate { get; set; }
-    public DataTemplate? ContactAccountFilterTemplate { get; set; }
     public DataTemplate? ContactFilterTemplate { get; set; }
     public DataTemplate? CreateNewMailTemplate { get; set; }
     public DataTemplate? MergedAccountTemplate { get; set; }
@@ -81,7 +80,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
         AccountTaskListAccountMenuItem => GetAccountTemplate(),
         AccountTaskListGroupMenuItem => AccountTaskListGroupTemplate,
         AccountTaskListMenuItem => AccountTaskListTemplate,
-        ContactFilterViewModel { HasAccountIcon: true } => ContactAccountFilterTemplate,
+        ContactFilterViewModel { HasAccountIcon: true } => GetAccountTemplate(),
         ContactFilterViewModel => ContactFilterTemplate,
 
         // Mail. NewCalendarEventMenuItem derives from NewMailMenuItem, so it must be

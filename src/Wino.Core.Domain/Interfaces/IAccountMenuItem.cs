@@ -20,6 +20,12 @@ public interface IAccountNavigationMenuItem : IMenuItem, INotifyPropertyChanged
     double SynchronizationProgressValue { get; }
     bool IsAttentionRequired { get; }
     bool SupportsMailAccountActions { get; }
+
+    /// <summary>
+    /// Whether invoking the row is a selection. Mail and tasks expand an account
+    /// into its children, while a contacts address book is itself the destination.
+    /// </summary>
+    bool SelectsOnInvoked { get; }
 }
 
 public interface IAccountMenuItem : IMenuItem

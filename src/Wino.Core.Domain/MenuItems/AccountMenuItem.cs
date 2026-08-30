@@ -41,6 +41,7 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
 
     public bool IsAttentionRequired => AttentionReason != AccountAttentionReason.None;
     public bool SupportsMailAccountActions => true;
+    public bool SelectsOnInvoked => false;
     public MailAccount Account => Parameter;
     public string AccountAddress => Parameter.Address;
 

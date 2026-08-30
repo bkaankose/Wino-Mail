@@ -19,6 +19,12 @@ public sealed partial class WinoAccountIconSource : DependencyObject, INotifyPro
 {
     private const double DefaultIconSize = 20d;
 
+    /// <summary>
+    /// Keeps the provider glyph's drawn size equal to a profile picture's, which
+    /// fills its whole box. Mirrors <see cref="WinoAccountIcon"/>.
+    /// </summary>
+    private const double GlyphInkScale = 0.8d;
+
     private CancellationTokenSource? _loadCancellation;
     private IconSource? _iconSource;
     private int _presentationVersion;
@@ -101,7 +107,7 @@ public sealed partial class WinoAccountIconSource : DependencyObject, INotifyPro
         var source = new WinoFontIconSource
         {
             Glyph = AccountIconGlyphs.GetGlyph(account.Provider),
-            FontSize = GetEffectiveIconSize(),
+            FontSize = GetEffectiveIconSize() * GlyphInkScale,
         };
 
         if (TryGetAccountColor(account.AccountColorHex, out var color))

@@ -49,6 +49,7 @@ public sealed class AccountTaskListAccountMenuItem : MenuItemBase<MailAccount, I
     public double SynchronizationProgressValue => 0;
     public bool IsAttentionRequired => false;
     public bool SupportsMailAccountActions => false;
+    public bool SelectsOnInvoked => false;
 
     public void UpdateAccount(MailAccount account)
     {

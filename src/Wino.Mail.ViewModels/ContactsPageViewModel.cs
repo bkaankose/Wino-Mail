@@ -126,9 +126,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         _launchProtocolService = launchProtocolService;
         _preferencesService = preferencesService;
         _cardDavSynchronizationStore = cardDavSynchronizationStore;
-        _primaryFilterGroup = new ContactFilterGroup(string.Empty);
-        _addressBookFilterGroup = new ContactFilterGroup(Translator.ContactsPage_AddressBooks);
-        _listFilterGroup = new ContactFilterGroup(Translator.ContactsPage_MyLists);
+        _primaryFilterGroup = [];
+        _addressBookFilterGroup = [];
+        _listFilterGroup = [];
         Contacts.CollectionChanged += ContactsCollectionChanged;
     }
 
@@ -1321,6 +1321,13 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     partial void OnSelectedFilterChanged(ContactFilterViewModel value)
     {
+        // Address book rows draw the shared account row, which shows its active
+        // state from the item rather than from the pane's own selection visual.
+        foreach (var filter in FilterGroups.SelectMany(group => group))
+        {
+            filter.IsSelected = ReferenceEquals(filter, value);
+        }
+
         // The navigation pane binds its selection through IShellMenuProvider.SelectedMenuItem.
         OnPropertyChanged(nameof(IShellMenuProvider.SelectedMenuItem));
 

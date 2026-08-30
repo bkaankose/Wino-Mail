@@ -46,6 +46,7 @@
       one with the matching tile brush from AppModeSwitcher\WinoAppModeTiles.xaml.
     -->
     <Content Include="Assets\AppModes\*.svg" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\AppModes\Mono\*.svg" CopyToOutputDirectory="PreserveNewest" />
     <InternalsVisibleTo Include="Wino.Mail.Controls.Tests" />
   </ItemGroup>
 </Project>

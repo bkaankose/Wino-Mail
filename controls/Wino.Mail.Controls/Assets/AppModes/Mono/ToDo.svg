@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="182" height="182" viewBox="37 37 182 182">
+  <title>To do</title>
+  <!--
+    The monochrome To Do glyph. The card is an outline for the same reason the Calendar card
+    is: a filled card would need a paper colour, and the check would then have to be knocked
+    back out of it.
+  -->
+  <rect x="81" y="81" width="94" height="94" rx="21.5" fill="none" stroke="#101010" stroke-width="9" />
+  <path d="M97.5 128.5 L119 150 L157.1 106.5"
+        fill="none"
+        stroke="#101010"
+        stroke-width="17"
+        stroke-linecap="round"
+        stroke-linejoin="round" />
+</svg>
