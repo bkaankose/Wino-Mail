@@ -22,15 +22,11 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> TokenLocks = new(StringComparer.Ordinal);
     private readonly WinoGmailCodeReceiver _codeReceiver;
     private readonly string _tokenStorePath;
-    private readonly string _legacyTokenStorePath;
 
     public GmailAuthenticator(IAuthenticatorConfig authConfig, INativeAppService nativeAppService) : base(authConfig)
     {
         _codeReceiver = new WinoGmailCodeReceiver(nativeAppService);
         _tokenStorePath = authConfig.GmailTokenStorePath;
-        _legacyTokenStorePath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            authConfig.GmailTokenStoreIdentifier);
     }
 
     public string ClientId => AuthenticatorConfig.GmailAuthenticatorClientId;
@@ -125,11 +121,6 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
                 File.Delete(tokenPath);
             }
 
-            var legacyTokenPath = GetLegacyTokenPath(credentialKey);
-            if (!PathsEqual(tokenPath, legacyTokenPath) && File.Exists(legacyTokenPath))
-            {
-                File.Delete(legacyTokenPath);
-            }
         }
         finally
         {
@@ -255,29 +246,9 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     {
         var tokenPath = GetTokenPath(credentialKey);
         if (!File.Exists(tokenPath))
-        {
-            var legacyToken = await ReadLegacyTokenAsync(credentialKey).ConfigureAwait(false);
-            if (legacyToken is null)
-            {
-                return null;
-            }
-
-            await WriteTokenAsync(credentialKey, legacyToken).ConfigureAwait(false);
-            return legacyToken;
-        }
+            return null;
 
         return await DeserializeTokenAsync(tokenPath).ConfigureAwait(false);
-    }
-
-    private async Task<StoredGoogleToken?> ReadLegacyTokenAsync(string credentialKey)
-    {
-        var legacyTokenPath = GetLegacyTokenPath(credentialKey);
-        if (PathsEqual(GetTokenPath(credentialKey), legacyTokenPath) || !File.Exists(legacyTokenPath))
-        {
-            return null;
-        }
-
-        return await DeserializeTokenAsync(legacyTokenPath).ConfigureAwait(false);
     }
 
     private static async Task<StoredGoogleToken?> DeserializeTokenAsync(string tokenPath)
@@ -327,15 +298,6 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 
     private string GetTokenPath(string credentialKey)
         => Path.Combine(_tokenStorePath, $"{credentialKey}.json");
-
-    private string GetLegacyTokenPath(string credentialKey)
-        => Path.Combine(_legacyTokenStorePath, $"{credentialKey}.json");
-
-    private static bool PathsEqual(string left, string right)
-        => string.Equals(
-            Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-            StringComparison.OrdinalIgnoreCase);
 
     private static string GetCredentialKey(MailAccount account)
         => account?.Id.ToString("N") ?? "default";

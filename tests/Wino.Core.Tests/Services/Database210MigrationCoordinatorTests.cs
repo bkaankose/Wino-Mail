@@ -6,6 +6,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Migration;
 using Wino.Services;
 using Xunit;
@@ -59,7 +60,7 @@ public sealed class Database210MigrationCoordinatorTests
 
             var result = await coordinator.RunAsync(plan.Accounts);
 
-            result.Status.Should().Be(MigrationStatus.Completed, $"{result.FailedStep}: {result.ErrorMessage}");
+            result.Status.Should().Be(MigrationStatus.AwaitingUser, $"{result.FailedStep}: {result.ErrorMessage}");
             File.Exists(Path.Combine(directory, DatabaseService.CurrentDatabaseName)).Should().BeTrue();
             ComputeHash(sourcePath).Should().Equal(sourceHash);
 
@@ -77,6 +78,23 @@ public sealed class Database210MigrationCoordinatorTests
             migratedAccount.IsContactAccessGranted.Should().BeFalse();
             migratedAccount.IsContactReauthorizationRequired.Should().BeTrue();
             migratedAccount.AttentionReason.Should().Be(AccountAttentionReason.InvalidCredentials);
+            await destination.ExecuteAsync($"""
+                UPDATE __MigrationMetadata
+                SET PendingAuthenticationAccountIds = NULL,
+                    IsAuthenticationQueueInitialized = 0
+                WHERE Id = 1;
+                """);
+            await destination.CloseAsync();
+
+            var authorizationPlan = await coordinator.InspectAsync();
+            authorizationPlan.Status.Should().Be(MigrationStatus.AwaitingUser);
+            authorizationPlan.Accounts.Should().ContainSingle(account => account.AccountId == accountId);
+            await coordinator.MarkAccountAuthorizationResolvedAsync(accountId, wasSkipped: false);
+            (await coordinator.InspectAsync()).Status.Should().Be(MigrationStatus.NotRequired);
+            destination = new SQLiteAsyncConnection(Path.Combine(directory, DatabaseService.CurrentDatabaseName));
+            var resolvedMetadata = await destination.FindAsync<DatabaseMigrationCoordinator.MigrationMetadataRow>(1);
+            resolvedMetadata.PendingAuthenticationAccountIds.Should().BeEmpty();
+            resolvedMetadata.DeferredAccountIds.Should().BeEmpty();
             await destination.CloseAsync();
 
             var normalDatabase = new DatabaseService(CreateConfiguration(directory));
@@ -117,6 +135,73 @@ public sealed class Database210MigrationCoordinatorTests
             var schema = new DatabaseSchemaService(CreateConfiguration(directory));
             var validation = await schema.ValidateAsync(Path.Combine(directory, DatabaseService.CurrentDatabaseName));
             validation.IsValid.Should().BeTrue();
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task RunAsync_ConvertsStoreGmailTokenAndKeepsAccountReadyForSilentAuthentication()
+    {
+        var directory = CreateTemporaryDirectory();
+        var sourcePath = Path.Combine(directory, DatabaseService.LegacyDatabaseName);
+        var accountId = Guid.NewGuid();
+
+        try
+        {
+            var source = new SQLiteAsyncConnection(sourcePath);
+            await source.CreateTableAsync<MailAccount>();
+            await source.InsertAsync(new MailAccount
+            {
+                Id = accountId,
+                Name = "Legacy Gmail",
+                Address = "gmail@example.com",
+                ProviderType = MailProviderType.Gmail,
+                IsMailAccessGranted = true,
+                AttentionReason = AccountAttentionReason.InvalidCredentials
+            });
+            await source.CloseAsync();
+
+            var legacyTokenStorePath = Path.Combine(
+                directory,
+                "LocalCache",
+                "Roaming",
+                AuthenticationTokenStorePaths.GmailTokenStoreFolderName);
+            Directory.CreateDirectory(legacyTokenStorePath);
+            var legacyTokenPath = AuthenticationTokenStorePaths.GetLegacyGoogleTokenPath(
+                legacyTokenStorePath,
+                accountId);
+            await File.WriteAllTextAsync(legacyTokenPath, """
+                {
+                  "access_token": "legacy-access-token",
+                  "refresh_token": "legacy-refresh-token",
+                  "expires_in": 3600,
+                  "scope": "mail calendar",
+                  "IssuedUtc": "2026-08-30T12:00:00Z"
+                }
+                """);
+
+            var coordinator = CreateCoordinator(directory);
+            var plan = await coordinator.InspectAsync();
+
+            var result = await coordinator.RunAsync(plan.Accounts);
+
+            result.Status.Should().Be(MigrationStatus.AwaitingUser, result.ErrorMessage);
+            var localTokenPath = Path.Combine(
+                directory,
+                "LocalState",
+                AuthenticationTokenStorePaths.GmailTokenStoreFolderName,
+                $"{accountId:N}.json");
+            File.Exists(localTokenPath).Should().BeTrue();
+            File.Exists(legacyTokenPath).Should().BeFalse();
+
+            var destination = new SQLiteAsyncConnection(Path.Combine(directory, DatabaseService.CurrentDatabaseName));
+            var migratedAccount = await destination.FindAsync<MailAccount>(accountId);
+            migratedAccount.AttentionReason.Should().Be(AccountAttentionReason.None);
+            await destination.CloseAsync();
         }
         finally
         {
@@ -169,7 +254,7 @@ public sealed class Database210MigrationCoordinatorTests
 
             var retryResult = await retryCoordinator.RunAsync(retryPlan.Accounts);
 
-            retryResult.Status.Should().Be(MigrationStatus.Completed, retryResult.ErrorMessage);
+            retryResult.Status.Should().Be(MigrationStatus.AwaitingUser, retryResult.ErrorMessage);
             var destination = new SQLiteAsyncConnection(Path.Combine(directory, DatabaseService.CurrentDatabaseName));
             var account = await destination.FindAsync<MailAccount>(accountId);
             account.Name.Should().Be("Ünicode Outlook");
@@ -276,14 +361,17 @@ public sealed class Database210MigrationCoordinatorTests
             configuration,
             new DatabaseSchemaService(configuration),
             pictureService,
-            clock ?? new FakeMigrationClock());
+            clock: clock ?? new FakeMigrationClock());
     }
 
     private static IApplicationConfiguration CreateConfiguration(string directory)
     {
+        var localStatePath = Path.Combine(directory, "LocalState");
+        Directory.CreateDirectory(localStatePath);
+
         var configuration = new Mock<IApplicationConfiguration>();
         configuration.SetupProperty(item => item.PublisherSharedFolderPath, directory);
-        configuration.SetupProperty(item => item.ApplicationDataFolderPath, directory);
+        configuration.SetupProperty(item => item.ApplicationDataFolderPath, localStatePath);
         return configuration.Object;
     }
 

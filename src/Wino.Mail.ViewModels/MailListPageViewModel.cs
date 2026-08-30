@@ -2,7 +2,6 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -325,6 +324,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         CancelActiveMailLoad();
         CompletePendingFolderNavigation(false);
+
+        var pendingTrace = MailListLoadTrace.Current;
+        ReportMailLoadTrace(pendingTrace);
+        MailListLoadTrace.End(pendingTrace);
+
         await MailCollection.ClearAsync();
         MailCollection.Cleanup();
     }
@@ -2268,7 +2272,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         bool IsOnlineSearch,
         IReadOnlyList<IMailItemFolder> HandlingFolders,
         IReadOnlyList<Guid> CategoryIds,
-        CancellationToken CancellationToken);
+        CancellationToken CancellationToken,
+        MailListLoadTrace Trace = null);
 
     private MailListLoadContext BeginMailLoad()
     {
@@ -2308,6 +2313,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             _ => []
         };
 
+        // A previous trace that never reached its final frame is reported now rather than lost.
+        ReportMailLoadTrace(MailListLoadTrace.Current);
+
+        var trace = MailListLoadTrace.Begin(generation);
+        trace.Completed += ReportMailLoadTrace;
+
         return new(
             generation,
             folder,
@@ -2320,7 +2331,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             IsOnlineSearchEnabled,
             handlingFolders,
             categoryIds,
-            cancellationTokenSource.Token);
+            cancellationTokenSource.Token,
+            trace);
     }
 
     private bool IsCurrentMailLoad(MailListLoadContext context) =>
@@ -2553,11 +2565,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (context == null)
             return false;
 
-        var stopwatch = Stopwatch.StartNew();
         var acquired = false;
+        var publishedFinishedState = false;
         try
         {
-            Messenger.Send(new ClearMailSelectionsRequested());
             await ExecuteUIThread(() =>
             {
                 IsInitializingFolder = true;
@@ -2570,8 +2581,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             acquired = true;
             context.CancellationToken.ThrowIfCancellationRequested();
 
-            await MailCollection.ClearAsync().ConfigureAwait(false);
-            context.CancellationToken.ThrowIfCancellationRequested();
+            // The previous folder's rows stay on screen until the new page is ready, so a
+            // switch costs one atomic swap instead of a teardown followed by a rebuild.
+            context.Trace?.Mark(MailListLoadStage.PivotsResolved);
 
             var isDoingSearch = !string.IsNullOrWhiteSpace(context.Query);
             var isDoingSemanticSearch = isDoingSearch &&
@@ -2672,9 +2684,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 onlineSearchItems,
                 isDoingOnlineSearch,
                 isDoingSemanticSearch);
+
+            context.Trace?.Mark(MailListLoadStage.QueryStarted);
             var page = await _mailService
                 .FetchMailPageAsync(options, cancellationToken: context.CancellationToken)
                 .ConfigureAwait(false);
+            context.Trace?.Mark(MailListLoadStage.QueryCompleted);
+
             var viewModels = await PrepareMailViewModelsAsync(
                 page.Items,
                 context.HandlingFolders,
@@ -2684,12 +2700,22 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 context.CancellationToken).ConfigureAwait(false);
             ApplyPendingOperationBusyStates(viewModels, pendingOperationUniqueIds);
 
+            if (context.Trace is { } preparedTrace)
+            {
+                preparedTrace.ItemCount = viewModels.Count;
+                preparedTrace.Mark(MailListLoadStage.ViewModelsPrepared);
+            }
+
             if (!IsCurrentMailLoad(context))
                 return false;
 
-            await MailCollection.AddRangeAsync(
+            // Selection belongs to the outgoing page, so it is cleared together with the swap
+            // rather than ahead of the query.
+            Messenger.Send(new ClearMailSelectionsRequested());
+
+            context.Trace?.Mark(MailListLoadStage.StorePublishStarted);
+            await MailCollection.ResetAsync(
                 viewModels,
-                clearIdCache: true,
                 shouldApply: () => IsCurrentMailLoad(context)).ConfigureAwait(false);
             if (!IsCurrentMailLoad(context))
                 return false;
@@ -2711,14 +2737,14 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 HasNoOnlineSearchResult = (isDoingOnlineSearch || isDoingSemanticSearch) && page.Items.Count == 0;
                 OnPropertyChanged(nameof(HasNoOnlineSearchResult));
                 IsOnlineSearchButtonVisible = isDoingSearch && !isDoingOnlineSearch && !isDoingSemanticSearch;
+
+                IsInitializingFolder = false;
+                OnPropertyChanged(nameof(CanSynchronize));
+                NotifyItemFoundState();
+                IsBarOpen = false;
+                publishedFinishedState = true;
             });
 
-            stopwatch.Stop();
-            _logger.Debug(
-                "Published {MailCount} mails for load generation {Generation} in {ElapsedMilliseconds} ms.",
-                viewModels.Count,
-                context.Generation,
-                stopwatch.ElapsedMilliseconds);
             return true;
         }
         catch (OperationCanceledException)
@@ -2743,7 +2769,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 listManipulationSemepahore.Release();
             }
 
-            if (context.Generation == Volatile.Read(ref mailLoadGeneration))
+            // The happy path already published the finished state with the page in one hop.
+            if (!publishedFinishedState && context.Generation == Volatile.Read(ref mailLoadGeneration))
             {
                 await ExecuteUIThread(() =>
                 {
@@ -2756,7 +2783,36 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                     IsBarOpen = false;
                 });
             }
+
+            // On the happy path the trace reports itself once the new rows reach a frame,
+            // which happens after this method has already returned.
+            if (!publishedFinishedState)
+            {
+                ReportMailLoadTrace(context.Trace);
+            }
         }
+    }
+
+    /// <summary>
+    /// Emits the per-stage timings for one load so a slow folder switch can be attributed to
+    /// the database, view-model construction, collection propagation, or template rendering.
+    /// </summary>
+    private void ReportMailLoadTrace(MailListLoadTrace trace)
+    {
+        if (trace is null || !trace.TryBeginReport())
+        {
+            return;
+        }
+
+        _logger.Debug(
+            "Mail load generation {Generation} published {MailCount} mails as {RowCount} rows in {TotalMilliseconds:F1} ms. Stages: {Stages}.",
+            trace.Generation,
+            trace.ItemCount,
+            trace.RowCount,
+            trace.GetElapsed(MailListLoadStage.FirstFrameRendered) ??
+                trace.GetElapsed(MailListLoadStage.ProjectionRebuildCompleted) ??
+                trace.GetElapsed(MailListLoadStage.StoreApplied) ?? 0d,
+            trace.Describe());
     }
 
     #region Receivers

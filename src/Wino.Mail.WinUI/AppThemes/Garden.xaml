@@ -29,9 +29,9 @@
 
         <!--  N/A. Light theme only.  -->
         <ResourceDictionary x:Name="Dark">
-            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#1F2A20</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#384A38</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#2C3A2C</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#384139</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#506050</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#435043</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F5C05C</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#52000000</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#dcfad8</SolidColorBrush>

@@ -24,40 +24,10 @@
 
             <!--  Single illustration shared by every migration state.  -->
             <Viewbox
-                Height="148"
+                Height="64"
                 AutomationProperties.AccessibilityView="Raw"
                 Stretch="Uniform">
-                <Canvas Width="160" Height="160">
-                    <Ellipse
-                        Width="160"
-                        Height="160"
-                        Fill="{ThemeResource AccentFillColorDefaultBrush}"
-                        Opacity="0.14" />
-                    <Path
-                        Data="M80,22 L80,54 M68,34 L80,22 L92,34"
-                        Stroke="{ThemeResource AccentFillColorDefaultBrush}"
-                        StrokeEndLineCap="Round"
-                        StrokeLineJoin="Round"
-                        StrokeStartLineCap="Round"
-                        StrokeThickness="4" />
-                    <Rectangle
-                        Canvas.Left="34"
-                        Canvas.Top="64"
-                        Width="92"
-                        Height="58"
-                        Fill="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        RadiusX="8"
-                        RadiusY="8"
-                        Stroke="{ThemeResource AccentFillColorDefaultBrush}"
-                        StrokeThickness="3.5" />
-                    <Path
-                        Data="M38,70 L80,100 L122,70"
-                        Stroke="{ThemeResource AccentFillColorDefaultBrush}"
-                        StrokeEndLineCap="Round"
-                        StrokeLineJoin="Round"
-                        StrokeStartLineCap="Round"
-                        StrokeThickness="3.5" />
-                </Canvas>
+                <Image Source="/Assets/AppEntries/Mail.svg" />
             </Viewbox>
 
             <StackPanel Spacing="8">
@@ -74,6 +44,86 @@
                     TextAlignment="Center"
                     TextWrapping="Wrap" />
             </StackPanel>
+
+            <Border
+                x:Name="MigrationAuthorizationPanel"
+                Padding="20"
+                AutomationProperties.AutomationId="MigrationAuthorizationPanel"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Visibility="{x:Bind ViewModel.IsAuthorizationVisible, Mode=OneWay}">
+                <StackPanel Spacing="16">
+                    <StackPanel HorizontalAlignment="Center" Spacing="8">
+                        <Image
+                            Width="56"
+                            Height="56"
+                            AutomationProperties.AccessibilityView="Raw"
+                            Source="{x:Bind ViewModel.CurrentAuthorizationAccount.ProviderIconPath, Mode=OneWay}"
+                            Stretch="Uniform" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            Style="{StaticResource SubtitleTextBlockStyle}"
+                            Text="{x:Bind ViewModel.CurrentAuthorizationAccount.DisplayName, Mode=OneWay}"
+                            TextAlignment="Center"
+                            TextWrapping="Wrap" />
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind ViewModel.CurrentAuthorizationAccount.Address, Mode=OneWay}"
+                            TextAlignment="Center"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Text="{x:Bind ViewModel.CurrentAuthorizationAccount.AuthorizationFeaturesText, Mode=OneWay}"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
+
+                    <InfoBar
+                        x:Name="MigrationAuthorizationError"
+                        AutomationProperties.AutomationId="MigrationAuthorizationError"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.IsAuthorizationErrorVisible, Mode=OneWay}"
+                        Message="{x:Bind ViewModel.AuthorizationErrorMessage, Mode=OneWay}"
+                        Severity="Error"
+                        Visibility="{x:Bind ViewModel.IsAuthorizationErrorVisible, Mode=OneWay}" />
+
+                    <Button
+                        x:Name="AuthenticateMigrationAccountButton"
+                        MinHeight="48"
+                        HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="AuthenticateMigrationAccountButton"
+                        Command="{x:Bind ViewModel.AuthenticateCommand}"
+                        Content="{x:Bind domain:Translator.Migration_Authenticate, Mode=OneTime}"
+                        Style="{StaticResource AccentButtonStyle}" />
+                    <Button
+                        x:Name="SkipMigrationAccountAuthenticationButton"
+                        HorizontalAlignment="Center"
+                        AutomationProperties.AutomationId="SkipMigrationAccountAuthenticationButton"
+                        Command="{x:Bind ViewModel.SkipAuthenticationCommand}"
+                        Content="{x:Bind domain:Translator.Migration_SkipAccountAuthentication, Mode=OneTime}"
+                        Style="{StaticResource TransparentActionButtonStyle}" />
+                    <StackPanel
+                        HorizontalAlignment="Center"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <ProgressRing
+                            Width="16"
+                            Height="16"
+                            IsActive="{x:Bind ViewModel.IsAuthorizing, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsAuthorizing, Mode=OneWay}" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.AuthorizationProgressText, Mode=OneWay}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
 
             <StackPanel
                 x:Name="MigrationRunningPanel"

@@ -3,14 +3,14 @@
     <!--
         Palette for the empty-state illustrations. The system has four colour roles and no more:
         accent (the subject), warm (the single optimistic note), neutrals (the container), surface.
-
+        
         Accent tints are NOT brushes. Shapes fill with the accent brush and set Opacity (0.20 soft,
         0.45 mid) so the whole family follows SystemAccentColor without a second set of resources.
-
+        
         WinoIllustrationAccentBrush aliases AccentFillColorDefaultBrush, and NewThemeService.SetBrushResource
         mutates that brush instance in place rather than replacing it. The alias therefore tracks whatever
         accent the active app theme installs (Forest teal, Nighty gold, Garden green) with nothing to sync.
-
+        
         These values are the Default and system-theme baseline. App themes in AppThemes/*.xaml are merged
         into Application.Resources AFTER this dictionary, so any of them may override the surface, line,
         line-soft, warm and shadow keys to sit correctly on a wallpaper. Only Default.xaml deliberately
@@ -27,9 +27,9 @@
             <StaticResource x:Key="WinoIllustrationAccentBrush" ResourceKey="AccentFillColorDefaultBrush" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
-            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush" Color="#24242C" />
-            <SolidColorBrush x:Key="WinoIllustrationLineBrush" Color="#3C3C48" />
-            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush" Color="#2F2F3A" />
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush" Color="#3C3C43" />
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush" Color="#52525D" />
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush" Color="#46464F" />
             <SolidColorBrush x:Key="WinoIllustrationWarmBrush" Color="#F5C05C" />
             <SolidColorBrush x:Key="WinoIllustrationShadowBrush" Color="#52000000" />
             <SolidColorBrush x:Key="WinoIllustrationBrandSolidBrush" Color="#7FBAFF" />

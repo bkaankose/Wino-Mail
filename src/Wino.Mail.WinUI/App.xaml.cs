@@ -795,7 +795,23 @@ public partial class App : WinoApplication,
                 await LaunchWelcomeWindowAsync();
         }
 
+        // Keep the migration window alive until its replacement is active. Closing the only active
+        // XAML window first can terminate the process natively before shell activation settles.
+        await EnsurePostMigrationWindowActiveAsync();
+
         CloseMigrationWindowIfPresent();
+    }
+
+    private async Task EnsurePostMigrationWindowActiveAsync()
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        var replacementWindow = windowManager.GetWindow(WinoWindowKind.Shell)
+                                ?? windowManager.GetWindow(WinoWindowKind.Welcome);
+        if (replacementWindow == null)
+            throw new InvalidOperationException("Migration completed without creating a replacement application window.");
+
+        await ActivateWindowAsync(replacementWindow);
+        LogActivation("Replacement window activated before closing the migration window.");
     }
 
     private AppActivationArguments ResolveStartupActivation()

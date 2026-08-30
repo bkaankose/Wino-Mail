@@ -1034,18 +1034,20 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private void SetMailRowHoverActionVisibility(DependencyObject? rowRoot, bool isVisible)
     {
-        var hoverActionButtons = FindDescendantByName<FrameworkElement>(rowRoot, "HoverActionButtons");
-
-        if (hoverActionButtons == null)
+        if (ResolveMailListRow(rowRoot) is not { } row)
             return;
 
         var shouldShowHoverActions = isVisible && ViewModel.PreferencesService.IsHoverActionsEnabled;
 
-        hoverActionButtons.Visibility = shouldShowHoverActions
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        // The overlay is x:Load-deferred on this flag, so a row the pointer never reaches
+        // never builds its hover buttons.
+        row.IsPointerOver = shouldShowHoverActions;
 
-        if (shouldShowHoverActions)
+        // Already-realized overlays keep their glyphs across hovers, so they are refreshed
+        // here to pick up hover action preference changes. A first realization is covered by
+        // MailRowHoverActionButtonLoaded instead.
+        if (shouldShowHoverActions &&
+            FindDescendantByName<FrameworkElement>(rowRoot, "HoverActionButtons") is { } hoverActionButtons)
         {
             RefreshHoverActionButtons(hoverActionButtons);
         }

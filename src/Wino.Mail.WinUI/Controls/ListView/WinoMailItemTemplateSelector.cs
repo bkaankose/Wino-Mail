@@ -14,6 +14,7 @@ namespace Wino.Mail.WinUI.Controls.ListView;
 public partial class WinoMailItemTemplateSelector : DataTemplateSelector
 {
     private IPreferencesService? _preferencesService;
+    private MailListDisplayMode? _displayMode;
 
     public DataTemplate? SingleMailItemTemplate { get; set; }
     public DataTemplate? CompactSingleMailItemTemplate { get; set; }
@@ -75,9 +76,37 @@ public partial class WinoMailItemTemplateSelector : DataTemplateSelector
             _ => ThreadMailItemTemplate
         };
 
+    /// <summary>
+    /// Resolves the display mode once per selector. Template selection runs for every realized
+    /// row, so the preference is not re-read there; a change reloads the list anyway.
+    /// </summary>
     private MailListDisplayMode GetDisplayMode()
     {
-        _preferencesService ??= WinoApplication.Current.Services.GetService<IPreferencesService>();
-        return _preferencesService?.MailItemDisplayMode ?? MailListDisplayMode.Spacious;
+        if (_displayMode is { } cachedDisplayMode)
+        {
+            return cachedDisplayMode;
+        }
+
+        if (_preferencesService is null)
+        {
+            _preferencesService = WinoApplication.Current.Services.GetService<IPreferencesService>();
+            if (_preferencesService is not null)
+            {
+                _preferencesService.PreferenceChanged += OnPreferenceChanged;
+            }
+        }
+
+        var displayMode = _preferencesService?.MailItemDisplayMode ?? MailListDisplayMode.Spacious;
+        _displayMode = displayMode;
+
+        return displayMode;
+    }
+
+    private void OnPreferenceChanged(object? sender, string propertyName)
+    {
+        if (propertyName == nameof(IPreferencesService.MailItemDisplayMode))
+        {
+            _displayMode = null;
+        }
     }
 }

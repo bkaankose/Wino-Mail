@@ -46,9 +46,9 @@
             <SolidColorBrush x:Key="WelcomeOverlayBrush" Color="{StaticResource MainCustomThemeColor}" />
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
-            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#23232B</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#464650</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#34343E</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#3B3B42</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#5C5C65</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#4A4A53</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F5C05C</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#66000000</SolidColorBrush>
             <!--  Reading Page Date/Name Group Header Background  -->

@@ -11,16 +11,18 @@ public sealed class MailAuthenticatorConfigurationTests
     private readonly MailAuthenticatorConfiguration _configuration = new();
 
     [Fact]
-    public void GmailTokenStorePath_UsesPublisherSharedFolderWhenAvailable()
+    public void GmailTokenStorePath_UsesLocalStateFolder()
     {
+        var localStateFolder = Path.Combine(Path.GetTempPath(), "LocalState");
         var publisherFolder = Path.Combine(Path.GetTempPath(), "WinoShared");
         var configuration = new MailAuthenticatorConfiguration(new ApplicationConfiguration
         {
+            ApplicationDataFolderPath = localStateFolder,
             PublisherSharedFolderPath = publisherFolder
         });
 
         configuration.GmailTokenStorePath.Should().Be(
-            Path.Combine(publisherFolder, configuration.GmailTokenStoreIdentifier));
+            Path.Combine(localStateFolder, configuration.GmailTokenStoreIdentifier));
     }
 
     [Fact]

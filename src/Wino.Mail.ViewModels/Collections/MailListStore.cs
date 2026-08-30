@@ -44,10 +44,23 @@ public sealed class MailListStore
             }
         }));
 
-    public bool ContainsThreadId(string threadId) =>
-        !string.IsNullOrWhiteSpace(threadId) &&
-        ((IEnumerable<MailItemViewModel>)Items).Any(
-            item => string.Equals(item.ThreadKey, threadId, StringComparison.Ordinal));
+    public bool ContainsThreadId(string threadId)
+    {
+        if (string.IsNullOrWhiteSpace(threadId))
+        {
+            return false;
+        }
+
+        foreach (var item in Items)
+        {
+            if (string.Equals(item.ThreadKey, threadId, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     public bool ContainsMailUniqueId(Guid uniqueId) => Items.ContainsId(uniqueId);
 
@@ -82,47 +95,84 @@ public sealed class MailListStore
             }
         }));
 
-    public Task AddRangeAsync(
+    /// <summary>
+    /// Replaces the whole list with a new page in a single UI-thread pass. Used by folder,
+    /// filter, sorting and search loads so a switch costs one dispatcher hop and one
+    /// collection reset instead of a clear followed by a refill.
+    /// </summary>
+    public Task ResetAsync(
         IEnumerable<MailItemViewModel> items,
-        bool clearIdCache,
-        Func<bool> shouldApply = null) =>
-        RunSerializedAsync(() => ExecuteUIThread(() =>
+        Func<bool> shouldApply = null)
+    {
+        // Deduplication happens on the calling (background) thread. Only the collection
+        // mutation itself needs the UI thread.
+        var incoming = Deduplicate(items);
+
+        return RunSerializedAsync(() => ExecuteUIThread(() =>
         {
             if (shouldApply?.Invoke() == false)
             {
                 return;
             }
 
-            var incoming = items?
-                .Where(static item => item is not null)
-                .GroupBy(static item => item.UniqueId)
-                .Select(static group => group.Last())
-                .ToArray() ?? [];
+            using (Items.DeferRefresh())
+            {
+                Items.ReplaceAll(incoming);
+            }
+
+            MailListLoadTrace.MarkCurrent(MailListLoadStage.StoreApplied);
+        }));
+    }
+
+    public Task AddRangeAsync(
+        IEnumerable<MailItemViewModel> items,
+        bool clearIdCache,
+        Func<bool> shouldApply = null)
+    {
+        var incoming = Deduplicate(items);
+
+        return RunSerializedAsync(() => ExecuteUIThread(() =>
+        {
+            if (shouldApply?.Invoke() == false)
+            {
+                return;
+            }
 
             using (Items.DeferRefresh())
             {
                 if (clearIdCache)
                 {
                     Items.ReplaceAll(incoming);
-                    return;
                 }
-
-                var additions = new List<MailItemViewModel>(incoming.Length);
-                foreach (var item in incoming)
+                else
                 {
-                    if (Items.TryGetItem(item.UniqueId, out MailItemViewModel existing))
+                    var additions = new List<MailItemViewModel>(incoming.Length);
+                    foreach (var item in incoming)
                     {
-                        existing.UpdateFrom(item.MailCopy);
+                        if (Items.TryGetItem(item.UniqueId, out MailItemViewModel existing))
+                        {
+                            existing.UpdateFrom(item.MailCopy);
+                        }
+                        else
+                        {
+                            additions.Add(item);
+                        }
                     }
-                    else
-                    {
-                        additions.Add(item);
-                    }
-                }
 
-                Items.AddRange(additions);
+                    Items.AddRange(additions);
+                }
             }
+
+            MailListLoadTrace.MarkCurrent(MailListLoadStage.StoreApplied);
         }));
+    }
+
+    private static MailItemViewModel[] Deduplicate(IEnumerable<MailItemViewModel> items) =>
+        items?
+            .Where(static item => item is not null)
+            .GroupBy(static item => item.UniqueId)
+            .Select(static group => group.Last())
+            .ToArray() ?? [];
 
     public Task UpdateThumbnailsForAddressAsync(string address)
     {
@@ -165,15 +215,16 @@ public sealed class MailListStore
     public Task UpdateMailCopiesAsync(
         IEnumerable<MailCopy> updatedMailCopies,
         EntityUpdateSource mailUpdateSource,
-        MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None) =>
-        RunSerializedAsync(() => ExecuteUIThread(() =>
-        {
-            var copies = updatedMailCopies?
-                .Where(static copy => copy is not null)
-                .GroupBy(static copy => copy.UniqueId)
-                .Select(static group => group.Last())
-                .ToArray() ?? [];
+        MailCopyChangeFlags changedProperties = MailCopyChangeFlags.None)
+    {
+        var copies = updatedMailCopies?
+            .Where(static copy => copy is not null)
+            .GroupBy(static copy => copy.UniqueId)
+            .Select(static group => group.Last())
+            .ToArray() ?? [];
 
+        return RunSerializedAsync(() => ExecuteUIThread(() =>
+        {
             using (Items.DeferRefresh())
             {
                 foreach (var copy in copies)
@@ -188,6 +239,7 @@ public sealed class MailListStore
                 }
             }
         }));
+    }
 
     public Task UpdateMailStateAsync(
         MailStateChange updatedState,
@@ -206,15 +258,16 @@ public sealed class MailListStore
 
     public Task UpdateMailStatesAsync(
         IEnumerable<MailStateChange> updatedStates,
-        EntityUpdateSource mailUpdateSource) =>
-        RunSerializedAsync(() => ExecuteUIThread(() =>
-        {
-            var states = updatedStates?
-                .Where(static state => state is not null)
-                .GroupBy(static state => state.UniqueId)
-                .Select(static group => group.Last())
-                .ToArray() ?? [];
+        EntityUpdateSource mailUpdateSource)
+    {
+        var states = updatedStates?
+            .Where(static state => state is not null)
+            .GroupBy(static state => state.UniqueId)
+            .Select(static group => group.Last())
+            .ToArray() ?? [];
 
+        return RunSerializedAsync(() => ExecuteUIThread(() =>
+        {
             foreach (var state in states)
             {
                 if (!Items.TryGetItem(state.UniqueId, out MailItemViewModel existing))
@@ -226,6 +279,7 @@ public sealed class MailListStore
                 existing.IsBusy = mailUpdateSource == EntityUpdateSource.ClientUpdated;
             }
         }));
+    }
 
     public MailItemViewModel GetFirst() => Items.Count > 0 ? Items[0] : null;
 
@@ -233,10 +287,12 @@ public sealed class MailListStore
     {
         try
         {
-            var index = ((IEnumerable<MailItemViewModel>)Items)
-                .Select(static item => item.UniqueId)
-                .ToList()
-                .IndexOf(mailCopy.UniqueId);
+            if (mailCopy is null || !Items.TryGetItem(mailCopy.UniqueId, out MailItemViewModel current))
+            {
+                return null;
+            }
+
+            var index = Items.IndexOf(current);
             return index >= 0 && index + 1 < Items.Count ? Items[index + 1] : null;
         }
         catch (Exception ex)

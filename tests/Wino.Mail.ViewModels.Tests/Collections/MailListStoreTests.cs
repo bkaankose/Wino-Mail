@@ -170,6 +170,90 @@ public sealed class MailListStoreTests
         store.ItemIds.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task ResetAsync_ReplacesContentInOneDispatchedMutation()
+    {
+        var dispatcher = new RecordingDispatcher();
+        var store = new MailListStore
+        {
+            CoreDispatcher = dispatcher,
+        };
+        await store.ResetAsync(
+        [
+            new MailItemViewModel(CreateMailCopy("old-thread")),
+        ]);
+        dispatcher.ExecutionCount = 0;
+
+        var replacement = CreateMailCopy("new-thread");
+        await store.ResetAsync(
+            Enumerable.Range(0, 50)
+                .Select(_ => new MailItemViewModel(CreateMailCopy("bulk-thread")))
+                .Append(new MailItemViewModel(replacement)));
+
+        dispatcher.ExecutionCount.Should().Be(1);
+        store.Count.Should().Be(51);
+        store.ContainsMailUniqueId(replacement.UniqueId).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ResetAsync_DropsPreviousIdentities()
+    {
+        var store = CreateStore();
+        var outgoing = CreateMailCopy("outgoing-thread");
+        await store.ResetAsync([new MailItemViewModel(outgoing)]);
+
+        var incoming = CreateMailCopy("incoming-thread");
+        await store.ResetAsync([new MailItemViewModel(incoming)]);
+
+        store.ContainsMailUniqueId(outgoing.UniqueId).Should().BeFalse();
+        store.ItemIds.Should().Equal(incoming.UniqueId);
+    }
+
+    [Fact]
+    public async Task ResetAsync_WithNoItems_ClearsTheList()
+    {
+        var store = CreateStore();
+        await store.ResetAsync([new MailItemViewModel(CreateMailCopy("thread-1"))]);
+
+        await store.ResetAsync([]);
+
+        ((IEnumerable<MailItemViewModel>)store.Items).Should().BeEmpty();
+        store.ItemIds.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ResetAsync_WhenRequestIsStale_LeavesPreviousContentInPlace()
+    {
+        var store = CreateStore();
+        var retained = CreateMailCopy("retained-thread");
+        await store.ResetAsync([new MailItemViewModel(retained)]);
+        var collectionChanges = new List<NotifyCollectionChangedAction>();
+        store.Items.CollectionChanged += (_, args) => collectionChanges.Add(args.Action);
+
+        await store.ResetAsync(
+            [new MailItemViewModel(CreateMailCopy("stale-thread"))],
+            shouldApply: static () => false);
+
+        store.ItemIds.Should().Equal(retained.UniqueId);
+        collectionChanges.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ResetAsync_DeduplicatesIncomingIdentities()
+    {
+        var store = CreateStore();
+        var duplicated = CreateMailCopy("thread-1");
+
+        await store.ResetAsync(
+        [
+            new MailItemViewModel(duplicated),
+            new MailItemViewModel(CloneMailCopy(duplicated)),
+            null,
+        ]);
+
+        store.Count.Should().Be(1);
+    }
+
     private static MailListStore CreateStore() => new()
     {
         CoreDispatcher = new ImmediateDispatcher(),

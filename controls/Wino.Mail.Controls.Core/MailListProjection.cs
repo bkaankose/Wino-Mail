@@ -21,6 +21,7 @@ public sealed partial class MailListProjection : IDisposable
     private MailListProjectionOptions _options;
     private bool _isDisposed;
     private bool _isRebuildPending;
+    private bool _isHardResetPending;
 
     public MailListProjection(
         IMailListCollection source,
@@ -38,11 +39,26 @@ public sealed partial class MailListProjection : IDisposable
 
     public event EventHandler<ThreadExpansionChangedEventArgs>? ThreadExpansionChanged;
 
+    /// <summary>
+    /// Raised immediately before every group is replaced wholesale. A host that binds the
+    /// groups can detach here so the swap costs one items refresh instead of one per group.
+    /// </summary>
+    public event EventHandler? GroupsResetting;
+
+    /// <summary>Raised after a wholesale group replacement completes.</summary>
+    public event EventHandler? GroupsReset;
+
     public ObservableCollection<MailListGroup> Groups => _groups;
 
     public IReadOnlyCollection<string> ExpandedThreadKeys => _expandedThreadKeys;
 
     public IEnumerable<MailListRow> Rows => _groups.SelectMany(static group => group);
+
+    /// <summary>
+    /// Number of projected rows. Maintained as rows are published so callers on hot paths
+    /// (container realization, phasing) never enumerate every group to count.
+    /// </summary>
+    public int RowCount { get; private set; }
 
     public IEnumerable<IMailListSourceItem> Items => _source;
 
@@ -214,6 +230,7 @@ public sealed partial class MailListProjection : IDisposable
                 _rowsByItemId[thread.RepresentativeItem.StableId] = group[headIndex];
             }
 
+            RefreshRowCount();
             return;
         }
     }
@@ -283,6 +300,10 @@ public sealed partial class MailListProjection : IDisposable
             {
                 Subscribe(item);
             }
+
+            // A reset replaces the identity set outright, so no existing row survives.
+            // The next rebuild can publish new groups wholesale instead of reconciling.
+            _isHardResetPending = true;
         }
 
         RequestRebuild();
@@ -325,19 +346,31 @@ public sealed partial class MailListProjection : IDisposable
 
     private void Rebuild()
     {
+        MailListLoadTrace.MarkCurrent(MailListLoadStage.ProjectionRebuildStarted);
         ProjectionChanging?.Invoke(this, EventArgs.Empty);
         RebuildCore();
         ProjectionChanged?.Invoke(this, EventArgs.Empty);
+
+        if (MailListLoadTrace.Current is { } trace)
+        {
+            trace.RowCount = RowCount;
+            trace.Mark(MailListLoadStage.ProjectionRebuildCompleted);
+        }
     }
 
     private void RebuildCore()
     {
+        var isHardReset = _isHardResetPending;
+        _isHardResetPending = false;
+
         var sourceItems = _source.ToArray();
-        var existingRows = Rows
-            .GroupBy(GetRowIdentity)
-            .ToDictionary(
-                static group => group.Key,
-                static group => group.First());
+        var existingRows = isHardReset
+            ? new Dictionary<RowIdentity, MailListRow>()
+            : Rows
+                .GroupBy(GetRowIdentity)
+                .ToDictionary(
+                    static group => group.Key,
+                    static group => group.First());
         var existingThreads = new Dictionary<string, MailListThread>(
             _threadsByKey,
             StringComparer.Ordinal);
@@ -367,13 +400,50 @@ public sealed partial class MailListProjection : IDisposable
                 group.SelectMany(static block => block.Rows).ToArray()))
             .ToArray();
 
-        ReconcileGroups(desiredGroups);
+        if (isHardReset)
+        {
+            ResetGroups(desiredGroups);
+        }
+        else
+        {
+            ReconcileGroups(desiredGroups);
+        }
 
         _rowsByItemId.Clear();
         foreach (var row in Rows)
         {
             _rowsByItemId[row.SourceItem.StableId] = row;
         }
+
+        RefreshRowCount();
+    }
+
+    /// <summary>
+    /// Publishes an entirely new set of groups in one swap. Used when no existing row can be
+    /// reused, where reconciling would emit one collection change per row for no benefit.
+    /// </summary>
+    private void ResetGroups(IReadOnlyList<DesiredGroup> desiredGroups)
+    {
+        GroupsResetting?.Invoke(this, EventArgs.Empty);
+
+        _groups.Clear();
+        foreach (var desiredGroup in desiredGroups)
+        {
+            _groups.Add(new MailListGroup(desiredGroup.Key, desiredGroup.Rows));
+        }
+
+        GroupsReset?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void RefreshRowCount()
+    {
+        var count = 0;
+        foreach (var group in _groups)
+        {
+            count += group.Count;
+        }
+
+        RowCount = count;
     }
 
     private IEnumerable<RowBlock> CreateBlocks(
@@ -513,17 +583,26 @@ public sealed partial class MailListProjection : IDisposable
 
     private void ReconcileGroups(IReadOnlyList<DesiredGroup> desiredGroups)
     {
+        var existingGroupsByKey = new Dictionary<object, MailListGroup>(_groups.Count);
+        foreach (var group in _groups)
+        {
+            existingGroupsByKey.TryAdd(group.Key, group);
+        }
+
         var targetGroups = new List<MailListGroup>(desiredGroups.Count);
+        var targetGroupSet = new HashSet<MailListGroup>();
         foreach (var desiredGroup in desiredGroups)
         {
-            var existingGroup = _groups.FirstOrDefault(
-                group => Equals(group.Key, desiredGroup.Key));
-            targetGroups.Add(existingGroup ?? new MailListGroup(desiredGroup.Key, []));
+            var targetGroup = existingGroupsByKey.TryGetValue(desiredGroup.Key, out var existingGroup)
+                ? existingGroup
+                : new MailListGroup(desiredGroup.Key, []);
+            targetGroups.Add(targetGroup);
+            targetGroupSet.Add(targetGroup);
         }
 
         for (var index = _groups.Count - 1; index >= 0; index--)
         {
-            if (!targetGroups.Contains(_groups[index]))
+            if (!targetGroupSet.Contains(_groups[index]))
             {
                 _groups.RemoveAt(index);
             }
@@ -569,6 +648,8 @@ public sealed partial class MailListProjection : IDisposable
         MailListGroup group,
         IReadOnlyList<MailListRow> desiredRows)
     {
+        // Rows that are already in position take the reference check and cost nothing.
+        // A full rebuild, where nothing matches, goes through ResetGroups instead of here.
         for (var index = 0; index < desiredRows.Count; index++)
         {
             var desiredRow = desiredRows[index];

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -19,8 +20,6 @@ namespace Wino.Authentication;
 
 public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, ISubstrateTaskTokenProvider
 {
-    private const string TokenCacheFileName = "OutlookCache.bin";
-
     // Exchange Online, not Graph. MSAL issues one token per resource, so this can never be
     // folded into GetScope and has to be acquired on its own.
     private static readonly string[] SubstrateTaskScopes = ["https://outlook.office.com/Tasks.ReadWrite"];
@@ -81,7 +80,14 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
     {
         if (!isTokenCacheAttached)
         {
-            var storageProperties = new StorageCreationPropertiesBuilder(TokenCacheFileName, _applicationConfiguration.PublisherSharedFolderPath).Build();
+            var tokenCachePath = AuthenticationTokenStorePaths.GetOutlookTokenCachePath(_applicationConfiguration);
+            var tokenCacheDirectory = Path.GetDirectoryName(tokenCachePath)
+                ?? throw new InvalidOperationException("The Outlook token cache path has no parent directory.");
+            Directory.CreateDirectory(tokenCacheDirectory);
+
+            var storageProperties = new StorageCreationPropertiesBuilder(
+                Path.GetFileName(tokenCachePath),
+                tokenCacheDirectory).Build();
             var msalcachehelper = await MsalCacheHelper.CreateAsync(storageProperties);
             msalcachehelper.RegisterCache(_publicClientApplication.UserTokenCache);
 

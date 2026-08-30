@@ -1,6 +1,4 @@
-using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -19,10 +17,8 @@ public class MailAuthenticatorConfiguration : IAuthenticatorConfig
 
     public string OutlookAuthenticatorClientId => "b19c2035-d740-49ff-b297-de6ec561b208";
     public string GmailAuthenticatorClientId => "973025879644-s7b4ur9p3rlgop6a22u7iuptdc0brnrn.apps.googleusercontent.com";
-    public string GmailTokenStoreIdentifier => "WinoMailGmailTokenStore";
-    public string GmailTokenStorePath => !string.IsNullOrWhiteSpace(_applicationConfiguration?.PublisherSharedFolderPath)
-        ? Path.Combine(_applicationConfiguration.PublisherSharedFolderPath, GmailTokenStoreIdentifier)
-        : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), GmailTokenStoreIdentifier);
+    public string GmailTokenStoreIdentifier => AuthenticationTokenStorePaths.GmailTokenStoreFolderName;
+    public string GmailTokenStorePath => AuthenticationTokenStorePaths.GetGmailTokenStorePath(_applicationConfiguration);
 
     public string[] GetOutlookScopes(ProviderAuthorizationRequest request)
     {

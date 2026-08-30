@@ -62,36 +62,6 @@
         <Grid Grid.RowSpan="2" Background="{ThemeResource WinoApplicationBackgroundColor}" />
         <UserControl x:Name="ShellTitleBarHost" IsTabStop="False">
             <Grid x:Name="TitleBarStateHost">
-                <!--
-                    The title bar gives up its pieces in the order it can most afford to. First the search
-                    field collapses into a single icon that opens the field beneath itself, the way the
-                    Settings app does it; only when the window is narrower still do the app title and the
-                    folder subtitle go, leaving the pane toggle, the icon and the account button.
-
-                    Triggers are declared narrowest first: the last state whose trigger is active wins. The
-                    states carry no Setters. Setter.Target cannot reach ShellTitleHost or TitleBarSearchBox
-                    because the TitleBar hosts them through its own template, outside this namescope, so the
-                    width state is applied from ApplyTitleBarWidthState in the code-behind instead.
-                -->
-                <VisualStateManager.VisualStateGroups>
-                    <VisualStateGroup x:Name="TitleBarWidthStates">
-                        <VisualState x:Name="MinimalTitleBarState">
-                            <VisualState.StateTriggers>
-                                <AdaptiveTrigger MinWindowWidth="0" />
-                            </VisualState.StateTriggers>
-                        </VisualState>
-                        <VisualState x:Name="CompactTitleBarState">
-                            <VisualState.StateTriggers>
-                                <AdaptiveTrigger MinWindowWidth="560" />
-                            </VisualState.StateTriggers>
-                        </VisualState>
-                        <VisualState x:Name="WideTitleBarState">
-                            <VisualState.StateTriggers>
-                                <AdaptiveTrigger MinWindowWidth="900" />
-                            </VisualState.StateTriggers>
-                        </VisualState>
-                    </VisualStateGroup>
-                </VisualStateManager.VisualStateGroups>
                 <TitleBar
                     x:Name="ShellTitleBar"
                     Margin="-2"
@@ -107,7 +77,7 @@
                         TitleBar's own Title/Subtitle are left unset and rendered here instead: that is
                         what lets a running synchronization fade them out without collapsing their
                         columns, which would slide the search box out of the middle of the window.
-            
+                        
                         The button itself keeps a fixed 36x36 footprint and overhangs its pill to the
                         right, so nothing in the title bar reflows while it is expanded either.
                     -->
@@ -434,14 +404,44 @@
                                         Visibility="Collapsed" />
                                     <Image
                                         x:Name="WinoAccountSignedOutIcon"
-                                        Width="25"
-                                        Height="30"
-                                        Source="/Assets/AppEntries/MailAssets/StoreLogo.png" />
+                                        Width="22"
+                                        Height="22"
+                                        Source="/Assets/AppEntries/Mail.svg" />
                                 </Grid>
                             </Button>
                         </StackPanel>
                     </TitleBar.RightHeader>
                 </TitleBar>
+                <!--
+                    The title bar gives up its pieces in the order it can most afford to. First the search
+                    field collapses into a single icon that opens the field beneath itself, the way the
+                    Settings app does it; only when the window is narrower still do the app title and the
+                    folder subtitle go, leaving the pane toggle, the icon and the account button.
+                    
+                    Triggers are declared narrowest first: the last state whose trigger is active wins. The
+                    states carry no Setters. Setter.Target cannot reach ShellTitleHost or TitleBarSearchBox
+                    because the TitleBar hosts them through its own template, outside this namescope, so the
+                    width state is applied from ApplyTitleBarWidthState in the code-behind instead.
+                -->
+                <VisualStateManager.VisualStateGroups>
+                    <VisualStateGroup x:Name="TitleBarWidthStates">
+                        <VisualState x:Name="MinimalTitleBarState">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="0" />
+                            </VisualState.StateTriggers>
+                        </VisualState>
+                        <VisualState x:Name="CompactTitleBarState">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="560" />
+                            </VisualState.StateTriggers>
+                        </VisualState>
+                        <VisualState x:Name="WideTitleBarState">
+                            <VisualState.StateTriggers>
+                                <AdaptiveTrigger MinWindowWidth="900" />
+                            </VisualState.StateTriggers>
+                        </VisualState>
+                    </VisualStateGroup>
+                </VisualStateManager.VisualStateGroups>
             </Grid>
         </UserControl>
 

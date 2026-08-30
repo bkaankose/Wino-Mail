@@ -27,9 +27,9 @@
             <SolidColorBrush x:Key="WelcomeOverlayBrush">#D9FFFFFF</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
-            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#1E242E</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#36404F</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#2A323D</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#373C45</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#4D5663</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#414852</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F5C05C</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#52000000</SolidColorBrush>
             <!--  Brushes  -->

@@ -20,12 +20,9 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.Controls.AccountIcon;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.AccountIcon;
-using Wino.Mail.ViewModels;
-using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
@@ -270,6 +267,14 @@ public static class XamlHelpers
         => item is null
             ? new ContactPictureIdentity(string.Empty, string.Empty)
             : GetContactPicture(item.SenderContact, item.FromName, item.FromAddress);
+
+    /// <summary>
+    /// Resolves the avatar identity from a projected row's untyped source item. The mail list
+    /// row templates bind through this so the avatar lives in the container's own compiled
+    /// template, which is the only place <c>x:Phase</c> actually defers work.
+    /// </summary>
+    public static object GetRowContactPicture(object? sourceItem)
+        => GetContactPicture(sourceItem as IMailItemDisplayInformation);
 
     public static object GetContactPicture(IContactDisplayItem? item)
         => item is null

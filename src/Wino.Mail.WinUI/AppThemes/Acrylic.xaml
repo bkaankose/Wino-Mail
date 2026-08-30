@@ -33,9 +33,9 @@
         </ResourceDictionary>
 
         <ResourceDictionary x:Name="Dark">
-            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#2C2C34</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#45454F</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#363640</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#43434A</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#5B5B64</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#4C4C55</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F5C05C</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#5C000000</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#2C2C2C</SolidColorBrush>

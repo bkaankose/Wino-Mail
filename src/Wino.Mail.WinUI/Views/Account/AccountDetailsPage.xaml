@@ -145,10 +145,14 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <accountIcon:WinoAccountIcon
-                            AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureTitle, Mode=OneTime}"
                             Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(ViewModel.Account), Mode=OneWay}"
+                            AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ProfilePictureTitle, Mode=OneTime}"
                             IconSize="48" />
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Orientation="Horizontal"
+                            Spacing="8">
                             <Button
                                 AutomationProperties.AutomationId="AccountDetailsProfilePictureChangeButton"
                                 Command="{x:Bind ViewModel.ChangeProfilePictureCommand}"
@@ -222,8 +226,8 @@
                             Text="{x:Bind domain:Translator.AccountDetailsPage_TasksCapabilityImpact, Mode=OneTime}"
                             TextWrapping="Wrap" />
                         <Button
-                            AutomationProperties.AutomationId="ApplyAccountCapabilities"
                             HorizontalAlignment="Left"
+                            AutomationProperties.AutomationId="ApplyAccountCapabilities"
                             Command="{x:Bind ViewModel.ApplyCapabilitiesCommand}"
                             Content="{x:Bind domain:Translator.Buttons_Apply, Mode=OneTime}" />
                     </StackPanel>
@@ -369,16 +373,26 @@
                     Severity="Informational"
                     Visibility="{x:Bind ViewModel.IsInitialSynchronizationSummaryVisible, Mode=OneWay}" />
 
+                <muxc:InfoBar
+                    x:Name="ProviderManagedSenderNameInfoBar"
+                    Margin="0,0,0,8"
+                    x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsSenderNameEditable), Mode=OneWay}"
+                    AutomationProperties.AutomationId="AccountDetailsProviderManagedSenderNameInfoBar"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind domain:Translator.AccountDetailsPage_SenderNameProviderManagedNote}"
+                    Severity="Informational" />
+
                 <!--
                     Sender display name only reaches the recipient on IMAP. Outlook and Gmail
                     resolve it from the provider, so the field is not shown there at all.
                 -->
                 <controls:SettingsCard
                     x:Name="SenderDisplayNameCard"
+                    x:Load="{x:Bind ViewModel.IsSenderNameEditable, Mode=OneWay}"
                     AutomationProperties.AutomationId="AccountDetailsSenderNameCard"
                     Description="{x:Bind domain:Translator.SettingsEditAccountDetails_Description}"
-                    Header="{x:Bind domain:Translator.AccountSettingsDialog_AccountName}"
-                    x:Load="{x:Bind ViewModel.IsSenderNameEditable, Mode=OneWay}">
+                    Header="{x:Bind domain:Translator.AccountSettingsDialog_AccountName}">
                     <controls:SettingsCard.HeaderIcon>
                         <SymbolIcon Symbol="Contact" />
                     </controls:SettingsCard.HeaderIcon>
@@ -389,9 +403,7 @@
                         Text="{x:Bind ViewModel.SenderName, Mode=TwoWay}" />
                 </controls:SettingsCard>
 
-                <controls:SettingsCard
-                    AutomationProperties.AutomationId="AccountDetailsMailAddressCard"
-                    Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress}">
+                <controls:SettingsCard AutomationProperties.AutomationId="AccountDetailsMailAddressCard" Header="{x:Bind domain:Translator.IMAPSetupDialog_MailAddress}">
                     <controls:SettingsCard.HeaderIcon>
                         <SymbolIcon Symbol="Mail" />
                     </controls:SettingsCard.HeaderIcon>
@@ -402,15 +414,7 @@
                         Text="{x:Bind ViewModel.Address, Mode=OneWay}" />
                 </controls:SettingsCard>
 
-                <muxc:InfoBar
-                    x:Name="ProviderManagedSenderNameInfoBar"
-                    Margin="0,0,0,8"
-                    AutomationProperties.AutomationId="AccountDetailsProviderManagedSenderNameInfoBar"
-                    IsClosable="False"
-                    IsOpen="True"
-                    Message="{x:Bind domain:Translator.AccountDetailsPage_SenderNameProviderManagedNote}"
-                    Severity="Informational"
-                    x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsSenderNameEditable), Mode=OneWay}" />
+
 
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="AccountDetailsWinoIntelligenceCard"

@@ -106,7 +106,7 @@ internal static class Program
             {
                 return await SubstrateTaskGroupProbe.RunAsync(
                     options.TodoGroupProbeAddress,
-                    paths.PublisherFolder,
+                    paths.ApplicationDataFolder,
                     cancellation.Token).ConfigureAwait(false);
             }
             if (options.IndexAccountAddress is not null)
@@ -1597,7 +1597,7 @@ internal static class Program
     private static bool ValidatePaths(ConsolePaths paths)
     {
         var databasePath = Path.Combine(paths.PublisherFolder, "Wino200.db");
-        var tokenCachePath = Path.Combine(paths.PublisherFolder, "OutlookCache.bin");
+        var tokenCachePath = Path.Combine(paths.ApplicationDataFolder, "OutlookCache.bin");
         var valid = true;
         if (!File.Exists(databasePath))
         {

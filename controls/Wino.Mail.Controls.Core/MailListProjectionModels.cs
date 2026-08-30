@@ -32,6 +32,8 @@ public sealed class MailListThread
 #endif
 public sealed partial class MailListRow : INotifyPropertyChanged
 {
+    private bool _isPointerOver;
+
     private MailListRow(
         MailListRowKind kind,
         IMailListSourceItem sourceItem,
@@ -43,6 +45,25 @@ public sealed partial class MailListRow : INotifyPropertyChanged
     }
 
     public MailListRowKind Kind { get; }
+
+    /// <summary>
+    /// Whether the pointer is currently over this row. Row-level hover affordances are
+    /// deferred on this so they are never built for rows the pointer does not reach.
+    /// </summary>
+    public bool IsPointerOver
+    {
+        get => _isPointerOver;
+        set
+        {
+            if (_isPointerOver == value)
+            {
+                return;
+            }
+
+            _isPointerOver = value;
+            PropertyChanged?.Invoke(this, new(nameof(IsPointerOver)));
+        }
+    }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

@@ -42,6 +42,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
     private readonly IApplicationConfiguration _configuration;
     private readonly IDatabaseSchemaService _schemaService;
     private readonly IAccountProfilePictureFileService _profilePictureFileService;
+    private readonly IAuthenticationTokenMigrationService _authenticationTokenMigrationService;
     private readonly IMigrationClock _clock;
     private readonly SemaphoreSlim _migrationLock = new(1, 1);
 
@@ -51,11 +52,14 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
         IApplicationConfiguration configuration,
         IDatabaseSchemaService schemaService,
         IAccountProfilePictureFileService profilePictureFileService,
+        IAuthenticationTokenMigrationService authenticationTokenMigrationService = null,
         IMigrationClock clock = null)
     {
         _configuration = configuration;
         _schemaService = schemaService;
         _profilePictureFileService = profilePictureFileService;
+        _authenticationTokenMigrationService = authenticationTokenMigrationService
+            ?? new AuthenticationTokenMigrationService(configuration);
         _clock = clock ?? new SystemMigrationClock();
     }
 
@@ -75,6 +79,22 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
                 .ConfigureAwait(false);
             if (destinationValidation.IsValid)
             {
+                var pendingAuthorizationAccounts = await ReadPendingAuthorizationAccountsAsync(
+                        destinationPath,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (pendingAuthorizationAccounts.Count > 0)
+                {
+                    return new MigrationPlan(
+                        MigrationStatus.AwaitingUser,
+                        sourcePath,
+                        stagingPath,
+                        destinationPath,
+                        true,
+                        pendingAuthorizationAccounts,
+                        "Some selected account features still need provider authorization.");
+                }
+
                 return new MigrationPlan(
                     MigrationStatus.NotRequired,
                     sourcePath,
@@ -238,7 +258,15 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
                         "Wino is preserving reusable credentials and marking accounts that need sign-in after migration.",
                         async () =>
                         {
-                            await ApplyAccountMappingsAsync(destination, accountOptions, cancellationToken).ConfigureAwait(false);
+                            var authenticationMigration = await _authenticationTokenMigrationService
+                                .PrepareAsync(accountOptions, cancellationToken)
+                                .ConfigureAwait(false);
+                            await ApplyAccountMappingsAsync(
+                                    destination,
+                                    accountOptions,
+                                    authenticationMigration.ReusableGmailAccountIds,
+                                    cancellationToken)
+                                .ConfigureAwait(false);
                             await SaveCheckpointAsync(destination, activeStep.Value, accountOptions).ConfigureAwait(false);
                         },
                         cancellationToken).ConfigureAwait(false);
@@ -298,6 +326,10 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
                         if (!finalValidation.IsValid)
                             throw new InvalidDataException(finalValidation.ErrorMessage ?? finalValidation.IntegrityResult);
 
+                        await _authenticationTokenMigrationService
+                            .FinalizeAsync(accountOptions, cancellationToken)
+                            .ConfigureAwait(false);
+
                         PromoteStagingDatabase(plan.StagingPath, plan.DestinationPath);
                     },
                     cancellationToken).ConfigureAwait(false);
@@ -318,8 +350,11 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
                     () => Task.CompletedTask,
                     cancellationToken).ConfigureAwait(false);
 
+                var pendingAuthorization = accountOptions
+                    .Where(RequiresFeatureAuthorization)
+                    .ToArray();
                 return new MigrationResult(
-                    MigrationStatus.Completed,
+                    pendingAuthorization.Length > 0 ? MigrationStatus.AwaitingUser : MigrationStatus.Completed,
                     AccountCount: (int)accountCount,
                     MailCount: mailCount,
                     CalendarCount: calendarCount,
@@ -399,6 +434,39 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
         finally
         {
             _migrationLock.Release();
+        }
+    }
+
+    public async Task MarkAccountAuthorizationResolvedAsync(
+        Guid accountId,
+        bool wasSkipped,
+        CancellationToken cancellationToken = default)
+    {
+        var destinationPath = GetPath(DatabaseService.CurrentDatabaseName);
+        if (!File.Exists(destinationPath))
+            throw new FileNotFoundException("The migrated database could not be found.", destinationPath);
+
+        var connection = new SQLiteAsyncConnection(destinationPath);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var metadata = await ReadMetadataAsync(connection).ConfigureAwait(false);
+            var pendingIds = ParseAccountIds(metadata.PendingAuthenticationAccountIds);
+            pendingIds.Remove(accountId);
+            metadata.PendingAuthenticationAccountIds = string.Join(",", pendingIds.Select(id => id.ToString("N")));
+            var deferredIds = ParseAccountIds(metadata.DeferredAccountIds);
+            if (wasSkipped)
+                deferredIds.Add(accountId);
+            else
+                deferredIds.Remove(accountId);
+            metadata.DeferredAccountIds = string.Join(",", deferredIds.Select(id => id.ToString("N")));
+            metadata.IsAuthenticationQueueInitialized = true;
+            metadata.UpdatedAtUtc = DateTime.UtcNow;
+            await UpsertMetadataAsync(connection, metadata).ConfigureAwait(false);
+        }
+        finally
+        {
+            await connection.CloseAsync().ConfigureAwait(false);
         }
     }
 
@@ -523,6 +591,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
     private async Task ApplyAccountMappingsAsync(
         SQLiteAsyncConnection connection,
         IReadOnlyList<MigrationAccountOptions> accountOptions,
+        IReadOnlyCollection<Guid> reusableGmailAccountIds,
         CancellationToken cancellationToken)
     {
         try
@@ -576,6 +645,7 @@ SET IsSemanticIndexingEnabled = 0,
             var contactsEnabled = providerBacked && option.EnableContacts;
             var providerTasksEnabled = providerBacked && option.EnableTasks;
             var localTasksEnabled = option.ProviderType == MailProviderType.IMAP4 && option.EnableTasks;
+            var hasReusableGmailToken = reusableGmailAccountIds.Contains(option.AccountId);
 
             try
             {
@@ -585,13 +655,19 @@ SET IsContactAccessEnabled = ?,
     IsContactReauthorizationRequired = ?,
     IsTaskAccessEnabled = ?,
     IsTaskReauthorizationRequired = ?,
-    AttentionReason = CASE WHEN ProviderType = {(int)MailProviderType.Gmail} AND ? = 1 THEN {(int)AccountAttentionReason.InvalidCredentials} ELSE AttentionReason END
+    AttentionReason = CASE
+        WHEN ProviderType = {(int)MailProviderType.Gmail} AND ? = 1 AND AttentionReason = {(int)AccountAttentionReason.InvalidCredentials} THEN {(int)AccountAttentionReason.None}
+        WHEN ProviderType = {(int)MailProviderType.Gmail} AND ? = 1 AND ? = 0 THEN {(int)AccountAttentionReason.InvalidCredentials}
+        ELSE AttentionReason
+    END
 WHERE Id = ?;",
                 contactsEnabled,
                 contactsEnabled && option.DeferSignIn,
                 providerTasksEnabled || localTasksEnabled,
                 providerTasksEnabled && option.DeferSignIn,
+                hasReusableGmailToken,
                 option.DeferSignIn,
+                hasReusableGmailToken,
                     option.AccountId).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -725,6 +801,21 @@ WHERE Id = ?;",
     private static async Task CreateMetadataTableAsync(SQLiteAsyncConnection connection)
     {
         await connection.CreateTableAsync<MigrationMetadataRow>().ConfigureAwait(false);
+
+        var columns = await connection.GetTableInfoAsync(MetadataTableName).ConfigureAwait(false);
+        if (!columns.Any(column => column.Name == nameof(MigrationMetadataRow.PendingAuthenticationAccountIds)))
+        {
+            await connection.ExecuteAsync(
+                $"ALTER TABLE {MetadataTableName} ADD COLUMN {nameof(MigrationMetadataRow.PendingAuthenticationAccountIds)} TEXT;")
+                .ConfigureAwait(false);
+        }
+
+        if (!columns.Any(column => column.Name == nameof(MigrationMetadataRow.IsAuthenticationQueueInitialized)))
+        {
+            await connection.ExecuteAsync(
+                $"ALTER TABLE {MetadataTableName} ADD COLUMN {nameof(MigrationMetadataRow.IsAuthenticationQueueInitialized)} INTEGER NOT NULL DEFAULT 0;")
+                .ConfigureAwait(false);
+        }
     }
 
     private static async Task<MigrationMetadataRow> ReadMetadataAsync(SQLiteAsyncConnection connection)
@@ -762,6 +853,10 @@ WHERE Id = ?;",
             metadata.DeferredAccountIds = string.Join(",", accountOptions
                 .Where(option => option.DeferSignIn)
                 .Select(option => option.AccountId.ToString("N")));
+            metadata.PendingAuthenticationAccountIds = string.Join(",", accountOptions
+                .Where(RequiresFeatureAuthorization)
+                .Select(option => option.AccountId.ToString("N")));
+            metadata.IsAuthenticationQueueInitialized = true;
             metadata.UpdatedAtUtc = DateTime.UtcNow;
             await UpsertMetadataAsync(connection, metadata).ConfigureAwait(false);
         }
@@ -863,6 +958,88 @@ WHERE Id = ?;",
                 $"{option.AccountId:N}:{Convert.ToInt32(option.EnableContacts)}:{Convert.ToInt32(option.EnableTasks)}:" +
                 $"{Convert.ToInt32(option.EnableMailFilters)}:{Convert.ToInt32(option.DeferSignIn)}"));
 
+    private async Task<IReadOnlyList<MigrationAccountOptions>> ReadPendingAuthorizationAccountsAsync(
+        string destinationPath,
+        CancellationToken cancellationToken)
+    {
+        var connection = new SQLiteAsyncConnection(destinationPath);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var metadata = await ReadMetadataAsync(connection).ConfigureAwait(false);
+            if (!metadata.IsAuthenticationQueueInitialized)
+            {
+                var derivedIds = await DerivePendingAuthorizationAccountIdsAsync(connection).ConfigureAwait(false);
+                metadata.PendingAuthenticationAccountIds = string.Join(",", derivedIds.Select(id => id.ToString("N")));
+                metadata.IsAuthenticationQueueInitialized = true;
+                metadata.UpdatedAtUtc = DateTime.UtcNow;
+                await UpsertMetadataAsync(connection, metadata).ConfigureAwait(false);
+            }
+
+            var pendingIds = ParseAccountIds(metadata.PendingAuthenticationAccountIds);
+            if (pendingIds.Count == 0)
+                return [];
+
+            var accounts = await connection.Table<MailAccount>().ToListAsync().ConfigureAwait(false);
+            var filterFeatures = await connection.Table<AccountProviderFeature>()
+                .Where(feature => feature.Feature == ProviderFeature.MailFilters)
+                .ToListAsync().ConfigureAwait(false);
+            var filterAccountIds = filterFeatures.Select(feature => feature.MailAccountId).ToHashSet();
+
+            return accounts
+                .Where(account => pendingIds.Contains(account.Id))
+                .OrderBy(account => account.Order)
+                .Select(account => new MigrationAccountOptions(
+                    account.Id,
+                    string.IsNullOrWhiteSpace(account.Name) ? account.Address : account.Name,
+                    account.Address,
+                    account.ProviderType,
+                    account.IsContactAccessEnabled,
+                    account.IsTaskAccessEnabled,
+                    filterAccountIds.Contains(account.Id),
+                    DeferSignIn: true))
+                .ToArray();
+        }
+        finally
+        {
+            await connection.CloseAsync().ConfigureAwait(false);
+        }
+    }
+
+    private static async Task<HashSet<Guid>> DerivePendingAuthorizationAccountIdsAsync(
+        SQLiteAsyncConnection connection)
+    {
+        var accounts = await connection.Table<MailAccount>().ToListAsync().ConfigureAwait(false);
+        var pendingIds = accounts
+            .Where(account => account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
+            .Where(account =>
+                account.IsContactAccessEnabled && account.IsContactReauthorizationRequired ||
+                account.IsTaskAccessEnabled && account.IsTaskReauthorizationRequired)
+            .Select(account => account.Id)
+            .ToHashSet();
+        var features = await connection.Table<AccountProviderFeature>()
+            .Where(feature => feature.AuthorizationState == ProviderFeatureAuthorizationState.ReauthorizationRequired)
+            .ToListAsync().ConfigureAwait(false);
+        pendingIds.UnionWith(features.Select(feature => feature.MailAccountId));
+        return pendingIds;
+    }
+
+    private static HashSet<Guid> ParseAccountIds(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return [];
+
+        return value
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(value => Guid.TryParse(value, out var accountId) ? accountId : Guid.Empty)
+            .Where(accountId => accountId != Guid.Empty)
+            .ToHashSet();
+    }
+
+    private static bool RequiresFeatureAuthorization(MigrationAccountOptions option)
+        => option.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook &&
+           (option.EnableContacts || option.EnableTasks || option.EnableMailFilters);
+
     private static void PromoteStagingDatabase(string stagingPath, string destinationPath)
     {
         File.Move(stagingPath, destinationPath, overwrite: true);
@@ -894,6 +1071,8 @@ WHERE Id = ?;",
         public string OptionsJson { get; set; }
         public string RowCounts { get; set; }
         public string DeferredAccountIds { get; set; }
+        public string PendingAuthenticationAccountIds { get; set; }
+        public bool IsAuthenticationQueueInitialized { get; set; }
         public DateTime UpdatedAtUtc { get; set; }
     }
 

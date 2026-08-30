@@ -18,6 +18,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IMailContentProjector, MailContentProjector>();
         services.AddSingleton<IDatabaseSchemaService, DatabaseSchemaService>();
         services.AddSingleton<IMigrationClock, SystemMigrationClock>();
+        services.AddSingleton<IAuthenticationTokenMigrationService, AuthenticationTokenMigrationService>();
         services.AddSingleton<IMigrationCoordinator, DatabaseMigrationCoordinator>();
         services.AddSingleton<IDatabaseService, DatabaseService>();
 

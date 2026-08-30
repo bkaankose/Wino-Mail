@@ -28,9 +28,9 @@
             <SolidColorBrush x:Key="WelcomeOverlayBrush">#D9FFFFFF</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
-            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#1E2A36</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#35485B</SolidColorBrush>
-            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#2A3947</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#37414C</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineBrush">#4D5E6F</SolidColorBrush>
+            <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#424F5C</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationWarmBrush">#F5C05C</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationShadowBrush">#52000000</SolidColorBrush>
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#b2dffc</SolidColorBrush>

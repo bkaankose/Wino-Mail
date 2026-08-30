@@ -228,37 +228,24 @@
             </StackPanel>
         </DataTemplate>
 
+        <!--
+            The sender picture and the hover overlay are not here: they live in the container
+            level *MailRowTemplate, which is the only template ListView phasing can defer.
+        -->
         <DataTemplate x:Key="CompactSingleMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
             <Grid
                 MinHeight="56"
-                Padding="8,4,8,4"
+                Padding="0,4,8,4"
                 x:DefaultBindMode="OneWay"
                 Background="Transparent"
-                ColumnSpacing="6"
-                ContextRequested="MailItemContextRequested"
-                PointerEntered="MailRowPointerEntered"
-                PointerExited="MailRowPointerExited">
+                ColumnSpacing="6">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <mailControls:WinoContactPicture
-                    x:Name="SenderPictureControl"
-                    Grid.Column="0"
-                    Width="28"
-                    Height="28"
-                    VerticalAlignment="Center"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                    x:Phase="2"
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-
                 <Grid
-                    Grid.Column="1"
+                    Grid.Column="0"
                     VerticalAlignment="Center"
                     RowSpacing="2">
                     <Grid.RowDefinitions>
@@ -315,7 +302,6 @@
                             x:Name="ReadSubjectTextBlock"
                             Grid.Row="1"
                             x:Load="{x:Bind IsRead, Mode=OneWay}"
-                            x:Phase="0"
                             Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                             TextTrimming="CharacterEllipsis" />
@@ -323,14 +309,12 @@
                             x:Name="UnreadSubjectTextBlock"
                             Grid.Row="1"
                             x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
-                            x:Phase="0"
                             FontWeight="SemiBold"
                             Foreground="{ThemeResource SystemAccentColor}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
                             TextTrimming="CharacterEllipsis" />
                         <TextBlock
                             Grid.Column="1"
-                            x:Phase="2"
                             Opacity="0.7"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.CurrentMailTimeFormatPreference), Mode=OneWay}" />
@@ -346,7 +330,7 @@
                 </Grid>
 
                 <StackPanel
-                    Grid.Column="2"
+                    Grid.Column="1"
                     VerticalAlignment="Center"
                     Spacing="2">
                     <StackPanel
@@ -375,12 +359,10 @@
                         <ContentPresenter
                             x:Name="AttachmentSymbolPresenter"
                             x:Load="{x:Bind HasAttachments, Mode=OneWay}"
-                            x:Phase="1"
                             ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
                         <ContentPresenter
                             x:Name="FlaggedSymbolPresenter"
                             x:Load="{x:Bind IsFlagged, Mode=OneWay}"
-                            x:Phase="1"
                             ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
                         <ProgressRing
                             x:Name="BusyProgressRing"
@@ -390,49 +372,23 @@
                             IsActive="{x:Bind IsBusy, Mode=OneWay}" />
                     </StackPanel>
                 </StackPanel>
-                <ContentControl
-                    x:Name="HoverActionButtons"
-                    Grid.ColumnSpan="3"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Canvas.ZIndex="999"
-                    Content="{x:Bind}"
-                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
-                    Visibility="Collapsed" />
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="MediumSingleMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
             <Grid
                 MinHeight="76"
-                Padding="8,6,8,6"
+                Padding="0,6,8,6"
                 x:DefaultBindMode="OneWay"
                 Background="Transparent"
-                ColumnSpacing="8"
-                ContextRequested="MailItemContextRequested"
-                PointerEntered="MailRowPointerEntered"
-                PointerExited="MailRowPointerExited">
+                ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <mailControls:WinoContactPicture
-                    x:Name="SenderPictureControl"
-                    Grid.Column="0"
-                    Width="30"
-                    Height="30"
-                    VerticalAlignment="Center"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                    x:Phase="2"
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-
                 <Grid
-                    Grid.Column="1"
+                    Grid.Column="0"
                     VerticalAlignment="Center"
                     RowSpacing="2">
                     <Grid.RowDefinitions>
@@ -503,7 +459,6 @@
                             TextTrimming="CharacterEllipsis" />
                         <TextBlock
                             Grid.Column="1"
-                            x:Phase="2"
                             Opacity="0.7"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.CurrentMailTimeFormatPreference), Mode=OneWay}" />
@@ -518,7 +473,6 @@
                     </Grid>
                     <TextBlock
                         Grid.Row="2"
-                        x:Phase="1"
                         MaxLines="1"
                         Opacity="0.7"
                         Text="{x:Bind PreviewText, Mode=OneWay}"
@@ -530,7 +484,6 @@
                         Margin="0,2,0,0"
                         HorizontalAlignment="Left"
                         x:Load="{x:Bind HasRowTiles, Mode=OneWay}"
-                        x:Phase="1"
                         IsHitTestVisible="False"
                         ItemTemplateSelector="{StaticResource DetailedMailRowTileTemplateSelector}"
                         ItemsSource="{x:Bind RowTiles, Mode=OneWay}">
@@ -543,7 +496,7 @@
                 </Grid>
 
                 <StackPanel
-                    Grid.Column="2"
+                    Grid.Column="1"
                     VerticalAlignment="Center"
                     Spacing="2">
                     <StackPanel
@@ -560,12 +513,10 @@
                         <ContentPresenter
                             x:Name="AttachmentSymbolPresenter"
                             x:Load="{x:Bind HasAttachments, Mode=OneWay}"
-                            x:Phase="1"
                             ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
                         <ContentPresenter
                             x:Name="FlaggedSymbolPresenter"
                             x:Load="{x:Bind IsFlagged, Mode=OneWay}"
-                            x:Phase="1"
                             ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
                         <ProgressRing
                             x:Name="BusyProgressRing"
@@ -575,48 +526,22 @@
                             IsActive="{x:Bind IsBusy, Mode=OneWay}" />
                     </StackPanel>
                 </StackPanel>
-                <ContentControl
-                    x:Name="HoverActionButtons"
-                    Grid.ColumnSpan="3"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Canvas.ZIndex="999"
-                    Content="{x:Bind}"
-                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
-                    Visibility="Collapsed" />
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="SpaciousSingleMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
             <Grid
                 MinHeight="88"
-                Padding="4,8,8,8"
+                Padding="0,8,8,8"
                 x:DefaultBindMode="OneWay"
                 Background="Transparent"
-                ColumnSpacing="8"
-                ContextRequested="MailItemContextRequested"
-                PointerEntered="MailRowPointerEntered"
-                PointerExited="MailRowPointerExited">
+                ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <mailControls:WinoContactPicture
-                    x:Name="SenderPictureControl"
-                    Grid.Column="0"
-                    Width="36"
-                    Height="36"
-                    VerticalAlignment="Center"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                    x:Phase="2"
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-
                 <Grid
-                    Grid.Column="1"
+                    Grid.Column="0"
                     VerticalAlignment="Center"
                     RowSpacing="2">
                     <Grid.RowDefinitions>
@@ -693,7 +618,6 @@
                             TextTrimming="CharacterEllipsis" />
                         <TextBlock
                             Grid.Column="1"
-                            x:Phase="2"
                             Opacity="0.7"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.CurrentMailTimeFormatPreference), Mode=OneWay}" />
@@ -713,7 +637,6 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock
-                            x:Phase="1"
                             MaxLines="1"
                             Opacity="0.7"
                             Text="{x:Bind PreviewText, Mode=OneWay}"
@@ -733,12 +656,10 @@
                             <ContentPresenter
                                 x:Name="AttachmentSymbolPresenter"
                                 x:Load="{x:Bind HasAttachments, Mode=OneWay}"
-                                x:Phase="1"
                                 ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
                             <ContentPresenter
                                 x:Name="FlaggedSymbolPresenter"
                                 x:Load="{x:Bind IsFlagged, Mode=OneWay}"
-                                x:Phase="1"
                                 ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
                         <ProgressRing
                             x:Name="BusyProgressRing"
@@ -754,7 +675,6 @@
                         Margin="0,4,0,0"
                         HorizontalAlignment="Left"
                         x:Load="{x:Bind HasRowTiles, Mode=OneWay}"
-                        x:Phase="1"
                         IsHitTestVisible="False"
                         ItemTemplateSelector="{StaticResource DetailedMailRowTileTemplateSelector}"
                         ItemsSource="{x:Bind RowTiles, Mode=OneWay}">
@@ -765,15 +685,6 @@
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
                 </Grid>
-                <ContentControl
-                    x:Name="HoverActionButtons"
-                    Grid.ColumnSpan="2"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Top"
-                    Canvas.ZIndex="999"
-                    Content="{x:Bind}"
-                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}"
-                    Visibility="Collapsed" />
             </Grid>
         </DataTemplate>
 
@@ -1362,8 +1273,14 @@
             existing mail visuals bound to their original view-model types.
         -->
         <DataTemplate x:Key="CompactSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid Margin="{x:Bind helpers:XamlHelpers.GetCompactMailListRowMargin(Kind), Mode=OneTime}">
+            <Grid
+                Margin="{x:Bind helpers:XamlHelpers.GetCompactMailListRowMargin(Kind), Mode=OneTime}"
+                Background="Transparent"
+                ContextRequested="MailItemContextRequested"
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -1380,16 +1297,45 @@
                         FontSize="10"
                         Glyph="&#xE96E;" />
                 </Grid>
-                <ContentPresenter
+                <mailControls:WinoContactPicture
+                    x:Name="CompactSenderPicture"
                     Grid.Column="1"
+                    Width="28"
+                    Height="28"
+                    Margin="8,0,6,0"
+                    VerticalAlignment="Center"
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                    x:Phase="1"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                    FontSize="12"
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                <ContentPresenter
+                    Grid.Column="2"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
+                <ContentControl
+                    x:Name="HoverActionButtons"
+                    Grid.Column="2"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    x:Load="{x:Bind IsPointerOver, Mode=OneWay}"
+                    x:Phase="2"
+                    Canvas.ZIndex="999"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}" />
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="MediumSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}">
+            <Grid
+                Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}"
+                Background="Transparent"
+                ContextRequested="MailItemContextRequested"
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -1406,16 +1352,45 @@
                         FontSize="10"
                         Glyph="&#xE96E;" />
                 </Grid>
-                <ContentPresenter
+                <mailControls:WinoContactPicture
+                    x:Name="MediumSenderPicture"
                     Grid.Column="1"
+                    Width="30"
+                    Height="30"
+                    Margin="8,0,8,0"
+                    VerticalAlignment="Center"
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                    x:Phase="1"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                    FontSize="12"
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                <ContentPresenter
+                    Grid.Column="2"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
+                <ContentControl
+                    x:Name="HoverActionButtons"
+                    Grid.Column="2"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    x:Load="{x:Bind IsPointerOver, Mode=OneWay}"
+                    x:Phase="2"
+                    Canvas.ZIndex="999"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}" />
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="SpaciousSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}">
+            <Grid
+                Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}"
+                Background="Transparent"
+                ContextRequested="MailItemContextRequested"
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -1432,16 +1407,44 @@
                         FontSize="10"
                         Glyph="&#xE96E;" />
                 </Grid>
-                <ContentPresenter
+                <mailControls:WinoContactPicture
+                    x:Name="SpaciousSenderPicture"
                     Grid.Column="1"
+                    Width="36"
+                    Height="36"
+                    Margin="4,0,8,0"
+                    VerticalAlignment="Center"
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                    x:Phase="1"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                    FontSize="12"
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                <ContentPresenter
+                    Grid.Column="2"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
+                <ContentControl
+                    x:Name="HoverActionButtons"
+                    Grid.Column="2"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    x:Load="{x:Bind IsPointerOver, Mode=OneWay}"
+                    x:Phase="2"
+                    Canvas.ZIndex="999"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}" />
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="CompactThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid>
+            <Grid
+                Background="Transparent"
+                ContextRequested="MailItemContextRequested"
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -1464,16 +1467,44 @@
                         Glyph="&#xE96E;"
                         Visibility="{x:Bind IsExpanded, Mode=OneWay}" />
                 </Grid>
-                <ContentPresenter
+                <mailControls:WinoContactPicture
+                    x:Name="CompactThreadSenderPicture"
                     Grid.Column="1"
+                    Width="28"
+                    Height="28"
+                    Margin="8,0,6,0"
+                    VerticalAlignment="Center"
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                    x:Phase="1"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                    FontSize="12"
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                <ContentPresenter
+                    Grid.Column="2"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
+                <ContentControl
+                    x:Name="HoverActionButtons"
+                    Grid.Column="2"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    x:Load="{x:Bind IsPointerOver, Mode=OneWay}"
+                    x:Phase="2"
+                    Canvas.ZIndex="999"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}" />
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="MediumThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid>
+            <Grid
+                Background="Transparent"
+                ContextRequested="MailItemContextRequested"
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -1496,16 +1527,44 @@
                         Glyph="&#xE96E;"
                         Visibility="{x:Bind IsExpanded, Mode=OneWay}" />
                 </Grid>
-                <ContentPresenter
+                <mailControls:WinoContactPicture
+                    x:Name="MediumThreadSenderPicture"
                     Grid.Column="1"
+                    Width="30"
+                    Height="30"
+                    Margin="8,0,8,0"
+                    VerticalAlignment="Center"
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                    x:Phase="1"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                    FontSize="12"
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                <ContentPresenter
+                    Grid.Column="2"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
+                <ContentControl
+                    x:Name="HoverActionButtons"
+                    Grid.Column="2"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    x:Load="{x:Bind IsPointerOver, Mode=OneWay}"
+                    x:Phase="2"
+                    Canvas.ZIndex="999"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}" />
             </Grid>
         </DataTemplate>
 
         <DataTemplate x:Key="SpaciousThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid>
+            <Grid
+                Background="Transparent"
+                ContextRequested="MailItemContextRequested"
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
@@ -1528,10 +1587,33 @@
                         Glyph="&#xE96E;"
                         Visibility="{x:Bind IsExpanded, Mode=OneWay}" />
                 </Grid>
-                <ContentPresenter
+                <mailControls:WinoContactPicture
+                    x:Name="SpaciousThreadSenderPicture"
                     Grid.Column="1"
+                    Width="36"
+                    Height="36"
+                    Margin="4,0,8,0"
+                    VerticalAlignment="Center"
+                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                    x:Phase="1"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                    FontSize="12"
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                <ContentPresenter
+                    Grid.Column="2"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
+                <ContentControl
+                    x:Name="HoverActionButtons"
+                    Grid.Column="2"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Top"
+                    x:Load="{x:Bind IsPointerOver, Mode=OneWay}"
+                    x:Phase="2"
+                    Canvas.ZIndex="999"
+                    Content="{x:Bind SourceItem}"
+                    ContentTemplate="{StaticResource MailRowHoverActionOverlayTemplate}" />
             </Grid>
         </DataTemplate>
 

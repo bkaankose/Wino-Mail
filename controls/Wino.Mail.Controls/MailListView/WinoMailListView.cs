@@ -4,6 +4,7 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Media;
 using Windows.UI.Core;
 using Wino.Mail.Controls.Core;
 using VirtualKey = Windows.System.VirtualKey;
@@ -28,6 +29,8 @@ public partial class WinoMailListView : ListView
     private bool _isSelectionRestoreQueued;
     private bool _restoreSelectionSynchronouslyAfterProjectionChange;
     private bool _isTemplateApplied;
+    private bool _isReattachingItemsSource;
+    private MailListLoadTrace? _pendingFrameTrace;
     private int _lastLoadMoreCount = -1;
     private TaskCompletionSource<bool>? _selectionRestoreCompletion;
     private MailListRow? _pressedRow;
@@ -378,6 +381,8 @@ public partial class WinoMailListView : ListView
         _projection.ProjectionChanging += OnProjectionChanging;
         _projection.ProjectionChanged += OnProjectionChanged;
         _projection.ThreadExpansionChanged += OnThreadExpansionChanged;
+        _projection.GroupsResetting += OnProjectionGroupsResetting;
+        _projection.GroupsReset += OnProjectionGroupsReset;
         var viewSource = GetViewSource();
         viewSource.Source = _projection.Groups;
         ItemsSource = viewSource.View;
@@ -396,10 +401,64 @@ public partial class WinoMailListView : ListView
         _projection.ProjectionChanging -= OnProjectionChanging;
         _projection.ProjectionChanged -= OnProjectionChanged;
         _projection.ThreadExpansionChanged -= OnThreadExpansionChanged;
+        _projection.GroupsResetting -= OnProjectionGroupsResetting;
+        _projection.GroupsReset -= OnProjectionGroupsReset;
         _projection.Dispose();
         _projection = null;
         GetViewSource().Source = null;
         ItemsSource = null;
+    }
+
+    /// <summary>
+    /// Detaches the items source for the duration of a wholesale group replacement so the
+    /// list performs one refresh instead of reacting to every group being added back.
+    /// </summary>
+    private void OnProjectionGroupsResetting(object? sender, EventArgs args)
+    {
+        if (ItemsSource is null)
+        {
+            return;
+        }
+
+        _isReattachingItemsSource = true;
+        ItemsSource = null;
+    }
+
+    private void OnProjectionGroupsReset(object? sender, EventArgs args)
+    {
+        _lastLoadMoreCount = -1;
+        if (!_isReattachingItemsSource)
+        {
+            return;
+        }
+
+        _isReattachingItemsSource = false;
+        ItemsSource = GetViewSource().View;
+    }
+
+    /// <summary>
+    /// Records the first composition frame after a new page is published, which is the point
+    /// the user actually sees rows. Detaches itself after a single frame.
+    /// </summary>
+    private void QueueFirstFrameMark()
+    {
+        if (MailListLoadTrace.Current is not { } trace || _pendingFrameTrace is not null)
+        {
+            return;
+        }
+
+        // The trace instance is captured now: by the time the frame renders a newer load
+        // may already own MailListLoadTrace.Current.
+        _pendingFrameTrace = trace;
+        CompositionTarget.Rendering += OnFirstFrameRendered;
+    }
+
+    private void OnFirstFrameRendered(object? sender, object args)
+    {
+        CompositionTarget.Rendering -= OnFirstFrameRendered;
+        var trace = _pendingFrameTrace;
+        _pendingFrameTrace = null;
+        trace?.Mark(MailListLoadStage.FirstFrameRendered);
     }
 
     private CollectionViewSource GetViewSource()
@@ -437,6 +496,7 @@ public partial class WinoMailListView : ListView
         }
 
         SynchronizeExpandedThreadKeys();
+        QueueFirstFrameMark();
     }
 
     private void OnThreadExpansionChanged(object? sender, ThreadExpansionChangedEventArgs args)
@@ -854,9 +914,14 @@ public partial class WinoMailListView : ListView
         ListViewBase sender,
         ContainerContentChangingEventArgs args)
     {
+        if (!args.InRecycleQueue)
+        {
+            MailListLoadTrace.MarkCurrent(MailListLoadStage.FirstContainerRealized);
+        }
+
         if (_projection is null ||
             args.InRecycleQueue ||
-            args.ItemIndex < Math.Max(0, _projection.Rows.Count() - 1) ||
+            args.ItemIndex < Math.Max(0, _projection.RowCount - 1) ||
             _lastLoadMoreCount == MailItemsSource?.Count)
         {
             return;

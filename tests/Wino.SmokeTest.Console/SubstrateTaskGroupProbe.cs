@@ -35,7 +35,7 @@ internal static class SubstrateTaskGroupProbe
         "https://substrate.office.com"
     ];
 
-    public static async Task<int> RunAsync(string address, string publisherFolder, CancellationToken cancellationToken)
+    public static async Task<int> RunAsync(string address, string applicationDataFolder, CancellationToken cancellationToken)
     {
         ConsoleOutput.Header($"\nSubstrate task group probe: {address}");
 
@@ -46,7 +46,7 @@ internal static class SubstrateTaskGroupProbe
             .Build();
 
         var cache = await MsalCacheHelper
-            .CreateAsync(new StorageCreationPropertiesBuilder(TokenCacheFileName, publisherFolder).Build())
+            .CreateAsync(new StorageCreationPropertiesBuilder(TokenCacheFileName, applicationDataFolder).Build())
             .ConfigureAwait(false);
         cache.RegisterCache(application.UserTokenCache);
 

@@ -36,6 +36,9 @@ public sealed partial class WinoAccountIcon : IconSourceElement
     [GeneratedDependencyProperty(DefaultValue = DefaultIconSize)]
     public partial double IconSize { get; set; }
 
+    [GeneratedDependencyProperty]
+    public partial double ProviderIconSize { get; set; }
+
     public WinoAccountIcon()
     {
         IsHitTestVisible = false;
@@ -56,6 +59,8 @@ public sealed partial class WinoAccountIcon : IconSourceElement
     {
         UpdatePresentation();
     }
+
+    partial void OnProviderIconSizeChanged(double newValue) => UpdatePresentation();
 
     private void OnLoaded(object sender, RoutedEventArgs args)
     {
@@ -125,7 +130,7 @@ public sealed partial class WinoAccountIcon : IconSourceElement
         var iconSource = new WinoFontIconSource
         {
             Glyph = AccountIconGlyphs.GetGlyph(account.Provider),
-            FontSize = GetEffectiveIconSize() * GlyphInkScale,
+            FontSize = GetEffectiveProviderIconSize(),
         };
 
         if (TryGetAccountColor(account.AccountColorHex, out var color))
@@ -191,6 +196,10 @@ public sealed partial class WinoAccountIcon : IconSourceElement
     private double GetEffectiveIconSize() => double.IsFinite(IconSize) && IconSize > 0
         ? IconSize
         : DefaultIconSize;
+
+    private double GetEffectiveProviderIconSize() => double.IsFinite(ProviderIconSize) && ProviderIconSize > 0
+        ? ProviderIconSize
+        : GetEffectiveIconSize() * GlyphInkScale;
 
     private static bool TryGetAccountColor(string? accountColorHex, out Color color)
     {

@@ -17,6 +17,11 @@ public interface IMigrationCoordinator
         CancellationToken cancellationToken = default);
 
     Task<MigrationResult> StartFreshAsync(CancellationToken cancellationToken = default);
+
+    Task MarkAccountAuthorizationResolvedAsync(
+        Guid accountId,
+        bool wasSkipped,
+        CancellationToken cancellationToken = default);
 }
 
 public interface IMigrationStep

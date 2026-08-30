@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -6,7 +7,9 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Migration;
+using Wino.Services;
 
 namespace Wino.Mail.WinUI.ViewModels;
 
@@ -16,6 +19,31 @@ public sealed partial class MigrationAccountOptionViewModel : ObservableObject
     public string DisplayName { get; init; } = string.Empty;
     public string Address { get; init; } = string.Empty;
     public Wino.Core.Domain.Enums.MailProviderType ProviderType { get; init; }
+
+    public string ProviderIconPath => ProviderType switch
+    {
+        MailProviderType.Gmail => "ms-appx:///Assets/Providers/Gmail.png",
+        MailProviderType.Outlook => "ms-appx:///Assets/Providers/Outlook.png",
+        _ => "ms-appx:///Assets/Providers/IMAP4.png"
+    };
+
+    public string AuthorizationFeaturesText
+    {
+        get
+        {
+            var features = new List<string>();
+            if (EnableContacts)
+                features.Add(Wino.Core.Domain.Translator.Migration_Contacts);
+            if (EnableTasks)
+                features.Add(Wino.Core.Domain.Translator.Migration_ToDo);
+            if (EnableMailFilters)
+                features.Add(Wino.Core.Domain.Translator.Migration_MailFilters);
+
+            return string.Format(
+                Wino.Core.Domain.Translator.Migration_AuthorizationPermissions,
+                string.Join(", ", features));
+        }
+    }
     [ObservableProperty]
     public partial bool EnableContacts { get; set; }
 
@@ -51,7 +79,13 @@ public sealed partial class MigrationStepItemViewModel : ObservableObject
 public sealed partial class MigrationPageViewModel : ObservableObject, IDisposable
 {
     private readonly IMigrationCoordinator _coordinator;
+    private readonly IDatabaseService _databaseService;
+    private readonly IMigrationAccountAuthorizationService _authorizationService;
+    private readonly IWinoLogger _logger;
+    private readonly Queue<MigrationAccountOptionViewModel> _authorizationQueue = new();
     private DispatcherQueue? _dispatcherQueue;
+    private MigrationResult? _lastResult;
+    private int _authorizationAccountCount;
 
     public ObservableCollection<MigrationAccountOptionViewModel> Accounts { get; } = [];
     public ObservableCollection<MigrationStepItemViewModel> Steps { get; } = [];
@@ -91,20 +125,47 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
     [ObservableProperty]
     public partial double Progress { get; set; }
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AuthenticateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SkipAuthenticationCommand))]
+    public partial MigrationAccountOptionViewModel? CurrentAuthorizationAccount { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AuthenticateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SkipAuthenticationCommand))]
+    public partial bool IsAuthorizing { get; set; }
+
+    [ObservableProperty]
+    public partial string AuthorizationErrorMessage { get; set; } = string.Empty;
+
     public bool IsOptionsVisible => IsReady && !IsRunning && !IsFailed && !IsCompleted;
     public bool IsProgressVisible => IsRunning;
     public bool IsFailureVisible => IsFailed;
     public bool IsSuccessVisible => IsCompleted;
+    public bool IsAuthorizationVisible => CurrentAuthorizationAccount != null && !IsCompleted;
+    public bool IsAuthorizationErrorVisible => IsAuthorizationVisible && !string.IsNullOrWhiteSpace(AuthorizationErrorMessage);
     public bool CanSkipMigration => IsFailed && !IsRunning;
+
+    public string AuthorizationProgressText => string.Format(
+        Wino.Core.Domain.Translator.Migration_AuthorizationProgress,
+        Math.Max(1, _authorizationAccountCount - _authorizationQueue.Count),
+        _authorizationAccountCount);
 
     public string StepProgressText => string.Format(
         Wino.Core.Domain.Translator.Migration_StepProgress,
         Math.Clamp(Steps.Count(step => step.Status is MigrationStepStatus.Completed) + 1, 1, Math.Max(Steps.Count, 1)),
         Steps.Count);
 
-    public MigrationPageViewModel(IMigrationCoordinator coordinator)
+    public MigrationPageViewModel(
+        IMigrationCoordinator coordinator,
+        IDatabaseService databaseService,
+        IMigrationAccountAuthorizationService authorizationService,
+        IWinoLogger logger)
     {
         _coordinator = coordinator;
+        _databaseService = databaseService;
+        _authorizationService = authorizationService;
+        _logger = logger;
         _coordinator.ProgressChanged += OnProgressChanged;
     }
 
@@ -130,6 +191,13 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
         }
 
         EnsureSteps();
+
+        if (plan.Status == MigrationStatus.AwaitingUser)
+        {
+            await BeginAuthorizationAsync(Accounts);
+            return;
+        }
+
         CurrentTitle = Wino.Core.Domain.Translator.Migration_RequiredTitle;
         CurrentDescription = Wino.Core.Domain.Translator.Migration_SimpleIntroDescription;
         IsReady = true;
@@ -148,7 +216,7 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
         BeginOperation();
 
         var result = await _coordinator.StartFreshAsync();
-        ApplyResult(result);
+        await ApplyResultAsync(result, []);
     }
 
     private bool CanStart() => IsReady && !IsRunning;
@@ -158,9 +226,71 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
     private async Task RunMigrationAsync()
     {
         BeginOperation();
-        var result = await _coordinator.RunAsync(Accounts.Select(account => account.ToOptions()).ToArray());
-        ApplyResult(result);
+        var selectedAccounts = Accounts.Select(account => account.ToOptions()).ToArray();
+        var result = await _coordinator.RunAsync(selectedAccounts);
+        await ApplyResultAsync(result, selectedAccounts);
     }
+
+    [RelayCommand(CanExecute = nameof(CanAuthenticate))]
+    private async Task AuthenticateAsync()
+    {
+        if (CurrentAuthorizationAccount is null)
+            return;
+
+        IsAuthorizing = true;
+        AuthorizationErrorMessage = string.Empty;
+        NotifyStateChanged();
+        try
+        {
+            await _authorizationService.AuthenticateAsync(CurrentAuthorizationAccount.ToOptions());
+            await _coordinator.MarkAccountAuthorizationResolvedAsync(
+                CurrentAuthorizationAccount.AccountId,
+                wasSkipped: false);
+            AdvanceAuthorizationQueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.CaptureException(ex, "MigrationAccountAuthorization");
+            AuthorizationErrorMessage = Wino.Core.Domain.Translator.Migration_AuthorizationFailed;
+        }
+        finally
+        {
+            IsAuthorizing = false;
+            NotifyStateChanged();
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSkipAuthentication))]
+    private async Task SkipAuthenticationAsync()
+    {
+        if (CurrentAuthorizationAccount is null)
+            return;
+
+        IsAuthorizing = true;
+        AuthorizationErrorMessage = string.Empty;
+        NotifyStateChanged();
+        try
+        {
+            await _authorizationService.SkipAsync(CurrentAuthorizationAccount.ToOptions());
+            await _coordinator.MarkAccountAuthorizationResolvedAsync(
+                CurrentAuthorizationAccount.AccountId,
+                wasSkipped: true);
+            AdvanceAuthorizationQueue();
+        }
+        catch (Exception ex)
+        {
+            _logger.CaptureException(ex, "MigrationAccountAuthorizationSkip");
+            AuthorizationErrorMessage = Wino.Core.Domain.Translator.Migration_AuthorizationSkipFailed;
+        }
+        finally
+        {
+            IsAuthorizing = false;
+            NotifyStateChanged();
+        }
+    }
+
+    private bool CanAuthenticate() => CurrentAuthorizationAccount != null && !IsAuthorizing;
+    private bool CanSkipAuthentication() => CurrentAuthorizationAccount != null && !IsAuthorizing;
 
     private void BeginOperation()
     {
@@ -175,9 +305,23 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
         NotifyStateChanged();
     }
 
-    private void ApplyResult(MigrationResult result)
+    private async Task ApplyResultAsync(
+        MigrationResult result,
+        IReadOnlyCollection<MigrationAccountOptions> selectedAccounts)
     {
         IsRunning = false;
+        _lastResult = result;
+
+        if (result.Status == MigrationStatus.AwaitingUser)
+        {
+            IsFailed = false;
+            IsCompleted = false;
+            await BeginAuthorizationAsync(selectedAccounts
+                .Where(RequiresFeatureAuthorization)
+                .Select(CreateAccountViewModel));
+            return;
+        }
+
         IsCompleted = result.Status is MigrationStatus.Completed or MigrationStatus.Skipped;
         IsFailed = !IsCompleted;
 
@@ -200,6 +344,69 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
 
         NotifyStateChanged();
     }
+
+    private async Task BeginAuthorizationAsync(IEnumerable<MigrationAccountOptionViewModel> accounts)
+    {
+        await _databaseService.InitializeAsync();
+
+        _authorizationQueue.Clear();
+        foreach (var account in accounts.Where(account => RequiresFeatureAuthorization(account.ToOptions())))
+            _authorizationQueue.Enqueue(account);
+
+        _authorizationAccountCount = _authorizationQueue.Count;
+        IsReady = false;
+        IsRunning = false;
+        IsFailed = false;
+        IsCompleted = false;
+        Progress = 1;
+        AdvanceAuthorizationQueue();
+    }
+
+    private void AdvanceAuthorizationQueue()
+    {
+        AuthorizationErrorMessage = string.Empty;
+        CurrentAuthorizationAccount = _authorizationQueue.Count > 0
+            ? _authorizationQueue.Dequeue()
+            : null;
+
+        if (CurrentAuthorizationAccount != null)
+        {
+            CurrentTitle = Wino.Core.Domain.Translator.Migration_AuthorizationTitle;
+            CurrentDescription = string.Format(
+                Wino.Core.Domain.Translator.Migration_AuthorizationDescription,
+                CurrentAuthorizationAccount.DisplayName);
+        }
+        else
+        {
+            IsCompleted = true;
+            CurrentTitle = Wino.Core.Domain.Translator.Migration_SuccessTitle;
+            CurrentDescription = Wino.Core.Domain.Translator.Migration_SimpleSuccessDescription;
+            var result = _lastResult;
+            CompletionSummary = result is null
+                ? Wino.Core.Domain.Translator.Migration_AuthorizationComplete
+                : $"{result.AccountCount} {Wino.Core.Domain.Translator.Migration_Accounts} · " +
+                  $"{result.MailCount} {Wino.Core.Domain.Translator.Migration_Messages} · " +
+                  $"{result.CalendarCount} {Wino.Core.Domain.Translator.Migration_CalendarRecords}";
+        }
+
+        NotifyStateChanged();
+    }
+
+    private static bool RequiresFeatureAuthorization(MigrationAccountOptions account)
+        => account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook &&
+           (account.EnableContacts || account.EnableTasks || account.EnableMailFilters);
+
+    private static MigrationAccountOptionViewModel CreateAccountViewModel(MigrationAccountOptions account)
+        => new()
+        {
+            AccountId = account.AccountId,
+            DisplayName = account.DisplayName,
+            Address = account.Address,
+            ProviderType = account.ProviderType,
+            EnableContacts = account.EnableContacts,
+            EnableTasks = account.EnableTasks,
+            EnableMailFilters = account.EnableMailFilters
+        };
 
     private void OnProgressChanged(object? sender, MigrationProgress progress)
     {
@@ -257,8 +464,11 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
         OnPropertyChanged(nameof(IsProgressVisible));
         OnPropertyChanged(nameof(IsFailureVisible));
         OnPropertyChanged(nameof(IsSuccessVisible));
+        OnPropertyChanged(nameof(IsAuthorizationVisible));
+        OnPropertyChanged(nameof(IsAuthorizationErrorVisible));
         OnPropertyChanged(nameof(CanSkipMigration));
         OnPropertyChanged(nameof(StepProgressText));
+        OnPropertyChanged(nameof(AuthorizationProgressText));
     }
 
     public void Dispose() => _coordinator.ProgressChanged -= OnProgressChanged;
