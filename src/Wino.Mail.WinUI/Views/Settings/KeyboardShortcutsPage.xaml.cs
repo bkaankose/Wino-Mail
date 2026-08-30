@@ -26,4 +26,13 @@ public sealed partial class KeyboardShortcutsPage : KeyboardShortcutsPageAbstrac
             ViewModel.DeleteShortcutCommand.Execute(shortcut);
         }
     }
+
+    private void ShortcutEnabled_Toggled(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    {
+        if (sender is ToggleSwitch { IsLoaded: true, Tag: KeyboardShortcutViewModel shortcut } toggleSwitch)
+        {
+            shortcut.IsEnabled = toggleSwitch.IsOn;
+            ViewModel.ToggleShortcutCommand.Execute(shortcut);
+        }
+    }
 }

@@ -8,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -16,6 +15,7 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI.Services;
 using Wino.MenuFlyouts;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
@@ -38,12 +38,21 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
     private readonly WinUIDispatcher _pageDispatcher;
     private WinoApplicationMode? _activeMode;
     private bool _isPreparedForWindowClose;
+    private readonly KeyboardShortcutController _shortcutController;
 
     public WinoAppShell()
     {
         InitializeComponent();
 
         _pageDispatcher = new WinUIDispatcher(DispatcherQueue);
+        _shortcutController = new KeyboardShortcutController(
+            this,
+            WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>(),
+            WinoApplication.Current.Services.GetRequiredService<IWinoLogger>(),
+            () => ViewModel.CurrentMode,
+            () => InnerShellFrame.Content as BasePage,
+            () => GetFrame(NavigationReferenceFrame.RenderingFrame)?.Content as BasePage,
+            ViewModel.KeyboardShortcutHookForMode);
         ViewModel.PreferencesService.PreferenceChanged += PreferencesServiceChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
     }
@@ -78,6 +87,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ReleaseActiveMode();
         _activeMode = mode;
         ViewModel.SetCurrentMode(mode);
+        _shortcutController.Refresh();
 
         if (!ReferenceEquals(provider.Dispatcher, _pageDispatcher))
         {
@@ -144,6 +154,7 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         ViewModel.ShutdownProviders();
         ViewModel.PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         ViewModel.StatePersistenceService.StatePropertyChanged -= StatePersistenceServiceChanged;
+        _shortcutController.Dispose();
 
         UnregisterRecipients();
         Bindings.StopTracking();
@@ -339,113 +350,6 @@ public sealed partial class WinoAppShell : Views.Abstract.WinoAppShellAbstract,
         // A closed pane renders its items as an icon-only strip regardless of display mode.
         ViewModel.SetPaneCompact(!isPaneOpen);
     }
-
-    #endregion
-
-    #region Keyboard shortcuts
-
-    private async void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.KeyStatus.RepeatCount > 1 || ShouldIgnoreShortcut())
-            return;
-
-        var key = NormalizeKey(e.Key);
-        if (string.IsNullOrEmpty(key))
-            return;
-
-        var mode = ViewModel.CurrentMode;
-        var modifierKeys = GetCurrentModifierKeys();
-
-        if (IsReservedUndoShortcut(mode, key, modifierKeys))
-            return;
-
-        var shortcutService = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
-        var shortcut = await shortcutService.GetShortcutForKeyAsync(mode, key, modifierKeys);
-
-        if (shortcut == null)
-            return;
-
-        var details = new KeyboardShortcutTriggerDetails
-        {
-            ShortcutId = shortcut.Id,
-            Mode = shortcut.Mode,
-            Action = shortcut.Action,
-            Key = shortcut.Key,
-            ModifierKeys = shortcut.ModifierKeys,
-            Sender = sender,
-            Origin = FocusManager.GetFocusedElement(XamlRoot)
-        };
-
-        await ViewModel.KeyboardShortcutHookForMode(details);
-
-        if (InnerShellFrame.Content is BasePage activePage && activePage.AssociatedViewModel != null)
-        {
-            await activePage.AssociatedViewModel.KeyboardShortcutHook(details);
-        }
-
-        if (details.Handled)
-        {
-            e.Handled = true;
-        }
-    }
-
-    private bool ShouldIgnoreShortcut()
-    {
-        var focusedElement = FocusManager.GetFocusedElement(XamlRoot);
-
-        if (focusedElement is TextBox or AutoSuggestBox or PasswordBox or RichEditBox or ComboBox)
-            return true;
-
-        if (focusedElement is FrameworkElement frameworkElement)
-        {
-            var typeName = frameworkElement.GetType().Name;
-            if (typeName.Contains("WebView", StringComparison.OrdinalIgnoreCase))
-                return true;
-        }
-
-        return false;
-    }
-
-    private static ModifierKeys GetCurrentModifierKeys()
-    {
-        var modifiers = ModifierKeys.None;
-
-        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
-            modifiers |= ModifierKeys.Control;
-        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
-            modifiers |= ModifierKeys.Alt;
-        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
-            modifiers |= ModifierKeys.Shift;
-        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down) ||
-            Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.RightWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
-        {
-            modifiers |= ModifierKeys.Windows;
-        }
-
-        return modifiers;
-    }
-
-    private static string NormalizeKey(Windows.System.VirtualKey key)
-        => key switch
-        {
-            Windows.System.VirtualKey.Control or
-            Windows.System.VirtualKey.LeftControl or
-            Windows.System.VirtualKey.RightControl or
-            Windows.System.VirtualKey.Menu or
-            Windows.System.VirtualKey.LeftMenu or
-            Windows.System.VirtualKey.RightMenu or
-            Windows.System.VirtualKey.Shift or
-            Windows.System.VirtualKey.LeftShift or
-            Windows.System.VirtualKey.RightShift or
-            Windows.System.VirtualKey.LeftWindows or
-            Windows.System.VirtualKey.RightWindows => string.Empty,
-            _ => key.ToString()
-        };
-
-    private static bool IsReservedUndoShortcut(WinoApplicationMode mode, string key, ModifierKeys modifierKeys)
-        => mode == WinoApplicationMode.Mail
-           && modifierKeys == ModifierKeys.Control
-           && string.Equals(key, "Z", StringComparison.OrdinalIgnoreCase);
 
     #endregion
 

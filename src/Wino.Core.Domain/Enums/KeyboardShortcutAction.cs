@@ -12,5 +12,7 @@ public enum KeyboardShortcutAction
     Reply,
     ReplyAll,
     Send,
-    NewEvent
+    NewEvent,
+    NewContact,
+    NewTask
 }

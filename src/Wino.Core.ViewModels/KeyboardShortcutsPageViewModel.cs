@@ -24,6 +24,17 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
     [ObservableProperty]
     public partial ObservableCollection<KeyboardShortcutViewModel> Shortcuts { get; set; } = new();
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
+    public partial bool IsLoading { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasError))]
+    public partial string ErrorMessage { get; set; } = string.Empty;
+
+    public bool IsEmpty => !IsLoading && !HasError && Shortcuts.Count == 0;
+    public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
+
     public KeyboardShortcutsPageViewModel(IKeyboardShortcutService keyboardShortcutService,
                                         IMailDialogService dialogService)
     {
@@ -40,6 +51,9 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
     [RelayCommand]
     private async Task LoadShortcutsAsync()
     {
+        IsLoading = true;
+        ErrorMessage = string.Empty;
+
         try
         {
             var keyboardShortcuts = await _keyboardShortcutService.GetKeyboardShortcutsAsync();
@@ -49,15 +63,18 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
             {
                 Shortcuts.Add(new KeyboardShortcutViewModel(shortcut));
             }
+
+            OnPropertyChanged(nameof(IsEmpty));
         }
         catch (Exception ex)
         {
             Log.Error("Failed to load keyboard shortcuts.", ex);
-
-            await _dialogService.ShowMessageAsync(
-                Translator.KeyboardShortcuts_FailedToLoad,
-                Translator.GeneralTitle_Error,
-                WinoCustomMessageDialogIcon.Error);
+            ErrorMessage = Translator.KeyboardShortcuts_FailedToLoad;
+        }
+        finally
+        {
+            IsLoading = false;
+            OnPropertyChanged(nameof(IsEmpty));
         }
     }
 
@@ -92,6 +109,12 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
                     Action = result.Action,
                     IsEnabled = true
                 };
+
+                if (!_keyboardShortcutService.IsShortcutAllowed(shortcut))
+                {
+                    await _dialogService.ShowMessageAsync(Translator.KeyboardShortcuts_InvalidShortcut, Translator.GeneralTitle_Error, WinoCustomMessageDialogIcon.Error);
+                    return;
+                }
 
                 await _keyboardShortcutService.SaveKeyboardShortcutAsync(shortcut);
                 await LoadShortcutsAsync();
@@ -143,6 +166,12 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
                 updatedShortcut.ModifierKeys = result.ModifierKeys;
                 updatedShortcut.Action = result.Action;
 
+                if (!_keyboardShortcutService.IsShortcutAllowed(updatedShortcut))
+                {
+                    await _dialogService.ShowMessageAsync(Translator.KeyboardShortcuts_InvalidShortcut, Translator.GeneralTitle_Error, WinoCustomMessageDialogIcon.Error);
+                    return;
+                }
+
                 await _keyboardShortcutService.SaveKeyboardShortcutAsync(updatedShortcut);
                 await LoadShortcutsAsync();
             }
@@ -185,6 +214,13 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
     {
         try
         {
+            var confirmed = await _dialogService.ShowConfirmationDialogAsync(
+                Translator.KeyboardShortcuts_ResetConfirmationMessage,
+                Translator.KeyboardShortcuts_ResetConfirmationTitle,
+                Translator.KeyboardShortcuts_ResetToDefaults);
+            if (!confirmed)
+                return;
+
             await _keyboardShortcutService.ResetToDefaultShortcutsAsync();
             await LoadShortcutsAsync();
         }
@@ -193,6 +229,27 @@ public partial class KeyboardShortcutsPageViewModel : CoreBaseViewModel
             Log.Error("Failed to reset keyboard shortcuts to defaults.", ex);
             await _dialogService.ShowMessageAsync(
                 Translator.KeyboardShortcuts_FailedToReset,
+                Translator.GeneralTitle_Error,
+                WinoCustomMessageDialogIcon.Error);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ToggleShortcutAsync(KeyboardShortcutViewModel shortcut)
+    {
+        if (shortcut is null)
+            return;
+
+        try
+        {
+            await _keyboardShortcutService.UpdateKeyboardShortcutEnabledAsync(shortcut.Id, shortcut.IsEnabled);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Failed to update keyboard shortcut enabled state.", ex);
+            shortcut.IsEnabled = !shortcut.IsEnabled;
+            await _dialogService.ShowMessageAsync(
+                Translator.KeyboardShortcuts_FailedToUpdate,
                 Translator.GeneralTitle_Error,
                 WinoCustomMessageDialogIcon.Error);
         }

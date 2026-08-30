@@ -13,6 +13,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -34,6 +35,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     IRecipient<AccountUpdatedMessage>,
     IRecipient<AccountRemovedMessage>
 {
+    public event EventHandler<TaskComposerFocusRequestedEventArgs> TaskComposerFocusRequested;
+
     private readonly ITaskQueryService _taskService;
     private readonly ITaskService _taskMutationService;
     private readonly IAccountService _accountService;
@@ -312,6 +315,35 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     public string ComposerPlaceholder
         => IsMyDaySelected ? Translator.ToDoPage_AddTaskToMyDayPlaceholder : Translator.ToDoPage_AddTaskPlaceholder;
+
+    public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
+    {
+        if (args.Handled || args.Mode != WinoApplicationMode.Tasks ||
+            args.InputContext is not KeyboardShortcutInputContext.Tasks)
+        {
+            return;
+        }
+
+        if (args.Action == KeyboardShortcutAction.NewTask)
+        {
+            if (!CanCreateTask || !IsQuickAddVisible)
+                return;
+
+            await ExecuteUIThread(() =>
+            {
+                IsComposerExpanded = true;
+                TaskComposerFocusRequested?.Invoke(this, TaskComposerFocusRequestedEventArgs.Default);
+            });
+            args.Handled = true;
+            return;
+        }
+
+        if (args.Action == KeyboardShortcutAction.Delete && SelectedTask is { IsReadOnly: false } selectedTask)
+        {
+            await DeleteTaskAsync(selectedTask);
+            args.Handled = true;
+        }
+    }
 
     public string SortDisplayText => SelectedSort switch
     {

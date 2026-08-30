@@ -29,6 +29,42 @@ public partial class ContactsPageViewModel
 
     public WinoApplicationMode Mode => WinoApplicationMode.Contacts;
 
+    public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
+    {
+        if (args.Handled || args.Mode != WinoApplicationMode.Contacts ||
+            args.InputContext is not KeyboardShortcutInputContext.Contacts)
+        {
+            return;
+        }
+
+        if (args.Action == KeyboardShortcutAction.NewContact)
+        {
+            await AddContactAsync();
+            args.Handled = true;
+            return;
+        }
+
+        if (args.Action != KeyboardShortcutAction.Delete)
+            return;
+
+        if (IsSelectionMode)
+        {
+            if (SelectedContacts.Any(contact => contact.IsEditable))
+            {
+                await DeleteSelectedContactsAsync();
+                args.Handled = true;
+            }
+
+            return;
+        }
+
+        if (SelectedContact?.IsEditable == true)
+        {
+            await DeleteContactAsync(SelectedContact);
+            args.Handled = true;
+        }
+    }
+
     public ShellMenu ShellMenu => _shellMenu;
 
     object IShellMenuProvider.SelectedMenuItem

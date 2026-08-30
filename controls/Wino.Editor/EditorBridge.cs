@@ -21,6 +21,7 @@ internal sealed partial class EditorBridge : IDisposable
     public event EventHandler? ContentChanged;
     public event EventHandler<string>? LinkNavigationRequested;
     public event EventHandler<string>? ShortcutRequested;
+    public event EventHandler<EditorApplicationShortcutGesture>? ApplicationShortcutRequested;
 
     public async Task InitializeAsync()
     {
@@ -98,6 +99,12 @@ internal sealed partial class EditorBridge : IDisposable
     }
 
     public Task FocusAsync() => ExecuteScriptAsync("window.WinoEditor.focus()");
+
+    public Task SetApplicationShortcutsAsync(IReadOnlyList<EditorApplicationShortcutGesture> shortcuts)
+    {
+        var json = JsonSerializer.Serialize(shortcuts, EditorJsonContext.Default.IReadOnlyListEditorApplicationShortcutGesture);
+        return ExecuteScriptAsync($"window.WinoEditor.setApplicationShortcuts({json})");
+    }
 
     public Task SetThemeAsync(bool isDarkMode)
     {
@@ -184,6 +191,9 @@ internal sealed partial class EditorBridge : IDisposable
                 break;
             case "shortcut" when !string.IsNullOrWhiteSpace(message.Command):
                 ShortcutRequested?.Invoke(this, message.Command);
+                break;
+            case "applicationShortcut" when message.Gesture is not null:
+                ApplicationShortcutRequested?.Invoke(this, message.Gesture);
                 break;
         }
     }

@@ -20,6 +20,8 @@ public class KeyboardShortcutActionViewModel
         KeyboardShortcutAction.ReplyAll => Translator.MailOperation_ReplyAll,
         KeyboardShortcutAction.Send => Translator.Buttons_Send,
         KeyboardShortcutAction.NewEvent => Translator.CalendarEventCompose_NewEventButton,
+        KeyboardShortcutAction.NewContact => Translator.KeyboardShortcuts_ActionNewContact,
+        KeyboardShortcutAction.NewTask => Translator.KeyboardShortcuts_ActionNewTask,
         _ => Action.ToString()
     };
 

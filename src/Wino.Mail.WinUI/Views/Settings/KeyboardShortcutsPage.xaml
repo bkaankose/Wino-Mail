@@ -6,9 +6,10 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     x:Name="root"
-    Title="{x:Bind domain:Translator.Settings_KeyboardShortcuts_Title}"
+    Title="{x:Bind domain:Translator.Settings_KeyboardShortcuts_Title, Mode=OneTime}"
     mc:Ignorable="d">
 
     <!--  Main Content  -->
@@ -24,19 +25,44 @@
             Margin="0,0,0,12"
             Orientation="Horizontal">
             <Button
-                AutomationProperties.AutomationId="KeyboardShortcutsPageButton"
+                AutomationProperties.AutomationId="KeyboardShortcutsAdd"
                 Margin="0,0,8,0"
                 Command="{x:Bind ViewModel.StartAddingShortcutCommand}"
-                Content="{x:Bind domain:Translator.KeyboardShortcuts_Add}" />
+                Content="{x:Bind domain:Translator.KeyboardShortcuts_Add, Mode=OneTime}" />
             <Button
-                AutomationProperties.AutomationId="KeyboardShortcutsPageButton2"
+                AutomationProperties.AutomationId="KeyboardShortcutsReset"
                 Command="{x:Bind ViewModel.ResetToDefaultsCommand}"
-                Content="{x:Bind domain:Translator.KeyboardShortcuts_ResetToDefaults}"
+                Content="{x:Bind domain:Translator.KeyboardShortcuts_ResetToDefaults, Mode=OneTime}"
                 Style="{ThemeResource AccentButtonStyle}" />
         </StackPanel>
 
+        <ProgressRing
+            AutomationProperties.AutomationId="KeyboardShortcutsLoading"
+            Grid.Row="1"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" />
+
+        <InfoBar
+            AutomationProperties.AutomationId="KeyboardShortcutsError"
+            Grid.Row="1"
+            HorizontalAlignment="Stretch"
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}"
+            Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+            Severity="Error"
+            Title="{x:Bind domain:Translator.GeneralTitle_Error, Mode=OneTime}" />
+
+        <TextBlock
+            AutomationProperties.AutomationId="KeyboardShortcutsEmpty"
+            Grid.Row="1"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Text="{x:Bind domain:Translator.KeyboardShortcuts_Empty, Mode=OneTime}"
+            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsEmpty), Mode=OneWay}" />
+
         <ListView
-            AutomationProperties.AutomationId="KeyboardShortcutsPageListView"
+            AutomationProperties.AutomationId="KeyboardShortcutsList"
             Grid.Row="1"
             ItemsSource="{x:Bind ViewModel.Shortcuts, Mode=OneWay}"
             SelectionMode="None">
@@ -77,27 +103,37 @@
                                 Style="{ThemeResource CaptionTextBlockStyle}"
                                 Text="{x:Bind ModeDisplayName}" />
 
-                            <Button
-                                AutomationProperties.AutomationId="KeyboardShortcutsPageButton3"
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="KeyboardShortcutEnabled"
                                 Grid.Column="2"
+                                Margin="8,0"
+                                IsOn="{x:Bind IsEnabled, Mode=TwoWay}"
+                                OffContent="{x:Bind domain:Translator.CalendarSettings_Toggle_Off, Mode=OneTime}"
+                                OnContent="{x:Bind domain:Translator.CalendarSettings_Toggle_On, Mode=OneTime}"
+                                Tag="{x:Bind}"
+                                Toggled="ShortcutEnabled_Toggled" />
+
+                            <Button
+                                AutomationProperties.AutomationId="KeyboardShortcutEdit"
+                                Grid.Column="3"
                                 Margin="4,0"
                                 Click="EditShortcut_Click"
                                 CommandParameter="{x:Bind}"
                                 Content="&#xE70F;"
                                 FontFamily="Segoe MDL2 Assets"
                                 Style="{ThemeResource SubtleButtonStyle}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Edit}" />
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}" />
 
                             <Button
-                                AutomationProperties.AutomationId="KeyboardShortcutsPageButton4"
-                                Grid.Column="3"
+                                AutomationProperties.AutomationId="KeyboardShortcutDelete"
+                                Grid.Column="4"
                                 Margin="4,0"
                                 Click="DeleteShortcut_Click"
                                 CommandParameter="{x:Bind}"
                                 Content="&#xE74D;"
                                 FontFamily="Segoe MDL2 Assets"
                                 Style="{ThemeResource SubtleButtonStyle}"
-                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Delete}" />
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}" />
                         </Grid>
                     </Border>
                 </DataTemplate>

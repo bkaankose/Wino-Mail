@@ -46,6 +46,13 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         TaskListView.ItemsSource = TaskCollectionViewSource.View;
     }
 
+    protected override void OnNavigatedTo(NavigationEventArgs e)
+    {
+        base.OnNavigatedTo(e);
+        ViewModel.TaskComposerFocusRequested -= ViewModel_TaskComposerFocusRequested;
+        ViewModel.TaskComposerFocusRequested += ViewModel_TaskComposerFocusRequested;
+    }
+
     partial void OnIsCompactLayoutPropertyChanged(DependencyPropertyChangedEventArgs e)
         => ViewModel.SetCompactLayout(IsCompactLayout);
 
@@ -103,10 +110,16 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
+        ViewModel.TaskComposerFocusRequested -= ViewModel_TaskComposerFocusRequested;
         _searchCancellationTokenSource?.Cancel();
         _searchCancellationTokenSource?.Dispose();
         _searchCancellationTokenSource = null;
         base.OnNavigatedFrom(e);
+    }
+
+    private void ViewModel_TaskComposerFocusRequested(object? sender, Wino.Core.Domain.Models.TaskComposerFocusRequestedEventArgs e)
+    {
+        DispatcherQueue.TryEnqueue(() => ComposerTextBox.Focus(FocusState.Programmatic));
     }
 
     private async void TaskCheckBox_Click(object sender, RoutedEventArgs e)

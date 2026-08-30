@@ -18,6 +18,9 @@ public sealed record EditorMessage
 
     [JsonPropertyName("command")]
     public string? Command { get; init; }
+
+    [JsonPropertyName("gesture")]
+    public EditorApplicationShortcutGesture? Gesture { get; init; }
 }
 
 public sealed record EditorSelectionState
@@ -93,6 +96,8 @@ public sealed record EditorSelectionState
 [JsonSerializable(typeof(EditorMessage))]
 [JsonSerializable(typeof(EditorSelectionState))]
 [JsonSerializable(typeof(EditorImagePropertiesCommandArgs))]
+[JsonSerializable(typeof(EditorApplicationShortcutGesture))]
+[JsonSerializable(typeof(IReadOnlyList<EditorApplicationShortcutGesture>))]
 [JsonSerializable(typeof(RendererMessage))]
 [JsonSerializable(typeof(string))]
 internal sealed partial class EditorJsonContext : JsonSerializerContext;

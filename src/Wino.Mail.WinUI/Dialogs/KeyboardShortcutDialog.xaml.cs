@@ -1,17 +1,23 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Models;
 using Wino.Core.ViewModels.Data;
+using Wino.Core.Domain.Interfaces;
+using Wino.Mail.WinUI;
 
 namespace Wino.Dialogs;
 
 public sealed partial class KeyboardShortcutDialog : ContentDialog
 {
+    private readonly IKeyboardShortcutService _keyboardShortcutService = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
+    private readonly IWinoLogger _logger = WinoApplication.Current.Services.GetRequiredService<IWinoLogger>();
     public KeyboardShortcutDialogResult Result { get; private set; } = KeyboardShortcutDialogResult.Canceled();
 
     public List<KeyboardShortcutActionViewModel> AvailableActions { get; private set; } = [];
@@ -40,8 +46,31 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
         }
     }
 
+    public bool IsContactsModeSelected
+    {
+        get => SelectedMode == WinoApplicationMode.Contacts;
+        set
+        {
+            if (!value || SelectedMode == WinoApplicationMode.Contacts) return;
+            SelectedMode = WinoApplicationMode.Contacts;
+            RefreshAvailableActions();
+        }
+    }
+
+    public bool IsTasksModeSelected
+    {
+        get => SelectedMode == WinoApplicationMode.Tasks;
+        set
+        {
+            if (!value || SelectedMode == WinoApplicationMode.Tasks) return;
+            SelectedMode = WinoApplicationMode.Tasks;
+            RefreshAvailableActions();
+        }
+    }
+
     private ModifierKeys _modifierKeys;
     private string _key = string.Empty;
+    private Guid? _existingShortcutId;
 
     public KeyboardShortcutDialog()
     {
@@ -53,6 +82,7 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
     {
         if (existingShortcut != null)
         {
+            _existingShortcutId = existingShortcut.Id;
             SelectedMode = existingShortcut.Mode;
             _modifierKeys = existingShortcut.ModifierKeys;
             _key = existingShortcut.Key;
@@ -62,34 +92,65 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
         }
     }
 
-    private void SaveClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
+    private async void SaveClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        // Clear any previous error
-        ErrorBorder.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
+        var deferral = args.GetDeferral();
 
-        // Validate input
-        if (string.IsNullOrWhiteSpace(_key))
+        try
         {
-            ShowError(Translator.KeyboardShortcuts_EnterKey);
-            args.Cancel = true;
-            return;
-        }
+            ErrorBorder.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
 
-        if (SelectedAction == null || SelectedAction.Action == KeyboardShortcutAction.None)
+            if (string.IsNullOrWhiteSpace(_key))
+            {
+                ShowError(Translator.KeyboardShortcuts_EnterKey);
+                args.Cancel = true;
+                return;
+            }
+
+            if (SelectedAction == null || SelectedAction.Action == KeyboardShortcutAction.None)
+            {
+                ShowError(Translator.KeyboardShortcuts_SelectOperation);
+                args.Cancel = true;
+                return;
+            }
+
+            var candidate = new KeyboardShortcut
+            {
+                Mode = SelectedMode,
+                Key = _key,
+                ModifierKeys = _modifierKeys,
+                Action = SelectedAction.Action
+            };
+            if (!_keyboardShortcutService.IsShortcutAllowed(candidate))
+            {
+                ShowError(Translator.KeyboardShortcuts_InvalidShortcut);
+                args.Cancel = true;
+                return;
+            }
+
+            if (await _keyboardShortcutService.IsKeyCombinationInUseAsync(
+                    SelectedMode,
+                    _key,
+                    _modifierKeys,
+                    _existingShortcutId))
+            {
+                ShowError(Translator.KeyboardShortcuts_ShortcutInUse);
+                args.Cancel = true;
+                return;
+            }
+
+            Result = KeyboardShortcutDialogResult.Success(SelectedMode, _key, _modifierKeys, SelectedAction.Action);
+        }
+        catch (Exception exception)
         {
-            ShowError(Translator.KeyboardShortcuts_SelectOperation);
+            _logger.CaptureException(exception, "KeyboardShortcutDialog.Validate");
+            ShowError(Translator.KeyboardShortcuts_FailedToSave);
             args.Cancel = true;
-            return;
         }
-
-        if (IsReservedShortcut(SelectedMode, _key, _modifierKeys))
+        finally
         {
-            ShowError(Translator.KeyboardShortcuts_ReservedUndoShortcut);
-            args.Cancel = true;
-            return;
+            deferral.Complete();
         }
-
-        Result = KeyboardShortcutDialogResult.Success(SelectedMode, _key, _modifierKeys, SelectedAction.Action);
     }
 
     private void KeyInputTextBox_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
@@ -145,6 +206,16 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
                 KeyboardShortcutAction.NewEvent,
                 KeyboardShortcutAction.Delete
             ],
+            WinoApplicationMode.Contacts =>
+            [
+                KeyboardShortcutAction.NewContact,
+                KeyboardShortcutAction.Delete
+            ],
+            WinoApplicationMode.Tasks =>
+            [
+                KeyboardShortcutAction.NewTask,
+                KeyboardShortcutAction.Delete
+            ],
             _ => []
         };
 
@@ -193,11 +264,6 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
             _ => key.ToString()
         };
     }
-
-    private static bool IsReservedShortcut(WinoApplicationMode mode, string key, ModifierKeys modifierKeys)
-        => string.Equals(key, "Z", System.StringComparison.OrdinalIgnoreCase)
-           && modifierKeys == ModifierKeys.Control
-           && mode == WinoApplicationMode.Mail;
 
     private static string BuildDisplayString(string key, ModifierKeys modifierKeys)
     {

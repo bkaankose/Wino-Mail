@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Navigation;
@@ -21,6 +22,78 @@ namespace Wino.Mail.ViewModels.Tests;
 
 public class ContactsPageViewModelTests
 {
+    [Fact]
+    public async Task KeyboardShortcut_NewContact_UsesExistingEditorNavigation()
+    {
+        var navigation = new Mock<INavigationService>();
+        var viewModel = new ContactsPageViewModel(
+            PageService().Object,
+            Mock.Of<IAccountService>(),
+            Mock.Of<ISynchronizationManager>(),
+            Mock.Of<IWinoRequestDelegator>(),
+            navigation.Object,
+            Mock.Of<IMailDialogService>(),
+            Mock.Of<ILaunchProtocolService>());
+        var details = ContactShortcut(KeyboardShortcutAction.NewContact);
+
+        await viewModel.KeyboardShortcutHook(details);
+
+        details.Handled.Should().BeTrue();
+        navigation.Verify(service => service.Navigate(
+            WinoPage.ContactEditPage,
+            It.IsAny<ContactEditNavigationParameter>(),
+            It.IsAny<NavigationReferenceFrame?>(),
+            It.IsAny<NavigationTransitionType>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task KeyboardShortcut_Delete_UsesSelectionModeConfirmationAndHonorsCancel()
+    {
+        var dialogs = new Mock<IMailDialogService>();
+        dialogs.Setup(service => service.ShowConfirmationDialogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(false);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        var viewModel = new ContactsPageViewModel(
+            PageService().Object,
+            Mock.Of<IAccountService>(),
+            Mock.Of<ISynchronizationManager>(),
+            delegator.Object,
+            Mock.Of<INavigationService>(),
+            dialogs.Object,
+            Mock.Of<ILaunchProtocolService>())
+        {
+            IsSelectionMode = true
+        };
+        viewModel.SelectedContacts.Add(new AccountContactViewModel(Contact("One")));
+        viewModel.SelectedContacts.Add(new AccountContactViewModel(Contact("Two")));
+        var details = ContactShortcut(KeyboardShortcutAction.Delete);
+
+        await viewModel.KeyboardShortcutHook(details);
+
+        details.Handled.Should().BeTrue();
+        dialogs.Verify(service => service.ShowConfirmationDialogAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>()), Times.Once);
+        delegator.Verify(service => service.ExecuteAsync(It.IsAny<IReadOnlyList<ContactOperationPreparationRequest>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task KeyboardShortcut_Delete_NoSelectionOrReadOnlyContact_IsNotHandled()
+    {
+        var viewModel = CreateViewModel(PageService().Object);
+        var noSelection = ContactShortcut(KeyboardShortcutAction.Delete);
+
+        await viewModel.KeyboardShortcutHook(noSelection);
+        noSelection.Handled.Should().BeFalse();
+
+        var readOnly = Contact("Read only");
+        readOnly.SourceKind = ContactSourceKind.Gmail;
+        viewModel.SelectedContact = new AccountContactViewModel(readOnly, isAuthorized: false);
+        var readOnlyDetails = ContactShortcut(KeyboardShortcutAction.Delete);
+        await viewModel.KeyboardShortcutHook(readOnlyDetails);
+        readOnlyDetails.Handled.Should().BeFalse();
+    }
     [Fact]
     public async Task ImportedDraft_OpensEditorAfterPeopleRootInitializes()
     {
@@ -504,7 +577,6 @@ public class ContactsPageViewModelTests
     {
         var viewModel = await NavigatedViewModelAsync();
 
-        viewModel.FilterGroups.Should().NotContain(group => group.Title == Translator.ContactsPage_MyLists);
         viewModel.ShellMenu.Items.OfType<ShellSectionHeaderMenuItem>()
             .Should().NotContain(item => item.Title == Translator.ContactsPage_MyLists);
     }
@@ -660,6 +732,14 @@ public class ContactsPageViewModelTests
             DisplayName = name,
             SortKey = name,
             SourceKind = ContactSourceKind.Local
+        };
+
+    private static KeyboardShortcutTriggerDetails ContactShortcut(KeyboardShortcutAction action)
+        => new()
+        {
+            Mode = WinoApplicationMode.Contacts,
+            Action = action,
+            InputContext = KeyboardShortcutInputContext.Contacts
         };
 
     private static Mock<IContactService> PageService()

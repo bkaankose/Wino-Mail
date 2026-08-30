@@ -19,6 +19,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
@@ -156,6 +157,35 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     public IPrintService PrintService { get; }
     public Guid? CurrentMailAccountId => initializedMailItemViewModel?.MailCopy.AssignedAccount?.Id;
     public Guid? CurrentMailFileId => initializedMailItemViewModel?.MailCopy.FileId;
+
+    public override async Task KeyboardShortcutHook(KeyboardShortcutTriggerDetails args)
+    {
+        if (args.Handled || args.Mode != WinoApplicationMode.Mail || initializedMailItemViewModel is null ||
+            args.InputContext is not (KeyboardShortcutInputContext.Reader or KeyboardShortcutInputContext.PopOutReader))
+        {
+            return;
+        }
+
+        var operation = args.Action switch
+        {
+            KeyboardShortcutAction.ToggleReadUnread => initializedMailItemViewModel.IsRead ? MailOperation.MarkAsUnread : MailOperation.MarkAsRead,
+            KeyboardShortcutAction.ToggleFlag => initializedMailItemViewModel.IsFlagged ? MailOperation.ClearFlag : MailOperation.SetFlag,
+            KeyboardShortcutAction.ToggleArchive => initializedMailItemViewModel.MailCopy.AssignedFolder?.SpecialFolderType == SpecialFolderType.Archive
+                ? MailOperation.UnArchive
+                : MailOperation.Archive,
+            KeyboardShortcutAction.Delete => MailOperation.SoftDelete,
+            KeyboardShortcutAction.Move => MailOperation.Move,
+            KeyboardShortcutAction.Reply => MailOperation.Reply,
+            KeyboardShortcutAction.ReplyAll => MailOperation.ReplyAll,
+            _ => MailOperation.None
+        };
+
+        if (operation == MailOperation.None)
+            return;
+
+        await HandleMailOperationAsync(operation);
+        args.Handled = true;
+    }
 
     public MailRenderingPageViewModel(IMailDialogService dialogService,
         INativeAppService nativeAppService,

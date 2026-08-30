@@ -7,11 +7,11 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:local="using:Wino.Dialogs"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    Title="{x:Bind domain:Translator.KeyboardShortcuts_Add}"
+    Title="{x:Bind domain:Translator.KeyboardShortcuts_Add, Mode=OneTime}"
     DefaultButton="Primary"
     PrimaryButtonClick="SaveClicked"
-    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Save}"
-    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
     Style="{StaticResource WinoDialogStyle}"
     mc:Ignorable="d">
 
@@ -24,33 +24,55 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="1" Margin="0,0,0,20">
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
             <TextBlock
                 Margin="0,0,0,8"
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
-                Text="{x:Bind domain:Translator.KeyboardShortcuts_Mode}" />
-            <StackPanel Orientation="Horizontal" Spacing="16">
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_Mode, Mode=OneTime}" />
+            <Grid ColumnSpacing="16" RowSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <RadioButton
-                    AutomationProperties.AutomationId="KeyboardShortcutDialogRadioButton"
-                    Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail}"
+                    AutomationProperties.AutomationId="KeyboardShortcutModeMail"
+                    Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeMail, Mode=OneTime}"
                     GroupName="ShortcutMode"
                     IsChecked="{x:Bind IsMailModeSelected, Mode=TwoWay}" />
                 <RadioButton
-                    AutomationProperties.AutomationId="KeyboardShortcutDialogRadioButton2"
-                    Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar}"
+                    AutomationProperties.AutomationId="KeyboardShortcutModeCalendar"
+                    Grid.Column="1"
+                    Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar, Mode=OneTime}"
                     GroupName="ShortcutMode"
                     IsChecked="{x:Bind IsCalendarModeSelected, Mode=TwoWay}" />
-            </StackPanel>
+                <RadioButton
+                    AutomationProperties.AutomationId="KeyboardShortcutModeContacts"
+                    Grid.Row="1"
+                    Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeContacts, Mode=OneTime}"
+                    GroupName="ShortcutMode"
+                    IsChecked="{x:Bind IsContactsModeSelected, Mode=TwoWay}" />
+                <RadioButton
+                    AutomationProperties.AutomationId="KeyboardShortcutModeTasks"
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeTasks, Mode=OneTime}"
+                    GroupName="ShortcutMode"
+                    IsChecked="{x:Bind IsTasksModeSelected, Mode=TwoWay}" />
+            </Grid>
         </StackPanel>
 
         <!--  Action  -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+        <StackPanel Grid.Row="1" Margin="0,0,0,20">
             <TextBlock
                 Margin="0,0,0,4"
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
-                Text="{x:Bind domain:Translator.KeyboardShortcuts_Action}" />
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_Action, Mode=OneTime}" />
             <ComboBox
-                AutomationProperties.AutomationId="ActionComboBox"
+                AutomationProperties.AutomationId="KeyboardShortcutAction"
                 x:Name="ActionComboBox"
                 HorizontalAlignment="Stretch"
                 ItemsSource="{x:Bind AvailableActions}"
@@ -69,18 +91,18 @@
             <TextBlock
                 Margin="0,0,0,4"
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
-                Text="{x:Bind domain:Translator.KeyboardShortcuts_KeyCombination}" />
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_KeyCombination, Mode=OneTime}" />
             <TextBox
                 AutomationProperties.AutomationId="KeyInputTextBox"
                 x:Name="KeyInputTextBox"
                 IsReadOnly="True"
-                PlaceholderText="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere}"
+                PlaceholderText="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere, Mode=OneTime}"
                 PreviewKeyDown="KeyInputTextBox_PreviewKeyDown" />
             <TextBlock
                 Margin="0,4,0,0"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{ThemeResource CaptionTextBlockStyle}"
-                Text="{x:Bind domain:Translator.KeyboardShortcuts_FocusArea}" />
+                Text="{x:Bind domain:Translator.KeyboardShortcuts_FocusArea, Mode=OneTime}" />
         </StackPanel>
 
         <!--  Error Message  -->

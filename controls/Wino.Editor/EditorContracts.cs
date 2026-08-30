@@ -18,6 +18,8 @@ public interface IHtmlMailEditor : IEditorCommandTarget, IDisposable
     Task<string?> GetHtmlBodyAsync();
     Task SetDefaultTypographyAsync(string? fontFamily, int fontSize);
     Task FocusEditorAsync(bool focusControlAsWell);
+    Task SetApplicationShortcutsAsync(IReadOnlyList<EditorApplicationShortcutGesture> shortcuts);
+    event EventHandler<EditorApplicationShortcutGesture>? ApplicationShortcutRequested;
     Task InsertImagesAsync(IEnumerable<EditorImageInfo> images);
     void SetMemoryUsageTargetLevel(CoreWebView2MemoryUsageTargetLevel level);
     WebView2 GetUnderlyingWebView();

@@ -18,6 +18,12 @@ public interface IEditorCommandTarget
     Task ExecuteCommandAsync(EditorCommand command);
 }
 
+public sealed record class EditorApplicationShortcutGesture(
+    string Key,
+    bool Control,
+    bool Alt,
+    bool Shift);
+
 public interface IEditorCommandControl
 {
     IEditorCommandTarget? CommandTarget { get; set; }

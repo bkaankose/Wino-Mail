@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -11,6 +12,12 @@ namespace Wino.Core.Domain.Interfaces;
 /// </summary>
 public interface IKeyboardShortcutService
 {
+    event EventHandler KeyboardShortcutsChanged;
+
+    IReadOnlyList<KeyboardShortcutSnapshot> EnabledShortcutsSnapshot { get; }
+
+    Task InitializeAsync();
+
     /// <summary>
     /// Gets all available keyboard shortcuts.
     /// </summary>
@@ -29,6 +36,8 @@ public interface IKeyboardShortcutService
     /// <param name="shortcut">The keyboard shortcut to save.</param>
     /// <returns>The saved keyboard shortcut.</returns>
     Task<KeyboardShortcut> SaveKeyboardShortcutAsync(KeyboardShortcut shortcut);
+
+    Task UpdateKeyboardShortcutEnabledAsync(Guid shortcutId, bool isEnabled);
 
     /// <summary>
     /// Deletes a keyboard shortcut.
@@ -59,6 +68,8 @@ public interface IKeyboardShortcutService
     /// Checks if a key combination is reserved by built-in app behavior.
     /// </summary>
     bool IsReservedShortcut(WinoApplicationMode mode, string key, ModifierKeys modifierKeys);
+
+    bool IsShortcutAllowed(KeyboardShortcut shortcut);
 
     /// <summary>
     /// Creates default keyboard shortcuts for common mail operations.

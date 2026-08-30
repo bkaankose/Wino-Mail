@@ -39,6 +39,16 @@
         }
     }
 
+    let applicationShortcuts = [];
+
+    function setApplicationShortcuts(shortcuts) {
+        const protectedKeys = new Set(["a", "b", "c", "f", "i", "k", "n", "o", "p", "r", "s", "u", "v", "w", "x", "y", "z", "tab", "delete", "backspace"]);
+        applicationShortcuts = Array.isArray(shortcuts)
+            ? shortcuts.filter(shortcut => shortcut && shortcut.control === true &&
+                typeof shortcut.key === "string" && !protectedKeys.has(shortcut.key.toLowerCase()))
+            : [];
+    }
+
     function selectionInsideEditor() {
         const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) {
@@ -767,6 +777,8 @@
     document.execCommand("styleWithCSS", false, false);
 
     document.addEventListener("keydown", event => {
+        if (event.repeat) return;
+
         if (event.key === "Escape" && linkBubble.classList.contains("is-visible")) {
             event.preventDefault();
             event.stopPropagation();
@@ -791,7 +803,19 @@
         if (event.key === "\\") {
             event.preventDefault();
             clearFormatting();
+            return;
         }
+
+        const applicationShortcut = applicationShortcuts.find(shortcut =>
+            shortcut.key.toLowerCase() === event.key.toLowerCase() &&
+            shortcut.control === event.ctrlKey &&
+            shortcut.alt === event.altKey &&
+            shortcut.shift === event.shiftKey);
+        if (!applicationShortcut) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        post({ type: "applicationShortcut", gesture: applicationShortcut });
     }, true);
     document.addEventListener("keyup", event => {
         if (event.key.toLowerCase() === "v") pasteAsPlainTextOnce = false;
@@ -862,6 +886,7 @@
         setTypography,
         setPasteAsHtml(value) { pasteAsHtml = Boolean(value); },
         setSpellCheck(value) { spellCheck = Boolean(value); editor.spellcheck = spellCheck; sendState(); },
+        setApplicationShortcuts,
         setParagraphStyle,
         setLineHeight(value) { return applyStyle("lineHeight", value || "normal"); },
         insertEmoji(value) { return insertHtml(String(value || "")); },

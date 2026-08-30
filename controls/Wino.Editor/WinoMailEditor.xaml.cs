@@ -70,6 +70,7 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     public event EventHandler<MailEditorFilesSelectedEventArgs>? InlineImagesSelected;
     public event EventHandler<EditorState>? StateChanged;
     public event EventHandler<EditorShortcutKind>? ShortcutRequested;
+    public event EventHandler<EditorApplicationShortcutGesture>? ApplicationShortcutRequested;
 
     public IReadOnlyList<EditorFontFamilyOption> AvailableFonts
     {
@@ -119,6 +120,12 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     {
         await InitializeAsync();
         await _bridge!.SetTypographyAsync(fontFamily, fontSize);
+    }
+
+    public async Task SetApplicationShortcutsAsync(IReadOnlyList<EditorApplicationShortcutGesture> shortcuts)
+    {
+        await InitializeAsync();
+        await _bridge!.SetApplicationShortcutsAsync(shortcuts);
     }
 
     public async Task SetReplyHtmlAsync(string previousMessageHtml)
@@ -207,6 +214,7 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         _bridge.ContentChanged += Bridge_ContentChanged;
         _bridge.LinkNavigationRequested += Bridge_LinkNavigationRequested;
         _bridge.ShortcutRequested += Bridge_ShortcutRequested;
+        _bridge.ApplicationShortcutRequested += Bridge_ApplicationShortcutRequested;
 
         try
         {
@@ -232,11 +240,15 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         _bridge.ContentChanged -= Bridge_ContentChanged;
         _bridge.LinkNavigationRequested -= Bridge_LinkNavigationRequested;
         _bridge.ShortcutRequested -= Bridge_ShortcutRequested;
+        _bridge.ApplicationShortcutRequested -= Bridge_ApplicationShortcutRequested;
         _bridge.Dispose();
         _bridge = null;
     }
 
     private void Bridge_ContentChanged(object? sender, EventArgs e) => ContentChanged?.Invoke(this, EventArgs.Empty);
+
+    private void Bridge_ApplicationShortcutRequested(object? sender, EditorApplicationShortcutGesture gesture)
+        => ApplicationShortcutRequested?.Invoke(this, gesture);
 
     private static async void Bridge_LinkNavigationRequested(object? sender, string url)
     {

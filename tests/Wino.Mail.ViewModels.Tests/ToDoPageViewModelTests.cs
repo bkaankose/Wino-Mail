@@ -7,6 +7,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
@@ -19,6 +20,73 @@ namespace Wino.Mail.ViewModels.Tests;
 
 public sealed class ToDoPageViewModelTests
 {
+    [Fact]
+    public async Task KeyboardShortcut_NewTask_ExpandsAndRequestsFocusWithoutCreatingPlaceholder()
+    {
+        var account = CreateAccount(MailProviderType.IMAP4, taskAccess: false);
+        var list = CreateList(account.Id, TaskSourceKind.Local, isDefault: true);
+        var taskService = CreateTaskService([list]);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        var focusRequests = 0;
+        viewModel.TaskComposerFocusRequested += (_, _) => focusRequests++;
+        var details = TaskShortcut(KeyboardShortcutAction.NewTask);
+
+        await viewModel.KeyboardShortcutHook(details);
+
+        details.Handled.Should().BeTrue();
+        focusRequests.Should().Be(1);
+        viewModel.IsComposerExpanded.Should().BeTrue();
+        viewModel.ComposerText.Should().BeEmpty();
+        delegator.Verify(service => service.ExecuteAsync(It.IsAny<Guid>(), It.IsAny<IEnumerable<IRequestBase>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task KeyboardShortcut_Delete_UsesExistingConfirmationPreference()
+    {
+        var account = CreateAccount(MailProviderType.IMAP4, taskAccess: false);
+        var list = CreateList(account.Id, TaskSourceKind.Local, isDefault: true);
+        var task = CreateTask(account.Id, list.Id, "Delete me");
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, list.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync([task]);
+        var dialogs = new Mock<IMailDialogService>();
+        dialogs.Setup(service => service.ShowConfirmationDialogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(false);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        var preferences = new Mock<IPreferencesService>();
+        preferences.SetupGet(service => service.IsTaskDeleteConfirmationEnabled).Returns(true);
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object, dialogs.Object, preferences.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = list;
+        await WaitUntilAsync(() => viewModel.TaskGroups.SelectMany(group => group).Any());
+        viewModel.SelectedTask = viewModel.TaskGroups.SelectMany(group => group).Single();
+        var details = TaskShortcut(KeyboardShortcutAction.Delete);
+
+        await viewModel.KeyboardShortcutHook(details);
+
+        details.Handled.Should().BeTrue();
+        dialogs.Verify(service => service.ShowConfirmationDialogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        delegator.Verify(service => service.ExecuteAsync(It.IsAny<Guid>(), It.IsAny<IEnumerable<IRequestBase>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task KeyboardShortcut_TextInputContext_PreservesEditing()
+    {
+        var viewModel = CreateViewModel(Mock.Of<ITaskService>(), []);
+        var details = TaskShortcut(KeyboardShortcutAction.Delete);
+        details = new KeyboardShortcutTriggerDetails
+        {
+            Mode = details.Mode,
+            Action = details.Action,
+            InputContext = KeyboardShortcutInputContext.TextInput
+        };
+
+        await viewModel.KeyboardShortcutHook(details);
+
+        details.Handled.Should().BeFalse();
+    }
     [Fact]
     public async Task Reload_UsesQueryOnlyLocalListAndEnablesAddTask_WhenProviderTasksAreInactive()
     {
@@ -745,7 +813,8 @@ public sealed class ToDoPageViewModelTests
         ITaskService taskService,
         IReadOnlyList<MailAccount> accounts,
         IWinoRequestDelegator requestDelegator = null,
-        IMailDialogService dialogService = null)
+        IMailDialogService dialogService = null,
+        IPreferencesService preferencesService = null)
     {
         var accountService = new Mock<IAccountService>();
         accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync(accounts.ToList());
@@ -755,7 +824,8 @@ public sealed class ToDoPageViewModelTests
             requestDelegator ?? Mock.Of<IWinoRequestDelegator>(),
             Mock.Of<INavigationService>(),
             Mock.Of<ICalendarService>(),
-            dialogService ?? Mock.Of<IMailDialogService>())
+            dialogService ?? Mock.Of<IMailDialogService>(),
+            preferencesService: preferencesService)
         {
             Dispatcher = new ImmediateDispatcher()
         };
@@ -763,6 +833,14 @@ public sealed class ToDoPageViewModelTests
 
     private static AccountTaskListAccountMenuItem GetAccountMenu(ToDoPageViewModel viewModel)
         => viewModel.ShellMenu.Items.OfType<AccountTaskListAccountMenuItem>().Single();
+
+    private static KeyboardShortcutTriggerDetails TaskShortcut(KeyboardShortcutAction action)
+        => new()
+        {
+            Mode = WinoApplicationMode.Tasks,
+            Action = action,
+            InputContext = KeyboardShortcutInputContext.Tasks
+        };
 
     private static bool IsFollowUpCreateRequest(IEnumerable<IRequestBase> requests)
     {

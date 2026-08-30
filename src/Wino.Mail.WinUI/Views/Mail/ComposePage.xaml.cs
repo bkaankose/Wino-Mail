@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Controls;
 using EmailValidation;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -22,6 +23,9 @@ using Windows.UI.Core.Preview;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Editor;
@@ -50,6 +54,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private bool _isInitialFocusHandled;
     private bool _shouldApplyInitialFocus;
     private bool _isNavigatingFrom;
+    private int _isExecutingEditorShortcut;
     private CancellationTokenSource? _editorLifecycleCancellationSource;
     private readonly Dictionary<TokenizingTextBox, List<IContactDisplayItem>> _recipientSuggestions = [];
 
@@ -63,6 +68,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
     public Visibility GetPopOutButtonVisibility() => SupportsPopOut ? Visibility.Visible : Visibility.Collapsed;
 
     private readonly List<IDisposable> _disposables = [];
+    private readonly IKeyboardShortcutService _keyboardShortcutService = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
+    private readonly IWinoLogger _logger = WinoApplication.Current.Services.GetRequiredService<IWinoLogger>();
 
     public ComposePage()
     {
@@ -317,6 +324,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
         _disposables.Add(GetSuggestionBoxDisposable(CCBox));
         _disposables.Add(GetSuggestionBoxDisposable(BccBox));
         _disposables.Add(WebViewEditor);
+        WebViewEditor.ApplicationShortcutRequested -= WebViewEditor_ApplicationShortcutRequested;
+        WebViewEditor.ApplicationShortcutRequested += WebViewEditor_ApplicationShortcutRequested;
+        _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
+        _keyboardShortcutService.KeyboardShortcutsChanged += KeyboardShortcutService_KeyboardShortcutsChanged;
 
         ViewModel.GetHTMLBodyFunction = GetEditorHtmlBodyAsync;
         var editorLifecycleToken = _editorLifecycleCancellationSource.Token;
@@ -583,6 +594,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
         finally
         {
+            WebViewEditor.ApplicationShortcutRequested -= WebViewEditor_ApplicationShortcutRequested;
+            _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
             ViewModel.GetHTMLBodyFunction = null;
             DisposeDisposables();
             _editorLifecycleCancellationSource?.Dispose();
@@ -734,6 +747,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 ViewModel.PreferencesService.ComposerFont,
                 ViewModel.PreferencesService.ComposerFontSize);
 
+            await ConfigureEditorApplicationShortcutsAsync();
+
             if (editorLifecycleToken.IsCancellationRequested)
                 return;
 
@@ -746,6 +761,83 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             // Draft deletion can navigate away while initialization/rendering is
             // still in flight. Disposal is the expected completion of that work.
+        }
+    }
+
+    private async void KeyboardShortcutService_KeyboardShortcutsChanged(object? sender, EventArgs e)
+    {
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            DispatcherQueue.TryEnqueue(() => KeyboardShortcutService_KeyboardShortcutsChanged(sender, e));
+            return;
+        }
+
+        try
+        {
+            await ConfigureEditorApplicationShortcutsAsync();
+        }
+        catch (ObjectDisposedException) when (_isNavigatingFrom)
+        {
+        }
+        catch (Exception exception)
+        {
+            _logger.CaptureException(exception, "ComposePage.RefreshEditorShortcuts");
+        }
+    }
+
+    private Task ConfigureEditorApplicationShortcutsAsync()
+    {
+        var gestures = _keyboardShortcutService.EnabledShortcutsSnapshot
+            .Where(shortcut => shortcut.Mode == WinoApplicationMode.Mail && shortcut.Action == KeyboardShortcutAction.Send)
+            .Select(shortcut => new EditorApplicationShortcutGesture(
+                shortcut.Key,
+                shortcut.ModifierKeys.HasFlag(ModifierKeys.Control),
+                shortcut.ModifierKeys.HasFlag(ModifierKeys.Alt),
+                shortcut.ModifierKeys.HasFlag(ModifierKeys.Shift)))
+            .ToList();
+
+        return WebViewEditor.SetApplicationShortcutsAsync(gestures);
+    }
+
+    private async void WebViewEditor_ApplicationShortcutRequested(object? sender, EditorApplicationShortcutGesture gesture)
+    {
+        if (Interlocked.Exchange(ref _isExecutingEditorShortcut, 1) != 0)
+            return;
+
+        var modifiers = ModifierKeys.None;
+        if (gesture.Control) modifiers |= ModifierKeys.Control;
+        if (gesture.Alt) modifiers |= ModifierKeys.Alt;
+        if (gesture.Shift) modifiers |= ModifierKeys.Shift;
+
+        var shortcut = _keyboardShortcutService.EnabledShortcutsSnapshot.FirstOrDefault(item =>
+            item.Mode == WinoApplicationMode.Mail &&
+            item.Action == KeyboardShortcutAction.Send &&
+            item.ModifierKeys == modifiers &&
+            string.Equals(item.Key, gesture.Key, StringComparison.OrdinalIgnoreCase));
+        try
+        {
+            if (shortcut is null)
+                return;
+
+            await ViewModel.KeyboardShortcutHook(new KeyboardShortcutTriggerDetails
+            {
+                ShortcutId = shortcut.Id,
+                Mode = shortcut.Mode,
+                Action = shortcut.Action,
+                Key = shortcut.Key,
+                ModifierKeys = shortcut.ModifierKeys,
+                InputContext = _isPoppedOut ? KeyboardShortcutInputContext.PopOutCompose : KeyboardShortcutInputContext.Compose,
+                Sender = WebViewEditor,
+                Origin = WebViewEditor
+            });
+        }
+        catch (Exception exception)
+        {
+            _logger.CaptureException(exception, "ComposePage.EditorShortcut");
+        }
+        finally
+        {
+            Volatile.Write(ref _isExecutingEditorShortcut, 0);
         }
     }
 }
