@@ -254,7 +254,8 @@
                 <controls:SettingsExpander
                     AutomationProperties.AutomationId="WinoIntelligenceAiActionsExpander"
                     Description="{x:Bind domain:Translator.SettingsAppPreferences_AiActions_Description}"
-                    Header="{x:Bind domain:Translator.SettingsAppPreferences_AiActions_Title}">
+                    Header="{x:Bind domain:Translator.SettingsAppPreferences_AiActions_Title}"
+                    Visibility="{x:Bind ViewModel.HasIntelligenceAccess, Mode=OneWay}">
                     <controls:SettingsExpander.HeaderIcon>
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE734;" />
                     </controls:SettingsExpander.HeaderIcon>

@@ -204,51 +204,6 @@
                 </controls:SettingsCard.Content>
             </controls:SettingsCard>
 
-            <!--  Profile pictures. These drive Mail, Calendar and People surfaces, not just the mail list.  -->
-            <controls:SettingsExpander
-                AutomationProperties.AutomationId="PersonalizationSenderPicturesExpander"
-                Description="{x:Bind domain:Translator.SettingsShowSenderPictures_Description, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.SettingsShowSenderPictures_Title, Mode=OneTime}">
-                <controls:SettingsExpander.HeaderIcon>
-                    <SymbolIcon Symbol="Contact" />
-                </controls:SettingsExpander.HeaderIcon>
-                <ToggleSwitch AutomationProperties.AutomationId="PersonalizationShowSenderPicturesToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=TwoWay}" />
-                <controls:SettingsExpander.Items>
-                    <controls:SettingsCard
-                        AutomationProperties.AutomationId="PersonalizationGravatarCard"
-                        Description="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Description, Mode=OneTime}"
-                        Header="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Title, Mode=OneTime}">
-                        <controls:SettingsCard.Content>
-                            <ToggleSwitch
-                                AutomationProperties.AutomationId="PersonalizationGravatarToggleSwitch"
-                                IsEnabled="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
-                                IsOn="{x:Bind ViewModel.PreferencesService.IsGravatarEnabled, Mode=TwoWay}" />
-                        </controls:SettingsCard.Content>
-                    </controls:SettingsCard>
-
-                    <controls:SettingsCard
-                        AutomationProperties.AutomationId="PersonalizationFaviconCard"
-                        Description="{x:Bind domain:Translator.SettingsEnableFavicons_Description, Mode=OneTime}"
-                        Header="{x:Bind domain:Translator.SettingsEnableFavicons_Title, Mode=OneTime}">
-                        <controls:SettingsCard.Content>
-                            <ToggleSwitch
-                                AutomationProperties.AutomationId="PersonalizationFaviconToggleSwitch"
-                                IsEnabled="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
-                                IsOn="{x:Bind ViewModel.PreferencesService.IsFaviconEnabled, Mode=TwoWay}" />
-                        </controls:SettingsCard.Content>
-                    </controls:SettingsCard>
-
-                    <controls:SettingsCard AutomationProperties.AutomationId="PersonalizationClearAvatarsCacheCard">
-                        <controls:SettingsCard.Content>
-                            <Button
-                                AutomationProperties.AutomationId="PersonalizationClearAvatarsCacheButton"
-                                Command="{x:Bind ViewModel.ClearAvatarsCacheCommand}"
-                                Content="{x:Bind domain:Translator.SettingsMailList_ClearAvatarsCache_Button, Mode=OneTime}" />
-                        </controls:SettingsCard.Content>
-                    </controls:SettingsCard>
-                </controls:SettingsExpander.Items>
-            </controls:SettingsExpander>
-
             <!--  App Themes  -->
             <controls:SettingsExpander
                 AutomationProperties.AutomationId="PersonalizationPageSettingsExpander2"

@@ -18,6 +18,51 @@
                 </TransitionCollection>
             </StackPanel.ChildrenTransitions>
 
+            <!--  Sender pictures  -->
+            <controls:SettingsExpander
+                AutomationProperties.AutomationId="MessageListSenderPicturesExpander"
+                Description="{x:Bind domain:Translator.SettingsShowSenderPictures_Description, Mode=OneTime}"
+                Header="{x:Bind domain:Translator.SettingsShowSenderPictures_Title, Mode=OneTime}">
+                <controls:SettingsExpander.HeaderIcon>
+                    <SymbolIcon Symbol="Contact" />
+                </controls:SettingsExpander.HeaderIcon>
+                <ToggleSwitch AutomationProperties.AutomationId="MessageListShowSenderPicturesToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=TwoWay}" />
+                <controls:SettingsExpander.Items>
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="MessageListGravatarCard"
+                        Description="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.SettingsEnableGravatarAvatars_Title, Mode=OneTime}">
+                        <controls:SettingsCard.Content>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="MessageListGravatarToggleSwitch"
+                                IsEnabled="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.PreferencesService.IsGravatarEnabled, Mode=TwoWay}" />
+                        </controls:SettingsCard.Content>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard
+                        AutomationProperties.AutomationId="MessageListFaviconCard"
+                        Description="{x:Bind domain:Translator.SettingsEnableFavicons_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.SettingsEnableFavicons_Title, Mode=OneTime}">
+                        <controls:SettingsCard.Content>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="MessageListFaviconToggleSwitch"
+                                IsEnabled="{x:Bind ViewModel.PreferencesService.IsShowSenderPicturesEnabled, Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.PreferencesService.IsFaviconEnabled, Mode=TwoWay}" />
+                        </controls:SettingsCard.Content>
+                    </controls:SettingsCard>
+
+                    <controls:SettingsCard AutomationProperties.AutomationId="MessageListClearAvatarsCacheCard">
+                        <controls:SettingsCard.Content>
+                            <Button
+                                AutomationProperties.AutomationId="MessageListClearAvatarsCacheButton"
+                                Command="{x:Bind ViewModel.ClearAvatarsCacheCommand}"
+                                Content="{x:Bind domain:Translator.SettingsMailList_ClearAvatarsCache_Button, Mode=OneTime}" />
+                        </controls:SettingsCard.Content>
+                    </controls:SettingsCard>
+                </controls:SettingsExpander.Items>
+            </controls:SettingsExpander>
+
             <controls:SettingsExpander
                 AutomationProperties.AutomationId="MessageListPageSettingsExpander"
                 Description="{x:Bind domain:Translator.SettingsMailSpacing_Description}"
