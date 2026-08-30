@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
@@ -14,6 +15,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.ViewModels.Data;
+using Wino.Messaging.Client.Navigation;
 
 namespace Wino.Core.ViewModels;
 
@@ -51,8 +53,6 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         new ElementThemeContainer(ApplicationElementTheme.Light, Translator.ElementTheme_Light),
         new ElementThemeContainer(ApplicationElementTheme.Dark, Translator.ElementTheme_Dark),
     ];
-
-    public List<AppThemeBase> AppThemes { get; set; }
 
     [ObservableProperty]
     public partial ElementThemeContainer SelectedElementTheme { get; set; }
@@ -94,27 +94,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     }
 
     // Allow app theme change for system themes.
-    public bool CanSelectElementTheme => SelectedAppTheme != null &&
-        (SelectedAppTheme.AppThemeType == AppThemeType.System || SelectedAppTheme.AppThemeType == AppThemeType.Custom);
-
-    private AppThemeBase _selectedAppTheme;
-
-    public AppThemeBase SelectedAppTheme
-    {
-        get => _selectedAppTheme;
-        set
-        {
-            if (SetProperty(ref _selectedAppTheme, value))
-            {
-                OnPropertyChanged(nameof(CanSelectElementTheme));
-
-                if (!CanSelectElementTheme)
-                {
-                    SelectedElementTheme = null;
-                }
-            }
-        }
-    }
+    public bool CanSelectElementTheme { get; private set; } = true;
 
     // Backdrop selection properties
     [ObservableProperty]
@@ -132,7 +112,6 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.Info_MailListSizeResetSuccessMessage, InfoBarMessageType.Success);
     }
 
-    public AsyncRelayCommand CreateCustomThemeCommand { get; set; }
     public PersonalizationPageViewModel(IDialogServiceBase dialogService,
                                         IStatePersistanceService statePersistanceService,
                                         INewThemeService newThemeService,
@@ -152,56 +131,14 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
             DemoPreviewMailCopy.Subject,
             DemoPreviewMailCopy.PreviewText);
 
-        CreateCustomThemeCommand = new AsyncRelayCommand(CreateCustomThemeAsync);
-    }
-
-    private async Task CreateCustomThemeAsync()
-    {
-        bool isThemeCreated = await _dialogService.ShowCustomThemeBuilderDialogAsync();
-
-        if (isThemeCreated)
-        {
-            // Reload themes.
-
-            await InitializeSettingsAsync();
-        }
     }
 
     [RelayCommand]
-    private async Task DeleteCustomThemeAsync(AppThemeBase theme)
+    private void NavigateApplicationThemes()
     {
-        if (theme == null || theme.AppThemeType != AppThemeType.Custom)
-        {
-            return;
-        }
-
-        var shouldDelete = await _dialogService.ShowConfirmationDialogAsync(
-            string.Format(Translator.SettingsCustomTheme_DeleteConfirm_Message, theme.ThemeName),
-            Translator.SettingsCustomTheme_DeleteConfirm_Title,
-            Translator.Buttons_Delete);
-
-        if (!shouldDelete)
-        {
-            return;
-        }
-
-        var isDeleted = await _newThemeService.DeleteCustomThemeAsync(theme.Id);
-
-        if (!isDeleted)
-        {
-            _dialogService.InfoBarMessage(
-                Translator.GeneralTitle_Warning,
-                Translator.SettingsCustomTheme_DeleteMissing,
-                InfoBarMessageType.Warning);
-            return;
-        }
-
-        await InitializeSettingsAsync();
-
-        _dialogService.InfoBarMessage(
-            Translator.GeneralTitle_Info,
-            string.Format(Translator.SettingsCustomTheme_DeleteSuccess, theme.ThemeName),
-            InfoBarMessageType.Success);
+        WeakReferenceMessenger.Default.Send(new BreadcrumbNavigationRequested(
+            Translator.ApplicationThemeGallery_Title,
+            WinoPage.ApplicationThemeGalleryPage));
     }
 
     private void InitializeColors()
@@ -248,12 +185,6 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         else
             SelectedAppColor = Colors.FirstOrDefault(a => a.Hex == currentAccentColor);
 
-        // Find selected theme, handling backward compatibility where theme ID might not exist
-        var currentThemeId = _newThemeService.CurrentApplicationThemeId;
-        SelectedAppTheme = currentThemeId.HasValue
-            ? AppThemes.Find(a => a.Id == currentThemeId.Value) ?? AppThemes.FirstOrDefault()
-            : AppThemes.FirstOrDefault();
-
         // Set the current backdrop from service - backdrop should be independent of theme selection
         var currentBackdropType = _newThemeService.CurrentBackdropType;
         SelectedBackdropType = AvailableBackdropTypes?.FirstOrDefault(x => x.BackdropType == currentBackdropType);
@@ -270,9 +201,12 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     {
         Deactivate();
 
-        AppThemes = await _newThemeService.GetAvailableThemesAsync();
-
-        OnPropertyChanged(nameof(AppThemes));
+        var themes = await _newThemeService.GetAvailableThemesAsync();
+        var currentTheme = _newThemeService.CurrentApplicationThemeId is Guid currentThemeId
+            ? themes.FirstOrDefault(theme => theme.Id == currentThemeId)
+            : themes.FirstOrDefault();
+        CanSelectElementTheme = currentTheme?.AppThemeType is AppThemeType.System or AppThemeType.Custom;
+        OnPropertyChanged(nameof(CanSelectElementTheme));
 
         // Initialize backdrop types
         AvailableBackdropTypes = _newThemeService.GetAvailableBackdropTypes();
@@ -322,11 +256,6 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         _newThemeService.AccentColorChanged -= AccentColorChanged;
         _newThemeService.ElementThemeChanged -= ElementThemeChanged;
 
-        if (AppThemes != null)
-        {
-            AppThemes.Clear();
-            AppThemes = null;
-        }
     }
 
     private void PersonalizationSettingsUpdated(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -337,13 +266,6 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         if (e.PropertyName == nameof(SelectedElementTheme) && SelectedElementTheme != null)
         {
             _newThemeService.RootTheme = SelectedElementTheme.NativeTheme;
-        }
-        else if (e.PropertyName == nameof(SelectedAppTheme))
-        {
-            // Set the theme ID, can be null if no theme is selected
-            _newThemeService.CurrentApplicationThemeId = SelectedAppTheme?.Id;
-
-            // Theme selection should not affect backdrop - they are independent settings
         }
         else if (e.PropertyName == nameof(SelectedBackdropType) && SelectedBackdropType != null)
         {

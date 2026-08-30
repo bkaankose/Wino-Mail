@@ -23,7 +23,6 @@ public interface IDialogServiceBase
                                         WinoCustomMessageDialogIcon? icon,
                                         string cancelButtonText = "",
                                         string dontAskAgainConfigurationKey = "");
-    Task<bool> ShowCustomThemeBuilderDialogAsync();
     Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders);
     IAccountCreationDialog GetAccountCreationDialog(AccountCreationDialogResult accountCreationDialogResult);
     Task<List<SharedFile>> PickFilesAsync(params object[] typeFilters);

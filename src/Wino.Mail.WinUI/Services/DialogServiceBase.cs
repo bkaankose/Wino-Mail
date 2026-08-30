@@ -329,18 +329,6 @@ public class DialogServiceBase : IDialogServiceBase
         return string.Empty;
     }
 
-    public async Task<bool> ShowCustomThemeBuilderDialogAsync()
-    {
-        var themeBuilderDialog = new CustomThemeBuilderDialog()
-        {
-            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
-        };
-
-        var dialogResult = await HandleDialogPresentationAsync(themeBuilderDialog);
-
-        return dialogResult == ContentDialogResult.Primary;
-    }
-
     public async Task<AccountCreationDialogResult> ShowAccountProviderSelectionDialogAsync(List<IProviderDetail> availableProviders)
     {
         var dialog = new NewAccountDialog

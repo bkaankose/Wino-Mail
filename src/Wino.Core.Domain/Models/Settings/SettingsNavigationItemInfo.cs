@@ -282,6 +282,8 @@ public static class SettingsNavigationInfoProvider
             WinoPage.WinoIntelligencePage => Translator.WinoIntelligence_SettingsTitle,
             WinoPage.IntelligenceCoveragePage => Translator.SemanticIndex_CoverageEditorTitle,
             WinoPage.PersonalizationPage => Translator.SettingsPersonalization_Title,
+            WinoPage.ApplicationThemeGalleryPage => Translator.ApplicationThemeGallery_Title,
+            WinoPage.ApplicationThemeEditorPage => Translator.ApplicationThemeEditor_CreateTitle,
             WinoPage.AboutPage => Translator.SettingsAbout_Title,
             WinoPage.MessageListPage => Translator.SettingsMessageList_Title,
             WinoPage.MailNotificationSettingsPage => Translator.SettingsMailNotifications_Title,
@@ -320,6 +322,8 @@ public static class SettingsNavigationInfoProvider
             WinoPage.SpecialImapCredentialsPage => WinoPage.ManageAccountsPage,
             WinoPage.AccountSetupProgressPage => WinoPage.ManageAccountsPage,
             WinoPage.CreateEmailTemplatePage => WinoPage.EmailTemplatesPage,
+            WinoPage.ApplicationThemeGalleryPage => WinoPage.PersonalizationPage,
+            WinoPage.ApplicationThemeEditorPage => WinoPage.PersonalizationPage,
             WinoPage.CalendarSettingsPage => WinoPage.CalendarPreferenceSettingsPage,
             WinoPage.CalendarAccountSettingsPage => WinoPage.CalendarPreferenceSettingsPage,
             _ => pageType

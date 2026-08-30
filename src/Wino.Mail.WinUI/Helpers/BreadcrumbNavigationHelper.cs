@@ -3,6 +3,9 @@ using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.WinUI;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 
@@ -39,7 +42,8 @@ public static class BreadcrumbNavigationHelper
     public static bool GoBack(
         Frame frame,
         ObservableCollection<BreadcrumbNavigationItemViewModel> pageHistory,
-        NavigationTransitionEffect slideEffect)
+        NavigationTransitionEffect slideEffect,
+        NavigationResult? result = null)
     {
         if (!frame.CanGoBack || pageHistory.Count == 0)
             return false;
@@ -53,13 +57,15 @@ public static class BreadcrumbNavigationHelper
         });
 
         SetActiveItem(pageHistory, pageHistory.Count > 0 ? pageHistory[^1] : null);
+        DeliverResult(frame, pageHistory.Count > 0 ? pageHistory[^1].Request.Parameter : null, result);
         return true;
     }
 
     public static bool NavigateTo(
         Frame frame,
         ObservableCollection<BreadcrumbNavigationItemViewModel> pageHistory,
-        int targetIndex)
+        int targetIndex,
+        NavigationResult? result = null)
     {
         if (targetIndex < 0 || targetIndex >= pageHistory.Count)
             return false;
@@ -89,7 +95,14 @@ public static class BreadcrumbNavigationHelper
         }
 
         SetActiveItem(pageHistory, targetItem);
+        DeliverResult(frame, targetItem.Request.Parameter, result);
         return true;
+    }
+
+    private static void DeliverResult(Frame frame, object? parameter, NavigationResult? result)
+    {
+        if (frame.Content is BasePage page && page.AssociatedViewModel is IBackNavigationAware aware)
+            aware.OnNavigatedBack(parameter, result);
     }
 
     private static int GetActiveIndex(ObservableCollection<BreadcrumbNavigationItemViewModel> pageHistory)

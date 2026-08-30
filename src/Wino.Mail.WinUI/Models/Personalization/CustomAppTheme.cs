@@ -15,7 +15,11 @@ public class CustomAppTheme : AppThemeBase
     public CustomAppTheme(CustomThemeMetadata metadata) : base(metadata.Name, metadata.Id)
     {
         AccentColor = metadata.AccentColorHex;
+        Compatibility = ThemeCompatibility.Both;
+        Metadata = metadata;
     }
+
+    public CustomThemeMetadata Metadata { get; }
 
     public override AppThemeType AppThemeType => AppThemeType.Custom;
 

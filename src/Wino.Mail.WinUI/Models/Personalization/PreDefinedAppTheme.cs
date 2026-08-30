@@ -18,6 +18,12 @@ public class PreDefinedAppTheme : AppThemeBase
     {
         AccentColor = accentColor;
         ForceElementTheme = forcedElementTheme;
+        Compatibility = forcedElementTheme switch
+        {
+            ApplicationElementTheme.Dark => ThemeCompatibility.Dark,
+            ApplicationElementTheme.Light => ThemeCompatibility.Light,
+            _ => ThemeCompatibility.Both
+        };
     }
 
     public override AppThemeType AppThemeType => AppThemeType.PreDefined;

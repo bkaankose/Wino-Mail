@@ -13,6 +13,7 @@ using Wino.Core.Domain.Models.Settings;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Interfaces;
+using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Messaging.Client.Navigation;
@@ -139,19 +140,45 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         ContentScrollViewer.ChangeView(null, 0, null, true);
     }
 
-    private void GoBackFrame(Core.Domain.Enums.NavigationTransitionEffect slideEffect)
+    private async Task<bool> GoBackFrameAsync(
+        Core.Domain.Enums.NavigationTransitionEffect slideEffect,
+        NavigationResult? result = null,
+        bool confirmationAlreadyHandled = false)
     {
-        if (!BreadcrumbNavigationHelper.GoBack(SettingsFrame, PageHistory, slideEffect))
-            return;
+        if (!confirmationAlreadyHandled &&
+            SettingsFrame.Content is BasePage currentPage &&
+            currentPage.AssociatedViewModel is Core.Domain.Interfaces.IConfirmBackNavigation confirmBackNavigation &&
+            !await confirmBackNavigation.CanNavigateBackAsync())
+        {
+            return false;
+        }
+
+        result ??= (SettingsFrame.Content as BasePage)?.AssociatedViewModel is Core.Domain.Interfaces.IBreadcrumbNavigationResultProvider provider
+            ? provider.TakeNavigationResult()
+            : null;
+
+        if (!BreadcrumbNavigationHelper.GoBack(SettingsFrame, PageHistory, slideEffect, result))
+            return false;
 
         UpdateBackNavigationState();
         _ = RefreshCurrentPageStateAsync();
         UpdateWindowTitle();
+        return true;
     }
 
-    private void BreadItemClicked(Microsoft.UI.Xaml.Controls.BreadcrumbBar sender, Microsoft.UI.Xaml.Controls.BreadcrumbBarItemClickedEventArgs args)
+    private async void BreadItemClicked(Microsoft.UI.Xaml.Controls.BreadcrumbBar sender, Microsoft.UI.Xaml.Controls.BreadcrumbBarItemClickedEventArgs args)
     {
-        if (!BreadcrumbNavigationHelper.NavigateTo(SettingsFrame, PageHistory, args.Index))
+        NavigationResult? result = null;
+        if (SettingsFrame.Content is BasePage currentPage &&
+            currentPage.AssociatedViewModel is Core.Domain.Interfaces.IConfirmBackNavigation confirmBackNavigation)
+        {
+            if (!await confirmBackNavigation.CanNavigateBackAsync())
+                return;
+
+            result = (currentPage.AssociatedViewModel as Core.Domain.Interfaces.IBreadcrumbNavigationResultProvider)?.TakeNavigationResult();
+        }
+
+        if (!BreadcrumbNavigationHelper.NavigateTo(SettingsFrame, PageHistory, args.Index, result))
             return;
 
         UpdateBackNavigationState();
@@ -161,7 +188,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     public void Receive(BackBreadcrumNavigationRequested message)
     {
-        GoBackFrame(message.SlideEffect);
+        _ = GoBackFrameAsync(message.SlideEffect, message.Result, message.Result != null);
     }
 
     public void Receive(SettingsRootNavigationRequested message)
@@ -412,11 +439,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     public bool CanNavigateBack => PageHistory.Count > 1 && SettingsFrame.CanGoBack;
 
     Task<bool> IInnerNavigationHost.NavigateBackAsync(Core.Domain.Enums.NavigationTransitionEffect effect)
-    {
-        GoBackFrame(effect);
-
-        return Task.FromResult(true);
-    }
+        => GoBackFrameAsync(effect);
 
     private async Task RefreshCurrentPageStateAsync()
     {

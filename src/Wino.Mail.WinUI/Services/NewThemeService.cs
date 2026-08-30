@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -12,6 +11,7 @@ using CommunityToolkit.WinUI.Helpers;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Markup;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Storage;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -146,7 +146,7 @@ public class NewThemeService : INewThemeService
         {
             accentColor = value;
 
-            UpdateAccentColor(value);
+            UpdateAccentColor(string.IsNullOrWhiteSpace(value) ? GetSystemAccentColorHex() : value);
 
             _configurationService.Set(AccentColorKey, value);
             AccentColorChanged?.Invoke(this, value);
@@ -463,7 +463,10 @@ public class NewThemeService : INewThemeService
         }
     }
 
-    public async Task ApplyCustomThemeAsync(bool isInitializing)
+    public Task ApplyCustomThemeAsync(bool isInitializing)
+        => ApplyCustomThemeCoreAsync(isInitializing, forceReapply: false, throwOnError: false);
+
+    private async Task ApplyCustomThemeCoreAsync(bool isInitializing, bool forceReapply, bool throwOnError)
     {
         // If no theme ID is set, don't apply any theme (for backward compatibility)
         if (currentApplicationThemeId == null)
@@ -518,7 +521,7 @@ public class NewThemeService : INewThemeService
                 var themeName = themeNameString?.ToString();
 
                 // Applying different theme.
-                if (themeName != applyingTheme.ThemeName)
+                if (forceReapply || themeName != applyingTheme.ThemeName || applyingTheme is CustomAppTheme)
                 {
                     var resourceDictionaryContent = await applyingTheme.GetThemeResourceDictionaryContentAsync();
 
@@ -531,9 +534,12 @@ public class NewThemeService : INewThemeService
                     // Custom themes require special attention for background image because 
                     // they share the same base theme resource dictionary.
 
-                    if (applyingTheme is CustomAppTheme)
+                    if (applyingTheme is CustomAppTheme customTheme)
                     {
-                        resourceDictionary["ThemeBackgroundImage"] = $"ms-appdata:///local/{CustomThemeFolderName}/{applyingTheme.Id}.jpg";
+                        ConfigureCustomThemeDictionary(
+                            resourceDictionary,
+                            customTheme.Metadata,
+                            $"ms-appdata:///local/{CustomThemeFolderName}/{applyingTheme.Id}.jpg");
                     }
 
                     _applicationResourceManager.RemoveResource(existingThemeDictionary);
@@ -569,6 +575,80 @@ public class NewThemeService : INewThemeService
         catch (Exception ex)
         {
             Debug.WriteLine($"Apply theme failed -> {ex.Message}");
+
+            if (throwOnError)
+                throw;
+        }
+    }
+
+    private static void ConfigureCustomThemeDictionary(
+        ResourceDictionary dictionary,
+        CustomThemeMetadata metadata,
+        string wallpaperUri)
+    {
+        dictionary["ThemeBackgroundImage"] = wallpaperUri;
+
+        if (dictionary["WinoApplicationBackgroundColor"] is ImageBrush imageBrush)
+        {
+            imageBrush.ImageSource = new BitmapImage(new Uri(wallpaperUri));
+            imageBrush.Stretch = metadata.WallpaperFit == ThemeWallpaperFit.Fit ? Stretch.Uniform : Stretch.UniformToFill;
+            imageBrush.AlignmentX = metadata.WallpaperFit == ThemeWallpaperFit.Fit
+                ? AlignmentX.Center
+                : metadata.WallpaperAlignment switch
+                {
+                    ThemeWallpaperAlignment.TopLeft or ThemeWallpaperAlignment.Left or ThemeWallpaperAlignment.BottomLeft => AlignmentX.Left,
+                    ThemeWallpaperAlignment.TopRight or ThemeWallpaperAlignment.Right or ThemeWallpaperAlignment.BottomRight => AlignmentX.Right,
+                    _ => AlignmentX.Center
+                };
+            imageBrush.AlignmentY = metadata.WallpaperFit == ThemeWallpaperFit.Fit
+                ? AlignmentY.Center
+                : metadata.WallpaperAlignment switch
+                {
+                    ThemeWallpaperAlignment.TopLeft or ThemeWallpaperAlignment.Top or ThemeWallpaperAlignment.TopRight => AlignmentY.Top,
+                    ThemeWallpaperAlignment.BottomLeft or ThemeWallpaperAlignment.Bottom or ThemeWallpaperAlignment.BottomRight => AlignmentY.Bottom,
+                    _ => AlignmentY.Center
+                };
+        }
+
+        ApplyPalette(dictionary.ThemeDictionaries["Light"] as ResourceDictionary, metadata.LightPalette?.Resolve(false) ?? CustomThemePalette.CreateDefaults(false));
+        ApplyPalette(dictionary.ThemeDictionaries["Dark"] as ResourceDictionary, metadata.DarkPalette?.Resolve(true) ?? CustomThemePalette.CreateDefaults(true));
+    }
+
+    private static void ApplyPalette(ResourceDictionary? dictionary, CustomThemePalette palette)
+    {
+        if (dictionary == null)
+            return;
+
+        SetPaletteColor(dictionary, "MainCustomThemeColor", palette.MainCustomThemeColor, asColor: true);
+        SetPaletteColor(dictionary, "MailListHeaderBackgroundColor", palette.MailListHeaderBackgroundColor);
+        SetPaletteColor(dictionary, "CalendarDefaultHourBackgroundBrush", palette.CalendarDefaultHourBackgroundBrush);
+        SetPaletteColor(dictionary, "CalendarHoverHourBackgroundBrush", palette.CalendarHoverHourBackgroundBrush);
+        SetPaletteColor(dictionary, "CalendarWorkHourBackgroundBrush", palette.CalendarWorkHourBackgroundBrush);
+        SetPaletteColor(dictionary, "CalendarSelectedHourBackgroundBrush", palette.CalendarSelectedHourBackgroundBrush);
+        SetPaletteColor(dictionary, "WinoContentZoneBackgroud", palette.WinoContentZoneBackgroud);
+        SetPaletteColor(dictionary, "ReadingPaneBackgroundColorBrush", palette.ReadingPaneBackgroundColorBrush);
+        SetPaletteColor(dictionary, "NavigationViewContentBackground", palette.NavigationViewContentBackground);
+    }
+
+    private static void SetPaletteColor(ResourceDictionary dictionary, string key, string? hex, bool asColor = false)
+    {
+        if (string.IsNullOrWhiteSpace(hex))
+            return;
+
+        var color = ColorHelper.ToColor(hex);
+
+        if (asColor)
+        {
+            dictionary[key] = color;
+        }
+        else if (dictionary.TryGetValue(key, out var value) && value is SolidColorBrush brush)
+        {
+            brush.Color = color;
+            brush.Opacity = 1;
+        }
+        else
+        {
+            dictionary[key] = new SolidColorBrush(color);
         }
     }
 
@@ -583,57 +663,157 @@ public class NewThemeService : INewThemeService
         return availableThemes;
     }
 
-    public async Task<CustomThemeMetadata> CreateNewCustomThemeAsync(string themeName, string accentColor, byte[] wallpaperData)
+    public async Task SelectThemeAsync(Guid themeId, bool forceReapply = false)
     {
-        if (wallpaperData == null || wallpaperData.Length == 0)
-            throw new CustomThemeCreationFailedException(Translator.Exception_CustomThemeMissingWallpaper);
+        var availableThemes = await GetAvailableThemesAsync();
+        if (availableThemes.All(theme => theme.Id != themeId))
+            throw new InvalidOperationException($"Theme '{themeId}' is not available.");
 
-        if (string.IsNullOrEmpty(themeName))
-            throw new CustomThemeCreationFailedException(Translator.Exception_CustomThemeMissingName);
+        var previousState = CaptureRuntimeState();
+        currentApplicationThemeId = themeId;
+        _configurationService.Set(CurrentApplicationThemeKey, currentApplicationThemeId);
 
-        var themes = await GetCurrentCustomThemesAsync();
-
-        if (themes.Exists(a => a.Name == themeName))
-            throw new CustomThemeCreationFailedException(Translator.Exception_CustomThemeExists);
-
-        var newTheme = new CustomThemeMetadata()
+        try
         {
-            Id = Guid.NewGuid(),
-            Name = themeName,
-            AccentColorHex = accentColor
-        };
+            await ApplyCustomThemeCoreAsync(isInitializing: false, forceReapply: forceReapply, throwOnError: true);
+        }
+        catch
+        {
+            await RestoreRuntimeStateAsync(previousState);
+            throw;
+        }
+    }
 
-        // Save wallpaper.
-        // Filename would be the same as metadata id, in jpg format.
+    public ThemeRuntimeState CaptureRuntimeState()
+        => new(currentApplicationThemeId, currentApplicationThemeId ?? Guid.Parse(_defaultThemeId), AccentColor, RootTheme);
+
+    public async Task PreviewCustomThemeAsync(
+        CustomThemeMetadata metadata,
+        byte[]? wallpaperData,
+        ApplicationElementTheme elementTheme)
+    {
+        var wallpaperUri = metadata.Id == Guid.Empty
+            ? $"ms-appdata:///local/{CustomThemeFolderName}/editor-preview.jpg"
+            : $"ms-appdata:///local/{CustomThemeFolderName}/{metadata.Id}.jpg";
+
+        if (wallpaperData is { Length: > 0 })
+        {
+            var themeFolder = await ApplicationData.Current.LocalFolder.CreateFolderAsync(CustomThemeFolderName, CreationCollisionOption.OpenIfExists);
+            const string previewFileName = "editor-preview.jpg";
+            await ReplaceBytesAtomicallyAsync(themeFolder, previewFileName, wallpaperData);
+            wallpaperUri = $"ms-appdata:///local/{CustomThemeFolderName}/{previewFileName}";
+        }
+
+        var customThemeFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///AppThemes/Custom.xaml"));
+        var content = await FileIO.ReadTextAsync(customThemeFile);
+        var dictionary = XamlReader.Load(content) as ResourceDictionary
+                         ?? throw new InvalidOperationException("Custom theme resources could not be loaded.");
+        ConfigureCustomThemeDictionary(dictionary, metadata, wallpaperUri);
+
+        var existingDictionary = _applicationResourceManager.GetLastResource();
+        if (existingDictionary != null)
+            _applicationResourceManager.RemoveResource(existingDictionary);
+
+        _applicationResourceManager.AddResource(dictionary);
+        RootTheme = elementTheme;
+        AccentColor = metadata.AccentColorHex;
+        RefreshThemeResource();
+    }
+
+    public async Task RestoreRuntimeStateAsync(ThemeRuntimeState state)
+    {
+        currentApplicationThemeId = state.EffectiveThemeId;
+        await ApplyCustomThemeCoreAsync(isInitializing: false, forceReapply: true, throwOnError: true);
+        RootTheme = state.ElementTheme;
+        AccentColor = state.AccentColor;
+        currentApplicationThemeId = state.ThemeId;
+        _configurationService.Set(CurrentApplicationThemeKey, currentApplicationThemeId);
+
+        var themeFolder = await ApplicationData.Current.LocalFolder.CreateFolderAsync(CustomThemeFolderName, CreationCollisionOption.OpenIfExists);
+        await DeleteThemeAssetIfExistsAsync(themeFolder, "editor-preview.jpg");
+    }
+
+    public async Task<CustomThemeMetadata?> GetCustomThemeAsync(Guid themeId)
+        => (await GetCurrentCustomThemesAsync()).FirstOrDefault(theme => theme.Id == themeId);
+
+    public async Task<CustomThemeMetadata> SaveCustomThemeAsync(CustomThemeSaveRequest request)
+    {
+        var themeName = request.Name?.Trim();
+        var themes = await GetCurrentCustomThemesAsync();
+        var validationError = CustomThemeSaveValidator.Validate(request, themes);
+        if (validationError != CustomThemeValidationError.None)
+        {
+            var message = validationError switch
+            {
+                CustomThemeValidationError.MissingName => Translator.Exception_CustomThemeMissingName,
+                CustomThemeValidationError.MissingWallpaper => Translator.Exception_CustomThemeMissingWallpaper,
+                CustomThemeValidationError.DuplicateName => Translator.Exception_CustomThemeExists,
+                CustomThemeValidationError.MissingTheme => Translator.SettingsCustomTheme_DeleteMissing,
+                CustomThemeValidationError.InvalidAccent => Translator.ApplicationThemeEditor_InvalidAccent,
+                _ => Translator.ApplicationThemeEditor_InvalidSurface
+            };
+            throw new CustomThemeCreationFailedException(message);
+        }
+
+        var accentColor = string.Empty;
+        if (!string.IsNullOrWhiteSpace(request.AccentColorHex))
+            ThemeColorValidator.TryNormalizeOpaque(request.AccentColorHex, out accentColor);
+
+        var savedTheme = new CustomThemeMetadata
+        {
+            Id = request.ThemeId ?? Guid.NewGuid(),
+            Name = themeName!,
+            AccentColorHex = accentColor,
+            LightPalette = request.LightPalette,
+            DarkPalette = request.DarkPalette,
+            WallpaperFit = request.WallpaperFit,
+            WallpaperAlignment = request.WallpaperFit == ThemeWallpaperFit.Fit
+                ? ThemeWallpaperAlignment.Center
+                : request.WallpaperAlignment
+        };
 
         var themeFolder = await ApplicationData.Current.LocalFolder.CreateFolderAsync(CustomThemeFolderName, CreationCollisionOption.OpenIfExists);
 
-        var wallpaperFile = await themeFolder.CreateFileAsync($"{newTheme.Id}.jpg", CreationCollisionOption.ReplaceExisting);
-        await FileIO.WriteBytesAsync(wallpaperFile, wallpaperData);
-
-        // Generate thumbnail for settings page.
-
-        var thumbnail = await wallpaperFile.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.PicturesView);
-        var thumbnailFile = await themeFolder.CreateFileAsync($"{newTheme.Id}_preview.jpg", CreationCollisionOption.ReplaceExisting);
-
-        using (var readerStream = thumbnail.AsStreamForRead())
+        if (request.WallpaperData is { Length: > 0 } wallpaperData)
         {
-            byte[] bytes = new byte[readerStream.Length];
-
+            var wallpaperFile = await ReplaceBytesAtomicallyAsync(themeFolder, $"{savedTheme.Id}.jpg", wallpaperData);
+            using var thumbnail = await wallpaperFile.GetThumbnailAsync(Windows.Storage.FileProperties.ThumbnailMode.PicturesView);
+            using var readerStream = thumbnail.AsStreamForRead();
+            var bytes = new byte[readerStream.Length];
             await readerStream.ReadExactlyAsync(bytes);
-
-            var buffer = bytes.AsBuffer();
-
-            await FileIO.WriteBufferAsync(thumbnailFile, buffer);
+            await ReplaceBytesAtomicallyAsync(themeFolder, $"{savedTheme.Id}_preview.jpg", bytes);
         }
 
-        // Save metadata.
-        var metadataFile = await themeFolder.CreateFileAsync($"{newTheme.Id}.json", CreationCollisionOption.ReplaceExisting);
+        var serialized = JsonSerializer.Serialize(savedTheme, DomainModelsJsonContext.Default.CustomThemeMetadata);
+        await ReplaceTextAtomicallyAsync(themeFolder, $"{savedTheme.Id}.json", serialized);
 
-        var serialized = JsonSerializer.Serialize(newTheme, DomainModelsJsonContext.Default.CustomThemeMetadata);
-        await FileIO.WriteTextAsync(metadataFile, serialized);
+        return savedTheme;
+    }
 
-        return newTheme;
+    private static async Task<StorageFile> ReplaceBytesAtomicallyAsync(StorageFolder folder, string fileName, byte[] data)
+    {
+        var tempFile = await folder.CreateFileAsync($"{fileName}.{Guid.NewGuid():N}.tmp", CreationCollisionOption.FailIfExists);
+        await FileIO.WriteBytesAsync(tempFile, data);
+        var existing = await folder.TryGetItemAsync(fileName) as StorageFile;
+
+        if (existing == null)
+            await tempFile.RenameAsync(fileName, NameCollisionOption.FailIfExists);
+        else
+            await tempFile.MoveAndReplaceAsync(existing);
+
+        return await folder.GetFileAsync(fileName);
+    }
+
+    private static async Task ReplaceTextAtomicallyAsync(StorageFolder folder, string fileName, string text)
+    {
+        var tempFile = await folder.CreateFileAsync($"{fileName}.{Guid.NewGuid():N}.tmp", CreationCollisionOption.FailIfExists);
+        await FileIO.WriteTextAsync(tempFile, text);
+        var existing = await folder.TryGetItemAsync(fileName) as StorageFile;
+
+        if (existing == null)
+            await tempFile.RenameAsync(fileName, NameCollisionOption.FailIfExists);
+        else
+            await tempFile.MoveAndReplaceAsync(existing);
     }
 
     public async Task<List<CustomThemeMetadata>> GetCurrentCustomThemesAsync()

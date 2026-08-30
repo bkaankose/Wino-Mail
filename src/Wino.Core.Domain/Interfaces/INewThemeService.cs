@@ -13,9 +13,14 @@ public interface INewThemeService : IInitializeAsync
     event EventHandler<WindowBackdropType> BackdropChanged;
 
     Task<List<AppThemeBase>> GetAvailableThemesAsync();
-    Task<CustomThemeMetadata> CreateNewCustomThemeAsync(string themeName, string accentColor, byte[] wallpaperData);
+    Task<CustomThemeMetadata?> GetCustomThemeAsync(Guid themeId);
+    Task<CustomThemeMetadata> SaveCustomThemeAsync(CustomThemeSaveRequest request);
     Task<List<CustomThemeMetadata>> GetCurrentCustomThemesAsync();
     Task<bool> DeleteCustomThemeAsync(Guid themeId);
+    Task SelectThemeAsync(Guid themeId, bool forceReapply = false);
+    ThemeRuntimeState CaptureRuntimeState();
+    Task PreviewCustomThemeAsync(CustomThemeMetadata metadata, byte[]? wallpaperData, ApplicationElementTheme elementTheme);
+    Task RestoreRuntimeStateAsync(ThemeRuntimeState state);
     List<string> GetAvailableAccountColors();
     Task ApplyCustomThemeAsync(bool isInitializing);
 

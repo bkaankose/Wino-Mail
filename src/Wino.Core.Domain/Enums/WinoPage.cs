@@ -21,6 +21,8 @@ public enum WinoPage
     SignatureManagementPage,
     AboutPage,
     PersonalizationPage,
+    ApplicationThemeGalleryPage,
+    ApplicationThemeEditorPage,
     MessageListPage,
     MailNotificationSettingsPage,
     MailListPage,

@@ -49,6 +49,8 @@ public static class CoreUWPContainerSetup
     {
         services.AddTransient(typeof(SettingsDialogViewModel));
         services.AddTransient(typeof(PersonalizationPageViewModel));
+        services.AddTransient(typeof(ApplicationThemeGalleryPageViewModel));
+        services.AddTransient(typeof(ApplicationThemeEditorPageViewModel));
         services.AddTransient(typeof(SettingOptionsPageViewModel));
         services.AddTransient(typeof(AboutPageViewModel));
         services.AddTransient(typeof(SettingsPageViewModel));

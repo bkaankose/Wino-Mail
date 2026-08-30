@@ -12,10 +12,18 @@ public abstract class AppThemeBase
     public Guid Id { get; set; }
     public string ThemeName { get; set; }
     public ApplicationElementTheme ForceElementTheme { get; set; }
+    public ThemeCompatibility Compatibility { get; set; } = ThemeCompatibility.Both;
     public string AccentColor { get; set; }
     public bool IsAccentColorAssigned => !string.IsNullOrEmpty(AccentColor);
     public string BackgroundPreviewImage => GetBackgroundPreviewImagePath();
     public abstract AppThemeType AppThemeType { get; }
+    public bool IsCustomTheme => AppThemeType == AppThemeType.Custom;
+    public string CompatibilityTitle => Compatibility switch
+    {
+        ThemeCompatibility.Light => Translator.ApplicationThemeGallery_Light,
+        ThemeCompatibility.Dark => Translator.ApplicationThemeGallery_Dark,
+        _ => Translator.ApplicationThemeGallery_Both
+    };
 
     protected AppThemeBase(string themeName, Guid id)
     {

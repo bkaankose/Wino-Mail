@@ -17,7 +17,7 @@
     <Thickness x:Key="NavigationViewContentMargin">0,0,0,0</Thickness>
 
     <ResourceDictionary.ThemeDictionaries>
-        <ResourceDictionary x:Name="Light">
+        <ResourceDictionary x:Key="Light">
             <!--  Illustration palette. User wallpaper behind a translucent overlay, so the backdrop is unknowable. Highest-contrast values in
                  the family: fully opaque surface and the strongest shadow.
             -->
@@ -45,7 +45,7 @@
             <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="WelcomeOverlayBrush" Color="{StaticResource MainCustomThemeColor}" />
         </ResourceDictionary>
-        <ResourceDictionary x:Name="Dark">
+        <ResourceDictionary x:Key="Dark">
             <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#3B3B42</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationLineBrush">#5C5C65</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationLineSoftBrush">#4A4A53</SolidColorBrush>
@@ -69,6 +69,25 @@
             <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="WelcomeOverlayBrush" Color="{StaticResource MainCustomThemeColor}" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <StaticResource x:Key="WinoIllustrationSurfaceBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="WinoIllustrationLineBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="WinoIllustrationLineSoftBrush" ResourceKey="SystemColorGrayTextBrush" />
+            <StaticResource x:Key="WinoIllustrationWarmBrush" ResourceKey="SystemColorHighlightBrush" />
+            <StaticResource x:Key="WinoIllustrationShadowBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="MailListHeaderBackgroundColor" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CalendarDefaultHourBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CalendarHoverHourBackgroundBrush" ResourceKey="SystemColorHighlightBrush" />
+            <StaticResource x:Key="CalendarWorkHourBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CalendarSelectedHourBackgroundBrush" ResourceKey="SystemColorHighlightBrush" />
+            <StaticResource x:Key="WinoContentZoneBackgroud" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="ReadingPaneBackgroundColorBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="AppBarBackgroundColor" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="NavigationViewContentBackground" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="NavigationViewExpandedPaneBackground" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="NavigationViewDefaultPaneBackground" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="WelcomeOverlayBrush" ResourceKey="SystemColorWindowBrush" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>
