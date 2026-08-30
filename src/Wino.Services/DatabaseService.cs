@@ -953,11 +953,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         {
             foreach (var list in missingLists)
             {
-                    transaction.Execute(
-                        "INSERT INTO TaskList (Id, MailAccountId, SourceKind, RemoteId, RemoteVersion, ListDeltaLink, TaskDeltaLink, Title, ColorHex, IsDefault, IsReadOnly, DeltaLink, LastSuccessfulSyncUtc, WatermarkUtc, PendingMutation, CreatedAtUtc, ModifiedAtUtc) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                        list.Id, list.MailAccountId, list.SourceKind, list.RemoteId, list.RemoteVersion, list.ListDeltaLink,
-                        list.TaskDeltaLink, list.Title, list.ColorHex, list.IsDefault, list.IsReadOnly, list.DeltaLink, list.LastSuccessfulSyncUtc, list.WatermarkUtc,
-                        list.PendingMutation, list.CreatedAtUtc, list.ModifiedAtUtc);
+                transaction.Insert(list, typeof(AccountTaskList));
             }
         }).ConfigureAwait(false);
     }

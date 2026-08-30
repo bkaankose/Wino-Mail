@@ -210,6 +210,53 @@ public sealed class Database210MigrationCoordinatorTests
         }
     }
 
+    [Fact]
+    public async Task RunAsync_ReopenCreatesDefaultLocalTaskListForMigratedImapAccount()
+    {
+        var directory = CreateTemporaryDirectory();
+        var sourcePath = Path.Combine(directory, DatabaseService.LegacyDatabaseName);
+        var accountId = Guid.NewGuid();
+
+        try
+        {
+            var source = new SQLiteAsyncConnection(sourcePath);
+            await source.CreateTableAsync<MailAccount>();
+            await source.InsertAsync(new MailAccount
+            {
+                Id = accountId,
+                Name = "Legacy IMAP",
+                Address = "imap@example.com",
+                ProviderType = MailProviderType.IMAP4,
+                IsMailAccessGranted = true
+            });
+            await source.CloseAsync();
+
+            var coordinator = CreateCoordinator(directory);
+            var plan = await coordinator.InspectAsync();
+            var options = plan.Accounts
+                .Select(account => account with { EnableTasks = true })
+                .ToArray();
+
+            var migration = await coordinator.RunAsync(options);
+            migration.Status.Should().Be(MigrationStatus.Completed, migration.ErrorMessage);
+
+            var normalDatabase = new DatabaseService(CreateConfiguration(directory));
+            await normalDatabase.InitializeAsync();
+
+            var localLists = await normalDatabase.Connection.Table<AccountTaskList>()
+                .Where(list => list.MailAccountId == accountId && list.SourceKind == TaskSourceKind.Local)
+                .ToListAsync();
+            localLists.Should().ContainSingle();
+            localLists[0].IsDefault.Should().BeTrue();
+            await normalDatabase.Connection.CloseAsync();
+        }
+        finally
+        {
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
     private static DatabaseMigrationCoordinator CreateCoordinator(
         string directory,
         IAccountProfilePictureFileService pictureService = null,
