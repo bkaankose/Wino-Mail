@@ -2938,6 +2938,12 @@
     "Migration_CloseTitle": "Exit migration?",
     "Migration_CloseDescription": "Completed steps are saved. Migration will continue the next time you open Wino.",
     "Migration_Exit": "Exit",
+    "Migration_SimpleIntroDescription": "Wino needs a moment to move your accounts, mail and calendars to this version. Your old data stays where it is.",
+    "Migration_WorkingTitle": "Getting Wino ready",
+    "Migration_WorkingDescription": "Keep this window open until it finishes.",
+    "Migration_SimpleFailedDescription": "Wino could not finish. You can try again, or start with an empty Wino.",
+    "Migration_SimpleSuccessDescription": "Everything is moved over. Wino is ready to use.",
+    "Migration_StepProgress": "Step {0} of {1}",
     "Migration_Accounts": "accounts",
     "Migration_Messages": "mail records",
     "Migration_CalendarRecords": "calendar records"

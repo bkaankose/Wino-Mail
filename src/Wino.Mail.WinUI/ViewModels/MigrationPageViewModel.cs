@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
@@ -16,10 +16,6 @@ public sealed partial class MigrationAccountOptionViewModel : ObservableObject
     public string DisplayName { get; init; } = string.Empty;
     public string Address { get; init; } = string.Empty;
     public Wino.Core.Domain.Enums.MailProviderType ProviderType { get; init; }
-    public string ContactsAutomationId => $"MigrationContacts_{AccountId:N}";
-    public string TasksAutomationId => $"MigrationTasks_{AccountId:N}";
-    public string MailFiltersAutomationId => $"MigrationMailFilters_{AccountId:N}";
-
     [ObservableProperty]
     public partial bool EnableContacts { get; set; }
 
@@ -43,7 +39,6 @@ public sealed partial class MigrationAccountOptionViewModel : ObservableObject
 public sealed partial class MigrationStepItemViewModel : ObservableObject
 {
     public MigrationStepKind Kind { get; init; }
-    public int Number => (int)Kind;
     public string Title { get; init; } = string.Empty;
 
     [ObservableProperty]
@@ -51,16 +46,6 @@ public sealed partial class MigrationStepItemViewModel : ObservableObject
 
     [ObservableProperty]
     public partial MigrationStepStatus Status { get; set; }
-
-    public string StatusText => Status switch
-    {
-        MigrationStepStatus.Running => "In progress",
-        MigrationStepStatus.Completed => "Complete",
-        MigrationStepStatus.Failed => "Needs attention",
-        _ => "Waiting"
-    };
-
-    partial void OnStatusChanged(MigrationStepStatus value) => OnPropertyChanged(nameof(StatusText));
 }
 
 public sealed partial class MigrationPageViewModel : ObservableObject, IDisposable
@@ -110,7 +95,12 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
     public bool IsProgressVisible => IsRunning;
     public bool IsFailureVisible => IsFailed;
     public bool IsSuccessVisible => IsCompleted;
-    public bool CanSkipMigration => !IsRunning && !IsCompleted;
+    public bool CanSkipMigration => IsFailed && !IsRunning;
+
+    public string StepProgressText => string.Format(
+        Wino.Core.Domain.Translator.Migration_StepProgress,
+        Math.Clamp(Steps.Count(step => step.Status is MigrationStepStatus.Completed) + 1, 1, Math.Max(Steps.Count, 1)),
+        Steps.Count);
 
     public MigrationPageViewModel(IMigrationCoordinator coordinator)
     {
@@ -133,19 +123,15 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
                 DisplayName = account.DisplayName,
                 Address = account.Address,
                 ProviderType = account.ProviderType,
-                EnableContacts = account.EnableContacts,
-                EnableTasks = account.EnableTasks,
-                EnableMailFilters = account.EnableMailFilters
+                EnableContacts = true,
+                EnableTasks = true,
+                EnableMailFilters = true
             });
         }
 
         EnsureSteps();
         CurrentTitle = Wino.Core.Domain.Translator.Migration_RequiredTitle;
-        CurrentDescription = !string.IsNullOrWhiteSpace(plan.Message)
-            ? $"Wino could not read the old database yet. You can retry safely. {plan.Message}"
-            : plan.CanResume
-            ? "A previous migration was found. Wino will continue from the last completed step."
-            : Wino.Core.Domain.Translator.Migration_RequiredDescription;
+        CurrentDescription = Wino.Core.Domain.Translator.Migration_SimpleIntroDescription;
         IsReady = true;
         NotifyStateChanged();
     }
@@ -160,8 +146,6 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
     private async Task StartFreshAsync()
     {
         BeginOperation();
-        CurrentTitle = "Creating a new Wino database";
-        CurrentDescription = "Your old database and recovery data will remain unchanged.";
 
         var result = await _coordinator.StartFreshAsync();
         ApplyResult(result);
@@ -186,6 +170,8 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
         ErrorMessage = string.Empty;
         TechnicalDetails = string.Empty;
         Progress = 0;
+        CurrentTitle = Wino.Core.Domain.Translator.Migration_WorkingTitle;
+        CurrentDescription = Wino.Core.Domain.Translator.Migration_WorkingDescription;
         NotifyStateChanged();
     }
 
@@ -198,7 +184,7 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
         if (IsCompleted)
         {
             CurrentTitle = Wino.Core.Domain.Translator.Migration_SuccessTitle;
-            CurrentDescription = Wino.Core.Domain.Translator.Migration_SuccessDescription;
+            CurrentDescription = Wino.Core.Domain.Translator.Migration_SimpleSuccessDescription;
             CompletionSummary = $"{result.AccountCount} {Wino.Core.Domain.Translator.Migration_Accounts} · " +
                                 $"{result.MailCount} {Wino.Core.Domain.Translator.Migration_Messages} · " +
                                 $"{result.CalendarCount} {Wino.Core.Domain.Translator.Migration_CalendarRecords}";
@@ -207,7 +193,7 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
         else
         {
             CurrentTitle = Wino.Core.Domain.Translator.Migration_FailedTitle;
-            CurrentDescription = Wino.Core.Domain.Translator.Migration_FailedDescription;
+            CurrentDescription = Wino.Core.Domain.Translator.Migration_SimpleFailedDescription;
             ErrorMessage = result.ErrorMessage ?? "Migration did not complete.";
             TechnicalDetails = BuildTechnicalDetails(result);
         }
@@ -219,8 +205,6 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
     {
         void Apply()
         {
-            CurrentTitle = progress.Title;
-            CurrentDescription = progress.Description;
             Progress = Math.Clamp(progress.Progress, 0, 1);
 
             var step = Steps.FirstOrDefault(item => item.Kind == progress.Step);
@@ -229,6 +213,8 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
                 step.Status = progress.Status;
                 step.Description = progress.Description;
             }
+
+            OnPropertyChanged(nameof(StepProgressText));
         }
 
         if (_dispatcherQueue?.HasThreadAccess == false)
@@ -272,6 +258,7 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
         OnPropertyChanged(nameof(IsFailureVisible));
         OnPropertyChanged(nameof(IsSuccessVisible));
         OnPropertyChanged(nameof(CanSkipMigration));
+        OnPropertyChanged(nameof(StepProgressText));
     }
 
     public void Dispose() => _coordinator.ProgressChanged -= OnProgressChanged;
