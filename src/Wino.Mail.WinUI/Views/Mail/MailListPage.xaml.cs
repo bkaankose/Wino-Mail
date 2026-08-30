@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -140,6 +140,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 SemanticSearchBusyChanged?.Invoke(this, ViewModel.IsSemanticSearchBusy);
         };
         MailListView.GroupedViewSource = MailCollectionViewSource;
+        MailListView.ContainerContentChanging += MailListContainerContentChanging;
         RenderingFrame.Navigated += RenderingFrame_Navigated;
     }
 
@@ -1032,6 +1033,56 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
+    /// <summary>
+    /// The row elements the hover affordance animates. Collected in one visual tree walk because
+    /// this runs on every pointer transit across the list.
+    /// </summary>
+    private readonly record struct MailRowHoverParts(
+        FrameworkElement? Overlay,
+        IReadOnlyList<UIElement> Buttons,
+        IReadOnlyList<FrameworkElement> Metadata,
+        IReadOnlyList<FrameworkElement> NicknameIndicators);
+
+    private static MailRowHoverParts CollectMailRowHoverParts(DependencyObject? rowRoot)
+    {
+        FrameworkElement? overlay = null;
+        List<FrameworkElement>? metadata = null;
+        List<FrameworkElement>? nicknameIndicators = null;
+
+        foreach (var element in FindDescendants<FrameworkElement>(rowRoot))
+        {
+            switch (element.Name)
+            {
+                case "HoverActionButtons":
+                    overlay = element;
+                    break;
+
+                case "RightAccountNicknameIndicator" or "RightNicknameIndicator":
+                    (nicknameIndicators ??= []).Add(element);
+                    break;
+
+                // HoverFadeTimeTextBlock, HoverFadeUnreadIndicator, HoverFadeIndicators: the
+                // trailing metadata the actions land on top of.
+                case { Length: > 0 } name when name.StartsWith("HoverFade", StringComparison.Ordinal):
+                    (metadata ??= []).Add(element);
+                    break;
+            }
+        }
+
+        IReadOnlyList<UIElement> buttons = overlay is null
+            ? []
+            : FindDescendants<Button>(overlay)
+                .Where(button => button.Visibility == Visibility.Visible)
+                .Cast<UIElement>()
+                .ToArray();
+
+        return new MailRowHoverParts(
+            overlay,
+            buttons,
+            metadata ?? (IReadOnlyList<FrameworkElement>)[],
+            nicknameIndicators ?? (IReadOnlyList<FrameworkElement>)[]);
+    }
+
     private void SetMailRowHoverActionVisibility(DependencyObject? rowRoot, bool isVisible)
     {
         if (ResolveMailListRow(rowRoot) is not { } row)
@@ -1039,32 +1090,69 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         var shouldShowHoverActions = isVisible && ViewModel.PreferencesService.IsHoverActionsEnabled;
 
-        // The overlay is x:Load-deferred on this flag, so a row the pointer never reaches
-        // never builds its hover buttons.
+        // Latches HasRealizedHoverActions on the first hover, which is what the overlay defers on.
+        // A row the pointer never reaches still never builds its hover buttons.
         row.IsPointerOver = shouldShowHoverActions;
 
-        // Already-realized overlays keep their glyphs across hovers, so they are refreshed
-        // here to pick up hover action preference changes. A first realization is covered by
-        // MailRowHoverActionButtonLoaded instead.
-        if (shouldShowHoverActions &&
-            FindDescendantByName<FrameworkElement>(rowRoot, "HoverActionButtons") is { } hoverActionButtons)
+        var parts = CollectMailRowHoverParts(rowRoot);
+
+        if (parts.Overlay is null)
         {
-            RefreshHoverActionButtons(hoverActionButtons);
+            // First hover on this row: the overlay is being realized right now and picks the
+            // reveal up itself in MailRowHoverActionsLoaded.
+            return;
         }
 
-        SetRightAccountNicknameIndicatorVisibility(rowRoot, !shouldShowHoverActions);
+        if (shouldShowHoverActions)
+        {
+            // Already-realized overlays keep their glyphs across hovers, so they are refreshed
+            // here to pick up hover action preference changes.
+            RefreshHoverActionButtons(parts.Overlay);
+            StartMailRowHoverReveal(parts with { Buttons = VisibleHoverActionButtons(parts.Overlay) });
+        }
+        else
+        {
+            EndMailRowHoverReveal(parts);
+        }
     }
 
-    private static void SetRightAccountNicknameIndicatorVisibility(DependencyObject? rowRoot, bool isVisible)
+    private static IReadOnlyList<UIElement> VisibleHoverActionButtons(DependencyObject overlay)
+        => FindDescendants<Button>(overlay)
+            .Where(button => button.Visibility == Visibility.Visible)
+            .Cast<UIElement>()
+            .ToArray();
+
+    private static void StartMailRowHoverReveal(MailRowHoverParts parts)
     {
-        foreach (var indicator in FindDescendants<FrameworkElement>(rowRoot))
+        if (parts.Overlay is null || parts.Buttons.Count == 0)
         {
-            if (indicator.Name is "RightAccountNicknameIndicator" or "RightNicknameIndicator")
-            {
-                indicator.Visibility = isVisible
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
-            }
+            // Every action is set to None. Leave the metadata alone rather than fading it out
+            // for an affordance that has nothing to show.
+            return;
+        }
+
+        SetNicknameIndicatorVisibility(parts.NicknameIndicators, isVisible: false);
+        MailRowHoverActionAnimator.Show(parts.Overlay, parts.Buttons, parts.Metadata);
+    }
+
+    private static void EndMailRowHoverReveal(MailRowHoverParts parts)
+    {
+        if (parts.Overlay is null)
+            return;
+
+        SetNicknameIndicatorVisibility(parts.NicknameIndicators, isVisible: true);
+        MailRowHoverActionAnimator.Hide(parts.Overlay, parts.Buttons, parts.Metadata);
+    }
+
+    private static void SetNicknameIndicatorVisibility(
+        IReadOnlyList<FrameworkElement> indicators,
+        bool isVisible)
+    {
+        foreach (var indicator in indicators)
+        {
+            indicator.Visibility = isVisible
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         }
     }
 
@@ -1081,20 +1169,92 @@ public sealed partial class MailListPage : MailListPageAbstract,
         if (button.Tag is not string actionIndexText || !int.TryParse(actionIndexText, out var actionIndex))
             return;
 
-        AutomationProperties.SetName(button, XamlHelpers.GetHoverActionOperationString(actionIndex));
+        var operation = XamlHelpers.GetHoverAction(actionIndex);
+
+        // None is a real choice: users who want one or two buttons drop the rest. The slot
+        // collapses so the remaining buttons stay flush against the trailing edge.
+        if (operation == MailOperation.None)
+        {
+            button.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        button.Visibility = Visibility.Visible;
+        AutomationProperties.SetName(button, XamlHelpers.GetOperationString(operation));
 
         if (button.Content is WinoFontIcon icon)
         {
-            icon.Icon = XamlHelpers.GetHoverActionWinoIconGlyph(actionIndex);
+            icon.Icon = XamlHelpers.GetWinoIconGlyph(operation);
         }
     }
 
-    private void MailRowHoverActionButtonLoaded(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Fires once per overlay, when the first hover realizes it. The pointer is already inside the
+    /// row by then, so the reveal starts here rather than waiting for another PointerEntered.
+    /// </summary>
+    private void MailRowHoverActionsLoaded(object sender, RoutedEventArgs e)
     {
-        if (sender is Button button)
+        if (sender is not FrameworkElement hoverActionsRoot)
+            return;
+
+        RefreshHoverActionButtons(hoverActionsRoot);
+
+        var parts = CollectMailRowHoverParts(FindMailRowRoot(hoverActionsRoot));
+
+        if (parts.Overlay is null)
+            return;
+
+        if (ResolveMailListRow(hoverActionsRoot) is not { IsPointerOver: true })
         {
-            RefreshHoverActionButton(button);
+            // The pointer left again before the overlay finished realizing. Put it into the
+            // collapsed rest state rather than leaving it visible at zero opacity, where it would
+            // keep reporting its buttons to UI Automation.
+            MailRowHoverActionAnimator.Reset(parts.Overlay, parts.Buttons, parts.Metadata);
+            return;
         }
+
+        // Freshly built buttons render at full opacity for a frame unless they are put into the
+        // hidden start state before the enter animation is handed over.
+        MailRowHoverActionAnimator.PrepareForEnter(parts.Overlay, parts.Buttons);
+        StartMailRowHoverReveal(parts);
+    }
+
+    private static DependencyObject? FindMailRowRoot(DependencyObject element)
+    {
+        DependencyObject? lastRowScope = null;
+
+        for (var current = element; current is not null; current = VisualTreeHelper.GetParent(current))
+        {
+            if (current is global::Wino.Mail.Controls.MailListView.WinoMailListViewItem)
+            {
+                return current;
+            }
+
+            if (current is FrameworkElement { DataContext: global::Wino.Mail.Controls.Core.MailListRow })
+            {
+                lastRowScope = current;
+            }
+        }
+
+        return lastRowScope;
+    }
+
+    /// <summary>
+    /// Containers are recycled while the pointer is still inside the list, so a row can be handed a
+    /// different mail without ever raising PointerExited. Without this the recycled row would keep
+    /// the previous row's faded metadata.
+    /// </summary>
+    private void MailListContainerContentChanging(
+        ListViewBase sender,
+        ContainerContentChangingEventArgs args)
+    {
+        if (!args.InRecycleQueue && args.Phase != 0)
+            return;
+
+        var parts = CollectMailRowHoverParts(args.ItemContainer);
+
+        SetNicknameIndicatorVisibility(parts.NicknameIndicators, isVisible: true);
+        MailRowHoverActionAnimator.Reset(parts.Overlay, parts.Buttons, parts.Metadata);
     }
 
     private static T? FindDescendantByName<T>(DependencyObject? rootElement, string name)

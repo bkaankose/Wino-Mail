@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
@@ -14,12 +15,15 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Helpers;
 
 namespace Wino.Controls;
 
 public sealed partial class MailItemDisplayInformationControl : UserControl
 {
     public bool IsRunningHoverAction { get; set; }
+
+    private bool _hoverActionsPrepared;
 
     // Busy animation fields
     private Compositor? _compositor;
@@ -196,22 +200,45 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         }
     }
 
+    /// <summary>
+    /// The buttons that are not switched off. Every action set to None drops out, so a user who
+    /// wants one or two buttons gets exactly those and the reveal staggers without gaps.
+    /// </summary>
+    private IReadOnlyList<UIElement> VisibleHoverActionButtons()
+        => new[] { LeftHoverActionButton, CenterHoverActionButton, RightHoverActionButton }
+            .Where(button => button.Visibility == Visibility.Visible)
+            .Cast<UIElement>()
+            .ToArray();
+
     private void ControlPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
-        if (IsHoverActionsEnabled)
+        if (!IsHoverActionsEnabled)
+            return;
+
+        var buttons = VisibleHoverActionButtons();
+
+        if (buttons.Count == 0)
+            return;
+
+        if (!_hoverActionsPrepared)
         {
-            HoverActionButtons.Visibility = Visibility.Visible;
-            UnreadContainer.Visibility = Visibility.Collapsed;
+            // The buttons are built with the control, not on demand, so they start at full
+            // opacity. Put them into the hidden start state before the first reveal.
+            MailRowHoverActionAnimator.PrepareForEnter(HoverActionButtons, buttons);
+            _hoverActionsPrepared = true;
         }
+
+        UnreadContainer.Visibility = Visibility.Collapsed;
+        MailRowHoverActionAnimator.Show(HoverActionButtons, buttons, []);
     }
 
     private void ControlPointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
-        if (IsHoverActionsEnabled)
-        {
-            HoverActionButtons.Visibility = Visibility.Collapsed;
-            UnreadContainer.Visibility = Visibility.Visible;
-        }
+        if (!IsHoverActionsEnabled)
+            return;
+
+        UnreadContainer.Visibility = Visibility.Visible;
+        MailRowHoverActionAnimator.Hide(HoverActionButtons, VisibleHoverActionButtons(), []);
     }
 
     private void ExecuteHoverAction(MailOperation operation)

@@ -18,13 +18,16 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     private readonly IStatePersistanceService _statePersistenceService;
     private readonly IDialogServiceBase _dialogService;
 
+    // None is last so a user who wants one or two buttons can switch the rest off. Nothing
+    // persists the index, so appending is only about where the option reads in the list.
     private readonly List<MailOperation> availableHoverActions =
     [
         MailOperation.Archive,
         MailOperation.SoftDelete,
         MailOperation.SetFlag,
         MailOperation.MarkAsRead,
-        MailOperation.MoveToJunk
+        MailOperation.MoveToJunk,
+        MailOperation.None
     ];
 
     private readonly List<MailOperation> availableSwipeActions =
@@ -56,7 +59,8 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         Translator.HoverActionOption_Delete,
         Translator.HoverActionOption_ToggleFlag,
         Translator.HoverActionOption_ToggleRead,
-        Translator.HoverActionOption_MoveJunk
+        Translator.HoverActionOption_MoveJunk,
+        Translator.HoverActionOption_None
     ];
 
     public List<string> AvailableSwipeActionsTranslations { get; set; } =

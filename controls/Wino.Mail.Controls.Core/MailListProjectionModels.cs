@@ -33,6 +33,7 @@ public sealed class MailListThread
 public sealed partial class MailListRow : INotifyPropertyChanged
 {
     private bool _isPointerOver;
+    private bool _hasRealizedHoverActions;
 
     private MailListRow(
         MailListRowKind kind,
@@ -47,8 +48,8 @@ public sealed partial class MailListRow : INotifyPropertyChanged
     public MailListRowKind Kind { get; }
 
     /// <summary>
-    /// Whether the pointer is currently over this row. Row-level hover affordances are
-    /// deferred on this so they are never built for rows the pointer does not reach.
+    /// Whether the pointer is currently over this row. Row-level hover affordances animate
+    /// on this, they do not defer on it: see <see cref="HasRealizedHoverActions"/>.
     /// </summary>
     public bool IsPointerOver
     {
@@ -61,7 +62,35 @@ public sealed partial class MailListRow : INotifyPropertyChanged
             }
 
             _isPointerOver = value;
+
+            if (value)
+            {
+                HasRealizedHoverActions = true;
+            }
+
             PropertyChanged?.Invoke(this, new(nameof(IsPointerOver)));
+        }
+    }
+
+    /// <summary>
+    /// Latches true on the first hover and never clears. Hover affordances defer on this rather
+    /// than on <see cref="IsPointerOver"/> so they are still never built for rows the pointer does
+    /// not reach, but survive the pointer leaving. An element that unloads on pointer exit cannot
+    /// play an exit animation, and realizing one mid-animation drops the first frames of the
+    /// enter animation.
+    /// </summary>
+    public bool HasRealizedHoverActions
+    {
+        get => _hasRealizedHoverActions;
+        private set
+        {
+            if (_hasRealizedHoverActions == value)
+            {
+                return;
+            }
+
+            _hasRealizedHoverActions = value;
+            PropertyChanged?.Invoke(this, new(nameof(HasRealizedHoverActions)));
         }
     }
 

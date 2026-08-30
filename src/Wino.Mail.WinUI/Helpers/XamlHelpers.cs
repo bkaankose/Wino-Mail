@@ -500,6 +500,12 @@ public static class XamlHelpers
     public static string GetHoverActionOperationString(int actionIndex)
         => GetOperationString(GetHoverAction(actionIndex));
 
+    /// <summary>
+    /// None is a real hover action choice for users who want fewer than three buttons.
+    /// </summary>
+    public static Visibility GetHoverActionVisibility(MailOperation operation)
+        => operation == MailOperation.None ? Visibility.Collapsed : Visibility.Visible;
+
     public static WinoIconGlyph GetHoverActionWinoIconGlyph(int actionIndex)
         => GetWinoIconGlyph(GetHoverAction(actionIndex));
 
