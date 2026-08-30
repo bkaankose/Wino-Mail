@@ -1024,8 +1024,6 @@
     "SettingsMailSpacing_Title": "Mail Spacing",
     "SettingsCompactAccountMenuItem_Description": "Show only the account name in a smaller, single-line account menu item.",
     "SettingsCompactAccountMenuItem_Title": "Compact account menu",
-    "SettingsMonochromeAppModeSwitcher_Description": "Draw the Mail, Calendar, People and To Do glyphs in a single colour, and use the accent only for the mode you are in.",
-    "SettingsMonochromeAppModeSwitcher_Title": "Monochrome app switcher",
     "SettingsManageAccountSettings_Description": "Notifications, signatures, synchronization and other settings per account.",
     "SettingsManageAccountSettings_Title": "Manage Accounts",
     "SettingsManageAliases_Description": "See e-mail aliases assigned for this account, update or delete them.",

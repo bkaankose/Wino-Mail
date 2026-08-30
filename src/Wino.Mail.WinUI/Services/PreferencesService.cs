@@ -118,12 +118,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsCompactAccountMenuItemEnabled), value);
     }
 
-    public bool IsMonochromeAppModeSwitcherEnabled
-    {
-        get => _configurationService.Get(nameof(IsMonochromeAppModeSwitcherEnabled), false);
-        set => SetPropertyAndSave(nameof(IsMonochromeAppModeSwitcherEnabled), value);
-    }
-
     public bool IsDailyBriefingShowingIgnored
     {
         get => _configurationService.Get(nameof(IsDailyBriefingShowingIgnored), false);

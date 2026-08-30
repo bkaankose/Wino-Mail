@@ -91,7 +91,7 @@
                 </coreControls:WinoMenuFlyout>
             </controls:AccountNavigationItem.ContextFlyout>
             <muxc:NavigationViewItem.Icon>
-                <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account), Mode=OneWay}" IconSize="28" />
+                <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account), Mode=OneWay}" IconSize="24" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -305,7 +305,7 @@
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
+                <coreControls:WinoFontIcon FontSize="86" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
             </coreControls:WinoNavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge

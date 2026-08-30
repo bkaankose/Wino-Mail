@@ -4,28 +4,13 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:Wino.Mail.Controls.Playground"
-    xmlns:appMode="using:Wino.Mail.Controls.AppModeSwitcher"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
     <NavigationView x:Name="Navigation"
+                    Header="Wino Mail Controls Playground"
                     IsBackButtonVisible="Collapsed"
                     PaneDisplayMode="Left"
-                    PaneOpening="NavigationPaneOpening"
-                    PaneClosing="NavigationPaneClosing"
-                    DisplayModeChanged="NavigationDisplayModeChanged"
-                    IsSettingsVisible="False"
                     SelectionChanged="NavigationSelectionChanged">
-        <NavigationView.Header>
-            <Grid>
-                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Wino Mail Controls Playground" />
-                <ToggleSwitch
-                    x:Name="DarkModeToggle"
-                    AutomationProperties.AutomationId="PlaygroundDarkModeToggle"
-                    Header="Dark mode"
-                    HorizontalAlignment="Right"
-                    Toggled="DarkModeToggled" />
-            </Grid>
-        </NavigationView.Header>
         <NavigationView.MenuItems>
             <NavigationViewItem
                 AutomationProperties.AutomationId="AccountIconNavigationItem"
@@ -63,33 +48,7 @@
                 Content="Synchronization button"
                 Icon="Refresh"
                 Tag="synchronizationButton" />
-            <NavigationViewItem
-                AutomationProperties.AutomationId="AppModeSwitcherNavigationItem"
-                Content="App mode switcher"
-                Icon="AllApps"
-                Tag="appModeSwitcher" />
         </NavigationView.MenuItems>
-        <NavigationView.PaneFooter>
-            <Border
-                Margin="8,8,8,12"
-                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
-                <appMode:WinoAppModeSwitcher
-                    x:Name="FooterSwitcher"
-                    AutomationProperties.AutomationId="PlaygroundFooterAppModeSwitcher"
-                    ModeInvoked="FooterModeInvoked"
-                    Orientation="Horizontal"
-                    SettingsInvoked="FooterSettingsInvoked"
-                    SettingsLabel="Settings">
-                    <appMode:WinoAppModeSwitcherItem Glyph="{ThemeResource AppIconMail}" Label="Mail" MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Mail.svg" />
-                    <appMode:WinoAppModeSwitcherItem Glyph="{ThemeResource AppIconCalendar}" Label="Calendar" MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/Calendar.svg" />
-                    <appMode:WinoAppModeSwitcherItem Glyph="{ThemeResource AppIconPeople}" Label="Contacts" MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/People.svg" />
-                    <appMode:WinoAppModeSwitcherItem Glyph="{ThemeResource AppIconToDo}" Label="To do" MonochromeGlyphSource="ms-appx:///Wino.Mail.Controls/Assets/AppModes/Mono/ToDo.svg" />
-                </appMode:WinoAppModeSwitcher>
-            </Border>
-        </NavigationView.PaneFooter>
         <Frame x:Name="ContentFrame" />
     </NavigationView>
 </Page>

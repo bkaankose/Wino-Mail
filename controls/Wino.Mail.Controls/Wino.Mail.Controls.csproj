@@ -41,11 +41,6 @@
     <Content Include="Assets\WinoIcons.ttf"
              TargetPath="Assets\WinoIcons.ttf"
              CopyToOutputDirectory="PreserveNewest" />
-    <!--
-      The app mode glyphs: each app icon with its tile removed, one set per surface. Light and
-      Dark are paired by Themes\WinoAppIcons.xaml; Mono is the monochrome switcher's own set.
-    -->
-    <Content Include="Assets\AppModes\**\*.svg" CopyToOutputDirectory="PreserveNewest" />
     <InternalsVisibleTo Include="Wino.Mail.Controls.Tests" />
   </ItemGroup>
 </Project>
