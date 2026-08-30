@@ -4,5 +4,6 @@ public enum WinoWindowKind
 {
     Shell,
     Welcome,
+    Migration,
     HostedPopout
 }

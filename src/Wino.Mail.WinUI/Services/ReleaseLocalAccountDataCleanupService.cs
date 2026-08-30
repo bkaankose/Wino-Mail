@@ -38,11 +38,10 @@ public sealed class ReleaseLocalAccountDataCleanupService
             return;
         }
 
+        // Mime, contacts, and calendar attachments are migration inputs. They must remain
+        // available until the version-210 database has been validated and promoted.
         var cleanupTargets = new List<string>
         {
-            Path.Combine(localFolderPath, "Mime"),
-            Path.Combine(localFolderPath, "contacts"),
-            Path.Combine(localFolderPath, "CalendarAttachments"),
             Path.Combine(publisherPath, LegacyDatabaseFileName)
         };
 

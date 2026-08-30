@@ -17,7 +17,7 @@ public sealed class DatabaseMigrationTests
     {
         var directory = Path.Combine(Path.GetTempPath(), $"wino-carddav-capability-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
-        var databasePath = Path.Combine(directory, "Wino200.db");
+        var databasePath = Path.Combine(directory, DatabaseService.CurrentDatabaseName);
         DatabaseService databaseService = null;
         var accountId = Guid.NewGuid();
 
@@ -30,6 +30,7 @@ public sealed class DatabaseMigrationTests
             await existing.ExecuteAsync(
                 $"INSERT INTO {nameof(CardDavAccountState)} ({nameof(CardDavAccountState.AccountId)}, {nameof(CardDavAccountState.RequiresRediscovery)}) VALUES (?, 0)",
                 accountId);
+            await MarkCompleted210Async(existing);
             await existing.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
@@ -51,11 +52,11 @@ public sealed class DatabaseMigrationTests
     }
 
     [Fact]
-    public async Task InitializeAsync_DiscardsLegacyContactsAndCreatesAccountScopedSchemaIdempotently()
+    public async Task InitializeAsync_DoesNotRunLegacyContactMigrationInsideCompleted210Database()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"wino-contact-schema-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
-        var databasePath = Path.Combine(directory, "Wino200.db");
+        var databasePath = Path.Combine(directory, DatabaseService.CurrentDatabaseName);
         DatabaseService databaseService = null;
         var accountId = Guid.NewGuid();
 
@@ -70,6 +71,7 @@ public sealed class DatabaseMigrationTests
             await legacy.ExecuteAsync("INSERT INTO AccountContact (Address, Name) VALUES ('old@example.com', 'Old')");
             await legacy.ExecuteAsync("CREATE TABLE ContactGroup (Id TEXT PRIMARY KEY, Name TEXT)");
             await legacy.ExecuteAsync("CREATE TABLE ContactGroupMember (GroupId TEXT, MemberAddress TEXT)");
+            await MarkCompleted210Async(legacy);
             await legacy.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
@@ -78,12 +80,11 @@ public sealed class DatabaseMigrationTests
             await databaseService.InitializeAsync();
             await databaseService.InitializeAsync();
 
-            (await databaseService.Connection.GetTableInfoAsync("AccountContact")).Should().BeEmpty();
-            (await databaseService.Connection.GetTableInfoAsync("ContactGroup")).Should().BeEmpty();
-            (await databaseService.Connection.GetTableInfoAsync("ContactCard")).Should().NotBeEmpty();
-            (await databaseService.Connection.GetTableInfoAsync("ContactEmailAddress")).Should().NotBeEmpty();
-            (await databaseService.Connection.Table<ContactAddressBook>().Where(book => book.MailAccountId == accountId).CountAsync()).Should().Be(1);
-            (await databaseService.Connection.FindAsync<MailAccount>(accountId)).IsContactAccessGranted.Should().BeFalse();
+            (await databaseService.Connection.GetTableInfoAsync("AccountContact"))
+                .Should().Contain(column => column.Name == "Address");
+            (await databaseService.Connection.ExecuteScalarAsync<int>(
+                "SELECT COUNT(*) FROM AccountContact WHERE Address = 'old@example.com';")).Should().Be(1);
+            (await databaseService.Connection.GetTableInfoAsync("ContactGroup")).Should().NotBeEmpty();
         }
         finally
         {
@@ -97,7 +98,7 @@ public sealed class DatabaseMigrationTests
     {
         var directory = Path.Combine(Path.GetTempPath(), $"wino-profile-schema-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
-        var databasePath = Path.Combine(directory, "Wino200.db");
+        var databasePath = Path.Combine(directory, DatabaseService.CurrentDatabaseName);
         DatabaseService databaseService = null;
 
         try
@@ -106,6 +107,7 @@ public sealed class DatabaseMigrationTests
             await legacyConnection.CreateTableAsync<MailAccount>();
             await legacyConnection.ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} DROP COLUMN {nameof(MailAccount.ProfilePictureFileId)}");
             await legacyConnection.ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} DROP COLUMN {nameof(MailAccount.IsProfilePictureBackfillComplete)}");
+            await MarkCompleted210Async(legacyConnection);
             await legacyConnection.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
@@ -133,7 +135,7 @@ public sealed class DatabaseMigrationTests
     {
         var directory = Path.Combine(Path.GetTempPath(), $"wino-policy-migration-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
-        var databasePath = Path.Combine(directory, "Wino200.db");
+        var databasePath = Path.Combine(directory, DatabaseService.CurrentDatabaseName);
         DatabaseService databaseService = null;
         var serverInformationId = Guid.NewGuid();
 
@@ -146,6 +148,7 @@ public sealed class DatabaseMigrationTests
             await legacyConnection.ExecuteAsync(
                 $"INSERT INTO {nameof(CustomServerInformation)} ({nameof(CustomServerInformation.Id)}, {nameof(CustomServerInformation.AccountId)}) VALUES (?, ?)",
                 serverInformationId, Guid.NewGuid());
+            await MarkCompleted210Async(legacyConnection);
             await legacyConnection.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
@@ -172,7 +175,7 @@ public sealed class DatabaseMigrationTests
     {
         var directory = Path.Combine(Path.GetTempPath(), $"wino-migration-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
-        var databasePath = Path.Combine(directory, "Wino200.db");
+        var databasePath = Path.Combine(directory, DatabaseService.CurrentDatabaseName);
         DatabaseService databaseService = null;
 
         try
@@ -200,6 +203,7 @@ public sealed class DatabaseMigrationTests
             await legacyConnection.ExecuteAsync("ALTER TABLE MailCopy DROP COLUMN DraftSyncAttemptCount");
             await legacyConnection.ExecuteAsync("ALTER TABLE MailCopy DROP COLUMN LastDraftSyncAttemptUtc");
             await legacyConnection.ExecuteAsync("ALTER TABLE MailCopy DROP COLUMN LastDraftSyncError");
+            await MarkCompleted210Async(legacyConnection);
             await legacyConnection.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
@@ -233,7 +237,7 @@ public sealed class DatabaseMigrationTests
     {
         var directory = Path.Combine(Path.GetTempPath(), $"wino-task-delta-{Guid.NewGuid():N}");
         Directory.CreateDirectory(directory);
-        var databasePath = Path.Combine(directory, "Wino200.db");
+        var databasePath = Path.Combine(directory, DatabaseService.CurrentDatabaseName);
         DatabaseService databaseService = null;
         var accountId = Guid.NewGuid();
 
@@ -252,6 +256,7 @@ public sealed class DatabaseMigrationTests
                 SubstrateGroupDeltaLink = "group-cursor",
                 SubstrateFolderDeltaLink = "folder-cursor"
             });
+            await MarkCompleted210Async(legacy);
             await legacy.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
@@ -280,6 +285,26 @@ public sealed class DatabaseMigrationTests
             if (Directory.Exists(directory))
                 Directory.Delete(directory, recursive: true);
         }
+    }
+
+    private static async Task MarkCompleted210Async(SQLiteAsyncConnection connection)
+    {
+        await connection.ExecuteAsync($"PRAGMA user_version = {DatabaseService.CurrentSchemaVersion};");
+        await connection.ExecuteAsync(@"
+CREATE TABLE __MigrationMetadata (
+    Id INTEGER PRIMARY KEY NOT NULL,
+    SourcePath TEXT,
+    LastCompletedStep INTEGER NOT NULL,
+    Status INTEGER NOT NULL,
+    OptionsJson TEXT,
+    RowCounts TEXT,
+    DeferredAccountIds TEXT,
+    UpdatedAtUtc TEXT NOT NULL
+);");
+        await connection.ExecuteAsync(
+            "INSERT INTO __MigrationMetadata (Id, LastCompletedStep, Status, UpdatedAtUtc) VALUES (1, 10, ?, ?);",
+            (int)Wino.Core.Domain.Models.Migration.MigrationStatus.Completed,
+            DateTime.UtcNow);
     }
 
     private sealed class IndexRow

@@ -93,6 +93,8 @@ public partial class App : WinoApplication,
     private readonly DispatcherQueue? _applicationDispatcherQueue;
     private NativeTrayIcon? _trayIcon;
     private Window? _backgroundLifetimeWindow;
+    private Microsoft.UI.Xaml.LaunchActivatedEventArgs? _pendingMigrationLaunchArgs;
+    private AppActivationArguments? _pendingMigrationActivation;
     private readonly record struct ShellWindowActivationResult(IWinoShellWindow? ShellWindow, bool WasCreated);
 
     internal bool IsExiting => _isExiting;
@@ -214,6 +216,7 @@ public partial class App : WinoApplication,
         nativeAppService.GetCoreWindowHwnd = () =>
         {
             var window = windowManager.ActiveWindow
+                         ?? windowManager.GetWindow(WinoWindowKind.Migration)
                          ?? windowManager.GetWindow(WinoWindowKind.Shell)
                          ?? windowManager.GetWindow(WinoWindowKind.Welcome)
                          ?? MainWindow;
@@ -243,6 +246,7 @@ public partial class App : WinoApplication,
         MainWindow = ReferenceEquals(activeWindow, window)
                      ? null
                      : activeWindow
+                     ?? windowManager.GetWindow(WinoWindowKind.Migration)
                      ?? windowManager.GetWindow(WinoWindowKind.Shell)
                      ?? windowManager.GetWindow(WinoWindowKind.Welcome);
 
@@ -534,6 +538,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(MailRenderingPageViewModel));
         services.AddTransient(typeof(AccountManagementViewModel));
         services.AddTransient(typeof(WelcomePageV2ViewModel));
+        services.AddTransient(typeof(MigrationPageViewModel));
         services.AddTransient(typeof(ProviderSelectionPageViewModel));
         services.AddTransient(typeof(AccountSetupProgressPageViewModel));
         services.AddTransient(typeof(SpecialImapCredentialsPageViewModel));
@@ -609,6 +614,7 @@ public partial class App : WinoApplication,
         var windowManager = Services.GetService<IWinoWindowManager>();
 
         return MainWindow != null ||
+               windowManager?.GetWindow(WinoWindowKind.Migration) != null ||
                windowManager?.GetWindow(WinoWindowKind.Shell) != null ||
                windowManager?.GetWindow(WinoWindowKind.Welcome) != null;
     }
@@ -637,9 +643,6 @@ public partial class App : WinoApplication,
             EnsureAppNotificationRegistration();
 
             await TranslationService.InitializeAsync();
-
-            await Services.GetRequiredService<ReleaseLocalAccountDataCleanupService>()
-                .RunIfNeededAsync();
 
             await InitializeServicesAsync();
 
@@ -703,10 +706,96 @@ public partial class App : WinoApplication,
     {
         base.OnLaunched(args);
 
+        var activationArgs = ResolveStartupActivation();
+
+        await TranslationService.InitializeAsync();
+        if (await TryShowMigrationAsync(args, activationArgs))
+            return;
+
+        await EnsureCoreActivationInfrastructureAsync();
+        await _activationHandler.HandleLaunchAsync(args, activationArgs);
+    }
+
+    private async Task<bool> TryShowMigrationAsync(
+        Microsoft.UI.Xaml.LaunchActivatedEventArgs? launchArgs,
+        AppActivationArguments activationArgs)
+    {
+        var plan = await Services.GetRequiredService<IMigrationCoordinator>().InspectAsync();
+        if (plan.Status == Wino.Core.Domain.Models.Migration.MigrationStatus.NotRequired)
+            return false;
+
+        _pendingMigrationLaunchArgs ??= launchArgs;
+        _pendingMigrationActivation = activationArgs;
+
+        if (activationArgs.Kind == ExtendedActivationKind.StartupTask)
+        {
+            LogActivation("Migration is pending. Startup-task activation is exiting without application-data initialization.");
+            ExitApplication();
+            return true;
+        }
+
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(ShowMigrationWindowAsync);
+            return true;
+        }
+
+        await ShowMigrationWindowAsync();
+        return true;
+    }
+
+    private async Task ShowMigrationWindowAsync()
+    {
+        EnsureWindowManagerConfigured();
+
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (windowManager.GetWindow(WinoWindowKind.Migration) is not MigrationWindow migrationWindow)
+        {
+            MainWindow = windowManager.CreateWindow(WinoWindowKind.Migration, () => new MigrationWindow());
+            migrationWindow = (MigrationWindow)MainWindow;
+            migrationWindow.GetRootFrame().Navigate(
+                typeof(Views.MigrationPage),
+                null,
+                new SuppressNavigationTransitionInfo());
+            InitializeNavigationDispatcher();
+        }
+
+        await NewThemeService.InitializeAsync();
+        await ActivateWindowAsync(migrationWindow, applyThemeToWindow: false);
+        LogActivation("Migration window created and activated before database initialization.");
+    }
+
+    public async Task CompleteMigrationLaunchAsync()
+    {
+        var validation = await Services.GetRequiredService<IDatabaseSchemaService>()
+            .ValidateAsync(Path.Combine(
+                AppConfiguration.PublisherSharedFolderPath,
+                Wino.Services.DatabaseService.CurrentDatabaseName),
+                requireCompletedMigration: true);
+        if (!validation.IsValid)
+            throw new InvalidOperationException($"The migrated database cannot be launched: {validation.ErrorMessage ?? validation.IntegrityResult}");
+
         await EnsureCoreActivationInfrastructureAsync();
 
-        var activationArgs = ResolveStartupActivation();
-        await _activationHandler.HandleLaunchAsync(args, activationArgs);
+        var pendingLaunchArgs = _pendingMigrationLaunchArgs;
+        var pendingActivation = _pendingMigrationActivation;
+        _pendingMigrationLaunchArgs = null;
+        _pendingMigrationActivation = null;
+
+        if (pendingLaunchArgs != null && pendingActivation != null)
+        {
+            await _activationHandler.HandleLaunchAsync(pendingLaunchArgs, pendingActivation);
+        }
+        else
+        {
+            await EnsureAppHostInfrastructureAsync();
+            if (_hasConfiguredAccounts)
+                await CreateAndActivateWindow(null);
+            else
+                await LaunchWelcomeWindowAsync();
+        }
+
+        CloseMigrationWindowIfPresent();
     }
 
     private AppActivationArguments ResolveStartupActivation()
@@ -1498,6 +1587,16 @@ public partial class App : WinoApplication,
         InitializeNavigationDispatcher();
     }
 
+    private void CloseMigrationWindowIfPresent()
+    {
+        var windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (windowManager.GetWindow(WinoWindowKind.Migration) is not MigrationWindow migrationWindow)
+            return;
+
+        migrationWindow.AllowClose();
+        migrationWindow.Close();
+    }
+
     private void InitializeNavigationDispatcher()
     {
         if (MainWindow == null)
@@ -1513,6 +1612,7 @@ public partial class App : WinoApplication,
     {
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         var currentWindow = windowManager.ActiveWindow
+                            ?? windowManager.GetWindow(WinoWindowKind.Migration)
                             ?? windowManager.GetWindow(WinoWindowKind.Shell)
                             ?? windowManager.GetWindow(WinoWindowKind.Welcome)
                             ?? MainWindow;
@@ -2202,6 +2302,10 @@ public partial class App : WinoApplication,
     {
         try
         {
+            await TranslationService.InitializeAsync();
+            if (await TryShowMigrationAsync(null, args))
+                return;
+
             await _activationHandler.HandleRedirectedActivationAsync(args);
         }
         catch (Exception ex)
@@ -2212,16 +2316,26 @@ public partial class App : WinoApplication,
 
     internal void TryActivateExistingWindowForRedirectedActivation(AppActivationArguments args)
     {
-        if (!_appHostInfrastructureInitialized ||
-            !Program.ShouldBringWindowToForegroundAfterRedirection(args))
+        if (!Program.ShouldBringWindowToForegroundAfterRedirection(args))
         {
             return;
         }
 
+        var existingWindowManager = Services.GetRequiredService<IWinoWindowManager>();
+        if (existingWindowManager.GetWindow(WinoWindowKind.Migration) is MigrationWindow migrationWindow)
+        {
+            _ = TryEnqueueActivationOnUiThread(() => existingWindowManager.ActivateWindow(migrationWindow));
+            return;
+        }
+
+        if (!_appHostInfrastructureInitialized)
+            return;
+
         _ = TryEnqueueActivationOnUiThread(() =>
         {
             var windowManager = Services.GetRequiredService<IWinoWindowManager>();
-            var activationWindow = windowManager.GetWindow(WinoWindowKind.Shell)
+            var activationWindow = windowManager.GetWindow(WinoWindowKind.Migration)
+                                   ?? windowManager.GetWindow(WinoWindowKind.Shell)
                                    ?? windowManager.GetWindow(WinoWindowKind.Welcome)
                                    ?? MainWindow;
 
@@ -2450,6 +2564,7 @@ public partial class App : WinoApplication,
     {
         var windowManager = Services.GetService<IWinoWindowManager>();
         var currentWindow = windowManager?.ActiveWindow
+                           ?? windowManager?.GetWindow(WinoWindowKind.Migration)
                            ?? windowManager?.GetWindow(WinoWindowKind.Shell)
                            ?? windowManager?.GetWindow(WinoWindowKind.Welcome);
 

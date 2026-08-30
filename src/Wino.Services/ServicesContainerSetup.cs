@@ -16,6 +16,9 @@ public static class ServicesContainerSetup
         services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
         services.AddSingleton<ITranslationService, TranslationService>();
         services.AddSingleton<IMailContentProjector, MailContentProjector>();
+        services.AddSingleton<IDatabaseSchemaService, DatabaseSchemaService>();
+        services.AddSingleton<IMigrationClock, SystemMigrationClock>();
+        services.AddSingleton<IMigrationCoordinator, DatabaseMigrationCoordinator>();
         services.AddSingleton<IDatabaseService, DatabaseService>();
 
         services.AddSingleton<IApplicationConfiguration, ApplicationConfiguration>();

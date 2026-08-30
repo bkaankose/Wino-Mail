@@ -10,6 +10,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Misc;
+using Wino.Core.Domain.Models.Migration;
 
 namespace Wino.Services;
 
@@ -20,17 +21,28 @@ public interface IDatabaseService : IInitializeAsync
 
 public class DatabaseService : IDatabaseService
 {
-    private const string DatabaseName = "Wino200.db";
+    public const string LegacyDatabaseName = "Wino200.db";
+    public const string CurrentDatabaseName = "Wino210.db";
+    public const int CurrentSchemaVersion = 210;
 
     private bool _isInitialized = false;
     private bool _cardDavCreationCapabilityMigrationRequired;
     private readonly IApplicationConfiguration _folderConfiguration;
+    private readonly string _databaseName;
 
     public SQLiteAsyncConnection Connection { get; private set; }
 
     public DatabaseService(IApplicationConfiguration folderConfiguration)
+        : this(folderConfiguration, CurrentDatabaseName)
+    {
+    }
+
+    public DatabaseService(IApplicationConfiguration folderConfiguration, string databaseName)
     {
         _folderConfiguration = folderConfiguration;
+        _databaseName = string.IsNullOrWhiteSpace(databaseName)
+            ? throw new ArgumentException("A database file name is required.", nameof(databaseName))
+            : databaseName;
     }
 
     public async Task InitializeAsync()
@@ -39,18 +51,69 @@ public class DatabaseService : IDatabaseService
             return;
 
         var publisherCacheFolder = _folderConfiguration.PublisherSharedFolderPath;
-        var databaseFileName = Path.Combine(publisherCacheFolder, DatabaseName);
+        var databaseFileName = Path.Combine(publisherCacheFolder, _databaseName);
+        var databaseAlreadyExists = File.Exists(databaseFileName);
 
         Connection = new SQLiteAsyncConnection(databaseFileName);
         await Connection.ExecuteAsync("PRAGMA foreign_keys = ON;").ConfigureAwait(false);
 
-        await MigrateLegacyContactsAsync().ConfigureAwait(false);
+        if (databaseAlreadyExists && string.Equals(_databaseName, CurrentDatabaseName, StringComparison.OrdinalIgnoreCase))
+            await EnsureCompleted210DatabaseAsync().ConfigureAwait(false);
+
         var preCreateCardDavAccountColumns = await Connection.GetTableInfoAsync(nameof(CardDavAccountState)).ConfigureAwait(false);
         _cardDavCreationCapabilityMigrationRequired = preCreateCardDavAccountColumns.Count > 0 &&
             !preCreateCardDavAccountColumns.Any(column => column.Name == nameof(CardDavAccountState.SupportsAddressBookCreation));
         await CreateTablesAsync();
+        await Connection.ExecuteAsync($"PRAGMA user_version = {CurrentSchemaVersion};").ConfigureAwait(false);
+        await EnsureLifecycleMetadataAsync(databaseAlreadyExists).ConfigureAwait(false);
 
         _isInitialized = true;
+    }
+
+    private async Task EnsureCompleted210DatabaseAsync()
+    {
+        var version = await Connection.ExecuteScalarAsync<int>("PRAGMA user_version;").ConfigureAwait(false);
+        var metadataExists = await Connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='__MigrationMetadata';")
+            .ConfigureAwait(false);
+        var isCompleted = metadataExists == 1 && await Connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM __MigrationMetadata WHERE Id = 1 AND Status IN (?, ?);",
+            (int)MigrationStatus.Completed,
+            (int)MigrationStatus.Skipped).ConfigureAwait(false) == 1;
+
+        if (version != CurrentSchemaVersion || !isCompleted)
+        {
+            await Connection.CloseAsync().ConfigureAwait(false);
+            throw new InvalidOperationException(
+                "Wino210.db is not a completed version-210 database. Run the migration coordinator before normal startup.");
+        }
+    }
+
+    private async Task EnsureLifecycleMetadataAsync(bool databaseAlreadyExists)
+    {
+        await Connection.ExecuteAsync(@"
+CREATE TABLE IF NOT EXISTS __MigrationMetadata (
+    Id INTEGER PRIMARY KEY NOT NULL,
+    SourcePath TEXT,
+    LastCompletedStep INTEGER NOT NULL,
+    Status INTEGER NOT NULL,
+    OptionsJson TEXT,
+    RowCounts TEXT,
+    DeferredAccountIds TEXT,
+    UpdatedAtUtc TEXT NOT NULL
+);").ConfigureAwait(false);
+
+        if (!databaseAlreadyExists)
+        {
+            await Connection.ExecuteAsync(@"
+INSERT OR REPLACE INTO __MigrationMetadata
+    (Id, SourcePath, LastCompletedStep, Status, OptionsJson, RowCounts, DeferredAccountIds, UpdatedAtUtc)
+VALUES
+    (1, '', ?, ?, '', '', '', ?);",
+                (int)MigrationStepKind.Completed,
+                (int)MigrationStatus.Skipped,
+                DateTime.UtcNow).ConfigureAwait(false);
+        }
     }
 
     private async Task CreateTablesAsync()
@@ -824,6 +887,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         var existingAccountIds = books.Select(book => book.MailAccountId).ToHashSet();
         var missingBooks = accounts
             .Where(account => account.IsContactAccessEnabled &&
+                              account.ContactIntegrationSource == AccountIntegrationSource.Local &&
                               !account.IsContactAccessGranted &&
                               !existingAccountIds.Contains(account.Id))
             .Select(account => new ContactAddressBook
@@ -862,6 +926,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         var usedColors = lists.Select(list => list.ColorHex).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var missingLists = accounts
             .Where(account => account.IsTaskAccessEnabled &&
+                              account.TaskIntegrationSource == AccountIntegrationSource.Local &&
                               !account.IsTaskAccessGranted &&
                               !existingAccountIds.Contains(account.Id))
             .Select(account =>

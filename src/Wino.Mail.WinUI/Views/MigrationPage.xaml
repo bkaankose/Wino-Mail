@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="Wino.Mail.WinUI.Views.MigrationPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:viewModels="using:Wino.Mail.WinUI.ViewModels"
+    Loaded="OnPageLoaded"
+    Unloaded="OnPageUnloaded"
+    mc:Ignorable="d">
+
+    <Grid Padding="40,32,40,36" RowSpacing="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Spacing="6">
+            <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="{x:Bind ViewModel.CurrentTitle, Mode=OneWay}" />
+            <TextBlock
+                MaxWidth="760"
+                HorizontalAlignment="Left"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind ViewModel.CurrentDescription, Mode=OneWay}"
+                TextWrapping="Wrap" />
+            <ProgressBar
+                x:Name="MigrationProgressBar"
+                Margin="0,10,0,0"
+                AutomationProperties.AutomationId="MigrationProgressBar"
+                IsIndeterminate="False"
+                Maximum="1"
+                Value="{x:Bind ViewModel.Progress, Mode=OneWay}" />
+        </StackPanel>
+
+        <Grid Grid.Row="1" ColumnSpacing="28">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="280" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <ListView
+                x:Name="MigrationStepsList"
+                AutomationProperties.AutomationId="MigrationStepsList"
+                IsItemClickEnabled="False"
+                IsTabStop="False"
+                ItemsSource="{x:Bind ViewModel.Steps, Mode=OneWay}"
+                SelectionMode="None">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:MigrationStepItemViewModel">
+                        <Grid Padding="8" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="32" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Border
+                                Width="28"
+                                Height="28"
+                                VerticalAlignment="Top"
+                                Background="{ThemeResource AccentFillColorSecondaryBrush}"
+                                CornerRadius="14">
+                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" Text="{x:Bind Number}" />
+                            </Border>
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock FontWeight="SemiBold" Text="{x:Bind Title}" TextWrapping="Wrap" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="{x:Bind StatusText, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <Border
+                Grid.Column="1"
+                Padding="24"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="12">
+                <Grid>
+                    <ScrollViewer
+                        x:Name="MigrationOptionsPanel"
+                        AutomationProperties.AutomationId="MigrationOptionsPanel"
+                        Visibility="{x:Bind ViewModel.IsOptionsVisible, Mode=OneWay}">
+                        <StackPanel Spacing="18">
+                            <StackPanel Spacing="4">
+                                <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.Migration_OptionsTitle}" />
+                                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.Migration_OptionsDescription}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="viewModels:MigrationAccountOptionViewModel">
+                                        <Border Margin="0,0,0,12" Padding="16" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="8">
+                                            <StackPanel Spacing="10">
+                                                <StackPanel>
+                                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind DisplayName}" />
+                                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Address}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="20">
+                                                    <ToggleSwitch AutomationProperties.AutomationId="{x:Bind ContactsAutomationId}" Header="{x:Bind domain:Translator.Migration_Contacts}" IsOn="{x:Bind EnableContacts, Mode=TwoWay}" />
+                                                    <ToggleSwitch AutomationProperties.AutomationId="{x:Bind TasksAutomationId}" Header="{x:Bind domain:Translator.Migration_ToDo}" IsOn="{x:Bind EnableTasks, Mode=TwoWay}" />
+                                                    <ToggleSwitch AutomationProperties.AutomationId="{x:Bind MailFiltersAutomationId}" Header="{x:Bind domain:Translator.Migration_MailFilters}" IsOn="{x:Bind EnableMailFilters, Mode=TwoWay}" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <InfoBar IsClosable="False" IsOpen="True" Message="{x:Bind domain:Translator.Migration_SignInDeferred}" Severity="Informational" />
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <StackPanel
+                        x:Name="MigrationRunningPanel"
+                        AutomationProperties.AutomationId="MigrationRunningPanel"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="16"
+                        Visibility="{x:Bind ViewModel.IsProgressVisible, Mode=OneWay}">
+                        <ProgressRing
+                            Width="48"
+                            Height="48"
+                            AutomationProperties.AutomationId="MigrationProgressRing"
+                            IsActive="True" />
+                        <TextBlock
+                            MaxWidth="420"
+                            HorizontalAlignment="Center"
+                            Text="{x:Bind ViewModel.CurrentDescription, Mode=OneWay}"
+                            TextAlignment="Center"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel
+                        x:Name="MigrationFailurePanel"
+                        AutomationProperties.AutomationId="MigrationFailurePanel"
+                        Spacing="14"
+                        Visibility="{x:Bind ViewModel.IsFailureVisible, Mode=OneWay}">
+                        <InfoBar
+                            IsClosable="False"
+                            IsOpen="True"
+                            Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+                            Severity="Error"
+                            Title="{x:Bind domain:Translator.Migration_FailedTitle}" />
+                        <Expander AutomationProperties.AutomationId="MigrationTechnicalDetailsExpander" Header="{x:Bind domain:Translator.Migration_TechnicalDetails}">
+                            <TextBlock FontFamily="Consolas" Text="{x:Bind ViewModel.TechnicalDetails, Mode=OneWay}" TextWrapping="Wrap" />
+                        </Expander>
+                    </StackPanel>
+
+                    <StackPanel
+                        x:Name="MigrationSuccessPanel"
+                        AutomationProperties.AutomationId="MigrationSuccessPanel"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        Spacing="12"
+                        Visibility="{x:Bind ViewModel.IsSuccessVisible, Mode=OneWay}">
+                        <FontIcon HorizontalAlignment="Center" FontSize="48" Glyph="&#xE73E;" />
+                        <TextBlock HorizontalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.Migration_SuccessTitle}" />
+                        <TextBlock HorizontalAlignment="Center" Text="{x:Bind ViewModel.CompletionSummary, Mode=OneWay}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Button
+                x:Name="SkipMigrationButton"
+                AutomationProperties.AutomationId="SkipMigrationButton"
+                Click="OnSkipMigrationClick"
+                Content="{x:Bind domain:Translator.Migration_Skip}"
+                IsEnabled="{x:Bind ViewModel.CanSkipMigration, Mode=OneWay}"
+                Visibility="{x:Bind ViewModel.CanSkipMigration, Mode=OneWay}"
+                Style="{StaticResource AccentButtonStyle}" />
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                <Button
+                    x:Name="RetryMigrationButton"
+                    AutomationProperties.AutomationId="RetryMigrationButton"
+                    Command="{x:Bind ViewModel.RetryCommand}"
+                    Content="{x:Bind domain:Translator.Migration_Retry}"
+                    Visibility="{x:Bind ViewModel.IsFailureVisible, Mode=OneWay}" />
+                <Button
+                    x:Name="StartMigrationButton"
+                    AutomationProperties.AutomationId="StartMigrationButton"
+                    Command="{x:Bind ViewModel.StartCommand}"
+                    Content="{x:Bind domain:Translator.Migration_Start}"
+                    Style="{StaticResource AccentButtonStyle}"
+                    Visibility="{x:Bind ViewModel.IsOptionsVisible, Mode=OneWay}" />
+                <Button
+                    x:Name="LaunchWinoButton"
+                    AutomationProperties.AutomationId="LaunchWinoButton"
+                    Click="OnLaunchClick"
+                    Content="{x:Bind domain:Translator.Migration_Launch}"
+                    Style="{StaticResource AccentButtonStyle}"
+                    Visibility="{x:Bind ViewModel.IsSuccessVisible, Mode=OneWay}" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Page>
