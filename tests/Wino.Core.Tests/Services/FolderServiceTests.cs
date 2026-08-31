@@ -4,6 +4,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
 using Xunit;
@@ -82,6 +83,145 @@ public class FolderServiceTests : IAsyncLifetime
         updatedFolder.HighestModeSeq.Should().Be(123);
         updatedFolder.HighestKnownUid.Should().Be(456);
         updatedFolder.LastUidReconcileUtc.Should().NotBeNull();
+    }
+
+    [Theory]
+    [InlineData(MailProviderType.Gmail, "label-root", "label-child", "label-grandchild")]
+    [InlineData(MailProviderType.Outlook, "graph-root", "graph-child", "graph-grandchild")]
+    [InlineData(MailProviderType.IMAP4, "Projects", "Projects/2026", "Projects/2026/Wino")]
+    [InlineData(MailProviderType.POP3, "local-root", "local-child", "local-grandchild")]
+    public async Task GetFolderStructureForAccountAsync_BuildsCanonicalHierarchyForEveryProvider(
+        MailProviderType providerType,
+        string rootRemoteId,
+        string childRemoteId,
+        string grandchildRemoteId)
+    {
+        _account.ProviderType = providerType;
+        await _databaseService.Connection.UpdateAsync(_account, typeof(MailAccount));
+
+        var root = CreateFolder("Projects", rootRemoteId, isSticky: false);
+        var child = CreateFolder("2026", childRemoteId, rootRemoteId, isSticky: true);
+        var grandchild = CreateFolder("Wino", grandchildRemoteId, childRemoteId);
+
+        await InsertFoldersAsync(root, grandchild, child);
+
+        var hierarchy = await _folderService.GetFolderStructureForAccountAsync(_account.Id, true);
+
+        hierarchy.Folders.Should().ContainSingle().Which.Id.Should().Be(root.Id);
+        hierarchy.Folders[0].ChildFolders.Should().ContainSingle().Which.Id.Should().Be(child.Id);
+        hierarchy.Folders[0].ChildFolders[0].ChildFolders.Should().ContainSingle().Which.Id.Should().Be(grandchild.Id);
+        Flatten(hierarchy.Folders).Select(folder => folder.Id).Should().OnlyHaveUniqueItems().And.HaveCount(3);
+        Flatten(hierarchy.Folders).Should().NotContain(folder => folder.SpecialFolderType == SpecialFolderType.More);
+    }
+
+    [Fact]
+    public async Task GetFolderStructureForAccountAsync_SortsEverySiblingLevel()
+    {
+        var inbox = CreateFolder("Inbox", "inbox", specialFolderType: SpecialFolderType.Inbox);
+        var rootZ = CreateFolder("Zulu", "root-z");
+        var rootA = CreateFolder("Alpha", "root-a");
+        var childZ = CreateFolder("Zulu child", "child-z", rootA.RemoteFolderId);
+        var childA = CreateFolder("Alpha child", "child-a", rootA.RemoteFolderId);
+
+        await InsertFoldersAsync(rootZ, childZ, rootA, inbox, childA);
+
+        var hierarchy = await _folderService.GetFolderStructureForAccountAsync(_account.Id, true);
+
+        hierarchy.Folders.Select(folder => folder.FolderName).Should().Equal("Inbox", "Alpha", "Zulu");
+        hierarchy.Folders[1].ChildFolders.Select(folder => folder.FolderName).Should().Equal("Alpha child", "Zulu child");
+    }
+
+    [Fact]
+    public async Task GetFolderStructureForAccountAsync_PreservesFlattenedImapInboxChildren()
+    {
+        _account.ProviderType = MailProviderType.IMAP4;
+        await _databaseService.Connection.UpdateAsync(_account, typeof(MailAccount));
+
+        var inbox = CreateFolder("Inbox", "INBOX", specialFolderType: SpecialFolderType.Inbox);
+        var flattenedInboxChild = CreateFolder("Receipts", "INBOX/Receipts");
+
+        await InsertFoldersAsync(inbox, flattenedInboxChild);
+
+        var hierarchy = await _folderService.GetFolderStructureForAccountAsync(_account.Id, true);
+
+        hierarchy.Folders.Select(folder => folder.Id).Should().BeEquivalentTo(
+            [inbox.Id, flattenedInboxChild.Id]);
+        inbox.ChildFolders.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetFolderStructureForAccountAsync_RespectsHiddenFoldersAtEveryDepth()
+    {
+        var hiddenParent = CreateFolder("Hidden parent", "hidden-parent", isHidden: true);
+        var visibleChild = CreateFolder("Visible child", "visible-child", hiddenParent.RemoteFolderId);
+
+        await InsertFoldersAsync(hiddenParent, visibleChild);
+
+        var visibleHierarchy = await _folderService.GetFolderStructureForAccountAsync(_account.Id, false);
+        var completeHierarchy = await _folderService.GetFolderStructureForAccountAsync(_account.Id, true);
+
+        visibleHierarchy.Folders.Should().ContainSingle().Which.Id.Should().Be(visibleChild.Id);
+        completeHierarchy.Folders.Should().ContainSingle().Which.Id.Should().Be(hiddenParent.Id);
+        completeHierarchy.Folders[0].ChildFolders.Should().ContainSingle().Which.Id.Should().Be(visibleChild.Id);
+    }
+
+    [Fact]
+    public async Task GetFolderStructureForAccountAsync_PromotesInvalidParentLinksWithoutLosingFolders()
+    {
+        var cycleA = CreateFolder("Cycle A", "cycle-a", "cycle-b");
+        var cycleB = CreateFolder("Cycle B", "cycle-b", "cycle-a");
+        var selfParent = CreateFolder("Self", "self", "self");
+        var orphan = CreateFolder("Orphan", "orphan", "missing-parent");
+
+        await InsertFoldersAsync(cycleA, cycleB, selfParent, orphan);
+
+        var hierarchy = await _folderService.GetFolderStructureForAccountAsync(_account.Id, true);
+        var flattened = Flatten(hierarchy.Folders).ToList();
+
+        flattened.Select(folder => folder.Id).Should().OnlyHaveUniqueItems().And.BeEquivalentTo(
+            [cycleA.Id, cycleB.Id, selfParent.Id, orphan.Id]);
+        hierarchy.Folders.Should().Contain(folder => folder.Id == selfParent.Id);
+        hierarchy.Folders.Should().Contain(folder => folder.Id == orphan.Id);
+    }
+
+    private MailItemFolder CreateFolder(
+        string name,
+        string remoteId,
+        string? parentRemoteId = null,
+        bool isSticky = false,
+        bool isHidden = false,
+        SpecialFolderType specialFolderType = SpecialFolderType.Other)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = _account.Id,
+            FolderName = name,
+            RemoteFolderId = remoteId,
+            ParentRemoteFolderId = parentRemoteId ?? string.Empty,
+            IsSticky = isSticky,
+            IsHidden = isHidden,
+            SpecialFolderType = specialFolderType
+        };
+
+    private async Task InsertFoldersAsync(params MailItemFolder[] folders)
+    {
+        foreach (var folder in folders)
+        {
+            await _databaseService.Connection.InsertAsync(folder, typeof(MailItemFolder));
+        }
+    }
+
+    private static IEnumerable<IMailItemFolder> Flatten(IEnumerable<IMailItemFolder> folders)
+    {
+        foreach (var folder in folders)
+        {
+            yield return folder;
+
+            foreach (var childFolder in Flatten(folder.ChildFolders))
+            {
+                yield return childFolder;
+            }
+        }
     }
 
     private static AccountService CreateAccountService(InMemoryDatabaseService databaseService)

@@ -39,6 +39,19 @@ public sealed class ContextMenuItemServiceTests
         actions.Should().BeEmpty();
     }
 
+    [Fact]
+    public void GetMailItemContextMenuActions_WhenAnySelectedItemIsDraftOrSent_DisablesMove()
+    {
+        var inboxMail = CreateMail(isRead: true);
+        var sentMail = CreateMail(isRead: true);
+        sentMail.AssignedFolder.SpecialFolderType = SpecialFolderType.Sent;
+
+        var moveAction = _service.GetMailItemContextMenuActions([inboxMail, sentMail])
+            .Single(action => action.Operation == MailOperation.Move);
+
+        moveAction.IsEnabled.Should().BeFalse();
+    }
+
     [Theory]
     [InlineData(true, MailOperation.MoveToOther, MailOperation.AlwaysMoveToOther)]
     [InlineData(false, MailOperation.MoveToFocused, MailOperation.AlwaysMoveToFocused)]
@@ -73,6 +86,24 @@ public sealed class ContextMenuItemServiceTests
 
         operations.Should().NotContain(MailOperation.MoveToFocused);
         operations.Should().NotContain(MailOperation.MoveToOther);
+        operations.Should().NotContain(MailOperation.AlwaysMoveToFocused);
+        operations.Should().NotContain(MailOperation.AlwaysMoveToOther);
+    }
+
+    [Fact]
+    public void GetMailItemContextMenuActions_ForMultipleOutlookInboxMails_OmitsAlwaysMoveActions()
+    {
+        var firstMail = CreateMail(isRead: true);
+        firstMail.AssignedAccount = new MailAccount { ProviderType = MailProviderType.Outlook };
+        firstMail.IsFocused = true;
+        var secondMail = CreateMail(isRead: true);
+        secondMail.AssignedAccount = firstMail.AssignedAccount;
+        secondMail.IsFocused = true;
+
+        var operations = _service.GetMailItemContextMenuActions([firstMail, secondMail])
+            .Select(action => action.Operation);
+
+        operations.Should().Contain(MailOperation.MoveToOther);
         operations.Should().NotContain(MailOperation.AlwaysMoveToFocused);
         operations.Should().NotContain(MailOperation.AlwaysMoveToOther);
     }

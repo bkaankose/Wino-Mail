@@ -28,5 +28,12 @@ public partial class WinoMenuFlyout : MenuFlyout
                 ApplyLanguage(childItem);
             }
         }
+        else if (item is SplitMenuFlyoutItem splitItem)
+        {
+            foreach (var childItem in splitItem.Items)
+            {
+                ApplyLanguage(childItem);
+            }
+        }
     }
 }

@@ -26,15 +26,6 @@ public class FolderService : BaseDatabaseService, IFolderService
     private readonly IMailCategoryService _mailCategoryService;
     private readonly ILogger _logger = Log.ForContext<FolderService>();
 
-    private readonly SpecialFolderType[] gmailCategoryFolderTypes =
-    [
-        SpecialFolderType.Promotions,
-        SpecialFolderType.Social,
-        SpecialFolderType.Updates,
-        SpecialFolderType.Forums,
-        SpecialFolderType.Personal
-    ];
-
     public FolderService(IDatabaseService databaseService,
                            IAccountService accountService,
                            IMailCategoryService mailCategoryService) : base(databaseService)
@@ -218,93 +209,137 @@ public class FolderService : BaseDatabaseService, IFolderService
 
         var accountTree = new AccountFolderTree(account);
 
-        // Account folders.
-        var folderQuery = Connection.Table<MailItemFolder>().Where(a => a.MailAccountId == accountId);
+        var allFolders = await Connection
+            .Table<MailItemFolder>()
+            .Where(folder => folder.MailAccountId == accountId)
+            .ToListAsync()
+            .ConfigureAwait(false);
 
-        if (!includeHiddenFolders)
-            folderQuery = folderQuery.Where(a => !a.IsHidden);
+        var folders = includeHiddenFolders
+            ? allFolders
+            : allFolders.Where(folder => !folder.IsHidden).ToList();
 
-        // Load child folders for each folder, applying user-defined ordering with
-        // alphabetic fallback for folders the user hasn't explicitly re-ordered.
-        var rawFolders = await folderQuery.ToListAsync();
-        var allFolders = ApplyFolderSort(rawFolders).ToList();
-
-        if (allFolders.Any())
+        foreach (var folder in folders)
         {
-            // Get sticky folders. Category type is always sticky.
-            // Sticky folders don't have tree structure. So they can be added to the main tree.
-            var stickyFolders = allFolders.Where(a => a.IsSticky && a.SpecialFolderType != SpecialFolderType.Category);
+            folder.ChildFolders.Clear();
+        }
 
-            foreach (var stickyFolder in stickyFolders)
+        var duplicateRemoteIds = folders
+            .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
+            .GroupBy(folder => folder.RemoteFolderId, StringComparer.Ordinal)
+            .Where(group => group.Count() > 1)
+            .Select(group => group.Key)
+            .ToList();
+
+        foreach (var remoteId in duplicateRemoteIds)
+        {
+            _logger.Warning(
+                "Duplicate folder remote id {RemoteFolderId} found while building folder hierarchy for account {AccountId}.",
+                remoteId,
+                accountId);
+        }
+
+        var foldersByRemoteId = folders
+            .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
+            .GroupBy(folder => folder.RemoteFolderId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
+        var allRemoteIds = allFolders
+            .Where(folder => !string.IsNullOrWhiteSpace(folder.RemoteFolderId))
+            .Select(folder => folder.RemoteFolderId)
+            .ToHashSet(StringComparer.Ordinal);
+
+        var parentByFolder = new Dictionary<MailItemFolder, MailItemFolder>();
+
+        foreach (var folder in folders)
+        {
+            if (string.IsNullOrWhiteSpace(folder.ParentRemoteFolderId))
+                continue;
+
+            if (!foldersByRemoteId.TryGetValue(folder.ParentRemoteFolderId, out var parentFolder))
             {
-                var childStructure = await GetChildFolderItemsRecursiveAsync(stickyFolder.Id, accountId);
-
-                accountTree.Folders.Add(childStructure);
-            }
-
-            // Check whether we need special 'Categories' kind of folder.
-            var categoryExists = allFolders.Any(a => a.SpecialFolderType == SpecialFolderType.Category);
-
-            if (categoryExists)
-            {
-                var categoryFolder = allFolders.First(a => a.SpecialFolderType == SpecialFolderType.Category);
-
-                // Construct category items under pinned items.
-                var categoryFolders = allFolders.Where(a => gmailCategoryFolderTypes.Contains(a.SpecialFolderType));
-
-                foreach (var categoryFolderSubItem in categoryFolders)
+                if (!allRemoteIds.Contains(folder.ParentRemoteFolderId))
                 {
-                    categoryFolder.ChildFolders.Add(categoryFolderSubItem);
+                    _logger.Warning(
+                        "Parent folder {ParentRemoteFolderId} was not found for folder {RemoteFolderId} in account {AccountId}. Promoting it to a root folder.",
+                        folder.ParentRemoteFolderId,
+                        folder.RemoteFolderId,
+                        accountId);
                 }
 
-                accountTree.Folders.Add(categoryFolder);
-                allFolders.Remove(categoryFolder);
+                continue;
             }
 
-            // Move rest of the items into virtual More folder if any.
-            var nonStickyFolders = allFolders.Except(stickyFolders);
-
-            if (nonStickyFolders.Any())
+            if (ReferenceEquals(parentFolder, folder))
             {
-                var virtualMoreFolder = new MailItemFolder()
-                {
-                    FolderName = Translator.More,
-                    SpecialFolderType = SpecialFolderType.More
-                };
-
-                foreach (var unstickyItem in nonStickyFolders)
-                {
-                    if (account.ProviderType == MailProviderType.Gmail)
-                    {
-                        // Gmail requires this check to not include child folders as 
-                        // separate folder without their parent for More folder...
-
-                        if (!string.IsNullOrEmpty(unstickyItem.ParentRemoteFolderId))
-                            continue;
-                    }
-                    else if (account.ProviderType == MailProviderType.Outlook)
-                    {
-                        bool belongsToExistingParent = await Connection
-                            .Table<MailItemFolder>()
-                            .Where(a => unstickyItem.ParentRemoteFolderId == a.RemoteFolderId)
-                            .CountAsync() > 0;
-
-                        // No need to include this as unsticky.
-                        if (belongsToExistingParent) continue;
-                    }
-
-                    var structure = await GetChildFolderItemsRecursiveAsync(unstickyItem.Id, accountId);
-
-                    virtualMoreFolder.ChildFolders.Add(structure);
-                }
-
-                // Only add more if there are any.
-                if (virtualMoreFolder.ChildFolders.Count > 0)
-                    accountTree.Folders.Add(virtualMoreFolder);
+                _logger.Warning(
+                    "Folder {RemoteFolderId} references itself as parent in account {AccountId}. Promoting it to a root folder.",
+                    folder.RemoteFolderId,
+                    accountId);
+                continue;
             }
+
+            parentByFolder[folder] = parentFolder;
+        }
+
+        foreach (var folder in folders)
+        {
+            if (!CreatesFolderCycle(folder, parentByFolder))
+                continue;
+
+            parentByFolder.Remove(folder);
+            _logger.Warning(
+                "Folder hierarchy cycle detected at {RemoteFolderId} in account {AccountId}. Promoting it to a root folder.",
+                folder.RemoteFolderId,
+                accountId);
+        }
+
+        foreach (var (folder, parentFolder) in parentByFolder)
+        {
+            parentFolder.ChildFolders.Add(folder);
+        }
+
+        var rootFolders = folders.Where(folder => !parentByFolder.ContainsKey(folder));
+
+        foreach (var rootFolder in ApplyFolderSort(rootFolders))
+        {
+            SortFolderChildren(rootFolder);
+            accountTree.Folders.Add(rootFolder);
         }
 
         return accountTree;
+    }
+
+    private static bool CreatesFolderCycle(
+        MailItemFolder folder,
+        IReadOnlyDictionary<MailItemFolder, MailItemFolder> parentByFolder)
+    {
+        var visited = new HashSet<MailItemFolder> { folder };
+        var currentFolder = folder;
+
+        while (parentByFolder.TryGetValue(currentFolder, out var parentFolder))
+        {
+            if (!visited.Add(parentFolder))
+                return true;
+
+            currentFolder = parentFolder;
+        }
+
+        return false;
+    }
+
+    private static void SortFolderChildren(MailItemFolder folder)
+    {
+        var sortedChildren = ApplyFolderSort(folder.ChildFolders.Cast<MailItemFolder>())
+            .Cast<IMailItemFolder>()
+            .ToList();
+
+        folder.ChildFolders = sortedChildren;
+
+        foreach (var childFolder in sortedChildren.Cast<MailItemFolder>())
+        {
+            SortFolderChildren(childFolder);
+        }
     }
 
 
@@ -507,28 +542,6 @@ public class FolderService : BaseDatabaseService, IFolderService
         }
 
         return commonSpecialFolderTypes;
-    }
-
-    private async Task<MailItemFolder> GetChildFolderItemsRecursiveAsync(Guid folderId, Guid accountId)
-    {
-        var folder = await Connection.Table<MailItemFolder>().Where(a => a.Id == folderId && a.MailAccountId == accountId).FirstOrDefaultAsync();
-
-        if (folder == null)
-            return null;
-
-        var childFoldersRaw = await Connection.Table<MailItemFolder>()
-            .Where(a => a.ParentRemoteFolderId == folder.RemoteFolderId && a.MailAccountId == folder.MailAccountId)
-            .ToListAsync();
-
-        var childFolders = ApplyFolderSort(childFoldersRaw).ToList();
-
-        foreach (var childFolder in childFolders)
-        {
-            var subChild = await GetChildFolderItemsRecursiveAsync(childFolder.Id, accountId);
-            folder.ChildFolders.Add(subChild);
-        }
-
-        return folder;
     }
 
     public async Task<MailItemFolder> GetSpecialFolderByAccountIdAsync(Guid accountId, SpecialFolderType type)

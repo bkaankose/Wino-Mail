@@ -50,6 +50,7 @@ public class ContextMenuItemService : IContextMenuItemService
 
         bool isArchiveFolder = selectedItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Archive);
         bool isDraftOrSent = selectedItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft || a.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent);
+        bool hasDraftOrSent = selectedItems.Any(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Draft || a.AssignedFolder.SpecialFolderType == SpecialFolderType.Sent);
         bool isJunkFolder = selectedItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk);
         bool isPop3 = selectedItems.All(a => a.AssignedAccount?.ProviderType == MailProviderType.POP3);
 
@@ -79,7 +80,7 @@ public class ContextMenuItemService : IContextMenuItemService
         operationList.Add(MailOperationMenuItem.Create(MailOperation.SoftDelete));
 
         // Move button.
-        operationList.Add(MailOperationMenuItem.Create(MailOperation.Move, !isDraftOrSent));
+        operationList.Add(MailOperationMenuItem.Create(MailOperation.Move, !hasDraftOrSent));
 
         // Independent flag, read etc.
         if (isSingleItem)

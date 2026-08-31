@@ -24,6 +24,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
@@ -39,6 +40,7 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views;
+using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
@@ -287,13 +289,26 @@ public sealed partial class MailListPage : MailListPageAbstract,
             }
 
             var areAllPinned = targetItems.Any() && targetItems.All(item => item.MailCopy.IsPinned);
-            var availableActions = ViewModel.GetAvailableMailActions(targetItems);
-            var (availableCategories, assignedCategoryIds) = await ViewModel.GetAvailableCategoriesAsync(targetItems);
+            var availableActions = ViewModel.GetAvailableMailActions(targetItems).ToList();
+            var categoriesTask = ViewModel.GetAvailableCategoriesAsync(targetItems);
+            var moveFoldersTask = TryGetMoveFolderHierarchyAsync(targetItems);
+
+            await Task.WhenAll(categoriesTask, moveFoldersTask);
+
+            var (availableCategories, assignedCategoryIds) = await categoriesTask;
+            var moveFolders = await moveFoldersTask;
+            var sourceFolderIds = targetItems
+                .Select(item => item.MailCopy.AssignedFolder?.Id)
+                .Where(folderId => folderId.HasValue)
+                .Select(folderId => folderId!.Value)
+                .ToHashSet();
 
             var clickedAction = await GetMailContextActionFromFlyoutAsync(
                 availableActions,
                 availableCategories,
                 assignedCategoryIds,
+                moveFolders,
+                sourceFolderIds,
                 areAllPinned,
                 control,
                 p.X,
@@ -338,9 +353,36 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 return;
             }
 
-            var prepRequest = new MailOperationPreperationRequest(operation, targetItems.Select(a => a.MailCopy));
+            var prepRequest = new MailOperationPreperationRequest(
+                operation,
+                targetItems.Select(a => a.MailCopy),
+                moveTargetFolder: clickedAction.MoveTargetFolder);
 
             await ViewModel.ExecuteMailOperationAsync(prepRequest);
+        }
+    }
+
+    private async Task<IReadOnlyList<IMailItemFolder>?> TryGetMoveFolderHierarchyAsync(
+        IReadOnlyCollection<MailItemViewModel> targetItems)
+    {
+        var accountIds = targetItems
+            .Select(item => item.MailCopy.AssignedAccount?.Id)
+            .Distinct()
+            .ToList();
+
+        if (accountIds.Count != 1 || !accountIds[0].HasValue)
+            return null;
+
+        try
+        {
+            var folderTree = await FolderService.GetFolderStructureForAccountAsync(accountIds[0]!.Value, true);
+
+            return folderTree.Folders;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to load move folder hierarchy for account {AccountId}.", accountIds[0]);
+            return null;
         }
     }
 
@@ -348,6 +390,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
         IEnumerable<MailOperationMenuItem> availableActions,
         IReadOnlyList<MailCategory> availableCategories,
         IReadOnlyCollection<Guid> assignedCategoryIds,
+        IReadOnlyList<IMailItemFolder>? moveFolders,
+        IReadOnlySet<Guid> sourceFolderIds,
         bool areAllPinned,
         UIElement showAtElement,
         double x,
@@ -355,22 +399,38 @@ public sealed partial class MailListPage : MailListPageAbstract,
     {
         var source = new TaskCompletionSource<MailContextAction?>();
         var flyout = new WinoMenuFlyout();
+        var actionList = availableActions?.ToList() ?? [];
+        var focusedInboxActions = actionList
+            .Where(action => IsFocusedInboxMoveOperation(action.Operation))
+            .ToList();
 
-        foreach (var action in availableActions ?? [])
+        foreach (var action in actionList)
         {
             if (action.Operation == MailOperation.Seperator)
             {
-                flyout.Items.Add(new MenuFlyoutSeparator());
+                AddSeparatorIfNeeded(flyout.Items);
                 continue;
             }
 
-            AddMailOperationFlyoutItem(flyout, source, action);
+            if (IsFocusedInboxMoveOperation(action.Operation))
+                continue;
+
+            if (action.Operation == MailOperation.Move)
+            {
+                AddMoveOperationFlyoutItem(
+                    flyout,
+                    source,
+                    action,
+                    focusedInboxActions,
+                    moveFolders,
+                    sourceFolderIds);
+                continue;
+            }
+
+            AddMailOperationFlyoutItem(flyout.Items, source, action, flyout);
         }
 
-        if (flyout.Items.Count > 0 && flyout.Items.LastOrDefault() is not MenuFlyoutSeparator)
-        {
-            flyout.Items.Add(new MenuFlyoutSeparator());
-        }
+        AddSeparatorIfNeeded(flyout.Items);
 
         var pinItem = new MenuFlyoutItem
         {
@@ -392,7 +452,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         {
             if (flyout.Items.LastOrDefault() is not MenuFlyoutSeparator)
             {
-                flyout.Items.Add(new MenuFlyoutSeparator());
+                AddSeparatorIfNeeded(flyout.Items);
             }
 
             var categorySubItem = new MenuFlyoutSubItem
@@ -425,7 +485,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
 #if DEBUG
         if (flyout.Items.LastOrDefault() is not MenuFlyoutSeparator)
         {
-            flyout.Items.Add(new MenuFlyoutSeparator());
+            AddSeparatorIfNeeded(flyout.Items);
         }
 
         var testNotificationItem = new MenuFlyoutItem
@@ -455,10 +515,58 @@ public sealed partial class MailListPage : MailListPageAbstract,
         return await source.Task;
     }
 
-    private static void AddMailOperationFlyoutItem(
+    private static void AddMoveOperationFlyoutItem(
         MenuFlyout flyout,
         TaskCompletionSource<MailContextAction?> source,
-        MailOperationMenuItem action)
+        MailOperationMenuItem moveAction,
+        IReadOnlyList<MailOperationMenuItem> focusedInboxActions,
+        IReadOnlyList<IMailItemFolder>? moveFolders,
+        IReadOnlySet<Guid> sourceFolderIds)
+    {
+        var moveSubItem = new MenuFlyoutSubItem
+        {
+            Text = XamlHelpers.GetOperationString(MailOperation.Move),
+            Icon = new WinoFontIcon { Icon = XamlHelpers.GetWinoIconGlyph(MailOperation.Move) }
+        };
+
+        AutomationProperties.SetAutomationId(moveSubItem, "MailContextMoveSubMenu");
+
+        foreach (var focusedInboxAction in focusedInboxActions)
+        {
+            AddMailOperationFlyoutItem(moveSubItem.Items, source, focusedInboxAction, flyout);
+        }
+
+        if (focusedInboxActions.Count > 0 && moveFolders?.Count > 0)
+        {
+            moveSubItem.Items.Add(new MenuFlyoutSeparator());
+        }
+
+        var validFolderTargetCount = moveFolders == null
+            ? 0
+            : MoveFolderMenuBuilder.Populate(
+                moveSubItem.Items,
+                moveFolders,
+                sourceFolderIds,
+                folder =>
+                {
+                    source.TrySetResult(new MailContextAction(moveAction, MoveTargetFolder: folder));
+                    flyout.Hide();
+                });
+
+        var hasEnabledFocusedInboxAction = focusedInboxActions.Any(action => action.IsEnabled);
+
+        moveSubItem.IsEnabled = moveAction.IsEnabled
+            && moveFolders != null
+            && (validFolderTargetCount > 0 || hasEnabledFocusedInboxAction);
+
+        flyout.Items.Add(moveSubItem);
+    }
+
+    private static void AddMailOperationFlyoutItem(
+        IList<MenuFlyoutItemBase> destination,
+        TaskCompletionSource<MailContextAction?> source,
+        MailOperationMenuItem action,
+        MenuFlyout flyout)
     {
         var menuFlyoutItem = new MailOperationMenuFlyoutItem(action, clicked =>
         {
@@ -466,11 +574,25 @@ public sealed partial class MailListPage : MailListPageAbstract,
             flyout.Hide();
         });
 
-        flyout.Items.Add(menuFlyoutItem);
+        destination.Add(menuFlyoutItem);
     }
 
     private static bool IsComposeContextOperation(MailOperation operation)
         => operation is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
+
+    private static bool IsFocusedInboxMoveOperation(MailOperation operation)
+        => operation is MailOperation.MoveToFocused
+            or MailOperation.MoveToOther
+            or MailOperation.AlwaysMoveToFocused
+            or MailOperation.AlwaysMoveToOther;
+
+    private static void AddSeparatorIfNeeded(IList<MenuFlyoutItemBase> destination)
+    {
+        if (destination.Count > 0 && destination[^1] is not MenuFlyoutSeparator)
+        {
+            destination.Add(new MenuFlyoutSeparator());
+        }
+    }
 
     private static void AddCategoryFlyoutItem(
         MenuFlyoutSubItem categorySubItem,
@@ -499,7 +621,13 @@ public sealed partial class MailListPage : MailListPageAbstract,
         categorySubItem.Items.Add(categoryItem);
     }
 
-    private sealed record MailContextAction(MailOperationMenuItem? Operation = null, MailCategory? Category = null, bool IsCategoryAssignedToAll = false, bool? PinState = null, bool CreateTestNotification = false)
+    private sealed record MailContextAction(
+        MailOperationMenuItem? Operation = null,
+        MailCategory? Category = null,
+        bool IsCategoryAssignedToAll = false,
+        bool? PinState = null,
+        bool CreateTestNotification = false,
+        IMailItemFolder? MoveTargetFolder = null)
     {
         public MailContextAction(MailCategory category, bool isCategoryAssignedToAll) : this((MailOperationMenuItem?)null, category, isCategoryAssignedToAll)
         {

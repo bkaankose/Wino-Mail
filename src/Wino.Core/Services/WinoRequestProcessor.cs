@@ -144,6 +144,11 @@ public class WinoRequestProcessor : IWinoRequestProcessor
                 return default;
         }
 
+        if (action == MailOperation.Move)
+        {
+            ValidateMoveTarget(mailItems, moveTargetStructure);
+        }
+
         var requests = new List<IMailActionRequest>();
 
         // TODO: Fix: Collection was modified; enumeration operation may not execute
@@ -157,6 +162,23 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         }
 
         return requests;
+    }
+
+    private static void ValidateMoveTarget(
+        IReadOnlyCollection<MailCopy> mailItems,
+        IMailItemFolder moveTargetFolder)
+    {
+        if (moveTargetFolder == null || !moveTargetFolder.IsMoveTarget)
+            throw new InvalidMoveTargetException(InvalidMoveTargetReason.NonMoveTarget);
+
+        var hasInvalidSource = mailItems.Any(mailItem =>
+            mailItem.AssignedAccount == null
+            || mailItem.AssignedFolder == null
+            || mailItem.AssignedAccount.Id != moveTargetFolder.MailAccountId
+            || mailItem.AssignedFolder.Id == moveTargetFolder.Id);
+
+        if (hasInvalidSource)
+            throw new InvalidMoveTargetException(InvalidMoveTargetReason.NonMoveTarget);
     }
 
     private async Task<IMailActionRequest> GetSingleRequestAsync(MailCopy mailItem, MailOperation action, IMailItemFolder moveTargetStructure, bool shouldToggleActions)
@@ -209,14 +231,10 @@ public class WinoRequestProcessor : IWinoRequestProcessor
             if (moveTargetStructure == null)
                 throw new InvalidMoveTargetException(InvalidMoveTargetReason.NonMoveTarget);
 
-            // TODO
-            // Rule: You can't move items to non-move target folders;
-            // Rule: You can't move items from a folder to itself.
+            var pickedFolderItem = await _folderService.GetFolderAsync(moveTargetStructure.Id)
+                ?? throw new InvalidMoveTargetException(InvalidMoveTargetReason.NonMoveTarget);
 
-            //if (!moveTargetStructure.IsMoveTarget || moveTargetStructure.FolderId == mailItem.AssignedFolder.Id)
-            //    throw new InvalidMoveTargetException();
-
-            var pickedFolderItem = await _folderService.GetFolderAsync(moveTargetStructure.Id);
+            ValidateMoveTarget([mailItem], pickedFolderItem);
 
             return new MoveRequest(mailItem, mailItem.AssignedFolder, pickedFolderItem);
         }
