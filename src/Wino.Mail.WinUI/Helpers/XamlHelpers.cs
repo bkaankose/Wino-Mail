@@ -503,6 +503,9 @@ public static class XamlHelpers
     public static WinoIconGlyph GetHoverActionWinoIconGlyph(int actionIndex)
         => GetWinoIconGlyph(GetHoverAction(actionIndex));
 
+    public static Visibility GetHoverActionVisibility(MailOperation operation)
+        => operation == MailOperation.None ? Visibility.Collapsed : Visibility.Visible;
+
     public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility StringToVisibilityReversedConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Visible : Visibility.Collapsed;
     public static bool IsAccountNicknameVisible(string accountNickname, AccountNicknamePosition position, AccountNicknamePosition targetPosition)
@@ -796,7 +799,7 @@ public static class XamlHelpers
     {
         return operation switch
         {
-            MailOperation.None => "unknown",
+            MailOperation.None => Translator.HoverActionOption_None,
             MailOperation.Archive => Translator.MailOperation_Archive,
             MailOperation.UnArchive => Translator.MailOperation_Unarchive,
             MailOperation.SoftDelete => Translator.MailOperation_Delete,
