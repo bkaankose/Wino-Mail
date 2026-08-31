@@ -1006,12 +1006,18 @@ public partial class App : WinoApplication,
     private async Task<ShellWindowActivationResult> EnsureShellWindowAsync(WinoApplicationMode mode,
                                                                            bool activateWindow,
                                                                            bool suppressStartupFlows = true,
-                                                                           object? activationParameter = null)
+                                                                           object? activationParameter = null,
+                                                                           bool applyThemeToExistingWindow = true)
     {
         if (!HasActivationUiThreadAccess())
         {
             return await ExecuteOnActivationUiThreadAsync(
-                () => EnsureShellWindowAsync(mode, activateWindow, suppressStartupFlows, activationParameter));
+                () => EnsureShellWindowAsync(
+                    mode,
+                    activateWindow,
+                    suppressStartupFlows,
+                    activationParameter,
+                    applyThemeToExistingWindow));
         }
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
@@ -1056,9 +1062,10 @@ public partial class App : WinoApplication,
 
             if (activateWindow && shellWindow is WindowEx existingWindow)
             {
-                // Background resource saving can release compositor/backdrop state.
-                // Reapply it after restoring content and before making the HWND visible.
-                await ActivateWindowAsync(existingWindow);
+                // Tray/background restores may need to rebuild released theme/backdrop state.
+                // Foreground notification navigation skips that work to avoid flashing an
+                // already-rendered shell while it switches mode and navigates to the message.
+                await ActivateWindowAsync(existingWindow, applyThemeToExistingWindow);
                 activateWindow = false;
             }
         }
@@ -1259,7 +1266,10 @@ public partial class App : WinoApplication,
                 new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
         }
 
-        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+        await EnsureShellWindowAsync(
+            WinoApplicationMode.Mail,
+            activateWindow: true,
+            applyThemeToExistingWindow: false);
 
         if (deferNavigationUntilMailIsReady)
             return;
