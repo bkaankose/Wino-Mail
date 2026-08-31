@@ -1,6 +1,19 @@
 (function () {
     "use strict";
     const reader = document.getElementById("wino-reader");
+    const readabilityMode = 1;
+    const sanitizeOptions = {
+        USE_PROFILES: { html: true },
+        FORBID_TAGS: [
+            "script", "form", "input", "button", "textarea", "select", "option",
+            "fieldset", "legend", "output", "datalist", "iframe", "frame", "frameset",
+            "object", "embed", "applet", "base", "meta", "link", "template"
+        ],
+        FORBID_CONTENTS: [
+            "script", "form", "iframe", "frame", "frameset", "object", "embed",
+            "applet", "template"
+        ]
+    };
     let originalHtml = "";
     let presentationVersion = 0;
 
@@ -32,10 +45,58 @@
         });
     }
 
-    function render(base64Html, linkify) {
+    function sanitize(html) {
+        if (!window.DOMPurify || window.DOMPurify.isSupported !== true ||
+            typeof window.DOMPurify.sanitize !== "function") {
+            throw new Error("DOMPurify is unavailable; refusing to render untrusted HTML.");
+        }
+
+        const sanitized = window.DOMPurify.sanitize(html || "", sanitizeOptions);
+        if (typeof sanitized !== "string") {
+            throw new Error("DOMPurify returned an unexpected result; refusing to render untrusted HTML.");
+        }
+        return sanitized;
+    }
+
+    function getReadabilityPresentation(sanitizedHtml) {
+        let article = null;
+        try {
+            const detachedDocument = new DOMParser().parseFromString(sanitizedHtml, "text/html");
+            article = new window.Readability(detachedDocument).parse();
+        } catch (_) {
+            article = null;
+        }
+
+        return {
+            html: article && typeof article.content === "string" && article.content.trim()
+                ? article.content
+                : sanitizedHtml,
+            direction: article && typeof article.dir === "string" ? article.dir : "",
+            language: article && typeof article.lang === "string" ? article.lang : ""
+        };
+    }
+
+    function applyDocumentLanguage(direction, language) {
+        if (["ltr", "rtl", "auto"].includes(direction)) reader.setAttribute("dir", direction);
+        else reader.removeAttribute("dir");
+
+        if (language && language.length <= 35) reader.setAttribute("lang", language);
+        else reader.removeAttribute("lang");
+    }
+
+    function render(base64Html, linkify, mode) {
+        const decodedHtml = decode(base64Html);
+        const sanitizedInput = sanitize(decodedHtml);
+        const useReadability = Number(mode) === readabilityMode;
+        const presentation = useReadability
+            ? getReadabilityPresentation(sanitizedInput)
+            : { html: sanitizedInput, direction: "", language: "" };
+        const finalHtml = sanitize(presentation.html);
         const version = beginPresentationUpdate();
-        originalHtml = decode(base64Html);
-        reader.innerHTML = originalHtml;
+        originalHtml = decodedHtml;
+        reader.classList.toggle("wino-reader", useReadability);
+        applyDocumentLanguage(presentation.direction, presentation.language);
+        reader.innerHTML = finalHtml;
         if (linkify && window.linkifyElement) {
             window.linkifyElement(reader, { target: "_blank", rel: "noopener noreferrer", ignoreTags: ["A", "SCRIPT", "STYLE", "TEXTAREA", "CODE", "PRE"] });
         }
@@ -82,6 +143,8 @@
         clear() {
             beginPresentationUpdate();
             originalHtml = "";
+            reader.classList.remove("wino-reader");
+            applyDocumentLanguage("", "");
             while (reader.firstChild) reader.removeChild(reader.firstChild);
         },
         getOriginalHtml() { return originalHtml; },
@@ -91,7 +154,10 @@
     };
     function announceReady() {
         document.removeEventListener("DOMContentLoaded", announceReady);
-        post({ type: "ready" });
+        const status = winoGetRendererStatus();
+        post(status === "ready"
+            ? { type: "ready" }
+            : { type: "initializationError", error: status });
     }
 
     if (document.readyState === "loading") {

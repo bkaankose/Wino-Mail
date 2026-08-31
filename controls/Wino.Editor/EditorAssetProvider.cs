@@ -4,6 +4,7 @@ namespace Wino.Editor;
 
 internal static class EditorAssetProvider
 {
+    private const int NavigateToStringDocumentLimitBytes = 2 * 1024 * 1024;
     private const string ResourcePrefix = "Wino.Editor.Assets.Editor.";
     private const string LightReaderDocumentTag =
         "<html id=\"wino-document\" lang=\"en\" data-theme=\"light\">";
@@ -18,6 +19,8 @@ internal static class EditorAssetProvider
         "editor-tables.js",
         "linkify.min.js",
         "linkify-element.min.js",
+        "dompurify-3.4.14.min.js",
+        "readability-0.6.0.js",
         "reader.js"
     ];
 
@@ -39,6 +42,8 @@ internal static class EditorAssetProvider
             "darkreader.js",
             "linkify.min.js",
             "linkify-element.min.js",
+            "dompurify-3.4.14.min.js",
+            "readability-0.6.0.js",
             "reader.js"));
 
     public static Task<string> GetEditorDocumentAsync() => EditorDocument.Value;
@@ -80,10 +85,20 @@ internal static class EditorAssetProvider
                 .AppendLine("</script>");
         }
 
-        return html.Replace(
+        string document = html.Replace(
             "</body>",
             inlineScripts.Append("</body>").ToString(),
             StringComparison.OrdinalIgnoreCase);
+
+        int documentSize = Encoding.UTF8.GetByteCount(document);
+        if (documentSize >= NavigateToStringDocumentLimitBytes)
+        {
+            throw new InvalidOperationException(
+                $"The assembled editor document is {documentSize} bytes, which reaches WebView2's " +
+                $"{NavigateToStringDocumentLimitBytes}-byte NavigateToString limit.");
+        }
+
+        return document;
     }
 
     private static async Task<string> ReadEmbeddedTextAsync(string fileName)

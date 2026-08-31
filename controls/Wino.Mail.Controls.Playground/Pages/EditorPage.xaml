@@ -4,11 +4,110 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:editor="using:Wino.Editor">
     <Grid Padding="24" RowSpacing="16">
-        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-        <StackPanel Spacing="3"><TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Compose editor" /><TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="The production Wino editor is hosted directly, including its format, insert, table, and security command surfaces." /></StackPanel>
-        <Grid Grid.Row="1" ColumnSpacing="20"><Grid.ColumnDefinitions><ColumnDefinition Width="320" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-            <StackPanel Spacing="12"><Border Padding="16" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10"><StackPanel Spacing="12"><TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Message details" /><TextBox AutomationProperties.AutomationId="ComposeToTextBox" Header="To" Text="design-review@contoso.com" /><TextBox AutomationProperties.AutomationId="ComposeCcTextBox" Header="Cc" PlaceholderText="Add recipients" /><TextBox AutomationProperties.AutomationId="ComposeSubjectTextBox" Header="Subject" Text="Design review follow-up" /></StackPanel></Border><InfoBar IsClosable="False" IsOpen="True" Severity="Informational" Title="Try the editor" Message="Use the toolbar, or press Ctrl+Enter to exercise allowlisted application shortcut forwarding." /><TextBlock x:Name="ApplicationShortcutStatus" AutomationProperties.AutomationId="EditorApplicationShortcutStatus" Text="No application shortcut forwarded." TextWrapping="Wrap" /></StackPanel>
-            <Border Grid.Column="1" Background="{ThemeResource LayerFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="10"><editor:WinoMailEditor x:Name="ComposeEditor" AutomationProperties.AutomationId="ComposeEditor" Loaded="ComposeEditor_Loaded" /></Border>
-        </Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Spacing="3">
+            <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="HTML editor and renderer" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="Exercise the production compose editor and deterministic offline mail-rendering scenarios." />
+        </StackPanel>
+
+        <TabView Grid.Row="1" AutomationProperties.AutomationId="EditorPlaygroundTabView">
+            <TabViewItem AutomationProperties.AutomationId="ComposeEditorTab" Header="Compose">
+                <Grid ColumnSpacing="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="320" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="12">
+                        <Border
+                            Padding="16"
+                            Background="{ThemeResource LayerFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="10">
+                            <StackPanel Spacing="12">
+                                <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Message details" />
+                                <TextBox AutomationProperties.AutomationId="ComposeToTextBox" Header="To" Text="design-review@contoso.com" />
+                                <TextBox AutomationProperties.AutomationId="ComposeCcTextBox" Header="Cc" PlaceholderText="Add recipients" />
+                                <TextBox AutomationProperties.AutomationId="ComposeSubjectTextBox" Header="Subject" Text="Design review follow-up" />
+                            </StackPanel>
+                        </Border>
+                        <InfoBar
+                            IsClosable="False"
+                            IsOpen="True"
+                            Message="Use the toolbar, or press Ctrl+Enter to exercise allowlisted application shortcut forwarding."
+                            Severity="Informational"
+                            Title="Try the editor" />
+                        <TextBlock
+                            x:Name="ApplicationShortcutStatus"
+                            AutomationProperties.AutomationId="EditorApplicationShortcutStatus"
+                            Text="No application shortcut forwarded."
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Border
+                        Grid.Column="1"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10">
+                        <editor:WinoMailEditor
+                            x:Name="ComposeEditor"
+                            AutomationProperties.AutomationId="ComposeEditor"
+                            Loaded="ComposeEditor_Loaded" />
+                    </Border>
+                </Grid>
+            </TabViewItem>
+
+            <TabViewItem AutomationProperties.AutomationId="MailRendererTab" Header="Mail renderer">
+                <Grid ColumnSpacing="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="280" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="12">
+                        <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Render mode" />
+                        <RadioButton
+                            AutomationProperties.AutomationId="RendererOriginalModeRadioButton"
+                            Checked="RenderMode_Checked"
+                            Content="Original"
+                            GroupName="RendererMode"
+                            IsChecked="True"
+                            Tag="Original" />
+                        <RadioButton
+                            AutomationProperties.AutomationId="RendererReadabilityModeRadioButton"
+                            Checked="RenderMode_Checked"
+                            Content="Readability"
+                            GroupName="RendererMode"
+                            Tag="Readability" />
+                        <TextBlock Margin="0,8,0,0" Style="{ThemeResource SubtitleTextBlockStyle}" Text="Scenario" />
+                        <Button AutomationProperties.AutomationId="RendererArticleScenarioButton" Click="RenderScenario_Click" Content="Article" Tag="Article" />
+                        <Button AutomationProperties.AutomationId="RendererFallbackScenarioButton" Click="RenderScenario_Click" Content="Short fallback" Tag="Fallback" />
+                        <Button AutomationProperties.AutomationId="RendererNewsletterScenarioButton" Click="RenderScenario_Click" Content="Cluttered newsletter" Tag="Newsletter" />
+                        <Button AutomationProperties.AutomationId="RendererImageScenarioButton" Click="RenderScenario_Click" Content="Relevant image" Tag="Image" />
+                        <Button AutomationProperties.AutomationId="RendererHostileScenarioButton" Click="RenderScenario_Click" Content="Hostile HTML" Tag="Hostile" />
+                        <TextBlock
+                            x:Name="RendererScenarioStatus"
+                            AutomationProperties.AutomationId="RendererScenarioStatus"
+                            Text="Original · Article"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Border
+                        Grid.Column="1"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10">
+                        <editor:WinoMailRenderer
+                            x:Name="MailRenderer"
+                            AutomationProperties.AutomationId="PlaygroundMailRenderer"
+                            Loaded="MailRenderer_Loaded" />
+                    </Border>
+                </Grid>
+            </TabViewItem>
+        </TabView>
     </Grid>
 </Page>

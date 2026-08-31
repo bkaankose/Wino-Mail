@@ -1333,7 +1333,7 @@
     "SettingsMailRendering_ActionLabels_Title": "Action labels",
     "SettingsMailRendering_ActionLabels_Description": "Show action labels.",
     "SettingsReaderView_Title": "Reader View",
-    "SettingsReaderView_Description": "Simplify messages into a clean, readable layout without images or sender styling.",
+    "SettingsReaderView_Description": "Focus on the most relevant message content in a clean layout while keeping useful images.",
     "SignatureDeleteDialog_Message": "Are you sure you want to delete \"{0}\" signature?",
     "SignatureDeleteDialog_Title": "Delete signature",
     "SignatureEditorDialog_SignatureName_Placeholder": "Name your signature",

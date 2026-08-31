@@ -34,7 +34,9 @@ await MailEditor.InsertImagesAsync(
     images.Select(image => new EditorImageInfo(image.Data, image.Name)));
 ```
 
-For message reading, call `RenderHtmlAsync`, `SetReaderTypographyAsync`, and the six-argument `SetAccessibilityContextAsync`. Handle `NavigationRequested` with Wino's existing URI launcher. `GetUnderlyingWebView()` preserves the current print and PDF access point.
+For message reading, call `RenderHtmlAsync`, `SetReaderTypographyAsync`, and the six-argument `SetAccessibilityContextAsync`. The existing `RenderHtmlAsync(string, bool)` overload uses `HtmlMailRenderMode.Original`; pass `HtmlMailRenderMode.Readability` to extract the primary content with the vendored Mozilla Readability library. Both modes sanitize with the offline DOMPurify bundle before insertion, and Readability mode sanitizes once before extraction and again afterward. `GetOriginalHtmlAsync()` continues to return the untouched input. Handle `NavigationRequested` with Wino's existing URI launcher. `GetUnderlyingWebView()` preserves the current print and PDF access point.
+
+The pinned third-party scripts and their Apache-2.0 notices are under `Editor/ThirdParty`. `EditorAssetProvider` verifies the renderer globals during initialization and rejects an assembled `NavigateToString` document at or above WebView2's 2 MB limit.
 
 ## Native AOT and trimming
 

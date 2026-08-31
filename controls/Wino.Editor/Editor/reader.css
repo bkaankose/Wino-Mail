@@ -6,7 +6,7 @@ body { box-sizing: border-box; min-height: 100%; margin: 0; padding: 16px; color
 :root[data-theme="dark"] { background: Canvas; }
 :root[data-theme="dark"] body { color: #f3f3f3; background: Canvas !important; }
 #wino-reader { min-height: 100%; visibility: hidden; font-family: var(--wino-font-family); font-size: var(--wino-font-size); outline: none; }
-.wino-reader { box-sizing: border-box; width: min(100%, 760px); margin-inline: auto; padding: 16px; line-height: 1.62; color: inherit; background: transparent !important; }
+#wino-reader.wino-reader { box-sizing: border-box; width: min(100%, 760px); margin-inline: auto; padding: 16px; line-height: 1.62; color: inherit; background: transparent !important; }
 .wino-reader p, .wino-reader blockquote, .wino-reader pre { margin: 0 0 1em; }
 .wino-reader h2 { margin: 1.4em 0 .5em; font-size: 1.3em; }
 .wino-reader blockquote { padding-inline-start: 1em; color: GrayText; border-inline-start: 3px solid GrayText; }

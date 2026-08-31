@@ -3,6 +3,12 @@ using Microsoft.Web.WebView2.Core;
 
 namespace Wino.Editor;
 
+public enum HtmlMailRenderMode
+{
+    Original = 0,
+    Readability = 1,
+}
+
 /// <summary>
 /// Host-facing compose contract aligned with Wino Mail's current WebView2 editor usage.
 /// </summary>
@@ -35,6 +41,13 @@ public interface IHtmlMailRenderer : IDisposable
 
     Task InitializeAsync();
     Task RenderHtmlAsync(string html, bool shouldLinkify = true);
+    Task RenderHtmlAsync(
+        string html,
+        HtmlMailRenderMode renderMode,
+        bool shouldLinkify = true) =>
+        renderMode == HtmlMailRenderMode.Original
+            ? RenderHtmlAsync(html, shouldLinkify)
+            : throw new NotSupportedException("This renderer does not support Readability mode.");
     Task ClearAsync();
     Task<string> GetOriginalHtmlAsync();
     Task SetReaderTypographyAsync(string? fontFamily, int fontSize);

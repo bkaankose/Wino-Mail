@@ -23,6 +23,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
     private long _idleSinceTickCount;
     private string _originalHtml = string.Empty;
     private bool _shouldLinkify = true;
+    private HtmlMailRenderMode _renderMode;
     private string _fontFamily = "Segoe UI";
     private int _fontSize = 15;
     private string _accessibilitySubject = string.Empty;
@@ -61,10 +62,17 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
         RunBrowserOperationAsync(EnsureInitializedCoreAsync);
 
     public Task RenderHtmlAsync(string html, bool shouldLinkify = true) =>
+        RenderHtmlAsync(html, HtmlMailRenderMode.Original, shouldLinkify);
+
+    public Task RenderHtmlAsync(
+        string html,
+        HtmlMailRenderMode renderMode,
+        bool shouldLinkify = true) =>
         RunBrowserOperationAsync(async () =>
         {
             _originalHtml = html ?? string.Empty;
             _shouldLinkify = shouldLinkify;
+            _renderMode = renderMode;
             _contentVersion++;
             await EnsureInitializedCoreAsync();
             await RenderPendingHtmlAsync();
@@ -260,7 +268,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
         string encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(_originalHtml));
         string encodedJson = JsonSerializer.Serialize(encoded, EditorJsonContext.Default.String);
         await ExecuteDirectAsync(
-            $"window.WinoRenderer.render({encodedJson}, {_shouldLinkify.ToString().ToLowerInvariant()})");
+            $"window.WinoRenderer.render({encodedJson}, {_shouldLinkify.ToString().ToLowerInvariant()}, {(int)_renderMode})");
         if (version == _contentVersion) _renderedContentVersion = version;
     }
 
@@ -334,6 +342,11 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
         {
             _ready.TrySetResult(true);
         }
+        else if (message?.Type == "initializationError")
+        {
+            _ready.TrySetException(new InvalidOperationException(
+                $"Renderer dependencies failed to initialize: {message.Error ?? "unknown error"}."));
+        }
         else if (message?.Type == "navigation" &&
                  Uri.TryCreate(message.Uri, UriKind.Absolute, out Uri? uri))
         {
@@ -369,13 +382,12 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
 
         try
         {
-            string result = await sender.ExecuteScriptAsync(
-                "typeof window.WinoRenderer === 'object'");
-            if (string.Equals(result, "true", StringComparison.OrdinalIgnoreCase))
+            string result = await sender.ExecuteScriptAsync("winoGetRendererStatus()");
+            if (string.Equals(result, "\"ready\"", StringComparison.OrdinalIgnoreCase))
                 _ready.TrySetResult(true);
             else
                 _ready.TrySetException(new InvalidOperationException(
-                    "Renderer document loaded, but reader.js did not initialize window.WinoRenderer."));
+                    $"Renderer document loaded, but its dependencies did not initialize: {result}."));
         }
         catch (Exception exception)
         {
@@ -600,4 +612,7 @@ public sealed record RendererMessage
 
     [System.Text.Json.Serialization.JsonPropertyName("uri")]
     public string? Uri { get; init; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("error")]
+    public string? Error { get; init; }
 }

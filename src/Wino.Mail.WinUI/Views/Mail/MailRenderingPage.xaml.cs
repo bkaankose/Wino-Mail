@@ -4,7 +4,6 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -49,16 +48,12 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IRecipient<IntelligenceMetadataChanged>,
     IRecipient<IntelligenceVisibilityChanged>
 {
-    private static readonly Regex ExcessiveReaderBreaks = new(
-        @"(?is)<pre\b.*?</pre>|(?:<br\s*/?>\s*){3,}",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
     private readonly IPreferencesService _preferencesService = App.Current.Services.GetService<IPreferencesService>()!;
     private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>()!;
     private readonly IMailContentProjector _contentProjector = App.Current.Services.GetRequiredService<IMailContentProjector>();
 
     private bool isRenderingInProgress = false;
     private string _currentRenderedHtml = string.Empty;
-    private MailContentProjectionResult? _readerProjection;
     private bool _isPoppedOut;
 
     public bool SupportsPopOut => !_isPoppedOut;
@@ -123,7 +118,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         isRenderingInProgress = true;
         _currentRenderedHtml = htmlBody ?? string.Empty;
-        _readerProjection = _contentProjector.Project(_currentRenderedHtml, MailContentProjectionProfile.Reader);
         _translationProjection = _contentProjector.Project(_currentRenderedHtml, MailContentProjectionProfile.Translation);
         _inferenceProjection = _contentProjector.Project(_currentRenderedHtml, MailContentProjectionProfile.Inference).Projection;
         _translationMap = null;
@@ -149,18 +143,18 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private async Task RenderActiveContentAsync()
     {
-        var html = _preferencesService.IsReaderViewEnabled && _readerProjection is not null
-            ? NormalizeReaderBreaks(_readerProjection.RenderReaderHtml(_isShowingTranslation ? _translationMap : null))
-            : _isShowingTranslation && _translationProjection is not null && _translationMap is not null
-                ? _translationProjection.ApplyTranslations(_translationMap)
-                : _currentRenderedHtml;
+        var html = _isShowingTranslation && _translationProjection is not null && _translationMap is not null
+            ? _translationProjection.ApplyTranslations(_translationMap)
+            : _currentRenderedHtml;
+        var renderMode = _preferencesService.IsReaderViewEnabled
+            ? HtmlMailRenderMode.Readability
+            : HtmlMailRenderMode.Original;
         var shouldLinkifyText = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RenderPlaintextLinks ?? true;
-        await MailRenderer.RenderHtmlAsync(string.IsNullOrEmpty(html) ? " " : html, shouldLinkifyText);
+        await MailRenderer.RenderHtmlAsync(
+            string.IsNullOrEmpty(html) ? " " : html,
+            renderMode,
+            shouldLinkifyText);
     }
-
-    private static string NormalizeReaderBreaks(string readerHtml)
-        => ExcessiveReaderBreaks.Replace(readerHtml, match =>
-            match.Value.StartsWith("<pre", StringComparison.OrdinalIgnoreCase) ? match.Value : "<br>");
 
     private async Task UpdateAccessibleMailContextAsync()
     {
@@ -214,7 +208,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         if (!isRenderingInProgress)
         {
             _currentRenderedHtml = string.Empty;
-            _readerProjection = null;
             _translationProjection = null;
             _inferenceProjection = null;
             _translationMap = null;
