@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using Wino.Core.Domain.Interfaces;
-using Wino.Mail.Controls.Core.HoverActions;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -10,7 +9,7 @@ namespace Wino.Mail.ViewModels.Data;
 /// Common interface for mail items that can be displayed in a mail list.
 /// Implemented by both MailItemViewModel and ThreadMailItemViewModel.
 /// </summary>
-public interface IMailListItem : IMailHashContainer, IMailListItemSorting, IHoverActionItem
+public interface IMailListItem : IMailHashContainer, IMailListItemSorting
 {
     /// <summary>
     /// Gets the latest creation date for sorting purposes.

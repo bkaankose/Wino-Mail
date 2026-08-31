@@ -412,3 +412,4 @@ scripts/translate_resources.local.bat
 /prototypes
 .proto/
 /.prototypes
+/docs

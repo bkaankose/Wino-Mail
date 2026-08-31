@@ -1772,7 +1772,7 @@
                                 CanDragItems="True"
                                 CenterHoverAction="{x:Bind helpers:XamlHelpers.GetHoverActionKind(ViewModel.PreferencesService.CenterHoverAction), Mode=OneWay}"
                                 GroupHeaderTemplateSelector="{StaticResource MailGroupHeaderTemplateSelector}"
-                                HoverActionInvoked="MailListViewHoverActionInvoked"
+                                HoverActionCommand="{x:Bind ViewModel.ExecuteHoverActionCommand}"
                                 HoverActionLabels="{x:Bind helpers:XamlHelpers.GetHoverActionLabels(), Mode=OneTime}"
                                 IsHoverActionsEnabled="{x:Bind ViewModel.PreferencesService.IsHoverActionsEnabled, Mode=OneWay}"
                                 IsTouchMultiSelectMode="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=OneWay}"

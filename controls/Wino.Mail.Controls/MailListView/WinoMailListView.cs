@@ -40,11 +40,8 @@ public partial class WinoMailListView : ListView
     private IMailListSourceItem? _multiSelectRetainedItem;
     private IMailListCollection? _mailItemsSource;
     private MailListProjectionOptions? _projectionOptions;
-    private readonly ICommand _hoverActionCommand;
-
     public WinoMailListView()
     {
-        _hoverActionCommand = new HoverActionCommand(OnHoverActionRequested);
         SelectedMailItems = new ReadOnlyObservableCollection<IMailListSourceItem>(_selectedItems);
         SelectedThreadKeys = new ReadOnlyObservableCollection<string>(_selectedThreadKeys);
         ExpandedThreadKeys = new ReadOnlyObservableCollection<string>(_expandedThreadKeys);
@@ -63,8 +60,6 @@ public partial class WinoMailListView : ListView
     public event EventHandler<ThreadExpansionChangedEventArgs>? ThreadExpansionChanged;
 
     public event EventHandler? LoadMoreRequested;
-
-    public event EventHandler<HoverActionInvokedEventArgs>? HoverActionInvoked;
 
     public static readonly DependencyProperty SingleItemTemplateProperty = DependencyProperty.Register(
         nameof(SingleItemTemplate),
@@ -123,6 +118,12 @@ public partial class WinoMailListView : ListView
     public static readonly DependencyProperty HoverActionLabelsProperty = DependencyProperty.Register(
         nameof(HoverActionLabels),
         typeof(object),
+        typeof(WinoMailListView),
+        new PropertyMetadata(null, OnHoverActionConfigurationChanged));
+
+    public static readonly DependencyProperty HoverActionCommandProperty = DependencyProperty.Register(
+        nameof(HoverActionCommand),
+        typeof(ICommand),
         typeof(WinoMailListView),
         new PropertyMetadata(null, OnHoverActionConfigurationChanged));
 
@@ -217,6 +218,12 @@ public partial class WinoMailListView : ListView
     {
         get => GetValue(HoverActionLabelsProperty);
         set => SetValue(HoverActionLabelsProperty, value);
+    }
+
+    public ICommand? HoverActionCommand
+    {
+        get => (ICommand?)GetValue(HoverActionCommandProperty);
+        set => SetValue(HoverActionCommandProperty, value);
     }
 
     public ReadOnlyObservableCollection<IMailListSourceItem> SelectedMailItems { get; }
@@ -453,11 +460,8 @@ public partial class WinoMailListView : ListView
         container.CenterHoverAction = IsHoverActionsEnabled ? CenterHoverAction : HoverActionKind.None;
         container.RightHoverAction = IsHoverActionsEnabled ? RightHoverAction : HoverActionKind.None;
         container.HoverActionLabels = HoverActionLabels;
-        container.HoverActionCommand = _hoverActionCommand;
+        container.HoverActionCommand = HoverActionCommand;
     }
-
-    private void OnHoverActionRequested(HoverActionCommandRequest request)
-        => HoverActionInvoked?.Invoke(this, new(request.Action, request.Row));
 
     private void AttachProjection()
     {
@@ -1069,25 +1073,6 @@ public partial class WinoMailListView : ListView
         foreach (var value in replacements)
         {
             target.Add(value);
-        }
-    }
-
-    private sealed class HoverActionCommand(Action<HoverActionCommandRequest> execute) : ICommand
-    {
-        public event EventHandler? CanExecuteChanged
-        {
-            add { }
-            remove { }
-        }
-
-        public bool CanExecute(object? parameter) => parameter is HoverActionCommandRequest;
-
-        public void Execute(object? parameter)
-        {
-            if (parameter is HoverActionCommandRequest request)
-            {
-                execute(request);
-            }
         }
     }
 

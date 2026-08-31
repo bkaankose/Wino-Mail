@@ -31,6 +31,7 @@ using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.Controls.Core;
+using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
@@ -731,7 +732,43 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     #region Commands
 
     [RelayCommand]
-    public Task ExecuteHoverAction(MailOperationPreperationRequest request) => ExecuteMailOperationAsync(request);
+    private Task ExecuteHoverAction(HoverActionCommandRequest request)
+    {
+        var operation = request.Action switch
+        {
+            HoverActionKind.Archive => MailOperation.Archive,
+            HoverActionKind.Delete => MailOperation.SoftDelete,
+            HoverActionKind.ToggleFlag => MailOperation.SetFlag,
+            HoverActionKind.ToggleRead => MailOperation.MarkAsRead,
+            HoverActionKind.MoveToJunk => MailOperation.MoveToJunk,
+            _ => MailOperation.None,
+        };
+
+        if (operation == MailOperation.None)
+        {
+            return Task.CompletedTask;
+        }
+
+        var targetItems = request.Row.LeafItems
+            .OfType<MailItemViewModel>()
+            .ToArray();
+        if (targetItems.Length == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        var operationRequest = targetItems.Length == 1
+            ? new MailOperationPreperationRequest(
+                operation,
+                targetItems[0].MailCopy,
+                toggleExecution: true)
+            : new MailOperationPreperationRequest(
+                operation,
+                targetItems.Select(static item => item.MailCopy),
+                toggleExecution: true);
+
+        return ExecuteMailOperationAsync(operationRequest);
+    }
 
     [RelayCommand]
     private async Task ExecuteTopBarAction(IMenuOperation menuItem)

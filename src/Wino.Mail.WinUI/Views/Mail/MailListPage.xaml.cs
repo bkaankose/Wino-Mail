@@ -32,7 +32,6 @@ using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.Controls.Core.SearchBar;
-using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Controls.ListView;
@@ -1148,53 +1147,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 e.Handled = true;
                 break;
         }
-    }
-
-    private void MailListViewHoverActionInvoked(object? sender, HoverActionInvokedEventArgs e)
-    {
-        var operation = e.Action switch
-        {
-            HoverActionKind.Archive => MailOperation.Archive,
-            HoverActionKind.Delete => MailOperation.SoftDelete,
-            HoverActionKind.ToggleFlag => MailOperation.SetFlag,
-            HoverActionKind.ToggleRead => MailOperation.MarkAsRead,
-            HoverActionKind.MoveToJunk => MailOperation.MoveToJunk,
-            _ => MailOperation.None,
-        };
-
-        if (operation == MailOperation.None)
-            return;
-
-        var targetItems = e.Row.LeafItems.OfType<MailItemViewModel>().ToArray();
-        ExecuteHoverAction(targetItems, e.Row.SourceItem as MailItemViewModel, operation);
-    }
-
-    private async void ExecuteHoverAction(
-        IReadOnlyList<MailItemViewModel> targetItems,
-        MailItemViewModel? representativeItem,
-        MailOperation operation)
-    {
-        if (targetItems.Count == 0)
-        {
-            return;
-        }
-
-        if (IsComposeContextOperation(operation))
-        {
-            var composeTargetItem = representativeItem ?? targetItems[0];
-
-            await ViewModel.CreateDraftFromMailAsync(composeTargetItem, operation);
-
-            return;
-        }
-
-        var package = targetItems.Count == 1
-            ? new MailOperationPreperationRequest(operation, targetItems[0].MailCopy, toggleExecution: true)
-            : new MailOperationPreperationRequest(
-                operation,
-                targetItems.Select(static item => item.MailCopy),
-                toggleExecution: true);
-        ViewModel.ExecuteHoverActionCommand.Execute(package);
     }
 
     public void OnTitleBarSearchSuggestionChosen(TitleBarSearchSuggestion suggestion)
