@@ -12,6 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Requests;
 using Wino.Core.Requests.Contact;
 using Wino.Mail.ViewModels.Data;
 
@@ -44,11 +45,12 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
 
     public bool HasLists => ListMemberships.Count > 0;
 
-    [ObservableProperty] public partial ContactCreateDestination SelectedDestination { get; set; }
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SaveCommand))] public partial ContactCreateDestination SelectedDestination { get; set; }
     [ObservableProperty] public partial ContactEditorCategory SelectedCategory { get; set; }
     [ObservableProperty] public partial bool IsEditMode { get; set; }
     [ObservableProperty] public partial bool IsDirty { get; set; }
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SaveCommand))] public partial bool IsSaving { get; set; }
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SaveCommand))] [NotifyCanExecuteChangedFor(nameof(ToggleFavoriteCommand))] public partial bool IsSaving { get; set; }
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SaveCommand))] [NotifyCanExecuteChangedFor(nameof(ToggleFavoriteCommand))] public partial bool IsFavoriteSaving { get; set; }
     [ObservableProperty] public partial bool IsErrorOpen { get; set; }
     [ObservableProperty] public partial string ErrorMessage { get; set; }
     [ObservableProperty] public partial string DisplayName { get; set; }
@@ -220,27 +222,37 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
         });
     }
 
-    private bool CanSave() => !IsSaving;
+    private bool CanSave() => !IsSaving && !IsFavoriteSaving && SelectedDestination?.IsReadOnly != true;
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
-        if (!IsEditMode && _preferencesService?.ContactCreationBehavior == NewItemDestinationBehavior.AskEachTime)
-        {
-            var pickedDestination = await _dialogService.ShowContactDestinationPickerDialogAsync(
-                Destinations.Where(destination => !destination.IsReadOnly).ToList());
-            if (pickedDestination is null)
-                return;
+        if (IsSaving)
+            return;
 
-            SelectedDestination = pickedDestination;
-        }
-
-        var error = Validate();
-        if (error is not null) { ErrorMessage = error; IsErrorOpen = true; return; }
         IsSaving = true;
         IsErrorOpen = false;
+
         try
         {
+            if (!IsEditMode && _preferencesService?.ContactCreationBehavior == NewItemDestinationBehavior.AskEachTime)
+            {
+                var pickedDestination = await _dialogService.ShowContactDestinationPickerDialogAsync(
+                    Destinations.Where(destination => !destination.IsReadOnly).ToList());
+                if (pickedDestination is null)
+                    return;
+
+                SelectedDestination = pickedDestination;
+            }
+
+            var error = Validate();
+            if (error is not null)
+            {
+                ErrorMessage = error;
+                IsErrorOpen = true;
+                return;
+            }
+
             var contact = BuildContact();
             var requests = new List<ContactOperationPreparationRequest>
             {
@@ -468,5 +480,52 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     partial void OnSpouseNameChanged(string value) => IsDirty = true;
     partial void OnIsFavoriteChanged(bool value) => IsDirty = true;
 
-    [RelayCommand] private void ToggleFavorite() => IsFavorite = !IsFavorite;
+    private bool CanToggleFavorite() => !IsSaving && !IsFavoriteSaving;
+
+    [RelayCommand(CanExecute = nameof(CanToggleFavorite))]
+    private async Task ToggleFavoriteAsync()
+    {
+        if (IsFavoriteSaving)
+            return;
+
+        var wasDirty = IsDirty;
+        var previousValue = IsFavorite;
+        IsFavorite = !previousValue;
+
+        // A new contact has no local row yet. Its favorite value is persisted with Create.
+        if (!IsEditMode || _original is null)
+            return;
+
+        IsDirty = wasDirty;
+        IsFavoriteSaving = true;
+        IsErrorOpen = false;
+
+        var original = RequestEntityCloner.Contact(_original);
+        var desired = RequestEntityCloner.Contact(_original);
+        desired.IsFavorite = IsFavorite;
+
+        try
+        {
+            await _requestDelegator.ExecuteLocalAsync(new ApplicationLocalContactRequest(
+                ApplicationLocalContactOperation.SetFavorite,
+                desired,
+                original)).ConfigureAwait(false);
+
+            _original.IsFavorite = desired.IsFavorite;
+        }
+        catch (Exception ex)
+        {
+            await ExecuteUIThread(() =>
+            {
+                IsFavorite = previousValue;
+                IsDirty = wasDirty;
+                ErrorMessage = ex.Message;
+                IsErrorOpen = true;
+            });
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsFavoriteSaving = false);
+        }
+    }
 }

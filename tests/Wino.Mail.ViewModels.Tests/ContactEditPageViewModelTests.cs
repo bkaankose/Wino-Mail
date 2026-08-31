@@ -7,6 +7,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Requests.Contact;
 using Wino.Mail.ViewModels;
 using Xunit;
 
@@ -93,10 +94,11 @@ public class ContactEditPageViewModelTests
         var delegator = new Mock<IWinoRequestDelegator>();
         delegator.Setup(service => service.ExecuteAsync(It.IsAny<IReadOnlyList<ContactOperationPreparationRequest>>()))
             .ThrowsAsync(new InvalidOperationException("Provider rejected the contact."));
+        var navigation = new Mock<INavigationService>();
         var viewModel = new ContactEditPageViewModel(
             Mock.Of<IContactService>(),
             delegator.Object,
-            Mock.Of<INavigationService>(),
+            navigation.Object,
             Mock.Of<IMailDialogService>(),
             Mock.Of<IContactPictureFileService>());
         var destination = new ContactCreateDestination(
@@ -115,6 +117,158 @@ public class ContactEditPageViewModelTests
 
         viewModel.IsErrorOpen.Should().BeTrue();
         viewModel.SelectedCategory.Should().Be(ContactEditorCategory.Work);
+        navigation.Verify(service => service.SetNavigationResult(It.IsAny<NavigationResult>()), Times.Never);
+        navigation.Verify(service => service.GoBack(), Times.Never);
+    }
+
+    [Fact]
+    public async Task ToggleFavorite_EditMode_PersistsLocallyEvenForReadOnlyContacts()
+    {
+        var accountId = Guid.NewGuid();
+        var addressBookId = Guid.NewGuid();
+        var contact = new AccountContact
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = accountId,
+            AddressBookId = addressBookId,
+            SourceKind = ContactSourceKind.CardDav,
+            DisplayName = "Read-only favorite"
+        };
+        var destination = new ContactCreateDestination(
+            accountId,
+            addressBookId,
+            ContactSourceKind.CardDav,
+            "Work",
+            "Shared contacts",
+            false,
+            IsReadOnly: true);
+        var contactService = new Mock<IContactService>();
+        contactService.Setup(service => service.GetCreateDestinationsAsync()).ReturnsAsync([destination]);
+        contactService.Setup(service => service.GetContactAsync(contact.Id)).ReturnsAsync(contact);
+        contactService.Setup(service => service.GetContactListsAsync()).ReturnsAsync([]);
+        contactService.Setup(service => service.GetListIdsForContactAsync(contact.Id)).ReturnsAsync([]);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteLocalAsync(It.IsAny<IRequestBase>())).Returns(Task.CompletedTask);
+        var viewModel = new ContactEditPageViewModel(
+            contactService.Object,
+            delegator.Object,
+            Mock.Of<INavigationService>(),
+            Mock.Of<IMailDialogService>(),
+            Mock.Of<IContactPictureFileService>());
+
+        viewModel.OnNavigatedTo(NavigationMode.New, new ContactEditNavigationParameter(contact.Id));
+        await WaitForAsync(() => viewModel.IsEditMode);
+
+        viewModel.SaveCommand.CanExecute(null).Should().BeFalse();
+        await viewModel.ToggleFavoriteCommand.ExecuteAsync(null);
+
+        viewModel.IsFavorite.Should().BeTrue();
+        viewModel.IsDirty.Should().BeFalse();
+        delegator.Verify(service => service.ExecuteLocalAsync(It.Is<ApplicationLocalContactRequest>(request =>
+            request.Operation == ApplicationLocalContactOperation.SetFavorite &&
+            request.Contact.Id == contact.Id &&
+            request.Contact.IsFavorite &&
+            !request.OriginalContact.IsFavorite)), Times.Once);
+        delegator.Verify(service => service.ExecuteAsync(It.IsAny<IReadOnlyList<ContactOperationPreparationRequest>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ToggleFavorite_EditModeFailure_RevertsStateAndReportsTheError()
+    {
+        var contact = new AccountContact
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = Guid.NewGuid(),
+            AddressBookId = Guid.NewGuid(),
+            SourceKind = ContactSourceKind.Local,
+            DisplayName = "Favorite failure"
+        };
+        var contactService = new Mock<IContactService>();
+        contactService.Setup(service => service.GetCreateDestinationsAsync()).ReturnsAsync([]);
+        contactService.Setup(service => service.GetContactAsync(contact.Id)).ReturnsAsync(contact);
+        contactService.Setup(service => service.GetContactListsAsync()).ReturnsAsync([]);
+        contactService.Setup(service => service.GetListIdsForContactAsync(contact.Id)).ReturnsAsync([]);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteLocalAsync(It.IsAny<IRequestBase>()))
+            .ThrowsAsync(new InvalidOperationException("Favorite persistence failed."));
+        var viewModel = new ContactEditPageViewModel(
+            contactService.Object,
+            delegator.Object,
+            Mock.Of<INavigationService>(),
+            Mock.Of<IMailDialogService>(),
+            Mock.Of<IContactPictureFileService>());
+
+        viewModel.OnNavigatedTo(NavigationMode.New, new ContactEditNavigationParameter(contact.Id));
+        await WaitForAsync(() => viewModel.IsEditMode);
+
+        await viewModel.ToggleFavoriteCommand.ExecuteAsync(null);
+
+        viewModel.IsFavorite.Should().BeFalse();
+        viewModel.IsDirty.Should().BeFalse();
+        viewModel.IsErrorOpen.Should().BeTrue();
+        viewModel.ErrorMessage.Should().Be("Favorite persistence failed.");
+    }
+
+    [Fact]
+    public async Task Save_NewFavorite_PersistsTheFavoriteInTheSingleCreateRequest()
+    {
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteAsync(It.IsAny<IReadOnlyList<ContactOperationPreparationRequest>>()))
+            .Returns(Task.CompletedTask);
+        delegator.Setup(service => service.ExecuteLocalAsync(It.IsAny<IRequestBase>())).Returns(Task.CompletedTask);
+        var navigation = new Mock<INavigationService>();
+        var viewModel = new ContactEditPageViewModel(
+            Mock.Of<IContactService>(),
+            delegator.Object,
+            navigation.Object,
+            Mock.Of<IMailDialogService>(),
+            Mock.Of<IContactPictureFileService>());
+        var destination = new ContactCreateDestination(
+            Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Local, "Test", "Local contacts", true);
+        viewModel.Destinations.Add(destination);
+        viewModel.SelectedDestination = destination;
+        viewModel.DisplayName = "New favorite";
+
+        await viewModel.ToggleFavoriteCommand.ExecuteAsync(null);
+        await viewModel.SaveCommand.ExecuteAsync(null);
+
+        delegator.Verify(service => service.ExecuteAsync(It.Is<IReadOnlyList<ContactOperationPreparationRequest>>(requests =>
+            requests.Count == 1 &&
+            requests[0].Operation == ContactSynchronizerOperation.Create &&
+            requests[0].Contact.IsFavorite)), Times.Once);
+        navigation.Verify(service => service.GoBack(), Times.Once);
+    }
+
+    [Fact]
+    public async Task Save_ConcurrentInvocation_QueuesAndNavigatesExactlyOnce()
+    {
+        var queued = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteAsync(It.IsAny<IReadOnlyList<ContactOperationPreparationRequest>>()))
+            .Returns(queued.Task);
+        delegator.Setup(service => service.ExecuteLocalAsync(It.IsAny<IRequestBase>())).Returns(Task.CompletedTask);
+        var navigation = new Mock<INavigationService>();
+        var viewModel = new ContactEditPageViewModel(
+            Mock.Of<IContactService>(),
+            delegator.Object,
+            navigation.Object,
+            Mock.Of<IMailDialogService>(),
+            Mock.Of<IContactPictureFileService>());
+        var destination = new ContactCreateDestination(
+            Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Local, "Test", "Local contacts", true);
+        viewModel.SelectedDestination = destination;
+        viewModel.DisplayName = "Single save";
+
+        var firstSave = viewModel.SaveCommand.ExecuteAsync(null);
+        var secondSave = viewModel.SaveCommand.ExecuteAsync(null);
+        await WaitForAsync(() => viewModel.IsSaving);
+        queued.SetResult();
+        await Task.WhenAll(firstSave, secondSave);
+
+        delegator.Verify(service => service.ExecuteAsync(It.IsAny<IReadOnlyList<ContactOperationPreparationRequest>>()), Times.Once);
+        delegator.Verify(service => service.ExecuteLocalAsync(It.IsAny<IRequestBase>()), Times.Once);
+        navigation.Verify(service => service.SetNavigationResult(It.IsAny<NavigationResult>()), Times.Once);
+        navigation.Verify(service => service.GoBack(), Times.Once);
     }
 
     [Fact]
