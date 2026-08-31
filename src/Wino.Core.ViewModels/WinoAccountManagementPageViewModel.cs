@@ -48,6 +48,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public ObservableCollection<WinoAddOnItemViewModel> AddOns { get; } = [];
     public ObservableCollection<WinoIntelligenceMailboxItemViewModel> IntelligenceMailboxes { get; } = [];
 
+    /// <summary>
+    /// The signed-out offer grid. Fixed content, seeded once in the constructor.
+    /// </summary>
+    public ObservableCollection<WinoAccountBenefitItemViewModel> Benefits { get; } = [];
+
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RefreshPurchasesCommand))]
     [NotifyCanExecuteChangedFor(nameof(DeleteIntelligenceCommand))]
@@ -148,10 +153,27 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public WinoAddOnItemViewModel UnlimitedAccountsAddOn => _unlimitedAccountsAddOn;
 
     /// <summary>
-    /// Signed-out benefit blurb, which has to name the free account limit.
+    /// The offer whose detail panel is shown under the grid. Never null once the
+    /// constructor has run.
     /// </summary>
-    public string UnlimitedAccountsBenefitDescription
-        => string.Format(Translator.WinoAccount_Management_BenefitUnlimitedDescription, Constants.FreeAccountLimit);
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsDeviceTransferBenefitSelected))]
+    [NotifyPropertyChangedFor(nameof(IsEntitlementsBenefitSelected))]
+    [NotifyPropertyChangedFor(nameof(IsIntelligenceBenefitSelected))]
+    [NotifyPropertyChangedFor(nameof(IsUnlimitedAccountsBenefitSelected))]
+    public partial WinoAccountBenefitItemViewModel? SelectedBenefit { get; set; }
+
+    /// <summary>
+    /// Each illustration in the detail panel is its own piece of XAML, so the panel loads
+    /// exactly one of these four at a time rather than switching a template.
+    /// </summary>
+    public bool IsDeviceTransferBenefitSelected => SelectedBenefit?.Type == WinoAccountBenefitType.DeviceTransfer;
+
+    public bool IsEntitlementsBenefitSelected => SelectedBenefit?.Type == WinoAccountBenefitType.Entitlements;
+
+    public bool IsIntelligenceBenefitSelected => SelectedBenefit?.Type == WinoAccountBenefitType.Intelligence;
+
+    public bool IsUnlimitedAccountsBenefitSelected => SelectedBenefit?.Type == WinoAccountBenefitType.UnlimitedAccounts;
 
     /// <summary>
     /// Compact intelligence state for the account header, next to the mail account count.
@@ -198,9 +220,122 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         AddOns.Add(_aiPackAddOn);
         AddOns.Add(_unlimitedAccountsAddOn);
 
+        SeedBenefits();
+
         ApplySubtitleTexts();
         ApplyAccountUsage(mailAccountCount: 0, hasUnlimitedAccounts: false);
         InitializeAiLanguageOptions();
+    }
+
+    /// <summary>
+    /// Builds the four signed-out offers. Every call to action starts with sign-in,
+    /// including the two add-ons: a purchase cannot begin without an authenticated Wino
+    /// Account, which is what <see cref="PurchaseAddOnAsync"/> enforces anyway.
+    /// </summary>
+    private void SeedBenefits()
+    {
+        Benefits.Add(new WinoAccountBenefitItemViewModel(
+            WinoAccountBenefitType.DeviceTransfer,
+            Translator.WinoAccount_Management_Benefit_Transfer_Title,
+            Translator.WinoAccount_Management_Benefit_Transfer_Caption,
+            Translator.WinoAccount_Management_FreeBadge,
+            isFreeBadge: true,
+            Translator.WinoAccount_Management_Benefit_Transfer_Lede,
+            [
+                Translator.WinoAccount_Management_Benefit_Transfer_Point1,
+                Translator.WinoAccount_Management_Benefit_Transfer_Point2,
+                Translator.WinoAccount_Management_Benefit_Transfer_Point3,
+                Translator.WinoAccount_Management_Benefit_Transfer_Point4
+            ],
+            Translator.WinoAccount_Management_Benefit_Transfer_Cta,
+            BenefitGlyphs.DeviceTransfer)
+        { CtaCommand = SignInCommand });
+
+        Benefits.Add(new WinoAccountBenefitItemViewModel(
+            WinoAccountBenefitType.Entitlements,
+            Translator.WinoAccount_Management_Benefit_Entitlements_Title,
+            Translator.WinoAccount_Management_Benefit_Entitlements_Caption,
+            Translator.WinoAccount_Management_FreeBadge,
+            isFreeBadge: true,
+            Translator.WinoAccount_Management_Benefit_Entitlements_Lede,
+            [
+                Translator.WinoAccount_Management_Benefit_Entitlements_Point1,
+                Translator.WinoAccount_Management_Benefit_Entitlements_Point2,
+                Translator.WinoAccount_Management_Benefit_Entitlements_Point3,
+                Translator.WinoAccount_Management_Benefit_Entitlements_Point4
+            ],
+            Translator.WinoAccount_Management_Benefit_Entitlements_Cta,
+            BenefitGlyphs.Entitlements)
+        { CtaCommand = SignInCommand });
+
+        Benefits.Add(new WinoAccountBenefitItemViewModel(
+            WinoAccountBenefitType.Intelligence,
+            Translator.WinoAccount_Management_Benefit_Intelligence_Title,
+            Translator.WinoAccount_Management_Benefit_Intelligence_Caption,
+            Translator.WinoAccount_Management_AddOnBadge,
+            isFreeBadge: false,
+            Translator.WinoAccount_Management_Benefit_Intelligence_Lede,
+            [
+                Translator.WinoAccount_Management_Benefit_Intelligence_Point1,
+                Translator.WinoAccount_Management_Benefit_Intelligence_Point2,
+                Translator.WinoAccount_Management_Benefit_Intelligence_Point3,
+                Translator.WinoAccount_Management_Benefit_Intelligence_Point4,
+                Translator.WinoAccount_Management_Benefit_Intelligence_Point5
+            ],
+            Translator.WinoAccount_Management_Benefit_Intelligence_Cta,
+            BenefitGlyphs.Intelligence)
+        { CtaCommand = SignInCommand });
+
+        Benefits.Add(new WinoAccountBenefitItemViewModel(
+            WinoAccountBenefitType.UnlimitedAccounts,
+            Translator.WinoAccount_Management_Benefit_Unlimited_Title,
+            Translator.WinoAccount_Management_Benefit_Unlimited_Caption,
+            Translator.WinoAccount_Management_AddOnBadge,
+            isFreeBadge: false,
+            string.Format(Translator.WinoAccount_Management_Benefit_Unlimited_Lede, Constants.FreeAccountLimit),
+            [
+                Translator.WinoAccount_Management_Benefit_Unlimited_Point1,
+                Translator.WinoAccount_Management_Benefit_Unlimited_Point2,
+                Translator.WinoAccount_Management_Benefit_Unlimited_Point3,
+                Translator.WinoAccount_Management_Benefit_Unlimited_Point4
+            ],
+            Translator.WinoAccount_Management_Benefit_Unlimited_Cta,
+            BenefitGlyphs.UnlimitedAccounts)
+        { CtaCommand = SignInCommand });
+
+        SelectedBenefit = Benefits[0];
+    }
+
+    /// <summary>
+    /// Filled path markup for the four tile icons. All four are drawn on one 20x20 grid at
+    /// one optical weight; that shared authoring, not per-icon margins, is what makes them
+    /// line up. The Intelligence entry is the shared Wino Intelligence brand sparkle and
+    /// the Unlimited entry is the two-person mark already used by that add-on elsewhere on
+    /// this page.
+    /// </summary>
+    private static class BenefitGlyphs
+    {
+        // Even-odd, so each device is a frame rather than a filled slab. Solid slabs at
+        // 20 epx collapse into one dark blob and swallow the arrow between them.
+        public const string DeviceTransfer =
+            "F0 M1.6,4.4 A1.4,1.4 0 0 1 3,3 H5.6 A1.4,1.4 0 0 1 7,4.4 V15.6 A1.4,1.4 0 0 1 5.6,17 H3 " +
+            "A1.4,1.4 0 0 1 1.6,15.6 Z M2.9,4.6 V15.4 H5.7 V4.6 Z " +
+            "M13,4.4 A1.4,1.4 0 0 1 14.4,3 H17 A1.4,1.4 0 0 1 18.4,4.4 V15.6 A1.4,1.4 0 0 1 17,17 H14.4 " +
+            "A1.4,1.4 0 0 1 13,15.6 Z M14.3,4.6 V15.4 H17.1 V4.6 Z " +
+            "M7.9,9.3 H10.2 V7.9 L12.3,10 L10.2,12.1 V10.7 H7.9 Z";
+
+        public const string Entitlements =
+            "F0 M10,1.8 L17.2,4.6 V10.1 C17.2,14.3 14.3,17.2 10,18.6 C5.7,17.2 2.8,14.3 2.8,10.1 V4.6 Z " +
+            "M8.85,12.75 L14.15,7.45 L12.95,6.25 L8.85,10.35 L7.05,8.55 L5.85,9.75 Z";
+
+        public const string Intelligence =
+            "M8.5,1.5 L10.2,6.8 15.5,8.5 10.2,10.2 8.5,15.5 6.8,10.2 1.5,8.5 6.8,6.8 Z " +
+            "M15.5,10.5 L16.6,13.9 20,15 16.6,16.1 15.5,19.5 14.4,16.1 11,15 14.4,13.9 Z";
+
+        public const string UnlimitedAccounts =
+            "M4.5,6.5 A3,3 0 1,1 10.5,6.5 A3,3 0 1,1 4.5,6.5 Z M2,16.5 C2.4,13.7 4.6,12 7.5,12 " +
+            "C10.4,12 12.6,13.7 13,16.5 Z M12.5,7.8 A2.3,2.3 0 1,1 17.1,7.8 A2.3,2.3 0 1,1 12.5,7.8 Z " +
+            "M11.8,16.5 C12,14.2 13.3,12.9 15,12.9 C16.7,12.9 17.9,14 18.3,16.5 Z";
     }
 
     /// <summary>
@@ -930,12 +1065,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     private void ApplySubtitleTexts()
     {
+        // Price is deliberately absent everywhere in the app. Stripe Checkout is the only
+        // place that can state it correctly for the customer's currency and locale.
         AiPackSubtitleText = _aiPackAddOn.IsPurchased
-            ? string.Join(" · ",
-                          Translator.WinoAccount_Management_SubscriptionLabel,
-                          Translator.WinoAccount_Management_AiPackPromoPrice)
-            : string.Format(Translator.WinoAccount_Management_AiPackUnownedSubtitle,
-                            Translator.WinoAccount_Management_AiPackPromoPrice);
+            ? Translator.WinoAccount_Management_SubscriptionLabel
+            : Translator.WinoAccount_Management_AiPackUnownedSubtitle;
 
         UnlimitedAccountsSubtitleText = _unlimitedAccountsAddOn.IsPurchased
             ? Translator.WinoAccount_Management_UnlimitedOwnedSubtitle

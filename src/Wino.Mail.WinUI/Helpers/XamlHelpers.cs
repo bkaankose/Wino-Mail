@@ -771,7 +771,12 @@ public static class XamlHelpers
     public static WinoIconGlyph GetProviderIcon(MailAccount account)
         => GetProviderIcon(account.ProviderType, account.SpecialImapProvider);
 
-    public static Geometry GetPathGeometry(string pathMarkup)
+    /// <summary>
+    /// Builds a Geometry from path markup held as a string. Named apart from the
+    /// FolderOperation overload because x:Bind resolves helper functions by name alone and
+    /// cannot choose between overloads.
+    /// </summary>
+    public static Geometry GetGeometryFromPathMarkup(string pathMarkup)
     {
         string xaml =
         "<Path " +

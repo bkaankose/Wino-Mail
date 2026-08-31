@@ -279,6 +279,52 @@ public sealed class WinoAccountManagementPageViewModelTests
             periodEnd.LocalDateTime));
     }
 
+    [Fact]
+    public void Benefits_SeedFourOffersWithDeviceTransferOpenFirst()
+    {
+        var viewModel = CreateViewModelWithAccounts(
+            hasUnlimitedAccounts: false,
+            mailAccountCount: 0,
+            out _);
+
+        viewModel.Benefits.Should().HaveCount(4);
+        viewModel.Benefits.Select(benefit => benefit.Type).Should().Equal(
+            WinoAccountBenefitType.DeviceTransfer,
+            WinoAccountBenefitType.Entitlements,
+            WinoAccountBenefitType.Intelligence,
+            WinoAccountBenefitType.UnlimitedAccounts);
+
+        viewModel.SelectedBenefit!.Type.Should().Be(WinoAccountBenefitType.DeviceTransfer);
+        viewModel.IsDeviceTransferBenefitSelected.Should().BeTrue();
+
+        viewModel.Benefits.Should().OnlyContain(benefit => benefit.CtaCommand != null);
+        viewModel.Benefits.Should().OnlyContain(benefit => benefit.Points.Count > 0);
+    }
+
+    [Fact]
+    public void SelectingABenefit_LeavesExactlyOneIllustrationLoaded()
+    {
+        var viewModel = CreateViewModelWithAccounts(
+            hasUnlimitedAccounts: false,
+            mailAccountCount: 0,
+            out _);
+
+        foreach (var benefit in viewModel.Benefits)
+        {
+            viewModel.SelectedBenefit = benefit;
+
+            var loaded = new[]
+            {
+                viewModel.IsDeviceTransferBenefitSelected,
+                viewModel.IsEntitlementsBenefitSelected,
+                viewModel.IsIntelligenceBenefitSelected,
+                viewModel.IsUnlimitedAccountsBenefitSelected
+            };
+
+            loaded.Count(isLoaded => isLoaded).Should().Be(1, "{0} must load its own illustration", benefit.Type);
+        }
+    }
+
     private static WinoAccountManagementPageViewModel CreateViewModelWithAccounts(
         bool hasUnlimitedAccounts,
         int mailAccountCount,
