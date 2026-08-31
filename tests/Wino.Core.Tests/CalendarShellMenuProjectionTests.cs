@@ -28,7 +28,7 @@ public sealed class CalendarShellMenuProjectionTests
         viewModel.ShellMenu.Items.Select(item => item.GetType()).Should().ContainInOrder(
             typeof(NewCalendarEventMenuItem),
             typeof(CalendarDatePickerMenuItem),
-            typeof(ShellSectionHeaderMenuItem),
+            typeof(SeperatorItem),
             typeof(AccountCalendarGroupMenuItem),
             typeof(AccountCalendarGroupMenuItem));
         viewModel.ShellMenu.Items[3].Should().BeOfType<AccountCalendarGroupMenuItem>().Which.Parameter.Should().Be(first);

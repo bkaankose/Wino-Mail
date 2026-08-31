@@ -16,10 +16,8 @@ namespace Wino.Calendar.ViewModels;
 /// </summary>
 public partial class CalendarAppShellViewModel
 {
-    private const string CalendarsSectionTitle = "Calendars";
-
     private readonly NewCalendarEventMenuItem _newEventMenuItem = new();
-    private readonly ShellSectionHeaderMenuItem _calendarsSectionHeader = new(CalendarsSectionTitle);
+    private readonly SeperatorItem _calendarsSeparator = new();
     private readonly SeperatorItem _ungroupedCalendarsSeparator = new();
     private CalendarDatePickerMenuItem _datePickerMenuItem;
     private readonly Dictionary<GroupedAccountCalendarViewModel, AccountCalendarGroupMenuItem> _accountCalendarMenuItems = [];
@@ -158,7 +156,7 @@ public partial class CalendarAppShellViewModel
 
         if (groups.Count > 0)
         {
-            desired.Add(_calendarsSectionHeader);
+            desired.Add(_calendarsSeparator);
 
             if (PreferencesService.IsCalendarAccountsGrouped)
             {
