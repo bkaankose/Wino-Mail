@@ -1,13 +1,30 @@
 # Wino Mail UI tests
 
-Double-click `Run-WinoUiTests.cmd` to build the checked-in x64 Debug project, launch the existing Debug package identity, and run every `*.UiTest.ps1` in `Tests`.
+Double-click `Run-WinoUiTests.cmd` to stop Wino Mail, build the x64 Debug project, deploy it, and run every UI scenario.
 
-The runner leaves Wino Mail open and pauses at the end so the final UI state can be inspected. Test screenshots and `test-results.json` are written below `artifacts/ui-tests/<timestamp>`.
+The command file pauses at the end. A direct PowerShell run does not pause.
+The runner leaves Wino Mail open. It writes screenshots and `test-results.json` under `artifacts/ui-tests/<timestamp>`.
 
-For a faster rerun against an already deployed Debug build:
+For a faster deployment of the existing Debug output:
 
 ```powershell
 .\tests\ui\Run-WinoUiTests.ps1 -NoBuild -Fast
 ```
 
-Close Wino Mail before a run when the source was changed and the Debug package must be rebuilt and redeployed.
+The default path stops all `Wino.Mail.WinUI` processes before deployment.
+This includes a process that has no visible window because close-to-tray is enabled.
+
+Use an existing process only when current-source proof is not required:
+
+```powershell
+.\tests\ui\Run-WinoUiTests.ps1 -UseRunning -Scenario StartupSmoke -Fast
+```
+
+List or select scenarios without changing the test files:
+
+```powershell
+.\tests\ui\Run-WinoUiTests.ps1 -List
+.\tests\ui\Run-WinoUiTests.ps1 -Scenario ComposeNavigation,MailRenderingNavigation -Fast
+```
+
+Use `-Pause` for a direct PowerShell run when you want to inspect the final state.

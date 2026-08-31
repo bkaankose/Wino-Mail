@@ -145,28 +145,27 @@ public partial class CalendarAppShellViewModel
             _newEventMenuItem
         };
 
-        if (_isPaneCompact)
-        {
-            ApplyDesiredMenuItems(desired);
-            PruneShellMenuItemCaches();
-            return;
-        }
-
-        desired.Add(_datePickerMenuItem);
+        if (!_isPaneCompact)
+            desired.Add(_datePickerMenuItem);
 
         if (groups.Count > 0)
         {
-            desired.Add(_calendarsSeparator);
-
             if (PreferencesService.IsCalendarAccountsGrouped)
             {
-                foreach (var group in groups)
+                if (!_isPaneCompact)
                 {
-                    desired.Add(GetAccountCalendarMenuItem(group));
+                    desired.Add(_calendarsSeparator);
+
+                    foreach (var group in groups)
+                    {
+                        desired.Add(GetAccountCalendarMenuItem(group));
+                    }
                 }
             }
             else
             {
+                desired.Add(_calendarsSeparator);
+
                 var eligibleGroups = groups
                     .Where(group => group.AccountCalendars.Count > 0)
                     .OrderBy(group => group.Account.Order)
@@ -242,6 +241,8 @@ public partial class CalendarAppShellViewModel
         {
             menuItem.UpdateCalendar(calendar);
         }
+
+        menuItem.IsPaneCompact = _isPaneCompact;
 
         return menuItem;
     }

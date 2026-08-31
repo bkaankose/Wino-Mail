@@ -159,6 +159,35 @@ public sealed class CalendarShellMenuProjectionTests
     }
 
     [Fact]
+    public void CompactPane_GroupedProjection_HidesDatePickerAndAccountGroups()
+    {
+        var group = CreateGroup("First", 1, "Calendar");
+        var preferences = CreatePreferences(grouped: true, startupAccountId: null);
+        var viewModel = CreateViewModel(preferences.Object, new FakeAccountCalendarStateService([group]));
+
+        viewModel.SetPaneCompact(true);
+
+        viewModel.ShellMenu.Items.Should().ContainSingle()
+            .Which.Should().BeOfType<NewCalendarEventMenuItem>();
+    }
+
+    [Fact]
+    public void CompactPane_UngroupedProjection_KeepsAccountsAndCalendarsWithoutSelectionToggle()
+    {
+        var group = CreateGroup("First", 1, "Calendar");
+        var preferences = CreatePreferences(grouped: false, group.Account.Id);
+        var viewModel = CreateViewModel(preferences.Object, new FakeAccountCalendarStateService([group]));
+
+        viewModel.SetPaneCompact(true);
+
+        viewModel.ShellMenu.Items.OfType<CalendarDatePickerMenuItem>().Should().BeEmpty();
+        viewModel.ShellMenu.Items.OfType<AccountCalendarGroupMenuItem>().Should().BeEmpty();
+        viewModel.ShellMenu.Items.Should().ContainSingle(item => item is CalendarAccountMenuItem);
+        viewModel.ShellMenu.Items.OfType<UngroupedCalendarMenuItem>().Should().ContainSingle()
+            .Which.IsPaneCompact.Should().BeTrue();
+    }
+
+    [Fact]
     public void DatePickerExpansion_InitializesAndPersistsWithDynamicAccessibilityText()
     {
         var preferences = CreatePreferences(grouped: true, startupAccountId: null, datePickerExpanded: true);

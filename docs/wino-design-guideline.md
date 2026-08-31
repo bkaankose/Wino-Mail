@@ -221,7 +221,7 @@ Accessibility preserves Wino’s core purpose for people using keyboard navigati
 4. Test Light, Dark, and a Windows Contrast theme; ensure no semantic information vanishes or relies only on color.
 5. Verify actual text contrast at 4.5:1 or higher, including personalized-theme combinations.
 6. Check enlarged text, display scale, and Magnifier for clipping, overlap, lost labels, and unreachable commands.
-7. Run `scripts/audit-xaml-automationids.ps1` and exercise the deployed Debug app with WinApp CLI after Visual Studio deploys it.
+7. Run `scripts/audit-xaml-automationids.ps1` and exercise the Debug app after WinApp project mode deploys the current source.
 
 ## 12. WinUI XAML implementation decisions
 
@@ -241,7 +241,7 @@ Accessibility preserves Wino’s core purpose for people using keyboard navigati
 4. **Choose native patterns.** Map every interaction to a WinUI control and existing Wino style. Explain any custom-control exception.
 5. **Write responsive behavior.** Describe large, medium, and small-window behavior, including what moves, collapses, or becomes drill-in.
 6. **Specify accessibility.** Identify keyboard flow, focus return, accessible names, automation IDs, Narrator behavior, text scaling, and Contrast-theme behavior.
-7. **Build and verify.** Review all themes and state variants. Run the XAML automation-ID audit; after Visual Studio deploys the current build, exercise the changed flow through WinApp CLI.
+7. **Build and verify.** Review all themes and state variants. Run the XAML audit. Then deploy and exercise the current Debug source through WinApp.
 
 ## Sources
 

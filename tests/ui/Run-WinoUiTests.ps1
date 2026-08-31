@@ -1,8 +1,11 @@
 [CmdletBinding()]
 param(
+    [string[]]$Scenario,
     [switch]$NoBuild,
+    [switch]$UseRunning,
     [switch]$Fast,
-    [switch]$NoPause
+    [switch]$List,
+    [switch]$Pause
 )
 
 Set-StrictMode -Version Latest
@@ -16,6 +19,9 @@ $runTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $artifactsPath = Join-Path $repositoryRoot "artifacts\ui-tests\$runTimestamp"
 $results = [System.Collections.Generic.List[object]]::new()
 $exitCode = 0
+$sourceCommit = (& git -C $repositoryRoot rev-parse HEAD).Trim()
+$sourceIsDirty = @(& git -C $repositoryRoot status --porcelain).Count -gt 0
+$startedAt = Get-Date
 
 function Write-Section {
     param([Parameter(Mandatory)][string]$Message)
@@ -152,8 +158,65 @@ function Wait-ForWinoWindow {
     throw "Wino Mail did not expose a UI window within 20 seconds."
 }
 
+function Stop-WinoDebugProcesses {
+    $processes = @(Get-Process -Name "Wino.Mail.WinUI" -ErrorAction SilentlyContinue)
+
+    foreach ($process in $processes) {
+        Write-Host "Stopping running Wino Mail process $($process.Id) before deployment."
+        Stop-Process -Id $process.Id -Force -ErrorAction Stop
+        Wait-Process -Id $process.Id -Timeout 10 -ErrorAction SilentlyContinue
+
+        if (Get-Process -Id $process.Id -ErrorAction SilentlyContinue) {
+            throw "Wino Mail process $($process.Id) did not stop before deployment."
+        }
+    }
+}
+
+function Get-SelectedUiTests {
+    $catalog = @(Get-ChildItem -Path $testsPath -Filter "*.UiTest.ps1" -File |
+        Sort-Object Name |
+        ForEach-Object {
+            [pscustomobject]@{
+                Scenario = $_.Name -replace '\.UiTest\.ps1$', ''
+                File = $_
+            }
+        })
+
+    if ($catalog.Count -eq 0) {
+        throw "No UI tests were found in '$testsPath'."
+    }
+
+    if ($List) {
+        $catalog | Select-Object -ExpandProperty Scenario | ForEach-Object { Write-Host $_ }
+        return @()
+    }
+
+    if (-not $Scenario -or $Scenario.Count -eq 0) {
+        return @($catalog | Select-Object -ExpandProperty File)
+    }
+
+    $requestedNames = @($Scenario | ForEach-Object {
+            $_ -replace '\.UiTest(\.ps1)?$', ''
+        })
+    $unknownNames = @($requestedNames | Where-Object { $_ -notin $catalog.Scenario })
+
+    if ($unknownNames.Count -gt 0) {
+        throw "Unknown UI scenario(s): $($unknownNames -join ', '). Use -List to show valid names."
+    }
+
+    return @($catalog |
+        Where-Object { $_.Scenario -in $requestedNames } |
+        Select-Object -ExpandProperty File)
+}
+
 try {
     Set-Location $repositoryRoot
+
+    $testFiles = @(Get-SelectedUiTests)
+
+    if ($List) {
+        return
+    }
 
     Write-Section "Checking prerequisites"
     $winAppVersion = Get-WinAppVersion
@@ -168,15 +231,27 @@ try {
     New-Item -ItemType Directory -Force -Path $artifactsPath | Out-Null
 
     $mainWindow = Get-WinoMainWindow
+    $launchMode = $null
 
-    if ($null -eq $mainWindow) {
+    if ($UseRunning) {
+        if ($null -eq $mainWindow) {
+            throw "-UseRunning requires an existing Wino Mail window."
+        }
+
+        $launchMode = "UseRunning"
+        Write-Section "Using the running Wino Mail instance"
+        Write-Host "This run does not prove that the process contains current source."
+    }
+    else {
+        # Wino can remain alive without a visible window when close-to-tray is enabled.
+        # Stop the exact app process before project-mode deployment to prevent redirection
+        # into a hidden process that still contains stale assemblies.
+        Stop-WinoDebugProcesses
+
         Write-Section "Building and launching Wino Mail"
         Start-WinoDebugApp | Out-Null
         $mainWindow = Wait-ForWinoWindow
-    }
-    else {
-        Write-Section "Using the running Wino Mail instance"
-        Write-Host "Close Wino Mail before running this script when you want it rebuilt first."
+        $launchMode = if ($NoBuild) { "DeployExistingDebugOutput" } else { "BuildDeployCurrentSource" }
     }
 
     $appPid = [int]$mainWindow.processId
@@ -187,12 +262,6 @@ try {
     # every test starts with the existing Wino window in the foreground.
     $global:LASTEXITCODE = 0
     & winapp ui focus "NavigationView" -a $appPid *> $null
-
-    $testFiles = @(Get-ChildItem -Path $testsPath -Filter "*.UiTest.ps1" -File | Sort-Object Name)
-
-    if ($testFiles.Count -eq 0) {
-        throw "No UI tests were found in '$testsPath'."
-    }
 
     $stepDelayMilliseconds = if ($Fast) { 0 } else { 700 }
     Write-Section "Running $($testFiles.Count) UI test(s)"
@@ -229,8 +298,31 @@ try {
         }
     }
 
+    $builtAssembly = Get-ChildItem -Path (Join-Path $repositoryRoot "src\Wino.Mail.WinUI\bin\x64\Debug") `
+        -Recurse -File -Filter "Wino.Mail.WinUI.dll" -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTimeUtc -Descending |
+        Select-Object -First 1
+    $buildOutputPath = if ($null -ne $builtAssembly) { $builtAssembly.FullName } else { $null }
+    $buildOutputTimestampUtc = if ($null -ne $builtAssembly) {
+        $builtAssembly.LastWriteTimeUtc.ToString("O")
+    }
+    else {
+        $null
+    }
+    $resultEnvelope = [pscustomobject]@{
+        StartedAtUtc = $startedAt.ToUniversalTime().ToString("O")
+        FinishedAtUtc = (Get-Date).ToUniversalTime().ToString("O")
+        SourceCommit = $sourceCommit
+        SourceIsDirty = $sourceIsDirty
+        LaunchMode = $launchMode
+        BuildOutput = $buildOutputPath
+        BuildOutputTimestampUtc = $buildOutputTimestampUtc
+        ProcessId = $appPid
+        WindowHandle = $mainWindow.hwnd
+        Tests = $results
+    }
     $resultsPath = Join-Path $artifactsPath "test-results.json"
-    $results | ConvertTo-Json | Set-Content -Path $resultsPath -Encoding utf8
+    $resultEnvelope | ConvertTo-Json -Depth 5 | Set-Content -Path $resultsPath -Encoding utf8
 
     Write-Section "Results"
     $results | Format-Table Test, Status, DurationMilliseconds -AutoSize
@@ -245,7 +337,7 @@ catch {
 finally {
     Set-Location $repositoryRoot
 
-    if (-not $NoPause) {
+    if ($Pause) {
         Write-Host ""
         Read-Host "Press Enter to close this test window" | Out-Null
     }

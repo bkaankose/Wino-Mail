@@ -27,6 +27,17 @@ Start with the named control, feature folder, or playground page. Avoid mapping 
 
 Run commands from the repository root (`D:\Wino-Mail`). Use x64 for routine verification.
 
+Use the repository harness for normal control work:
+
+```powershell
+.\scripts\wino.ps1 build core
+.\scripts\wino.ps1 build controls
+.\scripts\wino.ps1 build editor
+.\scripts\wino.ps1 build playground
+```
+
+Use the expanded commands below for diagnostics or options that the harness does not expose.
+
 ```powershell
 # Platform-neutral logic (build both target frameworks)
 dotnet build controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj -c Debug -p:Platform=x64
@@ -99,6 +110,15 @@ Match verification to the change:
 - Public API change: search CodeGraph for consumers and build each affected project.
 
 Do not report a UI change as verified from compilation alone. If interactive verification is unavailable, state that clearly in the handoff.
+
+Format changed XAML before compilation. Run passive verification before handoff:
+
+```powershell
+.\scripts\wino.ps1 xaml changed
+.\scripts\wino.ps1 xaml changed -Check
+```
+
+The editor extension is a convenience. The pinned command-line result is the formatting source of truth.
 
 ## General Constraints
 

@@ -141,6 +141,7 @@ public static class XamlHelpers
 
     public static Visibility ReverseBoolToVisibilityConverter(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility BoolToVisibilityConverter(bool value) => value ? Visibility.Visible : Visibility.Collapsed;
+    public static Thickness GetCalendarPaneItemMargin(bool isPaneCompact) => isPaneCompact ? new Thickness(0) : new Thickness(8, 0, 8, 0);
     public static Visibility ReverseVisibilityConverter(Visibility visibility) => visibility == Visibility.Visible ? Visibility.Collapsed : Visibility.Visible;
     public static bool ReverseBoolConverter(bool value) => !value;
     public static GridLength DoubleToGridLength(double value) => new(value);

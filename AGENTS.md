@@ -19,6 +19,16 @@ codegraph explore "describe the symbol, flow, or change"
 
 ## Build and test
 
+Use the repository harness for the normal development loop:
+
+```powershell
+.\scripts\wino.ps1 affected
+.\scripts\wino.ps1 build app
+.\scripts\wino.ps1 test core -Filter "FullyQualifiedName~RelevantTestClass"
+```
+
+Use the expanded commands below for diagnostics or when the harness does not cover a required option.
+
 Restore only after package, project, target framework, or runtime-identifier inputs change:
 
 ```powershell
@@ -193,6 +203,15 @@ Published cross-repository dependencies must use unconditional `PackageReference
 - Use command `CanExecute` and `[NotifyCanExecuteChangedFor]` instead of binding a command button's `IsEnabled` when possible.
 - Use `{ThemeResource}` for visual resources and preserve Light, Dark, High Contrast, keyboard, pointer, touch, and automation behavior.
 - Follow `controls/AGENTS.md` for reusable control templates, parts, playground samples, automation peers, and lifecycle rules.
+
+Format changed XAML with the repository-pinned XAML Styler before the build. Passive mode must pass before handoff:
+
+```powershell
+.\scripts\wino.ps1 xaml changed
+.\scripts\wino.ps1 xaml changed -Check
+```
+
+The editor extension is a convenience. The pinned command-line result is the formatting source of truth.
 
 ## Localization, storage, and rendering
 

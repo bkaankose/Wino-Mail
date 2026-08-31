@@ -732,38 +732,42 @@
     <DataTemplate x:Key="UngroupedCalendarTemplate" x:DataType="data:UngroupedCalendarMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="40"
-            Margin="8,0"
+            Margin="{x:Bind helpers:XamlHelpers.GetCalendarPaneItemMargin(IsPaneCompact), Mode=OneWay}"
             HorizontalContentAlignment="Stretch"
             AutomationProperties.AutomationId="UngroupedCalendarNavigationItem"
             AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Parameter.Name), Mode=OneWay}"
             DataContext="{x:Bind}"
             SelectsOnInvoked="False">
-            <CheckBox
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Stretch"
-                AutomationProperties.AutomationId="UngroupedCalendarCheckBox"
-                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Parameter.Name), Mode=OneWay}"
-                IsChecked="{x:Bind Parameter.IsChecked, Mode=TwoWay}"
-                Tapped="UngroupedCalendarCheckBoxTapped">
-                <Grid Margin="0,2" ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+            <Grid Margin="0,2" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
 
-                    <Ellipse
-                        Width="16"
-                        Height="16"
-                        VerticalAlignment="Center"
-                        Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Parameter.BackgroundColorHex), Mode=OneWay}" />
+                <CheckBox
+                    MinWidth="0"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="UngroupedCalendarCheckBox"
+                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Parameter.Name), Mode=OneWay}"
+                    IsChecked="{x:Bind Parameter.IsChecked, Mode=TwoWay}"
+                    Tapped="UngroupedCalendarCheckBoxTapped"
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsPaneCompact), Mode=OneWay}" />
 
-                    <TextBlock
-                        Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Text="{x:Bind Parameter.Name, Mode=OneWay}"
-                        TextTrimming="CharacterEllipsis" />
-                </Grid>
-            </CheckBox>
+                <Ellipse
+                    Grid.Column="1"
+                    Width="16"
+                    Height="16"
+                    VerticalAlignment="Center"
+                    Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(Parameter.BackgroundColorHex), Mode=OneWay}" />
+
+                <TextBlock
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind Parameter.Name, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis" />
+            </Grid>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
