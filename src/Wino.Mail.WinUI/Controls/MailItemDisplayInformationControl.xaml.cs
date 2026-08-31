@@ -14,7 +14,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Extensions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
-using Wino.Mail.WinUI.Helpers;
 
 namespace Wino.Controls;
 
@@ -28,7 +27,6 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     private ScalarKeyFrameAnimation? _opacityAnimation;
     private SpriteVisual? _leftBackgroundVisual;
     private INotifyPropertyChanged? _actionItemPropertySource;
-    private FeatheredHoverActionAnimator? _hoverActionAnimator;
 
     [GeneratedDependencyProperty(DefaultValue = MailListDisplayMode.Spacious)]
     public partial MailListDisplayMode DisplayMode { get; set; }
@@ -84,8 +82,10 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         CenterHoverAction = preferencesService.CenterHoverAction;
         RightHoverAction = preferencesService.RightHoverAction;
 
-        _compositor = this.Visual().Compositor;
-        InitializeLeftBackgroundVisual();
+        var compositor = this.Visual().Compositor;
+
+        _leftBackgroundVisual = compositor.CreateSpriteVisual();
+        RootContainerVisualWrapper.SetChildVisual(_leftBackgroundVisual);
         MainContentContainer.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
 
         RootContainer.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
@@ -93,6 +93,8 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         ContentStackpanel.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
         IconsContainer.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
 
+        // Initialize shimmer effect compositor
+        _compositor = this.Visual().Compositor;
     }
 
     partial void OnMailItemInformationPropertyChanged(DependencyPropertyChangedEventArgs e)
@@ -121,18 +123,6 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
         UpdateBusyAnimationState();
     }
-
-    partial void OnLeftHoverActionPropertyChanged(DependencyPropertyChangedEventArgs e)
-        => UpdateHoverActionAvailability();
-
-    partial void OnCenterHoverActionPropertyChanged(DependencyPropertyChangedEventArgs e)
-        => UpdateHoverActionAvailability();
-
-    partial void OnRightHoverActionPropertyChanged(DependencyPropertyChangedEventArgs e)
-        => UpdateHoverActionAvailability();
-
-    partial void OnIsHoverActionsEnabledPropertyChanged(DependencyPropertyChangedEventArgs e)
-        => UpdateHoverActionAvailability();
 
     private void StartBusyAnimation()
     {
@@ -196,35 +186,6 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         }
 
         StopBusyAnimation();
-        _hoverActionAnimator?.Dispose();
-        _hoverActionAnimator = null;
-        HoverActionButtons.Visibility = Visibility.Collapsed;
-        UnreadContainer.Visibility = Visibility.Visible;
-        ElementCompositionPreview.SetElementChildVisual(RootContainerVisualWrapper, null);
-        _leftBackgroundVisual?.Dispose();
-        _leftBackgroundVisual = null;
-    }
-
-    private void OnLoaded(object sender, RoutedEventArgs e)
-    {
-        if (_actionItemPropertySource == null && ActionItem is INotifyPropertyChanged propertyChangedSource)
-        {
-            _actionItemPropertySource = propertyChangedSource;
-            _actionItemPropertySource.PropertyChanged += ActionItemPropertyChanged;
-        }
-
-        InitializeLeftBackgroundVisual();
-        UpdateBusyAnimationState();
-    }
-
-    private void InitializeLeftBackgroundVisual()
-    {
-        if (_leftBackgroundVisual != null || _compositor == null)
-            return;
-
-        _leftBackgroundVisual = _compositor.CreateSpriteVisual();
-        _leftBackgroundVisual.Size = RootContainerVisualWrapper.ActualSize;
-        RootContainerVisualWrapper.SetChildVisual(_leftBackgroundVisual);
     }
 
     private void RootContainerVisualWrapperSizeChanged(object sender, SizeChangedEventArgs e)
@@ -237,30 +198,24 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
     private void ControlPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
-        if (IsHoverActionsEnabled && HasVisibleHoverActions())
+        if (IsHoverActionsEnabled)
         {
-            _hoverActionAnimator ??= new FeatheredHoverActionAnimator(
-                HoverActionButtons,
-                HoverActionVeil,
-                HoverActionButtonHost);
-            _hoverActionAnimator.Show();
+            HoverActionButtons.Visibility = Visibility.Visible;
             UnreadContainer.Visibility = Visibility.Collapsed;
         }
     }
 
     private void ControlPointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
     {
-        if (_hoverActionAnimator != null)
+        if (IsHoverActionsEnabled)
         {
-            _hoverActionAnimator.Hide(() => UnreadContainer.Visibility = Visibility.Visible);
+            HoverActionButtons.Visibility = Visibility.Collapsed;
+            UnreadContainer.Visibility = Visibility.Visible;
         }
     }
 
     private void ExecuteHoverAction(MailOperation operation)
     {
-        if (operation == MailOperation.None)
-            return;
-
         IsRunningHoverAction = true;
 
         MailOperationPreperationRequest? package = null;
@@ -289,18 +244,5 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     private void ThirdActionClicked(object sender, RoutedEventArgs e)
     {
         ExecuteHoverAction(RightHoverAction);
-    }
-
-    private bool HasVisibleHoverActions()
-        => LeftHoverAction != MailOperation.None ||
-           CenterHoverAction != MailOperation.None ||
-           RightHoverAction != MailOperation.None;
-
-    private void UpdateHoverActionAvailability()
-    {
-        if (IsHoverActionsEnabled && HasVisibleHoverActions())
-            return;
-
-        _hoverActionAnimator?.Hide(() => UnreadContainer.Visibility = Visibility.Visible);
     }
 }

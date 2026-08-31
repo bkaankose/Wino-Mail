@@ -86,7 +86,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private int _idleNavigationRequestVersion = 0;
     private int _mailActivationRequestVersion = 0;
     private int _selectMailContainerRequestVersion = 0;
-    private readonly Dictionary<FrameworkElement, MailRowHoverState> _mailRowHoverStates = [];
 
     /// <summary>
     /// True while the rendering frame hosts a composer for a draft that is not part of the
@@ -1126,59 +1125,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
         return null;
     }
 
-    private void MailRowLoaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement rowRoot || _mailRowHoverStates.ContainsKey(rowRoot))
-            return;
-
-        rowRoot.PointerEntered += MailRowPointerEntered;
-        rowRoot.PointerExited += MailRowPointerExited;
-        rowRoot.PointerCanceled += MailRowPointerCanceled;
-        rowRoot.PointerCaptureLost += MailRowPointerCaptureLost;
-        _mailRowHoverStates.Add(rowRoot, new MailRowHoverState());
-    }
-
-    private void MailRowUnloaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement rowRoot)
-        {
-            DetachMailRowHoverState(rowRoot);
-        }
-    }
-
-    private void PageUnloaded(object sender, RoutedEventArgs e)
-    {
-        foreach (var rowRoot in _mailRowHoverStates.Keys.ToArray())
-        {
-            DetachMailRowHoverState(rowRoot);
-        }
-    }
-
     private void MailRowPointerEntered(object sender, PointerRoutedEventArgs e)
-        => SetMailRowHoverActionVisibility(sender as FrameworkElement, true);
+        => SetMailRowHoverActionVisibility(sender as DependencyObject, true);
 
     private void MailRowPointerExited(object sender, PointerRoutedEventArgs e)
-        => SetMailRowHoverActionVisibility(sender as FrameworkElement, false);
-
-    private void MailRowPointerCanceled(object sender, PointerRoutedEventArgs e)
-        => SetMailRowHoverActionVisibility(sender as FrameworkElement, false);
-
-    private void MailRowPointerCaptureLost(object sender, PointerRoutedEventArgs e)
-    {
-        if (sender is FrameworkElement rowRoot)
-        {
-            var position = e.GetCurrentPoint(rowRoot).Position;
-            var isStillInside = position.X >= 0 &&
-                                position.Y >= 0 &&
-                                position.X <= rowRoot.ActualWidth &&
-                                position.Y <= rowRoot.ActualHeight;
-
-            if (!isStillInside)
-            {
-                SetMailRowHoverActionVisibility(rowRoot, false);
-            }
-        }
-    }
+        => SetMailRowHoverActionVisibility(sender as DependencyObject, false);
 
     private void ThreadExpanderPointerPressed(object sender, PointerRoutedEventArgs e)
     {
@@ -1209,7 +1160,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private void SetMailRowHoverActionVisibility(FrameworkElement? rowRoot, bool isVisible)
+    private void SetMailRowHoverActionVisibility(DependencyObject? rowRoot, bool isVisible)
     {
         if (ResolveMailListRow(rowRoot) is not { } row)
             return;
@@ -1220,45 +1171,16 @@ public sealed partial class MailListPage : MailListPageAbstract,
         // never builds its hover buttons.
         row.IsPointerOver = shouldShowHoverActions;
 
-        if (shouldShowHoverActions)
+        // Already-realized overlays keep their glyphs across hovers, so they are refreshed
+        // here to pick up hover action preference changes. A first realization is covered by
+        // MailRowHoverActionButtonLoaded instead.
+        if (shouldShowHoverActions &&
+            FindDescendantByName<FrameworkElement>(rowRoot, "HoverActionButtons") is { } hoverActionButtons)
         {
-            if (FindDescendantByName<FrameworkElement>(rowRoot, "HoverActionButtons") is not { } hoverActionButtons)
-                return;
-
-            hoverActionButtons.Visibility = Visibility.Visible;
-
-            if (RefreshHoverActionButtons(hoverActionButtons) == 0)
-            {
-                hoverActionButtons.Visibility = Visibility.Collapsed;
-                SetRightAccountNicknameIndicatorVisibility(rowRoot, true);
-                return;
-            }
-
-            hoverActionButtons.UpdateLayout();
-
-            if (_mailRowHoverStates.TryGetValue(rowRoot, out var state) &&
-                FindDescendantByName<FrameworkElement>(hoverActionButtons, "HoverActionVeil") is { } veil &&
-                FindDescendantByName<FrameworkElement>(hoverActionButtons, "HoverActionButtonHost") is { } actionHost)
-            {
-                state.Animator ??= new FeatheredHoverActionAnimator(hoverActionButtons, veil, actionHost);
-                state.Animator.Show();
-                SetRightAccountNicknameIndicatorVisibility(rowRoot, false);
-                return;
-            }
-
-            hoverActionButtons.Visibility = Visibility.Collapsed;
-            SetRightAccountNicknameIndicatorVisibility(rowRoot, true);
-            return;
+            RefreshHoverActionButtons(hoverActionButtons);
         }
 
-        if (_mailRowHoverStates.TryGetValue(rowRoot, out var hoverState) &&
-            hoverState.Animator != null)
-        {
-            hoverState.Animator.Hide(() => SetRightAccountNicknameIndicatorVisibility(rowRoot, true));
-            return;
-        }
-
-        SetRightAccountNicknameIndicatorVisibility(rowRoot, true);
+        SetRightAccountNicknameIndicatorVisibility(rowRoot, !shouldShowHoverActions);
     }
 
     private static void SetRightAccountNicknameIndicatorVisibility(DependencyObject? rowRoot, bool isVisible)
@@ -1274,21 +1196,12 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private static int RefreshHoverActionButtons(DependencyObject hoverActionButtons)
+    private static void RefreshHoverActionButtons(DependencyObject hoverActionButtons)
     {
-        var visibleActionCount = 0;
-
         foreach (var button in FindDescendants<Button>(hoverActionButtons))
         {
             RefreshHoverActionButton(button);
-
-            if (button.Visibility == Visibility.Visible)
-            {
-                visibleActionCount++;
-            }
         }
-
-        return visibleActionCount;
     }
 
     private static void RefreshHoverActionButton(Button button)
@@ -1296,15 +1209,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
         if (button.Tag is not string actionIndexText || !int.TryParse(actionIndexText, out var actionIndex))
             return;
 
-        var operation = XamlHelpers.GetHoverAction(actionIndex);
-        var operationName = XamlHelpers.GetOperationString(operation);
-        button.Visibility = XamlHelpers.GetHoverActionVisibility(operation);
-        AutomationProperties.SetName(button, operation == MailOperation.None ? string.Empty : operationName);
-        ToolTipService.SetToolTip(button, operation == MailOperation.None ? null : operationName);
+        AutomationProperties.SetName(button, XamlHelpers.GetHoverActionOperationString(actionIndex));
 
         if (button.Content is WinoFontIcon icon)
         {
-            icon.Icon = XamlHelpers.GetWinoIconGlyph(operation);
+            icon.Icon = XamlHelpers.GetHoverActionWinoIconGlyph(actionIndex);
         }
     }
 
@@ -1373,40 +1282,12 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
 
         var operation = XamlHelpers.GetHoverAction(actionIndex);
-
-        if (operation == MailOperation.None)
-            return;
-
         var row = ResolveMailListRow(element);
         var targetItems = row?.LeafItems.OfType<MailItemViewModel>().ToArray() ??
             (element.DataContext is MailItemViewModel mailItem
                 ? [mailItem]
                 : []);
         ExecuteHoverAction(targetItems, row?.SourceItem as MailItemViewModel, operation);
-    }
-
-    private void DetachMailRowHoverState(FrameworkElement rowRoot)
-    {
-        rowRoot.PointerEntered -= MailRowPointerEntered;
-        rowRoot.PointerExited -= MailRowPointerExited;
-        rowRoot.PointerCanceled -= MailRowPointerCanceled;
-        rowRoot.PointerCaptureLost -= MailRowPointerCaptureLost;
-
-        if (_mailRowHoverStates.Remove(rowRoot, out var state))
-        {
-            state.Dispose();
-        }
-    }
-
-    private sealed class MailRowHoverState : IDisposable
-    {
-        public FeatheredHoverActionAnimator? Animator { get; set; }
-
-        public void Dispose()
-        {
-            Animator?.Dispose();
-            Animator = null;
-        }
     }
 
     private async void ExecuteHoverAction(

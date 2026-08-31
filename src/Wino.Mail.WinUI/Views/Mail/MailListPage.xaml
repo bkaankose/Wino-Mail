@@ -36,7 +36,6 @@
     Loaded="MailListPageLoaded"
     ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
     SizeChanged="PageSizeChanged"
-    Unloaded="PageUnloaded"
     mc:Ignorable="d">
 
     <Page.Resources>
@@ -173,12 +172,9 @@
             x:Key="MailRowHoverActionButtonStyle"
             BasedOn="{StaticResource DefaultButtonStyle}"
             TargetType="Button">
-            <Setter Property="Width" Value="44" />
-            <Setter Property="Height" Value="44" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CornerRadius" Value="4" />
         </Style>
 
         <DataTemplate x:Key="MailRowHoverActionButtonsTemplate">
@@ -186,13 +182,12 @@
                 HorizontalAlignment="Right"
                 Background="Transparent"
                 Orientation="Horizontal"
-                Spacing="4">
+                Spacing="12">
                 <Button
                     AutomationProperties.AutomationId="MailRowLeftHoverActionButton"
                     Loaded="MailRowHoverActionButtonLoaded"
                     Style="{StaticResource MailRowHoverActionButtonStyle}"
                     Tag="0"
-                    ToolTipService.ToolTip="{x:Null}"
                     Tapped="MailRowHoverActionTapped">
                     <coreControls:WinoFontIcon FontSize="16" />
                 </Button>
@@ -202,7 +197,6 @@
                     Loaded="MailRowHoverActionButtonLoaded"
                     Style="{StaticResource MailRowHoverActionButtonStyle}"
                     Tag="1"
-                    ToolTipService.ToolTip="{x:Null}"
                     Tapped="MailRowHoverActionTapped">
                     <coreControls:WinoFontIcon FontSize="16" />
                 </Button>
@@ -212,7 +206,6 @@
                     Loaded="MailRowHoverActionButtonLoaded"
                     Style="{StaticResource MailRowHoverActionButtonStyle}"
                     Tag="2"
-                    ToolTipService.ToolTip="{x:Null}"
                     Tapped="MailRowHoverActionTapped">
                     <coreControls:WinoFontIcon FontSize="16" />
                 </Button>
@@ -220,36 +213,19 @@
         </DataTemplate>
 
         <DataTemplate x:Key="MailRowHoverActionOverlayTemplate" x:DataType="interfaces:IMailItemDisplayInformation">
-            <Grid
-                x:Name="HoverActionOverlayRoot"
+            <StackPanel
                 HorizontalAlignment="Right"
-                Padding="48,0,0,0">
-                <Border
-                    x:Name="HoverActionVeil"
-                    IsHitTestVisible="False">
-                    <Border.Background>
-                        <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                            <GradientStop Offset="0" Color="Transparent" />
-                            <GradientStop Offset="0.38" Color="{ThemeResource CardBackgroundFillColorDefault}" />
-                            <GradientStop Offset="1" Color="{ThemeResource CardBackgroundFillColorDefault}" />
-                        </LinearGradientBrush>
-                    </Border.Background>
-                </Border>
-                <StackPanel
-                    x:Name="HoverActionButtonHost"
-                    HorizontalAlignment="Right"
-                    Background="Transparent"
-                    Orientation="Horizontal"
-                    Spacing="8">
-                    <controls:AccountNicknameIndicatorControl
-                        x:Name="HoverRightAccountNicknameIndicator"
-                        VerticalAlignment="Center"
-                        x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
-                        AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
-                        AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
-                    <ContentPresenter Content="{x:Bind}" ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}" />
-                </StackPanel>
-            </Grid>
+                Background="Transparent"
+                Orientation="Horizontal"
+                Spacing="8">
+                <controls:AccountNicknameIndicatorControl
+                    x:Name="HoverRightAccountNicknameIndicator"
+                    VerticalAlignment="Center"
+                    x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
+                    AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                    AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
+                <ContentPresenter Content="{x:Bind}" ContentTemplate="{StaticResource MailRowHoverActionButtonsTemplate}" />
+            </StackPanel>
         </DataTemplate>
 
         <!--
@@ -721,8 +697,8 @@
                     MinHeight="56"
                     Padding="8,4,8,4"
                     ColumnSpacing="6"
-                    Loaded="MailRowLoaded"
-                    Unloaded="MailRowUnloaded">
+                    PointerEntered="MailRowPointerEntered"
+                    PointerExited="MailRowPointerExited">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -909,8 +885,8 @@
                     MinHeight="76"
                     Padding="8,6,8,6"
                     ColumnSpacing="8"
-                    Loaded="MailRowLoaded"
-                    Unloaded="MailRowUnloaded">
+                    PointerEntered="MailRowPointerEntered"
+                    PointerExited="MailRowPointerExited">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -1100,8 +1076,8 @@
                     MinHeight="88"
                     Padding="4,8,8,8"
                     ColumnSpacing="8"
-                    Loaded="MailRowLoaded"
-                    Unloaded="MailRowUnloaded">
+                    PointerEntered="MailRowPointerEntered"
+                    PointerExited="MailRowPointerExited">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -1301,8 +1277,8 @@
                 Margin="{x:Bind helpers:XamlHelpers.GetCompactMailListRowMargin(Kind), Mode=OneTime}"
                 Background="Transparent"
                 ContextRequested="MailItemContextRequested"
-                Loaded="MailRowLoaded"
-                Unloaded="MailRowUnloaded">
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -1356,8 +1332,8 @@
                 Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}"
                 Background="Transparent"
                 ContextRequested="MailItemContextRequested"
-                Loaded="MailRowLoaded"
-                Unloaded="MailRowUnloaded">
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -1411,8 +1387,8 @@
                 Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}"
                 Background="Transparent"
                 ContextRequested="MailItemContextRequested"
-                Loaded="MailRowLoaded"
-                Unloaded="MailRowUnloaded">
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -1465,8 +1441,8 @@
             <Grid
                 Background="Transparent"
                 ContextRequested="MailItemContextRequested"
-                Loaded="MailRowLoaded"
-                Unloaded="MailRowUnloaded">
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -1525,8 +1501,8 @@
             <Grid
                 Background="Transparent"
                 ContextRequested="MailItemContextRequested"
-                Loaded="MailRowLoaded"
-                Unloaded="MailRowUnloaded">
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -1585,8 +1561,8 @@
             <Grid
                 Background="Transparent"
                 ContextRequested="MailItemContextRequested"
-                Loaded="MailRowLoaded"
-                Unloaded="MailRowUnloaded">
+                PointerEntered="MailRowPointerEntered"
+                PointerExited="MailRowPointerExited">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />

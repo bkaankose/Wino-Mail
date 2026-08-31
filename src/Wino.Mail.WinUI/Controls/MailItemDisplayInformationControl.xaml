@@ -20,7 +20,6 @@
     FocusVisualPrimaryThickness="2"
     FocusVisualSecondaryBrush="{StaticResource SystemControlFocusVisualSecondaryBrush}"
     FocusVisualSecondaryThickness="1"
-    Loaded="OnLoaded"
     PointerEntered="ControlPointerEntered"
     PointerExited="ControlPointerExited"
     Unloaded="OnUnloaded">
@@ -52,12 +51,9 @@
             x:Key="HoverActionButtonStyle"
             BasedOn="{StaticResource DefaultButtonStyle}"
             TargetType="Button">
-            <Setter Property="Width" Value="44" />
-            <Setter Property="Height" Value="44" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="CornerRadius" Value="4" />
         </Style>
     </UserControl.Resources>
 
@@ -168,6 +164,47 @@
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(MailItemInformation.FromName), Mode=OneWay}" />
 
+                            <!--  Hover button  -->
+                            <StackPanel
+                                x:Name="HoverActionButtons"
+                                Grid.Column="2"
+                                HorizontalAlignment="Right"
+                                Background="Transparent"
+                                Canvas.ZIndex="999"
+                                ChildrenTransitions="{x:Null}"
+                                Orientation="Horizontal"
+                                Spacing="12"
+                                Visibility="Collapsed">
+                                <Button
+                                    AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetOperationStringLeftHoverActionModeOneWay"
+                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(LeftHoverAction), Mode=OneWay}"
+                                    Click="FirstActionClicked"
+                                    Style="{StaticResource HoverActionButtonStyle}">
+                                    <Button.Content>
+                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(LeftHoverAction), Mode=OneWay}" />
+                                    </Button.Content>
+                                </Button>
+
+                                <Button
+                                    AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetOperationStringCenterHoverActionModeOneWay"
+                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(CenterHoverAction), Mode=OneWay}"
+                                    Click="SecondActionClicked"
+                                    Style="{StaticResource HoverActionButtonStyle}">
+                                    <Button.Content>
+                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(CenterHoverAction), Mode=OneWay}" />
+                                    </Button.Content>
+                                </Button>
+
+                                <Button
+                                    AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetOperationStringRightHoverActionModeOneWay"
+                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(RightHoverAction), Mode=OneWay}"
+                                    Click="ThirdActionClicked"
+                                    Style="{StaticResource HoverActionButtonStyle}">
+                                    <Button.Content>
+                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(RightHoverAction), Mode=OneWay}" />
+                                    </Button.Content>
+                                </Button>
+                            </StackPanel>
                         </Grid>
 
                         <!--  Subject + IsDraft  -->
@@ -302,66 +339,6 @@
                                     IsActive="{x:Bind ActionItem.IsBusy, Mode=OneWay, FallbackValue=False}" />
                             </StackPanel>
                         </Grid>
-                    </Grid>
-
-                    <Grid
-                        x:Name="HoverActionButtons"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Top"
-                        Canvas.ZIndex="999"
-                        Padding="48,0,0,0"
-                        Visibility="Collapsed">
-                        <Border
-                            x:Name="HoverActionVeil"
-                            IsHitTestVisible="False">
-                            <Border.Background>
-                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
-                                    <GradientStop Offset="0" Color="Transparent" />
-                                    <GradientStop Offset="0.38" Color="{ThemeResource CardBackgroundFillColorDefault}" />
-                                    <GradientStop Offset="1" Color="{ThemeResource CardBackgroundFillColorDefault}" />
-                                </LinearGradientBrush>
-                            </Border.Background>
-                        </Border>
-                        <StackPanel
-                            x:Name="HoverActionButtonHost"
-                            HorizontalAlignment="Right"
-                            Background="Transparent"
-                            ChildrenTransitions="{x:Null}"
-                            Orientation="Horizontal"
-                            Spacing="4">
-                            <Button
-                                x:Name="LeftHoverActionButton"
-                                AutomationProperties.AutomationId="MailItemDisplayLeftHoverActionButton"
-                                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(LeftHoverAction), Mode=OneWay}"
-                                Click="FirstActionClicked"
-                                Style="{StaticResource HoverActionButtonStyle}"
-                                ToolTipService.ToolTip="{x:Bind helpers:XamlHelpers.GetOperationString(LeftHoverAction), Mode=OneWay}"
-                                Visibility="{x:Bind helpers:XamlHelpers.GetHoverActionVisibility(LeftHoverAction), Mode=OneWay}">
-                                <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(LeftHoverAction), Mode=OneWay}" />
-                            </Button>
-
-                            <Button
-                                x:Name="CenterHoverActionButton"
-                                AutomationProperties.AutomationId="MailItemDisplayCenterHoverActionButton"
-                                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(CenterHoverAction), Mode=OneWay}"
-                                Click="SecondActionClicked"
-                                Style="{StaticResource HoverActionButtonStyle}"
-                                ToolTipService.ToolTip="{x:Bind helpers:XamlHelpers.GetOperationString(CenterHoverAction), Mode=OneWay}"
-                                Visibility="{x:Bind helpers:XamlHelpers.GetHoverActionVisibility(CenterHoverAction), Mode=OneWay}">
-                                <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(CenterHoverAction), Mode=OneWay}" />
-                            </Button>
-
-                            <Button
-                                x:Name="RightHoverActionButton"
-                                AutomationProperties.AutomationId="MailItemDisplayRightHoverActionButton"
-                                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(RightHoverAction), Mode=OneWay}"
-                                Click="ThirdActionClicked"
-                                Style="{StaticResource HoverActionButtonStyle}"
-                                ToolTipService.ToolTip="{x:Bind helpers:XamlHelpers.GetOperationString(RightHoverAction), Mode=OneWay}"
-                                Visibility="{x:Bind helpers:XamlHelpers.GetHoverActionVisibility(RightHoverAction), Mode=OneWay}">
-                                <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(RightHoverAction), Mode=OneWay}" />
-                            </Button>
-                        </StackPanel>
                     </Grid>
                 </Grid>
             </Grid>

@@ -524,7 +524,6 @@
     "HoverActionOption_Archive": "Archive",
     "HoverActionOption_Delete": "Delete",
     "HoverActionOption_MoveJunk": "Move to Junk",
-    "HoverActionOption_None": "None",
     "HoverActionOption_ToggleFlag": "Flag / Unflag",
     "HoverActionOption_ToggleRead": "Read / Unread",
     "KeyboardShortcuts_FailedToReset": "Failed to reset keyboard shortcuts.",
