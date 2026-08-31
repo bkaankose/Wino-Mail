@@ -1,12 +1,16 @@
 using System;
+using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Moq;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Core.Domain.Models.Settings;
+using Wino.Core.Domain.Translations;
 using Wino.Messaging.Client.Navigation;
 using Xunit;
 
@@ -34,6 +38,98 @@ public sealed class ApplicationThemeTests
             .Should().ContainSingle().Which.Should().Be(both);
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Custom)
             .Should().ContainSingle().Which.Should().Be(custom);
+        ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Online)
+            .Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(AppThemeType.System, false)]
+    [InlineData(AppThemeType.PreDefined, false)]
+    [InlineData(AppThemeType.Custom, true)]
+    public void ThemeActions_AreAvailableOnlyForCustomThemes(AppThemeType type, bool expected)
+        => Theme(type, ThemeCompatibility.Both).IsCustomTheme.Should().Be(expected);
+
+    [Fact]
+    public void GalleryLabels_UseConciseCompatibilityAndCustomCreationWording()
+    {
+        using var stream = WinoTranslationDictionary.GetLanguageStream(AppLanguage.English);
+        var resources = JsonSerializer.Deserialize<Dictionary<string, string>>(stream);
+
+        resources.Should().NotBeNull();
+        resources!["ApplicationThemeGallery_Both"].Should().Be("Both");
+        resources["ApplicationThemeGallery_Adaptive"].Should().Be("Both");
+        resources["ApplicationThemeGallery_Create"].Should().Be("Create custom theme");
+        resources["ApplicationThemeGallery_CreateTheme"].Should().Be("Create custom theme");
+    }
+
+    [Fact]
+    public void OnlineFilter_ShowsOnlineStateWithoutLocalEmptyState()
+    {
+        var viewModel = new Wino.Core.ViewModels.ApplicationThemeGalleryPageViewModel(
+            Mock.Of<INewThemeService>(),
+            Mock.Of<IDialogServiceBase>());
+
+        viewModel.SelectedFilter = ThemeGalleryFilter.Online;
+
+        viewModel.IsOnline.Should().BeTrue();
+        viewModel.IsLocalGalleryVisible.Should().BeFalse();
+        viewModel.IsEmpty.Should().BeFalse();
+        viewModel.FilteredThemes.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("not a uri")]
+    public void WallpaperPreview_InvalidOrEmptyPathIsSafe(string? path)
+        => ThemeWallpaperPreviewPath.GetAbsoluteUri(path).Should().BeNull();
+
+    [Theory]
+    [InlineData("ms-appdata:///local/CustomThemes/example.jpg")]
+    [InlineData("file:///C:/Pictures/example.jpg")]
+    public void WallpaperPreview_AbsolutePathProducesUri(string path)
+        => ThemeWallpaperPreviewPath.GetAbsoluteUri(path).Should().NotBeNull();
+
+    [Fact]
+    public async Task ApplyTheme_UpdatesCurrentThemeOnlyAfterSuccessfulApply()
+    {
+        var current = Theme(AppThemeType.System, ThemeCompatibility.Both);
+        var selected = Theme(AppThemeType.PreDefined, ThemeCompatibility.Dark);
+        var service = new Mock<INewThemeService>();
+        service.SetupGet(candidate => candidate.CurrentApplicationThemeId).Returns(current.Id);
+        service.Setup(candidate => candidate.GetAvailableThemesAsync()).ReturnsAsync([current, selected]);
+        var viewModel = new Wino.Core.ViewModels.ApplicationThemeGalleryPageViewModel(
+            service.Object,
+            Mock.Of<IDialogServiceBase>());
+
+        await viewModel.LoadThemesCommand.ExecuteAsync(null);
+        await viewModel.ApplyThemeCommand.ExecuteAsync(selected);
+
+        service.Verify(candidate => candidate.SelectThemeAsync(selected.Id, false), Times.Once);
+        viewModel.CurrentTheme.Should().BeSameAs(selected);
+        viewModel.FilteredThemes.Should().NotContain(selected);
+    }
+
+    [Fact]
+    public async Task ApplyTheme_FailurePreservesCurrentThemeAndSurfacesError()
+    {
+        var current = Theme(AppThemeType.System, ThemeCompatibility.Both);
+        var selected = Theme(AppThemeType.PreDefined, ThemeCompatibility.Dark);
+        var service = new Mock<INewThemeService>();
+        service.SetupGet(candidate => candidate.CurrentApplicationThemeId).Returns(current.Id);
+        service.Setup(candidate => candidate.GetAvailableThemesAsync()).ReturnsAsync([current, selected]);
+        service.Setup(candidate => candidate.SelectThemeAsync(selected.Id, false)).ThrowsAsync(new InvalidOperationException("Apply failed"));
+        var viewModel = new Wino.Core.ViewModels.ApplicationThemeGalleryPageViewModel(
+            service.Object,
+            Mock.Of<IDialogServiceBase>());
+
+        await viewModel.LoadThemesCommand.ExecuteAsync(null);
+        await viewModel.ApplyThemeCommand.ExecuteAsync(selected);
+
+        viewModel.CurrentTheme.Should().BeSameAs(current);
+        viewModel.FilteredThemes.Should().Contain(selected);
+        viewModel.IsApplyError.Should().BeTrue();
+        viewModel.ErrorMessage.Should().Be("Apply failed");
     }
 
     [Fact]

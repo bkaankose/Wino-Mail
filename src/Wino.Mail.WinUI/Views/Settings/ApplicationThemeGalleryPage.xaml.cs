@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -23,6 +24,18 @@ public sealed partial class ApplicationThemeGalleryPage : ApplicationThemeGaller
         ThemeCompatibility.Dark => Translator.ApplicationThemeGallery_Dark,
         _ => Translator.ApplicationThemeGallery_Both
     };
+
+    private void ThemeGridItemClick(object sender, ItemClickEventArgs args)
+    {
+        if (args.ClickedItem is AppThemeBase theme && ViewModel.ApplyThemeCommand.CanExecute(theme))
+            ViewModel.ApplyThemeCommand.Execute(theme);
+    }
+
+    private void ThemeCardLoaded(object sender, RoutedEventArgs args)
+    {
+        if (sender is FrameworkElement { DataContext: AppThemeBase theme } element && !theme.IsCustomTheme)
+            element.ContextFlyout = null;
+    }
 
     private void ThemeCardContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {

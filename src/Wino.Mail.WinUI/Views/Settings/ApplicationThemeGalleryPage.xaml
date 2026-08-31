@@ -38,35 +38,41 @@
             <TextBlock Text="{x:Bind domain:Translator.ApplicationThemeGallery_Loading, Mode=OneTime}" />
         </StackPanel>
 
-        <StackPanel Spacing="8">
-            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.ApplicationThemeGallery_CurrentTheme, Mode=OneTime}" />
+        <StackPanel Spacing="6">
+            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.ApplicationThemeGallery_CurrentTheme, Mode=OneTime}" />
             <ContentControl Content="{x:Bind ViewModel.CurrentTheme, Mode=OneWay}">
                 <ContentControl.ContentTemplate>
                     <DataTemplate x:DataType="themes:AppThemeBase">
-                        <Border Width="175" BorderBrush="{ThemeResource AccentFillColorDefaultBrush}" BorderThickness="2" CornerRadius="6" ContextRequested="ThemeCardContextRequested">
+                        <Border
+                            Padding="8"
+                            BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                            BorderThickness="2"
+                            CornerRadius="6"
+                            ContextRequested="ThemeCardContextRequested"
+                            Loaded="ThemeCardLoaded">
                             <Border.ContextFlyout>
                                 <MenuFlyout>
-                                    <MenuFlyoutItem AutomationProperties.AutomationId="ApplicationThemeGalleryCurrentEditMenuItem" Command="{Binding ElementName=Root, Path=ViewModel.EditThemeCommand}" CommandParameter="{x:Bind}" Text="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}" />
-                                    <MenuFlyoutItem AutomationProperties.AutomationId="ApplicationThemeGalleryCurrentRemoveMenuItem" Command="{Binding ElementName=Root, Path=ViewModel.RemoveThemeCommand}" CommandParameter="{x:Bind}" Text="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}" />
+                                    <MenuFlyoutItem AutomationProperties.AutomationId="ApplicationThemeGalleryCurrentEditMenuItem" Command="{Binding ElementName=Root, Path=ViewModel.EditThemeCommand}" CommandParameter="{x:Bind}" Text="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
+                                    <MenuFlyoutItem AutomationProperties.AutomationId="ApplicationThemeGalleryCurrentRemoveMenuItem" Command="{Binding ElementName=Root, Path=ViewModel.RemoveThemeCommand}" CommandParameter="{x:Bind}" Text="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
                                 </MenuFlyout>
                             </Border.ContextFlyout>
-                            <Grid RowSpacing="0">
-                                <Grid.RowDefinitions><RowDefinition Height="125" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                                <Grid Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="72" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <Border Height="48" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="4">
                                     <Image Source="{x:Bind BackgroundPreviewImage}" Stretch="UniformToFill" />
-                                    <Border Width="20" Height="20" Margin="0,12,12,0" HorizontalAlignment="Right" VerticalAlignment="Top" Background="{x:Bind AccentColor}" CornerRadius="4" />
-                                </Grid>
-                                <StackPanel Grid.Row="1" Padding="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Spacing="4">
-                                    <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind ThemeName}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind CompatibilityTitle, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
-                                    <Button
-                                        AutomationProperties.AutomationId="ApplicationThemeGalleryCurrentEditButton"
-                                        HorizontalAlignment="Stretch"
-                                        Command="{Binding ElementName=Root, Path=ViewModel.EditThemeCommand}"
-                                        CommandParameter="{x:Bind}"
-                                        Content="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
+                                </Border>
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind ThemeName}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind CompatibilityTitle, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
                                 </StackPanel>
+                                <Button
+                                    Grid.Column="2"
+                                    AutomationProperties.AutomationId="ApplicationThemeGalleryCurrentEditButton"
+                                    VerticalAlignment="Center"
+                                    Command="{Binding ElementName=Root, Path=ViewModel.EditThemeCommand}"
+                                    CommandParameter="{x:Bind}"
+                                    Content="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -74,53 +80,73 @@
             </ContentControl>
         </StackPanel>
 
-        <Grid ColumnSpacing="12">
+        <Grid ColumnSpacing="12" RowSpacing="8">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <controls:Segmented AutomationProperties.AutomationId="ApplicationThemeGalleryFilter" SelectedIndex="{x:Bind ViewModel.SelectedFilterIndex, Mode=TwoWay}">
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup>
+                    <VisualState x:Name="WideThemeFilterCommands">
+                        <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="760" /></VisualState.StateTriggers>
+                        <VisualState.Setters>
+                            <Setter Target="ThemeFilter.(Grid.ColumnSpan)" Value="1" />
+                            <Setter Target="CreateThemeButton.(Grid.Row)" Value="0" />
+                            <Setter Target="CreateThemeButton.(Grid.Column)" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+            <controls:Segmented
+                x:Name="ThemeFilter"
+                Grid.ColumnSpan="2"
+                AutomationProperties.AutomationId="ApplicationThemeGalleryFilter"
+                SelectedIndex="{x:Bind ViewModel.SelectedFilterIndex, Mode=TwoWay}">
                 <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_All, Mode=OneTime}" />
                 <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Dark, Mode=OneTime}" />
                 <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Light, Mode=OneTime}" />
                 <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Both, Mode=OneTime}" />
                 <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Custom, Mode=OneTime}" />
+                <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Online, Mode=OneTime}" />
             </controls:Segmented>
             <Button
-                Grid.Column="1"
+                x:Name="CreateThemeButton"
+                Grid.Row="1"
                 AutomationProperties.AutomationId="ApplicationThemeGalleryCreateButton"
                 Command="{x:Bind ViewModel.CreateThemeCommand}"
                 Content="{x:Bind domain:Translator.ApplicationThemeGallery_Create, Mode=OneTime}" />
         </Grid>
 
         <GridView
+            x:Name="ThemeLocalGallery"
+            x:Load="{x:Bind ViewModel.IsLocalGalleryVisible, Mode=OneWay}"
             AutomationProperties.AutomationId="ApplicationThemeGalleryGrid"
-            IsItemClickEnabled="False"
+            IsItemClickEnabled="True"
+            ItemClick="ThemeGridItemClick"
+            SelectionMode="None"
             ItemsSource="{x:Bind ViewModel.FilteredThemes}">
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="themes:AppThemeBase">
-                    <Border Width="175" CornerRadius="6" ContextRequested="ThemeCardContextRequested">
+                    <Border Width="175" AutomationProperties.Name="{x:Bind ThemeName}" CornerRadius="6" ContextRequested="ThemeCardContextRequested" Loaded="ThemeCardLoaded">
                         <Border.ContextFlyout>
                             <MenuFlyout>
                                 <MenuFlyoutItem
                                     AutomationProperties.AutomationId="ApplicationThemeGalleryEditMenuItem"
                                     Command="{Binding ElementName=Root, Path=ViewModel.EditThemeCommand}"
                                     CommandParameter="{x:Bind}"
-                                    Text="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}" />
+                                    Text="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
                                 <MenuFlyoutItem
                                     AutomationProperties.AutomationId="ApplicationThemeGalleryRemoveMenuItem"
                                     Command="{Binding ElementName=Root, Path=ViewModel.RemoveThemeCommand}"
                                     CommandParameter="{x:Bind}"
-                                    Text="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}" />
+                                    Text="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
                             </MenuFlyout>
                         </Border.ContextFlyout>
                         <Grid>
                             <Grid.RowDefinitions><RowDefinition Height="125" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                            <Button
-                                AutomationProperties.AutomationId="ApplicationThemeGalleryThemeButton"
-                                AutomationProperties.Name="{x:Bind ThemeName}"
-                                Padding="0"
-                                Command="{Binding ElementName=Root, Path=ViewModel.ApplyThemeCommand}"
-                                CommandParameter="{x:Bind}">
+                            <Border AutomationProperties.AutomationId="ApplicationThemeGalleryThemeButton">
                                 <Image Width="175" Height="125" Source="{x:Bind BackgroundPreviewImage}" Stretch="UniformToFill" />
-                            </Button>
+                            </Border>
                             <StackPanel Grid.Row="1" Padding="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Spacing="4">
                                 <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind ThemeName}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind CompatibilityTitle, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
@@ -143,12 +169,14 @@
             <Button AutomationProperties.AutomationId="ApplicationThemeGalleryEmptyCreateButton" Command="{x:Bind ViewModel.CreateThemeCommand}" Content="{x:Bind domain:Translator.ApplicationThemeGallery_Create, Mode=OneTime}" />
         </StackPanel>
 
-        <controls:SettingsCard
-            AutomationProperties.AutomationId="ApplicationThemeGalleryOnlineCard"
-            Description="{x:Bind domain:Translator.ApplicationThemeGallery_OnlineDescription, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.ApplicationThemeGallery_OnlineTitle, Mode=OneTime}"
-            IsEnabled="False">
-            <TextBlock Text="{x:Bind domain:Translator.ApplicationThemeGallery_ComingSoon, Mode=OneTime}" />
-        </controls:SettingsCard>
+        <StackPanel
+            x:Name="ThemeOnlineState"
+            x:Load="{x:Bind ViewModel.IsOnline, Mode=OneWay}"
+            AutomationProperties.AutomationId="ApplicationThemeGalleryOnlineState"
+            HorizontalAlignment="Center"
+            Spacing="6">
+            <TextBlock HorizontalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.ApplicationThemeGallery_ComingSoon, Mode=OneTime}" />
+            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.ApplicationThemeGallery_OnlineDescription, Mode=OneTime}" TextAlignment="Center" TextWrapping="Wrap" />
+        </StackPanel>
     </StackPanel>
 </abstract:ApplicationThemeGalleryPageAbstract>

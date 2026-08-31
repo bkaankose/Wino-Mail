@@ -18,6 +18,7 @@ public static class ThemeGalleryFilterPolicy
             ThemeGalleryFilter.Both => theme.AppThemeType != AppThemeType.Custom && theme.Compatibility == ThemeCompatibility.Both,
             ThemeGalleryFilter.Dark => theme.AppThemeType != AppThemeType.Custom && theme.Compatibility is ThemeCompatibility.Dark or ThemeCompatibility.Both,
             ThemeGalleryFilter.Light => theme.AppThemeType != AppThemeType.Custom && theme.Compatibility is ThemeCompatibility.Light or ThemeCompatibility.Both,
+            ThemeGalleryFilter.Online => false,
             _ => false
         };
 }

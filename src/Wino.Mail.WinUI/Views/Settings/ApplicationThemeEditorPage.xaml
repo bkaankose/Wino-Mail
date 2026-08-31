@@ -7,6 +7,7 @@
     xmlns:data="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:local="using:Wino.Views.Settings"
     x:Name="Root"
     Title="{x:Bind ViewModel.PageTitle, Mode=OneWay}">
 
@@ -142,7 +143,7 @@
                     </Border>
                 </Grid>
             </Border>
-            <Image Grid.Row="2" Height="150" Source="{x:Bind ViewModel.WallpaperPreviewPath, Mode=OneWay}" Stretch="UniformToFill" />
+            <Image Grid.Row="2" Height="150" Source="{x:Bind local:ApplicationThemeEditorPage.GetWallpaperPreviewSource(ViewModel.WallpaperPreviewPath), Mode=OneWay}" Stretch="UniformToFill" />
         </Grid>
     </Grid>
 </abstract:ApplicationThemeEditorPageAbstract>

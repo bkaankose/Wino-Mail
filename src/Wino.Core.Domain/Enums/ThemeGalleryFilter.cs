@@ -6,5 +6,6 @@ public enum ThemeGalleryFilter
     Dark,
     Light,
     Both,
-    Custom
+    Custom,
+    Online
 }

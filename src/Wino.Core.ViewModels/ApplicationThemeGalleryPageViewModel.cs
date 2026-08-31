@@ -29,9 +29,12 @@ public partial class ApplicationThemeGalleryPageViewModel : CoreBaseViewModel, I
     [ObservableProperty] public partial bool IsLoading { get; set; }
     [ObservableProperty] public partial bool IsStorageError { get; set; }
     [ObservableProperty] public partial bool IsApplyError { get; set; }
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(ApplyThemeCommand))] public partial bool IsApplying { get; set; }
     [ObservableProperty] public partial string ErrorMessage { get; set; } = string.Empty;
 
-    public bool IsEmpty => !IsLoading && !IsStorageError && FilteredThemes.Count == 0;
+    public bool IsOnline => SelectedFilter == ThemeGalleryFilter.Online;
+    public bool IsLocalGalleryVisible => !IsOnline;
+    public bool IsEmpty => !IsOnline && !IsLoading && !IsStorageError && FilteredThemes.Count == 0;
     public int SelectedFilterIndex
     {
         get => (int)SelectedFilter;
@@ -65,6 +68,8 @@ public partial class ApplicationThemeGalleryPageViewModel : CoreBaseViewModel, I
     partial void OnSelectedFilterChanged(ThemeGalleryFilter value)
     {
         OnPropertyChanged(nameof(SelectedFilterIndex));
+        OnPropertyChanged(nameof(IsOnline));
+        OnPropertyChanged(nameof(IsLocalGalleryVisible));
         RefreshFilter();
     }
 
@@ -97,13 +102,16 @@ public partial class ApplicationThemeGalleryPageViewModel : CoreBaseViewModel, I
         }
     }
 
-    [RelayCommand]
+    private bool CanApplyTheme(AppThemeBase? theme) => theme != null && !IsApplying;
+
+    [RelayCommand(CanExecute = nameof(CanApplyTheme))]
     private async Task ApplyThemeAsync(AppThemeBase? theme)
     {
         if (theme == null)
             return;
 
         IsApplyError = false;
+        IsApplying = true;
 
         try
         {
@@ -115,8 +123,14 @@ public partial class ApplicationThemeGalleryPageViewModel : CoreBaseViewModel, I
         catch (Exception ex)
         {
             _failedTheme = theme;
-            ErrorMessage = ex.Message;
+            ErrorMessage = string.IsNullOrWhiteSpace(ex.Message)
+                ? Translator.ApplicationThemeGallery_ApplyError
+                : ex.Message;
             IsApplyError = true;
+        }
+        finally
+        {
+            IsApplying = false;
         }
     }
 
