@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Controls"
+    xmlns:hoverActions="using:Wino.Mail.Controls.HoverActions"
     xmlns:mailControls="using:Wino.Mail.Controls.MailListView">
 
     <ResourceDictionary.MergedDictionaries>
@@ -54,6 +55,28 @@
                                         ContentTemplate="{TemplateBinding ContentTemplate}"
                                         ContentTransitions="{TemplateBinding ContentTransitions}" />
 
+                                    <Grid
+                                        x:Name="HoverActionsHost"
+                                        Grid.ColumnSpan="2"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Center"
+                                        Canvas.ZIndex="999"
+                                        IsHitTestVisible="False"
+                                        Opacity="0"
+                                        Visibility="Collapsed">
+                                        <Grid.RenderTransform>
+                                            <CompositeTransform x:Name="HoverActionsTransform" TranslateX="8" />
+                                        </Grid.RenderTransform>
+                                        <hoverActions:HoverActionsControl
+                                            ActionCommand="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=HoverActionCommand}"
+                                            ActionCommandParameter="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Row}"
+                                            ActionItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Row.SourceItem}"
+                                            CenterAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=CenterHoverAction}"
+                                            Labels="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=HoverActionLabels}"
+                                            LeftAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=LeftHoverAction}"
+                                            RightAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=RightHoverAction}" />
+                                    </Grid>
+
 
                                 </Grid>
                                 <VisualStateManager.VisualStateGroups>
@@ -63,7 +86,25 @@
                                             <VisualState.Setters>
                                                 <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPointerOver}" />
                                                 <Setter Target="ThreadContent.Foreground" Value="{ThemeResource ListViewItemForegroundPointerOver}" />
+                                                <Setter Target="HoverActionsHost.IsHitTestVisible" Value="True" />
+                                                <Setter Target="HoverActionsHost.Visibility" Value="Visible" />
                                             </VisualState.Setters>
+                                            <Storyboard>
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsHost"
+                                                    Storyboard.TargetProperty="Opacity"
+                                                    To="1"
+                                                    Duration="0:0:0.14" />
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsTransform"
+                                                    Storyboard.TargetProperty="TranslateX"
+                                                    To="0"
+                                                    Duration="0:0:0.14">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
                                         </VisualState>
                                         <VisualState x:Name="Selected">
                                             <VisualState.Setters>
@@ -75,7 +116,25 @@
                                             <VisualState.Setters>
                                                 <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelectedPointerOver}" />
                                                 <Setter Target="ThreadContent.Foreground" Value="{ThemeResource ListViewItemForegroundSelected}" />
+                                                <Setter Target="HoverActionsHost.IsHitTestVisible" Value="True" />
+                                                <Setter Target="HoverActionsHost.Visibility" Value="Visible" />
                                             </VisualState.Setters>
+                                            <Storyboard>
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsHost"
+                                                    Storyboard.TargetProperty="Opacity"
+                                                    To="1"
+                                                    Duration="0:0:0.14" />
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsTransform"
+                                                    Storyboard.TargetProperty="TranslateX"
+                                                    To="0"
+                                                    Duration="0:0:0.14">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
                                         </VisualState>
                                         <VisualState x:Name="Pressed">
                                             <VisualState.Setters>
@@ -144,6 +203,28 @@
                                         ContentTemplate="{TemplateBinding ContentTemplate}"
                                         ContentTransitions="{TemplateBinding ContentTransitions}" />
 
+                                    <Grid
+                                        x:Name="HoverActionsHost"
+                                        Grid.ColumnSpan="2"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        Canvas.ZIndex="999"
+                                        IsHitTestVisible="False"
+                                        Opacity="0"
+                                        Visibility="Collapsed">
+                                        <Grid.RenderTransform>
+                                            <CompositeTransform x:Name="HoverActionsTransform" TranslateX="8" />
+                                        </Grid.RenderTransform>
+                                        <hoverActions:HoverActionsControl
+                                            ActionCommand="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=HoverActionCommand}"
+                                            ActionCommandParameter="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Row}"
+                                            ActionItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Row.SourceItem}"
+                                            CenterAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=CenterHoverAction}"
+                                            Labels="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=HoverActionLabels}"
+                                            LeftAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=LeftHoverAction}"
+                                            RightAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=RightHoverAction}" />
+                                    </Grid>
+
 
                                 </Grid>
                                 <VisualStateManager.VisualStateGroups>
@@ -153,11 +234,50 @@
                                             <VisualState.Setters>
                                                 <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPointerOver}" />
                                                 <Setter Target="MailContent.Foreground" Value="{ThemeResource ListViewItemForegroundPointerOver}" />
+                                                <Setter Target="HoverActionsHost.IsHitTestVisible" Value="True" />
+                                                <Setter Target="HoverActionsHost.Visibility" Value="Visible" />
                                             </VisualState.Setters>
+                                            <Storyboard>
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsHost"
+                                                    Storyboard.TargetProperty="Opacity"
+                                                    To="1"
+                                                    Duration="0:0:0.14" />
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsTransform"
+                                                    Storyboard.TargetProperty="TranslateX"
+                                                    To="0"
+                                                    Duration="0:0:0.14">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
                                         </VisualState>
                                         <!--  Selected states will never work because we don't select items.  -->
                                         <VisualState x:Name="Selected" />
-                                        <VisualState x:Name="SelectedPointerOver" />
+                                        <VisualState x:Name="SelectedPointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="HoverActionsHost.IsHitTestVisible" Value="True" />
+                                                <Setter Target="HoverActionsHost.Visibility" Value="Visible" />
+                                            </VisualState.Setters>
+                                            <Storyboard>
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsHost"
+                                                    Storyboard.TargetProperty="Opacity"
+                                                    To="1"
+                                                    Duration="0:0:0.14" />
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsTransform"
+                                                    Storyboard.TargetProperty="TranslateX"
+                                                    To="0"
+                                                    Duration="0:0:0.14">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </VisualState>
                                         <VisualState x:Name="Pressed">
                                             <VisualState.Setters>
                                                 <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPressed}" />
@@ -212,6 +332,28 @@
                                     Content="{TemplateBinding Content}"
                                     ContentTemplate="{TemplateBinding ContentTemplate}"
                                     ContentTransitions="{TemplateBinding ContentTransitions}" />
+
+                                <Grid
+                                    x:Name="HoverActionsHost"
+                                    Grid.ColumnSpan="2"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Canvas.ZIndex="999"
+                                    IsHitTestVisible="False"
+                                    Opacity="0"
+                                    Visibility="Collapsed">
+                                    <Grid.RenderTransform>
+                                        <CompositeTransform x:Name="HoverActionsTransform" TranslateX="8" />
+                                    </Grid.RenderTransform>
+                                    <hoverActions:HoverActionsControl
+                                        ActionCommand="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=HoverActionCommand}"
+                                        ActionCommandParameter="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Row}"
+                                        ActionItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Row.SourceItem}"
+                                        CenterAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=CenterHoverAction}"
+                                        Labels="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=HoverActionLabels}"
+                                        LeftAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=LeftHoverAction}"
+                                        RightAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=RightHoverAction}" />
+                                </Grid>
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
                                         <VisualState x:Name="Normal" />
@@ -219,7 +361,25 @@
                                             <VisualState.Setters>
                                                 <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPointerOver}" />
                                                 <Setter Target="ThreadContent.Foreground" Value="{ThemeResource ListViewItemForegroundPointerOver}" />
+                                                <Setter Target="HoverActionsHost.IsHitTestVisible" Value="True" />
+                                                <Setter Target="HoverActionsHost.Visibility" Value="Visible" />
                                             </VisualState.Setters>
+                                            <Storyboard>
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsHost"
+                                                    Storyboard.TargetProperty="Opacity"
+                                                    To="1"
+                                                    Duration="0:0:0.14" />
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsTransform"
+                                                    Storyboard.TargetProperty="TranslateX"
+                                                    To="0"
+                                                    Duration="0:0:0.14">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
                                         </VisualState>
                                         <VisualState x:Name="Selected">
                                             <VisualState.Setters>
@@ -231,7 +391,25 @@
                                             <VisualState.Setters>
                                                 <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundSelectedPointerOver}" />
                                                 <Setter Target="ThreadContent.Foreground" Value="{ThemeResource ListViewItemForegroundSelected}" />
+                                                <Setter Target="HoverActionsHost.IsHitTestVisible" Value="True" />
+                                                <Setter Target="HoverActionsHost.Visibility" Value="Visible" />
                                             </VisualState.Setters>
+                                            <Storyboard>
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsHost"
+                                                    Storyboard.TargetProperty="Opacity"
+                                                    To="1"
+                                                    Duration="0:0:0.14" />
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsTransform"
+                                                    Storyboard.TargetProperty="TranslateX"
+                                                    To="0"
+                                                    Duration="0:0:0.14">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
                                         </VisualState>
                                         <VisualState x:Name="Pressed">
                                             <VisualState.Setters>
@@ -293,6 +471,28 @@
                                     Content="{TemplateBinding Content}"
                                     ContentTemplate="{TemplateBinding ContentTemplate}"
                                     ContentTransitions="{TemplateBinding ContentTransitions}" />
+
+                                <Grid
+                                    x:Name="HoverActionsHost"
+                                    Grid.ColumnSpan="2"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Center"
+                                    Canvas.ZIndex="999"
+                                    IsHitTestVisible="False"
+                                    Opacity="0"
+                                    Visibility="Collapsed">
+                                    <Grid.RenderTransform>
+                                        <CompositeTransform x:Name="HoverActionsTransform" TranslateX="8" />
+                                    </Grid.RenderTransform>
+                                    <hoverActions:HoverActionsControl
+                                        ActionCommand="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=HoverActionCommand}"
+                                        ActionCommandParameter="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Row}"
+                                        ActionItem="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=Row.SourceItem}"
+                                        CenterAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=CenterHoverAction}"
+                                        Labels="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=HoverActionLabels}"
+                                        LeftAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=LeftHoverAction}"
+                                        RightAction="{Binding RelativeSource={RelativeSource Mode=TemplatedParent}, Path=RightHoverAction}" />
+                                </Grid>
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
                                         <VisualState x:Name="Normal" />
@@ -300,11 +500,50 @@
                                             <VisualState.Setters>
                                                 <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPointerOver}" />
                                                 <Setter Target="MailContent.Foreground" Value="{ThemeResource ListViewItemForegroundPointerOver}" />
+                                                <Setter Target="HoverActionsHost.IsHitTestVisible" Value="True" />
+                                                <Setter Target="HoverActionsHost.Visibility" Value="Visible" />
                                             </VisualState.Setters>
+                                            <Storyboard>
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsHost"
+                                                    Storyboard.TargetProperty="Opacity"
+                                                    To="1"
+                                                    Duration="0:0:0.14" />
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsTransform"
+                                                    Storyboard.TargetProperty="TranslateX"
+                                                    To="0"
+                                                    Duration="0:0:0.14">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
                                         </VisualState>
                                         <!--  Selected states will never work because we don't select items.  -->
                                         <VisualState x:Name="Selected" />
-                                        <VisualState x:Name="SelectedPointerOver" />
+                                        <VisualState x:Name="SelectedPointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="HoverActionsHost.IsHitTestVisible" Value="True" />
+                                                <Setter Target="HoverActionsHost.Visibility" Value="Visible" />
+                                            </VisualState.Setters>
+                                            <Storyboard>
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsHost"
+                                                    Storyboard.TargetProperty="Opacity"
+                                                    To="1"
+                                                    Duration="0:0:0.14" />
+                                                <DoubleAnimation
+                                                    Storyboard.TargetName="HoverActionsTransform"
+                                                    Storyboard.TargetProperty="TranslateX"
+                                                    To="0"
+                                                    Duration="0:0:0.14">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </VisualState>
                                         <VisualState x:Name="Pressed">
                                             <VisualState.Setters>
                                                 <Setter Target="RootGrid.Background" Value="{ThemeResource ListViewItemBackgroundPressed}" />

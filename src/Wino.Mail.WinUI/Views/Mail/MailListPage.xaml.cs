@@ -32,6 +32,7 @@ using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.Controls.Core.SearchBar;
+using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Controls.ListView;
@@ -211,11 +212,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
             SelectAllCheckbox.Checked += SelectAllCheckboxChecked;
             SelectAllCheckbox.Unchecked += SelectAllCheckboxUnchecked;
         });
-    }
-
-    private void MailItemDisplayInformationControl_HoverActionExecuted(object sender, MailOperationPreperationRequest e)
-    {
-        ViewModel.ExecuteHoverActionCommand.Execute(e);
     }
 
     private async void FolderPivotChanged(object sender, SelectionChangedEventArgs e)
@@ -1125,12 +1121,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         return null;
     }
 
-    private void MailRowPointerEntered(object sender, PointerRoutedEventArgs e)
-        => SetMailRowHoverActionVisibility(sender as DependencyObject, true);
-
-    private void MailRowPointerExited(object sender, PointerRoutedEventArgs e)
-        => SetMailRowHoverActionVisibility(sender as DependencyObject, false);
-
     private void ThreadExpanderPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         // Mail & Calendar treats every row surface as a selection target while touch
@@ -1160,134 +1150,23 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private void SetMailRowHoverActionVisibility(DependencyObject? rowRoot, bool isVisible)
+    private void MailListViewHoverActionInvoked(object? sender, HoverActionInvokedEventArgs e)
     {
-        if (ResolveMailListRow(rowRoot) is not { } row)
+        var operation = e.Action switch
+        {
+            HoverActionKind.Archive => MailOperation.Archive,
+            HoverActionKind.Delete => MailOperation.SoftDelete,
+            HoverActionKind.ToggleFlag => MailOperation.SetFlag,
+            HoverActionKind.ToggleRead => MailOperation.MarkAsRead,
+            HoverActionKind.MoveToJunk => MailOperation.MoveToJunk,
+            _ => MailOperation.None,
+        };
+
+        if (operation == MailOperation.None)
             return;
 
-        var shouldShowHoverActions = isVisible && ViewModel.PreferencesService.IsHoverActionsEnabled;
-
-        // The overlay is x:Load-deferred on this flag, so a row the pointer never reaches
-        // never builds its hover buttons.
-        row.IsPointerOver = shouldShowHoverActions;
-
-        // Already-realized overlays keep their glyphs across hovers, so they are refreshed
-        // here to pick up hover action preference changes. A first realization is covered by
-        // MailRowHoverActionButtonLoaded instead.
-        if (shouldShowHoverActions &&
-            FindDescendantByName<FrameworkElement>(rowRoot, "HoverActionButtons") is { } hoverActionButtons)
-        {
-            RefreshHoverActionButtons(hoverActionButtons);
-        }
-
-        SetRightAccountNicknameIndicatorVisibility(rowRoot, !shouldShowHoverActions);
-    }
-
-    private static void SetRightAccountNicknameIndicatorVisibility(DependencyObject? rowRoot, bool isVisible)
-    {
-        foreach (var indicator in FindDescendants<FrameworkElement>(rowRoot))
-        {
-            if (indicator.Name is "RightAccountNicknameIndicator" or "RightNicknameIndicator")
-            {
-                indicator.Visibility = isVisible
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
-            }
-        }
-    }
-
-    private static void RefreshHoverActionButtons(DependencyObject hoverActionButtons)
-    {
-        foreach (var button in FindDescendants<Button>(hoverActionButtons))
-        {
-            RefreshHoverActionButton(button);
-        }
-    }
-
-    private static void RefreshHoverActionButton(Button button)
-    {
-        if (button.Tag is not string actionIndexText || !int.TryParse(actionIndexText, out var actionIndex))
-            return;
-
-        AutomationProperties.SetName(button, XamlHelpers.GetHoverActionOperationString(actionIndex));
-
-        if (button.Content is WinoFontIcon icon)
-        {
-            icon.Icon = XamlHelpers.GetHoverActionWinoIconGlyph(actionIndex);
-        }
-    }
-
-    private void MailRowHoverActionButtonLoaded(object sender, RoutedEventArgs e)
-    {
-        if (sender is Button button)
-        {
-            RefreshHoverActionButton(button);
-        }
-    }
-
-    private static T? FindDescendantByName<T>(DependencyObject? rootElement, string name)
-        where T : FrameworkElement
-    {
-        if (rootElement == null)
-            return null;
-
-        var childrenCount = VisualTreeHelper.GetChildrenCount(rootElement);
-
-        for (var i = 0; i < childrenCount; i++)
-        {
-            var child = VisualTreeHelper.GetChild(rootElement, i);
-
-            if (child is T frameworkElement && frameworkElement.Name == name)
-                return frameworkElement;
-
-            var descendant = FindDescendantByName<T>(child, name);
-
-            if (descendant != null)
-                return descendant;
-        }
-
-        return null;
-    }
-
-    private static IEnumerable<T> FindDescendants<T>(DependencyObject? rootElement)
-        where T : DependencyObject
-    {
-        if (rootElement == null)
-            yield break;
-
-        var childrenCount = VisualTreeHelper.GetChildrenCount(rootElement);
-
-        for (var i = 0; i < childrenCount; i++)
-        {
-            var child = VisualTreeHelper.GetChild(rootElement, i);
-
-            if (child is T match)
-                yield return match;
-
-            foreach (var descendant in FindDescendants<T>(child))
-            {
-                yield return descendant;
-            }
-        }
-    }
-
-    private void MailRowHoverActionTapped(object sender, TappedRoutedEventArgs e)
-    {
-        e.Handled = true;
-
-        if (sender is not FrameworkElement { Tag: string actionIndexText } element ||
-            !int.TryParse(actionIndexText, out var actionIndex))
-        {
-            return;
-        }
-
-        var operation = XamlHelpers.GetHoverAction(actionIndex);
-        var row = ResolveMailListRow(element);
-        var targetItems = row?.LeafItems.OfType<MailItemViewModel>().ToArray() ??
-            (element.DataContext is MailItemViewModel mailItem
-                ? [mailItem]
-                : []);
-        ExecuteHoverAction(targetItems, row?.SourceItem as MailItemViewModel, operation);
+        var targetItems = e.Row.LeafItems.OfType<MailItemViewModel>().ToArray();
+        ExecuteHoverAction(targetItems, e.Row.SourceItem as MailItemViewModel, operation);
     }
 
     private async void ExecuteHoverAction(

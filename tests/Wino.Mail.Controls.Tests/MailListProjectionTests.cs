@@ -211,29 +211,6 @@ public sealed class MailListProjectionTests
         projection.Groups.Should().BeEmpty();
     }
 
-    [Fact]
-    public void IsPointerOver_NotifiesOnce_PerStateChange()
-    {
-        var item = new TestItem("single");
-        var collection = new MailListCollection<TestItem> { item };
-        using var projection = new MailListProjection(collection);
-        var row = projection.FindRow(item.StableId)!;
-        var notifications = 0;
-        row.PropertyChanged += (_, args) =>
-        {
-            if (args.PropertyName == nameof(MailListRow.IsPointerOver))
-            {
-                notifications++;
-            }
-        };
-
-        row.IsPointerOver = true;
-        row.IsPointerOver = true;
-        row.IsPointerOver = false;
-
-        notifications.Should().Be(2);
-    }
-
     private static TestItem[] CreateItems(string prefix, int count)
     {
         var items = new TestItem[count];

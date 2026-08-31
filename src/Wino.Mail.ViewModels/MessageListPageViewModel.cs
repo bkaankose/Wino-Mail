@@ -20,6 +20,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
 
     private readonly List<MailOperation> availableHoverActions =
     [
+        MailOperation.None,
         MailOperation.Archive,
         MailOperation.SoftDelete,
         MailOperation.SetFlag,
@@ -52,6 +53,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
 
     public List<string> AvailableHoverActionsTranslations { get; set; } =
     [
+        Translator.HoverActionOption_None,
         Translator.HoverActionOption_Archive,
         Translator.HoverActionOption_Delete,
         Translator.HoverActionOption_ToggleFlag,

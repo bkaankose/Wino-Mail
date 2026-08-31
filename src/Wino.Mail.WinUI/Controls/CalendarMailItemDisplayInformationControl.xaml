@@ -17,7 +17,6 @@
             x:Name="BaseMailControl"
             ActionItem="{x:Bind MailItem, Mode=OneWay}"
             DisplayMode="{x:Bind DisplayMode, Mode=OneWay}"
-            HoverActionExecuted="BaseMailControlHoverActionExecuted"
             MailItemInformation="{x:Bind MailItem, Mode=OneWay}"
             TimeFormatPreference="{x:Bind TimeFormatPreference, Mode=OneWay}"
             ShowPreviewText="False" />

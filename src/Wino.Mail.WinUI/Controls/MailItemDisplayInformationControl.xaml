@@ -20,8 +20,6 @@
     FocusVisualPrimaryThickness="2"
     FocusVisualSecondaryBrush="{StaticResource SystemControlFocusVisualSecondaryBrush}"
     FocusVisualSecondaryThickness="1"
-    PointerEntered="ControlPointerEntered"
-    PointerExited="ControlPointerExited"
     Unloaded="OnUnloaded">
 
     <UserControl.Resources>
@@ -47,14 +45,6 @@
                 Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}" />
         </DataTemplate>
 
-        <Style
-            x:Key="HoverActionButtonStyle"
-            BasedOn="{StaticResource DefaultButtonStyle}"
-            TargetType="Button">
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
     </UserControl.Resources>
 
     <Grid>
@@ -164,47 +154,6 @@
                                 TextTrimming="CharacterEllipsis"
                                 Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(MailItemInformation.FromName), Mode=OneWay}" />
 
-                            <!--  Hover button  -->
-                            <StackPanel
-                                x:Name="HoverActionButtons"
-                                Grid.Column="2"
-                                HorizontalAlignment="Right"
-                                Background="Transparent"
-                                Canvas.ZIndex="999"
-                                ChildrenTransitions="{x:Null}"
-                                Orientation="Horizontal"
-                                Spacing="12"
-                                Visibility="Collapsed">
-                                <Button
-                                    AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetOperationStringLeftHoverActionModeOneWay"
-                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(LeftHoverAction), Mode=OneWay}"
-                                    Click="FirstActionClicked"
-                                    Style="{StaticResource HoverActionButtonStyle}">
-                                    <Button.Content>
-                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(LeftHoverAction), Mode=OneWay}" />
-                                    </Button.Content>
-                                </Button>
-
-                                <Button
-                                    AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetOperationStringCenterHoverActionModeOneWay"
-                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(CenterHoverAction), Mode=OneWay}"
-                                    Click="SecondActionClicked"
-                                    Style="{StaticResource HoverActionButtonStyle}">
-                                    <Button.Content>
-                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(CenterHoverAction), Mode=OneWay}" />
-                                    </Button.Content>
-                                </Button>
-
-                                <Button
-                                    AutomationProperties.AutomationId="XBindHelpersXamlHelpersGetOperationStringRightHoverActionModeOneWay"
-                                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetOperationString(RightHoverAction), Mode=OneWay}"
-                                    Click="ThirdActionClicked"
-                                    Style="{StaticResource HoverActionButtonStyle}">
-                                    <Button.Content>
-                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(RightHoverAction), Mode=OneWay}" />
-                                    </Button.Content>
-                                </Button>
-                            </StackPanel>
                         </Grid>
 
                         <!--  Subject + IsDraft  -->

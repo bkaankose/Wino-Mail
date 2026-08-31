@@ -48,6 +48,11 @@
                 Content="Synchronization button"
                 Icon="Refresh"
                 Tag="synchronizationButton" />
+            <NavigationViewItem
+                AutomationProperties.AutomationId="HoverActionsNavigationItem"
+                Content="Hover actions"
+                Icon="Mail"
+                Tag="hoverActions" />
         </NavigationView.MenuItems>
         <Frame x:Name="ContentFrame" />
     </NavigationView>

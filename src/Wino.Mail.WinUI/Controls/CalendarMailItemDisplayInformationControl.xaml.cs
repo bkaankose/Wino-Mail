@@ -39,8 +39,6 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
     [GeneratedDependencyProperty(DefaultValue = "")]
     public partial string EventDateRangeText { get; set; }
 
-    public event EventHandler<MailOperationPreperationRequest>? HoverActionExecuted;
-
     public CalendarMailItemDisplayInformationControl()
     {
         InitializeComponent();
@@ -116,9 +114,6 @@ public sealed partial class CalendarMailItemDisplayInformationControl : UserCont
             EventDateRangeText = Translator.UnknownDateHeader;
         }
     }
-
-    private void BaseMailControlHoverActionExecuted(object sender, MailOperationPreperationRequest e)
-        => HoverActionExecuted?.Invoke(this, e);
 
     private string ExtractCalendarDateRange(MimeMessage message)
     {

@@ -1,6 +1,5 @@
 using System;
 using System.ComponentModel;
-using System.Linq;
 using System.Numerics;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,8 +18,6 @@ namespace Wino.Controls;
 
 public sealed partial class MailItemDisplayInformationControl : UserControl
 {
-    public bool IsRunningHoverAction { get; set; }
-
     // Busy animation fields
     private Compositor? _compositor;
     private Visual? _contentVisual;
@@ -39,20 +36,6 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool IsSubjectVisible { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
-    public partial MailOperation LeftHoverAction { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
-    public partial MailOperation CenterHoverAction { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = MailOperation.None)]
-    public partial MailOperation RightHoverAction { get; set; }
-
-    [GeneratedDependencyProperty(DefaultValue = true)]
-    public partial bool IsHoverActionsEnabled { get; set; }
-
-    public event EventHandler<MailOperationPreperationRequest>? HoverActionExecuted;
 
     [GeneratedDependencyProperty(DefaultValue = Wino.Core.Domain.Enums.TimeFormatPreference.UseLanguageCulture)]
     public partial TimeFormatPreference TimeFormatPreference { get; set; }
@@ -76,11 +59,7 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         DisplayMode = preferencesService.MailItemDisplayMode;
         ShowPreviewText = preferencesService.IsShowPreviewEnabled;
         IsAvatarVisible = preferencesService.IsShowSenderPicturesEnabled;
-        IsHoverActionsEnabled = preferencesService.IsHoverActionsEnabled;
         TimeFormatPreference = preferencesService.MailTimeFormatPreference;
-        LeftHoverAction = preferencesService.LeftHoverAction;
-        CenterHoverAction = preferencesService.CenterHoverAction;
-        RightHoverAction = preferencesService.RightHoverAction;
 
         var compositor = this.Visual().Compositor;
 
@@ -93,7 +72,6 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         ContentStackpanel.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
         IconsContainer.EnableImplicitAnimation(VisualPropertyType.Offset, 400);
 
-        // Initialize shimmer effect compositor
         _compositor = this.Visual().Compositor;
     }
 
@@ -196,53 +174,4 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         }
     }
 
-    private void ControlPointerEntered(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-    {
-        if (IsHoverActionsEnabled)
-        {
-            HoverActionButtons.Visibility = Visibility.Visible;
-            UnreadContainer.Visibility = Visibility.Collapsed;
-        }
-    }
-
-    private void ControlPointerExited(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
-    {
-        if (IsHoverActionsEnabled)
-        {
-            HoverActionButtons.Visibility = Visibility.Collapsed;
-            UnreadContainer.Visibility = Visibility.Visible;
-        }
-    }
-
-    private void ExecuteHoverAction(MailOperation operation)
-    {
-        IsRunningHoverAction = true;
-
-        MailOperationPreperationRequest? package = null;
-
-        if (ActionItem is MailItemViewModel mailItemViewModel)
-            package = new MailOperationPreperationRequest(operation, mailItemViewModel.MailCopy, toggleExecution: true);
-
-        else if (ActionItem is ThreadMailItemViewModel threadMailItemViewModel)
-            package = new MailOperationPreperationRequest(operation, threadMailItemViewModel.ThreadEmails.Select(a => a.MailCopy), toggleExecution: true);
-
-        if (package == null) return;
-
-        HoverActionExecuted?.Invoke(this, package);
-    }
-
-    private void FirstActionClicked(object sender, RoutedEventArgs e)
-    {
-        ExecuteHoverAction(LeftHoverAction);
-    }
-
-    private void SecondActionClicked(object sender, RoutedEventArgs e)
-    {
-        ExecuteHoverAction(CenterHoverAction);
-    }
-
-    private void ThirdActionClicked(object sender, RoutedEventArgs e)
-    {
-        ExecuteHoverAction(RightHoverAction);
-    }
 }

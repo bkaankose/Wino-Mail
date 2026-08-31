@@ -23,6 +23,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.Controls.AccountIcon;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.AccountIcon;
+using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
@@ -486,22 +487,22 @@ public static class XamlHelpers
     public static FontWeight GetFontWeightByChildSelectedState(bool isChildSelected) => isChildSelected ? FontWeights.SemiBold : FontWeights.Normal;
     public static FontWeight GetFontWeightByReadState(bool isChildSelected) => isChildSelected ? FontWeights.Normal : FontWeights.SemiBold;
     public static FontWeight GetMailItemSenderFontWeightByReadState(bool isRead) => isRead ? FontWeights.Normal : FontWeights.Bold;
-    public static MailOperation GetHoverAction(int actionIndex)
+    public static HoverActionKind GetHoverActionKind(MailOperation operation) => operation switch
     {
-        return actionIndex switch
-        {
-            0 => PreferencesService?.LeftHoverAction ?? MailOperation.Archive,
-            1 => PreferencesService?.CenterHoverAction ?? MailOperation.SoftDelete,
-            2 => PreferencesService?.RightHoverAction ?? MailOperation.SetFlag,
-            _ => MailOperation.None
-        };
-    }
+        MailOperation.Archive => HoverActionKind.Archive,
+        MailOperation.SoftDelete => HoverActionKind.Delete,
+        MailOperation.SetFlag or MailOperation.ClearFlag => HoverActionKind.ToggleFlag,
+        MailOperation.MarkAsRead or MailOperation.MarkAsUnread => HoverActionKind.ToggleRead,
+        MailOperation.MoveToJunk => HoverActionKind.MoveToJunk,
+        _ => HoverActionKind.None,
+    };
 
-    public static string GetHoverActionOperationString(int actionIndex)
-        => GetOperationString(GetHoverAction(actionIndex));
-
-    public static WinoIconGlyph GetHoverActionWinoIconGlyph(int actionIndex)
-        => GetWinoIconGlyph(GetHoverAction(actionIndex));
+    public static HoverActionLabels GetHoverActionLabels() => new(
+        Translator.HoverActionOption_Archive,
+        Translator.HoverActionOption_Delete,
+        Translator.HoverActionOption_ToggleFlag,
+        Translator.HoverActionOption_ToggleRead,
+        Translator.HoverActionOption_MoveJunk);
 
     public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility StringToVisibilityReversedConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Visible : Visibility.Collapsed;

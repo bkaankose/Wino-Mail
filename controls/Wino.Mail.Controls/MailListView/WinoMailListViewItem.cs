@@ -5,6 +5,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Wino.Mail.Controls.Core;
+using Wino.Mail.Controls.Core.HoverActions;
+using System.Windows.Input;
 
 namespace Wino.Mail.Controls.MailListView;
 
@@ -16,12 +18,72 @@ public sealed partial class WinoMailListViewItem : ListViewItem
         typeof(WinoMailListViewItem),
         new PropertyMetadata(null));
 
+    public static readonly DependencyProperty LeftHoverActionProperty = DependencyProperty.Register(
+        nameof(LeftHoverAction),
+        typeof(HoverActionKind),
+        typeof(WinoMailListViewItem),
+        new PropertyMetadata(HoverActionKind.None));
+
+    public static readonly DependencyProperty CenterHoverActionProperty = DependencyProperty.Register(
+        nameof(CenterHoverAction),
+        typeof(HoverActionKind),
+        typeof(WinoMailListViewItem),
+        new PropertyMetadata(HoverActionKind.None));
+
+    public static readonly DependencyProperty RightHoverActionProperty = DependencyProperty.Register(
+        nameof(RightHoverAction),
+        typeof(HoverActionKind),
+        typeof(WinoMailListViewItem),
+        new PropertyMetadata(HoverActionKind.None));
+
+    public static readonly DependencyProperty HoverActionLabelsProperty = DependencyProperty.Register(
+        nameof(HoverActionLabels),
+        typeof(object),
+        typeof(WinoMailListViewItem),
+        new PropertyMetadata(null));
+
+    public static readonly DependencyProperty HoverActionCommandProperty = DependencyProperty.Register(
+        nameof(HoverActionCommand),
+        typeof(ICommand),
+        typeof(WinoMailListViewItem),
+        new PropertyMetadata(null));
+
     internal WinoMailListView? OwnerList { get; set; }
 
     public MailListRow? Row
     {
         get => (MailListRow?)GetValue(RowProperty);
         set => SetValue(RowProperty, value);
+    }
+
+    public HoverActionKind LeftHoverAction
+    {
+        get => (HoverActionKind)GetValue(LeftHoverActionProperty);
+        set => SetValue(LeftHoverActionProperty, value);
+    }
+
+    public HoverActionKind CenterHoverAction
+    {
+        get => (HoverActionKind)GetValue(CenterHoverActionProperty);
+        set => SetValue(CenterHoverActionProperty, value);
+    }
+
+    public HoverActionKind RightHoverAction
+    {
+        get => (HoverActionKind)GetValue(RightHoverActionProperty);
+        set => SetValue(RightHoverActionProperty, value);
+    }
+
+    public object? HoverActionLabels
+    {
+        get => GetValue(HoverActionLabelsProperty);
+        set => SetValue(HoverActionLabelsProperty, value);
+    }
+
+    public ICommand? HoverActionCommand
+    {
+        get => (ICommand?)GetValue(HoverActionCommandProperty);
+        set => SetValue(HoverActionCommandProperty, value);
     }
 
     protected override void OnPointerPressed(PointerRoutedEventArgs e)

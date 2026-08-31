@@ -23,6 +23,7 @@ public sealed partial class MainPage : Page
             "intelligenceHeader" => typeof(IntelligenceHeaderPage),
             "intelligenceProgress" => typeof(IntelligenceProgressPage),
             "synchronizationButton" => typeof(SynchronizationButtonPage),
+            "hoverActions" => typeof(HoverActionsPage),
             _ => typeof(AccountIconPage),
         };
 

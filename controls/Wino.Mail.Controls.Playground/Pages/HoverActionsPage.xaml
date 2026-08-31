@@ -1,0 +1,97 @@
+<Page
+    x:Class="Wino.Mail.Controls.Playground.Pages.HoverActionsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:core="using:Wino.Mail.Controls.Core.HoverActions"
+    xmlns:hoverActions="using:Wino.Mail.Controls.HoverActions">
+    <ScrollViewer>
+        <StackPanel MaxWidth="760" Padding="24" Spacing="20">
+            <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Hover actions" />
+            <TextBlock
+                Text="The scenarios exercise action filtering, toggle state updates, disabled chrome, and empty configuration."
+                TextWrapping="Wrap" />
+
+            <Grid ColumnSpacing="16" RowSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="180" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock VerticalAlignment="Center" Text="Three actions" />
+                <hoverActions:HoverActionsControl
+                    Grid.Column="1"
+                    ActionCommand="{x:Bind ActionCommand}"
+                    ActionCommandParameter="{x:Bind Row}"
+                    ActionItem="{x:Bind Item}"
+                    CenterAction="{x:Bind core:HoverActionKind.ToggleRead}"
+                    Labels="{x:Bind Labels}"
+                    LeftAction="{x:Bind core:HoverActionKind.Archive}"
+                    RightAction="{x:Bind core:HoverActionKind.ToggleFlag}" />
+
+                <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="Two actions, middle None" />
+                <hoverActions:HoverActionsControl
+                    Grid.Row="1"
+                    Grid.Column="1"
+                    ActionCommand="{x:Bind ActionCommand}"
+                    ActionCommandParameter="{x:Bind Row}"
+                    ActionItem="{x:Bind Item}"
+                    CenterAction="{x:Bind core:HoverActionKind.None}"
+                    Labels="{x:Bind Labels}"
+                    LeftAction="{x:Bind core:HoverActionKind.Delete}"
+                    RightAction="{x:Bind core:HoverActionKind.MoveToJunk}" />
+
+                <TextBlock Grid.Row="2" VerticalAlignment="Center" Text="One action" />
+                <hoverActions:HoverActionsControl
+                    Grid.Row="2"
+                    Grid.Column="1"
+                    ActionCommand="{x:Bind ActionCommand}"
+                    ActionCommandParameter="{x:Bind Row}"
+                    ActionItem="{x:Bind Item}"
+                    Labels="{x:Bind Labels}"
+                    RightAction="{x:Bind core:HoverActionKind.ToggleRead}" />
+
+                <TextBlock Grid.Row="3" VerticalAlignment="Center" Text="Disabled" />
+                <hoverActions:HoverActionsControl
+                    Grid.Row="3"
+                    Grid.Column="1"
+                    ActionCommand="{x:Bind ActionCommand}"
+                    ActionCommandParameter="{x:Bind Row}"
+                    ActionItem="{x:Bind Item}"
+                    IsEnabled="False"
+                    Labels="{x:Bind Labels}"
+                    LeftAction="{x:Bind core:HoverActionKind.Archive}" />
+
+                <TextBlock Grid.Row="4" VerticalAlignment="Center" Text="All None (collapsed)" />
+                <hoverActions:HoverActionsControl
+                    Grid.Row="4"
+                    Grid.Column="1"
+                    ActionCommand="{x:Bind ActionCommand}"
+                    ActionCommandParameter="{x:Bind Row}"
+                    ActionItem="{x:Bind Item}"
+                    Labels="{x:Bind Labels}" />
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button
+                    AutomationProperties.AutomationId="HoverActionsToggleReadStateButton"
+                    Click="ToggleReadClicked"
+                    Content="Toggle read state" />
+                <Button
+                    AutomationProperties.AutomationId="HoverActionsToggleFlagStateButton"
+                    Click="ToggleFlagClicked"
+                    Content="Toggle flag state" />
+                <TextBlock
+                    AutomationProperties.AutomationId="HoverActionsStatusText"
+                    VerticalAlignment="Center"
+                    Text="{x:Bind StatusText, Mode=OneWay}" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
