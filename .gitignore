@@ -411,3 +411,4 @@ scripts/translate_resources.local.bat
 !/docs/wino-design-guideline.md
 /prototypes
 .proto/
+/.prototypes
