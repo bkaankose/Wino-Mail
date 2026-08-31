@@ -21,7 +21,7 @@ public sealed partial class CalendarDatePickerMenuItem : MenuItemBase<ICalendarS
         : Translator.CalendarPane_ExpandDatePicker;
 
     public string ExpansionToolTip => ExpansionAutomationName;
-    public string ExpansionGlyph => IsCalendarExpanded ? "\uE70E" : "\uE70D";
+    public string ExpansionGlyph => IsCalendarExpanded ? "\uE89F" : "\uE8A0";
 
     public CalendarDatePickerMenuItem(ICalendarShellClient client, IPreferencesService preferencesService)
         : base(client, null)

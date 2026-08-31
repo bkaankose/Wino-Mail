@@ -10,6 +10,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     x:Name="Root"
+    KeyboardAcceleratorPlacementMode="Hidden"
     Loaded="OnLoaded"
     mc:Ignorable="d">
 

@@ -20,6 +20,7 @@ public partial class CalendarAppShellViewModel
 
     private readonly NewCalendarEventMenuItem _newEventMenuItem = new();
     private readonly ShellSectionHeaderMenuItem _calendarsSectionHeader = new(CalendarsSectionTitle);
+    private readonly SeperatorItem _ungroupedCalendarsSeparator = new();
     private CalendarDatePickerMenuItem _datePickerMenuItem;
     private readonly Dictionary<GroupedAccountCalendarViewModel, AccountCalendarGroupMenuItem> _accountCalendarMenuItems = [];
     private readonly Dictionary<Guid, CalendarAccountMenuItem> _calendarAccountMenuItems = [];
@@ -187,6 +188,8 @@ public partial class CalendarAppShellViewModel
                 var selectedGroup = eligibleGroups.FirstOrDefault(group => group.Account.Id == _selectedCalendarAccountId);
                 if (selectedGroup != null)
                 {
+                    desired.Add(_ungroupedCalendarsSeparator);
+
                     foreach (var calendar in selectedGroup.AccountCalendars)
                     {
                         desired.Add(GetUngroupedCalendarMenuItem(calendar));

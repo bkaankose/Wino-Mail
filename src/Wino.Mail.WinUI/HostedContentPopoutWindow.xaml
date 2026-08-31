@@ -11,7 +11,8 @@
     <Grid
         x:Name="RootGrid"
         Padding="4,32,4,4"
-        Background="{ThemeResource WinoApplicationBackgroundColor}">
+        Background="{ThemeResource WinoApplicationBackgroundColor}"
+        KeyboardAcceleratorPlacementMode="Hidden">
         <Grid x:Name="ContentHost">
             <Grid.ChildrenTransitions>
                 <TransitionCollection>

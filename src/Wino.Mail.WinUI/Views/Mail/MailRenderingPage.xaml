@@ -19,6 +19,7 @@
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
     AutomationProperties.AutomationId="MailRenderingPageRoot"
+    KeyboardAcceleratorPlacementMode="Hidden"
     mc:Ignorable="d">
 
     <Page.KeyboardAccelerators>

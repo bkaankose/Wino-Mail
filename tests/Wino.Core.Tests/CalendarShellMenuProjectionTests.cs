@@ -45,13 +45,14 @@ public sealed class CalendarShellMenuProjectionTests
         var viewModel = CreateViewModel(preferences.Object, new FakeAccountCalendarStateService([later, startup]));
 
         var projected = viewModel.ShellMenu.Items.Skip(3).ToList();
-        projected.Should().HaveCount(4);
+        projected.Should().HaveCount(5);
         projected[0].Should().BeOfType<CalendarAccountMenuItem>().Which.Account.Should().Be(startup.Account);
         projected[1].Should().BeOfType<CalendarAccountMenuItem>().Which.Account.Should().Be(later.Account);
         projected[0].IsSelected.Should().BeTrue();
         projected[1].IsSelected.Should().BeFalse();
-        projected[2].Should().BeOfType<UngroupedCalendarMenuItem>().Which.Parameter.Name.Should().Be("Startup calendar A");
-        projected[3].Should().BeOfType<UngroupedCalendarMenuItem>().Which.Parameter.Name.Should().Be("Startup calendar B");
+        projected[2].Should().BeOfType<SeperatorItem>();
+        projected[3].Should().BeOfType<UngroupedCalendarMenuItem>().Which.Parameter.Name.Should().Be("Startup calendar A");
+        projected[4].Should().BeOfType<UngroupedCalendarMenuItem>().Which.Parameter.Name.Should().Be("Startup calendar B");
     }
 
     [Theory]
@@ -165,13 +166,13 @@ public sealed class CalendarShellMenuProjectionTests
 
         item.IsCalendarExpanded.Should().BeTrue();
         item.ExpansionAutomationName.Should().Contain("Collapse");
-        item.ExpansionGlyph.Should().Be("\uE70E");
+        item.ExpansionGlyph.Should().Be("\uE89F");
 
         item.IsCalendarExpanded = false;
 
         preferences.Object.IsCalendarDatePickerExpanded.Should().BeFalse();
         item.ExpansionAutomationName.Should().Contain("Expand");
-        item.ExpansionGlyph.Should().Be("\uE70D");
+        item.ExpansionGlyph.Should().Be("\uE8A0");
     }
 
     private static CalendarAppShellViewModel CreateViewModel(
