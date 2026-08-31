@@ -11,8 +11,8 @@
             x:Key="HoverActionButtonStyle"
             BasedOn="{StaticResource DefaultButtonStyle}"
             TargetType="Button">
-            <Setter Property="Width" Value="24" />
-            <Setter Property="Height" Value="24" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="Height" Value="32" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
             <Setter Property="BorderThickness" Value="0" />
@@ -28,6 +28,11 @@
                 CommandParameter="{x:Bind CommandParameter, Mode=OneTime}"
                 Style="{StaticResource HoverActionButtonStyle}"
                 ToolTipService.ToolTip="{x:Bind Label, Mode=OneTime}">
+                <Button.Resources>
+                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver">Transparent</SolidColorBrush>
+                    <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="ButtonBorderBrush" />
+                    <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="SystemAccentColor" />
+                </Button.Resources>
                 <accountIcon:WinoFontIcon FontSize="16" Glyph="{x:Bind Glyph, Mode=OneTime}" />
             </Button>
         </DataTemplate>
@@ -45,7 +50,13 @@
             ItemsSource="{x:Bind ActionItems, Mode=OneWay}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" Spacing="2" />
+                    <StackPanel Orientation="Horizontal" Spacing="2">
+                        <StackPanel.Transitions>
+                            <TransitionCollection>
+                                <EdgeUIThemeTransition Edge="Right" />
+                            </TransitionCollection>
+                        </StackPanel.Transitions>
+                    </StackPanel>
                 </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
         </ItemsControl>
