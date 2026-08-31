@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Helpers;
+using Wino.Mail.WinUI.Controls;
 
 namespace Wino.MenuFlyouts;
 
@@ -49,6 +51,7 @@ public static class MoveFolderMenuBuilder
             var leafItem = new MenuFlyoutItem
             {
                 Text = folder.FolderName ?? string.Empty,
+                Icon = CreateFolderIcon(folder),
                 IsEnabled = isValidTarget,
                 Tag = folder
             };
@@ -68,6 +71,7 @@ public static class MoveFolderMenuBuilder
             var structuralItem = new MenuFlyoutSubItem
             {
                 Text = folder.FolderName ?? string.Empty,
+                Icon = CreateFolderIcon(folder),
                 Tag = folder
             };
 
@@ -85,6 +89,7 @@ public static class MoveFolderMenuBuilder
         var splitItem = new SplitMenuFlyoutItem
         {
             Text = folder.FolderName ?? string.Empty,
+            Icon = CreateFolderIcon(folder),
             Tag = folder
         };
 
@@ -99,4 +104,7 @@ public static class MoveFolderMenuBuilder
 
         return (splitItem, nestedTargetCount + 1);
     }
+
+    private static WinoFontIcon CreateFolderIcon(IMailItemFolder folder)
+        => new() { Icon = XamlHelpers.GetSpecialFolderPathIconGeometry(folder.SpecialFolderType) };
 }
