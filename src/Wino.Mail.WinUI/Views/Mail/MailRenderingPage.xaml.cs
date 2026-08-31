@@ -54,9 +54,23 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private bool isRenderingInProgress = false;
     private string _currentRenderedHtml = string.Empty;
+    private bool _isReaderViewEnabled;
     private bool _isPoppedOut;
 
     public bool SupportsPopOut => !_isPoppedOut;
+    public bool IsReaderViewEnabled
+    {
+        get => _isReaderViewEnabled;
+        set
+        {
+            if (_isReaderViewEnabled == value)
+                return;
+
+            _isReaderViewEnabled = value;
+            if (!string.IsNullOrWhiteSpace(_currentRenderedHtml))
+                DispatcherQueue.TryEnqueue(async () => await RenderActiveContentAsync());
+        }
+    }
     public event EventHandler<PopOutRequestedEventArgs>? PopOutRequested;
     public event EventHandler<PopoutHostActionRequestedEventArgs>? HostActionRequested;
 
@@ -146,7 +160,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         var html = _isShowingTranslation && _translationProjection is not null && _translationMap is not null
             ? _translationProjection.ApplyTranslations(_translationMap)
             : _currentRenderedHtml;
-        var renderMode = _preferencesService.IsReaderViewEnabled
+        var renderMode = IsReaderViewEnabled
             ? HtmlMailRenderMode.Readability
             : HtmlMailRenderMode.Original;
         var shouldLinkifyText = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RenderPlaintextLinks ?? true;
@@ -242,8 +256,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _currentMailItem = null;
         _currentRenderedHtml = string.Empty;
         RendererCommandBar.PopOutClicked -= RendererCommandBar_PopOutClicked;
-        _preferencesService.PreferenceChanged -= PreferencesService_PreferenceChanged;
-
         MailRenderer.Dispose();
     }
 
@@ -263,8 +275,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         ViewModel.ClearRenderedHtmlAsyncFunc = ClearRenderedContentAsync;
         RendererCommandBar.PopOutClicked -= RendererCommandBar_PopOutClicked;
         RendererCommandBar.PopOutClicked += RendererCommandBar_PopOutClicked;
-        _preferencesService.PreferenceChanged -= PreferencesService_PreferenceChanged;
-        _preferencesService.PreferenceChanged += PreferencesService_PreferenceChanged;
         _ = ObserveChromiumInitializationAsync(InitializeMailRendererAsync());
 
         base.OnNavigatedTo(e);
@@ -279,13 +289,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             RendererGridFrame.Margin = new Thickness(0, 24, 0, 0);
         else
             RendererGridFrame.Margin = new Thickness(0, 0, 0, 0);
-    }
-
-    private void PreferencesService_PreferenceChanged(object? sender, string propertyName)
-    {
-        if (propertyName != nameof(IPreferencesService.IsReaderViewEnabled) || string.IsNullOrWhiteSpace(_currentRenderedHtml))
-            return;
-        DispatcherQueue.TryEnqueue(async () => await RenderActiveContentAsync());
     }
 
     private void AttachmentClicked(object sender, ItemClickEventArgs e)

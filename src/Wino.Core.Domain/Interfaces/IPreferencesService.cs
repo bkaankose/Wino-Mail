@@ -98,11 +98,6 @@ public interface IPreferencesService : INotifyPropertyChanged
     int UndoDeletingMailsIntervalInSeconds { get; set; }
 
     /// <summary>
-    /// Setting: Render messages with the offline simplified Reader View.
-    /// </summary>
-    bool IsReaderViewEnabled { get; set; }
-
-    /// <summary>
     /// Setting: For changing the mail display container mode.
     /// </summary>
     MailListDisplayMode MailItemDisplayMode { get; set; }

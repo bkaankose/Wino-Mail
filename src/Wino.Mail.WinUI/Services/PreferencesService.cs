@@ -196,12 +196,6 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(RenderImages), value);
     }
 
-    public bool IsReaderViewEnabled
-    {
-        get => _configurationService.Get(nameof(IsReaderViewEnabled), false);
-        set => SetPropertyAndSave(nameof(IsReaderViewEnabled), value);
-    }
-
     public TimeFormatPreference MailTimeFormatPreference
     {
         get => _configurationService.Get(nameof(MailTimeFormatPreference), TimeFormatPreference.UseLanguageCulture);

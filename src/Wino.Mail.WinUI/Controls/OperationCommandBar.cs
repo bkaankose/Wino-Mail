@@ -57,6 +57,9 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
     [GeneratedDependencyProperty]
     public partial bool IsReaderViewToggleVisible { get; set; }
 
+    [GeneratedDependencyProperty]
+    public partial bool IsReaderViewEnabled { get; set; }
+
     public event EventHandler<bool>? AIActionsEnabledChanged;
     public event EventHandler? PopOutClicked;
 
@@ -138,7 +141,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
 
     private void PreferencesService_PreferenceChanged(object? sender, string propertyName)
     {
-        if (propertyName is nameof(IPreferencesService.IsShowActionLabelsEnabled) or nameof(IPreferencesService.IsReaderViewEnabled))
+        if (propertyName == nameof(IPreferencesService.IsShowActionLabelsEnabled))
         {
             DispatcherQueue.TryEnqueue(InvalidateCommands);
         }
@@ -247,7 +250,6 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
             .Append(IsPopOutButtonVisible).Append('|')
             .Append(IsEditorThemeToggleVisible).Append('|')
             .Append(IsReaderViewToggleVisible).Append('|')
-            .Append(_preferencesService?.IsReaderViewEnabled == true).Append('|')
             .Append(IsEditorThemeDark).Append('|')
             .Append(_preferencesService?.IsShowActionLabelsEnabled == true).Append('|');
 
@@ -286,7 +288,6 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
                     button.Click -= PopOutButton_Click;
                     break;
                 case AppBarToggleButton toggleButton:
-                    toggleButton.Click -= ReaderViewButton_Click;
                     toggleButton.ClearValue(AppBarToggleButton.IsCheckedProperty);
                     break;
             }
@@ -399,18 +400,16 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
         var button = new AppBarToggleButton
         {
             Label = Translator.Reader_ReaderView,
-            IsChecked = _preferencesService?.IsReaderViewEnabled == true,
             Icon = new FontIcon { Glyph = "\uE8A5" },
         };
         AutomationProperties.SetName(button, Translator.Reader_ReaderView);
-        button.Click += ReaderViewButton_Click;
+        button.SetBinding(AppBarToggleButton.IsCheckedProperty, new Binding
+        {
+            Mode = BindingMode.TwoWay,
+            Path = new PropertyPath(nameof(IsReaderViewEnabled)),
+            Source = this
+        });
         return button;
-    }
-
-    private void ReaderViewButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_preferencesService is not null && sender is AppBarToggleButton button)
-            _preferencesService.IsReaderViewEnabled = button.IsChecked == true;
     }
 
     private void OperationButton_Click(object sender, RoutedEventArgs e)

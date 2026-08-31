@@ -287,6 +287,7 @@
                     IsEditorThemeDark="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=TwoWay}"
                     IsEditorThemeToggleVisible="True"
                     IsPopOutButtonVisible="{x:Bind SupportsPopOut, Mode=OneTime}"
+                    IsReaderViewEnabled="{x:Bind IsReaderViewEnabled, Mode=TwoWay}"
                     IsReaderViewToggleVisible="True"
                     ItemInvokedCommand="{x:Bind ViewModel.OperationClickedCommand}"
                     MenuItems="{x:Bind ViewModel.MenuItems, Mode=OneWay}"
