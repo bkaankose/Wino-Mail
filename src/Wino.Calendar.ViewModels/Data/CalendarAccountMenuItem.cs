@@ -8,7 +8,7 @@ namespace Wino.Calendar.ViewModels.Data;
 /// <summary>
 /// Account selector used by the ungrouped calendar shell projection.
 /// </summary>
-public sealed class CalendarAccountMenuItem : MenuItemBase<GroupedAccountCalendarViewModel>, IAccountNavigationMenuItem
+public sealed partial class CalendarAccountMenuItem : MenuItemBase<GroupedAccountCalendarViewModel>, IAccountNavigationMenuItem
 {
     public CalendarAccountMenuItem(GroupedAccountCalendarViewModel group)
         : base(group, group.Account?.Id)
