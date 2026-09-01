@@ -62,6 +62,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         ItemSchema.HasAttachments,
         ItemSchema.Importance,
         ItemSchema.ConversationId,
+        ItemSchema.Preview,
         EmailMessageSchema.From,
         EmailMessageSchema.IsRead,
         EmailMessageSchema.InternetMessageId);
@@ -213,13 +214,13 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             .Where(f => !string.IsNullOrEmpty(f.RemoteFolderId))
             .ToList();
 
-        var downloaded = new List<MailCopy>();
+        var downloadedIds = new List<string>();
         foreach (var folder in foldersToSync)
         {
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                downloaded.AddRange(await SynchronizeFolderItemsAsync(service, folder, cancellationToken).ConfigureAwait(false));
+                downloadedIds.AddRange(await SynchronizeFolderItemsAsync(service, folder, cancellationToken).ConfigureAwait(false));
             }
             catch (OperationCanceledException)
             {
@@ -241,7 +242,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             }
         }
 
-        return MailSynchronizationResult.Completed(downloaded);
+        var unreadNewItems = await _exchangeChangeProcessor.GetDownloadedUnreadMailsAsync(Account.Id, downloadedIds).ConfigureAwait(false);
+
+        return MailSynchronizationResult.Completed(unreadNewItems);
     }
 
     /// <summary>
@@ -350,9 +353,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         => !string.IsNullOrEmpty(folder.FolderClass)
            && folder.FolderClass.StartsWith("IPF.Note", StringComparison.OrdinalIgnoreCase);
 
-    private async Task<List<MailCopy>> SynchronizeFolderItemsAsync(ExchangeService service, MailItemFolder folder, CancellationToken cancellationToken)
+    private async Task<List<string>> SynchronizeFolderItemsAsync(ExchangeService service, MailItemFolder folder, CancellationToken cancellationToken)
     {
-        var downloaded = new List<MailCopy>();
+        var downloadedIds = new List<string>();
         var syncState = folder.DeltaToken;
         var folderId = new FolderId(folder.RemoteFolderId);
         bool moreAvailable;
@@ -377,7 +380,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                             foreach (var package in packages)
                             {
                                 if (await _exchangeChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false))
-                                    downloaded.Add(package.Copy);
+                                    downloadedIds.Add(package.Copy.Id);
                             }
                         }
                         break;
@@ -398,7 +401,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         folder.DeltaToken = syncState;
         await _exchangeChangeProcessor.UpdateFolderAsync(folder).ConfigureAwait(false);
 
-        return downloaded;
+        return downloadedIds;
     }
 
     private MailCopy MapToMailCopy(Item item, MailItemFolder assignedFolder)
@@ -417,12 +420,15 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             ThreadId = item.ConversationId?.UniqueId,
             MessageId = email?.InternetMessageId,
             Subject = item.Subject,
+            PreviewText = item.Preview,
             FromName = email?.From?.Name,
             FromAddress = email?.From?.Address,
             CreationDate = item.DateTimeReceived.ToUniversalTime(),
             IsRead = email?.IsRead ?? true,
             HasAttachments = item.HasAttachments,
             Importance = MapImportance(item.Importance),
+            IsDraft = assignedFolder.SpecialFolderType == SpecialFolderType.Draft,
+            DraftId = assignedFolder.SpecialFolderType == SpecialFolderType.Draft ? item.Id.UniqueId : null,
         };
     }
 
@@ -511,7 +517,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         var ids = requests.Select(r => new ItemId(r.Item.Id)).ToList();
 
         return Bundle(
-            service => service.DeleteItems(ids, DeleteMode.MoveToDeletedItems, SendCancellationsMode.SendToNone, AffectedTaskOccurrence.AllOccurrences),
+            service => service.DeleteItems(ids, DeleteMode.HardDelete, SendCancellationsMode.SendToNone, AffectedTaskOccurrence.AllOccurrences),
             requests[0], requests);
     }
 
