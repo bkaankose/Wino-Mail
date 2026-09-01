@@ -437,6 +437,7 @@ public static class XamlHelpers
                 MailProviderType.Outlook => WinoIconGlyph.Microsoft,
                 MailProviderType.Gmail => WinoIconGlyph.Google,
                 MailProviderType.IMAP4 => WinoIconGlyph.IMAP,
+                MailProviderType.Exchange => WinoIconGlyph.Exchange,
                 _ => WinoIconGlyph.None,
             };
         }

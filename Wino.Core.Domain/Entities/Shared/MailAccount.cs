@@ -143,12 +143,15 @@ public class MailAccount
     /// <summary>
     /// Gets whether the account can perform AliasInformation sync type.
     /// </summary>
-    public bool IsAliasSyncSupported => ProviderType == MailProviderType.Gmail || ProviderType == MailProviderType.Outlook;
+    public bool IsAliasSyncSupported => ProviderType == MailProviderType.Gmail || ProviderType == MailProviderType.Outlook || ProviderType == MailProviderType.Exchange;
 
     /// <summary>
     /// Gets whether the account can perform category definition sync type.
     /// </summary>
     public bool IsCategorySyncSupported => ProviderType == MailProviderType.Outlook;
+
+    /// <summary>Gets whether the account stores custom server settings.</summary>
+    public bool UsesCustomServerInformation => ProviderType is MailProviderType.IMAP4 or MailProviderType.Exchange;
 
     public override string ToString() => Name;
 }

@@ -105,7 +105,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public partial AccountCapabilityOption SelectedCapabilityOption { get; set; }
 
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
-    public bool IsImapServer => ServerInformation != null;
+
+    public bool IsImapServer => ServerInformation != null && Account?.ProviderType == MailProviderType.IMAP4;
+
+    public bool IsExchangeServer => Account?.ProviderType == MailProviderType.Exchange;
     public bool HasMailAccess => Account?.IsMailAccessGranted == true;
     public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;
     public bool IsOAuthCapabilityEditable => Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
@@ -203,6 +206,13 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             Translator.ImapCalDavSettingsPage_TitleEdit,
             WinoPage.ImapCalDavSettingsPage,
             ImapCalDavSettingsNavigationContext.CreateForEditMode(Account.Id)));
+
+    [RelayCommand]
+    private void EditExchangeServerSettings()
+        => Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.SettingsEditAccountDetails_ExchangeServerSettings_Title,
+            WinoPage.ExchangeSettingsPage,
+            Account.Id));
 
     [RelayCommand]
     private async Task SaveChangesAsync()
@@ -424,6 +434,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(HasMailAccess));
         OnPropertyChanged(nameof(HasCalendarAccess));
         OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
+        OnPropertyChanged(nameof(IsImapServer));
+        OnPropertyChanged(nameof(IsExchangeServer));
     }
 
     protected override async void OnPropertyChanged(PropertyChangedEventArgs e)

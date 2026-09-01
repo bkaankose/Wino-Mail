@@ -3,5 +3,6 @@
 public enum CustomIncomingServerType
 {
     POP3,
-    IMAP4
+    IMAP4,
+    Exchange
 }

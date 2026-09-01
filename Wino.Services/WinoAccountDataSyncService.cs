@@ -290,7 +290,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
     private static UserMailboxSyncItemDto MapMailbox(MailAccount account)
     {
-        var serverInformation = account.ProviderType == MailProviderType.IMAP4
+        var serverInformation = account.ProviderType is MailProviderType.IMAP4 or MailProviderType.Exchange
             ? account.ServerInformation
             : null;
 
@@ -354,6 +354,22 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
     private static CustomServerInformation? CreateImportedServerInformation(UserMailboxSyncItemDto mailbox, Guid accountId)
     {
         var providerType = (MailProviderType)mailbox.ProviderType;
+
+        if (providerType == MailProviderType.Exchange)
+        {
+            return new CustomServerInformation
+            {
+                Id = Guid.NewGuid(),
+                AccountId = accountId,
+                Address = mailbox.Address.Trim(),
+                IncomingServer = mailbox.IncomingServer?.Trim(),
+                IncomingServerType = CustomIncomingServerType.Exchange,
+                IncomingServerUsername = mailbox.IncomingServerUsername?.Trim(),
+                IncomingServerPassword = string.Empty,
+                CalendarSupportMode = ImapCalendarSupportMode.Disabled
+            };
+        }
+
         if (providerType != MailProviderType.IMAP4)
         {
             return null;

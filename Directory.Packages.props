@@ -4,6 +4,8 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="ColorHashSharp" Version="1.1.0" />
+    <PackageVersion Include="DnsClient" Version="1.8.0" />
+    <PackageVersion Include="System.DirectoryServices.Protocols" Version="10.0.0" />
     <PackageVersion Include="CommunityToolkit.Common" Version="8.4.2" />
     <PackageVersion Include="CommunityToolkit.Diagnostics" Version="8.4.2" />
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
@@ -65,6 +67,7 @@
     <PackageVersion Include="Google.Apis.PeopleService.v1" Version="1.74.0.3973" />
     <PackageVersion Include="HtmlKit" Version="1.2.0" />
     <PackageVersion Include="MailKit" Version="4.17.0" />
+    <PackageVersion Include="Exchange.WebServices.NETCore" Version="3.2.1" />
     <PackageVersion Include="TimePeriodLibrary.NET" Version="2.1.6" />
     <PackageVersion Include="System.Reactive" Version="6.1.0" />
     <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.8" />

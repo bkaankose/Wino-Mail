@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Synchronizers.Exchange;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
 
@@ -21,6 +22,9 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
     private readonly IImapChangeProcessor _imapChangeProcessor;
+    private readonly IExchangeChangeProcessor _exchangeChangeProcessor;
+    private readonly IExchangeSynchronizerErrorHandlerFactory _exchangeSynchronizerErrorHandlerFactory;
+    private readonly IExchangeAuthenticator _exchangeAuthenticator;
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly UnifiedImapSynchronizer _unifiedImapSynchronizer;
     private readonly ICalDavClient _calDavClient;
@@ -33,6 +37,9 @@ public class SynchronizerFactory : ISynchronizerFactory
     public SynchronizerFactory(IOutlookChangeProcessor outlookChangeProcessor,
                                IGmailChangeProcessor gmailChangeProcessor,
                                IImapChangeProcessor imapChangeProcessor,
+                               IExchangeChangeProcessor exchangeChangeProcessor,
+                               IExchangeSynchronizerErrorHandlerFactory exchangeSynchronizerErrorHandlerFactory,
+                               IExchangeAuthenticator exchangeAuthenticator,
                                IAuthenticationProvider authenticationProvider,
                                IAccountService accountService,
                                IApplicationConfiguration applicationConfiguration,
@@ -48,6 +55,9 @@ public class SynchronizerFactory : ISynchronizerFactory
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
         _imapChangeProcessor = imapChangeProcessor;
+        _exchangeChangeProcessor = exchangeChangeProcessor;
+        _exchangeSynchronizerErrorHandlerFactory = exchangeSynchronizerErrorHandlerFactory;
+        _exchangeAuthenticator = exchangeAuthenticator;
         _authenticationProvider = authenticationProvider;
         _accountService = accountService;
         _applicationConfiguration = applicationConfiguration;
@@ -95,6 +105,8 @@ public class SynchronizerFactory : ISynchronizerFactory
                 return new GmailSynchronizer(mailAccount, gmailAuthenticator, _gmailChangeProcessor, _gmailSynchronizerErrorHandlerFactory);
             case Domain.Enums.MailProviderType.IMAP4:
                 return new ImapSynchronizer(mailAccount, _imapChangeProcessor, _applicationConfiguration, _unifiedImapSynchronizer, _imapSynchronizerErrorHandlerFactory, _calDavClient, _autoDiscoveryService, _calendarService);
+            case Domain.Enums.MailProviderType.Exchange:
+                return new ExchangeSynchronizer(mailAccount, _exchangeAuthenticator, _exchangeChangeProcessor, _exchangeSynchronizerErrorHandlerFactory);
             default:
                 break;
         }

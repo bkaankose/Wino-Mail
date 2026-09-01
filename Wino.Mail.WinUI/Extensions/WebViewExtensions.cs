@@ -41,6 +41,29 @@ public static class WebViewExtensions
         }
     }
 
+    private static Task<CoreWebView2Environment>? _authEnvironmentTask;
+
+    /// <summary>Dedicated WebView2 environment for interactive OAuth sign-in.</summary>
+    public static Task<CoreWebView2Environment> GetIsolatedAuthEnvironmentAsync()
+    {
+        EnsureWebView2Environment();
+
+        lock (_environmentLock)
+        {
+            if (_authEnvironmentTask == null || _authEnvironmentTask.IsFaulted || _authEnvironmentTask.IsCanceled)
+            {
+                var userDataFolder = System.IO.Path.Combine(
+                    Windows.Storage.ApplicationData.Current.LocalFolder.Path, "AuthWebView2");
+
+                _authEnvironmentTask = CoreWebView2Environment
+                    .CreateWithOptionsAsync(null, userDataFolder, new CoreWebView2EnvironmentOptions())
+                    .AsTask();
+            }
+
+            return _authEnvironmentTask;
+        }
+    }
+
     /// <summary>
     /// Executes a script function in the WebView2 control.
     /// </summary>

@@ -26,7 +26,7 @@ public class ProviderDetail : IProviderDetail
         }
     }
 
-    public bool IsSupported => Type == MailProviderType.Outlook || Type == MailProviderType.Gmail || Type == MailProviderType.IMAP4;
+    public bool IsSupported => Type == MailProviderType.Outlook || Type == MailProviderType.Gmail || Type == MailProviderType.IMAP4 || Type == MailProviderType.Exchange;
 
     public ProviderDetail(MailProviderType type, SpecialImapProvider specialImapProvider)
     {
@@ -62,6 +62,10 @@ public class ProviderDetail : IProviderDetail
                         break;
                 }
 
+                break;
+            case MailProviderType.Exchange:
+                Name = "Exchange";
+                Description = "On-premises Exchange (EWS)";
                 break;
         }
     }

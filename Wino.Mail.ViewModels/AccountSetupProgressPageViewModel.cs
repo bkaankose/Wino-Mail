@@ -456,7 +456,18 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
                 if (_createdAccount.IsMailAccessGranted)
                 {
-                    await _accountService.CreateRootAliasAsync(_createdAccount.Id, _createdAccount.Address);
+                    // Exchange-only on purpose: Gmail/Outlook also report IsAliasSyncSupported,
+                    // but their alias-sync path isn't validated here yet. Can be unified later.
+                    if (_createdAccount.ProviderType == MailProviderType.Exchange)
+                    {
+                        var aliasResult = await SynchronizationManager.Instance.SynchronizeAliasesAsync(_createdAccount.Id);
+                        if (aliasResult.CompletedState != SynchronizationCompletedState.Success)
+                            throw new Exception(Translator.Exception_FailedToSynchronizeAliases);
+                    }
+                    else
+                    {
+                        await _accountService.CreateRootAliasAsync(_createdAccount.Id, _createdAccount.Address);
+                    }
                 }
             }
 

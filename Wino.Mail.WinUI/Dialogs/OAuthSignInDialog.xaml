@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentDialog
+    x:Class="Wino.Mail.WinUI.Dialogs.OAuthSignInDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="Sign in to your organization"
+    CloseButtonText="Cancel"
+    Opened="OnDialogOpened"
+    mc:Ignorable="d">
+
+    <Grid
+        Width="460"
+        Height="580">
+        <WebView2 x:Name="AuthWebView" />
+        <ProgressRing
+            x:Name="LoadingRing"
+            Width="40"
+            Height="40"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            IsActive="True" />
+    </Grid>
+</ContentDialog>

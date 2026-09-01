@@ -53,6 +53,7 @@ public static class ControlConstants
         { WinoIconGlyph.SpecialFolderMore, "\uF0F4" },
         { WinoIconGlyph.Microsoft, "\uE904" },
         { WinoIconGlyph.Google, "\uE905" },
+        { WinoIconGlyph.Exchange, "\uE92D" },
         { WinoIconGlyph.NewMail, "\uF107" },
         { WinoIconGlyph.TurnOfNotifications, "\uF11D" },
         { WinoIconGlyph.Rename, "\uF668" },

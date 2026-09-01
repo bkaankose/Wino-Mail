@@ -110,7 +110,10 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
+    [NotifyPropertyChangedFor(nameof(CanSelectFromAlias))]
     public partial MailAccount ComposingAccount { get; set; }
+
+    public bool CanSelectFromAlias => ComposingAccount?.ProviderType != MailProviderType.Exchange;
 
     [ObservableProperty]
     public partial List<MailAccountAlias> AvailableAliases { get; set; }
@@ -704,7 +707,31 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         var aliases = await _accountService.GetAccountAliasesAsync(composingAccount.Id).ConfigureAwait(false);
 
-        if (aliases == null || !aliases.Any()) return false;
+        if (aliases == null || !aliases.Any())
+        {
+            // Exchange-only on purpose: Gmail/Outlook also report IsAliasSyncSupported,
+            // but their alias-sync path isn't validated here yet. Can be unified later.
+            if (composingAccount.ProviderType == MailProviderType.Exchange)
+            {
+                try
+                {
+                    await SynchronizationManager.Instance.SynchronizeAliasesAsync(composingAccount.Id).ConfigureAwait(false);
+                    aliases = await _accountService.GetAccountAliasesAsync(composingAccount.Id).ConfigureAwait(false);
+                }
+                catch (Exception exc)
+                {
+                    Log.Warning(exc, "Alias sync fallback failed for {AccountId}, trying root alias creation.", composingAccount.Id);
+                }
+
+                if ((aliases == null || !aliases.Any()) && !string.IsNullOrWhiteSpace(composingAccount.Address))
+                {
+                    await _accountService.CreateRootAliasAsync(composingAccount.Id, composingAccount.Address).ConfigureAwait(false);
+                    aliases = await _accountService.GetAccountAliasesAsync(composingAccount.Id).ConfigureAwait(false);
+                }
+            }
+
+            if (aliases == null || !aliases.Any()) return false;
+        }
 
         // MailAccountAlias primaryAlias = aliases.Find(a => a.IsPrimary) ?? aliases.First();
 
@@ -713,7 +740,11 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         MailAccountAlias primaryAlias = null;
 
-        if (!string.IsNullOrEmpty(CurrentMailDraftItem.FromAddress))
+        if (composingAccount.ProviderType == MailProviderType.Exchange)
+        {
+            primaryAlias = aliases.FirstOrDefault(a => a.IsPrimary) ?? aliases.First();
+        }
+        else if (!string.IsNullOrEmpty(CurrentMailDraftItem.FromAddress))
         {
             primaryAlias = aliases.Find(a => a.AliasAddress == CurrentMailDraftItem.FromAddress);
         }
@@ -722,9 +753,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         await ExecuteUIThread(() =>
         {
-            ComposingAccount = composingAccount;
             AvailableAliases = aliases;
             SelectedAlias = primaryAlias;
+            ComposingAccount = composingAccount;
         });
 
         return true;

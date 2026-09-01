@@ -238,10 +238,10 @@ public class GmailSynchronizer : WinoSynchronizer<IClientServiceRequest, Message
         return atIndex > 0 ? address[..atIndex] : address;
     }
 
-    protected override async Task SynchronizeAliasesAsync()
+    protected override async Task SynchronizeAliasesAsync(CancellationToken cancellationToken = default)
     {
         var sendAsListRequest = _gmailService.Users.Settings.SendAs.List("me");
-        var sendAsListResponse = await sendAsListRequest.ExecuteAsync();
+        var sendAsListResponse = await sendAsListRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
         var remoteAliases = sendAsListResponse.GetRemoteAliases();
 
         await _gmailChangeProcessor.UpdateRemoteAliasInformationAsync(Account, remoteAliases).ConfigureAwait(false);
