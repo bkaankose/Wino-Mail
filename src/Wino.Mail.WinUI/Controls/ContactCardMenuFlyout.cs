@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -7,6 +8,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Interfaces;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 
@@ -15,6 +17,10 @@ namespace Wino.Mail.WinUI.Controls;
 public partial class ContactCardMenuFlyout : WinoMenuFlyout
 {
     private int _showRequestVersion;
+#if DEBUG
+    private readonly INotificationBuilder _notificationBuilder =
+        WinoApplication.Current.Services.GetRequiredService<INotificationBuilder>();
+#endif
 
     public async Task ShowForAsync(
         FrameworkElement target,
@@ -107,6 +113,19 @@ public partial class ContactCardMenuFlyout : WinoMenuFlyout
 
             Items.Add(assignSubItem);
         }
+
+#if DEBUG
+        Items.Add(new MenuFlyoutSeparator());
+        var testNotificationItem = new MenuFlyoutItem
+        {
+            Text = Translator.Buttons_TestNotification,
+            Icon = CreateIcon("\uE7ED")
+        };
+        AutomationProperties.SetAutomationId(testNotificationItem, "ContactCardContextTestNotification");
+        testNotificationItem.Click += async (_, _) =>
+            await _notificationBuilder.CreateTestPeopleNotificationAsync(contact.SourceContact);
+        Items.Add(testNotificationItem);
+#endif
 
         if (contact.CanDelete)
         {

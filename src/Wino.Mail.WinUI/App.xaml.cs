@@ -79,7 +79,6 @@ public partial class App : WinoApplication,
     private bool _isExiting;
     private bool _activationInfrastructureInitialized;
     private bool _appHostInfrastructureInitialized;
-    private bool _appNotificationsRegistered;
     private int _initialNotificationActivationHandled;
     private int _initialShareActivationHandled;
     private CancellationTokenSource? _autoSynchronizationLoopCts;
@@ -87,7 +86,6 @@ public partial class App : WinoApplication,
     private readonly SemaphoreSlim _activationInfrastructureSemaphore = new(1, 1);
     private readonly SemaphoreSlim _appHostInfrastructureSemaphore = new(1, 1);
     private readonly ConcurrentDictionary<Guid, int> _inboxSyncCounters = [];
-    private readonly AppNotificationActivationBuffer _bufferedAppNotificationActivations = new();
     private readonly AppNotificationHandler _notificationHandler;
     private readonly AppActivationHandler _activationHandler;
     private readonly DispatcherQueue? _applicationDispatcherQueue;
@@ -197,7 +195,6 @@ public partial class App : WinoApplication,
         InitializeComponent();
 
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
-        EnsureAppNotificationRegistration();
         RegisterRecipients();
     }
 
@@ -640,8 +637,6 @@ public partial class App : WinoApplication,
             if (_activationInfrastructureInitialized)
                 return;
 
-            EnsureAppNotificationRegistration();
-
             await TranslationService.InitializeAsync();
 
             await InitializeServicesAsync();
@@ -817,60 +812,7 @@ public partial class App : WinoApplication,
     }
 
     private AppActivationArguments ResolveStartupActivation()
-    {
-        var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
-        if (Program.TryConsumeDeferredAppNotificationStartup())
-        {
-            LogActivation($"Resolved deferred COM activation after notification registration. Kind: {activationArgs.Kind}");
-        }
-
-        return activationArgs;
-    }
-
-    private void AppNotificationInvoked(AppNotificationManager sender, AppNotificationActivatedEventArgs args)
-    {
-        if (!_activationInfrastructureInitialized)
-        {
-            LogActivation($"Buffering app notification activation until infrastructure is ready. Arguments: {args.Argument}");
-            _bufferedAppNotificationActivations.Enqueue(args);
-            return;
-        }
-
-        // AppNotification callbacks are not guaranteed to run on the UI thread.
-        // Marshal toast handling to the window dispatcher before touching window APIs.
-        if (TryEnqueueActivationOnUiThread(() => _ = HandleToastActivationAsync(args.Argument, args.UserInput)))
-            return;
-
-        LogActivation($"Processing notification activation from NotificationInvoked. Arguments: {args.Argument}");
-        _ = HandleToastActivationAsync(args.Argument, args.UserInput);
-    }
-
-    private void EnsureAppNotificationRegistration()
-    {
-        if (!Program.ShouldRegisterAppNotifications())
-        {
-            LogActivation("Skipping app notification registration for non-host entry activation.");
-            return;
-        }
-
-        if (_appNotificationsRegistered)
-            return;
-
-        var notificationManager = AppNotificationManager.Default;
-
-        notificationManager.NotificationInvoked -= AppNotificationInvoked;
-        notificationManager.NotificationInvoked += AppNotificationInvoked;
-
-        try
-        {
-            notificationManager.Register();
-            _appNotificationsRegistered = true;
-        }
-        catch (Exception ex)
-        {
-            LogActivation($"App notification registration failed: {ex.GetType().Name} - {ex.Message}");
-        }
-    }
+        => AppInstance.GetCurrent().GetActivatedEventArgs();
 
     /// <summary>
     /// Handles toast notification activation scenarios.
@@ -1243,6 +1185,7 @@ public partial class App : WinoApplication,
         if (account == null)
         {
             LogActivation($"Notification navigation mail account was not found for {mailItemUniqueId}.");
+            await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
             return;
         }
 
@@ -1250,6 +1193,7 @@ public partial class App : WinoApplication,
         if (mailItem == null)
         {
             LogActivation($"Notification navigation mail item was not found for {mailItemUniqueId}.");
+            await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
             return;
         }
 
@@ -2330,16 +2274,22 @@ public partial class App : WinoApplication,
     {
         try
         {
-            await TranslationService.InitializeAsync();
-            if (await TryShowMigrationAsync(null, args))
-                return;
-
-            await _activationHandler.HandleRedirectedActivationAsync(args);
+            var route = _activationHandler.ResolveRedirectedActivationRoute(args);
+            await ExecuteOnActivationUiThreadAsync(() => HandleRedirectedActivationOnUiThreadAsync(route));
         }
         catch (Exception ex)
         {
             LogActivation($"Redirected activation failed: {ex.GetType().Name} - {ex.Message}");
         }
+    }
+
+    private async Task HandleRedirectedActivationOnUiThreadAsync(RedirectedActivationRoute route)
+    {
+        await TranslationService.InitializeAsync();
+        if (await TryShowMigrationAsync(null, route.ActivationArgs))
+            return;
+
+        await _activationHandler.HandleResolvedRedirectedActivationAsync(route);
     }
 
     internal void TryActivateExistingWindowForRedirectedActivation(AppActivationArguments args)
@@ -2590,6 +2540,9 @@ public partial class App : WinoApplication,
 
     private DispatcherQueue? GetActivationDispatcherQueue()
     {
+        if (_applicationDispatcherQueue != null)
+            return _applicationDispatcherQueue;
+
         var windowManager = Services.GetService<IWinoWindowManager>();
         var currentWindow = windowManager?.ActiveWindow
                            ?? windowManager?.GetWindow(WinoWindowKind.Migration)
@@ -2597,8 +2550,7 @@ public partial class App : WinoApplication,
                            ?? windowManager?.GetWindow(WinoWindowKind.Welcome);
 
         return currentWindow?.DispatcherQueue
-               ?? MainWindow?.DispatcherQueue
-               ?? _applicationDispatcherQueue;
+               ?? MainWindow?.DispatcherQueue;
     }
 
     private Task ExecuteOnActivationUiThreadAsync(Func<Task> action)

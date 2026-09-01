@@ -7,6 +7,7 @@ using Wino.Core.Activation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Launch;
+using Wino.NotificationHost.Contracts;
 
 namespace Wino.Mail.WinUI.Activation;
 
@@ -21,6 +22,7 @@ internal enum AppActivationPath
     SecondaryEntryBootstrap,
     FileImport,
     AppNotification,
+    ForwardedAppNotification,
     ToastLaunch,
     ModeActivation
 }
@@ -35,6 +37,7 @@ internal enum NotificationActivationPath
     MailNavigation,
     MailCompose,
     MailBackgroundAction,
+    ModeNavigation,
     Unknown
 }
 
@@ -53,11 +56,13 @@ internal readonly record struct LaunchActivationRoute(
     MailToUri? MailToUri = null,
     PendingBootstrapActivation? PendingBootstrapActivation = null,
     WinoApplicationMode ActivationMode = WinoApplicationMode.Mail,
-    IReadOnlyList<string>? FilePaths = null)
+    IReadOnlyList<string>? FilePaths = null,
+    NotificationHostActivation? ForwardedNotificationActivation = null)
 {
     public bool RequiresAppHostInfrastructure => Path switch
     {
         AppActivationPath.AppNotification => NotificationRoute.RequiresForegroundWindow,
+        AppActivationPath.ForwardedAppNotification => NotificationRoute.RequiresForegroundWindow,
         _ => true
     };
 }
@@ -73,7 +78,9 @@ internal readonly record struct RedirectedActivationRoute(
     IDictionary<string, string>? UserInput = null,
     MailToUri? MailToUri = null,
     AppNotificationActivatedEventArgs? AppNotificationArgs = null,
-    IReadOnlyList<string>? FilePaths = null);
+    IReadOnlyList<string>? FilePaths = null,
+    NotificationHostActivation? ForwardedNotificationActivation = null,
+    NotificationActivationRoute NotificationRoute = default);
 
 internal static class ActivationPathNames
 {
@@ -89,6 +96,7 @@ internal static class ActivationPathNames
             AppActivationPath.SecondaryEntryBootstrap => "secondary entry bootstrap",
             AppActivationPath.FileImport => "file import",
             AppActivationPath.AppNotification => "app notification",
+            AppActivationPath.ForwardedAppNotification => "forwarded app notification",
             AppActivationPath.ToastLaunch => "toast launch",
             AppActivationPath.ModeActivation => "mode activation",
             _ => path.ToString()
@@ -105,6 +113,7 @@ internal static class ActivationPathNames
             NotificationActivationPath.MailNavigation => "mail notification navigation",
             NotificationActivationPath.MailCompose => "mail notification compose",
             NotificationActivationPath.MailBackgroundAction => "mail notification background action",
+            NotificationActivationPath.ModeNavigation => "notification mode navigation",
             NotificationActivationPath.Unknown => "unknown notification",
             _ => path.ToString()
         };

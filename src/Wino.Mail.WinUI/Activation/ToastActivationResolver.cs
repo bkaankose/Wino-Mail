@@ -54,9 +54,31 @@ internal static class ToastActivationResolver
         return true;
     }
 
+    public static bool TryResolveMode(NotificationArguments toastArguments, out WinoApplicationMode mode)
+    {
+        mode = WinoApplicationMode.Mail;
+        if (!toastArguments.TryGetValue(Constants.ToastModeKey, out string value))
+            return false;
+
+        mode = value switch
+        {
+            Constants.ToastModeMail => WinoApplicationMode.Mail,
+            Constants.ToastModeCalendar => WinoApplicationMode.Calendar,
+            Constants.ToastModePeople => WinoApplicationMode.Contacts,
+            Constants.ToastModeTasks => WinoApplicationMode.Tasks,
+            _ => mode
+        };
+
+        return value is Constants.ToastModeMail or
+            Constants.ToastModeCalendar or
+            Constants.ToastModePeople or
+            Constants.ToastModeTasks;
+    }
+
     private static bool ContainsKnownToastKey(NotificationArguments toastArguments)
         => toastArguments.TryGetValue(Constants.ToastStoreUpdateActionKey, out string _) ||
            toastArguments.TryGetValue(Constants.ToastCalendarActionKey, out string _) ||
            toastArguments.TryGetValue(Constants.ToastDismissActionKey, out string _) ||
-           toastArguments.TryGetValue(Constants.ToastActionKey, out string _);
+           toastArguments.TryGetValue(Constants.ToastActionKey, out string _) ||
+           toastArguments.TryGetValue(Constants.ToastModeKey, out string _);
 }

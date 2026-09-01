@@ -4,15 +4,19 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.ViewModels.Data;
+using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Views.Abstract;
@@ -23,6 +27,10 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
 {
     private CancellationTokenSource? _searchCancellationTokenSource;
     private TaskItemViewModel? _moveTaskTarget;
+#if DEBUG
+    private readonly INotificationBuilder _notificationBuilder =
+        WinoApplication.Current.Services.GetRequiredService<INotificationBuilder>();
+#endif
 
     [GeneratedDependencyProperty(DefaultValue = false)]
     public partial bool IsCompactLayout { get; set; }
@@ -219,6 +227,45 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         if (GetContextTask(sender) is { } item)
             await ViewModel.DeleteTaskCommand.ExecuteAsync(item);
     }
+
+#if DEBUG
+    private void TaskContextFlyout_Opening(object sender, object e)
+    {
+        if (sender is not MenuFlyout flyout ||
+            flyout.Target is not FrameworkElement { DataContext: TaskItemViewModel task })
+        {
+            return;
+        }
+
+        var testItem = flyout.Items
+            .OfType<MenuFlyoutItem>()
+            .FirstOrDefault(item => AutomationProperties.GetAutomationId(item) == "ToDoTaskTestNotificationMenuItem");
+        if (testItem == null)
+        {
+            flyout.Items.Add(new MenuFlyoutSeparator());
+            testItem = new MenuFlyoutItem
+            {
+                Text = Translator.Buttons_TestNotification,
+                Icon = new FontIcon { Glyph = "\uE7ED" }
+            };
+            AutomationProperties.SetAutomationId(testItem, "ToDoTaskTestNotificationMenuItem");
+            testItem.Click += TaskTestNotificationMenuItem_Click;
+            flyout.Items.Add(testItem);
+        }
+
+        testItem.Tag = task;
+    }
+
+    private async void TaskTestNotificationMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (GetContextTask(sender) is { } item)
+            await _notificationBuilder.CreateTestTaskReminderNotificationAsync(item.Task);
+    }
+#else
+    private void TaskContextFlyout_Opening(object sender, object e)
+    {
+    }
+#endif
 
     private static TaskItemViewModel? GetContextTask(object sender)
         => (sender as FrameworkElement)?.Tag as TaskItemViewModel;

@@ -5,6 +5,7 @@ using Microsoft.Windows.AppNotifications;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.WinUI;
+using Wino.NotificationHost.Contracts;
 
 namespace Wino.Mail.WinUI.Activation;
 
@@ -26,6 +27,17 @@ internal sealed class AppNotificationHandler
             return false;
 
         return TryCreateActivationRoute(toastArguments, notificationArgs.UserInput, out route);
+    }
+
+    public bool TryResolveActivationRoute(
+        string argument,
+        IDictionary<string, string>? userInput,
+        out NotificationActivationRoute route)
+    {
+        route = default;
+
+        return ToastActivationResolver.TryParse(argument, out var toastArguments) &&
+               TryCreateActivationRoute(toastArguments, userInput, out route);
     }
 
     public async Task HandleStartupActivationAsync(LaunchActivationRoute route)
@@ -55,6 +67,29 @@ internal sealed class AppNotificationHandler
             !_host.IsAppRunning())
         {
             _host.LogActivation("Background startup app-notification activation completed. Exiting without creating app host.");
+            _host.ExitApplication();
+        }
+    }
+
+    public async Task HandleForwardedActivationAsync(
+        NotificationHostActivation activation,
+        NotificationActivationRoute route)
+    {
+        _host.LogActivation($"Processing forwarded app-notification activation for {activation.Application}.");
+
+        if (route.ExecuteAsync == null)
+        {
+            await HandleActivationAsync(activation.Argument, new Dictionary<string, string>(activation.UserInput));
+        }
+        else
+        {
+            LogNotificationRoute(route);
+            await route.ExecuteAsync.Invoke();
+        }
+
+        if (!route.RequiresForegroundWindow && !_host.IsAppRunning())
+        {
+            _host.LogActivation("Forwarded background notification activation completed. Exiting transient process.");
             _host.ExitApplication();
         }
     }
@@ -130,6 +165,15 @@ internal sealed class AppNotificationHandler
             }
 
             route = new NotificationActivationRoute(NotificationActivationPath.MailBackgroundAction, false, () => _host.HandleMailToastBackgroundActionAsync(action, mailItemUniqueId));
+            return true;
+        }
+
+        if (ToastActivationResolver.TryResolveMode(toastArguments, out var mode))
+        {
+            route = new NotificationActivationRoute(
+                NotificationActivationPath.ModeNavigation,
+                true,
+                () => _host.HandleNotificationModeActivationAsync(mode));
             return true;
         }
 

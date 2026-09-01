@@ -36,6 +36,11 @@ public class ContactPictureFileService : BaseDatabaseService, IContactPictureFil
         return File.Exists(path) ? path : null;
     }
 
+    public Uri GetContactPictureUri(Guid fileId)
+        => GetContactPicturePath(fileId) == null
+            ? null
+            : new Uri($"ms-appdata:///local/{ContactsSubFolder}/{fileId:D}.jpg");
+
     public async Task<Guid> SaveContactPictureAsync(byte[] imageData)
     {
         var fileId = Guid.NewGuid();

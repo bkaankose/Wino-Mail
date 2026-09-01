@@ -21,6 +21,11 @@
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
+    <Project Path="src/Wino.Calendar.NotificationHost/Wino.Calendar.NotificationHost.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
     <Project Path="src/Wino.Calendar.ViewModels/Wino.Calendar.ViewModels.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
@@ -42,13 +47,33 @@
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
+    <Project Path="src/Wino.Mail.NotificationHost/Wino.Mail.NotificationHost.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
     <Project Path="src/Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
+    <Project Path="src/Wino.NotificationHost.Contracts/Wino.NotificationHost.Contracts.csproj">
+      <Platform Solution="*|arm64" Project="AnyCPU" />
+      <Platform Solution="*|x64" Project="AnyCPU" />
+      <Platform Solution="*|x86" Project="AnyCPU" />
+    </Project>
+    <Project Path="src/Wino.NotificationHost/Wino.NotificationHost.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
     <Project Path="src/Wino.Messages/Wino.Messaging.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="src/Wino.People.NotificationHost/Wino.People.NotificationHost.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
@@ -58,14 +83,17 @@
       <Platform Solution="*|x86" Project="x86" />
     </Project>
     <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
+    <Project Path="src/Wino.Tasks.NotificationHost/Wino.Tasks.NotificationHost.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
   </Folder>
   <Folder Name="/controls/">
     <Project Path="controls/Wino.Editor/Wino.Editor.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
-      <Platform Solution="Debug|arm64" Project="x86" />
-      <Platform Solution="Release|arm64" Project="arm64" />
-      <Platform Solution="ReleaseSideload|arm64" Project="arm64" />
     </Project>
     <Project Path="controls/Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
@@ -105,6 +133,11 @@
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
+    <Project Path="tests/Wino.NotificationHost.Tests/Wino.NotificationHost.Tests.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
     <Project Path="tests/Wino.SmokeTest.Console/Wino.SmokeTest.Console.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
@@ -120,7 +153,6 @@
     <Platform Solution="*|arm64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="*|x86" Project="x86" />
-    <Deploy />
-    <Deploy Solution="ReleaseSideload|*" Project="false" />
+    <Deploy Solution="Debug|*" />
   </Project>
 </Solution>

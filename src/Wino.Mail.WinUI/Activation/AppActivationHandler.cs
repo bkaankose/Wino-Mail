@@ -41,6 +41,12 @@ internal sealed class AppActivationHandler
     {
         var route = ResolveRedirectedActivationRoute(args);
 
+        await HandleResolvedRedirectedActivationAsync(route);
+    }
+
+    public async Task HandleResolvedRedirectedActivationAsync(RedirectedActivationRoute route)
+    {
+
         await _host.EnsureActivationInfrastructureAsync();
 
         await HandleRedirectedActivationRouteAsync(route);
@@ -49,6 +55,9 @@ internal sealed class AppActivationHandler
     private LaunchActivationRoute ResolveLaunchActivationRoute(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs,
                                                                AppActivationArguments activationArgs)
     {
+        if (TryCreateForwardedNotificationActivationRoute(launchArgs, activationArgs, out var forwardedNotificationRoute))
+            return forwardedNotificationRoute;
+
         if (TryCreateStartupNotificationActivationRoute(launchArgs, activationArgs, out var startupNotificationRoute))
             return startupNotificationRoute;
 
@@ -112,6 +121,35 @@ internal sealed class AppActivationHandler
         return new LaunchActivationRoute(AppActivationPath.StandardLaunch, launchArgs, activationArgs);
     }
 
+    private bool TryCreateForwardedNotificationActivationRoute(
+        Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs,
+        AppActivationArguments activationArgs,
+        out LaunchActivationRoute route)
+    {
+        route = default;
+
+        var forwardedArguments = activationArgs.Kind == ExtendedActivationKind.Launch &&
+                                 activationArgs.Data is ILaunchActivatedEventArgs appLaunchArgs
+            ? appLaunchArgs.Arguments
+            : launchArgs.Arguments;
+
+        if (!ForwardedNotificationActivationStore.TryRead(forwardedArguments, deleteAfterRead: true, out var activation))
+            return false;
+
+        _notificationHandler.TryResolveActivationRoute(
+            activation.Argument,
+            new Dictionary<string, string>(activation.UserInput),
+            out var notificationRoute);
+
+        route = new LaunchActivationRoute(
+            AppActivationPath.ForwardedAppNotification,
+            launchArgs,
+            activationArgs,
+            NotificationRoute: notificationRoute,
+            ForwardedNotificationActivation: activation);
+        return true;
+    }
+
     private bool TryCreateStartupNotificationActivationRoute(Microsoft.UI.Xaml.LaunchActivatedEventArgs launchArgs,
                                                              AppActivationArguments activationArgs,
                                                              out LaunchActivationRoute route)
@@ -145,6 +183,14 @@ internal sealed class AppActivationHandler
         {
             case AppActivationPath.AppNotification:
                 await _notificationHandler.HandleStartupActivationAsync(route);
+                break;
+            case AppActivationPath.ForwardedAppNotification:
+                if (route.ForwardedNotificationActivation != null)
+                {
+                    await _notificationHandler.HandleForwardedActivationAsync(
+                        route.ForwardedNotificationActivation,
+                        route.NotificationRoute);
+                }
                 break;
             case AppActivationPath.StartupTask:
                 _host.CompleteStartupTaskLaunch(_host.HasConfiguredAccounts);
@@ -197,10 +243,31 @@ internal sealed class AppActivationHandler
         }
     }
 
-    private RedirectedActivationRoute ResolveRedirectedActivationRoute(AppActivationArguments args)
+    public RedirectedActivationRoute ResolveRedirectedActivationRoute(AppActivationArguments args)
     {
         var activationMode = WinoApplicationMode.Mail;
         var shouldActivateWindow = args.Kind != ExtendedActivationKind.StartupTask;
+
+        if (args.Kind == ExtendedActivationKind.Launch &&
+            args.Data is ILaunchActivatedEventArgs forwardedLaunchArgs &&
+            ForwardedNotificationActivationStore.TryRead(
+                forwardedLaunchArgs.Arguments,
+                deleteAfterRead: true,
+                out var forwardedActivation))
+        {
+            _notificationHandler.TryResolveActivationRoute(
+                forwardedActivation.Argument,
+                new Dictionary<string, string>(forwardedActivation.UserInput),
+                out var notificationRoute);
+
+            return new RedirectedActivationRoute(
+                AppActivationPath.ForwardedAppNotification,
+                args,
+                activationMode,
+                notificationRoute.RequiresForegroundWindow,
+                ForwardedNotificationActivation: forwardedActivation,
+                NotificationRoute: notificationRoute);
+        }
 
         if (args.Kind == ExtendedActivationKind.AppNotification &&
             args.Data is AppNotificationActivatedEventArgs notificationArgs)
@@ -365,6 +432,18 @@ internal sealed class AppActivationHandler
         {
             _host.LogActivation("Processing redirected toast launch activation.");
             await _notificationHandler.HandleActivationAsync(route.ToastArguments!);
+            return;
+        }
+
+        if (route.Path == AppActivationPath.ForwardedAppNotification)
+        {
+            if (route.ForwardedNotificationActivation != null)
+            {
+                await _notificationHandler.HandleForwardedActivationAsync(
+                    route.ForwardedNotificationActivation,
+                    route.NotificationRoute);
+            }
+
             return;
         }
 

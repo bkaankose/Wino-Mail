@@ -18,7 +18,7 @@ namespace Wino.Mail.WinUI.Services;
 /// <summary>
 /// Window-local keyboard accelerator owner. It never registers operating-system hot keys.
 /// </summary>
-internal sealed class KeyboardShortcutController : IDisposable
+internal sealed partial class KeyboardShortcutController : IDisposable
 {
     private readonly UIElement _root;
     private readonly Microsoft.UI.Dispatching.DispatcherQueue _dispatcherQueue;

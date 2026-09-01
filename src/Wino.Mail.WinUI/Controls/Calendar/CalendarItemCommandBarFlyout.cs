@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Messages;
@@ -36,6 +39,29 @@ public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
                 SecondaryCommands.Add(appBarButton);
         }
     }
+
+#if DEBUG
+    public void AddTestNotificationCommand(Func<Task> createNotificationAsync)
+    {
+        var button = new AppBarButton
+        {
+            Label = Translator.Buttons_TestNotification,
+            Icon = new WinoFontIcon
+            {
+                Icon = WinoIconGlyph.Reminder,
+                FontSize = 16
+            }
+        };
+        AutomationProperties.SetAutomationId(button, "CalendarEventTestNotification");
+        AutomationProperties.SetName(button, Translator.Buttons_TestNotification);
+        button.Click += async (_, _) =>
+        {
+            await createNotificationAsync();
+            Hide();
+        };
+        SecondaryCommands.Add(button);
+    }
+#endif
 
     public void ClearMenuItems()
     {

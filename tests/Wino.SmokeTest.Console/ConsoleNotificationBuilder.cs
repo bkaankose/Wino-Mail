@@ -17,4 +17,7 @@ internal sealed class ConsoleNotificationBuilder : INotificationBuilder
     public void CreateAttentionRequiredNotification(MailAccount account) { }
     public void CreateWebView2RuntimeMissingNotification() { }
     public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds) => Task.CompletedTask;
+    public Task CreateTestCalendarReminderNotificationAsync(CalendarItem calendarItem) => Task.CompletedTask;
+    public Task CreateTestPeopleNotificationAsync(AccountContact contact) => Task.CompletedTask;
+    public Task CreateTestTaskReminderNotificationAsync(AccountTask task) => Task.CompletedTask;
 }

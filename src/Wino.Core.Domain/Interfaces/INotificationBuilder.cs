@@ -61,5 +61,20 @@ public interface INotificationBuilder
     /// Creates a calendar reminder toast for the specified calendar item.
     /// </summary>
     Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds);
+
+    /// <summary>
+    /// Creates a calendar reminder without applying reminder scheduling rules. Intended for manual UI testing.
+    /// </summary>
+    Task CreateTestCalendarReminderNotificationAsync(CalendarItem calendarItem);
+
+    /// <summary>
+    /// Creates a People notification for the specified contact. Intended for manual UI testing.
+    /// </summary>
+    Task CreateTestPeopleNotificationAsync(AccountContact contact);
+
+    /// <summary>
+    /// Creates a To Do reminder for the specified task. Intended for manual UI testing.
+    /// </summary>
+    Task CreateTestTaskReminderNotificationAsync(AccountTask task);
 }
 

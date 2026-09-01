@@ -24,6 +24,8 @@ public static class Constants
     public const string ToastModeKey = nameof(ToastModeKey);
     public const string ToastModeMail = nameof(ToastModeMail);
     public const string ToastModeCalendar = nameof(ToastModeCalendar);
+    public const string ToastModePeople = nameof(ToastModePeople);
+    public const string ToastModeTasks = nameof(ToastModeTasks);
     public const string ToastDismissActionKey = nameof(ToastDismissActionKey);
     public const string ToastStoreUpdateActionKey = nameof(ToastStoreUpdateActionKey);
     public const string ToastStoreUpdateActionInstall = nameof(ToastStoreUpdateActionInstall);

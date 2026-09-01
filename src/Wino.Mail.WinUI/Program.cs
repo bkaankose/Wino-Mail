@@ -14,7 +14,6 @@ namespace Wino.Mail.WinUI;
 
 public class Program
 {
-    private const string AppNotificationActivatedCommandLinePrefix = "----AppNotificationActivated:";
     private const string SingleInstanceKey = "WinoMailSingleInstance";
     private const string ForceAlternateModeSignalEventName = "Local\\WinoMailForceAlternateMode";
     private const string MailHostRunningMutexName = "Local\\WinoMailMailHostRunning";
@@ -24,25 +23,14 @@ public class Program
     private static EventWaitHandle? _forceAlternateModeSignalHandle;
     private static Mutex? _mailHostRunningMutex;
     private static PendingBootstrapActivation? _pendingBootstrapActivation;
-    private static bool _hasDeferredAppNotificationStartup;
-    private static bool _shouldRegisterAppNotifications;
 
     [STAThread]
     static int Main(string[] args)
     {
         WinRT.ComWrappersSupport.InitializeComWrappers();
 
-        if (TryCaptureCommandLineToastActivation(args))
-        {
-            _shouldRegisterAppNotifications = true;
-            EnsureMailHostRunningMutex();
-            StartApplication();
-            return 0;
-        }
-
         var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
         var shouldBootstrapSecondaryEntry = SecondaryEntryBootstrapActivation.ShouldBootstrapToMailHost(activationArgs);
-        _shouldRegisterAppNotifications = !shouldBootstrapSecondaryEntry;
 
         if (shouldBootstrapSecondaryEntry && !IsMailHostRunning())
         {
@@ -65,18 +53,6 @@ public class Program
         }
 
         return 0;
-    }
-
-    public static bool ShouldRegisterAppNotifications()
-        => _shouldRegisterAppNotifications;
-
-    internal static bool TryConsumeDeferredAppNotificationStartup()
-    {
-        if (!_hasDeferredAppNotificationStartup)
-            return false;
-
-        _hasDeferredAppNotificationStartup = false;
-        return true;
     }
 
     internal static bool TryConsumePendingBootstrapActivation(out PendingBootstrapActivation activation)
@@ -118,21 +94,6 @@ public class Program
         }
 
         return isRedirect;
-    }
-
-    private static bool TryCaptureCommandLineToastActivation(string[] args)
-    {
-        var commandLine = Environment.CommandLine;
-        var prefixIndex = commandLine.IndexOf(AppNotificationActivatedCommandLinePrefix, StringComparison.OrdinalIgnoreCase);
-
-        if (prefixIndex < 0)
-            return false;
-
-        // Do not touch AppInstance.GetActivatedEventArgs here. For app-notification cold starts,
-        // Windows App SDK expects the app to register AppNotificationManager first and then
-        // resolve the activation inside App.OnLaunched.
-        _hasDeferredAppNotificationStartup = true;
-        return true;
     }
 
     private static void StartApplication()
@@ -335,7 +296,19 @@ public class Program
 
         if (args.Kind == ExtendedActivationKind.Launch &&
             args.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs launchArgs &&
-            ToastActivationResolver.TryParse(launchArgs.Arguments, out var launchToastArguments))
+            ForwardedNotificationActivationStore.TryRead(
+                launchArgs.Arguments,
+                deleteAfterRead: false,
+                out var forwardedActivation))
+        {
+            return ToastActivationResolver.TryParse(forwardedActivation.Argument, out var forwardedToastArguments)
+                ? ToastActivationResolver.ShouldBringToForeground(forwardedToastArguments)
+                : true;
+        }
+
+        if (args.Kind == ExtendedActivationKind.Launch &&
+            args.Data is Windows.ApplicationModel.Activation.ILaunchActivatedEventArgs toastLaunchArgs &&
+            ToastActivationResolver.TryParse(toastLaunchArgs.Arguments, out var launchToastArguments))
         {
             return ToastActivationResolver.ShouldBringToForeground(launchToastArguments);
         }

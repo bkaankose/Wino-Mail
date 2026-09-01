@@ -15,6 +15,11 @@ public interface IContactPictureFileService
     string GetContactPicturePath(Guid fileId);
 
     /// <summary>
+    /// Returns the package-local URI for a stored contact picture, or null if the file does not exist.
+    /// </summary>
+    Uri GetContactPictureUri(Guid fileId);
+
+    /// <summary>
     /// Saves raw image bytes to disk and returns the new file ID.
     /// </summary>
     Task<Guid> SaveContactPictureAsync(byte[] imageData);

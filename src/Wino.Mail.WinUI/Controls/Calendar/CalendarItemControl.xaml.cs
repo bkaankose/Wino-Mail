@@ -14,6 +14,9 @@ namespace Wino.Calendar.Controls;
 public sealed partial class CalendarItemControl : UserControl
 {
     private readonly ICalendarContextMenuItemService _contextMenuItemService;
+#if DEBUG
+    private readonly INotificationBuilder _notificationBuilder;
+#endif
 
     // Single tap has a delay to report double taps properly.
     private bool isSingleTap = false;
@@ -46,6 +49,9 @@ public sealed partial class CalendarItemControl : UserControl
     public CalendarItemControl()
     {
         _contextMenuItemService = WinoApplication.Current.Services.GetRequiredService<ICalendarContextMenuItemService>();
+#if DEBUG
+        _notificationBuilder = WinoApplication.Current.Services.GetRequiredService<INotificationBuilder>();
+#endif
         InitializeComponent();
     }
 
@@ -160,6 +166,10 @@ public sealed partial class CalendarItemControl : UserControl
         }
 
         flyout.SetMenuItems(_contextMenuItemService.GetContextMenuItems(CalendarItem.CalendarItem));
+#if DEBUG
+        flyout.AddTestNotificationCommand(
+            () => _notificationBuilder.CreateTestCalendarReminderNotificationAsync(CalendarItem.CalendarItem));
+#endif
     }
 
     private void CalendarItemCommandBarFlyout_Closed(object sender, object e)

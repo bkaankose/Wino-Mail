@@ -34,7 +34,7 @@
                             BorderThickness="1"
                             CornerRadius="6">
                             <Border.ContextFlyout>
-                                <MenuFlyout>
+                                <MenuFlyout Opening="TaskContextFlyout_Opening">
                                     <MenuFlyoutItem
                                         AutomationProperties.AutomationId="ToDoTaskMyDayMenuItem"
                                         Click="TaskMyDayMenuItem_Click"
@@ -331,10 +331,11 @@
             Visibility="Collapsed">
             <Button.Flyout>
                 <Flyout Placement="RightEdgeAlignedTop">
-                    <StackPanel MinWidth="240" MaxHeight="360" Spacing="8">
-                        <TextBlock
-                            Style="{StaticResource BodyStrongTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.ToDoPage_MoveTaskTo, Mode=OneTime}" />
+                    <StackPanel
+                        MinWidth="240"
+                        MaxHeight="360"
+                        Spacing="8">
+                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.ToDoPage_MoveTaskTo, Mode=OneTime}" />
                         <ListView
                             x:Name="MoveTaskListView"
                             AutomationProperties.AutomationId="ToDoMoveTaskListPicker"
@@ -450,105 +451,105 @@
                             Orientation="Horizontal"
                             Spacing="8"
                             Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsCompactLayout), Mode=OneWay}">
-                        <DropDownButton
-                            x:Name="CompletionScopeButton"
-                            VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="ToDoShowScopeButton"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_ShowScope, Mode=OneTime}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_ShowScope, Mode=OneTime}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon FontSize="14" Glyph="&#xE8FD;" />
-                                <TextBlock Text="{x:Bind ViewModel.CompletionScopeDisplayText, Mode=OneWay}" />
-                            </StackPanel>
-                            <DropDownButton.Flyout>
-                                <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="ToDoScopeActive"
-                                        Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
-                                        CommandParameter="active"
-                                        Text="{x:Bind domain:Translator.ToDoPage_ScopeActive, Mode=OneTime}" />
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="ToDoScopeCompleted"
-                                        Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
-                                        CommandParameter="completed"
-                                        Text="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="ToDoScopeAll"
-                                        Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
-                                        CommandParameter="all"
-                                        Text="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
-                                </MenuFlyout>
-                            </DropDownButton.Flyout>
-                        </DropDownButton>
+                            <DropDownButton
+                                x:Name="CompletionScopeButton"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ToDoShowScopeButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_ShowScope, Mode=OneTime}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_ShowScope, Mode=OneTime}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="14" Glyph="&#xE8FD;" />
+                                    <TextBlock Text="{x:Bind ViewModel.CompletionScopeDisplayText, Mode=OneWay}" />
+                                </StackPanel>
+                                <DropDownButton.Flyout>
+                                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                        <MenuFlyoutItem
+                                            AutomationProperties.AutomationId="ToDoScopeActive"
+                                            Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
+                                            CommandParameter="active"
+                                            Text="{x:Bind domain:Translator.ToDoPage_ScopeActive, Mode=OneTime}" />
+                                        <MenuFlyoutItem
+                                            AutomationProperties.AutomationId="ToDoScopeCompleted"
+                                            Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
+                                            CommandParameter="completed"
+                                            Text="{x:Bind domain:Translator.ToDoPage_Completed, Mode=OneTime}"
+                                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
+                                        <MenuFlyoutItem
+                                            AutomationProperties.AutomationId="ToDoScopeAll"
+                                            Command="{x:Bind ViewModel.SetCompletionScopeCommand}"
+                                            CommandParameter="all"
+                                            Text="{x:Bind domain:Translator.ToDoPage_All, Mode=OneTime}"
+                                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompletedScopeAvailable), Mode=OneWay}" />
+                                    </MenuFlyout>
+                                </DropDownButton.Flyout>
+                            </DropDownButton>
 
-                        <ToggleButton
-                            x:Name="ImportantFilterButton"
-                            VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="ToDoFilterImportant"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}"
-                            IsChecked="{x:Bind ViewModel.IsImportantTasksFilterSelected, Mode=TwoWay}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon FontSize="14" Glyph="{x:Bind helpers:XamlHelpers.GetTaskImportanceGlyph(ViewModel.IsImportantTasksFilterSelected), Mode=OneWay}" />
-                                <TextBlock Text="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}" />
-                            </StackPanel>
-                        </ToggleButton>
+                            <ToggleButton
+                                x:Name="ImportantFilterButton"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ToDoFilterImportant"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}"
+                                IsChecked="{x:Bind ViewModel.IsImportantTasksFilterSelected, Mode=TwoWay}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="14" Glyph="{x:Bind helpers:XamlHelpers.GetTaskImportanceGlyph(ViewModel.IsImportantTasksFilterSelected), Mode=OneWay}" />
+                                    <TextBlock Text="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}" />
+                                </StackPanel>
+                            </ToggleButton>
 
-                        <DropDownButton
-                            x:Name="SortButton"
-                            VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="ToDoSortButton"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_SortBy, Mode=OneTime}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_SortBy, Mode=OneTime}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon FontSize="14" Glyph="&#xE8CB;" />
-                                <TextBlock Text="{x:Bind ViewModel.SortDisplayText, Mode=OneWay}" />
-                            </StackPanel>
-                            <DropDownButton.Flyout>
-                                <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="ToDoSortImportance"
-                                        Command="{x:Bind ViewModel.SetSortCommand}"
-                                        CommandParameter="importance"
-                                        Text="{x:Bind domain:Translator.ToDoPage_SortImportance, Mode=OneTime}" />
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="ToDoSortDueDate"
-                                        Command="{x:Bind ViewModel.SetSortCommand}"
-                                        CommandParameter="due"
-                                        Text="{x:Bind domain:Translator.ToDoPage_SortDueDate, Mode=OneTime}" />
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="ToDoSortMyDay"
-                                        Command="{x:Bind ViewModel.SetSortCommand}"
-                                        CommandParameter="myday"
-                                        Text="{x:Bind domain:Translator.ToDoPage_SortMyDay, Mode=OneTime}" />
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="ToDoSortAlphabetically"
-                                        Command="{x:Bind ViewModel.SetSortCommand}"
-                                        CommandParameter="alphabetical"
-                                        Text="{x:Bind domain:Translator.ToDoPage_SortAlphabetically, Mode=OneTime}" />
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="ToDoSortCreationDate"
-                                        Command="{x:Bind ViewModel.SetSortCommand}"
-                                        CommandParameter="created"
-                                        Text="{x:Bind domain:Translator.ToDoPage_SortCreationDate, Mode=OneTime}" />
-                                </MenuFlyout>
-                            </DropDownButton.Flyout>
-                        </DropDownButton>
+                            <DropDownButton
+                                x:Name="SortButton"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ToDoSortButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_SortBy, Mode=OneTime}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_SortBy, Mode=OneTime}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="14" Glyph="&#xE8CB;" />
+                                    <TextBlock Text="{x:Bind ViewModel.SortDisplayText, Mode=OneWay}" />
+                                </StackPanel>
+                                <DropDownButton.Flyout>
+                                    <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                        <MenuFlyoutItem
+                                            AutomationProperties.AutomationId="ToDoSortImportance"
+                                            Command="{x:Bind ViewModel.SetSortCommand}"
+                                            CommandParameter="importance"
+                                            Text="{x:Bind domain:Translator.ToDoPage_SortImportance, Mode=OneTime}" />
+                                        <MenuFlyoutItem
+                                            AutomationProperties.AutomationId="ToDoSortDueDate"
+                                            Command="{x:Bind ViewModel.SetSortCommand}"
+                                            CommandParameter="due"
+                                            Text="{x:Bind domain:Translator.ToDoPage_SortDueDate, Mode=OneTime}" />
+                                        <MenuFlyoutItem
+                                            AutomationProperties.AutomationId="ToDoSortMyDay"
+                                            Command="{x:Bind ViewModel.SetSortCommand}"
+                                            CommandParameter="myday"
+                                            Text="{x:Bind domain:Translator.ToDoPage_SortMyDay, Mode=OneTime}" />
+                                        <MenuFlyoutItem
+                                            AutomationProperties.AutomationId="ToDoSortAlphabetically"
+                                            Command="{x:Bind ViewModel.SetSortCommand}"
+                                            CommandParameter="alphabetical"
+                                            Text="{x:Bind domain:Translator.ToDoPage_SortAlphabetically, Mode=OneTime}" />
+                                        <MenuFlyoutItem
+                                            AutomationProperties.AutomationId="ToDoSortCreationDate"
+                                            Command="{x:Bind ViewModel.SetSortCommand}"
+                                            CommandParameter="created"
+                                            Text="{x:Bind domain:Translator.ToDoPage_SortCreationDate, Mode=OneTime}" />
+                                    </MenuFlyout>
+                                </DropDownButton.Flyout>
+                            </DropDownButton>
 
-                        <Button
-                            x:Name="ClearFiltersButton"
-                            VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="ToDoClearFiltersButton"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_ClearFilters, Mode=OneTime}"
-                            Command="{x:Bind ViewModel.ClearFiltersCommand}"
-                            ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_ClearFilters, Mode=OneTime}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon FontSize="14" Glyph="&#xE894;" />
-                                <TextBlock Text="{x:Bind domain:Translator.ToDoPage_Clear, Mode=OneTime}" />
-                            </StackPanel>
-                        </Button>
+                            <Button
+                                x:Name="ClearFiltersButton"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ToDoClearFiltersButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_ClearFilters, Mode=OneTime}"
+                                Command="{x:Bind ViewModel.ClearFiltersCommand}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_ClearFilters, Mode=OneTime}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon FontSize="14" Glyph="&#xE894;" />
+                                    <TextBlock Text="{x:Bind domain:Translator.ToDoPage_Clear, Mode=OneTime}" />
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
 
                         <!--
@@ -735,8 +736,8 @@
                                 <MenuFlyoutItem
                                     AutomationProperties.AutomationId="ToDoDeleteListButton"
                                     Command="{x:Bind ViewModel.DeleteListCommand}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanDeleteSelectedList), Mode=OneWay}"
-                                    Text="{x:Bind domain:Translator.ToDoPage_DeleteList, Mode=OneTime}">
+                                    Text="{x:Bind domain:Translator.ToDoPage_DeleteList, Mode=OneTime}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanDeleteSelectedList), Mode=OneWay}">
                                     <MenuFlyoutItem.Icon>
                                         <FontIcon Foreground="{ThemeResource SystemFillColorCriticalBrush}" Glyph="&#xE74D;" />
                                     </MenuFlyoutItem.Icon>

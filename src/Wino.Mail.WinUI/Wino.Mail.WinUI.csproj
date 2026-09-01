@@ -8,6 +8,10 @@
     <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+    <!-- Visual Studio solution builds set Platform but do not set RuntimeIdentifier. -->
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'x86'">win-x86</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'x64'">win-x64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == '' and '$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
     <PublishProfile>win-$(Platform).pubxml</PublishProfile>
     <UseWinUI>true</UseWinUI>
     <EnableMsixTooling>true</EnableMsixTooling>
@@ -36,7 +40,24 @@
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	<!-- Single instancing -->
     <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+	<NotificationHostBuildSuffix>bin\$(Platform)\$(Configuration)\net10.0-windows10.0.26100.0\$(RuntimeIdentifier)\</NotificationHostBuildSuffix>
+	<NotificationHostPublishRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)\$(BaseIntermediateOutputPath)$(Platform)\$(Configuration)\NotificationHosts'))</NotificationHostPublishRoot>
+	<MailNotificationHostOutput Condition="'$(WinoIsReleaseBuild)' != 'true'">$(MSBuildProjectDirectory)\..\Wino.Mail.NotificationHost\$(NotificationHostBuildSuffix)</MailNotificationHostOutput>
+	<CalendarNotificationHostOutput Condition="'$(WinoIsReleaseBuild)' != 'true'">$(MSBuildProjectDirectory)\..\Wino.Calendar.NotificationHost\$(NotificationHostBuildSuffix)</CalendarNotificationHostOutput>
+	<PeopleNotificationHostOutput Condition="'$(WinoIsReleaseBuild)' != 'true'">$(MSBuildProjectDirectory)\..\Wino.People.NotificationHost\$(NotificationHostBuildSuffix)</PeopleNotificationHostOutput>
+	<TasksNotificationHostOutput Condition="'$(WinoIsReleaseBuild)' != 'true'">$(MSBuildProjectDirectory)\..\Wino.Tasks.NotificationHost\$(NotificationHostBuildSuffix)</TasksNotificationHostOutput>
+	<MailNotificationHostOutput Condition="'$(WinoIsReleaseBuild)' == 'true'">$(NotificationHostPublishRoot)Mail\</MailNotificationHostOutput>
+	<CalendarNotificationHostOutput Condition="'$(WinoIsReleaseBuild)' == 'true'">$(NotificationHostPublishRoot)Calendar\</CalendarNotificationHostOutput>
+	<PeopleNotificationHostOutput Condition="'$(WinoIsReleaseBuild)' == 'true'">$(NotificationHostPublishRoot)People\</PeopleNotificationHostOutput>
+	<TasksNotificationHostOutput Condition="'$(WinoIsReleaseBuild)' == 'true'">$(NotificationHostPublishRoot)Tasks\</TasksNotificationHostOutput>
 </PropertyGroup>
+
+  <ItemGroup>
+    <NotificationHostProject Include="$(MSBuildProjectDirectory)\..\Wino.Mail.NotificationHost\Wino.Mail.NotificationHost.csproj" />
+    <NotificationHostProject Include="$(MSBuildProjectDirectory)\..\Wino.Calendar.NotificationHost\Wino.Calendar.NotificationHost.csproj" />
+    <NotificationHostProject Include="$(MSBuildProjectDirectory)\..\Wino.People.NotificationHost\Wino.People.NotificationHost.csproj" />
+    <NotificationHostProject Include="$(MSBuildProjectDirectory)\..\Wino.Tasks.NotificationHost\Wino.Tasks.NotificationHost.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="Wino.CardDavContacts" Value="true" />
@@ -182,6 +203,23 @@
     <Content Include="BackgroundImages\Mica.jpg" />
     <Content Include="BackgroundImages\Nighty.jpg" />
     <Content Include="BackgroundImages\Snowflake.jpg" />
+    <Content Include="$(MailNotificationHostOutput)Wino.Mail.NotificationHost.exe" Link="Wino.Mail.NotificationHost.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(CalendarNotificationHostOutput)Wino.Calendar.NotificationHost.exe" Link="Wino.Calendar.NotificationHost.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(PeopleNotificationHostOutput)Wino.People.NotificationHost.exe" Link="Wino.People.NotificationHost.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(TasksNotificationHostOutput)Wino.Tasks.NotificationHost.exe" Link="Wino.Tasks.NotificationHost.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="$(MailNotificationHostOutput)Wino.NotificationHost.dll" Link="Wino.NotificationHost.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(MailNotificationHostOutput)Wino.Mail.NotificationHost.dll" Link="Wino.Mail.NotificationHost.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(MailNotificationHostOutput)Wino.Mail.NotificationHost.deps.json" Link="Wino.Mail.NotificationHost.deps.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(MailNotificationHostOutput)Wino.Mail.NotificationHost.runtimeconfig.json" Link="Wino.Mail.NotificationHost.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(CalendarNotificationHostOutput)Wino.Calendar.NotificationHost.dll" Link="Wino.Calendar.NotificationHost.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(CalendarNotificationHostOutput)Wino.Calendar.NotificationHost.deps.json" Link="Wino.Calendar.NotificationHost.deps.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(CalendarNotificationHostOutput)Wino.Calendar.NotificationHost.runtimeconfig.json" Link="Wino.Calendar.NotificationHost.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(PeopleNotificationHostOutput)Wino.People.NotificationHost.dll" Link="Wino.People.NotificationHost.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(PeopleNotificationHostOutput)Wino.People.NotificationHost.deps.json" Link="Wino.People.NotificationHost.deps.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(PeopleNotificationHostOutput)Wino.People.NotificationHost.runtimeconfig.json" Link="Wino.People.NotificationHost.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(TasksNotificationHostOutput)Wino.Tasks.NotificationHost.dll" Link="Wino.Tasks.NotificationHost.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(TasksNotificationHostOutput)Wino.Tasks.NotificationHost.deps.json" Link="Wino.Tasks.NotificationHost.deps.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
+    <Content Include="$(TasksNotificationHostOutput)Wino.Tasks.NotificationHost.runtimeconfig.json" Link="Wino.Tasks.NotificationHost.runtimeconfig.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="'$(WinoIsReleaseBuild)' != 'true'" />
   </ItemGroup>
 
   <ItemGroup>
@@ -237,6 +275,7 @@
 	<ProjectReference Include="..\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
 	<ProjectReference Include="..\..\controls\Wino.Editor\Wino.Editor.csproj" />
 	<ProjectReference Include="..\Wino.Mail.ViewModels\Wino.Mail.ViewModels.csproj" />
+	<ProjectReference Include="..\Wino.NotificationHost.Contracts\Wino.NotificationHost.Contracts.csproj" />
 	<ProjectReference Include="..\..\controls\Wino.Mail.Controls\Wino.Mail.Controls.csproj" />
 	<ProjectReference Include="..\..\controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
 	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
@@ -462,5 +501,29 @@
            Text="The generated sideload manifest identity name is invalid: '$(_WinoGeneratedSideloadIdentityName)'." />
     <Error Condition="'$(_WinoGeneratedSideloadPublisher)' != '$(WinoSideloadPublisherSubject)'"
            Text="The generated sideload manifest publisher is invalid: '$(_WinoGeneratedSideloadPublisher)'." />
+  </Target>
+
+  <Target Name="PublishNotificationHost"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(WinoIsReleaseBuild)' == 'true'">
+    <MakeDir Directories="$(MailNotificationHostOutput);$(CalendarNotificationHostOutput);$(PeopleNotificationHostOutput);$(TasksNotificationHostOutput)" />
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.Mail.NotificationHost\Wino.Mail.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(MailNotificationHostOutput);Restore=false" />
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.Calendar.NotificationHost\Wino.Calendar.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(CalendarNotificationHostOutput);Restore=false" />
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.People.NotificationHost\Wino.People.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(PeopleNotificationHostOutput);Restore=false" />
+    <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.Tasks.NotificationHost\Wino.Tasks.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(TasksNotificationHostOutput);Restore=false" />
+  </Target>
+
+  <Target Name="RestoreNotificationHost" BeforeTargets="Restore">
+    <MSBuild Projects="@(NotificationHostProject)"
+             Targets="Restore"
+             Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier)" />
+  </Target>
+
+  <Target Name="BuildNotificationHost"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(WinoIsReleaseBuild)' != 'true'">
+    <MSBuild Projects="@(NotificationHostProject)"
+             Targets="Build"
+             Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);Restore=false" />
   </Target>
 </Project>

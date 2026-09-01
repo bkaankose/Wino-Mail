@@ -34,6 +34,24 @@ public class ContactPictureFileServiceTests : IDisposable
         savedData.Should().Equal(imageData);
     }
 
+    [Fact]
+    public async Task GetContactPictureUri_ReturnsPackageLocalUri_ForExistingPicture()
+    {
+        var service = CreateService();
+        var fileId = await service.SaveContactPictureAsync([1, 2, 3]);
+
+        service.GetContactPictureUri(fileId)
+            .Should().Be(new Uri($"ms-appdata:///local/contacts/{fileId:D}.jpg"));
+    }
+
+    [Fact]
+    public void GetContactPictureUri_ReturnsNull_WhenPictureDoesNotExist()
+    {
+        var service = CreateService();
+
+        service.GetContactPictureUri(Guid.NewGuid()).Should().BeNull();
+    }
+
     private ContactPictureFileService CreateService()
     {
         var applicationConfiguration = new Mock<IApplicationConfiguration>();

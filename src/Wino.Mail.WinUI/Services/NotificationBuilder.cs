@@ -21,6 +21,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Helpers;
 using Wino.Mail.WinUI.Activation;
 using Wino.Messaging.UI;
+using Wino.NotificationHost.Contracts;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -48,13 +49,17 @@ public class NotificationBuilder : INotificationBuilder
     private readonly IThumbnailService _thumbnailService;
     private readonly IPreferencesService _preferencesService;
     private readonly IAccountProfilePictureFileService _accountProfilePictureFileService;
+    private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly INotificationHostClient _notificationHostClient;
 
     public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
                                IMailService mailService,
                                IThumbnailService thumbnailService,
                                IPreferencesService preferencesService,
-                               IAccountProfilePictureFileService accountProfilePictureFileService)
+                               IAccountProfilePictureFileService accountProfilePictureFileService,
+                               IContactPictureFileService contactPictureFileService,
+                               INotificationHostClient notificationHostClient)
     {
         _accountService = accountService;
         _folderService = folderService;
@@ -62,6 +67,8 @@ public class NotificationBuilder : INotificationBuilder
         _thumbnailService = thumbnailService;
         _preferencesService = preferencesService;
         _accountProfilePictureFileService = accountProfilePictureFileService;
+        _contactPictureFileService = contactPictureFileService;
+        _notificationHostClient = notificationHostClient;
 
         WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
         {
@@ -112,7 +119,7 @@ public class NotificationBuilder : INotificationBuilder
                 builder.AddButton(CreateDismissButton());
                 builder.SetAudioUri(new Uri("ms-winsoundevent:Notification.Mail"));
 
-                ShowNotification(builder);
+                await ShowNotificationAsync(NotificationHostApplication.Mail, builder);
             }
             else
             {
@@ -246,13 +253,15 @@ public class NotificationBuilder : INotificationBuilder
         _ = RemoveNotificationsAsync(uniqueIds);
     }
 
-    private static async Task RemoveNotificationsAsync(IReadOnlyList<Guid> mailUniqueIds)
+    private async Task RemoveNotificationsAsync(IReadOnlyList<Guid> mailUniqueIds)
     {
         foreach (var mailUniqueId in mailUniqueIds)
         {
             try
             {
-                await AppNotificationManager.Default.RemoveByTagAsync(mailUniqueId.ToString()).AsTask().ConfigureAwait(false);
+                await _notificationHostClient
+                    .RemoveByTagAsync(NotificationHostApplication.Mail, mailUniqueId.ToString())
+                    .ConfigureAwait(false);
             }
             catch (ArgumentException)
             {
@@ -279,7 +288,7 @@ public class NotificationBuilder : INotificationBuilder
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail));
         builder.AddButton(CreateDismissButton());
 
-        ShowNotification(builder);
+        QueueShowNotification(NotificationHostApplication.Mail, builder);
     }
 
     public void CreateWebView2RuntimeMissingNotification()
@@ -290,7 +299,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
         builder.AddButton(CreateDismissButton());
 
-        ShowNotification(builder);
+        QueueShowNotification(NotificationHostApplication.Mail, builder);
     }
 
     public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
@@ -359,20 +368,86 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddButton(CreateDismissButton());
 
         var tag = $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";
-        ShowNotification(builder, tag);
+        return ShowNotificationAsync(NotificationHostApplication.Calendar, builder, tag);
+    }
 
-        return Task.CompletedTask;
+    public Task CreateTestCalendarReminderNotificationAsync(CalendarItem calendarItem)
+    {
+        var reminderDurationInSeconds = Math.Max(
+            _preferencesService.DefaultReminderDurationInSeconds,
+            (long)TimeSpan.FromMinutes(30).TotalSeconds);
+
+        return CreateCalendarReminderNotificationAsync(calendarItem, reminderDurationInSeconds);
+    }
+
+    public Task CreateTestPeopleNotificationAsync(AccountContact contact)
+    {
+        if (contact == null)
+            return Task.CompletedTask;
+
+        var builder = CreateBuilder();
+        var displayName = string.IsNullOrWhiteSpace(contact.DisplayValue)
+            ? Translator.Buttons_TestNotification
+            : contact.DisplayValue;
+        var secondaryText = contact.PrimaryEmailAddress ?? contact.PrimaryPhoneNumber;
+
+        if (contact.ContactPictureFileId is { } pictureFileId)
+        {
+            builder.SetAppLogoOverride(
+                _contactPictureFileService.GetContactPictureUri(pictureFileId),
+                AppNotificationImageCrop.Circle);
+        }
+
+        builder.AddText(displayName);
+        builder.AddText(string.IsNullOrWhiteSpace(secondaryText)
+            ? Translator.Buttons_TestNotification
+            : secondaryText);
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModePeople);
+        builder.AddButton(new AppNotificationButton(Translator.Buttons_Open)
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModePeople));
+        builder.AddButton(CreateDismissButton());
+        builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.MailNotificationSoundEvent);
+
+        return ShowNotificationAsync(NotificationHostApplication.People, builder, $"people-test-{contact.Id:N}");
+    }
+
+    public Task CreateTestTaskReminderNotificationAsync(AccountTask task)
+    {
+        if (task == null)
+            return Task.CompletedTask;
+
+        var builder = CreateBuilder(AppNotificationScenario.Reminder);
+        var title = string.IsNullOrWhiteSpace(task.Title)
+            ? Translator.Buttons_TestNotification
+            : task.Title;
+        var reminderText = task.DueDate is { } dueDate
+            ? dueDate.ToString("D")
+            : Translator.Buttons_TestNotification;
+
+        builder.AddText(title);
+        builder.AddText(reminderText);
+        builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks);
+        builder.AddButton(new AppNotificationButton(Translator.Buttons_Open)
+            .AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks));
+        builder.AddButton(CreateDismissButton());
+        builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.CalendarNotificationSoundEvent);
+
+        return ShowNotificationAsync(NotificationHostApplication.Tasks, builder, $"task-test-{task.Id:N}");
     }
 
     private async Task CreateSingleNotificationAsync(MailCopy mailItem)
     {
         var builder = CreateBuilder();
 
-        var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
-        if (avatarThumbnail != null)
+        var senderPictureUri = GetContactPictureUri(mailItem);
+        if (senderPictureUri == null)
         {
-            builder.SetAppLogoOverride(new Uri(avatarThumbnail.AppDataUri), AppNotificationImageCrop.Circle);
+            var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
+            senderPictureUri = avatarThumbnail == null ? null : new Uri(avatarThumbnail.AppDataUri);
         }
+
+        if (senderPictureUri != null)
+            builder.SetAppLogoOverride(senderPictureUri, AppNotificationImageCrop.Circle);
 
         builder.SetTimeStamp(mailItem.CreationDate.ToLocalTime());
         builder.AddText(mailItem.FromName);
@@ -388,7 +463,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddButton(CreateDismissButton());
         builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.MailNotificationSoundEvent);
 
-        ShowNotification(builder, mailItem.UniqueId.ToString());
+        await ShowNotificationAsync(NotificationHostApplication.Mail, builder, mailItem.UniqueId.ToString());
     }
 
     private static bool ShouldCreateMailNotification(MailCopy mailItem, IReadOnlyCollection<MailAccount> accounts)
@@ -502,7 +577,10 @@ public class NotificationBuilder : INotificationBuilder
     private static AppNotificationBuilder CreateBuilder(AppNotificationScenario scenario = AppNotificationScenario.Default)
         => new AppNotificationBuilder().SetScenario(scenario);
 
-    private static void ShowNotification(AppNotificationBuilder builder, string? tag = null)
+    private async Task ShowNotificationAsync(
+        NotificationHostApplication application,
+        AppNotificationBuilder builder,
+        string? tag = null)
     {
         var notification = builder.BuildNotification();
 
@@ -511,8 +589,25 @@ public class NotificationBuilder : INotificationBuilder
             notification.Tag = tag;
         }
 
-        AppNotificationManager.Default.Show(notification);
+        await _notificationHostClient.ShowAsync(application, notification).ConfigureAwait(false);
     }
+
+    private void QueueShowNotification(
+        NotificationHostApplication application,
+        AppNotificationBuilder builder,
+        string? tag = null)
+    {
+        _ = ShowNotificationAsync(application, builder, tag).ContinueWith(
+            task => Log.Error(task.Exception, "Failed to dispatch {Application} notification.", application),
+            CancellationToken.None,
+            TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
+    }
+
+    private Uri? GetContactPictureUri(MailCopy mailItem)
+        => mailItem.SenderContact?.ContactPictureFileId is { } fileId
+            ? _contactPictureFileService.GetContactPictureUri(fileId)
+            : null;
 
     private static Uri GetNotificationIconUri(string iconName)
         => new($"{NotificationIconRootUri}{iconName}.png");
