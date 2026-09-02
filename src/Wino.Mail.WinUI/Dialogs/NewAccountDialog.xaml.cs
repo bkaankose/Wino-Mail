@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Windows.System;
@@ -16,11 +17,7 @@ namespace Wino.Mail.WinUI.Dialogs;
 
 public sealed partial class NewAccountDialog : ContentDialog
 {
-    private readonly Dictionary<SpecialImapProvider, string> helpingLinks = new()
-    {
-        { SpecialImapProvider.iCloud, "https://support.apple.com/en-us/102654" },
-        { SpecialImapProvider.Yahoo, "http://help.yahoo.com/kb/SLN15241.html" },
-    };
+    private readonly IKnownImapProviderCatalog _knownImapProviderCatalog;
 
     public static readonly DependencyProperty IsProviderSelectionVisibleProperty = DependencyProperty.Register(nameof(IsProviderSelectionVisible), typeof(bool), typeof(NewAccountDialog), new PropertyMetadata(true));
     public static readonly DependencyProperty IsSpecialImapServerPartVisibleProperty = DependencyProperty.Register(nameof(IsSpecialImapServerPartVisible), typeof(bool), typeof(NewAccountDialog), new PropertyMetadata(false));
@@ -84,6 +81,8 @@ public sealed partial class NewAccountDialog : ContentDialog
     public NewAccountDialog()
     {
         InitializeComponent();
+
+        _knownImapProviderCatalog = WinoApplication.Current.Services.GetRequiredService<IKnownImapProviderCatalog>();
 
         var themeService = WinoApplication.Current.NewThemeService.GetAvailableAccountColors();
         AvailableColors = themeService.Select(a => new AppColorViewModel(a)).ToList();
@@ -240,8 +239,10 @@ public sealed partial class NewAccountDialog : ContentDialog
 
     private async void AppSpecificHelpButtonClicked(object sender, RoutedEventArgs e)
     {
-        if (SelectedMailProvider == null ||
-            !helpingLinks.TryGetValue(SelectedMailProvider.SpecialImapProvider, out var helpUrl))
+        var helpUrl = SelectedMailProvider == null
+            ? null
+            : _knownImapProviderCatalog.GetBySpecialProvider(SelectedMailProvider.SpecialImapProvider)?.AppPasswordHelpUrl;
+        if (string.IsNullOrWhiteSpace(helpUrl))
         {
             return;
         }

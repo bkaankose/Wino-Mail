@@ -82,13 +82,6 @@ public class AutoDiscoveryService : IAutoDiscoveryService
                 return cachedUri;
         }
 
-        var knownProviderUri = TryGetKnownProviderCalDavUri(domain);
-        if (knownProviderUri != null)
-        {
-            CacheCalDavUri(domain, knownProviderUri);
-            return knownProviderUri;
-        }
-
         foreach (var candidate in GetCalDavCandidates(domain))
         {
             var resolved = await TryResolveCalDavEndpointAsync(candidate, cancellationToken).ConfigureAwait(false);
@@ -608,24 +601,6 @@ public class AutoDiscoveryService : IAutoDiscoveryService
            || statusCode == HttpStatusCode.RedirectMethod
            || statusCode == HttpStatusCode.TemporaryRedirect
            || (int)statusCode == 308;
-
-    private static Uri TryGetKnownProviderCalDavUri(string domain)
-    {
-        if (domain.EndsWith("icloud.com", StringComparison.OrdinalIgnoreCase) ||
-            domain.EndsWith("me.com", StringComparison.OrdinalIgnoreCase) ||
-            domain.EndsWith("mac.com", StringComparison.OrdinalIgnoreCase))
-        {
-            return new Uri("https://caldav.icloud.com/");
-        }
-
-        if (domain.Contains("yahoo.", StringComparison.OrdinalIgnoreCase) ||
-            domain.EndsWith("aol.com", StringComparison.OrdinalIgnoreCase))
-        {
-            return new Uri("https://caldav.calendar.yahoo.com/");
-        }
-
-        return null;
-    }
 
     private static IEnumerable<Uri> GetCalDavCandidates(string domain)
     {

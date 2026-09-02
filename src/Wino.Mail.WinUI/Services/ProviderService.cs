@@ -10,7 +10,7 @@ namespace Wino.Mail.Services;
 /// <summary>
 /// Service that is returning available provider details.
 /// </summary>
-public class ProviderService : IProviderService
+public class ProviderService(IKnownImapProviderCatalog catalog) : IProviderService
 {
     public IProviderDetail GetProviderDetail(MailProviderType type)
     {
@@ -24,12 +24,13 @@ public class ProviderService : IProviderService
         var providerList = new List<IProviderDetail>
         {
             new ProviderDetail(MailProviderType.Outlook, SpecialImapProvider.None),
-            new ProviderDetail(MailProviderType.Gmail, SpecialImapProvider.None),
-            new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.iCloud),
-            new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.Yahoo),
-            new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None),
-            new ProviderDetail(MailProviderType.POP3, SpecialImapProvider.None)
+            new ProviderDetail(MailProviderType.Gmail, SpecialImapProvider.None)
         };
+
+        providerList.AddRange(catalog.SetupProviders.Select(provider =>
+            new ProviderDetail(MailProviderType.IMAP4, provider.SpecialImapProvider)));
+        providerList.Add(new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None));
+        providerList.Add(new ProviderDetail(MailProviderType.POP3, SpecialImapProvider.None));
 
         return providerList;
     }

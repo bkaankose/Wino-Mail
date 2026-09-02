@@ -13,6 +13,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
@@ -349,6 +350,9 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 _createdAccount.Address = WizardContext.EmailAddress;
                 _createdAccount.SenderName = WizardContext.DisplayName;
                 _createdAccount.IsMailAccessGranted = dialogResult.IsMailAccessGranted;
+                _createdAccount.ImapKnownFolderBootstrapState = ImapKnownFolderBootstrap.GetInitialState(
+                    _createdAccount.ProviderType,
+                    dialogResult.IsMailAccessGranted);
                 _createdAccount.IsCalendarAccessEnabled = WizardContext.IsCalendarAccessEnabled;
                 _createdAccount.IsCalendarAccessGranted = customServerInformation.CalendarSupportMode != ImapCalendarSupportMode.Disabled;
                 _createdAccount.ServerInformation = customServerInformation;
@@ -424,6 +428,9 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 _createdAccount.Address = setupResult.EmailAddress;
                 _createdAccount.SenderName = setupResult.DisplayName;
                 _createdAccount.IsMailAccessGranted = setupResult.IsMailAccessGranted;
+                _createdAccount.ImapKnownFolderBootstrapState = ImapKnownFolderBootstrap.GetInitialState(
+                    _createdAccount.ProviderType,
+                    setupResult.IsMailAccessGranted);
                 _createdAccount.IsCalendarAccessEnabled = WizardContext.IsCalendarAccessEnabled;
                 _createdAccount.IsCalendarAccessGranted = setupResult.IsCalendarAccessGranted;
                 _createdAccount.ServerInformation = customServerInformation;

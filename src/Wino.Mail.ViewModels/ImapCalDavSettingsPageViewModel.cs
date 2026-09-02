@@ -695,7 +695,6 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         var normalizedEmail = !string.IsNullOrWhiteSpace(EmailAddress) && !EmailAddress.Contains('@')
             ? $"{EmailAddress}@icloud.com"
             : EmailAddress;
-        var iCloudMailboxUsername = GetICloudMailboxUsername(normalizedEmail);
 
         if (!string.IsNullOrWhiteSpace(accountCreationDialogResult?.SpecialImapProviderDetails?.SenderName))
             DisplayName = accountCreationDialogResult.SpecialImapProviderDetails.SenderName;
@@ -720,65 +719,22 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _editingSpecialImapProvider = specialProvider;
         ApplyProviderHint(specialProvider);
 
-        switch (specialProvider)
+        if (specialProvider != SpecialImapProvider.None)
         {
-            case SpecialImapProvider.iCloud:
-                ApplySpecialProviderDefaults(
-                    "imap.mail.me.com",
-                    "993",
-                    iCloudMailboxUsername,
-                    "smtp.mail.me.com",
-                    "587",
-                    iCloudMailboxUsername,
-                    Password,
-                    "https://caldav.icloud.com/",
-                    normalizedEmail,
-                    Password);
-                break;
-            case SpecialImapProvider.Yahoo:
-                ApplySpecialProviderDefaults(
-                    "imap.mail.yahoo.com",
-                    "993",
-                    EmailAddress,
-                    "smtp.mail.yahoo.com",
-                    "587",
-                    EmailAddress,
-                    Password,
-                    "https://caldav.calendar.yahoo.com/",
-                    EmailAddress,
-                    Password);
-                break;
+            var providerDetails = accountCreationDialogResult.SpecialImapProviderDetails with { Address = normalizedEmail };
+            var providerResult = accountCreationDialogResult with { SpecialImapProviderDetails = providerDetails };
+            var serverInformation = _specialImapProviderConfigResolver.GetServerInformation(
+                new MailAccount
+                {
+                    ProviderType = MailProviderType.IMAP4,
+                    SpecialImapProvider = specialProvider,
+                    IsMailAccessGranted = IsMailSupportEnabled,
+                    IsCalendarAccessGranted = IsCalendarSupportEnabled
+                },
+                providerResult);
+
+            ApplyServerInformation(serverInformation);
         }
-    }
-
-    private void ApplySpecialProviderDefaults(string incomingServer,
-                                              string incomingPort,
-                                              string incomingUsername,
-                                              string outgoingServer,
-                                              string outgoingPort,
-                                              string outgoingUsername,
-                                              string password,
-                                              string calDavServiceUrl,
-                                              string calDavUsername,
-                                              string calDavPassword)
-    {
-        IncomingServer = incomingServer;
-        IncomingServerPort = incomingPort;
-        IncomingServerUsername = incomingUsername;
-        IncomingServerPassword = password;
-
-        OutgoingServer = outgoingServer;
-        OutgoingServerPort = outgoingPort;
-        OutgoingServerUsername = outgoingUsername;
-        OutgoingServerPassword = password;
-        CalDavServiceUrl = calDavServiceUrl;
-        CalDavUsername = calDavUsername;
-        CalDavPassword = calDavPassword;
-
-        SelectedIncomingServerConnectionSecurityIndex = 0;
-        SelectedIncomingServerAuthenticationMethodIndex = 0;
-        SelectedOutgoingServerConnectionSecurityIndex = 0;
-        SelectedOutgoingServerAuthenticationMethodIndex = 0;
     }
 
     private void ApplyCredentialDefaultsForAddress(string previousAddress, string currentAddress)
@@ -806,19 +762,6 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         if (string.IsNullOrWhiteSpace(OutgoingServerPort))
             OutgoingServerPort = "587";
-    }
-
-    private static string GetICloudMailboxUsername(string emailAddress)
-    {
-        if (string.IsNullOrWhiteSpace(emailAddress))
-            return string.Empty;
-
-        var normalizedAddress = emailAddress.Trim();
-        var atIndex = normalizedAddress.IndexOf('@');
-
-        return atIndex > 0
-            ? normalizedAddress[..atIndex]
-            : normalizedAddress;
     }
 
     private static string ReplaceIfEmptyOrMatchingPrevious(string currentValue, string previousValue, string replacementValue)
@@ -1523,7 +1466,10 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     private bool TryApplyKnownProviderSettings(bool alwaysApplyForKnownProvider)
     {
-        if (_editingSpecialImapProvider is not (SpecialImapProvider.iCloud or SpecialImapProvider.Yahoo))
+        if (IsEditMode)
+            return false;
+
+        if (_editingSpecialImapProvider == SpecialImapProvider.None)
             return false;
 
         var effectivePassword = GetKnownProviderPasswordCandidate();

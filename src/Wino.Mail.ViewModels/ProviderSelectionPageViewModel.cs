@@ -19,12 +19,7 @@ namespace Wino.Mail.ViewModels;
 public enum ProviderSelectionWizardStep
 {
     Provider = 0,
-    Identity = 1,
-    Mail = 2,
-    Calendar = 3,
-    Contacts = 4,
-    Tasks = 5,
-    Summary = 6
+    Capabilities = 1
 }
 
 public partial class ProviderSelectionPageViewModel : MailBaseViewModel
@@ -120,46 +115,6 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         ? SelectedProviderName
         : Translator.ProviderSelection_ModeImap;
 
-    public string MailStateText => GetStateText(MailMode, MailProviderModeLabel);
-    public string CalendarStateText => GetStateText(CalendarMode, CalendarProviderModeLabel);
-    public string ContactStateText => GetStateText(ContactMode, ContactProviderModeLabel);
-    public string TaskStateText => GetStateText(TaskMode, TaskProviderModeLabel);
-
-    public string MailConsequenceText => MailMode == AccountCapabilityMode.Provider
-        ? string.Format(Translator.ProviderSelection_Why_MailProvider, MailProviderModeLabel)
-        : string.Empty;
-
-    public string CalendarConsequenceText => CalendarMode switch
-    {
-        AccountCapabilityMode.Provider => string.Format(Translator.ProviderSelection_Why_CalendarProvider, CalendarProviderModeLabel),
-        AccountCapabilityMode.Local => Translator.ProviderSelection_Why_CalendarLocal,
-        _ => string.Empty
-    };
-
-    public string ContactConsequenceText => ContactMode switch
-    {
-        AccountCapabilityMode.Provider => string.Format(Translator.ProviderSelection_Why_ContactsProvider, ContactProviderModeLabel),
-        AccountCapabilityMode.Local => Translator.ProviderSelection_Why_ContactsLocal,
-        _ => string.Empty
-    };
-
-    public string TaskConsequenceText => TaskMode switch
-    {
-        AccountCapabilityMode.Provider => string.Format(Translator.ProviderSelection_Why_TasksProvider, TaskProviderModeLabel),
-        AccountCapabilityMode.Local => Translator.ProviderSelection_Why_TasksLocal,
-        _ => string.Empty
-    };
-
-    public bool IsMailConsequenceVisible => !string.IsNullOrEmpty(MailConsequenceText);
-    public bool IsCalendarConsequenceVisible => !string.IsNullOrEmpty(CalendarConsequenceText);
-    public bool IsContactConsequenceVisible => !string.IsNullOrEmpty(ContactConsequenceText);
-    public bool IsTaskConsequenceVisible => !string.IsNullOrEmpty(TaskConsequenceText);
-
-    public bool IsMailModeSyncedToProvider => MailMode == AccountCapabilityMode.Provider;
-    public bool IsCalendarModeSyncedToProvider => CalendarMode == AccountCapabilityMode.Provider;
-    public bool IsContactModeSyncedToProvider => ContactMode == AccountCapabilityMode.Provider;
-    public bool IsTaskModeSyncedToProvider => TaskMode == AccountCapabilityMode.Provider;
-
     public bool IsCardDavDiscoveryHintVisible =>
         IsImapFamily && ContactMode == AccountCapabilityMode.Provider;
 
@@ -172,23 +127,18 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public bool IsMailSynchronizationRangeVisible => IsMailAccessEnabled;
 
     /// <summary>
-    /// Provider, identity, one screen per capability, then the summary.
+    /// Provider and identity together, then every capability on one screen.
     /// </summary>
-    public const int TotalStepCount = 7;
+    public const int TotalStepCount = 2;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentStepNumber))]
     [NotifyPropertyChangedFor(nameof(StepProgressValue))]
     [NotifyPropertyChangedFor(nameof(StepProgressText))]
+    [NotifyPropertyChangedFor(nameof(PageTitle))]
+    [NotifyPropertyChangedFor(nameof(PageSubtitle))]
     [NotifyPropertyChangedFor(nameof(IsProviderStepVisible))]
-    [NotifyPropertyChangedFor(nameof(IsIdentityStepVisible))]
-    [NotifyPropertyChangedFor(nameof(IsMailStepVisible))]
-    [NotifyPropertyChangedFor(nameof(IsCalendarStepVisible))]
-    [NotifyPropertyChangedFor(nameof(IsContactStepVisible))]
-    [NotifyPropertyChangedFor(nameof(IsTaskStepVisible))]
-    [NotifyPropertyChangedFor(nameof(IsSummaryStepVisible))]
-    [NotifyPropertyChangedFor(nameof(IsCapabilityFlowVisible))]
-    [NotifyPropertyChangedFor(nameof(IsSkipRestVisible))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityStepVisible))]
     [NotifyPropertyChangedFor(nameof(ContinueButtonText))]
     [NotifyPropertyChangedFor(nameof(CanGoBack))]
     [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
@@ -199,102 +149,80 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public double StepProgressValue => CurrentStepNumber;
     public string StepProgressText => string.Format(Translator.ProviderSelection_StepProgressOf, CurrentStepNumber, TotalStepCount);
     public bool IsProviderStepVisible => CurrentStep == ProviderSelectionWizardStep.Provider;
-    public bool IsIdentityStepVisible => CurrentStep == ProviderSelectionWizardStep.Identity;
-    public bool IsMailStepVisible => CurrentStep == ProviderSelectionWizardStep.Mail;
-    public bool IsCalendarStepVisible => CurrentStep == ProviderSelectionWizardStep.Calendar;
-    public bool IsContactStepVisible => CurrentStep == ProviderSelectionWizardStep.Contacts;
-    public bool IsTaskStepVisible => CurrentStep == ProviderSelectionWizardStep.Tasks;
-    public bool IsSummaryStepVisible => CurrentStep == ProviderSelectionWizardStep.Summary;
+    public bool IsCapabilityStepVisible => CurrentStep == ProviderSelectionWizardStep.Capabilities;
 
-    /// <summary>
-    /// True once the wizard reaches the capability screens, where the account strip stays on screen.
-    /// </summary>
-    public bool IsCapabilityFlowVisible => CurrentStep >= ProviderSelectionWizardStep.Mail;
     public bool CanGoBack => CurrentStep != ProviderSelectionWizardStep.Provider;
 
-    /// <summary>
-    /// The escape hatch on the capability screens: leave everything unanswered off and jump to the summary.
-    /// </summary>
-    public bool IsSkipRestVisible => CurrentStep is ProviderSelectionWizardStep.Calendar
-        or ProviderSelectionWizardStep.Contacts
-        or ProviderSelectionWizardStep.Tasks;
+    public string PageTitle => IsCapabilityStepVisible
+        ? Translator.ProviderSelection_CapabilityStepTitle
+        : Translator.ProviderSelection_Title;
 
-    public string ContinueButtonText => CurrentStep == ProviderSelectionWizardStep.Summary
+    public string PageSubtitle => IsCapabilityStepVisible
+        ? Translator.ProviderSelection_CapabilityStepSubtitle
+        : Translator.ProviderSelection_Subtitle;
+
+    public string ContinueButtonText => IsCapabilityStepVisible
         ? Translator.ProviderSelection_AddAccountButton
         : Translator.ProviderSelection_ContinueButton;
 
     #region Capability answers
 
-    // Recommended choices start selected, and these flags preserve explicit changes while the
-    // user moves backward and forward through the capability screens.
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsCalendarChoiceProvider))]
-    [NotifyPropertyChangedFor(nameof(IsCalendarChoiceLocal))]
-    [NotifyPropertyChangedFor(nameof(IsCalendarChoiceOff))]
-    [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
-    public partial bool IsCalendarAnswered { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsContactChoiceProvider))]
-    [NotifyPropertyChangedFor(nameof(IsContactChoiceLocal))]
-    [NotifyPropertyChangedFor(nameof(IsContactChoiceOff))]
-    [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
-    public partial bool IsContactAnswered { get; set; }
-
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsTaskChoiceProvider))]
-    [NotifyPropertyChangedFor(nameof(IsTaskChoiceLocal))]
-    [NotifyPropertyChangedFor(nameof(IsTaskChoiceOff))]
-    [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
-    public partial bool IsTaskAnswered { get; set; }
-
+    // Every capability lives on one screen and starts on its recommended choice, so a mode
+    // always has exactly one selected option.
     public bool IsMailChoiceProvider => MailMode == AccountCapabilityMode.Provider;
     public bool IsMailChoiceOff => MailMode == AccountCapabilityMode.Off;
+    public int MailModeIndex
+    {
+        get => MailMode == AccountCapabilityMode.Provider ? 0 : 1;
+        set => MailMode = value == 0 ? AccountCapabilityMode.Provider : AccountCapabilityMode.Off;
+    }
 
-    public bool IsCalendarChoiceProvider => IsCalendarAnswered && CalendarMode == AccountCapabilityMode.Provider;
-    public bool IsCalendarChoiceLocal => IsCalendarAnswered && CalendarMode == AccountCapabilityMode.Local;
-    public bool IsCalendarChoiceOff => IsCalendarAnswered && CalendarMode == AccountCapabilityMode.Off;
+    public bool IsCalendarChoiceProvider => CalendarMode == AccountCapabilityMode.Provider;
+    public bool IsCalendarChoiceLocal => CalendarMode == AccountCapabilityMode.Local;
+    public bool IsCalendarChoiceOff => CalendarMode == AccountCapabilityMode.Off;
+    public int CalendarModeIndex
+    {
+        get => ToCapabilityModeIndex(CalendarMode);
+        set => CalendarMode = FromCapabilityModeIndex(value);
+    }
 
-    public bool IsContactChoiceProvider => IsContactAnswered && ContactMode == AccountCapabilityMode.Provider;
-    public bool IsContactChoiceLocal => IsContactAnswered && ContactMode == AccountCapabilityMode.Local;
-    public bool IsContactChoiceOff => IsContactAnswered && ContactMode == AccountCapabilityMode.Off;
+    public bool IsContactChoiceProvider => ContactMode == AccountCapabilityMode.Provider;
+    public bool IsContactChoiceLocal => ContactMode == AccountCapabilityMode.Local;
+    public bool IsContactChoiceOff => ContactMode == AccountCapabilityMode.Off;
+    public int ContactModeIndex
+    {
+        get => ToCapabilityModeIndex(ContactMode);
+        set => ContactMode = FromCapabilityModeIndex(value);
+    }
 
-    public bool IsTaskChoiceProvider => IsTaskAnswered && TaskMode == AccountCapabilityMode.Provider;
-    public bool IsTaskChoiceLocal => IsTaskAnswered && TaskMode == AccountCapabilityMode.Local;
-    public bool IsTaskChoiceOff => IsTaskAnswered && TaskMode == AccountCapabilityMode.Off;
+    public bool IsTaskChoiceProvider => TaskMode == AccountCapabilityMode.Provider;
+    public bool IsTaskChoiceLocal => TaskMode == AccountCapabilityMode.Local;
+    public bool IsTaskChoiceOff => TaskMode == AccountCapabilityMode.Off;
+    public int TaskModeIndex
+    {
+        get => ToCapabilityModeIndex(TaskMode);
+        set => TaskMode = FromCapabilityModeIndex(value);
+    }
 
     public string MailOffConsequenceText => Translator.ProviderSelection_Why_MailOff;
     public string CalendarOffConsequenceText => Translator.ProviderSelection_Why_CalendarOff;
     public string ContactOffConsequenceText => Translator.ProviderSelection_Why_ContactsOff;
     public string TaskOffConsequenceText => Translator.ProviderSelection_Why_TasksOff;
 
-    public string MailProviderChoiceTitle => string.Format(Translator.ProviderSelection_Choice_Provider, MailProviderModeLabel);
-    public string CalendarProviderChoiceTitle => string.Format(Translator.ProviderSelection_Choice_Provider, CalendarProviderModeLabel);
-    public string ContactProviderChoiceTitle => string.Format(Translator.ProviderSelection_Choice_Provider, ContactProviderModeLabel);
-    public string TaskProviderChoiceTitle => string.Format(Translator.ProviderSelection_Choice_Provider, TaskProviderModeLabel);
-
     public string MailProviderChoiceDescription => string.Format(Translator.ProviderSelection_Why_MailProvider, MailProviderModeLabel);
     public string CalendarProviderChoiceDescription => string.Format(Translator.ProviderSelection_Why_CalendarProvider, CalendarProviderModeLabel);
     public string ContactProviderChoiceDescription => string.Format(Translator.ProviderSelection_Why_ContactsProvider, ContactProviderModeLabel);
     public string TaskProviderChoiceDescription => string.Format(Translator.ProviderSelection_Why_TasksProvider, TaskProviderModeLabel);
 
-    public string MailSummaryActionText => GetSummaryActionText(IsMailAccessEnabled);
-    public string CalendarSummaryActionText => GetSummaryActionText(IsCalendarAccessEnabled);
-    public string ContactSummaryActionText => GetSummaryActionText(IsContactAccessEnabled);
-    public string TaskSummaryActionText => GetSummaryActionText(IsTaskAccessEnabled);
-
-    public double MailSummaryIconOpacity => GetSummaryIconOpacity(IsMailAccessEnabled);
-    public double CalendarSummaryIconOpacity => GetSummaryIconOpacity(IsCalendarAccessEnabled);
-    public double ContactSummaryIconOpacity => GetSummaryIconOpacity(IsContactAccessEnabled);
-    public double TaskSummaryIconOpacity => GetSummaryIconOpacity(IsTaskAccessEnabled);
-
+    // The recommended option per capability. It is the provider option wherever the provider can
+    // serve the capability, and the local option otherwise.
+    public bool IsMailProviderRecommended => true;
+    public bool IsCalendarProviderRecommended => IsCalendarProviderModeAvailable;
+    public bool IsCalendarLocalRecommended => !IsCalendarProviderModeAvailable;
+    public bool IsContactProviderRecommended => IsContactProviderModeAvailable;
+    public bool IsContactLocalRecommended => !IsContactProviderModeAvailable;
+    public bool IsTaskProviderRecommended => IsTaskProviderModeAvailable;
     public bool IsTaskLocalRecommended => !IsTaskProviderModeAvailable;
-
-    private static string GetSummaryActionText(bool isEnabled) => isEnabled
-        ? Translator.ProviderSelection_ChangeChoice
-        : Translator.ProviderSelection_TurnOnChoice;
-
-    private static double GetSummaryIconOpacity(bool isEnabled) => isEnabled ? 1 : 0.4;
 
     #endregion
     public string SelectedProviderName => SelectedProvider?.Name ?? string.Empty;
@@ -367,10 +295,6 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
             CoerceUnavailableModes();
 
-            IsCalendarAnswered = true;
-            IsContactAnswered = true;
-            IsTaskAnswered = true;
-
             if (WizardContext.AccountColorHex != null)
                 SelectedColor = AvailableColors.FirstOrDefault(c => c.Hex == WizardContext.AccountColorHex);
         }
@@ -380,7 +304,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         }
 
         CurrentStep = mode == NavigationMode.Back && SelectedProvider != null
-            ? ProviderSelectionWizardStep.Summary
+            ? ProviderSelectionWizardStep.Capabilities
             : ProviderSelectionWizardStep.Provider;
     }
 
@@ -411,13 +335,10 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     partial void OnMailModeChanged(AccountCapabilityMode value)
     {
+        OnPropertyChanged(nameof(MailModeIndex));
         OnPropertyChanged(nameof(IsMailAccessEnabled));
         OnPropertyChanged(nameof(IsMailSynchronizationRangeVisible));
         OnPropertyChanged(nameof(IsInitialSynchronizationWarningVisible));
-        OnPropertyChanged(nameof(MailStateText));
-        OnPropertyChanged(nameof(MailConsequenceText));
-        OnPropertyChanged(nameof(IsMailConsequenceVisible));
-        OnPropertyChanged(nameof(IsMailModeSyncedToProvider));
         OnPropertyChanged(nameof(IsMailChoiceProvider));
         OnPropertyChanged(nameof(IsMailChoiceOff));
         OnPropertyChanged(nameof(IsCalendarOnlyServerHintVisible));
@@ -426,11 +347,8 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     partial void OnCalendarModeChanged(AccountCapabilityMode value)
     {
+        OnPropertyChanged(nameof(CalendarModeIndex));
         OnPropertyChanged(nameof(IsCalendarAccessEnabled));
-        OnPropertyChanged(nameof(CalendarStateText));
-        OnPropertyChanged(nameof(CalendarConsequenceText));
-        OnPropertyChanged(nameof(IsCalendarConsequenceVisible));
-        OnPropertyChanged(nameof(IsCalendarModeSyncedToProvider));
         OnPropertyChanged(nameof(IsCalendarChoiceProvider));
         OnPropertyChanged(nameof(IsCalendarChoiceLocal));
         OnPropertyChanged(nameof(IsCalendarChoiceOff));
@@ -440,11 +358,8 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     partial void OnContactModeChanged(AccountCapabilityMode value)
     {
+        OnPropertyChanged(nameof(ContactModeIndex));
         OnPropertyChanged(nameof(IsContactAccessEnabled));
-        OnPropertyChanged(nameof(ContactStateText));
-        OnPropertyChanged(nameof(ContactConsequenceText));
-        OnPropertyChanged(nameof(IsContactConsequenceVisible));
-        OnPropertyChanged(nameof(IsContactModeSyncedToProvider));
         OnPropertyChanged(nameof(IsContactChoiceProvider));
         OnPropertyChanged(nameof(IsContactChoiceLocal));
         OnPropertyChanged(nameof(IsContactChoiceOff));
@@ -454,11 +369,8 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     partial void OnTaskModeChanged(AccountCapabilityMode value)
     {
+        OnPropertyChanged(nameof(TaskModeIndex));
         OnPropertyChanged(nameof(IsTaskAccessEnabled));
-        OnPropertyChanged(nameof(TaskStateText));
-        OnPropertyChanged(nameof(TaskConsequenceText));
-        OnPropertyChanged(nameof(IsTaskConsequenceVisible));
-        OnPropertyChanged(nameof(IsTaskModeSyncedToProvider));
         OnPropertyChanged(nameof(IsTaskChoiceProvider));
         OnPropertyChanged(nameof(IsTaskChoiceLocal));
         OnPropertyChanged(nameof(IsTaskChoiceOff));
@@ -468,14 +380,6 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     private void NotifyCapabilitySelectionChanged()
     {
         OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
-        OnPropertyChanged(nameof(MailSummaryActionText));
-        OnPropertyChanged(nameof(CalendarSummaryActionText));
-        OnPropertyChanged(nameof(ContactSummaryActionText));
-        OnPropertyChanged(nameof(TaskSummaryActionText));
-        OnPropertyChanged(nameof(MailSummaryIconOpacity));
-        OnPropertyChanged(nameof(CalendarSummaryIconOpacity));
-        OnPropertyChanged(nameof(ContactSummaryIconOpacity));
-        OnPropertyChanged(nameof(TaskSummaryIconOpacity));
         ContinueCommand.NotifyCanExecuteChanged();
     }
 
@@ -507,69 +411,24 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                 break;
             case "calendar":
                 CalendarMode = mode;
-                IsCalendarAnswered = true;
                 break;
             case "contacts":
                 ContactMode = mode;
-                IsContactAnswered = true;
                 break;
             case "tasks":
                 TaskMode = mode;
-                IsTaskAnswered = true;
                 break;
             default:
                 return;
         }
     }
 
-    /// <summary>
-    /// Keeps the current defaults or explicit answers and jumps straight to the summary.
-    /// </summary>
-    [RelayCommand]
-    private void SkipRemainingCapabilities()
-    {
-        if (!IsCalendarAnswered)
-        {
-            CalendarMode = AccountCapabilityMode.Off;
-            IsCalendarAnswered = true;
-        }
-
-        if (!IsContactAnswered)
-        {
-            ContactMode = AccountCapabilityMode.Off;
-            IsContactAnswered = true;
-        }
-
-        if (!IsTaskAnswered)
-        {
-            TaskMode = AccountCapabilityMode.Off;
-            IsTaskAnswered = true;
-        }
-
-        CurrentStep = ProviderSelectionWizardStep.Summary;
-    }
-
-    /// <summary>
-    /// Jumps back to a single capability screen from the summary.
-    /// </summary>
-    [RelayCommand]
-    private void GoToStep(string stepName)
-    {
-        if (Enum.TryParse<ProviderSelectionWizardStep>(stepName, ignoreCase: true, out var step))
-            CurrentStep = step;
-    }
-
     private bool CanContinue()
     {
         return CurrentStep switch
         {
-            ProviderSelectionWizardStep.Provider => SelectedProvider != null,
-            ProviderSelectionWizardStep.Identity => !string.IsNullOrWhiteSpace(AccountName),
-            ProviderSelectionWizardStep.Mail => true,
-            ProviderSelectionWizardStep.Calendar => IsCalendarAnswered,
-            ProviderSelectionWizardStep.Contacts => IsContactAnswered,
-            ProviderSelectionWizardStep.Tasks => IsTaskAnswered,
-            ProviderSelectionWizardStep.Summary => !IsCapabilitySelectionMissing,
+            ProviderSelectionWizardStep.Provider => SelectedProvider != null && !string.IsNullOrWhiteSpace(AccountName),
+            ProviderSelectionWizardStep.Capabilities => !IsCapabilitySelectionMissing,
             _ => false
         };
     }
@@ -589,9 +448,6 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         switch (CurrentStep)
         {
             case ProviderSelectionWizardStep.Provider:
-                CurrentStep = ProviderSelectionWizardStep.Identity;
-                return;
-            case ProviderSelectionWizardStep.Identity:
                 if (await _accountService.AccountNameExistsAsync(AccountName?.Trim()))
                 {
                     await _dialogService.ShowMessageAsync(
@@ -601,13 +457,10 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                     return;
                 }
 
-                CurrentStep = ProviderSelectionWizardStep.Mail;
+                CurrentStep = ProviderSelectionWizardStep.Capabilities;
                 return;
-            case ProviderSelectionWizardStep.Summary:
+            case ProviderSelectionWizardStep.Capabilities:
                 await CompleteWizardAsync();
-                return;
-            default:
-                CurrentStep++;
                 return;
         }
     }
@@ -649,7 +502,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                 WinoPage.ImapCalDavSettingsPage,
                 context));
         }
-        else if (SelectedProvider.SpecialImapProvider is SpecialImapProvider.iCloud or SpecialImapProvider.Yahoo)
+        else if (SelectedProvider.SpecialImapProvider != SpecialImapProvider.None)
         {
             // Navigate to credentials page for special IMAP providers
             Messenger.Send(new BreadcrumbNavigationRequested(
@@ -670,13 +523,6 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     }
 
-    private static string GetStateText(AccountCapabilityMode mode, string providerLabel) => mode switch
-    {
-        AccountCapabilityMode.Provider => string.Format(Translator.ProviderSelection_State_Synced, providerLabel),
-        AccountCapabilityMode.Local => Translator.ProviderSelection_State_Local,
-        _ => Translator.ProviderSelection_State_Off
-    };
-
     private static AccountCapabilityMode ToCapabilityMode(bool isEnabled, AccountIntegrationSource source)
     {
         if (!isEnabled) return AccountCapabilityMode.Off;
@@ -685,6 +531,22 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
             ? AccountCapabilityMode.Local
             : AccountCapabilityMode.Provider;
     }
+
+    private static int ToCapabilityModeIndex(AccountCapabilityMode mode)
+        => mode switch
+        {
+            AccountCapabilityMode.Provider => 0,
+            AccountCapabilityMode.Local => 1,
+            _ => 2
+        };
+
+    private static AccountCapabilityMode FromCapabilityModeIndex(int index)
+        => index switch
+        {
+            0 => AccountCapabilityMode.Provider,
+            1 => AccountCapabilityMode.Local,
+            _ => AccountCapabilityMode.Off
+        };
 
     private AccountIntegrationSource ToIntegrationSource(AccountCapabilityMode mode)
     {
@@ -701,7 +563,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         if (SelectedProvider.Type is MailProviderType.Outlook or MailProviderType.Gmail)
             return Translator.ProviderSelection_CapabilityProviderDescription_OAuth;
 
-        if (SelectedProvider.SpecialImapProvider is SpecialImapProvider.iCloud or SpecialImapProvider.Yahoo)
+        if (SelectedProvider.SpecialImapProvider != SpecialImapProvider.None)
             return Translator.ProviderSelection_CapabilityProviderDescription_SpecialImap;
 
         return Translator.ProviderSelection_CapabilityProviderDescription_CustomServer;
@@ -715,12 +577,6 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         TaskMode = IsTaskProviderModeAvailable
             ? AccountCapabilityMode.Provider
             : AccountCapabilityMode.Local;
-
-        // Recommended choices start selected. Explicit changes remain intact while the user
-        // moves backward and forward through this provider's capability screens.
-        IsCalendarAnswered = true;
-        IsContactAnswered = true;
-        IsTaskAnswered = true;
 
         CoerceUnavailableModes();
     }
@@ -743,6 +599,11 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(IsCalendarProviderModeAvailable));
         OnPropertyChanged(nameof(IsContactProviderModeAvailable));
         OnPropertyChanged(nameof(IsTaskProviderModeAvailable));
+        OnPropertyChanged(nameof(IsCalendarProviderRecommended));
+        OnPropertyChanged(nameof(IsCalendarLocalRecommended));
+        OnPropertyChanged(nameof(IsContactProviderRecommended));
+        OnPropertyChanged(nameof(IsContactLocalRecommended));
+        OnPropertyChanged(nameof(IsTaskProviderRecommended));
         OnPropertyChanged(nameof(IsTaskLocalRecommended));
         OnPropertyChanged(nameof(IsTaskProviderUnavailableHintVisible));
         OnPropertyChanged(nameof(IsCardDavDiscoveryHintVisible));
@@ -750,24 +611,12 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(CalendarProviderModeLabel));
         OnPropertyChanged(nameof(ContactProviderModeLabel));
         OnPropertyChanged(nameof(TaskProviderModeLabel));
-        OnPropertyChanged(nameof(MailStateText));
-        OnPropertyChanged(nameof(CalendarStateText));
-        OnPropertyChanged(nameof(ContactStateText));
-        OnPropertyChanged(nameof(TaskStateText));
-        OnPropertyChanged(nameof(MailConsequenceText));
-        OnPropertyChanged(nameof(CalendarConsequenceText));
-        OnPropertyChanged(nameof(ContactConsequenceText));
-        OnPropertyChanged(nameof(TaskConsequenceText));
         NotifyChoiceLabelsChanged();
         NotifyCapabilitySelectionChanged();
     }
 
     private void NotifyChoiceLabelsChanged()
     {
-        OnPropertyChanged(nameof(MailProviderChoiceTitle));
-        OnPropertyChanged(nameof(CalendarProviderChoiceTitle));
-        OnPropertyChanged(nameof(ContactProviderChoiceTitle));
-        OnPropertyChanged(nameof(TaskProviderChoiceTitle));
         OnPropertyChanged(nameof(MailProviderChoiceDescription));
         OnPropertyChanged(nameof(CalendarProviderChoiceDescription));
         OnPropertyChanged(nameof(ContactProviderChoiceDescription));

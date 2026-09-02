@@ -58,8 +58,8 @@
                                     <Grid
                                         x:Name="HoverActionsHost"
                                         Grid.ColumnSpan="2"
-                                        HorizontalAlignment="Right"
                                         Margin="0,4,4,4"
+                                        HorizontalAlignment="Right"
                                         VerticalAlignment="Center"
                                         Canvas.ZIndex="999"
                                         IsHitTestVisible="False"
@@ -172,8 +172,8 @@
                                     <Grid
                                         x:Name="HoverActionsHost"
                                         Grid.ColumnSpan="2"
-                                        HorizontalAlignment="Right"
                                         Margin="0,4,4,4"
+                                        HorizontalAlignment="Right"
                                         VerticalAlignment="Center"
                                         Canvas.ZIndex="999"
                                         IsHitTestVisible="False"
@@ -268,8 +268,8 @@
                                 <Grid
                                     x:Name="HoverActionsHost"
                                     Grid.ColumnSpan="2"
-                                    HorizontalAlignment="Right"
                                     Margin="0,4,4,4"
+                                    HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
                                     Canvas.ZIndex="999"
                                     IsHitTestVisible="False"
@@ -374,8 +374,8 @@
                                 <Grid
                                     x:Name="HoverActionsHost"
                                     Grid.ColumnSpan="2"
-                                    HorizontalAlignment="Right"
                                     Margin="0,4,4,4"
+                                    HorizontalAlignment="Right"
                                     VerticalAlignment="Center"
                                     Canvas.ZIndex="999"
                                     IsHitTestVisible="False"

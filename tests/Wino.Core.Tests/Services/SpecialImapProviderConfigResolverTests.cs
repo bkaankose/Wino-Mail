@@ -10,9 +10,9 @@ namespace Wino.Core.Tests.Services;
 public class SpecialImapProviderConfigResolverTests
 {
     [Fact]
-    public void GetServerInformation_ICloud_UsesMailboxLocalPartForIncomingAndOutgoingUsernames()
+    public void GetServerInformation_ICloud_UsesOfficialIncomingAndOutgoingUsernamePolicies()
     {
-        var sut = new SpecialImapProviderConfigResolver();
+        var sut = CreateSut();
         var account = new MailAccount
         {
             Id = Guid.NewGuid(),
@@ -35,7 +35,7 @@ public class SpecialImapProviderConfigResolverTests
         var serverInformation = sut.GetServerInformation(account, dialogResult);
 
         serverInformation.IncomingServerUsername.Should().Be("tester");
-        serverInformation.OutgoingServerUsername.Should().Be("tester");
+        serverInformation.OutgoingServerUsername.Should().Be("tester@icloud.com");
         serverInformation.CalDavUsername.Should().Be("tester@icloud.com");
         serverInformation.CardDavServiceUrl.Should().Be("https://contacts.icloud.com/");
     }
@@ -43,7 +43,7 @@ public class SpecialImapProviderConfigResolverTests
     [Fact]
     public void GetServerInformation_CardDavWithoutCalendar_RetainsSharedDavCredentials()
     {
-        var sut = new SpecialImapProviderConfigResolver();
+        var sut = CreateSut();
         var account = new MailAccount
         {
             Id = Guid.NewGuid(),
@@ -72,4 +72,7 @@ public class SpecialImapProviderConfigResolverTests
         serverInformation.CalDavUsername.Should().Be("tester@icloud.com");
         serverInformation.CalDavPassword.Should().Be("app-password");
     }
+
+    private static SpecialImapProviderConfigResolver CreateSut()
+        => new(new EmbeddedKnownImapProviderCatalog(new KnownImapProviderCatalogLoader()));
 }

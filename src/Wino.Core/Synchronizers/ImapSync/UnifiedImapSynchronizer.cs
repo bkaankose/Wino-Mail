@@ -9,13 +9,16 @@ using MailKit.Search;
 using MoreLinq;
 using Serilog;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Integration;
+using Wino.Services;
 using Wino.Services.Extensions;
 using IMailService = Wino.Core.Domain.Interfaces.IMailService;
 
@@ -38,6 +41,7 @@ public class UnifiedImapSynchronizer
     private readonly IMailService _mailService;
     private readonly IImapSynchronizerErrorHandlerFactory _errorHandlerFactory;
     private readonly IMailFilterExecutor _mailFilterExecutor;
+    private readonly IKnownImapProviderCatalog _knownImapProviderCatalog;
 
     // Metadata-first synchronization flags: no full MIME body download.
     private readonly MessageSummaryItems _mailSynchronizationFlags =
@@ -59,12 +63,226 @@ public class UnifiedImapSynchronizer
         IFolderService folderService,
         IMailService mailService,
         IImapSynchronizerErrorHandlerFactory errorHandlerFactory,
-        IMailFilterExecutor mailFilterExecutor = null)
+        IMailFilterExecutor mailFilterExecutor = null,
+        IKnownImapProviderCatalog knownImapProviderCatalog = null)
     {
         _folderService = folderService;
         _mailService = mailService;
         _errorHandlerFactory = errorHandlerFactory;
+        _knownImapProviderCatalog = knownImapProviderCatalog ??
+            new EmbeddedKnownImapProviderCatalog(new KnownImapProviderCatalogLoader());
         _mailFilterExecutor = mailFilterExecutor;
+    }
+
+    /// <summary>
+    /// Resolves one special role per remote folder. Server-declared roles are always evaluated;
+    /// provider and generic aliases are used only during the one-time account bootstrap.
+    /// </summary>
+    public IReadOnlyDictionary<string, SpecialFolderType> ResolveKnownFolders(
+        IImapClient client,
+        MailAccount account,
+        IReadOnlyList<IMailFolder> remoteFolders,
+        IReadOnlyList<MailItemFolder> localFolders)
+    {
+        ArgumentNullException.ThrowIfNull(client);
+        ArgumentNullException.ThrowIfNull(account);
+
+        remoteFolders ??= [];
+        localFolders ??= [];
+
+        var resolved = new Dictionary<string, SpecialFolderType>(StringComparer.Ordinal);
+        var resolvedRoles = new HashSet<SpecialFolderType>();
+        var specialReferences = GetSpecialFolderReferences(client);
+
+        var declaredFolders = remoteFolders
+            .Select(folder => new
+            {
+                Folder = folder,
+                Role = GetServerDeclaredRole(client, folder, specialReferences)
+            })
+            .Where(item => item.Role != SpecialFolderType.Other)
+            .GroupBy(item => item.Role);
+
+        foreach (var roleGroup in declaredFolders)
+        {
+            var candidates = roleGroup.Select(item => item.Folder).ToList();
+            resolvedRoles.Add(roleGroup.Key);
+
+            var selected = candidates.Count == 1
+                ? candidates[0]
+                : candidates.SingleOrDefault(candidate => IsPreferredServerReference(
+                    client,
+                    candidate,
+                    roleGroup.Key,
+                    specialReferences));
+            selected ??= candidates.SingleOrDefault(candidate => localFolders.Any(local =>
+                local.RemoteFolderId == candidate.FullName && local.SpecialFolderType == roleGroup.Key));
+
+            if (selected == null)
+            {
+                _logger.Warning(
+                    "Multiple IMAP folders declare the server role {Role}: {Folders}. The role remains unassigned.",
+                    roleGroup.Key,
+                    string.Join(", ", candidates.Select(candidate => candidate.FullName)));
+                continue;
+            }
+
+            resolved[selected.FullName] = roleGroup.Key;
+        }
+
+        if (account.ImapKnownFolderBootstrapState != ImapKnownFolderBootstrapState.Pending)
+            return resolved;
+
+        var provider = _knownImapProviderCatalog.Match(
+            account.Address,
+            account.ServerInformation?.IncomingServer,
+            account.SpecialImapProvider);
+
+        ApplyAliases(provider?.FolderAliases, remoteFolders, localFolders, resolved, resolvedRoles, "provider");
+        ApplyAliases(_knownImapProviderCatalog.GenericFolderAliases, remoteFolders, localFolders, resolved, resolvedRoles, "generic");
+
+        return resolved;
+    }
+
+    private void ApplyAliases(
+        IReadOnlyList<KnownImapFolderAlias> aliases,
+        IReadOnlyList<IMailFolder> remoteFolders,
+        IReadOnlyList<MailItemFolder> localFolders,
+        IDictionary<string, SpecialFolderType> resolved,
+        ISet<SpecialFolderType> resolvedRoles,
+        string source)
+    {
+        if (aliases == null)
+            return;
+
+        foreach (var roleGroup in aliases.GroupBy(alias => alias.Role))
+        {
+            if (resolvedRoles.Contains(roleGroup.Key))
+                continue;
+
+            var candidates = remoteFolders
+                .Where(folder => !resolved.ContainsKey(folder.FullName))
+                .Where(folder => roleGroup.Any(alias => MatchesAlias(folder, alias)))
+                .GroupBy(folder => folder.FullName, StringComparer.Ordinal)
+                .Select(group => group.First())
+                .ToList();
+
+            if (candidates.Count == 0)
+                continue;
+
+            IMailFolder selected = candidates.Count == 1
+                ? candidates[0]
+                : candidates.FirstOrDefault(candidate => localFolders.Any(local =>
+                    local.RemoteFolderId == candidate.FullName && local.SpecialFolderType == roleGroup.Key));
+
+            if (selected == null)
+            {
+                _logger.Warning(
+                    "Ambiguous {Source} IMAP folder aliases for role {Role}: {Folders}. The role remains unassigned.",
+                    source,
+                    roleGroup.Key,
+                    string.Join(", ", candidates.Select(candidate => candidate.FullName)));
+                continue;
+            }
+
+            resolved[selected.FullName] = roleGroup.Key;
+            resolvedRoles.Add(roleGroup.Key);
+        }
+    }
+
+    private static bool MatchesAlias(IMailFolder folder, KnownImapFolderAlias alias)
+    {
+        if (alias.MatchFullPath)
+            return string.Equals(folder.FullName, alias.Value, StringComparison.OrdinalIgnoreCase);
+
+        var isTopLevel = folder.ParentFolder == null || folder.ParentFolder.IsNamespace;
+        return isTopLevel && string.Equals(folder.Name, alias.Value, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static SpecialFolderType GetServerDeclaredRole(
+        IImapClient client,
+        IMailFolder folder,
+        IReadOnlyDictionary<SpecialFolder, IMailFolder> specialReferences)
+    {
+        if (ReferenceEquals(folder, client.Inbox) ||
+            folder.Attributes.HasFlag(FolderAttributes.Inbox) ||
+            string.Equals(folder.FullName, "INBOX", StringComparison.OrdinalIgnoreCase))
+        {
+            return SpecialFolderType.Inbox;
+        }
+
+        if (folder.Attributes.HasFlag(FolderAttributes.Drafts) || IsSpecialReference(folder, SpecialFolder.Drafts, specialReferences))
+            return SpecialFolderType.Draft;
+        if (folder.Attributes.HasFlag(FolderAttributes.Sent) || IsSpecialReference(folder, SpecialFolder.Sent, specialReferences))
+            return SpecialFolderType.Sent;
+        if (folder.Attributes.HasFlag(FolderAttributes.Trash) || IsSpecialReference(folder, SpecialFolder.Trash, specialReferences))
+            return SpecialFolderType.Deleted;
+        if (folder.Attributes.HasFlag(FolderAttributes.Junk) || IsSpecialReference(folder, SpecialFolder.Junk, specialReferences))
+            return SpecialFolderType.Junk;
+        if (folder.Attributes.HasFlag(FolderAttributes.Archive) || IsSpecialReference(folder, SpecialFolder.Archive, specialReferences))
+            return SpecialFolderType.Archive;
+        if (folder.Attributes.HasFlag(FolderAttributes.Important) || IsSpecialReference(folder, SpecialFolder.Important, specialReferences))
+            return SpecialFolderType.Important;
+        if (folder.Attributes.HasFlag(FolderAttributes.Flagged) || IsSpecialReference(folder, SpecialFolder.Flagged, specialReferences))
+            return SpecialFolderType.Starred;
+
+        // FolderAttributes.All is intentionally ignored: Wino does not model aggregate mailboxes safely.
+        return SpecialFolderType.Other;
+    }
+
+    private static bool IsSpecialReference(
+        IMailFolder folder,
+        SpecialFolder role,
+        IReadOnlyDictionary<SpecialFolder, IMailFolder> specialReferences)
+        => specialReferences.TryGetValue(role, out var reference) &&
+           (ReferenceEquals(folder, reference) ||
+            string.Equals(folder.FullName, reference.FullName, StringComparison.Ordinal));
+
+    private static bool IsPreferredServerReference(
+        IImapClient client,
+        IMailFolder folder,
+        SpecialFolderType role,
+        IReadOnlyDictionary<SpecialFolder, IMailFolder> specialReferences)
+        => role switch
+        {
+            SpecialFolderType.Inbox => ReferenceEquals(folder, client.Inbox),
+            SpecialFolderType.Draft => IsSpecialReference(folder, SpecialFolder.Drafts, specialReferences),
+            SpecialFolderType.Sent => IsSpecialReference(folder, SpecialFolder.Sent, specialReferences),
+            SpecialFolderType.Deleted => IsSpecialReference(folder, SpecialFolder.Trash, specialReferences),
+            SpecialFolderType.Junk => IsSpecialReference(folder, SpecialFolder.Junk, specialReferences),
+            SpecialFolderType.Archive => IsSpecialReference(folder, SpecialFolder.Archive, specialReferences),
+            SpecialFolderType.Important => IsSpecialReference(folder, SpecialFolder.Important, specialReferences),
+            SpecialFolderType.Starred => IsSpecialReference(folder, SpecialFolder.Flagged, specialReferences),
+            _ => false
+        };
+
+    private static IReadOnlyDictionary<SpecialFolder, IMailFolder> GetSpecialFolderReferences(IImapClient client)
+    {
+        var references = new Dictionary<SpecialFolder, IMailFolder>();
+        foreach (var role in new[]
+        {
+            SpecialFolder.Drafts,
+            SpecialFolder.Sent,
+            SpecialFolder.Trash,
+            SpecialFolder.Junk,
+            SpecialFolder.Archive,
+            SpecialFolder.Important,
+            SpecialFolder.Flagged
+        })
+        {
+            try
+            {
+                var folder = client.GetFolder(role);
+                if (folder != null)
+                    references[role] = folder;
+            }
+            catch (NotSupportedException)
+            {
+                // Capabilities are deliberately not used as a gate; unsupported references are optional.
+            }
+        }
+
+        return references;
     }
 
     /// <summary>

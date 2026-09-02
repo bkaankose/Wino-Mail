@@ -95,6 +95,12 @@ public class MailAccount
     public SpecialImapProvider SpecialImapProvider { get; set; }
 
     /// <summary>
+    /// Tracks the one-time setup folder-role bootstrap for IMAP accounts.
+    /// Existing accounts default to <see cref="ImapKnownFolderBootstrapState.NotRequired"/>.
+    /// </summary>
+    public ImapKnownFolderBootstrapState ImapKnownFolderBootstrapState { get; set; }
+
+    /// <summary>
     /// Gets or sets whether mail access is granted for this account.
     /// When false, mail folders, aliases, compose flows, and mail synchronization are unavailable.
     /// Default is true for legacy accounts to preserve existing behavior.

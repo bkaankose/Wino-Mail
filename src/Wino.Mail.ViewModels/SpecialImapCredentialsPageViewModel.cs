@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -18,11 +17,7 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
 {
     private readonly IAccountService _accountService;
     private readonly IDialogServiceBase _dialogService;
-    private static readonly Dictionary<SpecialImapProvider, string> AppPasswordHelpLinks = new()
-    {
-        { SpecialImapProvider.iCloud, "https://support.apple.com/en-us/102654" },
-        { SpecialImapProvider.Yahoo, "http://help.yahoo.com/kb/SLN15241.html" },
-    };
+    private readonly IKnownImapProviderCatalog _knownImapProviderCatalog;
 
     private readonly INativeAppService _nativeAppService;
 
@@ -52,8 +47,9 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
         get
         {
             if (WizardContext.SelectedProvider == null) return null;
-            AppPasswordHelpLinks.TryGetValue(WizardContext.SelectedProvider.SpecialImapProvider, out var url);
-            return url;
+            return _knownImapProviderCatalog
+                .GetBySpecialProvider(WizardContext.SelectedProvider.SpecialImapProvider)
+                ?.AppPasswordHelpUrl;
         }
     }
 
@@ -66,11 +62,13 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
         IAccountService accountService,
         IDialogServiceBase dialogService,
         INativeAppService nativeAppService,
-        WelcomeWizardContext wizardContext)
+        WelcomeWizardContext wizardContext,
+        IKnownImapProviderCatalog knownImapProviderCatalog)
     {
         _accountService = accountService;
         _dialogService = dialogService;
         _nativeAppService = nativeAppService;
+        _knownImapProviderCatalog = knownImapProviderCatalog;
         WizardContext = wizardContext;
     }
 

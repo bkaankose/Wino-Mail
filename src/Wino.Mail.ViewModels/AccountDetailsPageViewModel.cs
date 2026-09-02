@@ -888,6 +888,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
     private async Task LoadAccountCalendarsAsync()
     {
+        // TODO: This crashed.
         var calendars = await _calendarService.GetAccountCalendarsAsync(Account.Id);
 
         await ExecuteUIThread(() =>

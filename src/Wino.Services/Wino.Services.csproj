@@ -36,5 +36,6 @@
 	<ItemGroup>
 		<TrimmerRootDescriptor Include="ILLink.Descriptors.xml" />
 		<EmbeddedResource Include="Security\Keys\intelligence-public.pem" />
+		<EmbeddedResource Include="Configuration\known-imap-providers.json" />
 	</ItemGroup>
 </Project>

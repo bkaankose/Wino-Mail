@@ -1,61 +1,82 @@
-# Contribution Guideline
+# Contributing to Wino Mail
 
-This project started as a side project of mine but grew something bigger than I expected and people loved it. Therefore, I open sourced it for others to contribute as well to have the best alternative mail client to Mail & Calendars so far.
+Wino Mail started as a personal project and grew through community interest. Contributions can include code, tests, documentation, bug reports, and proposals.
 
-You can contribute to Wino in multiple ways. It can be a feedback or bug report you open here, join discussions in the Discord channel to shape the way the product goes, create proposals or check for opened and approved bugs to fix them.
+Read this guide before you start implementation. For coding-agent rules, also read [`AGENTS.md`](AGENTS.md) and any closer `AGENTS.md` file.
 
-Feeling rich? You can always [donate via Paypal](https://www.paypal.com/donate/?hosted_button_id=LGPERGGXFMQ7U)
+## Contribution policy
 
-![Paypal Donate](https://www.winomail.app/images/paypal_donate_qr.png "Paypal Donate")
+Create an issue before you work on a new bug or feature. If an issue already exists, comment there before you start implementation.
 
-## Getting Started
+Create a proposal before you design a large feature or a new subsystem. Wait for maintainer approval before you start that work.
 
-Wino Mail is a native Windows mail client built with [WinUI 3](https://learn.microsoft.com/en-us/windows/apps/winui/winui3/) and the [Windows App SDK](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/). The active desktop application is **Wino.Mail.WinUI**.
+Wino preserves the direct experience of Windows Mail and Calendar. A proposal can be rejected when it conflicts with this product direction.
 
-**Minimum Windows version:** Windows 10 1809 (10.0.17763.0)
+AI-assisted contributions are welcome. Contributors remain responsible for the design, code, tests, security, and accuracy of every submitted change.
 
-**Target Windows SDK:** Windows 10 2004 (10.0.19041.0)
+AI-assisted changes must obey the same architecture, coding rules, and maintainer decisions as manually written changes.
 
-## Prerequisites
+## Development requirements
 
-* ".NET desktop development" workload in Visual Studio 2022+
-* .NET SDK 10.0+
-* Windows App SDK dependencies installed through NuGet restore
+Wino development requires Windows because the active application is a packaged WinUI 3 desktop application.
 
-After cloning the repo, open **WinoMail.slnx** in Visual Studio 2022+ and set **Wino.Mail.WinUI** as the startup project.
+- Windows 10 version 1809 or later, or Windows 11
+- Visual Studio 2022 or later with the **.NET desktop development** workload
+- The .NET SDK from [`global.json`](global.json), currently .NET SDK 10.0.301
+- Git and PowerShell
+- Windows Developer Mode for local package deployment and UI tests
+- WinApp CLI 0.6 or later for application launch and UI tests
 
-For command-line builds, restore with the repo NuGet config and build the WinUI app for your target platform:
+NuGet restore installs the Windows App SDK and other managed dependencies. Wino supports x86, x64, and ARM64 package builds.
 
-```bash
+## First build
+
+1. Clone the repository.
+2. Open [`WinoMail.slnx`](WinoMail.slnx) in Visual Studio 2022 or later.
+3. Select **Debug** and **x64**.
+4. Set [`Wino.Mail.WinUI`](src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj) as the startup project.
+5. Restore the packages.
+6. Build the application with the repository harness.
+
+```powershell
 dotnet restore src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64
-dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
+.\scripts\wino.ps1 build app
 ```
 
-Supported build platforms are **x86**, **x64**, and **ARM64**.
+Restore after a fresh clone. Restore again after package, target-framework, or runtime-identifier changes.
 
-## Repository Layout
+Do not work in the deprecated UWP application. The active desktop application is [`src/Wino.Mail.WinUI`](src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj).
 
-- **src/**: Main application projects, including the WinUI app and shared libraries.
-- **tests/**: Automated test projects and the AOT smoke-test harness.
-- **controls/**: Reusable UI and editor controls, plus the single WinUI playground application used to develop them.
-- **docs/**: Project documentation.
-- **scripts/**: Build, validation, and developer automation scripts.
+## Development harness
 
-Keep application code in **src** and reusable controls in **controls**. Use **controls\Wino.Mail.Controls.Playground** to develop and test a control without launching the full mail client.
+Use [`scripts/wino.ps1`](scripts/wino.ps1) as the shared entry point for local development and coding agents.
 
-## Project Architecture
+| Task | Command |
+| --- | --- |
+| Show affected projects and tests | `.\scripts\wino.ps1 affected` |
+| Build the WinUI application | `.\scripts\wino.ps1 build app` |
+| Run core tests | `.\scripts\wino.ps1 test core` |
+| Run a narrow test group | `.\scripts\wino.ps1 test core -Filter "FullyQualifiedName~RelevantTestClass"` |
+| Launch the Debug application | `.\scripts\wino.ps1 run app` |
+| Launch with diagnostic output | `.\scripts\wino.ps1 debug app` |
+| Run application UI scenarios | `.\scripts\wino.ps1 ui app` |
+| Format changed XAML | `.\scripts\wino.ps1 xaml changed` |
+| Check changed XAML formatting | `.\scripts\wino.ps1 xaml changed -Check` |
+| Show all harness commands | `.\scripts\wino.ps1 help` |
 
-Wino Mail supports 3 different types of synchronization depending on the provider type.
+Run the narrowest build and tests that prove your change. Follow the verification matrix in [`AGENTS.md`](AGENTS.md) for UI, synchronization, localization, and release work.
 
-- Outlook / Office 365
-- Gmail
-- IMAP / SMTP
+## Project architecture
 
-The project uses [MimeKit](https://github.com/jstedfast/MimeKit) and [MailKit](https://github.com/jstedfast/MailKit/) extensively for MIME parsing and IMAP/SMTP synchronization. Outlook/Office 365 synchronization is built on [Microsoft Graph SDK](https://github.com/microsoftgraph/msgraph-sdk-dotnet), and Gmail synchronization is built on the [Gmail API Client Library](https://developers.google.com/api-client-library/dotnet/apis/gmail/v1).
+Wino contains four application modes: Mail, Calendar, People, and To Do. These modes share one WinUI executable, database, service layer, and account model.
 
-Authentication is handled by **Authenticators**, except for IMAP. Server info and credential details are stored in the **CustomServerInformation** table in the database. For API synchronizers, check out **GmailAuthenticator** and **OutlookAuthenticator**.
+Mail synchronization supports Microsoft Graph, Gmail API, IMAP/SMTP, and POP3/SMTP. Calendar, contacts, and tasks can use provider, DAV, or local backends.
 
-Each action you take on mails (like mark as read, delete, move etc.) is delegated as a request to **WinoRequestDelegator** and **WinoRequestProcessor** respectively. These services do preliminary checks, batch requests to reduce network calls to APIs or IMAP servers, queue them to the corresponding synchronizer for the account, and optionally ask the synchronizer to run them in batches. Requests are batched by the logic in **RequestComparer**.
+The project uses [MimeKit](https://github.com/jstedfast/MimeKit) and [MailKit](https://github.com/jstedfast/MailKit/) for MIME and standard mail protocols. Microsoft Graph supplies Microsoft integrations. Google APIs supply Google integrations.
+
+Provider authenticators live in [`Wino.Authentication`](src/Wino.Authentication). IMAP and POP3 credentials use [`CustomServerInformation`](src/Wino.Core.Domain/Entities/Shared/CustomServerInformation.cs).
+
+Mail actions pass through [`WinoRequestDelegator`](src/Wino.Core/Services/WinoRequestDelegator.cs) and [`WinoRequestProcessor`](src/Wino.Core/Services/WinoRequestProcessor.cs). These services prepare, batch, and send requests to the correct synchronizer.
 
 ```mermaid
 flowchart LR
@@ -99,70 +120,107 @@ sequenceDiagram
     DB-->>UI: Messenger notifications refresh UI state
 ```
 
-### Solution Overview
+## Project guide
 
-**Wino.Mail.WinUI**: Active WinUI 3 desktop application. This project contains the shell, pages, controls, styles, assets, activation handling, WebView2 mail rendering, packaging manifest, and Windows-specific services. Launch this project to debug Wino Mail.
+- [`Wino.Mail.WinUI`](src/Wino.Mail.WinUI) contains the shell, pages, styles, activation routes, package manifest, and Windows services.
+- [`Wino.Mail.ViewModels`](src/Wino.Mail.ViewModels) contains mail and application-mode view models.
+- [`Wino.Calendar.ViewModels`](src/Wino.Calendar.ViewModels) contains calendar view models and calendar state.
+- [`Wino.Core.ViewModels`](src/Wino.Core.ViewModels) contains shared settings and application view models.
+- [`Wino.Core`](src/Wino.Core) contains synchronization, provider integrations, request processing, and change processors.
+- [`Wino.Services`](src/Wino.Services) contains database, account, mail, folder, task, contact, preference, and file services.
+- [`Wino.Core.Domain`](src/Wino.Core.Domain) contains shared contracts, entities, interfaces, translations, enums, and models.
+- [`Wino.Authentication`](src/Wino.Authentication) contains Microsoft and Google OAuth helpers.
+- [`Wino.Messages`](src/Wino.Messages) contains CommunityToolkit messenger contracts.
+- [`Wino.SourceGenerators`](src/Wino.SourceGenerators) generates translation and other compile-time code.
+- [`controls`](controls) contains highly customized controls shared by Wino applications. It is not a general-purpose control library.
+- [`Wino.Editor`](controls/Wino.Editor) contains the HTML, CSS, and JavaScript assets for mail reading and composition.
+- [`Wino.Mail.Controls.Playground`](controls/Wino.Mail.Controls.Playground) is the quick test application for controls before full application integration.
+- [`tests`](tests) contains unit, smoke, Native AOT, notification-host, and UI tests.
 
-**Wino.Mail.ViewModels**: Mail-specific view models for the WinUI app. Keep UI state and interaction logic here, and delegate account, sync, settings, and persistence work to services.
+## Notification architecture
 
-**Wino.Core.ViewModels**: Shared view models used by app-level experiences such as settings, personalization, and cross-feature UI state.
+The package manifest defines four visible application entries: Wino Mail, Wino Calendar, Wino People, and Wino To Do. They share the main WinUI executable.
 
-**Wino.Core**: Core synchronization engine, authenticators, request processing, provider integrations, and change processors. This is where Outlook, Gmail, and IMAP sync behavior lives.
+Windows identifies packaged applications with an Application User Model ID (AUMID). Each application mode needs a separate notification identity and activation route.
 
-**Wino.Services**: Shared services for database access, mail, folders, accounts, MIME file storage, preferences, logging, and other app infrastructure.
+The [`Package.appxmanifest`](src/Wino.Mail.WinUI/Package.appxmanifest) therefore defines four hidden notification-host applications. These entries create one notification AUMID for each mode.
 
-**Wino.Core.Domain**: Shared contracts, entities, interfaces, translations, enums, and domain models.
+Each AUMID starts a small, single-purpose executable:
 
-**Wino.Authentication**: OAuth2 authentication helpers for Microsoft and Google account flows.
+- [`Wino.Mail.NotificationHost`](src/Wino.Mail.NotificationHost)
+- [`Wino.Calendar.NotificationHost`](src/Wino.Calendar.NotificationHost)
+- [`Wino.People.NotificationHost`](src/Wino.People.NotificationHost)
+- [`Wino.Tasks.NotificationHost`](src/Wino.Tasks.NotificationHost)
 
-**Wino.Messages**: Pub-sub message definitions used with CommunityToolkit.Mvvm Messenger.
+The four executables share [`Wino.NotificationHost`](src/Wino.NotificationHost), which contains the notification runtime. This design isolates each `AppNotificationManager` registration from the shared UI executable.
 
-**Wino.Calendar.ViewModels**: Calendar-related view models shared by the WinUI shell.
+[`NotificationHostClient`](src/Wino.Mail.WinUI/Services/NotificationHostClient.cs) writes a request envelope and activates the required AUMID. The host processes that request under the correct notification identity.
 
-**Wino.SourceGenerators**: Source generators used by the domain and UI projects, including generated translation helpers.
+Notification clicks enter the matching COM activator. The host writes an activation envelope and forwards it to the main application.
 
-**Wino.Core.Tests**, **Wino.Mail.ViewModels.Tests**, and **Wino.Mail.Controls.Tests**: Automated test projects for core services, view models, and reusable controls.
+[`ForwardedNotificationActivationStore`](src/Wino.Mail.WinUI/Activation/ForwardedNotificationActivationStore.cs) reads the forwarded activation. [`AppNotificationHandler`](src/Wino.Mail.WinUI/Activation/AppNotificationHandler.cs) routes it to the correct application mode.
 
-### Good to know
+Shared request formats and AUMID mappings live in [`Wino.NotificationHost.Contracts`](src/Wino.NotificationHost.Contracts). Notification-host tests live in [`Wino.NotificationHost.Tests`](tests/Wino.NotificationHost.Tests).
 
-- App data paths are initialized in **src\Wino.Mail.WinUI\WinoApplication.cs** and exposed through **ApplicationConfiguration**. The SQLite database file is **Wino200.db** under the publisher shared **WinoShared** folder. Local app storage is used for logs, MIME files, contact pictures, thumbnails, custom themes, calendar attachments, and temporary app data.
-- Mail and calendar now live inside the same WinUI application experience. Calendar is an app entry/mode backed by the same database and service layer, not a separate Wino Calendar application.
-- The database stores mail and calendar metadata, not full MIME content. Mail body MIME files are saved on demand under the local **Mime** folder, with **MailCopy.FileId** resolving to files through **MimeFileService**. Calendar ICS cache files live under the MIME storage root in **CalendarIcs**.
-- Project tries to follow MVVM pattern as much as possible. [MVVM Toolkit](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/) is used for observable properties, commands, and messaging. Prefer generated public partial properties and commands over manual boilerplate.
-- Project has event Pub-Sub on top of MVVM and it's widely used with [Messenger](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/messenger). Messenger handlers may run off the UI thread, so dispatch before updating UI-bound state or touching WinUI/WinRT APIs.
-- As a rule, I want to avoid introducing new libraries into the code as much as I can. Try to avoid it as long as you really really don't need it. This will help maintainability going forward.
-- Project has a custom localization system that supports changing the language at runtime. Add or change source strings in **src\Wino.Core.Domain\Translations\en_US\resources.json**, then use **scripts\translate_resources.py** to update localized resources and **scripts\validate_resources.py** to audit them. **Translator** properties are generated during build by the source generator. Translations are managed in this repository; no external translation service is used.
-- Cached user settings and exported/imported preferences are managed in **PreferencesService**.
-- Cached UI values at runtime, like whether the reader is opened or whether the navigation menu is opened, are managed in **StatePersistenceService**.
-- Rendering and composing mail is done with [WebView2](https://learn.microsoft.com/en-us/microsoft-edge/webview2/) through the reusable **controls\Wino.Editor** project. Its HTML, CSS, and JavaScript are embedded in the library and loaded through a readiness-signaled bridge; **src\Wino.Mail.WinUI** should not carry a second editor asset bundle.
-- Dependency injection is configured from **src\Wino.Mail.WinUI\App.xaml.cs**. Core services are registered through **RegisterCoreServices()** in **src\Wino.Core\CoreContainerSetup.cs**, shared services through **RegisterSharedServices()** in **src\Wino.Services\ServicesContainerSetup.cs**, and view models through the WinUI app registration.
-- x86, x64 and ARM64 are supported.
+Do not register all four notification identities in the main executable. Keep each registration and COM activation path attached to its dedicated host executable.
 
-## How to work on
-### New Issues
+## Data and application state
 
-**Please create an issue here first and say that you would like to work on it**. I'll have it assigned to you after confirming the bug.
+[`WinoApplication`](src/Wino.Mail.WinUI/WinoApplication.cs) initializes application data paths. The SQLite database is `Wino200.db` in the publisher-shared `WinoShared` folder.
 
-### Existing Issues
+The database stores mail and calendar metadata. [`MimeFileService`](src/Wino.Services/MimeFileService.cs) resolves downloaded MIME files from application-local storage.
 
-**Please comment under the issue** and I'll have it assigned to you. This will prevent all of us to save big time.
+[`PreferencesService`](src/Wino.Mail.WinUI/Services/PreferencesService.cs) stores user settings and imported or exported preferences. [`StatePersistenceService`](src/Wino.Mail.WinUI/Services/StatePersistenceService.cs) stores temporary UI state.
 
-### New Implementations and Big Things
+Mail rendering and composition use [WebView2](https://learn.microsoft.com/en-us/microsoft-edge/webview2/) through [`Wino.Editor`](controls/Wino.Editor). Do not add a second editor asset bundle to the WinUI project.
 
-If you'd like to work on something big and implement a huge new system into the code, **please create a proposal first**. We can collectively discuss over the proposal, gather more feedback to improve it or just accept it as it is. 
+## View models and messaging
 
-**Please keep in mind that not all of the proposals will go to Wino.** Project's first goal is to create the same experience as Windows Mail & Calendars. At some point if your proposal will go against the motto your proposal might be rejected for implementation. Keep in mind that we are not trying to become the next Outlook or other major fully featured mail clients here (yet). Therefore, it's important to start working on it as soon as the proposal is approved, not before. I appreciate your understanding on this matter.
+Wino uses [CommunityToolkit.Mvvm](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/) for observable properties, commands, and messaging.
 
-## Additional Help
+Use public partial properties with `[ObservableProperty]`. Do not annotate private backing fields.
 
-Project does not have a separate Discord server, but has 2 different dedicated channels under 2 different servers that I actively monitor every day.
+Register messenger recipients in `RegisterRecipients()`. Unregister them in `UnregisterRecipients()`.
 
-**[UWP Community](https://discord.gg/wNMGxYZMFy)** under Apps & Projects -> **wino-mail**
+Messenger handlers can run outside the UI thread. Dispatch UI-bound state and WinRT work through `ExecuteUIThread(...)` or the correct dispatcher.
 
-**[Developer Sanctuary](https://discord.gg/windows-apps-hub-714581497222398064)** under Community Projects -> **wino-mail**
+Dependency injection starts in [`App.xaml.cs`](src/Wino.Mail.WinUI/App.xaml.cs). Core and shared registrations live in [`CoreContainerSetup`](src/Wino.Core/CoreContainerSetup.cs) and [`ServicesContainerSetup`](src/Wino.Services/ServicesContainerSetup.cs).
 
-You can always send an e-mail to bkaankose (at) outlook.com for extras.
+Avoid new packages when the platform or repository already supplies the required function.
 
+## Localization
 
+Developers must add or update source strings only in [`en_US/resources.json`](src/Wino.Core.Domain/Translations/en_US/resources.json).
 
+Use the generated `Translator` properties in C# and XAML. Do not edit non-English resource files.
 
+Before a release, the project AI translation script updates other languages from the English source file. Contributors do not run or modify that release translation output for ordinary changes.
+
+## Controls and XAML
+
+The `controls` projects contain highly customized controls for Wino. They are shared across Wino applications but are not general-purpose reusable libraries.
+
+Use [`Wino.Mail.Controls.Playground`](controls/Wino.Mail.Controls.Playground) for quick control tests before integration into the full application.
+
+Read [`controls/AGENTS.md`](controls/AGENTS.md) before you change a shared control. Format changed XAML with the repository harness before handoff.
+
+## Before you submit
+
+1. Review the diff and remove unrelated changes.
+2. Run the narrowest relevant build and tests.
+3. Run the XAML and UI checks when the change affects the interface.
+4. Add or update tests for changed behavior.
+5. Describe what you verified and what remains unverified.
+
+## Additional help
+
+The project has dedicated community channels:
+
+- [UWP Community](https://discord.gg/wNMGxYZMFy), under **Apps & Projects → wino-mail**
+- [Developer Sanctuary](https://discord.gg/windows-apps-hub-714581497222398064), under **Community Projects → wino-mail**
+
+You can also contact `bkaankose (at) outlook.com`.
+
+## Donate
+
+You can [donate with PayPal](https://www.paypal.com/donate/?hosted_button_id=LGPERGGXFMQ7U).

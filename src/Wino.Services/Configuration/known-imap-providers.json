@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "providers": [
+    {
+      "id": "icloud",
+      "specialImapProvider": "iCloud",
+      "setupVisible": true,
+      "setupOrder": 10,
+      "emailDomains": [ "icloud.com", "me.com", "mac.com" ],
+      "incomingHosts": [ "imap.mail.me.com" ],
+      "incoming": { "host": "imap.mail.me.com", "port": 993, "security": "SslTls", "authentication": "Auto", "usernamePolicy": "LocalPart" },
+      "outgoing": { "host": "smtp.mail.me.com", "port": 587, "security": "StartTls", "authentication": "Auto", "usernamePolicy": "FullAddress" },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "calDavServiceUrl": "https://caldav.icloud.com/",
+      "cardDavServiceUrl": "https://contacts.icloud.com/",
+      "appPasswordHelpUrl": "https://support.apple.com/102654",
+      "folderAliases": [
+        { "role": "Sent", "value": "Sent Messages" },
+        { "role": "Deleted", "value": "Deleted Messages" },
+        { "role": "Draft", "value": "Drafts" },
+        { "role": "Junk", "value": "Junk" },
+        { "role": "Archive", "value": "Archive" }
+      ]
+    },
+    {
+      "id": "yahoo",
+      "specialImapProvider": "Yahoo",
+      "setupVisible": true,
+      "setupOrder": 20,
+      "emailDomains": [ "yahoo.com", "yahoo.ca", "yahoo.co.uk", "yahoo.com.au", "yahoo.co.in", "yahoo.de", "yahoo.es", "yahoo.fr", "yahoo.it", "ymail.com", "rocketmail.com", "myyahoo.com" ],
+      "incomingHosts": [ "imap.mail.yahoo.com" ],
+      "incoming": { "host": "imap.mail.yahoo.com", "port": 993, "security": "SslTls", "authentication": "Auto", "usernamePolicy": "FullAddress" },
+      "outgoing": { "host": "smtp.mail.yahoo.com", "port": 587, "security": "StartTls", "authentication": "Auto", "usernamePolicy": "FullAddress" },
+      "maxConcurrentClients": 5,
+      "connectionPolicyVersion": "Corrected",
+      "calDavServiceUrl": "https://caldav.calendar.yahoo.com/",
+      "cardDavServiceUrl": "",
+      "appPasswordHelpUrl": "https://help.yahoo.com/kb/generate-manage-third-party-passwords-sln15241.html",
+      "folderAliases": [
+        { "role": "Draft", "value": "Draft" },
+        { "role": "Junk", "value": "Bulk" },
+        { "role": "Archive", "value": "Archive" }
+      ]
+    }
+  ],
+  "genericFolderAliases": [
+    { "role": "Sent", "value": "Sent" },
+    { "role": "Sent", "value": "Sent Mail" },
+    { "role": "Sent", "value": "Sent Items" },
+    { "role": "Sent", "value": "Sent Messages" },
+    { "role": "Draft", "value": "Drafts" },
+    { "role": "Draft", "value": "Draft" },
+    { "role": "Deleted", "value": "Trash" },
+    { "role": "Deleted", "value": "Bin" },
+    { "role": "Deleted", "value": "Deleted" },
+    { "role": "Deleted", "value": "Deleted Items" },
+    { "role": "Deleted", "value": "Deleted Messages" },
+    { "role": "Junk", "value": "Junk" },
+    { "role": "Junk", "value": "Junk Mail" },
+    { "role": "Junk", "value": "Junk Email" },
+    { "role": "Junk", "value": "Spam" },
+    { "role": "Archive", "value": "Archive" },
+    { "role": "Archive", "value": "Archives" }
+  ]
+}

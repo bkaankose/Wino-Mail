@@ -52,6 +52,8 @@ public static class ServicesContainerSetup
         services.AddTransient<IEmailTemplateService, EmailTemplateService>();
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
         services.AddTransient<ICalendarContextMenuItemService, CalendarContextMenuItemService>();
+        services.AddSingleton<IKnownImapProviderCatalogLoader, KnownImapProviderCatalogLoader>();
+        services.AddSingleton<IKnownImapProviderCatalog, EmbeddedKnownImapProviderCatalog>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
         services.AddSingleton<IKeyboardShortcutService, KeyboardShortcutService>();
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();

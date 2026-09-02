@@ -5,60 +5,32 @@ using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Services;
 
-public class SpecialImapProviderConfigResolver : ISpecialImapProviderConfigResolver
+public class SpecialImapProviderConfigResolver(IKnownImapProviderCatalog catalog) : ISpecialImapProviderConfigResolver
 {
     public CustomServerInformation GetServerInformation(MailAccount account, AccountCreationDialogResult dialogResult)
     {
-        CustomServerInformation resolvedConfig = null;
         var details = dialogResult.SpecialImapProviderDetails;
+        var provider = catalog.GetBySpecialProvider(details.SpecialImapProvider)
+            ?? throw new System.InvalidOperationException($"No known IMAP provider configuration exists for '{details.SpecialImapProvider}'.");
 
-        if (details.SpecialImapProvider == SpecialImapProvider.iCloud)
+        var resolvedConfig = new CustomServerInformation
         {
-            var iCloudMailboxUsername = GetICloudMailboxUsername(details.Address);
-
-            resolvedConfig = new CustomServerInformation()
-            {
-                IncomingServer = "imap.mail.me.com",
-                IncomingServerPort = "993",
-                IncomingServerType = CustomIncomingServerType.IMAP4,
-                IncomingServerSocketOption = ImapConnectionSecurity.Auto,
-                IncomingAuthenticationMethod = ImapAuthenticationMethod.Auto,
-                OutgoingServer = "smtp.mail.me.com",
-                OutgoingServerPort = "587",
-                OutgoingServerSocketOption = ImapConnectionSecurity.Auto,
-                OutgoingAuthenticationMethod = ImapAuthenticationMethod.Auto,
-                MaxConcurrentClients = 5,
-                ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected,
-                CalDavServiceUrl = "https://caldav.icloud.com/",
-                CardDavServiceUrl = "https://contacts.icloud.com/"
-            };
-
-            // iCloud IMAP/SMTP authentication uses only the local-part mailbox username.
-            resolvedConfig.IncomingServerUsername = iCloudMailboxUsername;
-            resolvedConfig.OutgoingServerUsername = iCloudMailboxUsername;
-        }
-        else if (details.SpecialImapProvider == SpecialImapProvider.Yahoo)
-        {
-            resolvedConfig = new CustomServerInformation()
-            {
-                IncomingServer = "imap.mail.yahoo.com",
-                IncomingServerPort = "993",
-                IncomingServerType = CustomIncomingServerType.IMAP4,
-                IncomingServerSocketOption = ImapConnectionSecurity.Auto,
-                IncomingAuthenticationMethod = ImapAuthenticationMethod.Auto,
-                OutgoingServer = "smtp.mail.yahoo.com",
-                OutgoingServerPort = "587",
-                OutgoingServerSocketOption = ImapConnectionSecurity.Auto,
-                OutgoingAuthenticationMethod = ImapAuthenticationMethod.Auto,
-                MaxConcurrentClients = 5,
-                ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected,
-                CalDavServiceUrl = "https://caldav.calendar.yahoo.com/"
-            };
-
-            // Yahoo uses full address for both incoming and outgoing.
-            resolvedConfig.IncomingServerUsername = details.Address;
-            resolvedConfig.OutgoingServerUsername = details.Address;
-        }
+            IncomingServer = provider.Incoming.Host,
+            IncomingServerPort = provider.Incoming.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            IncomingServerType = CustomIncomingServerType.IMAP4,
+            IncomingServerSocketOption = provider.Incoming.Security,
+            IncomingAuthenticationMethod = provider.Incoming.Authentication,
+            IncomingServerUsername = catalog.ResolveUsername(provider.Incoming.UsernamePolicy, details.Address),
+            OutgoingServer = provider.Outgoing.Host,
+            OutgoingServerPort = provider.Outgoing.Port.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            OutgoingServerSocketOption = provider.Outgoing.Security,
+            OutgoingAuthenticationMethod = provider.Outgoing.Authentication,
+            OutgoingServerUsername = catalog.ResolveUsername(provider.Outgoing.UsernamePolicy, details.Address),
+            MaxConcurrentClients = provider.MaxConcurrentClients,
+            ConnectionPolicyVersion = provider.ConnectionPolicyVersion,
+            CalDavServiceUrl = provider.CalDavServiceUrl,
+            CardDavServiceUrl = provider.CardDavServiceUrl
+        };
 
         // Fill in account details.
         resolvedConfig.Address = details.Address;
@@ -84,18 +56,5 @@ public class SpecialImapProviderConfigResolver : ISpecialImapProviderConfigResol
         }
 
         return resolvedConfig;
-    }
-
-    private static string GetICloudMailboxUsername(string address)
-    {
-        if (string.IsNullOrWhiteSpace(address))
-            return string.Empty;
-
-        var normalizedAddress = address.Trim();
-        var atIndex = normalizedAddress.IndexOf('@');
-
-        return atIndex > 0
-            ? normalizedAddress[..atIndex]
-            : normalizedAddress;
     }
 }

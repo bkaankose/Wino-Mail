@@ -192,16 +192,6 @@ public class AutoDiscoveryServiceTests
     }
 
     [Fact]
-    public async Task DiscoverCalDavServiceUriAsync_ReturnsKnownYahooEndpoint()
-    {
-        var sut = new AutoDiscoveryService(new HttpClient(new StubHttpMessageHandler(_ => throw new InvalidOperationException("No network call expected"))));
-
-        var uri = await sut.DiscoverCalDavServiceUriAsync("user@yahoo.com");
-
-        uri.Should().Be(new Uri("https://caldav.calendar.yahoo.com/"));
-    }
-
-    [Fact]
     public async Task DiscoverCalDavServiceUriAsync_ResolvesWellKnownRedirect()
     {
         var handler = new StubHttpMessageHandler(request =>

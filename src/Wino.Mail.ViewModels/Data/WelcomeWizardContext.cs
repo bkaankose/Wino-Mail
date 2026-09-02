@@ -62,7 +62,8 @@ public partial class WelcomeWizardContext : ObservableObject
     public bool IsOAuthProvider => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
 
     public bool IsSpecialImapProvider =>
-        SelectedProvider?.SpecialImapProvider is SpecialImapProvider.iCloud or SpecialImapProvider.Yahoo;
+        SelectedProvider?.Type == MailProviderType.IMAP4 &&
+        SelectedProvider.SpecialImapProvider != SpecialImapProvider.None;
 
     public bool IsGenericImap =>
         SelectedProvider?.Type == MailProviderType.IMAP4
