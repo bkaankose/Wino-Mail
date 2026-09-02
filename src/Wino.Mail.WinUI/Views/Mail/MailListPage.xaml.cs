@@ -408,9 +408,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         try
         {
-            var folderTree = await FolderService.GetFolderStructureForAccountAsync(accountIds[0]!.Value, true);
-
-            return folderTree.Folders;
+            // The move menu mirrors the navigation menu, so it uses the same shaping: shell order,
+            // nested child folders, and the virtual Categories and More groups.
+            return await FolderService.GetFolderStructureForDisplayAsync(accountIds[0]!.Value);
         }
         catch (Exception ex)
         {

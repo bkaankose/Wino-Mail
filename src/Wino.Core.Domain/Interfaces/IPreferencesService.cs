@@ -213,6 +213,16 @@ public interface IPreferencesService : INotifyPropertyChanged
     MailOperation RightHoverAction { get; set; }
 
     /// <summary>
+    /// Setting: Entrance animation played when hover actions become visible.
+    /// </summary>
+    MailHoverActionAnimation HoverActionAnimation { get; set; }
+
+    /// <summary>
+    /// Setting: Where hover actions are placed inside the mail row.
+    /// </summary>
+    MailHoverActionPosition HoverActionPosition { get; set; }
+
+    /// <summary>
     /// Setting: Which entity id (merged account or folder) should be expanded automatically on startup.
     /// </summary>
     Guid? StartupEntityId { get; set; }

@@ -498,6 +498,22 @@ public static class XamlHelpers
         _ => HoverActionKind.None,
     };
 
+    public static HoverActionAnimation GetHoverActionAnimation(MailHoverActionAnimation animation) => animation switch
+    {
+        MailHoverActionAnimation.Slide => HoverActionAnimation.Slide,
+        MailHoverActionAnimation.NoAnimation => HoverActionAnimation.NoAnimation,
+        _ => HoverActionAnimation.Popup,
+    };
+
+    public static HoverActionPosition GetHoverActionPosition(MailHoverActionPosition position) => position switch
+    {
+        MailHoverActionPosition.RightTop => HoverActionPosition.RightTop,
+        MailHoverActionPosition.RightBottom => HoverActionPosition.RightBottom,
+        MailHoverActionPosition.TopCenter => HoverActionPosition.TopCenter,
+        MailHoverActionPosition.BottomCenter => HoverActionPosition.BottomCenter,
+        _ => HoverActionPosition.RightCenter,
+    };
+
     public static HoverActionLabels GetHoverActionLabels() => new(
         Translator.HoverActionOption_Archive,
         Translator.HoverActionOption_Delete,

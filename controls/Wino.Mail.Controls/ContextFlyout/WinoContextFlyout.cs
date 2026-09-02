@@ -1,6 +1,8 @@
 using CommunityToolkit.WinUI;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Wino.Mail.Controls.Core.ContextFlyout;
 
 namespace Wino.Mail.Controls.ContextFlyout;
@@ -46,6 +48,7 @@ public partial class WinoContextFlyout : FlyoutBase
     protected override Control CreatePresenter()
     {
         _presenter = new WinoContextFlyoutPresenter(this);
+        _presenter.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnPresenterPointerPressed), true);
         return _presenter;
     }
 
@@ -58,4 +61,14 @@ public partial class WinoContextFlyout : FlyoutBase
     private void OnOpened(object? sender, object e) => _presenter?.PrepareForOpen();
 
     private void OnClosed(object? sender, object e) => _presenter?.PrepareForClose();
+
+    private static void OnPresenterPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (e.GetCurrentPoint(null).Properties.IsXButton1Pressed
+            && sender is WinoContextFlyoutPresenter presenter
+            && presenter.TryNavigateBack())
+        {
+            e.Handled = true;
+        }
+    }
 }

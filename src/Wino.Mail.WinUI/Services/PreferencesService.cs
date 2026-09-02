@@ -256,6 +256,18 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(RightHoverAction), value);
     }
 
+    public MailHoverActionAnimation HoverActionAnimation
+    {
+        get => _configurationService.Get(nameof(HoverActionAnimation), MailHoverActionAnimation.Popup);
+        set => SetPropertyAndSave(nameof(HoverActionAnimation), value);
+    }
+
+    public MailHoverActionPosition HoverActionPosition
+    {
+        get => _configurationService.Get(nameof(HoverActionPosition), MailHoverActionPosition.RightCenter);
+        set => SetPropertyAndSave(nameof(HoverActionPosition), value);
+    }
+
     public bool IsLoggingEnabled
     {
         get => _configurationService.Get(nameof(IsLoggingEnabled), true);

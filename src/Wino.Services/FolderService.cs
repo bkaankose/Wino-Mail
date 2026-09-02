@@ -382,6 +382,113 @@ public class FolderService : BaseDatabaseService, IFolderService
     }
 
 
+    /// <summary>
+    /// Where a folder sits in the navigation menu. The move menu mirrors the same shape, so this
+    /// rule has to stay in one place.
+    /// </summary>
+    private enum FolderDisplayPlacement
+    {
+        /// <summary>Listed directly under the account.</summary>
+        Root,
+
+        /// <summary>Listed under the virtual Categories folder.</summary>
+        Categories,
+
+        /// <summary>Listed under the virtual More folder.</summary>
+        More,
+
+        /// <summary>Not listed at this level. It is reached through its parent folder.</summary>
+        Nested
+    }
+
+    private static FolderDisplayPlacement GetFolderDisplayPlacement(MailItemFolder folder, MailAccount account)
+    {
+        // Category type folders should be skipped. They will be categorized under virtual category folder.
+        if (ServiceConstants.SubCategoryFolderLabelIds.Contains(folder.RemoteFolderId))
+            return FolderDisplayPlacement.Nested;
+
+        // Gmail nests labels by remote id, so a child label is only reached through its parent.
+        if (account.ProviderType == MailProviderType.Gmail && !string.IsNullOrEmpty(folder.ParentRemoteFolderId))
+            return FolderDisplayPlacement.Nested;
+
+        if (folder.IsSticky)
+            return FolderDisplayPlacement.Root;
+
+        return ServiceConstants.SubCategoryFolderLabelIds.Contains(folder.FolderName?.ToUpper())
+            ? FolderDisplayPlacement.Categories
+            : FolderDisplayPlacement.More;
+    }
+
+    public async Task<List<IMailItemFolder>> GetFolderStructureForDisplayAsync(Guid accountId)
+    {
+        var account = await _accountService.GetAccountAsync(accountId);
+
+        if (account == null)
+            throw new ArgumentException(nameof(account));
+
+        var folders = await GetVisibleFoldersAsync(accountId).ConfigureAwait(false);
+
+        if (folders.Count == 0) return [];
+
+        var rootFolders = new List<IMailItemFolder>();
+        var moreFolder = MailItemFolder.CreateMoreFolder();
+        var categoryFolder = MailItemFolder.CreateCategoriesFolder();
+
+        foreach (var folder in folders)
+        {
+            var placement = GetFolderDisplayPlacement(folder, account);
+
+            if (placement == FolderDisplayPlacement.Nested) continue;
+
+            await LoadChildFoldersRecursiveAsync(folder, [folder.Id]).ConfigureAwait(false);
+
+            switch (placement)
+            {
+                case FolderDisplayPlacement.Root:
+                    rootFolders.Add(folder);
+                    break;
+                case FolderDisplayPlacement.Categories:
+                    categoryFolder.ChildFolders.Add(folder);
+                    break;
+                default:
+                    moreFolder.ChildFolders.Add(folder);
+                    break;
+            }
+        }
+
+        // An empty virtual folder would be a dead end here, unlike the navigation menu where
+        // Categories is always offered for Gmail.
+        if (categoryFolder.ChildFolders.Count > 0) rootFolders.Add(categoryFolder);
+
+        if (moreFolder.ChildFolders.Count > 0) rootFolders.Add(moreFolder);
+
+        return rootFolders;
+    }
+
+    private async Task LoadChildFoldersRecursiveAsync(MailItemFolder folder, HashSet<Guid> visitedFolderIds)
+    {
+        // Localize category folder name, the way the navigation menu does.
+        if (folder.SpecialFolderType == SpecialFolderType.Category) folder.FolderName = Translator.CategoriesFolderNameOverride;
+
+        folder.ChildFolders.Clear();
+
+        if (string.IsNullOrEmpty(folder.RemoteFolderId)) return;
+
+        const string query = "SELECT * FROM MailItemFolder WHERE ParentRemoteFolderId = ? AND MailAccountId = ? AND IsHidden = ?";
+        var childFolders = await Connection
+            .QueryAsync<MailItemFolder>(query, folder.RemoteFolderId, folder.MailAccountId, 0)
+            .ConfigureAwait(false);
+
+        foreach (var childFolder in ApplyFolderSort(childFolders))
+        {
+            if (!visitedFolderIds.Add(childFolder.Id)) continue;
+
+            folder.ChildFolders.Add(childFolder);
+
+            await LoadChildFoldersRecursiveAsync(childFolder, visitedFolderIds).ConfigureAwait(false);
+        }
+    }
+
     public Task<IEnumerable<IMenuItem>> GetAccountFoldersForDisplayAsync(IAccountMenuItem accountMenuItem)
     {
         if (accountMenuItem is IMergedAccountMenuItem mergedAccountFolderMenuItem)
@@ -441,15 +548,17 @@ public class FolderService : BaseDatabaseService, IFolderService
 
         foreach (var item in listingFolders)
         {
-            // Category type folders should be skipped. They will be categorized under virtual category folder.
-            if (ServiceConstants.SubCategoryFolderLabelIds.Contains(item.RemoteFolderId)) continue;
+            var placement = GetFolderDisplayPlacement(item, mailAccount);
 
-            bool skipEmptyParentRemoteFolders = mailAccount.ProviderType == MailProviderType.Gmail;
-
-            if (skipEmptyParentRemoteFolders && !string.IsNullOrEmpty(item.ParentRemoteFolderId)) continue;
+            if (placement == FolderDisplayPlacement.Nested) continue;
 
             // Sticky items belong to account menu item directly. Rest goes to More folder.
-            IMenuItem parentFolderMenuItem = item.IsSticky ? accountMenuItem : ServiceConstants.SubCategoryFolderLabelIds.Contains(item.FolderName.ToUpper()) ? categoryFolderMenuItem : moreFolderMenuItem;
+            IMenuItem parentFolderMenuItem = placement switch
+            {
+                FolderDisplayPlacement.Root => accountMenuItem,
+                FolderDisplayPlacement.Categories => categoryFolderMenuItem,
+                _ => moreFolderMenuItem
+            };
 
             var preparedItem = await GetPreparedFolderMenuItemRecursiveAsync(mailAccount, item, parentFolderMenuItem).ConfigureAwait(false);
 
@@ -458,7 +567,7 @@ public class FolderService : BaseDatabaseService, IFolderService
 
             if (preparedItem == null) continue;
 
-            if (item.IsSticky)
+            if (placement == FolderDisplayPlacement.Root)
             {
                 preparedFolderMenuItems.Add(preparedItem);
             }

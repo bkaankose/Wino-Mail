@@ -16,6 +16,13 @@ namespace Wino.Core.Domain.Interfaces;
 public interface IFolderService
 {
     Task<AccountFolderTree> GetFolderStructureForAccountAsync(Guid accountId, bool includeHiddenFolders);
+
+    /// <summary>
+    /// Returns the visible folders of an account shaped the way the navigation menu shows them:
+    /// menu order, sticky folders at the root, Gmail category labels under a virtual Categories
+    /// folder, and the remaining folders under a virtual More folder.
+    /// </summary>
+    Task<List<IMailItemFolder>> GetFolderStructureForDisplayAsync(Guid accountId);
     Task<MailItemFolder> GetFolderAsync(Guid folderId);
     Task<MailItemFolder> GetFolderAsync(Guid accountId, string remoteFolderId);
     Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId);

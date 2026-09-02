@@ -535,14 +535,21 @@ public sealed partial class WinoContextFlyoutPresenter : Control
 
     private void NavigateBackOrClose()
     {
-        if (_navigationStack.TryPop(out var previousPage))
-        {
-            ShowPage(previousPage);
-        }
-        else
+        if (!TryNavigateBack())
         {
             _owner.Close();
         }
+    }
+
+    internal bool TryNavigateBack()
+    {
+        if (!_navigationStack.TryPop(out var previousPage))
+        {
+            return false;
+        }
+
+        ShowPage(previousPage);
+        return true;
     }
 
     private void UpdateChrome(bool useTransitions)

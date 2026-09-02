@@ -70,6 +70,38 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         Translator.HoverActionOption_MoveJunk
     ];
 
+    private readonly List<MailHoverActionAnimation> hoverActionAnimations =
+    [
+        MailHoverActionAnimation.Popup,
+        MailHoverActionAnimation.Slide,
+        MailHoverActionAnimation.NoAnimation
+    ];
+
+    private readonly List<MailHoverActionPosition> hoverActionPositions =
+    [
+        MailHoverActionPosition.RightCenter,
+        MailHoverActionPosition.RightTop,
+        MailHoverActionPosition.RightBottom,
+        MailHoverActionPosition.TopCenter,
+        MailHoverActionPosition.BottomCenter
+    ];
+
+    public List<string> HoverActionAnimationOptions { get; } =
+    [
+        Translator.HoverActionAnimation_Popup,
+        Translator.HoverActionAnimation_Slide,
+        Translator.HoverActionAnimation_None
+    ];
+
+    public List<string> HoverActionPositionOptions { get; } =
+    [
+        Translator.HoverActionPosition_RightCenter,
+        Translator.HoverActionPosition_RightTop,
+        Translator.HoverActionPosition_RightBottom,
+        Translator.HoverActionPosition_TopCenter,
+        Translator.HoverActionPosition_BottomCenter
+    ];
+
     public List<string> ThreadItemSortingOptions { get; } =
     [
         Translator.SettingsThreadOrder_LastItemFirst,
@@ -167,6 +199,32 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         }
     }
 
+    private int selectedHoverActionAnimationIndex;
+    public int SelectedHoverActionAnimationIndex
+    {
+        get => selectedHoverActionAnimationIndex;
+        set
+        {
+            if (SetProperty(ref selectedHoverActionAnimationIndex, value) && value >= 0 && value < hoverActionAnimations.Count)
+            {
+                PreferencesService.HoverActionAnimation = hoverActionAnimations[value];
+            }
+        }
+    }
+
+    private int selectedHoverActionPositionIndex;
+    public int SelectedHoverActionPositionIndex
+    {
+        get => selectedHoverActionPositionIndex;
+        set
+        {
+            if (SetProperty(ref selectedHoverActionPositionIndex, value) && value >= 0 && value < hoverActionPositions.Count)
+            {
+                PreferencesService.HoverActionPosition = hoverActionPositions[value];
+            }
+        }
+    }
+
     #region Properties
     private int leftHoverActionIndex;
     public int LeftHoverActionIndex
@@ -253,6 +311,8 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         selectedThreadItemSortingIndex = PreferencesService.IsNewestThreadMailFirst ? 0 : 1;
         selectedAccountNicknamePositionIndex = accountNicknamePositions.IndexOf(PreferencesService.AccountNicknamePosition);
         selectedTimeFormatPreferenceIndex = timeFormatPreferenceOptions.IndexOf(PreferencesService.MailTimeFormatPreference);
+        selectedHoverActionAnimationIndex = hoverActionAnimations.IndexOf(PreferencesService.HoverActionAnimation);
+        selectedHoverActionPositionIndex = hoverActionPositions.IndexOf(PreferencesService.HoverActionPosition);
 
         if (leftHoverActionIndex < 0)
         {
@@ -287,6 +347,16 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         if (selectedTimeFormatPreferenceIndex < 0)
         {
             selectedTimeFormatPreferenceIndex = timeFormatPreferenceOptions.IndexOf(TimeFormatPreference.UseLanguageCulture);
+        }
+
+        if (selectedHoverActionAnimationIndex < 0)
+        {
+            selectedHoverActionAnimationIndex = hoverActionAnimations.IndexOf(MailHoverActionAnimation.Popup);
+        }
+
+        if (selectedHoverActionPositionIndex < 0)
+        {
+            selectedHoverActionPositionIndex = hoverActionPositions.IndexOf(MailHoverActionPosition.RightCenter);
         }
     }
 
