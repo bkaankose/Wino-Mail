@@ -260,10 +260,10 @@
             AutomationProperties.Name="{x:Bind Label, Mode=OneTime}"
             IsEnabled="{x:Bind IsEnabled, Mode=OneTime}"
             Label="{x:Bind Label, Mode=OneTime}"
-            LabelPosition="Collapsed"
+            LabelPosition="Default"
             ToolTipService.ToolTip="{x:Bind ToolTip, Mode=OneTime}">
             <AppBarButton.Icon>
-                <accountIcon:WinoFontIcon FontSize="16" Glyph="{x:Bind Glyph, Mode=OneTime}" />
+                <accountIcon:WinoFontIcon FontSize="20" Glyph="{x:Bind Glyph, Mode=OneTime}" />
             </AppBarButton.Icon>
         </AppBarButton>
     </DataTemplate>
