@@ -31,6 +31,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Helpers;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
@@ -104,6 +105,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private IAccountService AccountService { get; } = WinoApplication.Current.Services.GetRequiredService<IAccountService>();
     private IIntelligenceSearchEligibilityService IntelligenceEligibilityService { get; } = WinoApplication.Current.Services.GetRequiredService<IIntelligenceSearchEligibilityService>();
     private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
+    private IKeyboardShortcutService KeyboardShortcutService { get; } = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
 
     private IStatePersistanceService StatePersistenceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(IStatePersistanceService)}");
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
@@ -381,7 +383,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private async Task<MailContextAction?> GetMailContextActionFromFlyoutAsync(
+    private async Task<MailContextFlyoutSelection?> GetMailContextActionFromFlyoutAsync(
         IEnumerable<MailOperationMenuItem> availableActions,
         IReadOnlyList<MailCategory> availableCategories,
         IReadOnlyCollection<Guid> assignedCategoryIds,
@@ -392,114 +394,28 @@ public sealed partial class MailListPage : MailListPageAbstract,
         double x,
         double y)
     {
-        var source = new TaskCompletionSource<MailContextAction?>();
-        var flyout = new WinoMenuFlyout();
-        var actionList = availableActions?.ToList() ?? [];
-        var focusedInboxActions = actionList
-            .Where(action => IsFocusedInboxMoveOperation(action.Operation))
-            .ToList();
-
-        foreach (var action in actionList)
+        var source = new TaskCompletionSource<MailContextFlyoutSelection?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var flyout = new WinoContextFlyout
         {
-            if (action.Operation == MailOperation.Seperator)
-            {
-                AddSeparatorIfNeeded(flyout.Items);
-                continue;
-            }
-
-            if (IsFocusedInboxMoveOperation(action.Operation))
-                continue;
-
-            if (action.Operation == MailOperation.Move)
-            {
-                AddMoveOperationFlyoutItem(
-                    flyout,
-                    source,
-                    action,
-                    focusedInboxActions,
-                    moveFolders,
-                    sourceFolderIds);
-                continue;
-            }
-
-            AddMailOperationFlyoutItem(flyout.Items, source, action, flyout);
-        }
-
-        AddSeparatorIfNeeded(flyout.Items);
-
-        var pinItem = new MenuFlyoutItem
-        {
-            Text = areAllPinned ? Translator.FolderOperation_Unpin : Translator.FolderOperation_Pin,
-            Icon = new WinoFontIcon { Icon = areAllPinned ? WinoIconGlyph.UnPin : WinoIconGlyph.Pin }
+            SearchPlaceholderText = Translator.ContextFlyout_SearchPlaceholder,
+            NoResultsText = Translator.ContextFlyout_NoResults,
+            Language = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>().CurrentLanguage == AppLanguage.Chinese
+                ? "zh-CN"
+                : string.Empty
         };
 
-        MenuFlyoutLanguageHelper.Apply(pinItem);
+        MailContextFlyoutBuilder.Populate(
+            flyout.Items,
+            availableActions,
+            availableCategories,
+            assignedCategoryIds,
+            moveFolders,
+            sourceFolderIds,
+            areAllPinned,
+            KeyboardShortcutService,
+            selection => source.TrySetResult(selection));
 
-        pinItem.Click += (_, _) =>
-        {
-            source.TrySetResult(new MailContextAction(!areAllPinned));
-            flyout.Hide();
-        };
-
-        flyout.Items.Add(pinItem);
-
-        if (availableCategories?.Count > 0)
-        {
-            if (flyout.Items.LastOrDefault() is not MenuFlyoutSeparator)
-            {
-                AddSeparatorIfNeeded(flyout.Items);
-            }
-
-            var categorySubItem = new MenuFlyoutSubItem
-            {
-                Text = Translator.MailCategoryMenuItem,
-                Icon = new SymbolIcon(Symbol.Tag)
-            };
-
-            var favoriteCategories = availableCategories.Where(category => category.IsFavorite).ToList();
-            var remainingCategories = availableCategories.Where(category => !category.IsFavorite).ToList();
-
-            foreach (var category in favoriteCategories)
-            {
-                AddCategoryFlyoutItem(categorySubItem, category, assignedCategoryIds, source, flyout);
-            }
-
-            if (favoriteCategories.Count > 0 && remainingCategories.Count > 0)
-            {
-                categorySubItem.Items.Add(new MenuFlyoutSeparator());
-            }
-
-            foreach (var category in remainingCategories)
-            {
-                AddCategoryFlyoutItem(categorySubItem, category, assignedCategoryIds, source, flyout);
-            }
-
-            flyout.Items.Add(categorySubItem);
-        }
-
-#if DEBUG
-        if (flyout.Items.LastOrDefault() is not MenuFlyoutSeparator)
-        {
-            AddSeparatorIfNeeded(flyout.Items);
-        }
-
-        var testNotificationItem = new MenuFlyoutItem
-        {
-            Text = Translator.Buttons_TestNotification
-        };
-
-        MenuFlyoutLanguageHelper.Apply(testNotificationItem);
-
-        testNotificationItem.Click += (_, _) =>
-        {
-            source.TrySetResult(new MailContextAction(CreateTestNotification: true));
-            flyout.Hide();
-        };
-
-        flyout.Items.Add(testNotificationItem);
-#endif
-
-        flyout.Closing += (_, _) => source.TrySetResult(null);
+        flyout.Closed += (_, _) => source.TrySetResult(null);
 
         flyout.ShowAt(showAtElement, new FlyoutShowOptions()
         {
@@ -510,128 +426,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
         return await source.Task;
     }
 
-    private static void AddMoveOperationFlyoutItem(
-        MenuFlyout flyout,
-        TaskCompletionSource<MailContextAction?> source,
-        MailOperationMenuItem moveAction,
-        IReadOnlyList<MailOperationMenuItem> focusedInboxActions,
-        IReadOnlyList<IMailItemFolder>? moveFolders,
-        IReadOnlySet<Guid> sourceFolderIds)
-    {
-        var moveSubItem = new MenuFlyoutSubItem
-        {
-            Text = XamlHelpers.GetOperationString(MailOperation.Move),
-            Icon = new WinoFontIcon { Icon = XamlHelpers.GetWinoIconGlyph(MailOperation.Move) }
-        };
-
-        AutomationProperties.SetAutomationId(moveSubItem, "MailContextMoveSubMenu");
-
-        foreach (var focusedInboxAction in focusedInboxActions)
-        {
-            AddMailOperationFlyoutItem(moveSubItem.Items, source, focusedInboxAction, flyout);
-        }
-
-        if (focusedInboxActions.Count > 0 && moveFolders?.Count > 0)
-        {
-            moveSubItem.Items.Add(new MenuFlyoutSeparator());
-        }
-
-        var validFolderTargetCount = moveFolders == null
-            ? 0
-            : MoveFolderMenuBuilder.Populate(
-                moveSubItem.Items,
-                moveFolders,
-                sourceFolderIds,
-                folder =>
-                {
-                    source.TrySetResult(new MailContextAction(moveAction, MoveTargetFolder: folder));
-                    flyout.Hide();
-                });
-
-        var hasEnabledFocusedInboxAction = focusedInboxActions.Any(action => action.IsEnabled);
-
-        moveSubItem.IsEnabled = moveAction.IsEnabled
-            && moveFolders != null
-            && (validFolderTargetCount > 0 || hasEnabledFocusedInboxAction);
-
-        flyout.Items.Add(moveSubItem);
-    }
-
-    private static void AddMailOperationFlyoutItem(
-        IList<MenuFlyoutItemBase> destination,
-        TaskCompletionSource<MailContextAction?> source,
-        MailOperationMenuItem action,
-        MenuFlyout flyout)
-    {
-        var menuFlyoutItem = new MailOperationMenuFlyoutItem(action, clicked =>
-        {
-            source.TrySetResult(new MailContextAction(clicked));
-            flyout.Hide();
-        });
-
-        destination.Add(menuFlyoutItem);
-    }
-
     private static bool IsComposeContextOperation(MailOperation operation)
         => operation is MailOperation.Reply or MailOperation.ReplyAll or MailOperation.Forward;
 
-    private static bool IsFocusedInboxMoveOperation(MailOperation operation)
-        => operation is MailOperation.MoveToFocused
-            or MailOperation.MoveToOther
-            or MailOperation.AlwaysMoveToFocused
-            or MailOperation.AlwaysMoveToOther;
-
-    private static void AddSeparatorIfNeeded(IList<MenuFlyoutItemBase> destination)
-    {
-        if (destination.Count > 0 && destination[^1] is not MenuFlyoutSeparator)
-        {
-            destination.Add(new MenuFlyoutSeparator());
-        }
-    }
-
-    private static void AddCategoryFlyoutItem(
-        MenuFlyoutSubItem categorySubItem,
-        MailCategory category,
-        IReadOnlyCollection<Guid> assignedCategoryIds,
-        TaskCompletionSource<MailContextAction?> source,
-        MenuFlyout flyout)
-    {
-        var wasAssignedToAll = assignedCategoryIds.Contains(category.Id);
-        var categoryItem = new ToggleMenuFlyoutItem
-        {
-            Text = category.Name,
-            IsChecked = wasAssignedToAll,
-            Icon = new SymbolIcon(Symbol.Tag)
-            {
-                Foreground = XamlHelpers.GetSolidColorBrushFromHex(category.TextColorHex)
-            }
-        };
-
-        categoryItem.Click += (_, _) =>
-        {
-            source.TrySetResult(new MailContextAction(category, wasAssignedToAll));
-            flyout.Hide();
-        };
-
-        categorySubItem.Items.Add(categoryItem);
-    }
-
-    private sealed record MailContextAction(
-        MailOperationMenuItem? Operation = null,
-        MailCategory? Category = null,
-        bool IsCategoryAssignedToAll = false,
-        bool? PinState = null,
-        bool CreateTestNotification = false,
-        IMailItemFolder? MoveTargetFolder = null)
-    {
-        public MailContextAction(MailCategory category, bool isCategoryAssignedToAll) : this((MailOperationMenuItem?)null, category, isCategoryAssignedToAll)
-        {
-        }
-
-        public MailContextAction(bool pinState) : this((MailOperationMenuItem?)null, (MailCategory?)null, false, pinState)
-        {
-        }
-    }
 
     async void IRecipient<ClearMailSelectionsRequested>.Receive(ClearMailSelectionsRequested message)
     {

@@ -149,6 +149,16 @@ The selected backdrop is decorative. The content layer, selected state, focus vi
 | Text selection or contextual editor action | Use `CommandBarFlyout` or a context menu. |
 | Major irreversible action | Use explicit text and confirmation. |
 
+### Searchable context commands
+
+- Use `WinoContextFlyout` when a contextual command set is long enough to benefit from filtering.
+- Keep the search field first and focus it whenever the flyout opens.
+- Flatten actionable submenu descendants into breadcrumb labels such as `Move to › Projects › Wino`.
+- Keep unavailable commands visible and disabled. Remove structural nodes that cannot run an action.
+- Show the resolved shortcut at the trailing edge. Do not run unmodified or standard text-editing shortcuts while the search field has focus.
+- Keep command order and meaningful separators from the source menu. Remove leading, duplicate, and trailing separators after filtering.
+- Use the reusable control through `ContextFlyout` or `Flyout`. Keep application-specific command discovery and execution outside the controls library.
+
 ### Feedback hierarchy
 
 - Use inline feedback for a field or localized operation.

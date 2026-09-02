@@ -24,6 +24,7 @@ public sealed partial class MainPage : Page
             "intelligenceProgress" => typeof(IntelligenceProgressPage),
             "synchronizationButton" => typeof(SynchronizationButtonPage),
             "hoverActions" => typeof(HoverActionsPage),
+            "contextFlyout" => typeof(ContextFlyoutPage),
             _ => typeof(AccountIconPage),
         };
 

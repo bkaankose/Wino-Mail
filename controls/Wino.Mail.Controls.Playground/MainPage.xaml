@@ -6,18 +6,22 @@
     xmlns:local="using:Wino.Mail.Controls.Playground"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
-    <NavigationView x:Name="Navigation"
-                    Header="Wino Mail Controls Playground"
-                    IsBackButtonVisible="Collapsed"
-                    PaneDisplayMode="Left"
-                    SelectionChanged="NavigationSelectionChanged">
+    <NavigationView
+        x:Name="Navigation"
+        Header="Wino Mail Controls Playground"
+        IsBackButtonVisible="Collapsed"
+        PaneDisplayMode="Left"
+        SelectionChanged="NavigationSelectionChanged">
         <NavigationView.MenuItems>
             <NavigationViewItem
                 AutomationProperties.AutomationId="AccountIconNavigationItem"
                 Content="Account icon"
                 Icon="ContactInfo"
                 Tag="accountIcon" />
-            <NavigationViewItem Content="Contact picture" Icon="Contact" Tag="contact" />
+            <NavigationViewItem
+                Content="Contact picture"
+                Icon="Contact"
+                Tag="contact" />
             <NavigationViewItem
                 AutomationProperties.AutomationId="MailListSelectionNavigationItem"
                 Content="Mail list selection"
@@ -53,6 +57,11 @@
                 Content="Hover actions"
                 Icon="Mail"
                 Tag="hoverActions" />
+            <NavigationViewItem
+                AutomationProperties.AutomationId="ContextFlyoutNavigationItem"
+                Content="Context flyout"
+                Icon="Bullets"
+                Tag="contextFlyout" />
         </NavigationView.MenuItems>
         <Frame x:Name="ContentFrame" />
     </NavigationView>
