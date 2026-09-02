@@ -6,6 +6,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Badges;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -21,7 +22,16 @@ public interface IFolderService
     Task<List<MailItemFolder>> GetFoldersByIdsAsync(IReadOnlyCollection<Guid> folderIds, CancellationToken cancellationToken = default);
     Task<MailItemFolder> GetSpecialFolderByAccountIdAsync(Guid accountId, SpecialFolderType type);
     Task<int> GetCurrentItemCountForFolder(Guid folderId);
-    Task<int> GetFolderNotificationBadgeAsync(Guid folderId);
+    /// <summary>
+    /// Unread count of a single folder, applying the Focused Inbox filter and the item-count rule
+    /// Draft and Junk use. This is the raw number; folder badge visibility is not considered here.
+    /// </summary>
+    Task<int> GetFolderUnreadCountAsync(Guid folderId);
+
+    /// <summary>
+    /// Unread counts of the folders that feed the account total, honoring the account count source.
+    /// </summary>
+    Task<List<UnreadBadgeFolderContribution>> GetCountedFolderUnreadCountsAsync(Guid accountId);
     Task ChangeStickyStatusAsync(Guid folderId, bool isSticky);
 
     /// <summary>
@@ -64,6 +74,7 @@ public interface IFolderService
     Task<MailAccount> UpdateSystemFolderConfigurationAsync(Guid accountId, SystemFolderConfiguration configuration);
     Task ChangeFolderSynchronizationStateAsync(Guid folderId, bool isSynchronizationEnabled);
     Task ChangeFolderShowUnreadCountStateAsync(Guid folderId, bool showUnreadCount);
+    Task ChangeFolderCountedInAccountTotalStateAsync(Guid folderId, bool isCounted);
     Task ChangeFolderJumpListStateAsync(Guid folderId, bool isEnabled);
 
     Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);

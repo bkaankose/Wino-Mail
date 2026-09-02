@@ -28,6 +28,7 @@ public interface IMailItemFolder
     List<IMailItemFolder> ChildFolders { get; set; }
     bool IsMoveTarget { get; }
     bool ShowUnreadCount { get; set; }
+    bool IsCountedInAccountTotal { get; set; }
 
     bool ContainsSpecialFolderType(SpecialFolderType type);
 }

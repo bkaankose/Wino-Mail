@@ -12,6 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Badges;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -130,6 +131,7 @@ public class FolderService : BaseDatabaseService, IFolderService
         folder.IsHidden = configurationOverride.IsHidden;
         folder.Order = configurationOverride.Order;
         folder.ShowUnreadCount = configurationOverride.ShowUnreadCount;
+        folder.IsCountedInAccountTotal = configurationOverride.IsCountedInAccountTotal;
         folder.IsJumpListEnabled = configurationOverride.IsJumpListEnabled;
 
         await Connection.DeleteAsync<FolderConfigurationOverride>(configurationOverride.Id).ConfigureAwait(false);
@@ -156,15 +158,52 @@ public class FolderService : BaseDatabaseService, IFolderService
             .ThenBy(a => a.FolderName, StringComparer.CurrentCultureIgnoreCase)
             .ThenBy(a => a.SpecialFolderType);
 
-    public async Task<int> GetFolderNotificationBadgeAsync(Guid folderId)
+    public async Task<int> GetFolderUnreadCountAsync(Guid folderId)
     {
         var folder = await GetFolderAsync(folderId);
 
-        if (folder == null || !folder.ShowUnreadCount) return default;
+        if (folder == null) return default;
 
         var account = await _accountService.GetAccountAsync(folder.MailAccountId);
 
         if (account == null) return default;
+
+        return await GetFolderUnreadCountAsync(folder, account).ConfigureAwait(false);
+    }
+
+    public async Task<List<UnreadBadgeFolderContribution>> GetCountedFolderUnreadCountsAsync(Guid accountId)
+    {
+        var account = await _accountService.GetAccountAsync(accountId);
+
+        if (account == null) return [];
+
+        var folders = await GetFoldersAsync(accountId).ConfigureAwait(false);
+        var countedFolders = GetCountedFolders(folders, account.Preferences.UnreadBadgeCountSource);
+
+        var contributions = new List<UnreadBadgeFolderContribution>();
+
+        foreach (var folder in countedFolders)
+        {
+            var unreadCount = await GetFolderUnreadCountAsync(folder, account).ConfigureAwait(false);
+
+            contributions.Add(new UnreadBadgeFolderContribution(folder.Id, folder.FolderName, unreadCount));
+        }
+
+        return contributions;
+    }
+
+    /// <summary>
+    /// Inbox only is the default and does not depend on any per-folder flag, so an account that never
+    /// visited the badge settings keeps counting exactly what it counted before.
+    /// </summary>
+    private static List<MailItemFolder> GetCountedFolders(List<MailItemFolder> folders, UnreadBadgeCountSource countSource)
+        => countSource == UnreadBadgeCountSource.SelectedFolders
+            ? folders.Where(folder => folder.IsCountedInAccountTotal && folder.IsMoveTarget).ToList()
+            : folders.Where(folder => folder.SpecialFolderType == SpecialFolderType.Inbox).ToList();
+
+    private async Task<int> GetFolderUnreadCountAsync(MailItemFolder folder, MailAccount account)
+    {
+        var folderId = folder.Id;
 
         // Convert to raw SQL
         string sqlQuery;
@@ -712,6 +751,7 @@ public class FolderService : BaseDatabaseService, IFolderService
             folder.IsSticky = existingFolder.IsSticky;
             folder.SpecialFolderType = existingFolder.SpecialFolderType;
             folder.ShowUnreadCount = existingFolder.ShowUnreadCount;
+            folder.IsCountedInAccountTotal = existingFolder.IsCountedInAccountTotal;
             folder.TextColorHex = existingFolder.TextColorHex;
             folder.BackgroundColorHex = existingFolder.BackgroundColorHex;
             folder.Order = existingFolder.Order;
@@ -929,6 +969,18 @@ public class FolderService : BaseDatabaseService, IFolderService
         if (localFolder != null)
         {
             localFolder.ShowUnreadCount = showUnreadCount;
+
+            await UpdateFolderAsync(localFolder).ConfigureAwait(false);
+        }
+    }
+
+    public async Task ChangeFolderCountedInAccountTotalStateAsync(Guid folderId, bool isCounted)
+    {
+        var localFolder = await GetFolderAsync(folderId);
+
+        if (localFolder != null)
+        {
+            localFolder.IsCountedInAccountTotal = isCounted;
 
             await UpdateFolderAsync(localFolder).ConfigureAwait(false);
         }

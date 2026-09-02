@@ -18,6 +18,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Badges;
 using Wino.Helpers;
 using Wino.Mail.WinUI.Activation;
 using Wino.Messaging.UI;
@@ -45,6 +46,7 @@ public class NotificationBuilder : INotificationBuilder
 
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
+    private readonly IUnreadBadgeService _unreadBadgeService;
     private readonly IMailService _mailService;
     private readonly IThumbnailService _thumbnailService;
     private readonly IPreferencesService _preferencesService;
@@ -54,6 +56,7 @@ public class NotificationBuilder : INotificationBuilder
 
     public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
+                               IUnreadBadgeService unreadBadgeService,
                                IMailService mailService,
                                IThumbnailService thumbnailService,
                                IPreferencesService preferencesService,
@@ -63,6 +66,7 @@ public class NotificationBuilder : INotificationBuilder
     {
         _accountService = accountService;
         _folderService = folderService;
+        _unreadBadgeService = unreadBadgeService;
         _mailService = mailService;
         _thumbnailService = thumbnailService;
         _preferencesService = preferencesService;
@@ -152,27 +156,22 @@ public class NotificationBuilder : INotificationBuilder
         }
     }
 
+    /// <summary>
+    /// Snapshot the currently displayed taskbar badge was built from. Launch routing reads this
+    /// instead of counting again, so the number on the icon and the folder Wino opens always match.
+    /// </summary>
+    public static UnreadBadgeSnapshot LastSnapshot { get; private set; }
+
     public async Task UpdateTaskbarIconBadgeAsync()
     {
         await TaskbarBadgeUpdateLock.WaitAsync().ConfigureAwait(false);
 
         try
         {
-            var totalUnreadCount = 0;
-            var accounts = await _accountService.GetAccountsAsync();
+            var snapshot = await _unreadBadgeService.GetSnapshotAsync().ConfigureAwait(false);
+            var totalUnreadCount = snapshot.TaskbarUnreadCount;
 
-            foreach (var account in accounts)
-            {
-                if (!account.IsMailAccessGranted || !account.Preferences.IsTaskbarBadgeEnabled)
-                    continue;
-
-                var accountInbox = await _folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Inbox);
-                if (accountInbox == null)
-                    continue;
-
-                var inboxUnreadCount = await _folderService.GetFolderNotificationBadgeAsync(accountInbox.Id);
-                totalUnreadCount += inboxUnreadCount;
-            }
+            LastSnapshot = snapshot;
 
             UpdateBadge(AppEntryConstants.MailApplicationId, totalUnreadCount > 0 ? totalUnreadCount : null);
         }

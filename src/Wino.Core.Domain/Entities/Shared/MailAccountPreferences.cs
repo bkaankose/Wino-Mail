@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using SQLite;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.SemanticIndexing;
 
@@ -51,6 +52,22 @@ public partial class MailAccountPreferences
     /// Gets or sets whether this account's unread items should be included in taskbar badge.
     /// </summary>
     public bool IsTaskbarBadgeEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether the account row in the navigation shows its unread total.
+    /// </summary>
+    public bool IsAccountBadgeEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether individual folder rows in the navigation show their own unread counts.
+    /// This is visibility only. It never changes the account or taskbar totals.
+    /// </summary>
+    public bool AreFolderBadgesEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets which folders feed the account unread total.
+    /// </summary>
+    public UnreadBadgeCountSource UnreadBadgeCountSource { get; set; } = UnreadBadgeCountSource.InboxOnly;
 
     /// <summary>
     /// Gets or sets whether this account's enabled folders should be included in the taskbar jump list.

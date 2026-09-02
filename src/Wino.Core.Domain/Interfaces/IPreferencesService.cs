@@ -218,6 +218,13 @@ public interface IPreferencesService : INotifyPropertyChanged
     Guid? StartupEntityId { get; set; }
 
     /// <summary>
+    /// Setting: When the whole taskbar badge belongs to a single account, open the folder holding that
+    /// unread mail instead of <see cref="StartupEntityId"/>. Only affects a normal mail launch; toast,
+    /// protocol, jump list and compose activations keep their explicit destination.
+    /// </summary>
+    bool IsTaskbarBadgeLaunchNavigationEnabled { get; set; }
+
+    /// <summary>
     /// Setting: First action button displayed on mail toast notifications.
     /// </summary>
     MailOperation FirstMailNotificationAction { get; set; }

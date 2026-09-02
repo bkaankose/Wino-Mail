@@ -25,5 +25,6 @@ public class FolderConfigurationOverride
     public bool IsHidden { get; set; }
     public int Order { get; set; }
     public bool ShowUnreadCount { get; set; }
+    public bool IsCountedInAccountTotal { get; set; }
     public bool IsJumpListEnabled { get; set; }
 }

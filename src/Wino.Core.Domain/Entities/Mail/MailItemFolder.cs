@@ -24,6 +24,14 @@ public class MailItemFolder : IMailItemFolder
     public bool IsSynchronizationEnabled { get; set; }
     public bool IsHidden { get; set; }
     public bool ShowUnreadCount { get; set; }
+
+    /// <summary>
+    /// Whether this folder feeds the account unread total, and through it the taskbar badge.
+    /// Only honored when the account count source is <see cref="Enums.UnreadBadgeCountSource.SelectedFolders"/>.
+    /// Seeded from <see cref="ShowUnreadCount"/> on upgrade so existing badges do not change.
+    /// </summary>
+    public bool IsCountedInAccountTotal { get; set; }
+
     public bool IsJumpListEnabled { get; set; }
 
     // User-defined ordering within its navigation section (Pinned / Categories / More).

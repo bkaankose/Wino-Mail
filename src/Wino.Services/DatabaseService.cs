@@ -27,6 +27,7 @@ public class DatabaseService : IDatabaseService
 
     private bool _isInitialized = false;
     private bool _cardDavCreationCapabilityMigrationRequired;
+    private bool _countedFolderSeedRequired;
     private readonly IApplicationConfiguration _folderConfiguration;
     private readonly string _databaseName;
 
@@ -63,6 +64,12 @@ public class DatabaseService : IDatabaseService
         var preCreateCardDavAccountColumns = await Connection.GetTableInfoAsync(nameof(CardDavAccountState)).ConfigureAwait(false);
         _cardDavCreationCapabilityMigrationRequired = preCreateCardDavAccountColumns.Count > 0 &&
             !preCreateCardDavAccountColumns.Any(column => column.Name == nameof(CardDavAccountState.SupportsAddressBookCreation));
+
+        // The counted-folder flag has to be sampled before CreateTablesAsync adds the column with a 0 default,
+        // otherwise every existing account would silently stop counting its Inbox.
+        var preCreateFolderColumns = await Connection.GetTableInfoAsync(nameof(MailItemFolder)).ConfigureAwait(false);
+        _countedFolderSeedRequired = preCreateFolderColumns.Count > 0 &&
+            !preCreateFolderColumns.Any(column => column.Name == nameof(MailItemFolder.IsCountedInAccountTotal));
         await CreateTablesAsync();
         await Connection.ExecuteAsync($"PRAGMA user_version = {CurrentSchemaVersion};").ConfigureAwait(false);
         await EnsureLifecycleMetadataAsync(databaseAlreadyExists).ConfigureAwait(false);
@@ -179,6 +186,13 @@ VALUES
     {
         await EnsureKeyboardShortcutSchemaAsync().ConfigureAwait(false);
         await EnsureWinoAccountSchemaAsync().ConfigureAwait(false);
+
+        if (_countedFolderSeedRequired)
+        {
+            await Connection.ExecuteAsync(
+                $"UPDATE {nameof(MailItemFolder)} SET {nameof(MailItemFolder.IsCountedInAccountTotal)} = {nameof(MailItemFolder.ShowUnreadCount)}")
+                .ConfigureAwait(false);
+        }
 
         if (_cardDavCreationCapabilityMigrationRequired)
         {

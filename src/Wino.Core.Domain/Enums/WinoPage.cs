@@ -25,6 +25,8 @@ public enum WinoPage
     ApplicationThemeEditorPage,
     MessageListPage,
     MailNotificationSettingsPage,
+    UnreadBadgeSettingsPage,
+    AccountUnreadBadgePage,
     MailListPage,
     ReadComposePanePage,
     AppPreferencesPage,

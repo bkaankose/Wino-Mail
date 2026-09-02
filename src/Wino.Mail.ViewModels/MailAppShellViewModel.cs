@@ -82,6 +82,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     public IMenuItem CreatePrimaryMenuItem => CreateMailMenuItem;
 
     private readonly IFolderService _folderService;
+    private readonly IUnreadBadgeService _unreadBadgeService;
     private readonly IMailCategoryService _mailCategoryService;
     private readonly IConfigurationService _configurationService;
     private readonly IStartupBehaviorService _startupBehaviorService;
@@ -123,6 +124,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              INotificationBuilder notificationBuilder,
                              IWinoRequestDelegator winoRequestDelegator,
                              IFolderService folderService,
+                             IUnreadBadgeService unreadBadgeService,
                              IStatePersistanceService statePersistanceService,
                              IConfigurationService configurationService,
                              IStartupBehaviorService startupBehaviorService,
@@ -142,6 +144,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _mailService = mailService;
         _mailCategoryService = mailCategoryService;
         _folderService = folderService;
+        _unreadBadgeService = unreadBadgeService;
         _accountService = accountService;
         _contextMenuItemService = contextMenuItemService;
         _storeRatingService = storeRatingService;
@@ -557,6 +560,9 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (await NavigateToMailEmptyStateIfNeededAsync())
             return;
 
+        if (await TryNavigateToUnreadBadgeLocationAsync())
+            return;
+
         if (PreferencesService.StartupEntityId == null)
         {
             NavigateToWelcomeWizard();
@@ -594,6 +600,63 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                     NavigateToWelcomeWizard();
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Opens whatever produced the taskbar badge, but only when a single account owns the whole badge.
+    /// Anything ambiguous or unreachable falls back to the configured startup item.
+    /// </summary>
+    private async Task<bool> TryNavigateToUnreadBadgeLocationAsync()
+    {
+        if (!PreferencesService.IsTaskbarBadgeLaunchNavigationEnabled)
+            return false;
+
+        try
+        {
+            var snapshot = await _unreadBadgeService.GetSnapshotAsync().ConfigureAwait(false);
+            var contributors = snapshot.TaskbarContributors;
+
+            // No unread mail, or more than one account behind the badge: there is no single destination.
+            if (contributors.Count != 1)
+                return false;
+
+            var contributor = contributors[0];
+            var unreadFolders = contributor.UnreadContributions;
+
+            // One folder is the folder itself. Several folders in the same account resolve to its Inbox.
+            var targetFolderId = unreadFolders.Count == 1
+                ? unreadFolders[0].FolderId
+                : (await _folderService.GetSpecialFolderByAccountIdAsync(contributor.AccountId, SpecialFolderType.Inbox).ConfigureAwait(false))?.Id;
+
+            if (targetFolderId == null)
+                return false;
+
+            IBaseFolderMenuItem targetFolderMenuItem = null;
+
+            await ExecuteUIThread(() =>
+            {
+                if (MenuItems.GetAllAccountMenuItems().FirstOrDefault(a => a.HoldingAccounts.Any(b => b.Id == contributor.AccountId)) is IAccountMenuItem accountMenuItem)
+                {
+                    accountMenuItem.Expand();
+                }
+
+                MenuItems.TryGetFolderMenuItem(targetFolderId.Value, out targetFolderMenuItem);
+            });
+
+            if (targetFolderMenuItem == null)
+                return false;
+
+            await ExecuteUIThread(() => targetFolderMenuItem.Expand());
+            await NavigateFolderAsync(targetFolderMenuItem);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to open the unread badge location on launch.");
+
+            return false;
         }
     }
 
@@ -1011,7 +1074,24 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
         // Individually get all single accounts' unread counts.
         var accountIds = accountMenuItems.OfType<AccountMenuItem>().Select(a => a.AccountId).ToList();
-        var unreadCountResult = await _folderService.GetUnreadItemCountResultsAsync(accountIds).ConfigureAwait(false);
+
+        // The account badge counts the folders the account chose to count, which is not the same set as the
+        // folders that show their own badge. Both are needed, so both are read here.
+        var badgeSnapshot = await _unreadBadgeService.GetSnapshotAsync().ConfigureAwait(false);
+
+        var folderBadgeAccountIds = new List<Guid>();
+
+        foreach (var accountId in accountIds)
+        {
+            var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+
+            if (account?.Preferences?.AreFolderBadgesEnabled ?? true)
+            {
+                folderBadgeAccountIds.Add(accountId);
+            }
+        }
+
+        var unreadCountResult = await _folderService.GetUnreadItemCountResultsAsync(folderBadgeAccountIds).ConfigureAwait(false);
         var unreadCategoryCountResult = await _mailCategoryService.GetUnreadCategoryCountResultsAsync(accountIds).ConfigureAwait(false);
 
         // Apply the complete unread-count snapshot in one UI transaction. This avoids
@@ -1028,10 +1108,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 }
                 else
                 {
-                    accountMenuItem.UnreadItemCount = unreadCountResult
-                        .Where(a => a.AccountId == accountMenuItem.HoldingAccounts.First().Id &&
-                                    a.SpecialFolderType == SpecialFolderType.Inbox)
-                        .Sum(a => a.UnreadItemCount);
+                    var accountBadge = badgeSnapshot.GetAccount(accountMenuItem.HoldingAccounts.First().Id);
+
+                    accountMenuItem.UnreadItemCount = accountBadge is { IsAccountBadgeEnabled: true }
+                        ? accountBadge.UnreadCount
+                        : 0;
                 }
             }
 

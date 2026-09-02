@@ -553,6 +553,8 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(SignatureManagementPageViewModel));
         services.AddTransient(typeof(MessageListPageViewModel));
         services.AddTransient(typeof(MailNotificationSettingsPageViewModel));
+        services.AddTransient(typeof(UnreadBadgeSettingsPageViewModel));
+        services.AddTransient(typeof(AccountUnreadBadgePageViewModel));
         services.AddTransient(typeof(ReadComposePanePageViewModel));
         services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
         services.AddTransient(typeof(TestPageViewModel));

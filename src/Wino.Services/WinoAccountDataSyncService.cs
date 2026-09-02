@@ -475,6 +475,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                     IsHidden = folder.IsHidden,
                     Order = folder.Order,
                     ShowUnreadCount = folder.ShowUnreadCount,
+                    IsCountedInAccountTotal = folder.ShowUnreadCount,
                     IsJumpListEnabled = folder.IsJumpListEnabled
                 }).ConfigureAwait(false);
 

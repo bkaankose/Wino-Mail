@@ -286,6 +286,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SaveProperty(propertyName: nameof(StartupEntityId), value);
     }
 
+    public bool IsTaskbarBadgeLaunchNavigationEnabled
+    {
+        get => _configurationService.Get(nameof(IsTaskbarBadgeLaunchNavigationEnabled), false);
+        set => SetPropertyAndSave(nameof(IsTaskbarBadgeLaunchNavigationEnabled), value);
+    }
+
     public MailOperation FirstMailNotificationAction
     {
         get => _configurationService.Get(nameof(FirstMailNotificationAction), MailOperation.MarkAsRead);

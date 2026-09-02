@@ -115,9 +115,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public partial bool IsAppendMessageSettinEnabled { get; set; }
 
     [ObservableProperty]
-    public partial bool IsTaskbarBadgeEnabled { get; set; }
-
-    [ObservableProperty]
     public partial bool IsJumpListEnabled { get; set; }
 
     [ObservableProperty]
@@ -277,6 +274,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     [RelayCommand]
     private void CustomizeFolderList()
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.FolderCustomization_Title, WinoPage.FolderCustomizationPage, Account.Id));
+
+    [RelayCommand]
+    private void ConfigureUnreadBadges()
+        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.UnreadBadges_Title, WinoPage.AccountUnreadBadgePage, Account.Id));
 
     [RelayCommand]
     private void ManageWinoIntelligence()
@@ -764,12 +765,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public Task FolderSyncToggledAsync(IMailItemFolder folderStructure, bool isEnabled)
         => _folderService.ChangeFolderSynchronizationStateAsync(folderStructure.Id, isEnabled);
 
-    public async Task FolderShowUnreadToggled(IMailItemFolder folderStructure, bool isEnabled)
-    {
-        await _folderService.ChangeFolderShowUnreadCountStateAsync(folderStructure.Id, isEnabled);
-        await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
-    }
-
     public async Task FolderJumpListToggledAsync(IMailItemFolder folderStructure, bool isEnabled)
     {
         await _folderService.ChangeFolderJumpListStateAsync(folderStructure.Id, isEnabled);
@@ -805,7 +800,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
             IsAppendMessageSettingVisible = Account.ProviderType == MailProviderType.IMAP4;
             IsAppendMessageSettinEnabled = Account.Preferences.ShouldAppendMessagesToSentFolder;
-            IsTaskbarBadgeEnabled = Account.Preferences.IsTaskbarBadgeEnabled;
             IsJumpListEnabled = Account.Preferences.IsJumpListEnabled;
             IsProtocolLogEnabled = Account.IsProtocolLogEnabled;
 
@@ -1002,11 +996,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             case nameof(IsSignatureEnabled):
                 Account.Preferences.IsSignatureEnabled = IsSignatureEnabled;
                 await _accountService.UpdateAccountAsync(Account);
-                break;
-            case nameof(IsTaskbarBadgeEnabled):
-                Account.Preferences.IsTaskbarBadgeEnabled = IsTaskbarBadgeEnabled;
-                await _accountService.UpdateAccountAsync(Account);
-                await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
                 break;
             case nameof(IsJumpListEnabled):
                 Account.Preferences.IsJumpListEnabled = IsJumpListEnabled;

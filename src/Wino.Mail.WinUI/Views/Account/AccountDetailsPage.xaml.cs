@@ -26,14 +26,6 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
         }
     }
 
-    private async void UnreadBadgeCheckboxToggled(object sender, RoutedEventArgs e)
-    {
-        if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
-        {
-            await ViewModel.FolderShowUnreadToggled(folder, checkBox.IsChecked.GetValueOrDefault());
-        }
-    }
-
     private async void JumpListCheckboxToggled(object sender, RoutedEventArgs e)
     {
         if (sender is CheckBox checkBox && checkBox.Tag is IMailItemFolder folder)
