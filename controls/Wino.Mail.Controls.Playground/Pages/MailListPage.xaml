@@ -1,4 +1,4 @@
-<Page
+﻿<Page
     x:Class="Wino.Mail.Controls.Playground.Pages.MailListPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -6,9 +6,50 @@
     xmlns:contact="using:Wino.Mail.Controls.ContactPicture"
     xmlns:controls="using:Wino.Mail.Controls.MailListView"
     xmlns:core="using:Wino.Mail.Controls.Core"
+    xmlns:hoverActions="using:Wino.Mail.Controls.HoverActions"
+    xmlns:hoverCore="using:Wino.Mail.Controls.Core.HoverActions"
     xmlns:intelligenceTiles="using:Wino.Mail.Controls.IntelligenceTileBar"
     xmlns:models="using:Wino.Mail.Controls.Playground.Models">
     <Page.Resources>
+        <!--  Mirrors the app template contract: a stretched host that owns hit testing and a named presenter the item animates.  -->
+        <Style
+            x:Key="HoverActionsItemStyle"
+            BasedOn="{StaticResource DefaultListViewItemStyle}"
+            TargetType="controls:WinoMailListViewItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="controls:WinoMailListViewItem">
+                        <Grid
+                            x:Name="RootGrid"
+                            Background="{ThemeResource ListViewItemBackground}"
+                            CornerRadius="{ThemeResource ControlCornerRadius}">
+                            <ContentPresenter
+                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}" />
+                            <Grid
+                                x:Name="HoverActionsHost"
+                                Margin="8,4"
+                                Canvas.ZIndex="999"
+                                IsHitTestVisible="False"
+                                Visibility="Collapsed">
+                                <hoverActions:HoverActionsControl
+                                    x:Name="HoverActionsPresenter"
+                                    ActionCommand="{TemplateBinding HoverActionCommand}"
+                                    CenterAction="{TemplateBinding CenterHoverAction}"
+                                    Labels="{TemplateBinding HoverActionLabels}"
+                                    LeftAction="{TemplateBinding LeftHoverAction}"
+                                    MailRow="{TemplateBinding Row}"
+                                    Position="{TemplateBinding HoverActionPosition}"
+                                    RightAction="{TemplateBinding RightHoverAction}" />
+                            </Grid>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <DataTemplate x:Key="SingleTemplate" x:DataType="core:MailListRow">
             <Grid Padding="12,9" ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
@@ -56,9 +97,9 @@
                     <TextBlock FontWeight="SemiBold" Text="{x:Bind models:MailListPlaygroundFormat.Subject(SourceItem)}" />
                     <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind models:MailListPlaygroundFormat.Sender(SourceItem)}" />
                     <intelligenceTiles:WinoMailIntelligenceTileBar
-                        IsCompact="True"
                         MaxWidth="180"
                         x:SuppressXamlTrimWarnings="True"
+                        IsCompact="True"
                         Items="{Binding SourceItem.IntelligenceTiles}" />
                     <TextBlock
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -88,9 +129,9 @@
                     <TextBlock FontWeight="SemiBold" Text="{x:Bind models:MailListPlaygroundFormat.Subject(SourceItem)}" />
                     <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind models:MailListPlaygroundFormat.Sender(SourceItem)}" />
                     <intelligenceTiles:WinoMailIntelligenceTileBar
-                        IsCompact="True"
                         MaxWidth="180"
                         x:SuppressXamlTrimWarnings="True"
+                        IsCompact="True"
                         Items="{Binding SourceItem.IntelligenceTiles}" />
                 </StackPanel>
             </Grid>
@@ -148,10 +189,10 @@
                             <AppBarToggleButton
                                 x:Name="MultiButton"
                                 AutomationProperties.AutomationId="MultiSelectButton"
-                                Content="MultiSelect"
                                 Checked="MultiSelectChecked"
-                                Unchecked="MultiSelectUnchecked"
-                                Icon="SelectAll" />
+                                Content="MultiSelect"
+                                Icon="SelectAll"
+                                Unchecked="MultiSelectUnchecked" />
                         </CommandBar>
                     </Grid>
                     <controls:WinoMailListView
@@ -159,8 +200,14 @@
                         Grid.Row="1"
                         Margin="4,0,4,4"
                         AutomationProperties.AutomationId="MailListSelectionControl"
+                        CenterHoverAction="ToggleRead"
+                        HoverActionCommand="{x:Bind InvokeHoverActionCommand}"
+                        HoverActionLabels="{x:Bind HoverActionLabels}"
+                        ItemContainerStyle="{StaticResource HoverActionsItemStyle}"
+                        LeftHoverAction="Archive"
                         MailItemsSource="{x:Bind ViewModel.Items}"
                         ProjectionOptions="{x:Bind ViewModel.ProjectionOptions}"
+                        RightHoverAction="ToggleFlag"
                         SelectionMode="Extended"
                         SelectionSnapshotChanged="OnSelectionSnapshotChanged"
                         SingleItemTemplate="{StaticResource SingleTemplate}"
@@ -171,6 +218,48 @@
             </Border>
             <ScrollViewer Grid.Column="1" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Spacing="12">
+                    <Border
+                        Padding="16"
+                        Background="{ThemeResource LayerFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="10">
+                        <StackPanel Spacing="12">
+                            <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Hover actions" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="Point at a row to play the entrance animation. Right-click a row and the actions stay while the menu is open."
+                                TextWrapping="Wrap" />
+                            <ComboBox
+                                x:Name="HoverAnimationCombo"
+                                AutomationProperties.AutomationId="HoverActionAnimationCombo"
+                                Header="Animation"
+                                SelectedIndex="0"
+                                SelectionChanged="HoverAnimationChanged">
+                                <ComboBoxItem Content="Popup" Tag="{x:Bind hoverCore:HoverActionAnimation.Popup}" />
+                                <ComboBoxItem Content="Slide" Tag="{x:Bind hoverCore:HoverActionAnimation.Slide}" />
+                                <ComboBoxItem Content="NoAnimation" Tag="{x:Bind hoverCore:HoverActionAnimation.NoAnimation}" />
+                            </ComboBox>
+                            <ComboBox
+                                x:Name="HoverPositionCombo"
+                                AutomationProperties.AutomationId="HoverActionPositionCombo"
+                                Header="Position"
+                                SelectedIndex="0"
+                                SelectionChanged="HoverPositionChanged">
+                                <ComboBoxItem Content="RightCenter" Tag="{x:Bind hoverCore:HoverActionPosition.RightCenter}" />
+                                <ComboBoxItem Content="RightTop" Tag="{x:Bind hoverCore:HoverActionPosition.RightTop}" />
+                                <ComboBoxItem Content="RightBottom" Tag="{x:Bind hoverCore:HoverActionPosition.RightBottom}" />
+                                <ComboBoxItem Content="TopCenter" Tag="{x:Bind hoverCore:HoverActionPosition.TopCenter}" />
+                                <ComboBoxItem Content="BottomCenter" Tag="{x:Bind hoverCore:HoverActionPosition.BottomCenter}" />
+                            </ComboBox>
+                            <TextBlock
+                                x:Name="HoverActionStatusText"
+                                AutomationProperties.AutomationId="HoverActionStatusText"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="No hover action invoked"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
                     <Border
                         Padding="16"
                         Background="{ThemeResource LayerFillColorDefaultBrush}"

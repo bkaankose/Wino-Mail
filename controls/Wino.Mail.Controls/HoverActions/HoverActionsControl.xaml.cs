@@ -13,8 +13,12 @@ public sealed partial class HoverActionsControl : UserControl
     public HoverActionsControl()
     {
         InitializeComponent();
+        ApplyPosition();
         UpdateActionItems();
     }
+
+    [GeneratedDependencyProperty(DefaultValue = HoverActionPosition.RightCenter)]
+    public partial HoverActionPosition Position { get; set; }
 
     [GeneratedDependencyProperty(DefaultValue = HoverActionKind.None)]
     public partial HoverActionKind LeftAction { get; set; }
@@ -47,6 +51,24 @@ public sealed partial class HoverActionsControl : UserControl
     partial void OnLabelsPropertyChanged(DependencyPropertyChangedEventArgs e) => UpdateActionItems();
 
     partial void OnActionCommandPropertyChanged(DependencyPropertyChangedEventArgs e) => UpdateActionItems();
+
+    partial void OnPositionPropertyChanged(DependencyPropertyChangedEventArgs e) => ApplyPosition();
+
+    private void ApplyPosition()
+    {
+        HorizontalAlignment = Position switch
+        {
+            HoverActionPosition.TopCenter or HoverActionPosition.BottomCenter => HorizontalAlignment.Center,
+            _ => HorizontalAlignment.Right,
+        };
+
+        VerticalAlignment = Position switch
+        {
+            HoverActionPosition.RightTop or HoverActionPosition.TopCenter => VerticalAlignment.Top,
+            HoverActionPosition.RightBottom or HoverActionPosition.BottomCenter => VerticalAlignment.Bottom,
+            _ => VerticalAlignment.Center,
+        };
+    }
 
     private void UpdateActionItems()
     {

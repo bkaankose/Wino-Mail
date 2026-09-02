@@ -35,6 +35,7 @@ public partial class WinoMailListView : ListView
     private MailListLoadTrace? _pendingFrameTrace;
     private int _lastLoadMoreCount = -1;
     private TaskCompletionSource<bool>? _selectionRestoreCompletion;
+    private WinoMailListViewItem? _contextMenuContainer;
     private MailListRow? _pressedRow;
     private bool _pressedRowWasSelected;
     private IMailListSourceItem? _multiSelectRetainedItem;
@@ -126,6 +127,18 @@ public partial class WinoMailListView : ListView
         typeof(ICommand),
         typeof(WinoMailListView),
         new PropertyMetadata(null, OnHoverActionConfigurationChanged));
+
+    public static readonly DependencyProperty HoverActionAnimationProperty = DependencyProperty.Register(
+        nameof(HoverActionAnimation),
+        typeof(HoverActionAnimation),
+        typeof(WinoMailListView),
+        new PropertyMetadata(HoverActionAnimation.Popup, OnHoverActionConfigurationChanged));
+
+    public static readonly DependencyProperty HoverActionPositionProperty = DependencyProperty.Register(
+        nameof(HoverActionPosition),
+        typeof(HoverActionPosition),
+        typeof(WinoMailListView),
+        new PropertyMetadata(HoverActionPosition.RightCenter, OnHoverActionConfigurationChanged));
 
     public IMailListCollection? MailItemsSource
     {
@@ -224,6 +237,18 @@ public partial class WinoMailListView : ListView
     {
         get => (ICommand?)GetValue(HoverActionCommandProperty);
         set => SetValue(HoverActionCommandProperty, value);
+    }
+
+    public HoverActionAnimation HoverActionAnimation
+    {
+        get => (HoverActionAnimation)GetValue(HoverActionAnimationProperty);
+        set => SetValue(HoverActionAnimationProperty, value);
+    }
+
+    public HoverActionPosition HoverActionPosition
+    {
+        get => (HoverActionPosition)GetValue(HoverActionPositionProperty);
+        set => SetValue(HoverActionPositionProperty, value);
     }
 
     public ReadOnlyObservableCollection<IMailListSourceItem> SelectedMailItems { get; }
@@ -404,6 +429,7 @@ public partial class WinoMailListView : ListView
             container.OwnerList = this;
             container.Row = row;
             container.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+            container.ResetHoverActions();
             ApplyHoverActionConfiguration(container);
         }
     }
@@ -412,12 +438,36 @@ public partial class WinoMailListView : ListView
     {
         if (element is WinoMailListViewItem container)
         {
+            if (ReferenceEquals(container, _contextMenuContainer))
+            {
+                _contextMenuContainer = null;
+            }
+
+            container.ResetHoverActions();
             container.OwnerList = null;
             container.Row = null;
             container.HoverActionCommand = null;
         }
 
         base.ClearContainerForItemOverride(element, item);
+    }
+
+    /// <summary>
+    /// Marks the row a context menu was opened from so its hover actions stay visible while the
+    /// menu holds the pointer. Pass <see langword="null"/> when the menu closes.
+    /// </summary>
+    public void SetContextMenuOpenRow(MailListRow? row)
+    {
+        var container = row is null ? null : ContainerFromItem(row) as WinoMailListViewItem;
+
+        if (ReferenceEquals(container, _contextMenuContainer))
+        {
+            return;
+        }
+
+        _contextMenuContainer?.SetContextMenuOpen(false);
+        _contextMenuContainer = container;
+        _contextMenuContainer?.SetContextMenuOpen(true);
     }
 
     internal void RecordPointerPressed(MailListRow? row, bool isSelected)
@@ -461,6 +511,8 @@ public partial class WinoMailListView : ListView
         container.RightHoverAction = IsHoverActionsEnabled ? RightHoverAction : HoverActionKind.None;
         container.HoverActionLabels = HoverActionLabels;
         container.HoverActionCommand = HoverActionCommand;
+        container.HoverActionAnimation = HoverActionAnimation;
+        container.HoverActionPosition = HoverActionPosition;
     }
 
     private void AttachProjection()

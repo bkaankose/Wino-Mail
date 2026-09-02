@@ -1,8 +1,11 @@
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Windows.Input;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.Controls.Core;
+using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Mail.Controls.Playground.Models;
 using Wino.Mail.Controls.Playground.ViewModels;
 
@@ -17,11 +20,44 @@ public sealed partial class MailListPage : Page
     public ObservableCollection<string> SelectedThreads { get; } = [];
     public ObservableCollection<string> ExpandedThreads { get; } = [];
 
+    public HoverActionLabels HoverActionLabels { get; } =
+        new("Archive", "Delete", "Flag / Unflag", "Read / Unread", "Move to Junk");
+
+    public ICommand InvokeHoverActionCommand { get; }
+
     public MailListPage()
     {
+        InvokeHoverActionCommand = new RelayCommand<HoverActionCommandRequest>(InvokeHoverAction);
+
         InitializeComponent();
         ViewModel.Items.CollectionChanged += ItemsCollectionChanged;
         RefreshSelectionInspector();
+    }
+
+    private void InvokeHoverAction(HoverActionCommandRequest? request)
+    {
+        if (request is null)
+        {
+            return;
+        }
+
+        HoverActionStatusText.Text = $"Invoked {request.Action} for {request.Row.SourceItem.NameSortKey}";
+    }
+
+    private void HoverAnimationChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (HoverAnimationCombo.SelectedItem is ComboBoxItem { Tag: HoverActionAnimation animation })
+        {
+            MailList.HoverActionAnimation = animation;
+        }
+    }
+
+    private void HoverPositionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (HoverPositionCombo.SelectedItem is ComboBoxItem { Tag: HoverActionPosition position })
+        {
+            MailList.HoverActionPosition = position;
+        }
     }
 
     private void OnSelectionSnapshotChanged(object? sender, MailListSelectionSnapshot e) => RefreshSelectionInspector();

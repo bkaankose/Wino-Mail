@@ -1,18 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Microsoft.UI.Xaml.Input;
-using Windows.System;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
-using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.Controls.Core.ContextFlyout;
 
 namespace Wino.MenuFlyouts;
 
 internal sealed class MailContextFlyoutShortcutResolver(IKeyboardShortcutService shortcutService)
 {
-    public ResolvedContextFlyoutShortcut? Resolve(MailOperation operation)
+    public ContextFlyoutShortcut? Resolve(MailOperation operation)
     {
         var action = MapAction(operation);
         if (action is null)
@@ -37,7 +35,8 @@ internal sealed class MailContextFlyoutShortcutResolver(IKeyboardShortcutService
             return null;
         }
 
-        KeyboardAccelerator? accelerator = null;
+        // A shortcut the list cannot run while a text field has focus is still shown, but it is not
+        // offered as a key: an empty key stops the flyout from registering an accelerator for it.
         var isSafeWhileFiltering = KeyboardShortcutContextPolicy.CanExecute(
             shortcut.Action,
             shortcut.Key,
@@ -45,16 +44,13 @@ internal sealed class MailContextFlyoutShortcutResolver(IKeyboardShortcutService
             KeyboardShortcutInputContext.List,
             true);
 
-        if (isSafeWhileFiltering && Enum.TryParse(shortcut.Key, true, out VirtualKey key) && key != VirtualKey.None)
-        {
-            accelerator = new KeyboardAccelerator
-            {
-                Key = key,
-                Modifiers = shortcut.ModifierKeys.ToVirtualKeyModifiers()
-            };
-        }
-
-        return new ResolvedContextFlyoutShortcut(BuildDisplayText(shortcut), accelerator);
+        return new ContextFlyoutShortcut(
+            BuildDisplayText(shortcut),
+            isSafeWhileFiltering ? shortcut.Key : string.Empty,
+            shortcut.ModifierKeys.HasFlag(ModifierKeys.Control),
+            shortcut.ModifierKeys.HasFlag(ModifierKeys.Alt),
+            shortcut.ModifierKeys.HasFlag(ModifierKeys.Shift),
+            shortcut.ModifierKeys.HasFlag(ModifierKeys.Windows));
     }
 
     private static KeyboardShortcutAction? MapAction(MailOperation operation)
@@ -82,5 +78,3 @@ internal sealed class MailContextFlyoutShortcutResolver(IKeyboardShortcutService
         return string.Join("+", parts);
     }
 }
-
-internal sealed record ResolvedContextFlyoutShortcut(string DisplayText, KeyboardAccelerator? Accelerator);

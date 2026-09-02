@@ -1,17 +1,16 @@
-<Page
+﻿<Page
     x:Class="Wino.Mail.Controls.Playground.Pages.HoverActionsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:core="using:Wino.Mail.Controls.Core.HoverActions"
     xmlns:hoverActions="using:Wino.Mail.Controls.HoverActions">
-    <ScrollViewer
-        x:Name="PreviewRoot"
-        Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-        <StackPanel MaxWidth="760" Padding="24" Spacing="20">
+    <ScrollViewer x:Name="PreviewRoot" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <StackPanel
+            MaxWidth="760"
+            Padding="24"
+            Spacing="20">
             <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Hover actions" />
-            <TextBlock
-                Text="The scenarios exercise relay-command execution, action filtering, disabled chrome, and empty configuration."
-                TextWrapping="Wrap" />
+            <TextBlock Text="The scenarios exercise relay-command execution, action filtering, disabled chrome, and empty configuration." TextWrapping="Wrap" />
 
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock VerticalAlignment="Center" Text="Preview theme" />
@@ -27,6 +26,40 @@
                     AutomationProperties.AutomationId="HoverActionsDarkThemeButton"
                     Click="DarkThemeClicked"
                     Content="Dark" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock FontWeight="SemiBold" Text="Position" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="Position aligns the control inside whatever surface hosts it. The bordered box below is a stand-in for a mail row."
+                    TextWrapping="Wrap" />
+                <ComboBox
+                    x:Name="PositionCombo"
+                    AutomationProperties.AutomationId="HoverActionsPositionCombo"
+                    SelectedIndex="0"
+                    SelectionChanged="PositionChanged">
+                    <ComboBoxItem Content="RightCenter" Tag="{x:Bind core:HoverActionPosition.RightCenter}" />
+                    <ComboBoxItem Content="RightTop" Tag="{x:Bind core:HoverActionPosition.RightTop}" />
+                    <ComboBoxItem Content="RightBottom" Tag="{x:Bind core:HoverActionPosition.RightBottom}" />
+                    <ComboBoxItem Content="TopCenter" Tag="{x:Bind core:HoverActionPosition.TopCenter}" />
+                    <ComboBoxItem Content="BottomCenter" Tag="{x:Bind core:HoverActionPosition.BottomCenter}" />
+                </ComboBox>
+                <Border
+                    Height="120"
+                    Padding="8"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8">
+                    <hoverActions:HoverActionsControl
+                        x:Name="PositionPreview"
+                        ActionCommand="{x:Bind ViewModel.InvokeActionCommand}"
+                        CenterAction="{x:Bind core:HoverActionKind.ToggleRead}"
+                        Labels="{x:Bind ViewModel.Labels}"
+                        LeftAction="{x:Bind core:HoverActionKind.Archive}"
+                        MailRow="{x:Bind ViewModel.Row}"
+                        RightAction="{x:Bind core:HoverActionKind.ToggleFlag}" />
+                </Border>
             </StackPanel>
 
             <Grid ColumnSpacing="16" RowSpacing="12">
@@ -52,7 +85,10 @@
                     MailRow="{x:Bind ViewModel.Row}"
                     RightAction="{x:Bind core:HoverActionKind.ToggleFlag}" />
 
-                <TextBlock Grid.Row="1" VerticalAlignment="Center" Text="Two actions, middle None" />
+                <TextBlock
+                    Grid.Row="1"
+                    VerticalAlignment="Center"
+                    Text="Two actions, middle None" />
                 <hoverActions:HoverActionsControl
                     Grid.Row="1"
                     Grid.Column="1"
@@ -63,7 +99,10 @@
                     MailRow="{x:Bind ViewModel.Row}"
                     RightAction="{x:Bind core:HoverActionKind.MoveToJunk}" />
 
-                <TextBlock Grid.Row="2" VerticalAlignment="Center" Text="One action" />
+                <TextBlock
+                    Grid.Row="2"
+                    VerticalAlignment="Center"
+                    Text="One action" />
                 <hoverActions:HoverActionsControl
                     Grid.Row="2"
                     Grid.Column="1"
@@ -72,7 +111,10 @@
                     MailRow="{x:Bind ViewModel.Row}"
                     RightAction="{x:Bind core:HoverActionKind.ToggleRead}" />
 
-                <TextBlock Grid.Row="3" VerticalAlignment="Center" Text="Disabled" />
+                <TextBlock
+                    Grid.Row="3"
+                    VerticalAlignment="Center"
+                    Text="Disabled" />
                 <hoverActions:HoverActionsControl
                     Grid.Row="3"
                     Grid.Column="1"
@@ -82,7 +124,10 @@
                     LeftAction="{x:Bind core:HoverActionKind.Archive}"
                     MailRow="{x:Bind ViewModel.Row}" />
 
-                <TextBlock Grid.Row="4" VerticalAlignment="Center" Text="All None (collapsed)" />
+                <TextBlock
+                    Grid.Row="4"
+                    VerticalAlignment="Center"
+                    Text="All None (collapsed)" />
                 <hoverActions:HoverActionsControl
                     Grid.Row="4"
                     Grid.Column="1"
@@ -93,8 +138,8 @@
 
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <TextBlock
-                    AutomationProperties.AutomationId="HoverActionsStatusText"
                     VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="HoverActionsStatusText"
                     Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
             </StackPanel>
         </StackPanel>

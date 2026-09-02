@@ -6,6 +6,7 @@
     xmlns:advanced="using:Wino.Mail.WinUI.Controls.Advanced"
     xmlns:animatedvisuals="using:Microsoft.UI.Xaml.Controls.AnimatedVisuals"
     xmlns:animations="using:CommunityToolkit.WinUI.Animations"
+    xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout"
     xmlns:controls="using:Wino.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -1329,9 +1330,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="CompactThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid
-                Background="Transparent"
-                ContextRequested="MailItemContextRequested">
+            <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -1377,9 +1376,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="MediumThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid
-                Background="Transparent"
-                ContextRequested="MailItemContextRequested">
+            <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -1425,9 +1422,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="SpaciousThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid
-                Background="Transparent"
-                ContextRequested="MailItemContextRequested">
+            <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
@@ -1535,6 +1530,14 @@
             DefaultHeaderTemplate="{StaticResource MailGroupHeaderDefaultTemplate}"
             EmptyHeaderTemplate="{StaticResource MailGroupHeaderEmptyTemplate}" />
     </Page.Resources>
+
+    <FlyoutBase.AttachedFlyout>
+        <contextFlyout:WinoContextFlyout
+            x:Name="MailContextFlyout"
+            Language="{x:Bind ContextFlyoutLanguage, Mode=OneTime}"
+            NoResultsText="{x:Bind domain:Translator.ContextFlyout_NoResults, Mode=OneTime}"
+            SearchPlaceholderText="{x:Bind domain:Translator.ContextFlyout_SearchPlaceholder, Mode=OneTime}" />
+    </FlyoutBase.AttachedFlyout>
 
     <Page.KeyboardAccelerators>
         <KeyboardAccelerator
@@ -1778,8 +1781,8 @@
                                 IsTouchMultiSelectMode="{x:Bind ViewModel.IsMultiSelectionModeEnabled, Mode=OneWay}"
                                 ItemContainerStyleSelector="{StaticResource WinoMailItemContainerStyleSelector}"
                                 ItemTemplateSelector="{StaticResource MailItemTemplateSelector}"
-                                LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
                                 LeftHoverAction="{x:Bind helpers:XamlHelpers.GetHoverActionKind(ViewModel.PreferencesService.LeftHoverAction), Mode=OneWay}"
+                                LoadMoreCommand="{x:Bind ViewModel.LoadMoreItemsCommand}"
                                 MailItemsSource="{x:Bind ViewModel.MailCollection.Items, Mode=OneWay}"
                                 ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
                                 ProjectionOptions="{x:Bind ViewModel.MailListOptions, Mode=OneWay}"

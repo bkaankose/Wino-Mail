@@ -3,20 +3,16 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout">
-    <Page.Resources>
-        <SymbolIconSource x:Key="ReplyIconSource" Symbol="Mail" />
-        <SymbolIconSource x:Key="MoveIconSource" Symbol="MoveToFolder" />
-    </Page.Resources>
     <ScrollViewer>
         <StackPanel
             MaxWidth="760"
             Margin="32"
             HorizontalAlignment="Left"
             Spacing="20">
-            <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Searchable context flyout" />
+            <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Context flyout" />
             <TextBlock
                 MaxWidth="640"
-                Text="Right-click the card or use either button. The examples cover direct custom items, a bound item source, and command-backed native MenuFlyoutItem adaptation."
+                Text="Right-click the card or use the button. Menus are plain .NET definitions built in code-behind. The card opts into root search and header commands; the button enables search only after entering a submenu."
                 TextWrapping="Wrap" />
 
             <Border
@@ -27,77 +23,20 @@
                 BorderThickness="1"
                 CornerRadius="8">
                 <Border.ContextFlyout>
-                    <contextFlyout:WinoContextFlyout>
-                        <contextFlyout:WinoContextFlyoutItem
-                            AutomationId="ContextFlyoutReplyItem"
-                            Command="{x:Bind SampleCommand}"
-                            CommandParameter="Reply"
-                            IconSource="{StaticResource ReplyIconSource}"
-                            ShortcutText="Ctrl+R"
-                            Text="Reply" />
-                        <contextFlyout:WinoContextFlyoutItem
-                            Command="{x:Bind SampleCommand}"
-                            CommandParameter="Move"
-                            IconSource="{StaticResource MoveIconSource}"
-                            SearchKeywords="folder destination"
-                            ShortcutText="Ctrl+Shift+V"
-                            Text="Move to › Projects › Wino" />
-                        <contextFlyout:WinoContextFlyoutSeparator />
-                        <contextFlyout:WinoContextFlyoutToggleItem
-                            Command="{x:Bind SampleCommand}"
-                            CommandParameter="Category"
-                            IsChecked="True"
-                            Text="Category › Work" />
-                        <contextFlyout:WinoContextFlyoutItem
-                            Command="{x:Bind SampleCommand}"
-                            CommandParameter="Delete"
-                            IsDestructive="True"
-                            ShortcutText="Delete"
-                            Text="Delete" />
-                        <contextFlyout:WinoContextFlyoutItem
-                            Command="{x:Bind DisabledCommand}"
-                            IsEnabled="False"
-                            Text="Unavailable command" />
-                    </contextFlyout:WinoContextFlyout>
+                    <contextFlyout:WinoContextFlyout
+                        x:Name="CardContextFlyout"
+                        HeaderItemsSource="{x:Bind HeaderItems, Mode=OneTime}"
+                        IsSearchEnabled="True"
+                        ItemsSource="{x:Bind CardItems, Mode=OneTime}" />
                 </Border.ContextFlyout>
                 <TextBlock Text="Right-click this card" />
             </Border>
 
-            <StackPanel Orientation="Horizontal" Spacing="12">
-                <Button AutomationProperties.AutomationId="BoundContextFlyoutButton" Content="Bound items">
-                    <Button.Flyout>
-                        <contextFlyout:WinoContextFlyout ItemsSource="{x:Bind BoundItems}" />
-                    </Button.Flyout>
-                </Button>
-                <Button AutomationProperties.AutomationId="NativeContextFlyoutButton" Content="Native XAML items">
-                    <Button.Flyout>
-                        <contextFlyout:WinoContextFlyout>
-                            <MenuFlyoutItem
-                                Command="{x:Bind SampleCommand}"
-                                CommandParameter="Native open"
-                                Icon="OpenFile"
-                                KeyboardAcceleratorTextOverride="Ctrl+O"
-                                Text="Open" />
-                            <MenuFlyoutSubItem Icon="MoveToFolder" Text="Move to">
-                                <MenuFlyoutItem
-                                    Command="{x:Bind SampleCommand}"
-                                    CommandParameter="Native archive"
-                                    Text="Archive" />
-                                <MenuFlyoutItem
-                                    Command="{x:Bind SampleCommand}"
-                                    CommandParameter="Native project"
-                                    Text="Projects › Wino" />
-                            </MenuFlyoutSubItem>
-                            <MenuFlyoutSeparator />
-                            <ToggleMenuFlyoutItem
-                                Command="{x:Bind SampleCommand}"
-                                CommandParameter="Native toggle"
-                                IsChecked="True"
-                                Text="Pinned" />
-                        </contextFlyout:WinoContextFlyout>
-                    </Button.Flyout>
-                </Button>
-            </StackPanel>
+            <Button AutomationProperties.AutomationId="BoundContextFlyoutButton" Content="Bound items">
+                <Button.Flyout>
+                    <contextFlyout:WinoContextFlyout x:Name="BoundContextFlyout" ItemsSource="{x:Bind BoundItems, Mode=OneTime}" />
+                </Button.Flyout>
+            </Button>
 
             <TextBlock
                 x:Name="StatusTextBlock"

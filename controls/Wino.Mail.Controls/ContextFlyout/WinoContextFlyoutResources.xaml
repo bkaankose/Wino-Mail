@@ -1,0 +1,280 @@
+﻿<ResourceDictionary
+    x:Class="Wino.Mail.Controls.ContextFlyout.WinoContextFlyoutResources"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
+    xmlns:local="using:Wino.Mail.Controls.ContextFlyout">
+
+    <DataTemplate x:Key="ItemTemplate" x:DataType="local:ContextFlyoutRow">
+        <Grid
+            MinHeight="36"
+            Padding="8,0,12,0"
+            ColumnSpacing="8"
+            ToolTipService.ToolTip="{x:Bind Text, Mode=OneTime}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <accountIcon:WinoFontIcon
+                x:Name="ItemThemedIcon"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind HasThemedIcon, Mode=OneTime}"
+                FontSize="16"
+                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            <accountIcon:WinoFontIcon
+                x:Name="ItemColoredIcon"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind HasColoredIcon, Mode=OneTime}"
+                FontSize="16"
+                Foreground="{x:Bind IconForeground, Mode=OneTime}"
+                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            <TextBlock
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Text="{x:Bind Text, Mode=OneTime}"
+                TextTrimming="CharacterEllipsis"
+                TextWrapping="NoWrap" />
+            <TextBlock
+                Grid.Column="2"
+                Margin="16,0,0,0"
+                VerticalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{ThemeResource CaptionTextBlockStyle}"
+                Text="{x:Bind ShortcutText, Mode=OneTime}"
+                TextWrapping="NoWrap" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="DestructiveItemTemplate" x:DataType="local:ContextFlyoutRow">
+        <Grid
+            MinHeight="36"
+            Padding="8,0,12,0"
+            ColumnSpacing="8"
+            ToolTipService.ToolTip="{x:Bind Text, Mode=OneTime}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <accountIcon:WinoFontIcon
+                x:Name="DestructiveThemedIcon"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind HasThemedIcon, Mode=OneTime}"
+                FontSize="16"
+                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            <accountIcon:WinoFontIcon
+                x:Name="DestructiveColoredIcon"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind HasColoredIcon, Mode=OneTime}"
+                FontSize="16"
+                Foreground="{x:Bind IconForeground, Mode=OneTime}"
+                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            <TextBlock
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                Text="{x:Bind Text, Mode=OneTime}"
+                TextTrimming="CharacterEllipsis"
+                TextWrapping="NoWrap" />
+            <TextBlock
+                Grid.Column="2"
+                Margin="16,0,0,0"
+                VerticalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{ThemeResource CaptionTextBlockStyle}"
+                Text="{x:Bind ShortcutText, Mode=OneTime}"
+                TextWrapping="NoWrap" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="ToggleItemTemplate" x:DataType="local:ContextFlyoutRow">
+        <Grid
+            MinHeight="36"
+            Padding="8,0,12,0"
+            ColumnSpacing="8"
+            ToolTipService.ToolTip="{x:Bind Text, Mode=OneTime}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <FontIcon
+                x:Name="ToggleCheckGlyph"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind IsChecked, Mode=OneTime}"
+                FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                FontSize="14"
+                Glyph="&#xE73E;" />
+            <accountIcon:WinoFontIcon
+                x:Name="ToggleThemedIcon"
+                Grid.Column="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind HasThemedIcon, Mode=OneTime}"
+                FontSize="16"
+                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            <accountIcon:WinoFontIcon
+                x:Name="ToggleColoredIcon"
+                Grid.Column="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind HasColoredIcon, Mode=OneTime}"
+                FontSize="16"
+                Foreground="{x:Bind IconForeground, Mode=OneTime}"
+                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            <TextBlock
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                Text="{x:Bind Text, Mode=OneTime}"
+                TextTrimming="CharacterEllipsis"
+                TextWrapping="NoWrap" />
+            <TextBlock
+                Grid.Column="3"
+                Margin="16,0,0,0"
+                VerticalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{ThemeResource CaptionTextBlockStyle}"
+                Text="{x:Bind ShortcutText, Mode=OneTime}"
+                TextWrapping="NoWrap" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="RadioItemTemplate" x:DataType="local:ContextFlyoutRow">
+        <Grid
+            MinHeight="36"
+            Padding="8,0,12,0"
+            ColumnSpacing="8"
+            ToolTipService.ToolTip="{x:Bind Text, Mode=OneTime}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <FontIcon
+                x:Name="RadioCheckGlyph"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind IsChecked, Mode=OneTime}"
+                FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                FontSize="14"
+                Glyph="&#xE915;" />
+            <accountIcon:WinoFontIcon
+                x:Name="RadioThemedIcon"
+                Grid.Column="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind HasThemedIcon, Mode=OneTime}"
+                FontSize="16"
+                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            <accountIcon:WinoFontIcon
+                x:Name="RadioColoredIcon"
+                Grid.Column="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind HasColoredIcon, Mode=OneTime}"
+                FontSize="16"
+                Foreground="{x:Bind IconForeground, Mode=OneTime}"
+                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            <TextBlock
+                Grid.Column="2"
+                VerticalAlignment="Center"
+                Text="{x:Bind Text, Mode=OneTime}"
+                TextTrimming="CharacterEllipsis"
+                TextWrapping="NoWrap" />
+            <TextBlock
+                Grid.Column="3"
+                Margin="16,0,0,0"
+                VerticalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{ThemeResource CaptionTextBlockStyle}"
+                Text="{x:Bind ShortcutText, Mode=OneTime}"
+                TextWrapping="NoWrap" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="SubItemTemplate" x:DataType="local:ContextFlyoutRow">
+        <Grid
+            MinHeight="36"
+            Padding="8,0,12,0"
+            ColumnSpacing="8"
+            ToolTipService.ToolTip="{x:Bind Text, Mode=OneTime}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <accountIcon:WinoFontIcon
+                x:Name="SubItemThemedIcon"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind HasThemedIcon, Mode=OneTime}"
+                FontSize="16"
+                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            <accountIcon:WinoFontIcon
+                x:Name="SubItemColoredIcon"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                x:Load="{x:Bind HasColoredIcon, Mode=OneTime}"
+                FontSize="16"
+                Foreground="{x:Bind IconForeground, Mode=OneTime}"
+                Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            <TextBlock
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                Text="{x:Bind Text, Mode=OneTime}"
+                TextTrimming="CharacterEllipsis"
+                TextWrapping="NoWrap" />
+            <Viewbox
+                Grid.Column="2"
+                Width="12"
+                Height="12"
+                VerticalAlignment="Center">
+                <SymbolIcon Symbol="Forward" />
+            </Viewbox>
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="SeparatorTemplate">
+        <Rectangle
+            Height="1"
+            Margin="0,3"
+            Fill="{ThemeResource DividerStrokeColorDefaultBrush}"
+            IsHitTestVisible="False" />
+    </DataTemplate>
+
+    <DataTemplate x:Key="HeaderItemTemplate" x:DataType="local:ContextFlyoutHeaderRow">
+        <AppBarButton
+            MinWidth="0"
+            HorizontalAlignment="Stretch"
+            HorizontalContentAlignment="Center"
+            AutomationProperties.AutomationId="{x:Bind AutomationId, Mode=OneTime}"
+            AutomationProperties.Name="{x:Bind Label, Mode=OneTime}"
+            IsEnabled="{x:Bind IsEnabled, Mode=OneTime}"
+            Label="{x:Bind Label, Mode=OneTime}"
+            LabelPosition="Collapsed"
+            ToolTipService.ToolTip="{x:Bind ToolTip, Mode=OneTime}">
+            <AppBarButton.Icon>
+                <accountIcon:WinoFontIcon FontSize="16" Glyph="{x:Bind Glyph, Mode=OneTime}" />
+            </AppBarButton.Icon>
+        </AppBarButton>
+    </DataTemplate>
+
+    <local:WinoContextFlyoutTemplateSelector
+        x:Key="TemplateSelector"
+        DestructiveItemTemplate="{StaticResource DestructiveItemTemplate}"
+        ItemTemplate="{StaticResource ItemTemplate}"
+        RadioItemTemplate="{StaticResource RadioItemTemplate}"
+        SeparatorTemplate="{StaticResource SeparatorTemplate}"
+        SubItemTemplate="{StaticResource SubItemTemplate}"
+        ToggleItemTemplate="{StaticResource ToggleItemTemplate}" />
+
+</ResourceDictionary>

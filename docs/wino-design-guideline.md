@@ -152,8 +152,11 @@ The selected backdrop is decorative. The content layer, selected state, focus vi
 ### Searchable context commands
 
 - Use `WinoContextFlyout` when a contextual command set is long enough to benefit from filtering.
-- Keep the search field first and focus it whenever the flyout opens.
-- Flatten actionable submenu descendants into breadcrumb labels such as `Move to › Projects › Wino`.
+- Define the menu as `Wino.Mail.Controls.Core.ContextFlyout` entries and pass them through `ItemsSource` and `HeaderItemsSource`. Never declare menu content with XAML menu types: the control renders and filters a definition, it never builds one.
+- Describe an entry icon as a glyph from the packaged Wino icon font, with an optional colour hex for entries that carry their own colour, such as mail categories.
+- Keep optional root search first. Collapse it when disabled; entering a submenu enables and focuses search for that subtree.
+- Keep long command hierarchies paged. Selecting a submenu replaces the list with its immediate children; a query searches actionable descendants, and Back or Escape returns one level.
+- Keep frequent root actions in header items below search, at most three across the presenter width, and hide them on nested pages.
 - Keep unavailable commands visible and disabled. Remove structural nodes that cannot run an action.
 - Show the resolved shortcut at the trailing edge. Do not run unmodified or standard text-editing shortcuts while the search field has focus.
 - Keep command order and meaningful separators from the source menu. Remove leading, duplicate, and trailing separators after filtering.

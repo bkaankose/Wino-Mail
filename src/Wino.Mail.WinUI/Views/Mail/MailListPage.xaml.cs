@@ -8,7 +8,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Data;
@@ -29,12 +28,11 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Helpers;
-using Wino.Mail.ViewModels.Data;
-using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.SearchBar;
+using Wino.Mail.ViewModels.Data;
+using Wino.Mail.ViewModels.Messages;
 using Wino.Mail.WinUI;
-using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Controls.ListView;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
@@ -42,7 +40,6 @@ using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views;
 using Wino.MenuFlyouts;
-using Wino.MenuFlyouts.Context;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
 using Wino.Views.Abstract;
@@ -86,7 +83,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private const int SELECT_MAIL_CONTAINER_RETRY_DELAY_MS = 50;
     private int _idleNavigationRequestVersion = 0;
     private int _mailActivationRequestVersion = 0;
+    private int _mailContextRequestVersion = 0;
     private int _selectMailContainerRequestVersion = 0;
+    private Task _mailContextFlyoutCleanupTask = Task.CompletedTask;
 
     /// <summary>
     /// True while the rendering frame hosts a composer for a draft that is not part of the
@@ -135,6 +134,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
     }
 
     public string SearchPlaceholderText => Translator.SearchBarPlaceholder;
+    public string ContextFlyoutLanguage => WinoApplication.Current.Services.GetRequiredService<IPreferencesService>().CurrentLanguage == AppLanguage.Chinese
+        ? "zh-CN"
+        : string.Empty;
+
     public MailListPage()
     {
         InitializeComponent();
@@ -184,6 +187,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
         InvalidatePendingIdleNavigation();
         InvalidatePendingMailActivation();
         InvalidatePendingMailContainerSelection();
+        _mailContextRequestVersion++;
+        if (MailContextFlyout.IsOpen)
+        {
+            MailContextFlyout.Hide();
+        }
         DetachPopoutClient();
 
         this.Bindings.StopTracking();
@@ -263,6 +271,18 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
         if (sender is FrameworkElement control && args.TryGetPosition(sender, out Point p))
         {
+            var requestVersion = ++_mailContextRequestVersion;
+            if (MailContextFlyout.IsOpen)
+            {
+                MailContextFlyout.Hide();
+            }
+            await _mailContextFlyoutCleanupTask;
+
+            if (requestVersion != _mailContextRequestVersion)
+            {
+                return;
+            }
+
             IReadOnlyList<MailItemViewModel> targetItems;
             MailItemViewModel? composeTargetItem;
             var row = ResolveMailListRow(control);
@@ -292,6 +312,11 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
             await Task.WhenAll(categoriesTask, moveFoldersTask);
 
+            if (requestVersion != _mailContextRequestVersion)
+            {
+                return;
+            }
+
             var (availableCategories, assignedCategoryIds) = await categoriesTask;
             var moveFolders = await moveFoldersTask;
             var sourceFolderIds = targetItems
@@ -300,16 +325,27 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 .Select(folderId => folderId!.Value)
                 .ToHashSet();
 
-            var clickedAction = await GetMailContextActionFromFlyoutAsync(
-                availableActions,
-                availableCategories,
-                assignedCategoryIds,
-                moveFolders,
-                sourceFolderIds,
-                areAllPinned,
-                control,
-                p.X,
-                p.Y);
+            // The menu takes the pointer, so the row has to be told to keep its hover actions.
+            MailListView.SetContextMenuOpenRow(row);
+
+            MailContextFlyoutSelection? clickedAction;
+            try
+            {
+                clickedAction = await GetMailContextActionFromFlyoutAsync(
+                    availableActions,
+                    availableCategories,
+                    assignedCategoryIds,
+                    moveFolders,
+                    sourceFolderIds,
+                    areAllPinned,
+                    control,
+                    p.X,
+                    p.Y);
+            }
+            finally
+            {
+                MailListView.SetContextMenuOpenRow(null);
+            }
 
             if (clickedAction == null) return;
 
@@ -394,36 +430,47 @@ public sealed partial class MailListPage : MailListPageAbstract,
         double x,
         double y)
     {
-        var source = new TaskCompletionSource<MailContextFlyoutSelection?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var flyout = new WinoContextFlyout
+        var closedSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cleanupSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        MailContextFlyoutSelection? selectedResult = null;
+        _mailContextFlyoutCleanupTask = cleanupSource.Task;
+
+        void OnClosed(object? sender, object args) => closedSource.TrySetResult();
+        void OnSelected(MailContextFlyoutSelection selection) => selectedResult = selection;
+
+        try
         {
-            SearchPlaceholderText = Translator.ContextFlyout_SearchPlaceholder,
-            NoResultsText = Translator.ContextFlyout_NoResults,
-            Language = WinoApplication.Current.Services.GetRequiredService<IPreferencesService>().CurrentLanguage == AppLanguage.Chinese
-                ? "zh-CN"
-                : string.Empty
-        };
+            var menu = MailContextFlyoutBuilder.Build(
+                availableActions,
+                availableCategories,
+                assignedCategoryIds,
+                moveFolders,
+                sourceFolderIds,
+                areAllPinned,
+                KeyboardShortcutService,
+                OnSelected);
 
-        MailContextFlyoutBuilder.Populate(
-            flyout.Items,
-            availableActions,
-            availableCategories,
-            assignedCategoryIds,
-            moveFolders,
-            sourceFolderIds,
-            areAllPinned,
-            KeyboardShortcutService,
-            selection => source.TrySetResult(selection));
+            MailContextFlyout.ItemsSource = menu.Items;
+            MailContextFlyout.HeaderItemsSource = menu.HeaderItems;
+            MailContextFlyout.Closed += OnClosed;
 
-        flyout.Closed += (_, _) => source.TrySetResult(null);
+            MailContextFlyout.ShowAt(showAtElement, new FlyoutShowOptions()
+            {
+                ShowMode = FlyoutShowMode.Standard,
+                Placement = FlyoutPlacementMode.Bottom,
+                Position = new Point(x + (WinoContextFlyout.PresenterWidth / 2), y)
+            });
 
-        flyout.ShowAt(showAtElement, new FlyoutShowOptions()
+            await closedSource.Task;
+            return selectedResult;
+        }
+        finally
         {
-            ShowMode = FlyoutShowMode.Standard,
-            Position = new Point(x + 30, y - 20)
-        });
-
-        return await source.Task;
+            MailContextFlyout.Closed -= OnClosed;
+            MailContextFlyout.ItemsSource = null;
+            MailContextFlyout.HeaderItemsSource = null;
+            cleanupSource.TrySetResult();
+        }
     }
 
     private static bool IsComposeContextOperation(MailOperation operation)

@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Mail.Controls.Core.HoverActions;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
@@ -11,6 +12,14 @@ public sealed partial class HoverActionsPage : Page
     }
 
     public HoverActionsPageViewModel ViewModel { get; } = new();
+
+    private void PositionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (PositionCombo.SelectedItem is ComboBoxItem { Tag: HoverActionPosition position })
+        {
+            PositionPreview.Position = position;
+        }
+    }
 
     private void SystemThemeClicked(object sender, RoutedEventArgs e) => PreviewRoot.RequestedTheme = ElementTheme.Default;
 

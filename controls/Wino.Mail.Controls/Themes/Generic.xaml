@@ -1812,173 +1812,14 @@
         </Setter>
     </Style>
 
-    <DataTemplate x:Key="WinoContextFlyoutItemTemplate">
-        <Grid
-            MinHeight="36"
-            Padding="8,0"
-            ColumnSpacing="8"
-            ToolTipService.ToolTip="{Binding Text}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="20" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <IconSourceElement
-                Width="16"
-                Height="16"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                IconSource="{Binding IconSource}" />
-            <TextBlock
-                Grid.Column="1"
-                VerticalAlignment="Center"
-                Text="{Binding Text}"
-                TextTrimming="CharacterEllipsis"
-                TextWrapping="NoWrap" />
-            <TextBlock
-                Grid.Column="2"
-                Margin="16,0,0,0"
-                VerticalAlignment="Center"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{ThemeResource CaptionTextBlockStyle}"
-                Text="{Binding ShortcutText}"
-                TextWrapping="NoWrap" />
-        </Grid>
-    </DataTemplate>
-
-    <DataTemplate x:Key="WinoContextFlyoutToggleItemTemplate">
-        <Grid
-            MinHeight="36"
-            Padding="8,0"
-            ColumnSpacing="8"
-            ToolTipService.ToolTip="{Binding Text}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="20" />
-                <ColumnDefinition Width="20" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <CheckBox
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                IsChecked="{Binding IsChecked}"
-                IsHitTestVisible="False"
-                IsTabStop="False" />
-            <IconSourceElement
-                Grid.Column="1"
-                Width="16"
-                Height="16"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                IconSource="{Binding IconSource}" />
-            <TextBlock
-                Grid.Column="2"
-                VerticalAlignment="Center"
-                Text="{Binding Text}"
-                TextTrimming="CharacterEllipsis"
-                TextWrapping="NoWrap" />
-            <TextBlock
-                Grid.Column="3"
-                Margin="16,0,0,0"
-                VerticalAlignment="Center"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{ThemeResource CaptionTextBlockStyle}"
-                Text="{Binding ShortcutText}"
-                TextWrapping="NoWrap" />
-        </Grid>
-    </DataTemplate>
-
-    <DataTemplate x:Key="WinoContextFlyoutRadioItemTemplate">
-        <Grid
-            MinHeight="36"
-            Padding="8,0"
-            ColumnSpacing="8"
-            ToolTipService.ToolTip="{Binding Text}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="20" />
-                <ColumnDefinition Width="20" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <RadioButton
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                IsChecked="{Binding IsChecked}"
-                IsHitTestVisible="False"
-                IsTabStop="False" />
-            <IconSourceElement
-                Grid.Column="1"
-                Width="16"
-                Height="16"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                IconSource="{Binding IconSource}" />
-            <TextBlock
-                Grid.Column="2"
-                VerticalAlignment="Center"
-                Text="{Binding Text}"
-                TextTrimming="CharacterEllipsis"
-                TextWrapping="NoWrap" />
-            <TextBlock
-                Grid.Column="3"
-                Margin="16,0,0,0"
-                VerticalAlignment="Center"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{ThemeResource CaptionTextBlockStyle}"
-                Text="{Binding ShortcutText}"
-                TextWrapping="NoWrap" />
-        </Grid>
-    </DataTemplate>
-
-    <DataTemplate x:Key="WinoContextFlyoutSeparatorTemplate">
-        <Grid Height="9" IsHitTestVisible="False">
-            <Rectangle
-                Height="1"
-                Margin="8,4"
-                VerticalAlignment="Center"
-                Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
-        </Grid>
-    </DataTemplate>
-
-    <contextFlyout:WinoContextFlyoutTemplateSelector
-        x:Key="WinoContextFlyoutTemplateSelector"
-        ItemTemplate="{StaticResource WinoContextFlyoutItemTemplate}"
-        RadioItemTemplate="{StaticResource WinoContextFlyoutRadioItemTemplate}"
-        SeparatorTemplate="{StaticResource WinoContextFlyoutSeparatorTemplate}"
-        ToggleItemTemplate="{StaticResource WinoContextFlyoutToggleItemTemplate}" />
-
-    <Style x:Key="WinoContextFlyoutItemContainerStyle" TargetType="ListViewItem">
-        <Setter Property="MinHeight" Value="36" />
-        <Setter Property="Padding" Value="0" />
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-    </Style>
-
-    <Style x:Key="WinoContextFlyoutSeparatorContainerStyle" TargetType="ListViewItem">
-        <Setter Property="MinHeight" Value="9" />
-        <Setter Property="Padding" Value="0" />
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-    </Style>
-
-    <Style
-        x:Key="WinoContextFlyoutDestructiveItemContainerStyle"
-        BasedOn="{StaticResource WinoContextFlyoutItemContainerStyle}"
-        TargetType="ListViewItem">
-        <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
-    </Style>
-
-    <contextFlyout:WinoContextFlyoutItemContainerStyleSelector
-        x:Key="WinoContextFlyoutItemContainerStyleSelector"
-        DefaultStyle="{StaticResource WinoContextFlyoutItemContainerStyle}"
-        DestructiveStyle="{StaticResource WinoContextFlyoutDestructiveItemContainerStyle}"
-        SeparatorStyle="{StaticResource WinoContextFlyoutSeparatorContainerStyle}" />
-
     <Style TargetType="contextFlyout:WinoContextFlyoutPresenter">
-        <Setter Property="MinWidth" Value="320" />
-        <Setter Property="MaxWidth" Value="420" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="contextFlyout:WinoContextFlyoutPresenter">
                     <Border
+                        Width="250"
+                        MinWidth="250"
+                        MaxWidth="250"
                         Padding="4"
                         Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
@@ -1988,23 +1829,127 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <TextBox
-                                x:Name="PART_SearchBox"
-                                Height="36"
+                            <Grid
+                                x:Name="PART_SearchRow"
                                 Margin="0,0,0,4"
-                                AutomationProperties.AutomationId="WinoContextFlyoutSearchBox"
-                                PlaceholderText="{Binding SearchPlaceholderText, RelativeSource={RelativeSource TemplatedParent}}" />
-                            <Grid Grid.Row="1">
+                                Visibility="Collapsed">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Button
+                                    x:Name="PART_BackButton"
+                                    Width="0"
+                                    Height="36"
+                                    Padding="0,0,4,0"
+                                    AutomationProperties.AutomationId="WinoContextFlyoutBackButton"
+                                    Background="Transparent"
+                                    IsHitTestVisible="False"
+                                    IsTabStop="False"
+                                    Opacity="0"
+                                    RenderTransformOrigin="0.5,0.5">
+                                    <Button.Resources>
+                                        <Storyboard x:Key="ShowBackButtonStoryboard">
+                                            <DoubleAnimation
+                                                EnableDependentAnimation="True"
+                                                Storyboard.TargetProperty="Width"
+                                                From="0"
+                                                To="36"
+                                                Duration="0:0:0.16">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation
+                                                Storyboard.TargetProperty="Opacity"
+                                                From="0"
+                                                To="1"
+                                                Duration="0:0:0.12" />
+                                            <DoubleAnimation
+                                                Storyboard.TargetProperty="X"
+                                                From="-8"
+                                                To="0"
+                                                Duration="0:0:0.16">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                        <Storyboard x:Key="HideBackButtonStoryboard">
+                                            <DoubleAnimation
+                                                EnableDependentAnimation="True"
+                                                Storyboard.TargetProperty="Width"
+                                                From="36"
+                                                To="0"
+                                                Duration="0:0:0.14">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseIn" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation
+                                                Storyboard.TargetProperty="Opacity"
+                                                From="1"
+                                                To="0"
+                                                Duration="0:0:0.1" />
+                                            <DoubleAnimation
+                                                Storyboard.TargetProperty="X"
+                                                From="0"
+                                                To="-8"
+                                                Duration="0:0:0.14">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseIn" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </Button.Resources>
+                                    <Button.RenderTransform>
+                                        <TranslateTransform X="-8" />
+                                    </Button.RenderTransform>
+                                    <Viewbox Width="12" Height="12">
+                                        <SymbolIcon Symbol="Back" />
+                                    </Viewbox>
+                                </Button>
+                                <TextBox
+                                    x:Name="PART_SearchBox"
+                                    Grid.Column="1"
+                                    Height="36"
+                                    AutomationProperties.AutomationId="WinoContextFlyoutSearchBox" />
+                            </Grid>
+                            <ItemsRepeater
+                                x:Name="PART_HeaderItems"
+                                Grid.Row="1"
+                                Margin="0,0,0,4"
+                                HorizontalAlignment="Stretch"
+                                AutomationProperties.AutomationId="WinoContextFlyoutHeaderItems"
+                                Visibility="Collapsed">
+                                <ItemsRepeater.Layout>
+                                    <UniformGridLayout
+                                        ItemsStretch="Fill"
+                                        MaximumRowsOrColumns="3"
+                                        MinColumnSpacing="4"
+                                        MinRowSpacing="4" />
+                                </ItemsRepeater.Layout>
+                            </ItemsRepeater>
+                            <Grid Grid.Row="2">
                                 <ListView
                                     x:Name="PART_ItemsList"
-                                    MaxHeight="480"
+                                    Padding="0"
                                     AutomationProperties.AutomationId="WinoContextFlyoutItemsList"
                                     IsItemClickEnabled="True"
-                                    ItemContainerStyleSelector="{StaticResource WinoContextFlyoutItemContainerStyleSelector}"
-                                    ItemTemplateSelector="{StaticResource WinoContextFlyoutTemplateSelector}"
-                                    ItemsSource="{Binding VisibleItems, RelativeSource={RelativeSource TemplatedParent}}"
-                                    SelectionMode="Single" />
+                                    SelectionMode="None">
+                                    <ListView.ItemContainerStyle>
+                                        <!--  Rows are commands, not a selection. The container adds no height; each item template owns its own metrics.  -->
+                                        <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                                            <Setter Property="MinHeight" Value="0" />
+                                            <Setter Property="Padding" Value="0" />
+                                            <Setter Property="Margin" Value="0" />
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
+                                </ListView>
                                 <TextBlock
                                     x:Name="PART_EmptyText"
                                     Margin="12,16"
@@ -2012,7 +1957,6 @@
                                     VerticalAlignment="Center"
                                     AutomationProperties.AutomationId="WinoContextFlyoutEmptyText"
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                    Text="{Binding NoResultsText, RelativeSource={RelativeSource TemplatedParent}}"
                                     Visibility="Collapsed" />
                             </Grid>
                         </Grid>
