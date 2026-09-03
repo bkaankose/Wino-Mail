@@ -166,7 +166,7 @@
                                     Click="FirstActionClicked"
                                     Style="{StaticResource HoverActionButtonStyle}">
                                     <Button.Content>
-                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(LeftHoverAction), Mode=OneWay}" />
+                                        <coreControls:WinoFontIcon FontSize="{x:Bind GetHoverActionFontSizeForInner(), Mode=OneWay}" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(LeftHoverAction), Mode=OneWay}" />
                                     </Button.Content>
                                 </Button>
 
@@ -176,7 +176,7 @@
                                     Click="SecondActionClicked"
                                     Style="{StaticResource HoverActionButtonStyle}">
                                     <Button.Content>
-                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(CenterHoverAction), Mode=OneWay}" />
+                                        <coreControls:WinoFontIcon FontSize="{x:Bind GetHoverActionFontSizeForInner(), Mode=OneWay}" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(CenterHoverAction), Mode=OneWay}" />
                                     </Button.Content>
                                 </Button>
 
@@ -186,7 +186,7 @@
                                     Click="ThirdActionClicked"
                                     Style="{StaticResource HoverActionButtonStyle}">
                                     <Button.Content>
-                                        <coreControls:WinoFontIcon FontSize="16" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(RightHoverAction), Mode=OneWay}" />
+                                        <coreControls:WinoFontIcon FontSize="{x:Bind GetHoverActionFontSizeForInner(), Mode=OneWay}" Icon="{x:Bind helpers:XamlHelpers.GetWinoIconGlyph(RightHoverAction), Mode=OneWay}" />
                                     </Button.Content>
                                 </Button>
                             </StackPanel>

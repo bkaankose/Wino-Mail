@@ -1010,7 +1010,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private static void RefreshHoverActionButtons(DependencyObject hoverActionButtons)
+    private void RefreshHoverActionButtons(DependencyObject hoverActionButtons)
     {
         foreach (var button in FindDescendants<Button>(hoverActionButtons))
         {
@@ -1018,7 +1018,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         }
     }
 
-    private static void RefreshHoverActionButton(Button button)
+    private void RefreshHoverActionButton(Button button)
     {
         if (button.Tag is not string actionIndexText || !int.TryParse(actionIndexText, out var actionIndex))
             return;
@@ -1028,8 +1028,15 @@ public sealed partial class MailListPage : MailListPageAbstract,
         if (button.Content is WinoFontIcon icon)
         {
             icon.Icon = XamlHelpers.GetHoverActionWinoIconGlyph(actionIndex);
+            icon.FontSize = GetHoverActionFontSize(ViewModel.PreferencesService.HoverActionSize);
         }
     }
+
+    private static double GetHoverActionFontSize(HoverActionSize size) => size switch
+    {
+        HoverActionSize.Large => 20.0,
+        _ => 16.0,
+    };
 
     private void MailRowHoverActionButtonLoaded(object sender, RoutedEventArgs e)
     {

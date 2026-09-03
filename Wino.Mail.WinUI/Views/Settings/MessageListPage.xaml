@@ -98,6 +98,20 @@
                                 SelectedIndex="{x:Bind ViewModel.RightHoverActionIndex, Mode=TwoWay}" />
                         </controls:SettingsCard.Content>
                     </controls:SettingsCard>
+
+                    <controls:SettingsCard AutomationProperties.AutomationId="MessageListPageSettingsCardHoverSize" Header="{x:Bind domain:Translator.SettingsHoverActionSize_Title, Mode=OneTime}">
+                        <controls:SettingsCard.Description>
+                            <TextBlock Text="{x:Bind domain:Translator.SettingsHoverActionSize_Description, Mode=OneTime}" TextWrapping="Wrap" />
+                        </controls:SettingsCard.Description>
+                        <controls:SettingsCard.Content>
+                            <ComboBox
+                                Width="150"
+                                AutomationProperties.AutomationId="MessageListPageHoverActionSizeComboBox"
+                                IsEnabled="{x:Bind HoverEnableToggle.IsOn, Mode=OneWay}"
+                                ItemsSource="{x:Bind ViewModel.AvailableHoverActionSizeTranslations}"
+                                SelectedIndex="{x:Bind ViewModel.SelectedHoverActionSizeIndex, Mode=TwoWay}" />
+                        </controls:SettingsCard.Content>
+                    </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
 

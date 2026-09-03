@@ -245,6 +245,12 @@ public class PreferencesService(IConfigurationService configurationService) : Ob
         set => SetPropertyAndSave(nameof(RightHoverAction), value);
     }
 
+    public HoverActionSize HoverActionSize
+    {
+        get => _configurationService.Get(nameof(HoverActionSize), HoverActionSize.Standard);
+        set => SetPropertyAndSave(nameof(HoverActionSize), value);
+    }
+
     public bool IsLoggingEnabled
     {
         get => _configurationService.Get(nameof(IsLoggingEnabled), true);
