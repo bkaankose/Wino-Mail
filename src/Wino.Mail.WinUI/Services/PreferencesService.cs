@@ -268,6 +268,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(HoverActionPosition), value);
     }
 
+    public MailHoverActionButtonSize HoverActionButtonSize
+    {
+        get => _configurationService.Get(nameof(HoverActionButtonSize), MailHoverActionButtonSize.Small);
+        set => SetPropertyAndSave(nameof(HoverActionButtonSize), value);
+    }
+
     public bool IsLoggingEnabled
     {
         get => _configurationService.Get(nameof(IsLoggingEnabled), true);

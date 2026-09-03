@@ -452,13 +452,13 @@
   <!-- Publish Properties -->
   <PropertyGroup>  
     <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
-    <GenerateAppInstallerFile>True</GenerateAppInstallerFile>
-    <AppxPackageSigningEnabled>False</AppxPackageSigningEnabled>
+    <GenerateAppInstallerFile>False</GenerateAppInstallerFile>
+    <AppxPackageSigningEnabled>True</AppxPackageSigningEnabled>
     <AppxPackageSigningTimestampDigestAlgorithm>SHA256</AppxPackageSigningTimestampDigestAlgorithm>
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <AppxBundle>Always</AppxBundle>
-    <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
+    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
     <HoursBetweenUpdateChecks>4</HoursBetweenUpdateChecks>
     <PackageCertificateThumbprint>4D0220C9CA6C704D170471B1A2335F76F94EB9DC</PackageCertificateThumbprint>
     <AppInstallerUri>https://download.winomail.app/Wino.appinstaller</AppInstallerUri>
@@ -481,31 +481,20 @@
 
   <Target Name="PrepareWinoSideloadManifest" Condition="'$(WinoIsSideloadBuild)' == 'true'">
     <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(WinoSideloadManifestPath)'))" />
-    <Copy SourceFiles="$(MSBuildProjectDirectory)\Package.appxmanifest"
-          DestinationFiles="$(WinoSideloadManifestPath)" />
-    <XmlPoke XmlInputPath="$(WinoSideloadManifestPath)"
-             Query="/*[local-name()='Package']/*[local-name()='Identity']/@Name"
-             Value="$(WinoSideloadPackageIdentityName)" />
-    <XmlPoke XmlInputPath="$(WinoSideloadManifestPath)"
-             Query="/*[local-name()='Package']/*[local-name()='Identity']/@Publisher"
-             Value="$(WinoSideloadPublisherSubject)" />
-    <XmlPeek XmlInputPath="$(WinoSideloadManifestPath)"
-             Query="/*[local-name()='Package']/*[local-name()='Identity']/@Name">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\Package.appxmanifest" DestinationFiles="$(WinoSideloadManifestPath)" />
+    <XmlPoke XmlInputPath="$(WinoSideloadManifestPath)" Query="/*[local-name()='Package']/*[local-name()='Identity']/@Name" Value="$(WinoSideloadPackageIdentityName)" />
+    <XmlPoke XmlInputPath="$(WinoSideloadManifestPath)" Query="/*[local-name()='Package']/*[local-name()='Identity']/@Publisher" Value="$(WinoSideloadPublisherSubject)" />
+    <XmlPeek XmlInputPath="$(WinoSideloadManifestPath)" Query="/*[local-name()='Package']/*[local-name()='Identity']/@Name">
       <Output TaskParameter="Result" PropertyName="_WinoGeneratedSideloadIdentityName" />
     </XmlPeek>
-    <XmlPeek XmlInputPath="$(WinoSideloadManifestPath)"
-             Query="/*[local-name()='Package']/*[local-name()='Identity']/@Publisher">
+    <XmlPeek XmlInputPath="$(WinoSideloadManifestPath)" Query="/*[local-name()='Package']/*[local-name()='Identity']/@Publisher">
       <Output TaskParameter="Result" PropertyName="_WinoGeneratedSideloadPublisher" />
     </XmlPeek>
-    <Error Condition="'$(_WinoGeneratedSideloadIdentityName)' != '$(WinoSideloadPackageIdentityName)'"
-           Text="The generated sideload manifest identity name is invalid: '$(_WinoGeneratedSideloadIdentityName)'." />
-    <Error Condition="'$(_WinoGeneratedSideloadPublisher)' != '$(WinoSideloadPublisherSubject)'"
-           Text="The generated sideload manifest publisher is invalid: '$(_WinoGeneratedSideloadPublisher)'." />
+    <Error Condition="'$(_WinoGeneratedSideloadIdentityName)' != '$(WinoSideloadPackageIdentityName)'" Text="The generated sideload manifest identity name is invalid: '$(_WinoGeneratedSideloadIdentityName)'." />
+    <Error Condition="'$(_WinoGeneratedSideloadPublisher)' != '$(WinoSideloadPublisherSubject)'" Text="The generated sideload manifest publisher is invalid: '$(_WinoGeneratedSideloadPublisher)'." />
   </Target>
 
-  <Target Name="PublishNotificationHost"
-          BeforeTargets="PrepareForBuild"
-          Condition="'$(WinoIsReleaseBuild)' == 'true'">
+  <Target Name="PublishNotificationHost" BeforeTargets="PrepareForBuild" Condition="'$(WinoIsReleaseBuild)' == 'true'">
     <MakeDir Directories="$(MailNotificationHostOutput);$(CalendarNotificationHostOutput);$(PeopleNotificationHostOutput);$(TasksNotificationHostOutput)" />
     <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.Mail.NotificationHost\Wino.Mail.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(MailNotificationHostOutput);Restore=false" />
     <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.Calendar.NotificationHost\Wino.Calendar.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(CalendarNotificationHostOutput);Restore=false" />
@@ -514,16 +503,10 @@
   </Target>
 
   <Target Name="RestoreNotificationHost" BeforeTargets="Restore">
-    <MSBuild Projects="@(NotificationHostProject)"
-             Targets="Restore"
-             Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier)" />
+    <MSBuild Projects="@(NotificationHostProject)" Targets="Restore" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier)" />
   </Target>
 
-  <Target Name="BuildNotificationHost"
-          BeforeTargets="PrepareForBuild"
-          Condition="'$(WinoIsReleaseBuild)' != 'true'">
-    <MSBuild Projects="@(NotificationHostProject)"
-             Targets="Build"
-             Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);Restore=false" />
+  <Target Name="BuildNotificationHost" BeforeTargets="PrepareForBuild" Condition="'$(WinoIsReleaseBuild)' != 'true'">
+    <MSBuild Projects="@(NotificationHostProject)" Targets="Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);Restore=false" />
   </Target>
 </Project>

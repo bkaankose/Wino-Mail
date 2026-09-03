@@ -21,7 +21,7 @@
             <Style
                 x:Key="HoverActionButtonStyle"
                 BasedOn="{StaticResource DefaultButtonStyle}"
-                TargetType="Button">
+                TargetType="local:HoverActionButton">
                 <Setter Property="Width" Value="24" />
                 <Setter Property="Height" Value="24" />
                 <Setter Property="Padding" Value="0" />
@@ -32,20 +32,21 @@
             </Style>
 
             <DataTemplate x:Key="ActionButtonTemplate" x:DataType="local:HoverActionButtonItem">
-                <Button
+                <local:HoverActionButton
                     AutomationProperties.AutomationId="{x:Bind AutomationId, Mode=OneTime}"
                     AutomationProperties.Name="{x:Bind Label, Mode=OneTime}"
+                    ButtonSize="{x:Bind ButtonSize, Mode=OneTime}"
                     Command="{x:Bind Command, Mode=OneTime}"
                     CommandParameter="{x:Bind CommandParameter, Mode=OneTime}"
                     Style="{StaticResource HoverActionButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind Label, Mode=OneTime}">
-                    <Button.Resources>
+                    <local:HoverActionButton.Resources>
                         <SolidColorBrush x:Key="ButtonBackgroundPointerOver">Transparent</SolidColorBrush>
                         <StaticResource x:Key="ButtonBorderBrushPointerOver" ResourceKey="ButtonBorderBrush" />
                         <StaticResource x:Key="ButtonForegroundPointerOver" ResourceKey="SystemAccentColor" />
-                    </Button.Resources>
+                    </local:HoverActionButton.Resources>
                     <accountIcon:WinoFontIcon FontSize="14" Glyph="{x:Bind Glyph, Mode=OneTime}" />
-                </Button>
+                </local:HoverActionButton>
             </DataTemplate>
         </ResourceDictionary>
     </UserControl.Resources>

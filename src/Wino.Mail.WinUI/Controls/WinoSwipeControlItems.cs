@@ -37,6 +37,12 @@ public partial class WinoSwipeControl : SwipeControl
     [GeneratedDependencyProperty]
     public partial Brush? DeleteOperationBrush { get; set; }
 
+    /// <summary>
+    /// Settings previews show the swipe affordance without running the operation behind it.
+    /// </summary>
+    [GeneratedDependencyProperty(DefaultValue = true)]
+    public partial bool AreOperationsEnabled { get; set; }
+
     public WinoSwipeControl()
     {
         Loaded += OnLoaded;
@@ -186,6 +192,11 @@ public partial class WinoSwipeControl : SwipeControl
 
     private void SwipeItemInvoked(SwipeItem sender, SwipeItemInvokedEventArgs args)
     {
+        if (!AreOperationsEnabled)
+        {
+            return;
+        }
+
         var mailItems = GetMailItems();
         if (mailItems.Count == 0)
         {

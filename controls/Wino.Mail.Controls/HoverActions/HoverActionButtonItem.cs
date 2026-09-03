@@ -7,6 +7,7 @@ public sealed class HoverActionButtonItem(
     HoverActionKind action,
     string label,
     string glyph,
+    HoverActionButtonSize buttonSize,
     ICommand? command,
     HoverActionCommandRequest commandParameter)
 {
@@ -15,6 +16,8 @@ public sealed class HoverActionButtonItem(
     public string Label { get; } = label;
 
     public string Glyph { get; } = glyph;
+
+    public HoverActionButtonSize ButtonSize { get; } = buttonSize;
 
     public ICommand? Command { get; } = command;
 

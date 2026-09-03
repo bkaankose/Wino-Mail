@@ -1,13 +1,19 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Navigation;
+using Wino.Mail.Controls.Core;
+using Wino.Mail.Controls.Core.HoverActions;
+using Wino.Mail.ViewModels.Collections;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels;
 
@@ -86,6 +92,13 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         MailHoverActionPosition.BottomCenter
     ];
 
+    private readonly List<MailHoverActionButtonSize> hoverActionButtonSizes =
+    [
+        MailHoverActionButtonSize.Small,
+        MailHoverActionButtonSize.Medium,
+        MailHoverActionButtonSize.Large
+    ];
+
     public List<string> HoverActionAnimationOptions { get; } =
     [
         Translator.HoverActionAnimation_Popup,
@@ -100,6 +113,13 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         Translator.HoverActionPosition_RightBottom,
         Translator.HoverActionPosition_TopCenter,
         Translator.HoverActionPosition_BottomCenter
+    ];
+
+    public List<string> HoverActionButtonSizeOptions { get; } =
+    [
+        Translator.HoverActionButtonSize_Small,
+        Translator.HoverActionButtonSize_Medium,
+        Translator.HoverActionButtonSize_Large
     ];
 
     public List<string> ThreadItemSortingOptions { get; } =
@@ -129,9 +149,27 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         AccountNicknamePosition.Left
 ];
 
-    public IMailItemDisplayInformation DemoPreviewMailItemInformation { get; } = new DemoMailItemDisplayInformation();
+    private static readonly Guid PreviewMailUniqueId = new("0F5C3B31-0F52-4E4E-9D45-1B7B3F4E5A01");
+    private static readonly Guid PreviewFolderId = new("0F5C3B31-0F52-4E4E-9D45-1B7B3F4E5A02");
+    private static readonly Guid PreviewAccountId = new("0F5C3B31-0F52-4E4E-9D45-1B7B3F4E5A03");
+    private static readonly Guid PreviewUrgentCategoryId = new("0F5C3B31-0F52-4E4E-9D45-1B7B3F4E5A04");
+    private static readonly Guid PreviewClientCategoryId = new("0F5C3B31-0F52-4E4E-9D45-1B7B3F4E5A05");
 
-    public MailListDisplayMode SelectedMailSpacingMode => availableMailSpacingOptions[selectedMailSpacingIndex];
+    public List<string> MailSpacingOptions { get; } =
+    [
+        Translator.SettingsPersonalizationMailDisplayCompactMode,
+        Translator.SettingsPersonalizationMailDisplayMediumMode,
+        Translator.SettingsPersonalizationMailDisplaySpaciousMode
+    ];
+
+    /// <summary>
+    /// Single item list that feeds the preview row on top of the page. The preview is rendered by the
+    /// same list control and the same templates the mail list uses, so it reflects the real thing.
+    /// </summary>
+    public MailListStore PreviewMailCollection { get; } = new();
+
+    [ObservableProperty]
+    public partial MailListProjectionOptions PreviewMailListOptions { get; set; } = new();
 
     private int selectedAccountNicknamePositionIndex;
     public int SelectedAccountNicknamePositionIndex
@@ -168,7 +206,6 @@ public partial class MessageListPageViewModel : MailBaseViewModel
             if (SetProperty(ref selectedMailSpacingIndex, value) && value >= 0 && value < availableMailSpacingOptions.Count)
             {
                 PreferencesService.MailItemDisplayMode = availableMailSpacingOptions[value];
-                OnPropertyChanged(nameof(SelectedMailSpacingMode));
             }
         }
     }
@@ -221,6 +258,19 @@ public partial class MessageListPageViewModel : MailBaseViewModel
             if (SetProperty(ref selectedHoverActionPositionIndex, value) && value >= 0 && value < hoverActionPositions.Count)
             {
                 PreferencesService.HoverActionPosition = hoverActionPositions[value];
+            }
+        }
+    }
+
+    private int selectedHoverActionButtonSizeIndex;
+    public int SelectedHoverActionButtonSizeIndex
+    {
+        get => selectedHoverActionButtonSizeIndex;
+        set
+        {
+            if (SetProperty(ref selectedHoverActionButtonSizeIndex, value) && value >= 0 && value < hoverActionButtonSizes.Count)
+            {
+                PreferencesService.HoverActionButtonSize = hoverActionButtonSizes[value];
             }
         }
     }
@@ -313,6 +363,7 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         selectedTimeFormatPreferenceIndex = timeFormatPreferenceOptions.IndexOf(PreferencesService.MailTimeFormatPreference);
         selectedHoverActionAnimationIndex = hoverActionAnimations.IndexOf(PreferencesService.HoverActionAnimation);
         selectedHoverActionPositionIndex = hoverActionPositions.IndexOf(PreferencesService.HoverActionPosition);
+        selectedHoverActionButtonSizeIndex = hoverActionButtonSizes.IndexOf(PreferencesService.HoverActionButtonSize);
 
         if (leftHoverActionIndex < 0)
         {
@@ -358,6 +409,96 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         {
             selectedHoverActionPositionIndex = hoverActionPositions.IndexOf(MailHoverActionPosition.RightCenter);
         }
+
+        if (selectedHoverActionButtonSizeIndex < 0)
+        {
+            selectedHoverActionButtonSizeIndex = hoverActionButtonSizes.IndexOf(MailHoverActionButtonSize.Small);
+        }
+
+        PreviewMailCollection.MailItemFactory = mailCopy => new MailItemViewModel(mailCopy, PreferencesService.AccountNicknamePosition);
+    }
+
+    protected override void OnDispatcherAssigned()
+    {
+        base.OnDispatcherAssigned();
+
+        PreviewMailCollection.CoreDispatcher = Dispatcher;
+    }
+
+    public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedTo(mode, parameters);
+
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        PreferencesService.PreferenceChanged += PreferencesServiceChanged;
+
+        await RefreshPreviewAsync();
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        base.OnNavigatedFrom(mode, parameters);
+
+        PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+    }
+
+    private async void PreferencesServiceChanged(object sender, string propertyName)
+    {
+        if (!IsPreviewAffectingPreference(propertyName)) return;
+
+        await RefreshPreviewAsync();
+    }
+
+    /// <summary>
+    /// The row templates read these preferences with OneTime bindings and x:Load, so the only way to
+    /// reflect a change is to realize the container again.
+    /// </summary>
+    private static bool IsPreviewAffectingPreference(string propertyName) => propertyName is
+        nameof(IPreferencesService.MailItemDisplayMode) or
+        nameof(IPreferencesService.IsShowSenderPicturesEnabled) or
+        nameof(IPreferencesService.IsGravatarEnabled) or
+        nameof(IPreferencesService.IsFaviconEnabled) or
+        nameof(IPreferencesService.IsShowPreviewEnabled) or
+        nameof(IPreferencesService.MailTimeFormatPreference) or
+        nameof(IPreferencesService.AccountNicknamePosition) or
+        nameof(IPreferencesService.IsThreadingEnabled) or
+        nameof(IPreferencesService.IsNewestThreadMailFirst);
+
+    private async Task RefreshPreviewAsync()
+    {
+        PreviewMailListOptions = new MailListProjectionOptions
+        {
+            SortMode = MailListSortMode.Date,
+            GroupMode = MailListGroupMode.None,
+            IsThreadingEnabled = PreferencesService.IsThreadingEnabled,
+            ThreadMessageOrder = PreferencesService.IsNewestThreadMailFirst
+                ? ThreadMessageOrder.NewestFirst
+                : ThreadMessageOrder.OldestFirst,
+            IsPinnedFirst = true,
+        };
+
+        await PreviewMailCollection.ClearAsync();
+        await PreviewMailCollection.AddAsync(CreatePreviewMailCopy());
+    }
+
+    /// <summary>
+    /// Preview only interaction. Hover buttons flip the state of the demo row and never reach any service.
+    /// </summary>
+    [RelayCommand]
+    private void ExecutePreviewHoverAction(HoverActionCommandRequest request)
+    {
+        var previewItem = request?.Row?.LeafItems.OfType<MailItemViewModel>().FirstOrDefault();
+        if (previewItem == null) return;
+
+        switch (request.Action)
+        {
+            case HoverActionKind.ToggleRead:
+                previewItem.IsRead = !previewItem.IsRead;
+                break;
+            case HoverActionKind.ToggleFlag:
+                previewItem.IsFlagged = !previewItem.IsFlagged;
+                break;
+        }
     }
 
     [RelayCommand]
@@ -370,64 +511,58 @@ public partial class MessageListPageViewModel : MailBaseViewModel
 
     private bool IsValidSwipeActionIndex(int index) => index >= 0 && index < availableSwipeActions.Count;
 
-    private sealed partial class DemoMailItemDisplayInformation : IMailItemDisplayInformation
+    /// <summary>
+    /// The row the preview card shows. Values are picked so every previewed setting has something to
+    /// act on: an unread flagged mail with an attachment, a preview line, categories and an account
+    /// nickname.
+    /// </summary>
+    private static MailCopy CreatePreviewMailCopy() => new()
     {
-        public event PropertyChangedEventHandler PropertyChanged
+        UniqueId = PreviewMailUniqueId,
+        Id = "preview-mail",
+        FolderId = PreviewFolderId,
+        FileId = Guid.Empty,
+        ThreadId = "preview-thread",
+        MessageId = "preview-message",
+        Subject = "Quarterly planning notes",
+        PreviewText = "Agenda draft, attendee updates, and a few follow-up items for this week.",
+        FromName = "Ava Brooks",
+        FromAddress = "ava@contoso.com",
+        CreationDate = DateTime.Now.AddMinutes(-12),
+        IsRead = false,
+        IsFlagged = true,
+        HasAttachments = true,
+        ItemType = MailItemType.Mail,
+        IsReadReceiptRequested = true,
+        ReadReceiptStatus = SentMailReceiptStatus.Requested,
+        SenderContact = new AccountContact
         {
-            add { }
-            remove { }
-        }
-
-        public string Subject => "Quarterly planning notes";
-        public string FromName => "Ava Brooks";
-        public string FromAddress => "ava@contoso.com";
-        public string PreviewText => "Agenda draft, attendee updates, and a few follow-up items for this week.";
-        public bool IsRead => false;
-        public bool IsDraft => false;
-        public bool IsLocalDraft => false;
-        public bool IsDraftSyncFailed => false;
-        public bool ShouldShowDraftSyncWarning => false;
-        public string DraftSyncTooltip => string.Empty;
-        public bool HasAttachments => true;
-        public bool IsCalendarEvent => false;
-        public bool IsFlagged => true;
-        public DateTime CreationDate => DateTime.Now.AddMinutes(-12);
-        public Guid? ContactPictureFileId => null;
-        public bool ThumbnailUpdatedEvent => false;
-        public bool IsThreadExpanded => false;
-        public bool HasReadReceiptTracking => true;
-        public bool IsReadReceiptAcknowledged => false;
-        public string ReadReceiptDisplayText => Translator.MailReceiptStatus_Requested;
-        public string AccountNickname => "Personal";
-        public string AccountColorHex => "#00FF00";
-        public AccountNicknamePosition AccountNicknamePosition => Wino.Core.Domain.Enums.AccountNicknamePosition.Right;
-        public IReadOnlyList<MailCategory> Categories =>
-        new MailCategory[]
+            Address = "ava@contoso.com",
+            Name = "Ava Brooks"
+        },
+        AssignedAccount = new MailAccount
         {
+            Id = PreviewAccountId,
+            Name = "Personal",
+            Address = "me@contoso.com",
+            AccountColorHex = "#00FF00"
+        },
+        Categories =
+        [
             new()
             {
-                Id = Guid.NewGuid(),
+                Id = PreviewUrgentCategoryId,
                 Name = "Urgent",
                 BackgroundColorHex = "#FFE1DE",
                 TextColorHex = "#A1260D"
             },
             new()
             {
-                Id = Guid.NewGuid(),
+                Id = PreviewClientCategoryId,
                 Name = "Client",
                 BackgroundColorHex = "#E4E8FF",
                 TextColorHex = "#4255C5"
             }
-        };
-        public bool HasCategories => Categories.Count > 0;
-
-        // Cached and consistent with FromName/FromAddress: the avatar resolves its address, display
-        // name and picture from this contact, so a fresh instance per access would make the preview
-        // avatar disagree with the sender shown next to it.
-        public AccountContact SenderContact { get; } = new()
-        {
-            Address = "ava@contoso.com",
-            Name = "Ava Brooks"
-        };
-    }
+        ]
+    };
 }

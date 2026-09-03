@@ -12,6 +12,7 @@ using Microsoft.UI.Xaml.Input;
 using Windows.UI.ViewManagement;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
+using Wino.Mail.Controls.HoverActions;
 
 namespace Wino.Mail.Controls.MailListView;
 
@@ -68,6 +69,15 @@ public sealed partial class WinoMailListViewItem : ListViewItem
 
     [GeneratedDependencyProperty(DefaultValue = HoverActionPosition.RightCenter)]
     public partial HoverActionPosition HoverActionPosition { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = HoverActionButtonSize.Small)]
+    public partial HoverActionButtonSize HoverActionButtonSize { get; set; }
+
+    /// <summary>
+    /// Preview hosts show the swipe affordance but must not run the operation behind it.
+    /// </summary>
+    [GeneratedDependencyProperty(DefaultValue = true)]
+    public partial bool AreSwipeOperationsEnabled { get; set; }
 
     protected override void OnApplyTemplate()
     {

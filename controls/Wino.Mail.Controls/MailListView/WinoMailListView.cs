@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using CommunityToolkit.WinUI;
 using Microsoft.UI.Input;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -9,6 +10,7 @@ using Microsoft.UI.Xaml.Media;
 using Windows.UI.Core;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
+using Wino.Mail.Controls.HoverActions;
 using VirtualKey = Windows.System.VirtualKey;
 
 namespace Wino.Mail.Controls.MailListView;
@@ -140,6 +142,12 @@ public partial class WinoMailListView : ListView
         typeof(WinoMailListView),
         new PropertyMetadata(HoverActionPosition.RightCenter, OnHoverActionConfigurationChanged));
 
+    public static readonly DependencyProperty HoverActionButtonSizeProperty = DependencyProperty.Register(
+        nameof(HoverActionButtonSize),
+        typeof(HoverActionButtonSize),
+        typeof(WinoMailListView),
+        new PropertyMetadata(HoverActionButtonSize.Small, OnHoverActionConfigurationChanged));
+
     public IMailListCollection? MailItemsSource
     {
         get => _mailItemsSource;
@@ -209,6 +217,15 @@ public partial class WinoMailListView : ListView
         set => SetValue(IsHoverActionsEnabledProperty, value);
     }
 
+    /// <summary>
+    /// Hosts the list purely to show what a row looks like. Swipe affordances still render, but the
+    /// operation behind them is not executed.
+    /// </summary>
+    [GeneratedDependencyProperty]
+    public partial bool IsPreviewMode { get; set; }
+
+    partial void OnIsPreviewModeChanged(bool newValue) => ApplyConfigurationToRealizedContainers();
+
     public HoverActionKind LeftHoverAction
     {
         get => (HoverActionKind)GetValue(LeftHoverActionProperty);
@@ -249,6 +266,12 @@ public partial class WinoMailListView : ListView
     {
         get => (HoverActionPosition)GetValue(HoverActionPositionProperty);
         set => SetValue(HoverActionPositionProperty, value);
+    }
+
+    public HoverActionButtonSize HoverActionButtonSize
+    {
+        get => (HoverActionButtonSize)GetValue(HoverActionButtonSizeProperty);
+        set => SetValue(HoverActionButtonSizeProperty, value);
     }
 
     public ReadOnlyObservableCollection<IMailListSourceItem> SelectedMailItems { get; }
@@ -494,12 +517,16 @@ public partial class WinoMailListView : ListView
         DependencyObject sender,
         DependencyPropertyChangedEventArgs args)
     {
-        var list = (WinoMailListView)sender;
-        foreach (var item in list.Items)
+        ((WinoMailListView)sender).ApplyConfigurationToRealizedContainers();
+    }
+
+    private void ApplyConfigurationToRealizedContainers()
+    {
+        foreach (var item in Items)
         {
-            if (list.ContainerFromItem(item) is WinoMailListViewItem container)
+            if (ContainerFromItem(item) is WinoMailListViewItem container)
             {
-                list.ApplyHoverActionConfiguration(container);
+                ApplyHoverActionConfiguration(container);
             }
         }
     }
@@ -513,6 +540,8 @@ public partial class WinoMailListView : ListView
         container.HoverActionCommand = HoverActionCommand;
         container.HoverActionAnimation = HoverActionAnimation;
         container.HoverActionPosition = HoverActionPosition;
+        container.HoverActionButtonSize = HoverActionButtonSize;
+        container.AreSwipeOperationsEnabled = !IsPreviewMode;
     }
 
     private void AttachProjection()
@@ -924,7 +953,9 @@ public partial class WinoMailListView : ListView
         _isSelectionRestoreQueued = false;
         try
         {
-            if (_projection is null)
+            // A list that does not select (a preview host, for example) rejects every write to
+            // SelectedItems with a catastrophic failure, so there is nothing to restore there.
+            if (_projection is null || SelectionMode == ListViewSelectionMode.None)
             {
                 PublishSelectionSnapshot();
                 return;

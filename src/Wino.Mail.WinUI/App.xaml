@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <uwp:WinoApplication
     x:Class="Wino.Mail.WinUI.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -6,6 +6,7 @@
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:coreStyles="using:Wino.Mail.WinUI.Styles"
     xmlns:local="using:Wino.Mail.WinUI"
+    xmlns:mailStyles="using:Wino.Mail.WinUI.Styles.Mail"
     xmlns:shellMenu="using:Wino.Mail.WinUI.Styles.ShellMenu"
     xmlns:styles="using:Wino.Styles"
     xmlns:uwp="using:Wino.Mail.WinUI">
@@ -22,6 +23,7 @@
                 <ResourceDictionary Source="/Styles/WinoInfoBar.xaml" />
                 <ResourceDictionary Source="/Styles/SharedStyles.xaml" />
                 <ResourceDictionary Source="/Styles/IconTemplates.xaml" />
+                <mailStyles:MailListItemTemplates />
                 <coreStyles:OperationCommandBarResources />
 
 

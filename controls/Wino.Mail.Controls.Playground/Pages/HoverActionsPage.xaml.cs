@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.Controls.Core.HoverActions;
+using Wino.Mail.Controls.HoverActions;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
@@ -18,6 +19,14 @@ public sealed partial class HoverActionsPage : Page
         if (PositionCombo.SelectedItem is ComboBoxItem { Tag: HoverActionPosition position })
         {
             PositionPreview.Position = position;
+        }
+    }
+
+    private void ButtonSizeChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ButtonSizeCombo.SelectedItem is ComboBoxItem { Tag: HoverActionButtonSize buttonSize })
+        {
+            PositionPreview.ButtonSize = buttonSize;
         }
     }
 

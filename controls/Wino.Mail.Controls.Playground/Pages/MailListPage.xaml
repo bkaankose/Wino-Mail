@@ -37,6 +37,7 @@
                                 <hoverActions:HoverActionsControl
                                     x:Name="HoverActionsPresenter"
                                     ActionCommand="{TemplateBinding HoverActionCommand}"
+                                    ButtonSize="{TemplateBinding HoverActionButtonSize}"
                                     CenterAction="{TemplateBinding CenterHoverAction}"
                                     Labels="{TemplateBinding HoverActionLabels}"
                                     LeftAction="{TemplateBinding LeftHoverAction}"

@@ -223,6 +223,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     MailHoverActionPosition HoverActionPosition { get; set; }
 
     /// <summary>
+    /// Setting: Size of hover action buttons inside the mail row.
+    /// </summary>
+    MailHoverActionButtonSize HoverActionButtonSize { get; set; }
+
+    /// <summary>
     /// Setting: Which entity id (merged account or folder) should be expanded automatically on startup.
     /// </summary>
     Guid? StartupEntityId { get; set; }

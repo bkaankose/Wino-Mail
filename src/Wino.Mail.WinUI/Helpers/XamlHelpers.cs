@@ -24,6 +24,7 @@ using Wino.Mail.Controls.AccountIcon;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.AccountIcon;
 using Wino.Mail.Controls.Core.HoverActions;
+using Wino.Mail.Controls.HoverActions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
@@ -512,6 +513,13 @@ public static class XamlHelpers
         MailHoverActionPosition.TopCenter => HoverActionPosition.TopCenter,
         MailHoverActionPosition.BottomCenter => HoverActionPosition.BottomCenter,
         _ => HoverActionPosition.RightCenter,
+    };
+
+    public static HoverActionButtonSize GetHoverActionButtonSize(MailHoverActionButtonSize size) => size switch
+    {
+        MailHoverActionButtonSize.Medium => HoverActionButtonSize.Medium,
+        MailHoverActionButtonSize.Large => HoverActionButtonSize.Large,
+        _ => HoverActionButtonSize.Small,
     };
 
     public static HoverActionLabels GetHoverActionLabels() => new(

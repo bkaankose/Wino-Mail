@@ -38,6 +38,9 @@ public sealed partial class HoverActionsControl : UserControl
     [GeneratedDependencyProperty]
     public partial ICommand? ActionCommand { get; set; }
 
+    [GeneratedDependencyProperty(DefaultValue = HoverActionButtonSize.Small)]
+    public partial HoverActionButtonSize ButtonSize { get; set; }
+
     public ObservableCollection<HoverActionButtonItem> ActionItems { get; } = [];
 
     partial void OnLeftActionPropertyChanged(DependencyPropertyChangedEventArgs e) => UpdateActionItems();
@@ -51,6 +54,8 @@ public sealed partial class HoverActionsControl : UserControl
     partial void OnLabelsPropertyChanged(DependencyPropertyChangedEventArgs e) => UpdateActionItems();
 
     partial void OnActionCommandPropertyChanged(DependencyPropertyChangedEventArgs e) => UpdateActionItems();
+
+    partial void OnButtonSizePropertyChanged(DependencyPropertyChangedEventArgs e) => UpdateActionItems();
 
     partial void OnPositionPropertyChanged(DependencyPropertyChangedEventArgs e) => ApplyPosition();
 
@@ -96,6 +101,7 @@ public sealed partial class HoverActionsControl : UserControl
                 action,
                 labels.GetLabel(action),
                 GetGlyph(action),
+                ButtonSize,
                 ActionCommand,
                 new HoverActionCommandRequest(action, MailRow)));
         }

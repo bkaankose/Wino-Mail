@@ -45,6 +45,16 @@
                     <ComboBoxItem Content="TopCenter" Tag="{x:Bind core:HoverActionPosition.TopCenter}" />
                     <ComboBoxItem Content="BottomCenter" Tag="{x:Bind core:HoverActionPosition.BottomCenter}" />
                 </ComboBox>
+                <TextBlock FontWeight="SemiBold" Text="Button size" />
+                <ComboBox
+                    x:Name="ButtonSizeCombo"
+                    AutomationProperties.AutomationId="HoverActionsButtonSizeCombo"
+                    SelectedIndex="0"
+                    SelectionChanged="ButtonSizeChanged">
+                    <ComboBoxItem Content="Small (24)" Tag="{x:Bind hoverActions:HoverActionButtonSize.Small}" />
+                    <ComboBoxItem Content="Medium (32)" Tag="{x:Bind hoverActions:HoverActionButtonSize.Medium}" />
+                    <ComboBoxItem Content="Large (40)" Tag="{x:Bind hoverActions:HoverActionButtonSize.Large}" />
+                </ComboBox>
                 <Border
                     Height="120"
                     Padding="8"
