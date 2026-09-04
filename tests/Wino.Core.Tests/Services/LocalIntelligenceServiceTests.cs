@@ -6,6 +6,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Tests.Helpers;
 using Wino.Mail.Contracts.Intelligence;
+using Wino.Mail.AI.Abstractions;
 using Wino.Services;
 using Xunit;
 
@@ -13,6 +14,87 @@ namespace Wino.Core.Tests.Services;
 
 public sealed class LocalIntelligenceServiceTests
 {
+    [Fact]
+    public void MapAction_PreservesEveryV1ClientAction()
+    {
+        var expectedPayloads = new Dictionary<IntelligenceActionTypeV1, Type>
+        {
+            [IntelligenceActionTypeV1.Unknown] = typeof(NoActionPayload),
+            [IntelligenceActionTypeV1.Reply] = typeof(ReplyActionPayload),
+            [IntelligenceActionTypeV1.Pay] = typeof(PayActionPayload),
+            [IntelligenceActionTypeV1.Review] = typeof(ReviewActionPayload),
+            [IntelligenceActionTypeV1.FollowUp] = typeof(FollowUpActionPayload),
+            [IntelligenceActionTypeV1.AddToCalendar] = typeof(AddToCalendarActionPayload),
+            [IntelligenceActionTypeV1.ViewCalendarEvent] = typeof(ViewCalendarEventActionPayload),
+            [IntelligenceActionTypeV1.AcceptInvitation] = typeof(AcceptInvitationActionPayload),
+            [IntelligenceActionTypeV1.DeclineInvitation] = typeof(DeclineInvitationActionPayload),
+            [IntelligenceActionTypeV1.RespondTentative] = typeof(RespondTentativeActionPayload),
+            [IntelligenceActionTypeV1.Reschedule] = typeof(RescheduleActionPayload),
+            [IntelligenceActionTypeV1.Confirm] = typeof(ConfirmActionPayload),
+            [IntelligenceActionTypeV1.CompleteTask] = typeof(CompleteTaskActionPayload),
+            [IntelligenceActionTypeV1.Approve] = typeof(ApproveActionPayload),
+            [IntelligenceActionTypeV1.Reject] = typeof(RejectActionPayload),
+            [IntelligenceActionTypeV1.Sign] = typeof(SignActionPayload),
+            [IntelligenceActionTypeV1.Submit] = typeof(SubmitActionPayload),
+            [IntelligenceActionTypeV1.ViewDocument] = typeof(ViewDocumentActionPayload),
+            [IntelligenceActionTypeV1.DownloadAttachment] = typeof(DownloadAttachmentActionPayload),
+            [IntelligenceActionTypeV1.ReviewInvoice] = typeof(ReviewInvoiceActionPayload),
+            [IntelligenceActionTypeV1.Verify] = typeof(VerifyAccountActionPayload),
+            [IntelligenceActionTypeV1.Attend] = typeof(ViewCalendarEventActionPayload),
+            [IntelligenceActionTypeV1.ViewOrder] = typeof(ViewOrderActionPayload),
+            [IntelligenceActionTypeV1.TrackShipment] = typeof(TrackShipmentActionPayload),
+            [IntelligenceActionTypeV1.ViewItinerary] = typeof(ViewItineraryActionPayload),
+            [IntelligenceActionTypeV1.CheckIn] = typeof(CheckInActionPayload),
+            [IntelligenceActionTypeV1.ViewReservation] = typeof(ViewReservationActionPayload),
+            [IntelligenceActionTypeV1.CancelReservation] = typeof(CancelReservationActionPayload),
+            [IntelligenceActionTypeV1.Renew] = typeof(RenewActionPayload),
+            [IntelligenceActionTypeV1.Cancel] = typeof(CancelSubscriptionActionPayload),
+            [IntelligenceActionTypeV1.CancelSubscription] = typeof(CancelSubscriptionActionPayload),
+            [IntelligenceActionTypeV1.Download] = typeof(DownloadAttachmentActionPayload),
+            [IntelligenceActionTypeV1.Contact] = typeof(OpenRelevantLinkActionPayload),
+            [IntelligenceActionTypeV1.VerifyAccount] = typeof(VerifyAccountActionPayload),
+            [IntelligenceActionTypeV1.CopyVerificationCode] = typeof(CopyVerificationCodeActionPayload),
+            [IntelligenceActionTypeV1.OpenMagicSignInLink] = typeof(OpenMagicSignInLinkActionPayload),
+            [IntelligenceActionTypeV1.ChangePassword] = typeof(ChangePasswordActionPayload),
+            [IntelligenceActionTypeV1.ReviewAccountActivity] = typeof(ReviewAccountActivityActionPayload),
+            [IntelligenceActionTypeV1.ReportPhishing] = typeof(ReportPhishingActionPayload),
+            [IntelligenceActionTypeV1.OpenRelevantLink] = typeof(OpenRelevantLinkActionPayload),
+            [IntelligenceActionTypeV1.Unsubscribe] = typeof(UnsubscribeActionPayload),
+        };
+        var temporals = new[]
+        {
+            new TemporalReferenceV1("time", TemporalReferenceTypeV1.Meeting, "tomorrow", DateTimeOffset.UtcNow,
+                null, TemporalPrecisionV1.Minute, "UTC", 0.9),
+        };
+        var documents = new[]
+        {
+            new IntelligenceDocumentV1("document", IntelligenceDocumentTypeV1.VerificationCode,
+                IntelligenceStatusV1.Active, "Verification code", "123456", string.Empty, null, string.Empty,
+                ["time"], 0.9),
+        };
+
+        Assert.Equal(Enum.GetValues<IntelligenceActionTypeV1>().Length, expectedPayloads.Count);
+
+        foreach (var (actionType, expectedPayload) in expectedPayloads)
+        {
+            var action = new IntelligenceActionV1(actionType, IntelligenceStatusV1.Pending, string.Empty,
+                string.Empty, "document", "time", 0.9);
+            var payload = LocalIntelligenceService.MapAction(action, temporals, documents);
+
+            Assert.IsType(expectedPayload, payload);
+        }
+
+        var calendar = Assert.IsType<AddToCalendarActionPayload>(LocalIntelligenceService.MapAction(
+            new IntelligenceActionV1(IntelligenceActionTypeV1.AddToCalendar, IntelligenceStatusV1.Confirmed,
+                string.Empty, string.Empty, string.Empty, "time", 0.9), temporals, documents));
+        Assert.Equal(0, calendar.TemporalReferenceIndex);
+
+        var code = Assert.IsType<CopyVerificationCodeActionPayload>(LocalIntelligenceService.MapAction(
+            new IntelligenceActionV1(IntelligenceActionTypeV1.CopyVerificationCode, IntelligenceStatusV1.Active,
+                string.Empty, string.Empty, "document", "time", 0.9), temporals, documents));
+        Assert.Equal("123456", code.Code);
+    }
+
     [Fact]
     public async Task GetBriefingFactsAsync_UsesV1DocumentsAndBoundMailWindow()
     {

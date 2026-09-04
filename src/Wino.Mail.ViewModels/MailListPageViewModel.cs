@@ -3012,6 +3012,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             if (isTargetFolderActive)
             {
+                if (!await SelectFocusedPivotForMailAsync(mailCopy.IsFocused).ConfigureAwait(false) ||
+                    requestVersion != Volatile.Read(ref mailNavigationRequestVersion))
+                {
+                    return;
+                }
+
                 Messenger.Send(new SelectMailItemContainerEvent(message.UniqueMailId, message.ScrollToItem));
                 return;
             }
@@ -3033,6 +3039,28 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             _logger.Error(exception, "Failed to resolve mail navigation target. MailUniqueId: {MailUniqueId}",
                 message.UniqueMailId);
         }
+    }
+
+    private async Task<bool> SelectFocusedPivotForMailAsync(bool isFocused)
+    {
+        FolderPivotViewModel targetPivot = null;
+        var pivotChanged = false;
+
+        await ExecuteUIThread(() =>
+        {
+            targetPivot = PivotFolders.FirstOrDefault(pivot => pivot.IsFocused == isFocused);
+            if (targetPivot == null || ReferenceEquals(SelectedFolderPivot, targetPivot))
+                return;
+
+            // Mark this pivot as requested before updating the bound selection. The XAML
+            // SelectionChanged handler will then leave this reload to the activation flow.
+            lastRequestedPivot = targetPivot;
+            SelectedFolderPivot = targetPivot;
+            pivotChanged = true;
+        }).ConfigureAwait(false);
+
+        // A missing focused pivot means this folder does not use Focused/Other filtering.
+        return !pivotChanged || await InitializeFolderAsync().ConfigureAwait(false);
     }
 
     #endregion

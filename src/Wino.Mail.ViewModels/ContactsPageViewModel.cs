@@ -46,7 +46,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
         _ = ExecuteUIThreadAsync(() => LoadAndSelectContactAsync(contactId));
     }
-
+    
     private const int ContactPageSize = 50;
     private readonly IContactQueryService _contactService;
     private readonly IAccountService _accountService;

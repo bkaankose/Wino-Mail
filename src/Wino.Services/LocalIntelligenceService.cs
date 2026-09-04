@@ -238,7 +238,7 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
             MessageUrgencyV1.Low => MailPriority.Low,
             _ => MailPriority.Normal,
         };
-        fact.PrimaryAction = MapAction(analysis.Actions.FirstOrDefault());
+        fact.PrimaryAction = MapAction(analysis.Actions.FirstOrDefault(), analysis.TemporalReferences, analysis.Documents);
         fact.TemporalReferences = analysis.TemporalReferences.Select(MapTemporal).ToArray();
         fact.Confidence = analysis.Confidence;
         return fact;
@@ -292,22 +292,88 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
         };
     }
 
-    private static BriefingActionPayload MapAction(IntelligenceActionV1? action)
+    internal static BriefingActionPayload MapAction(
+        IntelligenceActionV1? action,
+        IReadOnlyList<TemporalReferenceV1> temporalReferences,
+        IReadOnlyList<IntelligenceDocumentV1> documents)
         => action?.Type switch
         {
             IntelligenceActionTypeV1.Reply => new ReplyActionPayload { Confidence = action.Confidence },
             IntelligenceActionTypeV1.Pay => new PayActionPayload { Confidence = action.Confidence },
             IntelligenceActionTypeV1.Review => new ReviewActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.FollowUp => new FollowUpActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.AddToCalendar => new AddToCalendarActionPayload
+            {
+                Confidence = action.Confidence,
+                TemporalReferenceIndex = FindTemporalReferenceIndex(action.TemporalReferenceId, temporalReferences),
+            },
+            IntelligenceActionTypeV1.ViewCalendarEvent => new ViewCalendarEventActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.AcceptInvitation => new AcceptInvitationActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.DeclineInvitation => new DeclineInvitationActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.RespondTentative => new RespondTentativeActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Reschedule => new RescheduleActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Confirm => new ConfirmActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.CompleteTask => new CompleteTaskActionPayload { Confidence = action.Confidence },
             IntelligenceActionTypeV1.Approve => new ApproveActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Reject => new RejectActionPayload { Confidence = action.Confidence },
             IntelligenceActionTypeV1.Sign => new SignActionPayload { Confidence = action.Confidence },
-            IntelligenceActionTypeV1.Verify => new VerifyAccountActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Submit => new SubmitActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.ViewDocument => new ViewDocumentActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.DownloadAttachment or IntelligenceActionTypeV1.Download =>
+                new DownloadAttachmentActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.ReviewInvoice => new ReviewInvoiceActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Verify or IntelligenceActionTypeV1.VerifyAccount =>
+                new VerifyAccountActionPayload { Confidence = action.Confidence },
             IntelligenceActionTypeV1.Attend => new ViewCalendarEventActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.ViewOrder => new ViewOrderActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.TrackShipment => new TrackShipmentActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.ViewItinerary => new ViewItineraryActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.CheckIn => new CheckInActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.ViewReservation => new ViewReservationActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.CancelReservation => new CancelReservationActionPayload { Confidence = action.Confidence },
             IntelligenceActionTypeV1.Renew => new RenewActionPayload { Confidence = action.Confidence },
-            IntelligenceActionTypeV1.Cancel => new CancelSubscriptionActionPayload { Confidence = action.Confidence },
-            IntelligenceActionTypeV1.Download => new DownloadAttachmentActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Cancel or IntelligenceActionTypeV1.CancelSubscription =>
+                new CancelSubscriptionActionPayload { Confidence = action.Confidence },
             IntelligenceActionTypeV1.Contact => new OpenRelevantLinkActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.CopyVerificationCode => MapVerificationCode(action, temporalReferences, documents),
+            IntelligenceActionTypeV1.OpenMagicSignInLink => new OpenMagicSignInLinkActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.ChangePassword => new ChangePasswordActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.ReviewAccountActivity => new ReviewAccountActivityActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.ReportPhishing => new ReportPhishingActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.OpenRelevantLink => new OpenRelevantLinkActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Unsubscribe => new UnsubscribeActionPayload { Confidence = action.Confidence },
             _ => new NoActionPayload(),
         };
+
+    private static CopyVerificationCodeActionPayload MapVerificationCode(
+        IntelligenceActionV1 action,
+        IReadOnlyList<TemporalReferenceV1> temporalReferences,
+        IReadOnlyList<IntelligenceDocumentV1> documents)
+    {
+        var document = documents.FirstOrDefault(document => document.Id == action.DocumentId);
+
+        return new CopyVerificationCodeActionPayload
+        {
+            Code = document?.Reference ?? string.Empty,
+            Confidence = action.Confidence,
+            ExpirationTemporalReferenceIndex = FindTemporalReferenceIndex(action.TemporalReferenceId, temporalReferences),
+        };
+    }
+
+    private static int FindTemporalReferenceIndex(
+        string temporalReferenceId,
+        IReadOnlyList<TemporalReferenceV1> temporalReferences)
+    {
+        for (var index = 0; index < temporalReferences.Count; index++)
+        {
+            if (temporalReferences[index].Id == temporalReferenceId)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
 
     private static TemporalPayload MapTemporal(TemporalReferenceV1 temporal)
     {

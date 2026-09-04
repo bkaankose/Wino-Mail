@@ -291,7 +291,11 @@ public sealed class SemanticIndexCoordinatorTests
                 fixture.Account.Id,
                 It.IsAny<IntelligenceMessageCandidate>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Content(fixture.Account.Address));
+            .ReturnsAsync(new SemanticMailContent(
+                new MailBodyContent(MailBodyFormat.Html, $"<script>{new string('x', 300_000)}</script><p>Message body</p>"),
+                [new MailAddress("sender@example.test", "Sender")],
+                [fixture.Account.Address],
+                []));
 
         var calls = new List<string>();
         fixture.ApiClient.Setup(client => client.ReconcileMessageIntelligenceAsync(
@@ -334,7 +338,15 @@ public sealed class SemanticIndexCoordinatorTests
                 using var body = JsonDocument.Parse(plaintext);
                 body.RootElement.GetProperty("IntelligenceVersion").GetString().Should().Be(WinoIntelligenceVersions.V1);
                 body.RootElement.GetProperty("IndexEpoch").GetGuid().Should().Be(fixture.Epoch);
-                body.RootElement.GetProperty("Messages")[0].GetProperty("ServerMessageKey").GetString().Should().Be("missing");
+                var message = body.RootElement.GetProperty("Messages")[0];
+                message.GetProperty("ServerMessageKey").GetString().Should().Be("missing");
+                message.GetProperty("ContentHash").GetString().Should().MatchRegex("^[0-9a-f]{64}$");
+                message.GetProperty("Subject").GetString().Should().BeEmpty();
+                message.GetProperty("Sender").GetString().Should().Be("Sender <sender@example.test>");
+                message.GetProperty("Body").GetString().Should().StartWith("Message body");
+                message.GetProperty("Body").GetString().Should().NotContain("<p>");
+                message.GetProperty("Body").GetString()!.Length.Should().BeLessThan(262_144);
+                message.GetProperty("BodyIsHtml").GetBoolean().Should().BeFalse();
             })
             .ReturnsAsync(new MessageIntelligenceIngestionJobAcceptedDto(
                 jobId,
