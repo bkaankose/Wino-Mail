@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Wino Mail (packaged, x64)",
+            "type": "coreclr",
+            "request": "attach",
+            "processName": "Wino.Mail.WinUI",
+            "preLaunchTask": "winapp: launch Wino Mail (packaged, x64)",
+            "postDebugTask": "winapp: stop Wino Mail debug process",
+            "justMyCode": true,
+            "requireExactSource": true,
+            "logging": {
+                "moduleLoad": false,
+                "processExit": false,
+                "threadExit": false
+            }
+        }
+    ]
+}
