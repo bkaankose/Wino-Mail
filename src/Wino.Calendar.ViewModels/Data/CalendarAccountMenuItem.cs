@@ -1,7 +1,9 @@
 using System.ComponentModel;
+using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
+using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Calendar.ViewModels.Data;
 
@@ -10,9 +12,12 @@ namespace Wino.Calendar.ViewModels.Data;
 /// </summary>
 public sealed partial class CalendarAccountMenuItem : MenuItemBase<GroupedAccountCalendarViewModel>, IAccountNavigationMenuItem
 {
-    public CalendarAccountMenuItem(GroupedAccountCalendarViewModel group)
+    private readonly System.Func<System.Guid, Task> _synchronizeAccount;
+
+    public CalendarAccountMenuItem(GroupedAccountCalendarViewModel group, System.Func<System.Guid, Task> synchronizeAccount)
         : base(group, group.Account?.Id)
     {
+        _synchronizeAccount = synchronizeAccount;
         Parameter.PropertyChanged += GroupPropertyChanged;
     }
 
@@ -25,7 +30,11 @@ public sealed partial class CalendarAccountMenuItem : MenuItemBase<GroupedAccoun
     public double SynchronizationProgressValue => Parameter.SynchronizationProgressValue;
     public bool IsAttentionRequired => false;
     public bool SupportsMailAccountActions => false;
+    public AccountDetailsTab AccountDetailsTab => global::Wino.Core.Domain.Models.Navigation.AccountDetailsTab.Calendar;
+    public bool SupportsAccountSynchronization => true;
     public bool SelectsOnInvoked => true;
+
+    public Task SynchronizeAccountAsync() => _synchronizeAccount(Account.Id);
 
     public void UpdateGroup(GroupedAccountCalendarViewModel group)
     {

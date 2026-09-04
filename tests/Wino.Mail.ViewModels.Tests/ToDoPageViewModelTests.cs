@@ -143,6 +143,63 @@ public sealed class ToDoPageViewModelTests
     }
 
     [Fact]
+    public async Task AddTask_FromNamedList_BypassesPickerAndTargetsSelectedList()
+    {
+        var account = CreateAccount(MailProviderType.IMAP4, taskAccess: false);
+        var defaultList = CreateList(account.Id, TaskSourceKind.Local, isDefault: true);
+        var selectedList = CreateList(account.Id, TaskSourceKind.Local, isDefault: false);
+        var taskService = CreateTaskService([defaultList, selectedList]);
+        var dialogs = new Mock<IMailDialogService>();
+        var preferences = new Mock<IPreferencesService>();
+        preferences.SetupProperty(service => service.TaskCreationBehavior, NewItemDestinationBehavior.AskEachTime);
+        var requests = new List<IRequestBase>();
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, queued) => requests.AddRange(queued))
+            .Returns(Task.CompletedTask);
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object, dialogs.Object, preferences.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = selectedList;
+        viewModel.ComposerText = "Selected destination";
+
+        await viewModel.AddTaskCommand.ExecuteAsync(null);
+
+        dialogs.Verify(service => service.ShowTaskListPickerDialogAsync(It.IsAny<IReadOnlyList<AccountTaskList>>()), Times.Never);
+        requests.Should().ContainSingle().Which.Should().BeOfType<TaskActionRequest>()
+            .Which.Task.TaskListId.Should().Be(selectedList.Id);
+    }
+
+    [Fact]
+    public async Task AddTask_FromSmartView_UsesAskEachTimePickerDestination()
+    {
+        var account = CreateAccount(MailProviderType.IMAP4, taskAccess: false);
+        var defaultList = CreateList(account.Id, TaskSourceKind.Local, isDefault: true);
+        var pickedList = CreateList(account.Id, TaskSourceKind.Local, isDefault: false);
+        var taskService = CreateTaskService([defaultList, pickedList]);
+        var dialogs = new Mock<IMailDialogService>();
+        dialogs.Setup(service => service.ShowTaskListPickerDialogAsync(It.IsAny<IReadOnlyList<AccountTaskList>>()))
+            .ReturnsAsync(pickedList);
+        var preferences = new Mock<IPreferencesService>();
+        preferences.SetupProperty(service => service.TaskCreationBehavior, NewItemDestinationBehavior.AskEachTime);
+        var requests = new List<IRequestBase>();
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, queued) => requests.AddRange(queued))
+            .Returns(Task.CompletedTask);
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object, dialogs.Object, preferences.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = null;
+        viewModel.SelectedView = TaskViewKind.MyDay;
+
+        await viewModel.AddTaskCommand.ExecuteAsync(null);
+
+        dialogs.Verify(service => service.ShowTaskListPickerDialogAsync(
+            It.Is<IReadOnlyList<AccountTaskList>>(lists => lists.Count == 2)), Times.Once);
+        requests.Should().ContainSingle().Which.Should().BeOfType<TaskActionRequest>()
+            .Which.Task.TaskListId.Should().Be(pickedList.Id);
+    }
+
+    [Fact]
     public async Task SaveStep_QueuesTargetedUpdateWithRemoteIdentity()
     {
         var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
@@ -287,6 +344,37 @@ public sealed class ToDoPageViewModelTests
 
             recorder.Messages.Should().ContainSingle().Which.Options.Should().Match<TaskSynchronizationOptions>(options =>
                 options.AccountId == gmail.Id && options.Type == TaskSynchronizationType.Delta);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recorder);
+        }
+    }
+
+    [Fact]
+    public async Task AccountMenuSynchronize_PublishesOnlyClickedAccount()
+    {
+        var first = CreateAccount(MailProviderType.Gmail, taskAccess: true);
+        var second = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var taskService = CreateTaskService([
+            CreateList(first.Id, TaskSourceKind.Gmail, isDefault: true),
+            CreateList(second.Id, TaskSourceKind.Outlook, isDefault: true)
+        ]);
+        var viewModel = CreateViewModel(taskService.Object, [first, second]);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        var recorder = new TaskSyncRecorder();
+        WeakReferenceMessenger.Default.Register<NewTaskSynchronizationRequested>(recorder);
+
+        try
+        {
+            var secondAccountItem = viewModel.ShellMenu.Items
+                .OfType<AccountTaskListAccountMenuItem>()
+                .Single(item => item.Account.Id == second.Id);
+
+            await secondAccountItem.SynchronizeAccountAsync();
+
+            secondAccountItem.AccountDetailsTab.Should().Be(AccountDetailsTab.ToDo);
+            recorder.Messages.Should().ContainSingle().Which.Options.AccountId.Should().Be(second.Id);
         }
         finally
         {

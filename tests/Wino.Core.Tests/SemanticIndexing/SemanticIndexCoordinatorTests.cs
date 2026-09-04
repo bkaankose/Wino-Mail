@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Security.Cryptography;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -71,19 +73,19 @@ public sealed class SemanticIndexCoordinatorTests
                 It.IsAny<DateTimeOffset?>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
-        fixture.Backend.Verify(
-            backend => backend.IngestAsync(
+        fixture.ApiClient.Verify(
+            client => client.StartMessageIntelligenceIngestionJobAsync(
                 It.IsAny<Guid>(),
                 It.IsAny<byte[]>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
         fixture.LocalStore.Verify(
-            store => store.UpsertArtifactsAsync(
+            store => store.ApplyChangesAsync(
                 fixture.Account.Id,
                 fixture.MailboxId,
-                It.IsAny<IReadOnlyList<IntelligenceArtifactDto>>(),
+                It.IsAny<IntelligenceChangesPageDto>(),
                 It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.AtLeastOnce);
     }
 
     [Fact]
@@ -103,13 +105,16 @@ public sealed class SemanticIndexCoordinatorTests
 
         result.CoveredRemoteMessageIds.Should().BeEquivalentTo(["covered"]);
         fixture.ApiClient.Verify(
-            client => client.ReconcileIntelligenceAsync(
+            client => client.GetIntelligenceChangesAsync(
                 fixture.MailboxId,
-                It.IsAny<byte[]>(),
+                WinoIntelligenceVersions.V1,
+                It.IsAny<Guid>(),
+                It.IsAny<long>(),
+                It.IsAny<int>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
-        fixture.Backend.Verify(
-            backend => backend.IngestAsync(
+        fixture.ApiClient.Verify(
+            client => client.StartMessageIntelligenceIngestionJobAsync(
                 It.IsAny<Guid>(),
                 It.IsAny<byte[]>(),
                 It.IsAny<CancellationToken>()),
@@ -230,8 +235,8 @@ public sealed class SemanticIndexCoordinatorTests
 
         await fixture.Coordinator.IndexMessageAsync(fixture.Account.Id, "unique-1");
 
-        fixture.Backend.Verify(
-            backend => backend.IngestAsync(
+        fixture.ApiClient.Verify(
+            client => client.StartMessageIntelligenceIngestionJobAsync(
                 It.IsAny<Guid>(), It.IsAny<byte[]>(), It.IsAny<CancellationToken>()),
             Times.Never);
         fixture.MessageResolver.Verify(
@@ -242,7 +247,195 @@ public sealed class SemanticIndexCoordinatorTests
             Times.Never);
     }
 
-    private static async Task<Fixture> CreateFixtureAsync(IReadOnlyList<string> coveredIds)
+    [Fact]
+    public async Task EnsureMailbox_InitializesV1OnlyWhenHeadIsAbsent()
+    {
+        await using var fixture = await CreateFixtureAsync([], headInitiallyAbsent: true);
+
+        await fixture.Coordinator.EnsureMailboxAsync(fixture.Account.Id);
+
+        fixture.ApiClient.Verify(client => client.BeginIntelligenceReindexAsync(
+            fixture.MailboxId,
+            It.Is<BeginIntelligenceReindexRequest>(request =>
+                request.TargetIntelligenceVersion == WinoIntelligenceVersions.V1 &&
+                request.OperationId != Guid.Empty),
+            It.IsAny<CancellationToken>()), Times.Once);
+        fixture.ApiClient.Verify(client => client.GetIntelligenceStatusAsync(
+            It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task EnsureMailbox_ReusesExistingHeadWithoutObsoleteStatusCall()
+    {
+        await using var fixture = await CreateFixtureAsync([]);
+
+        await fixture.Coordinator.EnsureMailboxAsync(fixture.Account.Id);
+
+        fixture.ApiClient.Verify(client => client.BeginIntelligenceReindexAsync(
+            It.IsAny<Guid>(), It.IsAny<BeginIntelligenceReindexRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        fixture.ApiClient.Verify(client => client.GetIntelligenceStatusAsync(
+            It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MissingSelection_ReconcilesBeforeEncryptedIngestAndImportsChangesAfterward()
+    {
+        await using var fixture = await CreateFixtureAsync([]);
+        var candidate = Candidate("missing");
+        fixture.MessageResolver.Setup(resolver => resolver.GetCandidatesAsync(
+                fixture.Account.Id,
+                It.IsAny<DateTimeOffset?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([candidate]);
+        fixture.MessageResolver.Setup(resolver => resolver.GetContentAsync(
+                fixture.Account.Id,
+                It.IsAny<IntelligenceMessageCandidate>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Content(fixture.Account.Address));
+
+        var calls = new List<string>();
+        fixture.ApiClient.Setup(client => client.ReconcileMessageIntelligenceAsync(
+                fixture.MailboxId,
+                It.IsAny<ReconcileMessageIntelligenceRequest>(),
+                It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("reconcile"))
+            .ReturnsAsync(new ReconcileMessageIntelligenceResultDto(
+                WinoIntelligenceVersions.V1,
+                fixture.Epoch,
+                [],
+                ["missing"]));
+        fixture.ApiClient.Setup(client => client.GetIntelligenceChangesAsync(
+                fixture.MailboxId,
+                WinoIntelligenceVersions.V1,
+                fixture.Epoch,
+                It.IsAny<long>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("changes"))
+            .ReturnsAsync(new IntelligenceChangesPageDto(
+                WinoIntelligenceVersions.V1,
+                fixture.Epoch,
+                0,
+                0,
+                []));
+        var jobId = Guid.NewGuid();
+        fixture.ApiClient.Setup(client => client.StartMessageIntelligenceIngestionJobAsync(
+                fixture.MailboxId,
+                It.IsAny<byte[]>(),
+                It.IsAny<CancellationToken>()))
+            .Callback((Guid _, byte[] envelopeBytes, CancellationToken _) =>
+            {
+                calls.Add("start");
+                var envelope = ContentEnvelopeBinaryCodec.Decode(envelopeBytes, 2 * 1024 * 1024);
+                var route = $"/api/v1/ai/intelligence/mailboxes/{fixture.MailboxId:D}/ingestion-jobs";
+                var plaintext = fixture.Decryptor.Decrypt(
+                    envelope,
+                    new ContentEnvelopeContext(fixture.WinoUserId, fixture.MailboxId, route));
+                using var body = JsonDocument.Parse(plaintext);
+                body.RootElement.GetProperty("IntelligenceVersion").GetString().Should().Be(WinoIntelligenceVersions.V1);
+                body.RootElement.GetProperty("IndexEpoch").GetGuid().Should().Be(fixture.Epoch);
+                body.RootElement.GetProperty("Messages")[0].GetProperty("ServerMessageKey").GetString().Should().Be("missing");
+            })
+            .ReturnsAsync(new MessageIntelligenceIngestionJobAcceptedDto(
+                jobId,
+                WinoIntelligenceVersions.V1,
+                fixture.Epoch,
+                1));
+        var pollCount = 0;
+        fixture.ApiClient.Setup(client => client.GetMessageIntelligenceIngestionJobAsync(
+                fixture.MailboxId,
+                jobId,
+                It.IsAny<CancellationToken>()))
+            .Callback(() => calls.Add("poll"))
+            .ReturnsAsync(() => ++pollCount == 1
+                ? new MessageIntelligenceIngestionJobDto(
+                    jobId,
+                    WinoIntelligenceVersions.V1,
+                    fixture.Epoch,
+                    MessageIntelligenceIngestionJobStatuses.Running,
+                    1,
+                    0,
+                    0,
+                    0,
+                    0,
+                    [])
+                : new MessageIntelligenceIngestionJobDto(
+                    jobId,
+                    WinoIntelligenceVersions.V1,
+                    fixture.Epoch,
+                    MessageIntelligenceIngestionJobStatuses.Completed,
+                    1,
+                    1,
+                    1,
+                    0,
+                    0,
+                    [new MessageIntelligenceIngestItemDto("missing", MessageIntelligenceIngestionItemStatuses.Indexed, null, 1)]));
+
+        await fixture.Coordinator.StartIndexingAsync(fixture.Account.Id, ["missing"]);
+        await WaitForCompletionAsync(fixture.Coordinator, fixture.Account.Id);
+
+        calls.Should().Equal("reconcile", "changes", "start", "poll", "poll", "changes");
+        var snapshot = fixture.Coordinator.GetJobSnapshot(fixture.Account.Id);
+        snapshot.Status.Should().Be(SemanticIndexJobStatus.Completed, snapshot.ErrorCode);
+        snapshot.UploadedMessageCount.Should().Be(1);
+        snapshot.FailedMessageCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task PartialIngestFailure_IsCountedWithoutMarkingTheWholeJobFailed()
+    {
+        await using var fixture = await CreateFixtureAsync([]);
+        fixture.MessageResolver.Setup(resolver => resolver.GetCandidatesAsync(
+                fixture.Account.Id,
+                It.IsAny<DateTimeOffset?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync([Candidate("good"), Candidate("bad")]);
+        fixture.MessageResolver.Setup(resolver => resolver.GetContentAsync(
+                fixture.Account.Id,
+                It.IsAny<IntelligenceMessageCandidate>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Content(fixture.Account.Address));
+        var jobId = Guid.NewGuid();
+        fixture.ApiClient.Setup(client => client.StartMessageIntelligenceIngestionJobAsync(
+                fixture.MailboxId,
+                It.IsAny<byte[]>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MessageIntelligenceIngestionJobAcceptedDto(
+                jobId,
+                WinoIntelligenceVersions.V1,
+                fixture.Epoch,
+                2));
+        fixture.ApiClient.Setup(client => client.GetMessageIntelligenceIngestionJobAsync(
+                fixture.MailboxId,
+                jobId,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new MessageIntelligenceIngestionJobDto(
+                jobId,
+                WinoIntelligenceVersions.V1,
+                fixture.Epoch,
+                MessageIntelligenceIngestionJobStatuses.Completed,
+                2,
+                2,
+                1,
+                0,
+                1,
+                [
+                    new MessageIntelligenceIngestItemDto("good", MessageIntelligenceIngestionItemStatuses.Indexed, null, 1),
+                    new MessageIntelligenceIngestItemDto("bad", MessageIntelligenceIngestionItemStatuses.Failed, "analysisFailed", null),
+                ]));
+
+        await fixture.Coordinator.StartIndexingAsync(fixture.Account.Id, ["good", "bad"]);
+        await WaitForCompletionAsync(fixture.Coordinator, fixture.Account.Id);
+
+        var snapshot = fixture.Coordinator.GetJobSnapshot(fixture.Account.Id);
+        snapshot.Status.Should().Be(SemanticIndexJobStatus.Completed, snapshot.ErrorCode);
+        snapshot.UploadedMessageCount.Should().Be(1);
+        snapshot.FailedMessageCount.Should().Be(1);
+    }
+
+    private static async Task<Fixture> CreateFixtureAsync(
+        IReadOnlyList<string> coveredIds,
+        bool headInitiallyAbsent = false)
     {
         var mailboxId = Guid.NewGuid();
         var account = new MailAccount
@@ -258,37 +451,122 @@ public sealed class SemanticIndexCoordinatorTests
         var accountService = new Mock<IAccountService>();
         accountService.Setup(service => service.GetAccountAsync(account.Id)).ReturnsAsync(account);
         var apiClient = new Mock<IWinoAccountApiClient>();
+        var epoch = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        var head = new MailboxIntelligenceHeadDto(
+            mailboxId,
+            WinoIntelligenceVersions.V1,
+            epoch,
+            coveredIds.Count == 0 ? 0 : 1,
+            coveredIds.Count,
+            coveredIds.Count * 3_072L,
+            coveredIds.Count == 0 ? null : now,
+            coveredIds.Count == 0 ? null : now,
+            now,
+            now);
         apiClient.Setup(client => client.GetSemanticMailboxesAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync([new SemanticMailboxDto(
                 mailboxId,
                 account.Address,
                 (int)account.ProviderType,
                 null)]);
-        apiClient.Setup(client => client.ReconcileIntelligenceAsync(
+        if (headInitiallyAbsent)
+        {
+            apiClient.SetupSequence(client => client.GetIntelligenceHeadAsync(
+                    mailboxId,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync((MailboxIntelligenceHeadDto?)null)
+                .ReturnsAsync(head);
+        }
+        else
+        {
+            apiClient.Setup(client => client.GetIntelligenceHeadAsync(
+                    mailboxId,
+                    It.IsAny<CancellationToken>()))
+                .ReturnsAsync(head);
+        }
+        apiClient.Setup(client => client.BeginIntelligenceReindexAsync(
                 mailboxId,
-                It.IsAny<byte[]>(),
+                It.IsAny<BeginIntelligenceReindexRequest>(),
                 It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new IntelligenceReconciliationResultDto(
-                coveredIds,
-                [],
-                [DeletionMarker(coveredIds[0])]));
+            .ReturnsAsync(new BeginIntelligenceReindexResultDto(
+                mailboxId,
+                WinoIntelligenceVersions.V1,
+                epoch,
+                false));
+        apiClient.Setup(client => client.ReconcileMessageIntelligenceAsync(
+                mailboxId,
+                It.IsAny<ReconcileMessageIntelligenceRequest>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid _, ReconcileMessageIntelligenceRequest request, CancellationToken _) =>
+                new ReconcileMessageIntelligenceResultDto(
+                    WinoIntelligenceVersions.V1,
+                    epoch,
+                    request.ServerMessageKeys.Where(coveredIds.Contains).ToArray(),
+                    request.ServerMessageKeys.Where(id => !coveredIds.Contains(id)).ToArray()));
+        apiClient.Setup(client => client.GetIntelligenceChangesAsync(
+                mailboxId,
+                WinoIntelligenceVersions.V1,
+                epoch,
+                It.IsAny<long>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new IntelligenceChangesPageDto(
+                WinoIntelligenceVersions.V1,
+                epoch,
+                head.ArtifactRevision,
+                head.ArtifactRevision,
+                coveredIds.Select((id, index) => new IntelligenceDocumentChangeDto(
+                    index + 1,
+                    id,
+                    false,
+                    Document(id, index + 1),
+                    now)).ToArray()));
         var localStore = new Mock<ILocalIntelligenceStore>();
-        // The real store returns an empty list, never null, for a message it has nothing for.
-        localStore
-            .Setup(store => store.GetCurrentArtifactsAsync(
-                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
+        localStore.Setup(store => store.GetMailboxStateAsync(
+                account.Id,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LocalIntelligenceMailboxState(
+                account.Id,
+                mailboxId,
+                WinoIntelligenceVersions.V1,
+                epoch,
+                0));
+        localStore.Setup(store => store.ApplyChangesAsync(
+                account.Id,
+                mailboxId,
+                It.IsAny<IntelligenceChangesPageDto>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LocalIntelligenceChangeApplyResult(
+                coveredIds.ToHashSet(StringComparer.Ordinal),
+                new HashSet<string>(StringComparer.Ordinal),
+                head.ArtifactRevision));
+        localStore.Setup(store => store.GetCurrentDocumentsAsync(
+                account.Id,
+                It.IsAny<IReadOnlyCollection<string>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid _, IReadOnlyCollection<string> keys, CancellationToken _) =>
+                keys.Where(coveredIds.Contains).ToDictionary(
+                    static id => id,
+                    static id => Document(id, 1),
+                    StringComparer.Ordinal));
         var messageResolver = new Mock<IIntelligenceMessageContextResolver>();
-        var backend = new Mock<IIntelligenceBackend>();
         var database = new InMemoryDatabaseService();
         await database.InitializeAsync();
+        var winoUserId = Guid.NewGuid();
         await database.Connection.InsertAsync(new WinoAccount
         {
-            Id = Guid.NewGuid(),
+            Id = winoUserId,
         });
+        using var rsa = RSA.Create(2048);
+        const string keyId = "test-intelligence-key";
         var encryptor = new PemContentEnvelopeEncryptor(new ContentEncryptionPublicKey(
-            "wino-intelligence-2026-08-v1",
-            PublicKey));
+            keyId,
+            rsa.ExportSubjectPublicKeyInfoPem()));
+        var decryptor = new PemContentEnvelopeDecryptor(new Dictionary<string, string>
+        {
+            [keyId] = rsa.ExportPkcs8PrivateKeyPem(),
+        });
         var messenger = new StrongReferenceMessenger();
         var registry = new SemanticIndexJobRegistry();
         var coordinator = new SemanticIndexCoordinator(
@@ -301,7 +579,6 @@ public sealed class SemanticIndexCoordinatorTests
             registry,
             Mock.Of<ITranslationService>(),
             messageResolver.Object,
-            backend.Object,
             messenger);
 
         return new Fixture(
@@ -311,10 +588,12 @@ public sealed class SemanticIndexCoordinatorTests
             apiClient,
             localStore,
             messageResolver,
-            backend,
             database,
             messenger,
-            registry);
+            registry,
+            epoch,
+            winoUserId,
+            decryptor);
     }
 
     private static async Task WaitForCompletionAsync(
@@ -326,17 +605,36 @@ public sealed class SemanticIndexCoordinatorTests
             await Task.Delay(10, timeout.Token);
     }
 
-    private static IntelligenceArtifactDto DeletionMarker(string remoteMessageId)
+    private static MessageIntelligenceDownloadDto Document(string serverMessageKey, long revision)
         => new()
         {
-            RemoteMessageId = remoteMessageId,
-            Capability = IntelligenceCapability.SmartLabels,
-            GenerationVersion = 2,
-            PayloadSchemaVersion = 1,
-            ArtifactRevision = 1,
+            ServerMessageKey = serverMessageKey,
+            ContentHash = $"hash-{serverMessageKey}",
+            Subject = serverMessageKey,
+            Sender = "sender@example.test",
+            ReceivedAtUtc = DateTimeOffset.UtcNow,
+            IsOutgoing = false,
+            IsRead = false,
+            IsFlagged = false,
+            HasAttachments = false,
+            FolderIds = ["inbox"],
+            SenderAddresses = ["sender@example.test"],
+            RecipientAddresses = ["mail@example.test"],
+            Analysis = new MessageIntelligenceDocumentV1
+            {
+                SourceLanguage = "en",
+                Headline = serverMessageKey,
+                Summary = serverMessageKey,
+                Category = MessageCategoryV1.Conversation,
+                Intent = MessageIntentV1.Inform,
+                Urgency = MessageUrgencyV1.Normal,
+                Confidence = 1,
+            },
+            Embedding = Convert.ToBase64String(new byte[3_072]),
+            EmbeddingDimensions = 768,
+            EmbeddingEncoding = "float32-le",
+            ArtifactRevision = revision,
             GeneratedAtUtc = DateTimeOffset.UtcNow,
-            ContentHash = string.Empty,
-            IsDeleted = true,
         };
 
     private static IntelligenceMessageCandidate Candidate(string remoteMessageId)
@@ -355,6 +653,13 @@ public sealed class SemanticIndexCoordinatorTests
             ["inbox"],
             new MailBodyLocator(remoteMessageId, "inbox", 0, 0, remoteMessageId));
 
+    private static SemanticMailContent Content(string recipient)
+        => new(
+            new MailBodyContent(MailBodyFormat.PlainText, "Message body"),
+            [new MailAddress("sender@example.test", "Sender")],
+            [recipient],
+            []);
+
     private sealed record Fixture(
         SemanticIndexCoordinator Coordinator,
         MailAccount Account,
@@ -362,10 +667,12 @@ public sealed class SemanticIndexCoordinatorTests
         Mock<IWinoAccountApiClient> ApiClient,
         Mock<ILocalIntelligenceStore> LocalStore,
         Mock<IIntelligenceMessageContextResolver> MessageResolver,
-        Mock<IIntelligenceBackend> Backend,
         InMemoryDatabaseService Database,
         StrongReferenceMessenger Messenger,
-        SemanticIndexJobRegistry Registry) : IAsyncDisposable
+        SemanticIndexJobRegistry Registry,
+        Guid Epoch,
+        Guid WinoUserId,
+        PemContentEnvelopeDecryptor Decryptor) : IAsyncDisposable
     {
         public ValueTask DisposeAsync() => Database.DisposeAsync();
     }

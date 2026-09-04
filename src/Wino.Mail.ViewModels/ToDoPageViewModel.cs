@@ -2045,6 +2045,26 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         }
     }
 
+    private Task SynchronizeAccountAsync(Guid accountId)
+    {
+        var account = Accounts.FirstOrDefault(candidate => candidate.Id == accountId);
+        if (account is null ||
+            account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook) ||
+            !account.IsTaskAccessGranted || account.IsTaskReauthorizationRequired)
+        {
+            return Task.CompletedTask;
+        }
+
+        WeakReferenceMessenger.Default.Send(new Wino.Messaging.Server.NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = TaskSynchronizationType.Delta
+        }));
+        RefreshShellSynchronizationState();
+
+        return Task.CompletedTask;
+    }
+
     [RelayCommand]
     private async Task CreateCalendarEventAsync()
     {
@@ -2535,7 +2555,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             activeAccountIds.Add(account.Id);
             if (!_accountGroupMenuItems.TryGetValue(account.Id, out var header))
             {
-                header = new AccountTaskListAccountMenuItem(account);
+                header = new AccountTaskListAccountMenuItem(account, SynchronizeAccountAsync);
                 _accountGroupMenuItems.Add(account.Id, header);
             }
             else

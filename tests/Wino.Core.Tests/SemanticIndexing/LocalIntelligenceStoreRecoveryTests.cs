@@ -7,8 +7,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using SQLite;
 using Wino.Core.Domain.Interfaces;
-using Wino.Mail.AI.Abstractions;
-using Wino.Mail.Contracts.Intelligence;
 using Wino.Services;
 using Xunit;
 
@@ -24,7 +22,7 @@ public sealed class LocalIntelligenceStoreRecoveryTests
         try
         {
             await using var store = CreateStore(folder);
-            var operation = () => store.GetCurrentArtifactsAsync(Guid.NewGuid(), "message");
+            var operation = () => store.GetCurrentDocumentsAsync(Guid.NewGuid(), ["message"]);
 
             await operation.Should().ThrowAsync<InvalidOperationException>()
                 .WithMessage("The local intelligence store has not been initialized.");
@@ -52,39 +50,12 @@ public sealed class LocalIntelligenceStoreRecoveryTests
             tables.Select(static row => row.Name).Should().NotContain([
                 "LocalIndexJob",
                 "LocalPreparedDocument",
+                "LocalArtifact",
+                "LocalBriefingHeadline",
+                "LocalMessageKey",
             ]);
 
             await connection.CloseAsync();
-        }
-        finally
-        {
-            Directory.Delete(folder, recursive: true);
-        }
-    }
-
-    [Fact]
-    public async Task ArtifactUpsert_PersistsLatestRevisionAndDeletionMarker()
-    {
-        var folder = CreateTemporaryFolder();
-
-        try
-        {
-            var accountId = Guid.NewGuid();
-            var mailboxId = Guid.NewGuid();
-            await using (var store = await CreateInitializedStoreAsync(folder))
-            {
-                await store.UpsertArtifactsAsync(accountId, mailboxId,
-                [
-                    CreateBriefingFact("message", revision: 1, isDeleted: false),
-                    CreateBriefingFact("message", revision: 2, isDeleted: true),
-                ]);
-            }
-
-            await using var reopened = await CreateInitializedStoreAsync(folder);
-            var artifact = (await reopened.GetCurrentArtifactsAsync(accountId, "message")).Single();
-
-            artifact.ArtifactRevision.Should().Be(2);
-            artifact.IsDeleted.Should().BeTrue();
         }
         finally
         {
@@ -113,10 +84,6 @@ public sealed class LocalIntelligenceStoreRecoveryTests
                     mailboxId,
                     DateTimeOffset.UtcNow));
                 await store.SaveDailyBriefingIgnoreAsync(accountId, briefingId, 12, ignoredAt);
-                await store.UpsertArtifactsAsync(
-                    accountId,
-                    mailboxId,
-                    [CreateBriefingFact("briefing-message", revision: 9, isDeleted: false)]);
             }
 
             await using var reopened = await CreateInitializedStoreAsync(folder);
@@ -126,7 +93,6 @@ public sealed class LocalIntelligenceStoreRecoveryTests
 
             await reopened.DeleteMailboxAsync(accountId);
 
-            (await reopened.GetCurrentArtifactsAsync(accountId, "briefing-message")).Should().BeEmpty();
             (await reopened.GetDailyBriefingIgnoreRevisionsAsync(accountId)).Should().BeEmpty();
         }
         finally
@@ -175,33 +141,6 @@ public sealed class LocalIntelligenceStoreRecoveryTests
         Directory.CreateDirectory(folder);
         return folder;
     }
-
-    private static IntelligenceArtifactDto CreateBriefingFact(
-        string remoteMessageId,
-        long revision,
-        bool isDeleted)
-        => new()
-        {
-            RemoteMessageId = remoteMessageId,
-            ContentHash = "hash",
-            Capability = IntelligenceCapability.BriefingFact,
-            GenerationVersion = 1,
-            PayloadSchemaVersion = 2,
-            ArtifactRevision = revision,
-            GeneratedAtUtc = DateTimeOffset.UtcNow,
-            IsDeleted = isDeleted,
-            BriefingFact = new ConversationFactPayload
-            {
-                BriefingId = Guid.NewGuid(),
-                OccurredAtUtc = DateTimeOffset.UtcNow,
-                Kind = MessageKind.Conversation,
-                Status = BriefingStatus.Informational,
-                Urgency = MailPriority.Normal,
-                PrimaryAction = new NoActionPayload { Confidence = 0.9 },
-                TemporalReferences = [],
-                Confidence = 0.9,
-            },
-        };
 
     private sealed class TableNameRow
     {

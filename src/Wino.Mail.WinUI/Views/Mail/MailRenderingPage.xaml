@@ -1,4 +1,4 @@
-<abstract:MailRenderingPageAbstract
+﻿<abstract:MailRenderingPageAbstract
     x:Class="Wino.Views.Mail.MailRenderingPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -15,6 +15,7 @@
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
+    xmlns:shimmer="using:Wino.Mail.Controls.Shimmer"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:viewModelData="using:Wino.Mail.ViewModels.Data"
     x:Name="root"
@@ -171,11 +172,11 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid.ChildrenTransitions>
-            <TransitionCollection>
-                <RepositionThemeTransition IsStaggeringEnabled="False" />
-            </TransitionCollection>
-        </Grid.ChildrenTransitions>
+        <!--
+            No children transition here. The page is reused across mail selections, so the
+            intelligence header's visibility toggles on a live tree and a reposition transition
+            would slide the whole reading pane on every switch.
+        -->
 
         <Border
             Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
@@ -208,7 +209,26 @@
                         IsTextSelectionEnabled="True"
                         Style="{StaticResource BodyStrongTextBlockStyle}"
                         Text="{x:Bind ViewModel.Subject, Mode=OneWay}"
-                        TextWrapping="Wrap" />
+                        TextWrapping="Wrap"
+                        Visibility="{x:Bind ViewModel.IsMailContentReady, Mode=OneWay}" />
+
+                    <!--
+                        The bar is sized by a proportional column rather than by an alignment plus a
+                        MaxWidth: a shimmer has no content, so a Left-aligned one would measure to
+                        zero width and never appear.
+                    -->
+                    <Grid
+                        x:Name="SubjectSkeleton"
+                        VerticalAlignment="Center"
+                        x:Load="{x:Bind ViewModel.IsLoadingMailContent, Mode=OneWay}"
+                        AutomationProperties.AccessibilityView="Raw">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2*" />
+                            <ColumnDefinition Width="3*" />
+                        </Grid.ColumnDefinitions>
+
+                        <shimmer:WinoShimmer Height="18" />
+                    </Grid>
 
                     <HyperlinkButton
                         Grid.Column="1"
@@ -312,12 +332,55 @@
                                 FontSize="16"
                                 IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                                 IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
-                                IsTabStop="False" />
+                                IsTabStop="False"
+                                Visibility="{x:Bind ViewModel.IsMailContentReady, Mode=OneWay}" />
+
+                            <!--  Stands in for the avatar, sender and date until the MIME is parsed.  -->
+                            <Grid
+                                x:Name="SenderSkeleton"
+                                Grid.ColumnSpan="2"
+                                VerticalAlignment="Center"
+                                x:Load="{x:Bind ViewModel.IsLoadingMailContent, Mode=OneWay}"
+                                AutomationProperties.AccessibilityView="Raw"
+                                ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <shimmer:WinoShimmer
+                                    Width="36"
+                                    Height="36"
+                                    CornerRadius="18" />
+
+                                <Grid
+                                    Grid.Column="1"
+                                    VerticalAlignment="Center"
+                                    RowSpacing="6">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+
+                                    <shimmer:WinoShimmer
+                                        Width="220"
+                                        Height="13"
+                                        HorizontalAlignment="Left" />
+
+                                    <shimmer:WinoShimmer
+                                        Grid.Row="1"
+                                        Width="140"
+                                        Height="11"
+                                        HorizontalAlignment="Left" />
+                                </Grid>
+                            </Grid>
 
                             <Grid
+                                x:Name="SenderContent"
                                 Grid.Column="1"
                                 Margin="12,0"
-                                VerticalAlignment="Center">
+                                VerticalAlignment="Center"
+                                Visibility="{x:Bind ViewModel.IsMailContentReady, Mode=OneWay}">
                                 <StackPanel Spacing="1">
                                     <HyperlinkButton
                                         Margin="0"
@@ -347,7 +410,8 @@
                 <ScrollViewer
                     Grid.Row="2"
                     MaxHeight="150"
-                    Margin="5,0">
+                    Margin="5,0"
+                    Visibility="{x:Bind ViewModel.IsMailContentReady, Mode=OneWay}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -434,7 +498,10 @@
 
 
                 <!--  Attachments  -->
-                <Grid Grid.Row="4" ColumnSpacing="8">
+                <Grid
+                    Grid.Row="4"
+                    ColumnSpacing="8"
+                    Visibility="{x:Bind ViewModel.IsMailContentReady, Mode=OneWay}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
@@ -442,13 +509,13 @@
                     <ListView
                         x:Name="AttachmentsListView"
                         Grid.Row="0"
-                        x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.Attachments.Count), Mode=OneWay}"
                         AutomationProperties.AutomationId="AttachmentsListView"
                         IsItemClickEnabled="True"
                         ItemClick="AttachmentClicked"
                         ItemTemplate="{StaticResource FileAttachmentTemplate}"
                         ItemsSource="{x:Bind ViewModel.DisplayedAttachments, Mode=OneWay}"
-                        SelectionMode="None">
+                        SelectionMode="None"
+                        Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.Attachments.Count), Mode=OneWay}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <customcontrols:CustomWrapPanel />
@@ -574,6 +641,42 @@
                         <KeyboardAccelerator Key="Escape" Invoked="EscapeInvoked" />
                     </editor:WinoMailRenderer.KeyboardAccelerators>
                 </editor:WinoMailRenderer>
+
+                <!--
+                    Fully opaque, so the previously rendered message never shows through while the
+                    next one loads: the reading pane brush is a translucent layer fill over the
+                    window backdrop, which the WebView2 is happy to show through. The renderer itself
+                    stays visible - collapsing it stalls WebView2's first initialization.
+                -->
+                <Grid
+                    x:Name="BodyLoadingSkeleton"
+                    Padding="20,18"
+                    x:Load="{x:Bind ViewModel.IsLoadingMailContent, Mode=OneWay}"
+                    AutomationProperties.AccessibilityView="Raw"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                    CornerRadius="8"
+                    RowSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <!--  Fills the rest of the pane so no part of the previous message shows through.  -->
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <shimmer:WinoShimmer Height="13" />
+                    <shimmer:WinoShimmer Grid.Row="1" Height="13" />
+                    <shimmer:WinoShimmer
+                        Grid.Row="2"
+                        Width="380"
+                        Height="13"
+                        HorizontalAlignment="Left" />
+                    <shimmer:WinoShimmer
+                        Grid.Row="3"
+                        Height="140"
+                        CornerRadius="6" />
+                </Grid>
 
                 <ProgressRing
                     Width="50"

@@ -10,7 +10,8 @@ public sealed record MailIntelligenceMetadata(
     string RemoteMessageId,
     IReadOnlyList<SmartLabelScore> SmartLabels,
     BriefingFactCapabilityPayload? BriefingFact,
-    string Headline)
+    string Headline,
+    string Summary = "")
 {
     public NeedsReplyCapabilityPayload? NeedsReply => BriefingFact?.PrimaryAction is ReplyActionPayload action
         ? new(true, action.Confidence)
@@ -48,5 +49,8 @@ public sealed record MailIntelligenceMetadata(
         }
     }
 
-    public bool HasVisibleMetadata => SmartLabels.Count > 0 || BriefingFact is not null || !string.IsNullOrWhiteSpace(Headline);
+    public bool HasVisibleMetadata => SmartLabels.Count > 0 ||
+                                      BriefingFact is not null ||
+                                      !string.IsNullOrWhiteSpace(Headline) ||
+                                      !string.IsNullOrWhiteSpace(Summary);
 }

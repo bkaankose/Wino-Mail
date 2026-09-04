@@ -61,6 +61,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IIntelligenceBackend, CloudIntelligenceBackend>();
         services.AddSingleton<IIntelligenceSearchEligibilityService, IntelligenceSearchEligibilityService>();
         services.AddSingleton<IIntelligenceSearchService, IntelligenceSearchService>();
+        services.AddSingleton<ILocalIntelligenceSearchEngine, LocalIntelligenceSearchEngine>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
         services.AddSingleton<IWinoBillingService, WinoBillingService>();
         services.AddSingleton<IWinoAccountIntelligenceSnapshotService, WinoAccountIntelligenceSnapshotService>();

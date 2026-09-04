@@ -110,6 +110,16 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
     public partial bool IsIndetermineProgress { get; set; }
 
+    /// <summary>
+    /// False from the moment a message starts loading until its body has been handed to the renderer.
+    /// The reader shows skeletons while it is false, so no half-populated header is ever on screen.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLoadingMailContent))]
+    public partial bool IsMailContentReady { get; set; }
+
+    public bool IsLoadingMailContent => !IsMailContentReady;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ShouldDisplayDownloadProgress))]
     public partial double CurrentDownloadPercentage { get; set; }
@@ -409,35 +419,85 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     }
 
     private CancellationTokenSource renderCancellationTokenSource = new CancellationTokenSource();
+    private int _loadVersion;
+    private int _downloadLoadVersion;
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
-        renderCancellationTokenSource.Cancel();
+        BeginMailContentLoad();
+
+        // Only a fresh navigation blanks the renderer. Re-entry keeps the previous body on screen
+        // behind the loading treatment, which is what removes the flash between two messages.
+        if (ClearRenderedHtmlAsyncFunc != null)
+        {
+            await ExecuteUIThreadAsync(ClearRenderedHtmlAsyncFunc);
+        }
+
+        await LoadContentAsync(parameters);
+    }
+
+    /// <summary>
+    /// Puts the reader into its loading state and drops every trace of the message it was showing.
+    /// </summary>
+    /// <remarks>
+    /// The page is reused across selections, so this is the only thing standing between the previous
+    /// message's sender, date, recipients and attachments and the next message's body.
+    /// </remarks>
+    public void BeginMailContentLoad()
+    {
+        _loadVersion++;
+
+        // Recreated rather than nulled or disposed: a render that is still resuming reads this
+        // token, and both ThrowIfCancellationRequested and any registration on a disposed source
+        // would fault instead of cancelling.
+        var previousCancellationTokenSource = renderCancellationTokenSource;
+
+        renderCancellationTokenSource = new CancellationTokenSource();
+
+        previousCancellationTokenSource?.Cancel();
+
+        IsMailContentReady = false;
 
         initializedMailItemViewModel = null;
         initializedMimeMessageInformation = null;
         CurrentMailItemDisplayInformation = null;
+        CurrentRenderModel = null;
+
+        Subject = string.Empty;
+        FromName = string.Empty;
+        FromAddress = string.Empty;
+        CreationDate = default;
+
+        // The recipient and attachment collections are deliberately left alone: RenderAsync clears
+        // and repopulates them in one UI pass, and they stay hidden behind the loading treatment
+        // until then. Emptying them here would add a second teardown of the items controls bound to
+        // them, which a fast switch can interleave with that repopulation.
+        IsShowingAllAttachments = false;
+
+        ResetProgress();
+
+        // With no initialized item this leaves only Save As and Print, so nothing message-specific
+        // is invocable while the reader is loading.
+        InitializeCommandBarItems();
+    }
+
+    /// <summary>
+    /// Renders the given selection or EML file into the reader.
+    /// </summary>
+    /// <remarks>
+    /// This page is reached for two purposes: a selected mail item, and an existing EML file passed
+    /// as a <see cref="MimeMessageInformation"/>. EML rendering is read-only, so it gets no
+    /// message-specific command bar items.
+    /// </remarks>
+    public async Task LoadContentAsync(object parameters)
+    {
+        var loadVersion = _loadVersion;
 
         try
         {
-            if (ClearRenderedHtmlAsyncFunc != null)
-            {
-                await ExecuteUIThreadAsync(ClearRenderedHtmlAsyncFunc);
-            }
-
-            // This page can be accessed for 2 purposes.
-            // 1. Rendering a mail item when the user selects.
-            // 2. Rendering an existing EML file with MimeMessage.
-
-            // MimeMessage rendering must be readonly and no command bar items must be shown except common
-            // items like dark/light editor, zoom, print etc.
-
-            // Configure common rendering properties first.
             IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
-
-            renderCancellationTokenSource = new CancellationTokenSource();
 
             // Mime content might not be available for now and might require a download.
             if (parameters is MailItemViewModel selectedMailItemViewModel)
@@ -446,9 +506,13 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
                 await RenderAsync(mimeMessageInformation);
 
             InitializeCommandBarItems();
+
+            if (loadVersion == _loadVersion)
+                await ExecuteUIThread(() => IsMailContentReady = true);
         }
         catch (OperationCanceledException)
         {
+            // A newer load owns the reader now, including its loading state.
             Log.Information("Canceled mail rendering.");
         }
         catch (Exception ex)
@@ -456,6 +520,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             ShowMailRenderingFailedMessage(ex);
 
             Log.Error(ex, "Failed to render mail.");
+
+            // Leave an empty reader behind the error rather than a skeleton that never resolves.
+            if (loadVersion == _loadVersion)
+                await ExecuteUIThread(() => IsMailContentReady = true);
         }
     }
 
@@ -473,10 +541,17 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
     private async Task HandleSingleItemDownloadAsync(MailItemViewModel mailItemViewModel)
     {
+        // A transfer that gets superseded still runs to completion so the MIME lands in the cache,
+        // but from that moment it must not touch the reader's progress.
+        var downloadVersion = _loadVersion;
+
+        _downloadLoadVersion = downloadVersion;
+
         try
         {
-            // To show the progress on the UI.
-            await ExecuteUIThread(() => CurrentDownloadPercentage = 1);
+            // Only IMAP reports transferred bytes. Everything else has to show a marquee, or the
+            // download reads as a hung reader.
+            await ExecuteUIThread(() => IsIndetermineProgress = true);
 
             // Download missing MIME message using SynchronizationManager
             await SynchronizationManager.Instance.DownloadMimeMessageAsync(
@@ -493,7 +568,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         }
         finally
         {
-            await ExecuteUIThread(ResetProgress);
+            if (downloadVersion == _loadVersion)
+            {
+                await ExecuteUIThread(ResetProgress);
+            }
         }
     }
 
@@ -502,15 +580,23 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         ResetProgress();
         var isMimeExists = await _mimeFileService.IsMimeExistAsync(mailItemViewModel.MailCopy.AssignedAccount.Id, mailItemViewModel.MailCopy.FileId);
 
+        cancellationToken.ThrowIfCancellationRequested();
+
         if (!isMimeExists)
         {
             await HandleSingleItemDownloadAsync(mailItemViewModel);
         }
 
+        // A download can take seconds, which is long enough for the user to select something else.
+        // The transfer still finishes and caches the MIME; it just no longer owns the reader.
+        cancellationToken.ThrowIfCancellationRequested();
+
         // Find the MIME for this item and render it.
         var mimeMessageInformation = await _mimeFileService.GetMimeMessageInformationAsync(mailItemViewModel.MailCopy.FileId,
                                                                                            mailItemViewModel.MailCopy.AssignedAccount.Id,
                                                                                            cancellationToken).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
 
         if (mimeMessageInformation == null)
         {
@@ -642,10 +728,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         base.OnNavigatedFrom(mode, parameters);
 
         renderCancellationTokenSource?.Cancel();
-        renderCancellationTokenSource?.Dispose();
-        renderCancellationTokenSource = null;
 
         CurrentDownloadPercentage = 0d;
+        IsMailContentReady = false;
 
         initializedMailItemViewModel = null;
         initializedMimeMessageInformation = null;
@@ -1020,30 +1105,19 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     }
 
     void ITransferProgress.Report(long bytesTransferred, long totalSize)
-        => _ = ExecuteUIThread(() => { CurrentDownloadPercentage = bytesTransferred * 100 / Math.Max(1, totalSize); });
+    {
+        // A superseded transfer keeps running to completion, but it must not drive the reader.
+        if (_downloadLoadVersion != _loadVersion) return;
+
+        _ = ExecuteUIThread(() =>
+        {
+            IsIndetermineProgress = false;
+            CurrentDownloadPercentage = bytesTransferred * 100 / Math.Max(1, totalSize);
+        });
+    }
 
     // For upload.
     void ITransferProgress.Report(long bytesTransferred) { }
-
-    public async Task RefreshMailItemAsync(MailItemViewModel mailItemViewModel)
-    {
-        if (mailItemViewModel == null || mailItemViewModel.IsDraft) return;
-
-        try
-        {
-            await RenderAsync(mailItemViewModel, renderCancellationTokenSource.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            Log.Information("Canceled mail rendering.");
-        }
-        catch (Exception ex)
-        {
-            ShowMailRenderingFailedMessage(ex);
-
-            Log.Error(ex, "Failed to render mail.");
-        }
-    }
 
     public void Receive(ThumbnailAdded message)
     {

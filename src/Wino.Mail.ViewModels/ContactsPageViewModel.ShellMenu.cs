@@ -313,5 +313,6 @@ public partial class ContactsPageViewModel
         filter.DropHandler = (list, contactIds) => AssignContactsToListAsync(list, contactIds);
         filter.RenameRequested = item => RenameListCommand.Execute(item);
         filter.DeleteRequested = item => DeleteListCommand.Execute(item);
+        filter.SynchronizeAccountRequested = SynchronizeAccountAsync;
     }
 }

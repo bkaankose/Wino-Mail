@@ -177,48 +177,69 @@
                         Text="{x:Bind ViewModel.AccountName, Mode=TwoWay}" />
                 </controls:SettingsCard>
 
-                <controls:SettingsCard
+                <controls:SettingsExpander
                     AutomationProperties.AutomationId="AccountDetailsPageSettingsCard4"
                     Description="{x:Bind domain:Translator.AccountDetailsPage_CapabilityDescription, Mode=OneTime}"
                     Header="{x:Bind domain:Translator.AccountDetailsPage_CapabilityTitle, Mode=OneTime}"
                     Visibility="{x:Bind ViewModel.IsOAuthCapabilityEditable, Mode=OneWay}">
-                    <controls:SettingsCard.HeaderIcon>
+                    <controls:SettingsExpander.HeaderIcon>
                         <FontIcon Glyph="&#xE787;" />
-                    </controls:SettingsCard.HeaderIcon>
-                    <StackPanel MinWidth="280" Spacing="8">
-                        <CheckBox
-                            AutomationProperties.AutomationId="AccountCapabilityMail"
-                            Content="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
-                            IsChecked="{x:Bind ViewModel.IsMailCapabilitySelected, Mode=TwoWay}" />
-                        <CheckBox
-                            AutomationProperties.AutomationId="AccountCapabilityCalendar"
-                            Content="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}"
-                            IsChecked="{x:Bind ViewModel.IsCalendarCapabilitySelected, Mode=TwoWay}" />
-                        <CheckBox
-                            AutomationProperties.AutomationId="AccountCapabilityContacts"
-                            Content="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}"
-                            IsChecked="{x:Bind ViewModel.IsContactsCapabilitySelected, Mode=TwoWay}" />
-                        <CheckBox
-                            AutomationProperties.AutomationId="AccountCapabilityTasks"
-                            Content="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}"
-                            IsChecked="{x:Bind ViewModel.IsTasksCapabilitySelected, Mode=TwoWay}" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.AccountDetailsPage_ContactsCapabilityImpact, Mode=OneTime}"
-                            TextWrapping="Wrap" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind domain:Translator.AccountDetailsPage_TasksCapabilityImpact, Mode=OneTime}"
-                            TextWrapping="Wrap" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <controls:SettingsExpander.ItemsHeader>
+                        <muxc:InfoBar
+                            AutomationProperties.AutomationId="AccountCapabilitiesReauthenticationInfo"
+                            IsClosable="False"
+                            IsOpen="{x:Bind ViewModel.IsCapabilitySelectionChanged, Mode=OneWay}"
+                            Message="{x:Bind domain:Translator.AccountDetailsPage_CapabilityReauthenticationMessage, Mode=OneTime}"
+                            Severity="Informational" />
+                    </controls:SettingsExpander.ItemsHeader>
+                    <controls:SettingsExpander.ItemsFooter>
                         <Button
-                            HorizontalAlignment="Left"
+                            Margin="16,12"
+                            HorizontalAlignment="Right"
                             AutomationProperties.AutomationId="ApplyAccountCapabilities"
                             Command="{x:Bind ViewModel.ApplyCapabilitiesCommand}"
                             Content="{x:Bind domain:Translator.Buttons_Apply, Mode=OneTime}" />
-                    </StackPanel>
-                </controls:SettingsCard>
+                    </controls:SettingsExpander.ItemsFooter>
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountCapabilityMailCard" Header="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <SymbolIcon Symbol="Mail" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="AccountCapabilityMail"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsApplyingCapabilities), Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.IsMailCapabilitySelected, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountCapabilityCalendarCard" Header="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xE163;" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="AccountCapabilityCalendar"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsApplyingCapabilities), Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.IsCalendarCapabilitySelected, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountCapabilityContactsCard" Header="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <SymbolIcon Symbol="People" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="AccountCapabilityContacts"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsApplyingCapabilities), Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.IsContactsCapabilitySelected, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountCapabilityTasksCard" Header="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}">
+                            <controls:SettingsCard.HeaderIcon>
+                                <FontIcon Glyph="&#xE73E;" />
+                            </controls:SettingsCard.HeaderIcon>
+                            <ToggleSwitch
+                                AutomationProperties.AutomationId="AccountCapabilityTasks"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsApplyingCapabilities), Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.IsTasksCapabilitySelected, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
 
                 <controls:SettingsCard
                     HorizontalContentAlignment="Stretch"
@@ -782,12 +803,6 @@
                             Content="{x:Bind domain:Translator.AccountDetailsPage_ReconnectContacts, Mode=OneTime}" />
                     </muxc:InfoBar.ActionButton>
                 </muxc:InfoBar>
-
-                <TextBlock
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind domain:Translator.AccountDetailsPage_ContactsCapabilityImpact, Mode=OneTime}"
-                    TextWrapping="Wrap" />
             </StackPanel>
         </Grid>
 
@@ -824,12 +839,6 @@
                             Content="{x:Bind domain:Translator.AccountDetailsPage_ReconnectTasks, Mode=OneTime}" />
                     </muxc:InfoBar.ActionButton>
                 </muxc:InfoBar>
-
-                <TextBlock
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind domain:Translator.AccountDetailsPage_TasksCapabilityImpact, Mode=OneTime}"
-                    TextWrapping="Wrap" />
             </StackPanel>
         </Grid>
 

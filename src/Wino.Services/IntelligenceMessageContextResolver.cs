@@ -234,7 +234,13 @@ public sealed class IntelligenceMessageContextResolver(
             body,
             message.From.Mailboxes.Select(x => new MailAddress(x.Address, x.Name)).ToArray(),
             message.To.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray(),
-            message.Cc.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray());
+            message.Cc.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray(),
+            message.BodyParts.OfType<MimeKit.MimePart>()
+                .Where(static part => part.IsAttachment)
+                .Select(static part => new SemanticMailAttachment(
+                    part.FileName ?? string.Empty,
+                    part.ContentType.MimeType ?? string.Empty))
+                .ToArray());
     }
 
     private class AvailabilityRow

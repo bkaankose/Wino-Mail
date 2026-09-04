@@ -5,7 +5,9 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.SemanticIndexing;
+using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Billing;
+using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.ContentProcessing;
 using Wino.Mail.Contracts.Intelligence;
@@ -50,7 +52,7 @@ public sealed class WinoIntelligenceCoordinatorTests
             .ReturnsAsync(Candidate());
         var semantic = new Mock<ISemanticIndexCoordinator>();
         semantic.Setup(x => x.GetMessageStateAsync(localAccountId, "provider-message", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(SemanticMessageIndexState.NotIndexed);
+            .ReturnsAsync(expectedProcessing ? SemanticMessageIndexState.Indexed : SemanticMessageIndexState.NotIndexed);
         var mime = new Mock<IMimeFileService>();
 
         using var coordinator = new WinoIntelligenceCoordinator(
@@ -66,8 +68,7 @@ public sealed class WinoIntelligenceCoordinatorTests
             Mock.Of<ITranslationService>(),
             Mock.Of<IPreferencesService>(),
             Mock.Of<IWinoLogger>(),
-            Mock.Of<IIntelligenceBackend>(),
-            Mock.Of<IContentEnvelopeEncryptor>(),
+            Mock.Of<ILocalIntelligenceSearchEngine>(),
             new MailContentProjector(),
             accountSnapshotService.Object);
 
@@ -83,6 +84,47 @@ public sealed class WinoIntelligenceCoordinatorTests
         snapshot.IsSuggestedRepliesAvailable.Should().Be(expectedProcessing);
         snapshot.IsFindSimilarAvailable.Should().Be(expectedProcessing);
         api.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task Summarize_StripsProjectionMarkersBeforeCallingTheApi()
+    {
+        var localAccountId = Guid.NewGuid();
+        var winoAccountId = Guid.NewGuid();
+        var mailboxId = Guid.NewGuid();
+        var context = Context(localAccountId) with
+        {
+            Html = "<p>Before &#10214;i1&#10215;visible text&#10214;/i1&#10215; after</p>",
+        };
+        var profile = new Mock<IWinoAccountProfileService>();
+        profile.Setup(x => x.GetActiveAccountAsync()).ReturnsAsync(new WinoAccount { Id = winoAccountId });
+        profile.Setup(x => x.SummarizeAsync(It.IsAny<IReadOnlyList<MailContentSegment>>(), "en-US", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiEnvelope<AiSummaryResultDto>.Success(new("Summary")));
+        var snapshotService = new Mock<IWinoAccountIntelligenceSnapshotService>();
+        snapshotService.Setup(x => x.GetCachedAsync(winoAccountId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AccountSnapshot(winoAccountId, true, true, mailboxId, MailProviderType.Outlook));
+        var resolver = new Mock<IIntelligenceMessageContextResolver>();
+        resolver.Setup(x => x.FindCandidateAsync(localAccountId, context.MessageId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Candidate());
+        var mime = new Mock<IMimeFileService>();
+        mime.Setup(x => x.GetSummaryTextAsync(localAccountId, context.FileId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(string.Empty);
+        var preferences = new Mock<IPreferencesService>();
+        preferences.SetupGet(x => x.AiSummarizeLanguageCode).Returns("en-US");
+        using var coordinator = new WinoIntelligenceCoordinator(
+            profile.Object, Mock.Of<IWinoAccountApiClient>(), Mock.Of<ISemanticIndexCoordinator>(), resolver.Object,
+            Mock.Of<ILocalIntelligenceStore>(), mime.Object, Mock.Of<IMailService>(), Mock.Of<IAccountService>(),
+            Mock.Of<IWinoRequestDelegator>(), Mock.Of<ITranslationService>(), preferences.Object, Mock.Of<IWinoLogger>(),
+            Mock.Of<ILocalIntelligenceSearchEngine>(), new MailContentProjector(), snapshotService.Object);
+
+        var result = await coordinator.SummarizeAsync(context, Guid.NewGuid());
+
+        result.IsSuccess.Should().BeTrue(result.Error);
+        profile.Verify(x => x.SummarizeAsync(
+            It.Is<IReadOnlyList<MailContentSegment>>(segments => segments.Count > 0 &&
+                segments.All(segment => !segment.Text.Contains('⟦') && !segment.Text.Contains('⟧'))),
+            "en-US",
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -139,7 +181,7 @@ public sealed class WinoIntelligenceCoordinatorTests
             Mock.Of<IMimeFileService>(), Mock.Of<IMailService>(), Mock.Of<IAccountService>(),
             Mock.Of<IWinoRequestDelegator>(), Mock.Of<ITranslationService>(), Mock.Of<IPreferencesService>(),
             Mock.Of<IWinoLogger>(),
-            Mock.Of<IIntelligenceBackend>(), Mock.Of<IContentEnvelopeEncryptor>(), new MailContentProjector(),
+            Mock.Of<ILocalIntelligenceSearchEngine>(), new MailContentProjector(),
             accountSnapshotService.Object);
 
         var snapshot = await coordinator.GetSnapshotAsync(Context(localAccountId));
@@ -159,7 +201,7 @@ public sealed class WinoIntelligenceCoordinatorTests
             Mock.Of<IMimeFileService>(), Mock.Of<IMailService>(), Mock.Of<IAccountService>(),
             Mock.Of<IWinoRequestDelegator>(), Mock.Of<ITranslationService>(), Mock.Of<IPreferencesService>(),
             Mock.Of<IWinoLogger>(),
-            Mock.Of<IIntelligenceBackend>(), Mock.Of<IContentEnvelopeEncryptor>(), new MailContentProjector(),
+            Mock.Of<ILocalIntelligenceSearchEngine>(), new MailContentProjector(),
             accountSnapshotService);
 
     private static WinoAccountIntelligenceSnapshot AccountSnapshot(

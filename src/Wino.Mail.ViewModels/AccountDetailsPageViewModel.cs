@@ -125,18 +125,22 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
     public partial bool IsMailCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
     public partial bool IsCalendarCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
     public partial bool IsContactsCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
     public partial bool IsTasksCapabilitySelected { get; set; }
 
     [ObservableProperty]
@@ -152,6 +156,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
     public bool IsTaskReauthorizationRequired => Account?.IsTaskReauthorizationRequired == true;
     public bool IsContactReauthorizationRequired => Account?.IsContactReauthorizationRequired == true;
     public bool IsOAuthCapabilityEditable => Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
+    public bool IsCapabilitySelectionChanged => Account is not null &&
+        (Account.IsMailAccessGranted != IsMailCapabilitySelected ||
+         Account.IsCalendarAccessGranted != IsCalendarCapabilitySelected ||
+         Account.IsContactAccessGranted != IsContactsCapabilitySelected ||
+         Account.IsTaskAccessGranted != IsTasksCapabilitySelected);
 
     /// <summary>
     /// Gets whether the sender display name is worth showing for this account.
@@ -290,7 +299,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel
             WinoPage.ImapCalDavSettingsPage,
             ImapCalDavSettingsNavigationContext.CreateForEditMode(Account.Id)));
 
-    private bool CanApplyCapabilities() => Account is not null && !IsApplyingCapabilities &&
+    private bool CanApplyCapabilities() => Account is not null && IsCapabilitySelectionChanged && !IsApplyingCapabilities &&
         (IsMailCapabilitySelected || IsCalendarCapabilitySelected || IsContactsCapabilitySelected || IsTasksCapabilitySelected);
 
     [RelayCommand(CanExecute = nameof(CanApplyCapabilities))]

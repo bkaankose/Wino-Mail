@@ -20,10 +20,22 @@ public sealed record SemanticMailContent(
     MailBodyContent Body,
     IReadOnlyList<MailAddress> From,
     IReadOnlyList<string> ToRecipients,
-    IReadOnlyList<string> CcRecipients)
+    IReadOnlyList<string> CcRecipients,
+    IReadOnlyList<SemanticMailAttachment> Attachments)
 {
+    public SemanticMailContent(
+        MailBodyContent body,
+        IReadOnlyList<MailAddress> from,
+        IReadOnlyList<string> toRecipients,
+        IReadOnlyList<string> ccRecipients)
+        : this(body, from, toRecipients, ccRecipients, [])
+    {
+    }
+
     public SemanticMailContent(MailBodyContent body, IReadOnlyList<string> toRecipients, IReadOnlyList<string> ccRecipients)
-        : this(body, [], toRecipients, ccRecipients)
+        : this(body, [], toRecipients, ccRecipients, [])
     {
     }
 }
+
+public sealed record SemanticMailAttachment(string FileName, string MediaType);

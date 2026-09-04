@@ -10,94 +10,102 @@
     <UserControl.Resources>
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
-            <ResourceDictionary x:Key="Default">
-                <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
-                <StaticResource x:Key="WinoMailIntelligenceTileBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
-                <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
-            </ResourceDictionary>
-            <ResourceDictionary x:Key="Light">
-                <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
-                <StaticResource x:Key="WinoMailIntelligenceTileBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
-                <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
-            </ResourceDictionary>
-            <ResourceDictionary x:Key="Dark">
-                <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
-                <StaticResource x:Key="WinoMailIntelligenceTileBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
-                <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
-            </ResourceDictionary>
-            <ResourceDictionary x:Key="HighContrast">
-                <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
-                <StaticResource x:Key="WinoMailIntelligenceTileBorderBrush" ResourceKey="SystemColorButtonTextColorBrush" />
-                <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="SystemColorButtonTextColorBrush" />
-            </ResourceDictionary>
+                <ResourceDictionary x:Key="Default">
+                    <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
+                    <StaticResource x:Key="WinoMailIntelligenceTileBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
+                    <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
+                    <StaticResource x:Key="WinoMailIntelligenceTileBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
+                    <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
+                    <StaticResource x:Key="WinoMailIntelligenceTileBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
+                    <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
+                    <StaticResource x:Key="WinoMailIntelligenceTileBorderBrush" ResourceKey="SystemColorButtonTextColorBrush" />
+                    <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="SystemColorButtonTextColorBrush" />
+                </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
+            <!--
+                Hosts may define an app-wide implicit StackPanel style carrying an
+                EntranceThemeTransition. Tiles are recycled constantly, so that would animate every
+                tile in from the top.
+            -->
+            <Style TargetType="StackPanel">
+                <Setter Property="ChildrenTransitions" Value="{x:Null}" />
+            </Style>
             <DataTemplate x:Key="CompactTileTemplate" x:DataType="core:WinoIntelligenceTile">
-            <Border
-                x:Name="CompactTileRoot"
-                Width="20"
-                Height="20"
-                AutomationProperties.AccessibilityView="Content"
-                AutomationProperties.Name="{x:Bind AccessibleText, Mode=OneTime}"
-                Background="{ThemeResource WinoMailIntelligenceTileBackgroundBrush}"
-                BorderBrush="{ThemeResource WinoMailIntelligenceTileBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="10"
-                ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
-                <Grid>
-                    <FontIcon
-                        x:Name="CompactTileGlyph"
-                        AutomationProperties.AccessibilityView="Raw"
-                        FontSize="11"
-                        Foreground="{ThemeResource WinoMailIntelligenceTileForegroundBrush}"
-                        Glyph="{x:Bind Glyph, Mode=OneTime}"
-                        Visibility="{x:Bind local:IntelligenceTileVisuals.GlyphVisibility(Glyph), Mode=OneTime}" />
-                    <Ellipse
-                        x:Name="CompactTileDot"
-                        Width="6"
-                        Height="6"
-                        Fill="{ThemeResource WinoMailIntelligenceTileForegroundBrush}"
-                        Visibility="{x:Bind local:IntelligenceTileVisuals.DotVisibility(Glyph), Mode=OneTime}" />
-                </Grid>
-            </Border>
+                <Border
+                    x:Name="CompactTileRoot"
+                    Width="20"
+                    Height="20"
+                    AutomationProperties.AccessibilityView="Content"
+                    AutomationProperties.Name="{x:Bind AccessibleText, Mode=OneTime}"
+                    Background="{ThemeResource WinoMailIntelligenceTileBackgroundBrush}"
+                    BorderBrush="{ThemeResource WinoMailIntelligenceTileBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
+                    <Grid>
+                        <FontIcon
+                            x:Name="CompactTileGlyph"
+                            AutomationProperties.AccessibilityView="Raw"
+                            FontSize="11"
+                            Foreground="{ThemeResource WinoMailIntelligenceTileForegroundBrush}"
+                            Glyph="{x:Bind Glyph, Mode=OneTime}"
+                            Visibility="{x:Bind local:IntelligenceTileVisuals.GlyphVisibility(Glyph), Mode=OneTime}" />
+                        <Ellipse
+                            x:Name="CompactTileDot"
+                            Width="6"
+                            Height="6"
+                            Fill="{ThemeResource WinoMailIntelligenceTileForegroundBrush}"
+                            Visibility="{x:Bind local:IntelligenceTileVisuals.DotVisibility(Glyph), Mode=OneTime}" />
+                    </Grid>
+                </Border>
             </DataTemplate>
             <DataTemplate x:Key="DetailedTileTemplate" x:DataType="core:WinoIntelligenceTile">
-            <Border
-                x:Name="DetailedTileRoot"
-                MinHeight="22"
-                Padding="7,1"
-                AutomationProperties.AccessibilityView="Content"
-                AutomationProperties.Name="{x:Bind AccessibleText, Mode=OneTime}"
-                Background="{ThemeResource WinoMailIntelligenceTileBackgroundBrush}"
-                BorderBrush="{ThemeResource WinoMailIntelligenceTileBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="11"
-                ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <FontIcon
-                        x:Name="DetailedTileGlyph"
-                        VerticalAlignment="Center"
-                        AutomationProperties.AccessibilityView="Raw"
-                        FontSize="11"
-                        Foreground="{ThemeResource WinoMailIntelligenceTileForegroundBrush}"
-                        Glyph="{x:Bind Glyph, Mode=OneTime}"
-                        Visibility="{x:Bind local:IntelligenceTileVisuals.GlyphVisibility(Glyph), Mode=OneTime}" />
-                    <Ellipse
-                        x:Name="DetailedTileDot"
-                        Width="6"
-                        Height="6"
-                        VerticalAlignment="Center"
-                        Fill="{ThemeResource WinoMailIntelligenceTileForegroundBrush}"
-                        Visibility="{x:Bind local:IntelligenceTileVisuals.DotVisibility(Glyph), Mode=OneTime}" />
-                    <TextBlock
-                        x:Name="DetailedTileText"
-                        VerticalAlignment="Center"
-                        FontSize="11"
-                        Foreground="{ThemeResource WinoMailIntelligenceTileForegroundBrush}"
-                        Text="{x:Bind Text, Mode=OneTime}"
-                        MaxWidth="180"
-                        TextTrimming="CharacterEllipsis" />
-                </StackPanel>
-            </Border>
+                <Border
+                    x:Name="DetailedTileRoot"
+                    MinHeight="22"
+                    Padding="7,1"
+                    AutomationProperties.AccessibilityView="Content"
+                    AutomationProperties.Name="{x:Bind AccessibleText, Mode=OneTime}"
+                    Background="{ThemeResource WinoMailIntelligenceTileBackgroundBrush}"
+                    BorderBrush="{ThemeResource WinoMailIntelligenceTileBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="11"
+                    ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon
+                            x:Name="DetailedTileGlyph"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AccessibilityView="Raw"
+                            FontSize="11"
+                            Foreground="{ThemeResource WinoMailIntelligenceTileForegroundBrush}"
+                            Glyph="{x:Bind Glyph, Mode=OneTime}"
+                            Visibility="{x:Bind local:IntelligenceTileVisuals.GlyphVisibility(Glyph), Mode=OneTime}" />
+                        <Ellipse
+                            x:Name="DetailedTileDot"
+                            Width="6"
+                            Height="6"
+                            VerticalAlignment="Center"
+                            Fill="{ThemeResource WinoMailIntelligenceTileForegroundBrush}"
+                            Visibility="{x:Bind local:IntelligenceTileVisuals.DotVisibility(Glyph), Mode=OneTime}" />
+                        <TextBlock
+                            x:Name="DetailedTileText"
+                            MaxWidth="180"
+                            VerticalAlignment="Center"
+                            FontSize="11"
+                            Foreground="{ThemeResource WinoMailIntelligenceTileForegroundBrush}"
+                            Text="{x:Bind Text, Mode=OneTime}"
+                            TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Border>
             </DataTemplate>
         </ResourceDictionary>
     </UserControl.Resources>

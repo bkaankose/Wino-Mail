@@ -73,9 +73,19 @@
                         Click="ManageAccountSettingsMenuItemClicked"
                         DataContext="{x:Bind}"
                         Text="{x:Bind domain:Translator.AccountContextMenu_ManageAccountSettings, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsMailAccountActions), Mode=OneWay}">
+                        Visibility="Visible">
                         <MenuFlyoutItem.Icon>
                             <coreControls:WinoFontIcon Icon="ManageAccounts" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutItem
+                        AutomationProperties.AutomationId="AccountContextSynchronizeMenuItem"
+                        Click="SynchronizeAccountMenuItemClicked"
+                        DataContext="{x:Bind}"
+                        Text="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsAccountSynchronization), Mode=OneWay}">
+                        <MenuFlyoutItem.Icon>
+                            <SymbolIcon Symbol="Sync" />
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
                     <MenuFlyoutItem
@@ -172,7 +182,13 @@
                         Click="ManageAccountSettingsMenuItemClicked"
                         DataContext="{x:Bind}"
                         Text="{x:Bind domain:Translator.AccountContextMenu_ManageAccountSettings, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsMailAccountActions), Mode=OneWay}" />
+                        Visibility="Visible" />
+                    <MenuFlyoutItem
+                        AutomationProperties.AutomationId="AccountContextSynchronizeMenuItem"
+                        Click="SynchronizeAccountMenuItemClicked"
+                        DataContext="{x:Bind}"
+                        Text="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsAccountSynchronization), Mode=OneWay}" />
                     <MenuFlyoutItem
                         AutomationProperties.AutomationId="AccountContextCreateFolderMenuItem"
                         Click="CreateFolderMenuItemClicked"

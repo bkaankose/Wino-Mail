@@ -51,9 +51,10 @@ public sealed partial class WinoMailIntelligenceTileBar : UserControl
         DetailedItemsPanel.Visibility = IsCompact ? Visibility.Collapsed : Visibility.Visible;
 
         var items = Items?.Where(static item => item is not null).ToArray() ?? [];
+        var detailedItems = items.Where(static item => item.Kind == WinoIntelligenceTileKind.SmartLabel).ToArray();
         CompactItemsPanel.ItemsSource = items;
-        DetailedItemsPanel.ItemsSource = items;
-        Visibility = items.Length > 0
+        DetailedItemsPanel.ItemsSource = detailedItems;
+        Visibility = (IsCompact ? items : detailedItems).Length > 0
             ? Visibility.Visible
             : Visibility.Collapsed;
 

@@ -58,6 +58,11 @@
                 Icon="Mail"
                 Tag="hoverActions" />
             <NavigationViewItem
+                AutomationProperties.AutomationId="ShimmerNavigationItem"
+                Content="Shimmer"
+                Icon="Highlight"
+                Tag="shimmer" />
+            <NavigationViewItem
                 AutomationProperties.AutomationId="ContextFlyoutNavigationItem"
                 Content="Context flyout"
                 Icon="Bullets"

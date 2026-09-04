@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -20,12 +22,16 @@ public interface IAccountNavigationMenuItem : IMenuItem, INotifyPropertyChanged
     double SynchronizationProgressValue { get; }
     bool IsAttentionRequired { get; }
     bool SupportsMailAccountActions { get; }
+    AccountDetailsTab AccountDetailsTab { get; }
+    bool SupportsAccountSynchronization { get; }
 
     /// <summary>
     /// Whether invoking the row is a selection. Mail and tasks expand an account
     /// into its children, while a contacts address book is itself the destination.
     /// </summary>
     bool SelectsOnInvoked { get; }
+
+    Task SynchronizeAccountAsync();
 }
 
 public interface IAccountMenuItem : IMenuItem

@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Core.Domain.MenuItems;
 
@@ -37,8 +38,13 @@ public sealed partial class ImportantTaskMenuItem() : TaskSmartViewMenuItem(Task
 
 public sealed class AccountTaskListAccountMenuItem : MenuItemBase<MailAccount, IMenuItem>, IAccountNavigationMenuItem
 {
-    public AccountTaskListAccountMenuItem(MailAccount account) : base(account, account?.Id)
-        => IsExpanded = true;
+    private readonly Func<Guid, Task> _synchronizeAccount;
+
+    public AccountTaskListAccountMenuItem(MailAccount account, Func<Guid, Task> synchronizeAccount) : base(account, account?.Id)
+    {
+        _synchronizeAccount = synchronizeAccount;
+        IsExpanded = true;
+    }
 
     public string AccountName => Parameter?.Name ?? string.Empty;
     public string AccountAddress => Parameter?.Address ?? string.Empty;
@@ -49,7 +55,22 @@ public sealed class AccountTaskListAccountMenuItem : MenuItemBase<MailAccount, I
     public double SynchronizationProgressValue => 0;
     public bool IsAttentionRequired => false;
     public bool SupportsMailAccountActions => false;
+    public AccountDetailsTab AccountDetailsTab => global::Wino.Core.Domain.Models.Navigation.AccountDetailsTab.ToDo;
+    public bool SupportsAccountSynchronization => Parameter is
+    {
+        ProviderType: MailProviderType.Gmail or MailProviderType.Outlook,
+        IsTaskAccessGranted: true,
+        IsTaskReauthorizationRequired: false
+    };
     public bool SelectsOnInvoked => false;
+
+    public Task SynchronizeAccountAsync()
+    {
+        if (!SupportsAccountSynchronization)
+            return Task.CompletedTask;
+
+        return _synchronizeAccount(Parameter.Id);
+    }
 
     public void UpdateAccount(MailAccount account)
     {

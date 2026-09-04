@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
@@ -10,6 +12,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.AI.Abstractions;
+using Wino.Mail.Contracts.Intelligence;
 using Wino.Messaging.UI;
 
 namespace Wino.Services;
@@ -96,7 +99,7 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
                 .GroupBy(static x => x.RemoteMessageId!, StringComparer.Ordinal)
                 .Select(static x => x.First())
                 .ToArray();
-            var artifacts = await _store.GetCurrentArtifactsAsync(accountGroup.Key,
+            var documents = await _store.GetCurrentDocumentsAsync(accountGroup.Key,
                 distinct.Select(static x => x.RemoteMessageId!).ToArray(), cancellationToken).ConfigureAwait(false);
             var included = new List<(MailCopy Mail, string RemoteMessageId, DateTimeOffset OccurredAt,
                 BriefingFactCapabilityPayload Fact, long ArtifactRevision,
@@ -106,18 +109,16 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
             {
                 var mail = candidate.Mail;
                 var remoteMessageId = candidate.RemoteMessageId!;
-                if (!artifacts.TryGetValue(remoteMessageId, out var values)) continue;
-                var live = values.Where(static x => !x.IsDeleted).ToArray();
-                var factArtifact = live.Where(static x => x.Capability == IntelligenceCapability.BriefingFact)
-                    .MaxBy(static x => x.ArtifactRevision);
-                if (factArtifact?.BriefingFact is not { } fact) continue;
-
-                var sourceSmartLabels = live
-                    .Where(static x => x.Capability == IntelligenceCapability.SmartLabels)
-                    .MaxBy(static x => x.ArtifactRevision)
-                    ?.SmartLabels?.Labels
-                    ?.DistinctBy(static label => label.Label)
-                    .ToArray() ?? [];
+                if (!documents.TryGetValue(remoteMessageId, out var document)) continue;
+                var fact = CreateBriefingFact(accountGroup.Key, document);
+                var sourceSmartLabels = document.Analysis.SmartLabels
+                    .Where(static label => label.Label != SmartLabelV1.Unknown)
+                    .Select(static label => Enum.TryParse<MailSmartLabel>(label.Label.ToString(), out var mapped)
+                        ? new SmartLabelScore(mapped, label.Confidence)
+                        : null)
+                    .OfType<SmartLabelScore>()
+                    .DistinctBy(static label => label.Label)
+                    .ToArray();
                 var includedSmartLabels = sourceSmartLabels
                     .Where(label => IntelligenceVisibilityPolicy.IsVisible(account.Preferences, label.Label))
                     .ToArray();
@@ -137,28 +138,25 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
 
                 var isIgnored = fact.BriefingId != Guid.Empty &&
                     ignoredRevisions.TryGetValue(fact.BriefingId, out var ignoredRevision) &&
-                    factArtifact.ArtifactRevision <= ignoredRevision;
+                    document.ArtifactRevision <= ignoredRevision;
                 if (isIgnored)
                 {
                     hasIgnoredFacts = true;
                     if (!includeIgnored) continue;
                 }
 
-                included.Add((mail, remoteMessageId, occurredAt, fact, factArtifact.ArtifactRevision,
+                included.Add((mail, remoteMessageId, occurredAt, fact, document.ArtifactRevision,
                     sourceSmartLabels, indicatorState));
             }
 
-            var headlines = await _store.GetBriefingHeadlinesAsync(accountGroup.Key,
-                included.Select(static x => x.Fact.BriefingId).ToArray(), cancellationToken).ConfigureAwait(false);
             foreach (var item in included)
             {
                 var mail = item.Mail;
                 var fact = item.Fact;
-                headlines.TryGetValue(fact.BriefingId, out var headline);
                 var isIgnored = ignoredRevisions.TryGetValue(fact.BriefingId, out var ignoredRevision) &&
                     item.ArtifactRevision <= ignoredRevision;
                 result.Add(new(accountGroup.Key, mail.UniqueId, item.RemoteMessageId, mail.Subject, mail.FromName,
-                    item.OccurredAt, headline ?? string.Empty, item.ArtifactRevision, fact,
+                    item.OccurredAt, documents[item.RemoteMessageId].Analysis.Headline, item.ArtifactRevision, fact,
                     item.SourceSmartLabels, item.IndicatorState, isIgnored));
             }
         }
@@ -204,6 +202,145 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
         => point.LocalDate ?? (point.InstantUtc is { } instant
             ? DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, fallbackZone).DateTime)
             : null);
+
+    private static BriefingFactCapabilityPayload CreateBriefingFact(
+        Guid localAccountId,
+        MessageIntelligenceDownloadDto document)
+    {
+        var analysis = document.Analysis;
+        BriefingFactCapabilityPayload fact = analysis.Category switch
+        {
+            MessageCategoryV1.Finance => new FinanceFactPayload(),
+            MessageCategoryV1.Document => new DocumentFactPayload(),
+            MessageCategoryV1.Purchase => new PurchaseFactPayload(),
+            MessageCategoryV1.Travel => new TravelFactPayload(),
+            MessageCategoryV1.Subscription => new SubscriptionFactPayload(),
+            MessageCategoryV1.Security => new SecurityFactPayload(),
+            MessageCategoryV1.Meeting => new MeetingFactPayload(),
+            MessageCategoryV1.Task => new TaskFactPayload(),
+            MessageCategoryV1.Newsletter => new NewsletterFactPayload(),
+            MessageCategoryV1.Promotion => new PromotionFactPayload(),
+            MessageCategoryV1.Social => new SocialFactPayload(),
+            MessageCategoryV1.SystemNotification => new SystemNotificationFactPayload(),
+            MessageCategoryV1.Support => new SupportFactPayload(),
+            MessageCategoryV1.Conversation => new ConversationFactPayload(),
+            _ => new GeneralFactPayload(),
+        };
+
+        fact.BriefingId = CreateBriefingId(localAccountId, document.ServerMessageKey);
+        fact.OccurredAtUtc = document.ReceivedAtUtc;
+        fact.Kind = MapMessageKind(analysis.Category, analysis.Intent);
+        fact.Status = MapStatus(document.IsOutgoing, analysis);
+        fact.Urgency = analysis.Urgency switch
+        {
+            MessageUrgencyV1.Critical => MailPriority.Urgent,
+            MessageUrgencyV1.High => MailPriority.High,
+            MessageUrgencyV1.Low => MailPriority.Low,
+            _ => MailPriority.Normal,
+        };
+        fact.PrimaryAction = MapAction(analysis.Actions.FirstOrDefault());
+        fact.TemporalReferences = analysis.TemporalReferences.Select(MapTemporal).ToArray();
+        fact.Confidence = analysis.Confidence;
+        return fact;
+    }
+
+    private static Guid CreateBriefingId(Guid localAccountId, string serverMessageKey)
+    {
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes($"{localAccountId:D}\n{serverMessageKey}"));
+        return new Guid(hash.AsSpan(0, 16));
+    }
+
+    private static MessageKind MapMessageKind(MessageCategoryV1 category, MessageIntentV1 intent)
+        => category switch
+        {
+            MessageCategoryV1.Finance => MessageKind.Invoice,
+            MessageCategoryV1.Document => MessageKind.SharedDocument,
+            MessageCategoryV1.Purchase => MessageKind.OrderUpdate,
+            MessageCategoryV1.Travel => MessageKind.Itinerary,
+            MessageCategoryV1.Subscription => MessageKind.SubscriptionRenewal,
+            MessageCategoryV1.Security => MessageKind.SignInAlert,
+            MessageCategoryV1.Meeting => MessageKind.MeetingInvitation,
+            MessageCategoryV1.Task => MessageKind.TaskAssignment,
+            MessageCategoryV1.Newsletter => MessageKind.Publication,
+            MessageCategoryV1.Promotion => MessageKind.Offer,
+            MessageCategoryV1.Social => MessageKind.PersonalUpdate,
+            MessageCategoryV1.SystemNotification => MessageKind.OperationalNotice,
+            MessageCategoryV1.Support => MessageKind.SupportStatusUpdate,
+            _ when intent == MessageIntentV1.ReplyRequested => MessageKind.ReplyRequest,
+            _ => MessageKind.Information,
+        };
+
+    private static BriefingStatus MapStatus(bool isOutgoing, MessageIntelligenceDocumentV1 analysis)
+    {
+        var status = analysis.Actions.Select(static action => action.Status)
+            .Concat(analysis.Documents.Select(static document => document.Status))
+            .FirstOrDefault(static status => status != IntelligenceStatusV1.Unknown);
+        return status switch
+        {
+            IntelligenceStatusV1.Completed or IntelligenceStatusV1.Paid or IntelligenceStatusV1.Delivered => BriefingStatus.Completed,
+            IntelligenceStatusV1.Cancelled => BriefingStatus.Cancelled,
+            IntelligenceStatusV1.Expired => BriefingStatus.Expired,
+            IntelligenceStatusV1.Active or IntelligenceStatusV1.Shipped => BriefingStatus.InProgress,
+            IntelligenceStatusV1.Confirmed or IntelligenceStatusV1.Reserved => BriefingStatus.Scheduled,
+            IntelligenceStatusV1.RequiresAction or IntelligenceStatusV1.Unpaid or IntelligenceStatusV1.Overdue or
+                IntelligenceStatusV1.AwaitingApproval or IntelligenceStatusV1.AwaitingSignature => BriefingStatus.ActionRequired,
+            _ when analysis.Intent == MessageIntentV1.ReplyRequested => isOutgoing
+                ? BriefingStatus.AwaitingOthers
+                : BriefingStatus.AwaitingMyReply,
+            _ when analysis.Actions.Count > 0 => BriefingStatus.ActionRequired,
+            _ => BriefingStatus.Informational,
+        };
+    }
+
+    private static BriefingActionPayload MapAction(IntelligenceActionV1? action)
+        => action?.Type switch
+        {
+            IntelligenceActionTypeV1.Reply => new ReplyActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Pay => new PayActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Review => new ReviewActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Approve => new ApproveActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Sign => new SignActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Verify => new VerifyAccountActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Attend => new ViewCalendarEventActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Renew => new RenewActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Cancel => new CancelSubscriptionActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Download => new DownloadAttachmentActionPayload { Confidence = action.Confidence },
+            IntelligenceActionTypeV1.Contact => new OpenRelevantLinkActionPayload { Confidence = action.Confidence },
+            _ => new NoActionPayload(),
+        };
+
+    private static TemporalPayload MapTemporal(TemporalReferenceV1 temporal)
+    {
+        var start = ToTemporalPoint(temporal.Start, temporal);
+        var end = ToTemporalPoint(temporal.End, temporal);
+        return temporal.Type switch
+        {
+            TemporalReferenceTypeV1.Due or TemporalReferenceTypeV1.Deadline =>
+                new DeadlineTemporalPayload { Due = start, Confidence = temporal.Confidence },
+            TemporalReferenceTypeV1.Meeting =>
+                new EventTemporalPayload { Start = start, End = temporal.End is null ? null : end, Confidence = temporal.Confidence },
+            TemporalReferenceTypeV1.Renewal =>
+                new RenewalTemporalPayload { RenewsAt = start, Confidence = temporal.Confidence },
+            TemporalReferenceTypeV1.Expiration =>
+                new ExpirationTemporalPayload { ExpiresAt = start, Confidence = temporal.Confidence },
+            _ => new ExpectedTemporalPayload { ExpectedAt = start, Confidence = temporal.Confidence },
+        };
+    }
+
+    private static TemporalPointPayload ToTemporalPoint(DateTimeOffset? value, TemporalReferenceV1 temporal)
+        => new(
+            value is { } instant ? DateOnly.FromDateTime(instant.Date) : null,
+            value is { } time ? TimeOnly.FromDateTime(time.DateTime) : null,
+            value,
+            temporal.TimeZoneId,
+            value is { } offset ? (int)offset.Offset.TotalMinutes : null,
+            temporal.Precision switch
+            {
+                TemporalPrecisionV1.Minute => TemporalPrecision.ExactDateTime,
+                TemporalPrecisionV1.Day => TemporalPrecision.Date,
+                TemporalPrecisionV1.Month => TemporalPrecision.Month,
+                _ => TemporalPrecision.Unknown,
+            });
 
     public Task<long> GetLatestBriefingFactRevisionAsync(Guid localAccountId, CancellationToken cancellationToken = default)
         => _store.GetLatestBriefingFactRevisionAsync(localAccountId, cancellationToken);

@@ -336,24 +336,100 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceManifestDto,
             cancellationToken).ConfigureAwait(false), "Intelligence manifest request failed.");
 
+    public async Task<WinoIntelligenceManifestDto> GetWinoIntelligenceManifestAsync(CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            "api/v1/ai/intelligence/manifest",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeWinoIntelligenceManifestDto,
+            cancellationToken).ConfigureAwait(false), "Intelligence manifest request failed.");
+
+    public async Task<MailboxIntelligenceHeadDto?> GetIntelligenceHeadAsync(
+        Guid mailboxId,
+        CancellationToken cancellationToken = default)
+    {
+        var envelope = await SendAuthorizedRequestAsync(
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/head",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeMailboxIntelligenceHeadDto,
+            cancellationToken).ConfigureAwait(false);
+
+        return envelope.IsSuccess
+            ? envelope.Result
+            : throw IntelligenceApiFailure(envelope.ErrorCode, "Intelligence head request failed.");
+    }
+
+    public async Task<BeginIntelligenceReindexResultDto> BeginIntelligenceReindexAsync(
+        Guid mailboxId,
+        BeginIntelligenceReindexRequest request,
+        CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/reindex:begin",
+            request,
+            WinoAccountApiJsonContext.Default.BeginIntelligenceReindexRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeBeginIntelligenceReindexResultDto,
+            cancellationToken).ConfigureAwait(false), "Intelligence reindex request failed.");
+
+    public Task<MessageIntelligenceIngestResultDto> IngestMessageIntelligenceAsync(
+        Guid mailboxId,
+        byte[] encryptedEnvelope,
+        CancellationToken cancellationToken = default)
+        => SendEncryptedIntelligenceAsync(
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/ingest",
+            encryptedEnvelope,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeMessageIntelligenceIngestResultDto,
+            "Intelligence ingestion failed.",
+            cancellationToken);
+
+    public Task<MessageIntelligenceIngestionJobAcceptedDto> StartMessageIntelligenceIngestionJobAsync(
+        Guid mailboxId,
+        byte[] encryptedEnvelope,
+        CancellationToken cancellationToken = default)
+        => SendEncryptedIntelligenceOnceAsync(
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/ingestion-jobs",
+            encryptedEnvelope,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeMessageIntelligenceIngestionJobAcceptedDto,
+            "Intelligence ingestion job start failed.",
+            cancellationToken);
+
+    public async Task<MessageIntelligenceIngestionJobDto> GetMessageIntelligenceIngestionJobAsync(
+        Guid mailboxId,
+        Guid jobId,
+        CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/ingestion-jobs/{jobId:D}",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeMessageIntelligenceIngestionJobDto,
+            cancellationToken).ConfigureAwait(false), "Intelligence ingestion job poll failed.");
+
+    public async Task<ReconcileMessageIntelligenceResultDto> ReconcileMessageIntelligenceAsync(
+        Guid mailboxId,
+        ReconcileMessageIntelligenceRequest request,
+        CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/reconcile",
+            request,
+            WinoAccountApiJsonContext.Default.ReconcileMessageIntelligenceRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeReconcileMessageIntelligenceResultDto,
+            cancellationToken).ConfigureAwait(false), "Intelligence reconciliation failed.");
+
+    public async Task<IntelligenceChangesPageDto> GetIntelligenceChangesAsync(
+        Guid mailboxId,
+        string intelligenceVersion,
+        Guid indexEpoch,
+        long afterRevision,
+        int pageSize,
+        CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/changes" +
+            $"?intelligenceVersion={Uri.EscapeDataString(intelligenceVersion)}" +
+            $"&indexEpoch={indexEpoch:D}&afterRevision={afterRevision}&pageSize={pageSize}",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceChangesPageDto,
+            cancellationToken).ConfigureAwait(false), "Intelligence changes request failed.");
+
     public async Task<IntelligenceMailboxStatusDto> GetIntelligenceStatusAsync(Guid mailboxId, CancellationToken cancellationToken = default)
         => RequireResult(await SendAuthorizedRequestAsync(
             $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/status",
             WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceMailboxStatusDto,
             cancellationToken).ConfigureAwait(false), "Intelligence status request failed.");
-
-    public async Task<IntelligenceCoverageTimelineDto> GetIntelligenceCoverageTimelineAsync(
-        Guid mailboxId,
-        DateTimeOffset fromUtc,
-        DateTimeOffset toUtc,
-        int bucketCount,
-        CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/coverage-timeline" +
-            $"?fromUtc={Uri.EscapeDataString(fromUtc.ToUniversalTime().ToString("O"))}" +
-            $"&toUtc={Uri.EscapeDataString(toUtc.ToUniversalTime().ToString("O"))}&bucketCount={bucketCount}",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceCoverageTimelineDto,
-            cancellationToken).ConfigureAwait(false), "Intelligence coverage timeline request failed.");
 
     public async Task<IReadOnlyList<string>> ResolveIntelligenceDeltaAsync(
         Guid mailboxId,
@@ -530,6 +606,31 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         throw new InvalidOperationException($"{failureMessage} Retry limit reached.");
     }
 
+    private async Task<T> SendEncryptedIntelligenceOnceAsync<T>(
+        string endpoint,
+        byte[] encryptedEnvelope,
+        JsonTypeInfo<ApiEnvelope<T>> responseType,
+        string failureMessage,
+        CancellationToken cancellationToken) where T : class
+    {
+        using var request = await CreateAuthorizedRequestAsync(
+                HttpMethod.Post,
+                endpoint,
+                () =>
+                {
+                    var content = new ByteArrayContent(encryptedEnvelope);
+                    content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                    return content;
+                }).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("MissingAccessToken");
+        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var responseEnvelope = await JsonSerializer.DeserializeAsync(stream, responseType, cancellationToken).ConfigureAwait(false);
+        return RequireResult(
+            responseEnvelope ?? ApiEnvelope<T>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
+            failureMessage);
+    }
+
     public Task<IntelligenceSemanticSearchResultDto> SearchIntelligenceAsync(byte[] encryptedEnvelope, CancellationToken cancellationToken = default)
         => SendEncryptedIntelligenceAsync(
             "api/v1/ai/intelligence/search",
@@ -537,6 +638,17 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceSemanticSearchResultDto,
             "Semantic intelligence search failed.",
             cancellationToken);
+
+    public async Task<IntelligenceSearchPlanResultDto> CreateIntelligenceSearchPlanAsync(
+        IntelligenceSearchPlanRequest request,
+        CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/ai/intelligence/search:plan",
+            request,
+            WinoAccountApiJsonContext.Default.IntelligenceSearchPlanRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceSearchPlanResultDto,
+            cancellationToken).ConfigureAwait(false), "Semantic search planning failed.");
 
     public async Task<IntelligenceSemanticSearchResultDto> SearchIntelligenceAsync(
         IntelligenceSemanticSearchRequest request,
@@ -1122,6 +1234,21 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(List<IntelligenceIndexDocumentRequest>))]
 [JsonSerializable(typeof(IntelligenceIndexDocumentRequest))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceManifestDto>))]
+[JsonSerializable(typeof(ApiEnvelope<WinoIntelligenceManifestDto>))]
+[JsonSerializable(typeof(ApiEnvelope<MailboxIntelligenceHeadDto>))]
+[JsonSerializable(typeof(BeginIntelligenceReindexRequest))]
+[JsonSerializable(typeof(ApiEnvelope<BeginIntelligenceReindexResultDto>))]
+[JsonSerializable(typeof(IngestMessageIntelligenceRequest))]
+[JsonSerializable(typeof(MessageIntelligenceSourceV1))]
+[JsonSerializable(typeof(ApiEnvelope<MessageIntelligenceIngestResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<MessageIntelligenceIngestionJobAcceptedDto>))]
+[JsonSerializable(typeof(ApiEnvelope<MessageIntelligenceIngestionJobDto>))]
+[JsonSerializable(typeof(ReconcileMessageIntelligenceRequest))]
+[JsonSerializable(typeof(ApiEnvelope<ReconcileMessageIntelligenceResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceChangesPageDto>))]
+[JsonSerializable(typeof(MessageIntelligenceDownloadDto))]
+[JsonSerializable(typeof(MessageIntelligenceDocumentV1))]
+[JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceMailboxStatusDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceIngestResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<CompactIntelligenceIngestResultDto>))]
@@ -1140,12 +1267,13 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(SuggestedRepliesCapabilityPayload))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceSemanticSearchResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<WinoSuggestedRepliesResult>))]
+[JsonSerializable(typeof(IntelligenceSearchPlanRequest))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceSearchPlanResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<HeadlineTranslationResultDto>))]
 [JsonSerializable(typeof(IntelligenceConsentDto))]
 [JsonSerializable(typeof(UpdateIntelligenceConsentRequest))]
 [JsonSerializable(typeof(RevokeIntelligenceConsentRequest))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceConsentDto>))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceCoverageTimelineDto>))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;
 
 internal sealed record CompactIntelligenceArtifactCursorPageDto(

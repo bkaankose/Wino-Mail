@@ -30,16 +30,20 @@ internal sealed class StressWorkload
     private readonly StressOptions _options;
     private readonly IWinoAccountApiClient _apiClient;
     private readonly Guid _mailboxId;
+    private readonly string _intelligenceVersion;
+    private readonly Guid _indexEpoch;
     private readonly string[] _remoteMessageIds;
     private readonly byte[][] _ingestionFixtures;
     private int _aiRequests;
 
     private StressWorkload(StressOptions options, IWinoAccountApiClient apiClient, Guid mailboxId,
-        string[] remoteMessageIds, byte[][] ingestionFixtures)
+        string intelligenceVersion, Guid indexEpoch, string[] remoteMessageIds, byte[][] ingestionFixtures)
     {
         _options = options;
         _apiClient = apiClient;
         _mailboxId = mailboxId;
+        _intelligenceVersion = intelligenceVersion;
+        _indexEpoch = indexEpoch;
         _remoteMessageIds = remoteMessageIds;
         _ingestionFixtures = ingestionFixtures;
     }
@@ -66,7 +70,8 @@ internal sealed class StressWorkload
         var currentUser = await apiClient.GetCurrentUserAsync(cancellationToken).ConfigureAwait(false);
         if (!currentUser.IsSuccess || currentUser.Result is null)
             throw new InvalidOperationException("The Wino API authentication preflight failed.");
-        _ = await apiClient.GetIntelligenceStatusAsync(mailbox.MailboxId, cancellationToken).ConfigureAwait(false);
+        var head = await apiClient.GetIntelligenceHeadAsync(mailbox.MailboxId, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The dedicated stress mailbox has no intelligence head.");
 
         var resolver = services.GetRequiredService<IIntelligenceMessageContextResolver>();
         var candidates = await resolver.GetCandidatesAsync(account.Id, null, cancellationToken).ConfigureAwait(false);
@@ -75,7 +80,14 @@ internal sealed class StressWorkload
 
         var fixtures = await CreateIngestionFixturesAsync(services, mailbox.MailboxId, runId, cancellationToken)
             .ConfigureAwait(false);
-        return new StressWorkload(options, apiClient, mailbox.MailboxId, remoteIds, fixtures);
+        return new StressWorkload(
+            options,
+            apiClient,
+            mailbox.MailboxId,
+            head.IntelligenceVersion,
+            head.IndexEpoch,
+            remoteIds,
+            fixtures);
     }
 
     public async Task<StressOperationResult> ExecuteAsync(long sequence, string phase, CancellationToken cancellationToken)
@@ -112,13 +124,13 @@ internal sealed class StressWorkload
         {
             StressProfile.Realistic when bucket < 55 => "search",
             StressProfile.Realistic when bucket < 70 => bucket % 2 == 0 ? "status" : "manifest",
-            StressProfile.Realistic when bucket < 80 => "timeline",
+            StressProfile.Realistic when bucket < 80 => "changes",
             StressProfile.Realistic when bucket < 90 => "delta",
             StressProfile.Realistic when bucket < 95 => "artifacts",
             StressProfile.Realistic => "ingest",
             StressProfile.Database when bucket < 60 => "search",
             StressProfile.Database when bucket < 80 => "delta",
-            StressProfile.Database when bucket < 90 => bucket % 2 == 0 ? "timeline" : "artifacts",
+            StressProfile.Database when bucket < 90 => bucket % 2 == 0 ? "changes" : "artifacts",
             StressProfile.Database => "ingest",
             StressProfile.Ai => "planner-search",
             _ => throw new ArgumentOutOfRangeException(nameof(profile)),
@@ -136,11 +148,16 @@ internal sealed class StressWorkload
                     null, TimeZoneInfo.Local.Id, CultureInfo.CurrentUICulture.Name, operation == "planner-search"),
                     cancellationToken).ConfigureAwait(false);
                 break;
-            case "status": await _apiClient.GetIntelligenceStatusAsync(_mailboxId, cancellationToken).ConfigureAwait(false); break;
+            case "status": await _apiClient.GetIntelligenceHeadAsync(_mailboxId, cancellationToken).ConfigureAwait(false); break;
             case "manifest": await _apiClient.GetIntelligenceManifestAsync(cancellationToken).ConfigureAwait(false); break;
-            case "timeline":
-                await _apiClient.GetIntelligenceCoverageTimelineAsync(_mailboxId, DateTimeOffset.UtcNow.AddYears(-1),
-                    DateTimeOffset.UtcNow, 72, cancellationToken).ConfigureAwait(false);
+            case "changes":
+                await _apiClient.GetIntelligenceChangesAsync(
+                    _mailboxId,
+                    _intelligenceVersion,
+                    _indexEpoch,
+                    0,
+                    100,
+                    cancellationToken).ConfigureAwait(false);
                 break;
             case "delta":
                 var sizes = new[] { 10, 100, 1_000 };

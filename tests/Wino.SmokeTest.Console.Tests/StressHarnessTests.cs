@@ -53,7 +53,7 @@ public sealed class StressHarnessTests
         var counts = operations.GroupBy(x => x).ToDictionary(x => x.Key, x => x.Count());
 
         Assert.Equal(55, counts["search"]);
-        Assert.Equal(10, counts["timeline"]);
+        Assert.Equal(10, counts["changes"]);
         Assert.Equal(10, counts["delta"]);
         Assert.Equal(5, counts["artifacts"]);
         Assert.Equal(5, counts["ingest"]);

@@ -3,13 +3,12 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
-using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
@@ -17,7 +16,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.ContentProcessing;
-using Wino.Mail.AI.Cryptography;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Contracts.Intelligence;
@@ -25,7 +23,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Services;
 
-public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, IDisposable
+public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, IDisposable
 {
     private readonly IWinoAccountProfileService _profileService;
     private readonly IWinoAccountApiClient _apiClient;
@@ -39,8 +37,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
     private readonly ITranslationService _translationService;
     private readonly IPreferencesService _preferencesService;
     private readonly IWinoLogger _logger;
-    private readonly IIntelligenceBackend _intelligenceBackend;
-    private readonly IContentEnvelopeEncryptor _envelopeEncryptor;
+    private readonly ILocalIntelligenceSearchEngine _localSearch;
     private readonly IMailContentProjector _contentProjector;
     private readonly IWinoAccountIntelligenceSnapshotService? _accountSnapshotService;
     private readonly ConcurrentDictionary<Guid, PendingRequest> _requests = new();
@@ -58,8 +55,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         ITranslationService translationService,
         IPreferencesService preferencesService,
         IWinoLogger logger,
-        IIntelligenceBackend intelligenceBackend,
-        IContentEnvelopeEncryptor envelopeEncryptor,
+        ILocalIntelligenceSearchEngine localSearch,
         IMailContentProjector contentProjector,
         IWinoAccountIntelligenceSnapshotService? accountSnapshotService = null)
     {
@@ -75,8 +71,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
         _translationService = translationService;
         _preferencesService = preferencesService;
         _logger = logger;
-        _intelligenceBackend = intelligenceBackend;
-        _envelopeEncryptor = envelopeEncryptor;
+        _localSearch = localSearch;
         _contentProjector = contentProjector;
         _accountSnapshotService = accountSnapshotService;
 
@@ -143,7 +138,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
                 ? await _semanticIndexCoordinator.GetMessageStateAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false)
                 : SemanticMessageIndexState.Unsupported;
 
-            var language = _translationService.CurrentLanguageModel?.Code ?? "en-US";
+            var language = ResolveSummaryLanguage();
             var inference = context.InferenceProjection ??
                             _contentProjector.Project(context.Html, MailContentProjectionProfile.Inference).Projection;
             var cachedSummary = access.HasIntelligenceConsent
@@ -163,7 +158,7 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
                 access.HasIntelligenceConsent,
                 processingAvailable,
                 processingAvailable,
-                processingAvailable,
+                processingAvailable && state == SemanticMessageIndexState.Indexed,
                 state,
                 access.MailboxId,
                 candidate?.RemoteMessageId,
@@ -220,7 +215,10 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
             var cached = await _mimeFileService.GetSummaryTextAsync(context.LocalAccountId, context.FileId, cacheKey, token).ConfigureAwait(false);
             if (!string.IsNullOrWhiteSpace(cached))
                 return cached;
-            var response = await _profileService.SummarizeAsync(projection.Segments, language, token).ConfigureAwait(false);
+            var summarySegments = CreateSummarySegments(projection.Segments);
+            if (summarySegments.Count == 0)
+                throw new InvalidOperationException(ApiErrorCodes.AiHtmlEmpty);
+            var response = await _profileService.SummarizeAsync(summarySegments, language, token).ConfigureAwait(false);
             var summary = RequireSummary(response, "Summary request failed.");
             await _mimeFileService.SaveSummaryTextAsync(context.LocalAccountId, context.FileId, cacheKey, summary, token).ConfigureAwait(false);
             return summary;
@@ -281,9 +279,26 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
                 ? []
                 : candidates.Where(x => x.RemoteMessageId != target.RemoteMessageId && x.ThreadId == target.ThreadId)
                     .OrderBy(x => x.ReceivedAt).Take(12).ToArray();
-            var exampleCandidates = candidates.Where(x => x.IsOutgoing && x.RemoteMessageId != target.RemoteMessageId && x.ThreadId != target.ThreadId)
-                .Take(12).ToArray();
             var thread = await PrepareMessagesAsync(context.LocalAccountId, threadCandidates, processor, token).ConfigureAwait(false);
+            var excluded = threadCandidates.Select(static candidate => candidate.RemoteMessageId)
+                .Append(target.RemoteMessageId)
+                .ToHashSet(StringComparer.Ordinal);
+            var similarExamples = await _localSearch.FindSimilarAsync(
+                context.LocalAccountId, target.RemoteMessageId, 5, true, excluded, token).ConfigureAwait(false);
+            var exampleIds = similarExamples.Select(static match => match.RemoteMessageId).ToHashSet(StringComparer.Ordinal);
+            var exampleRanks = similarExamples.Select((match, index) => (match.RemoteMessageId, index))
+                .ToDictionary(static pair => pair.RemoteMessageId, static pair => pair.index, StringComparer.Ordinal);
+            var exampleCandidates = candidates.Where(candidate => exampleIds.Contains(candidate.RemoteMessageId))
+                .OrderBy(candidate => exampleRanks[candidate.RemoteMessageId])
+                .ToArray();
+            if (exampleCandidates.Length == 0)
+            {
+                exampleCandidates = candidates
+                    .Where(candidate => candidate.IsOutgoing && !excluded.Contains(candidate.RemoteMessageId))
+                    .OrderByDescending(static candidate => candidate.ReceivedAt)
+                    .Take(5)
+                    .ToArray();
+            }
             var examples = await PrepareMessagesAsync(context.LocalAccountId, exampleCandidates, processor, token).ConfigureAwait(false);
             var result = await _apiClient.GetSuggestedRepliesAsync(
                 snapshot.MailboxId.Value,
@@ -304,54 +319,16 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
             var snapshot = await GetSnapshotAsync(context, token).ConfigureAwait(false);
             if (!snapshot.IsFindSimilarAvailable || snapshot.MailboxId is null)
                 throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
-            var processor = CreateProcessor();
-            var prepared = processor.Prepare(
-                context.Sender,
-                context.Subject,
-                new MailBodyContent(MailBodyFormat.Html, context.Html),
-                EmbeddingProfile.OpenAiTextEmbedding3Small768);
-            var winoAccount = await _profileService.GetAuthenticatedAccountAsync(token).ConfigureAwait(false)
-                ?? throw new InvalidOperationException("A Wino account is required for semantic search.");
-            var searchRequest = new IntelligenceSemanticSearchRequest(
-                $"{prepared.Subject}\n{prepared.Body}",
-                [new IntelligenceMailboxSearchScopeDto(snapshot.MailboxId.Value)],
-                10,
-                null,
-                TimeZoneInfo.Local.Id,
-                _translationService.CurrentLanguageModel?.Code ?? "en-US",
-                false);
-            var plaintext = JsonSerializer.SerializeToUtf8Bytes(
-                searchRequest,
-                WinoAccountApiJsonContext.Default.IntelligenceSemanticSearchRequest);
-            byte[] encodedEnvelope;
-            try
-            {
-                var encrypted = _envelopeEncryptor.Encrypt(
-                    plaintext,
-                    new ContentEnvelopeContext(winoAccount.Id, Guid.Empty, "/api/v1/ai/intelligence/search"),
-                    requestId,
-                    DateTimeOffset.UtcNow);
-                try { encodedEnvelope = ContentEnvelopeBinaryCodec.Encode(encrypted); }
-                finally
-                {
-                    CryptographicOperations.ZeroMemory(encrypted.WrappedKey);
-                    CryptographicOperations.ZeroMemory(encrypted.Nonce);
-                    CryptographicOperations.ZeroMemory(encrypted.Tag);
-                    CryptographicOperations.ZeroMemory(encrypted.Ciphertext);
-                }
-            }
-            finally { CryptographicOperations.ZeroMemory(plaintext); }
-            IntelligenceSemanticSearchResultDto search;
-            try { search = await _intelligenceBackend.SearchAsync(encodedEnvelope, token).ConfigureAwait(false); }
-            finally { CryptographicOperations.ZeroMemory(encodedEnvelope); }
             var candidates = await _messageResolver.GetCandidatesAsync(context.LocalAccountId, null, token).ConfigureAwait(false);
             var byRemoteId = candidates.GroupBy(x => x.RemoteMessageId, StringComparer.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
             var currentRemoteId = candidates.FirstOrDefault(candidate => candidate.UniqueId == context.MailUniqueId)?.RemoteMessageId;
-            return (IReadOnlyList<WinoSimilarMailItem>)search.Items
-                .Where(x => x.MailboxId == snapshot.MailboxId.Value &&
-                            !string.Equals(x.RemoteMessageId, currentRemoteId, StringComparison.Ordinal) &&
-                            byRemoteId.ContainsKey(x.RemoteMessageId))
+            if (string.IsNullOrWhiteSpace(currentRemoteId))
+                return Array.Empty<WinoSimilarMailItem>();
+            var matches = await _localSearch.FindSimilarAsync(
+                context.LocalAccountId, currentRemoteId, 10, false, null, token).ConfigureAwait(false);
+            return (IReadOnlyList<WinoSimilarMailItem>)matches
+                .Where(x => byRemoteId.ContainsKey(x.RemoteMessageId))
                 .Select(x =>
                 {
                     var candidate = byRemoteId[x.RemoteMessageId];
@@ -516,6 +493,44 @@ public sealed class WinoIntelligenceCoordinator : IWinoIntelligenceCoordinator, 
 
     private static string CreateSummaryCacheKey(MailContentProjection projection, string language)
         => $"{projection.Version}-{projection.ContentHash}-{language}";
+
+    private static IReadOnlyList<MailContentSegment> CreateSummarySegments(IReadOnlyList<MailContentSegment> segments)
+    {
+        const int maximumSegmentLength = 10_000;
+        const int maximumTotalLength = 120_000;
+        var output = new List<MailContentSegment>();
+        var remaining = maximumTotalLength;
+        foreach (var segment in segments)
+        {
+            var text = ProtectedProjectionMarker().Replace(segment.Text, string.Empty).Trim();
+            while (text.Length > 0 && remaining > 0 && output.Count < 500)
+            {
+                var length = Math.Min(Math.Min(text.Length, maximumSegmentLength), remaining);
+                if (length < text.Length)
+                {
+                    var split = text.LastIndexOfAny(['\r', '\n', ' '], length - 1, length);
+                    if (split >= length / 2)
+                        length = split + 1;
+                }
+                var chunk = text[..length].Trim();
+                text = text[length..].TrimStart();
+                if (chunk.Length == 0)
+                    continue;
+                output.Add(new MailContentSegment(
+                    $"s{output.Count + 1:000000}",
+                    MailContentSection.CurrentMessage,
+                    segment.Kind,
+                    chunk));
+                remaining -= chunk.Length;
+            }
+            if (remaining == 0 || output.Count == 500)
+                break;
+        }
+        return output;
+    }
+
+    [GeneratedRegex(@"⟦/?[ip]\d+⟧", RegexOptions.CultureInvariant)]
+    private static partial Regex ProtectedProjectionMarker();
 
     private static string CreateTranslationCacheKey(MailContentProjection projection, string? sourceLanguage, string targetLanguage)
         => $"{projection.Version}-{projection.ContentHash}-{sourceLanguage ?? "detect"}-{targetLanguage}-gpt5mini-v1";

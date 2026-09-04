@@ -42,6 +42,7 @@ namespace Wino.Views.Mail;
 
 public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IPopoutClient,
+    IReentryTarget,
     IRecipient<ApplicationThemeChanged>,
     IRecipient<SemanticIndexJobChanged>,
     IRecipient<WinoIntelligenceAccessChanged>,
@@ -52,7 +53,10 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private readonly IMailDialogService _dialogService = App.Current.Services.GetService<IMailDialogService>()!;
     private readonly IMailContentProjector _contentProjector = App.Current.Services.GetRequiredService<IMailContentProjector>();
 
-    private bool isRenderingInProgress = false;
+    // Selections can overlap: one message's render may still be awaiting its intelligence context
+    // when the next arrives. Only the newest render is allowed to touch reader state.
+    private int _renderVersion;
+    private int _activeRenderCount;
     private string _currentRenderedHtml = string.Empty;
     private bool _isReaderViewEnabled;
     private bool _isPoppedOut;
@@ -130,7 +134,10 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private async Task RenderInternalAsync(string htmlBody)
     {
-        isRenderingInProgress = true;
+        var renderVersion = Interlocked.Increment(ref _renderVersion);
+
+        Interlocked.Increment(ref _activeRenderCount);
+
         _currentRenderedHtml = htmlBody ?? string.Empty;
         _translationProjection = _contentProjector.Project(_currentRenderedHtml, MailContentProjectionProfile.Translation);
         _inferenceProjection = _contentProjector.Project(_currentRenderedHtml, MailContentProjectionProfile.Inference).Projection;
@@ -140,20 +147,26 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         try
         {
             await UpdateEditorThemeAsync();
+            if (IsStaleRender(renderVersion)) return;
+
             await UpdateReaderFontPropertiesAsync();
+            if (IsStaleRender(renderVersion)) return;
 
             // The header becomes visible before cloud/local metadata finishes loading.
             var intelligenceLoadingTask = LoadIntelligenceContextAsync();
             await RenderActiveContentAsync();
+            if (IsStaleRender(renderVersion)) return;
 
             await UpdateAccessibleMailContextAsync();
             await intelligenceLoadingTask;
         }
         finally
         {
-            isRenderingInProgress = false;
+            Interlocked.Decrement(ref _activeRenderCount);
         }
     }
+
+    private bool IsStaleRender(int renderVersion) => renderVersion != Volatile.Read(ref _renderVersion);
 
     private async Task RenderActiveContentAsync()
     {
@@ -219,15 +232,20 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     public async Task ClearRenderedContentAsync()
     {
-        if (!isRenderingInProgress)
+        if (Volatile.Read(ref _activeRenderCount) == 0)
         {
-            _currentRenderedHtml = string.Empty;
-            _translationProjection = null;
-            _inferenceProjection = null;
-            _translationMap = null;
-            _isShowingTranslation = false;
+            ResetReaderContentState();
             await MailRenderer.ClearAsync();
         }
+    }
+
+    private void ResetReaderContentState()
+    {
+        _currentRenderedHtml = string.Empty;
+        _translationProjection = null;
+        _inferenceProjection = null;
+        _translationMap = null;
+        _isShowingTranslation = false;
     }
 
     public async Task PrepareForIdleAsync()
@@ -259,12 +277,63 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         MailRenderer.Dispose();
     }
 
-    public Task RefreshMailItemAsync(MailItemViewModel mailItemViewModel)
+    bool IReentryTarget.CanReenter(object parameter)
     {
-        ClearIntelligenceContext();
-        _currentMailItem = mailItemViewModel;
-        return ViewModel.RefreshMailItemAsync(mailItemViewModel);
+        // A popped-out reader owns its own window and must never absorb the shell's selection.
+        if (_isPoppedOut) return false;
+
+        // Standalone EML viewing arrives as MimeMessageInformation and takes the navigation path.
+        if (parameter is not MailItemViewModel candidate) return false;
+
+        // Drafts belong to the composer, which the mail list routes to directly.
+        if (candidate.IsDraft) return false;
+
+        return candidate.MailCopy?.AssignedAccount is not null;
     }
+
+    Task IReentryTarget.ReenterAsync(object parameter) => RefreshMailItemAsync(parameter as MailItemViewModel);
+
+    /// <summary>
+    /// Shows another message without rebuilding the page, keeping its WebView2 alive.
+    /// </summary>
+    /// <remarks>
+    /// The navigation service drops the returned task, so nothing may escape here: an unobserved
+    /// failure would leave the reader on its loading skeleton for good.
+    /// </remarks>
+    public async Task RefreshMailItemAsync(MailItemViewModel mailItemViewModel)
+    {
+        try
+        {
+            if (mailItemViewModel is null || IsAlreadyShowing(mailItemViewModel)) return;
+
+            // Loading state first: everything after this point belongs to the new message, and no
+            // part of the previous one may be read as if it belonged to it.
+            ViewModel.BeginMailContentLoad();
+
+            // Abandons a render that is still in flight for the previous message.
+            Interlocked.Increment(ref _renderVersion);
+
+            ClearIntelligenceContext();
+            ResetReaderContentState();
+
+            _currentMailItem = mailItemViewModel;
+            ShowIntelligenceHeaderImmediately(_currentMailItem);
+
+            // Deliberately no MailRenderer.ClearAsync(). The previous body stays loaded behind the
+            // opaque loading overlay instead of blanking the pane, which is what removes the flash.
+            await ViewModel.LoadContentAsync(mailItemViewModel);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Reading pane re-entry failed.");
+        }
+    }
+
+    // Compared by identifier rather than by reference: a synchronization can hand back a rebuilt
+    // view model for the same message.
+    private bool IsAlreadyShowing(MailItemViewModel candidate)
+        => _currentMailItem?.MailCopy.UniqueId == candidate.MailCopy.UniqueId
+           && ViewModel.IsMailContentReady;
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
@@ -282,6 +351,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         var anim = ConnectedAnimationService.GetForCurrentView().GetAnimation("WebViewConnectedAnimation");
         anim?.TryStart(GetWebView());
 
+        ApplyRenderingDesignShift();
+    }
+
+    private void ApplyRenderingDesignShift()
+    {
         // We don't have shell initialized here. It's only standalone EML viewing.
         // Shift command bar from top to adjust the design.
 
@@ -572,19 +646,20 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private void ApplyPassiveIntelligenceMetadata(MailIntelligenceMetadata metadata)
     {
-        var visibleTiles = _currentMailItem?.IntelligenceTiles ?? [];
-        var hasDeadline = visibleTiles.Any(static tile => tile.Kind == WinoIntelligenceTileKind.Deadline);
-        var hasNeedsReply = visibleTiles.Any(static tile => tile.Kind == WinoIntelligenceTileKind.NeedsReply);
-        var hasBriefingFact = visibleTiles.Any(static tile => tile.Kind == WinoIntelligenceTileKind.BriefingFact);
+        var excludedIndicators = _currentMailItem?.MailCopy?.AssignedAccount?.Preferences?
+            .ExcludedIntelligenceIndicatorIds;
+        var showDeadline = IntelligenceVisibilityPolicy.IsVisible(excludedIndicators, IntelligenceFactKind.Deadline);
+        var showNeedsReply = IntelligenceVisibilityPolicy.IsVisible(excludedIndicators, IntelligenceFactKind.NeedsReply);
+        var showBriefing = IntelligenceVisibilityPolicy.IsVisible(excludedIndicators, IntelligenceFactKind.Briefing);
 
-        IntelligenceHeader.NeedsReply = hasNeedsReply && metadata.NeedsReply?.Value == true;
+        IntelligenceHeader.NeedsReply = showNeedsReply && metadata.NeedsReply?.Value == true;
         IntelligenceHeader.NeedsReplyDetailText = Translator.WinoIntelligence_NeedsReplyDetail;
-        IntelligenceHeader.BriefingFactText = hasBriefingFact ? metadata.Headline : string.Empty;
-        IntelligenceHeader.DeadlineText = hasDeadline && metadata.Deadline?.HasDeadline == true
+        IntelligenceHeader.BriefingFactText = showBriefing ? metadata.Headline : string.Empty;
+        IntelligenceHeader.DeadlineText = showDeadline && metadata.Deadline?.HasDeadline == true
             ? MailIntelligenceTileFactory.FormatDeadline(metadata.Deadline, CultureInfo.CurrentCulture)
             : string.Empty;
         IntelligenceHeader.DeadlineDetailText = string.Empty;
-        IntelligenceHeader.IsAddToCalendarAvailable = hasDeadline && metadata.Deadline?.HasDeadline == true;
+        IntelligenceHeader.IsAddToCalendarAvailable = showDeadline && metadata.Deadline?.HasDeadline == true;
         IntelligenceHeader.VerificationCode = metadata.VerificationCode ?? string.Empty;
     }
 

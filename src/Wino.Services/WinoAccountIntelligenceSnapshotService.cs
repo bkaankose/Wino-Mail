@@ -52,8 +52,10 @@ public sealed class WinoAccountIntelligenceSnapshotService(
         var usage = existing.Usage;
         var mailboxes = existing.Mailboxes;
         var statuses = existing.MailboxStatuses;
+        var heads = existing.MailboxHeads;
         DateTimeOffset? billingAt = existing.BillingUpdatedAtUtc, consentAt = existing.ConsentUpdatedAtUtc,
-            usageAt = existing.UsageUpdatedAtUtc, mailboxesAt = existing.MailboxesUpdatedAtUtc, statusesAt = existing.StatusesUpdatedAtUtc;
+            usageAt = existing.UsageUpdatedAtUtc, mailboxesAt = existing.MailboxesUpdatedAtUtc,
+            headsAt = existing.HeadsUpdatedAtUtc;
 
         var billingTask = billingService.GetStatusAsync();
         var consentTask = apiClient.GetIntelligenceConsentAsync();
@@ -82,22 +84,30 @@ public sealed class WinoAccountIntelligenceSnapshotService(
             changed = true;
             var responses = await Task.WhenAll(mailboxes.Select(async mailbox =>
             {
-                try { return (mailbox.MailboxId, Status: await apiClient.GetIntelligenceStatusAsync(mailbox.MailboxId).ConfigureAwait(false), Error: (string?)null); }
-                catch (Exception ex) { return (mailbox.MailboxId, Status: (IntelligenceMailboxStatusDto?)null, Error: ex.Message); }
+                try { return (mailbox.MailboxId, Head: await apiClient.GetIntelligenceHeadAsync(mailbox.MailboxId).ConfigureAwait(false), Error: (string?)null); }
+                catch (Exception ex) { return (mailbox.MailboxId, Head: (MailboxIntelligenceHeadDto?)null, Error: ex.Message); }
             })).ConfigureAwait(false);
-            var nextStatuses = new Dictionary<Guid, IntelligenceMailboxStatusDto>(statuses);
+            var mailboxIds = mailboxes.Select(static mailbox => mailbox.MailboxId).ToHashSet();
+            var nextHeads = heads
+                .Where(pair => mailboxIds.Contains(pair.Key))
+                .ToDictionary();
             foreach (var response in responses)
             {
-                if (response.Status is not null) { nextStatuses[response.MailboxId] = response.Status; changed = true; }
+                if (response.Head is not null) { nextHeads[response.MailboxId] = response.Head; changed = true; }
                 else if (!string.IsNullOrWhiteSpace(response.Error)) errors.Add(response.Error);
             }
-            statuses = nextStatuses;
-            if (responses.Any(x => x.Status is not null)) statusesAt = now;
+            heads = nextHeads;
+            if (responses.Any(x => x.Head is not null)) headsAt = now;
         }
         catch (Exception ex) { errors.Add(ex.Message); }
 
         var snapshot = new WinoAccountIntelligenceSnapshot(accountId, billing, consent, usage, mailboxes, statuses,
-            billingAt, consentAt, usageAt, mailboxesAt, statusesAt, changed ? now : existing.LastSuccessfulRefreshUtc);
+            billingAt, consentAt, usageAt, mailboxesAt, existing.StatusesUpdatedAtUtc,
+            changed ? now : existing.LastSuccessfulRefreshUtc)
+        {
+            MailboxHeads = heads,
+            HeadsUpdatedAtUtc = headsAt,
+        };
         if (changed)
         {
             await localStore.SaveAccountIntelligenceSnapshotAsync(snapshot).ConfigureAwait(false);

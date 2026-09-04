@@ -219,7 +219,7 @@ public partial class CalendarAppShellViewModel
     {
         if (!_calendarAccountMenuItems.TryGetValue(group.Account.Id, out var menuItem))
         {
-            menuItem = new CalendarAccountMenuItem(group);
+            menuItem = new CalendarAccountMenuItem(group, SynchronizeAccountAsync);
             _calendarAccountMenuItems.Add(group.Account.Id, menuItem);
         }
         else

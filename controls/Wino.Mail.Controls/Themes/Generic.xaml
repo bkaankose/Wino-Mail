@@ -5,8 +5,10 @@
     xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout"
     xmlns:intelligence="using:Wino.Mail.Controls.IntelligenceHeader"
     xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
+    xmlns:intelligenceTiles="using:Wino.Mail.Controls.IntelligenceTileBar"
     xmlns:local="using:Wino.Mail.Controls.SearchBar"
     xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives"
+    xmlns:shimmer="using:Wino.Mail.Controls.Shimmer"
     xmlns:syncButton="using:Wino.Mail.Controls.SynchronizationButton"
     xmlns:winoPrimitives="using:Wino.Mail.Controls.Primitives">
 
@@ -29,6 +31,9 @@
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillBackgroundBrush" ResourceKey="SystemFillColorAttentionBackgroundBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillForegroundBrush" ResourceKey="SystemFillColorAttentionBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="TextFillColorSecondaryBrush" />
+            <!--  The skeleton is a resting surface, so the sweep only has to read a shade brighter than the block it crosses.  -->
+            <SolidColorBrush x:Key="WinoShimmerBaseBrush" Color="#14000000" />
+            <SolidColorBrush x:Key="WinoShimmerHighlightBrush" Color="#59FFFFFF" />
             <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
             <!--  The active pill is the system accent at low alpha so a user's Windows accent carries through.  -->
@@ -77,6 +82,8 @@
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillBackgroundBrush" ResourceKey="SystemFillColorAttentionBackgroundBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillForegroundBrush" ResourceKey="SystemFillColorAttentionBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="TextFillColorSecondaryBrush" />
+            <SolidColorBrush x:Key="WinoShimmerBaseBrush" Color="#16FFFFFF" />
+            <SolidColorBrush x:Key="WinoShimmerHighlightBrush" Color="#1FFFFFFF" />
             <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
             <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
             <!--  The active pill is the system accent at low alpha so a user's Windows accent carries through.  -->
@@ -114,6 +121,8 @@
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillBackgroundBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderNeedsReplyPillForegroundBrush" ResourceKey="SystemColorButtonTextColorBrush" />
             <StaticResource x:Key="WinoIntelligenceHeaderSecondaryTextBrush" ResourceKey="SystemColorGrayTextColorBrush" />
+            <StaticResource x:Key="WinoShimmerBaseBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
+            <SolidColorBrush x:Key="WinoShimmerHighlightBrush" Color="Transparent" />
             <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SystemColorButtonFaceColorBrush" />
             <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="SystemColorButtonTextColorBrush" />
             <StaticResource x:Key="WinoSynchronizationButtonActiveBackgroundBrush" ResourceKey="SystemColorHighlightColorBrush" />
@@ -911,6 +920,17 @@
                         BorderBrush="{ThemeResource WinoIntelligenceHeaderBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="8">
+                        <Grid.Resources>
+                            <!--
+                                Hosts may define an app-wide implicit StackPanel style carrying an
+                                EntranceThemeTransition. Implicit-style lookup walks up to
+                                Application.Resources, so it would otherwise slide every panel of this
+                                header in from the top each time the header is shown or expanded.
+                            -->
+                            <Style TargetType="StackPanel">
+                                <Setter Property="ChildrenTransitions" Value="{x:Null}" />
+                            </Style>
+                        </Grid.Resources>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -1037,6 +1057,7 @@
                             BorderThickness="0,1,0,0"
                             Visibility="Collapsed">
                             <StackPanel Spacing="10">
+                                <intelligenceTiles:WinoMailIntelligenceTileBar AutomationProperties.AutomationId="WinoIntelligenceHeaderTileBar" Items="{TemplateBinding IntelligenceTiles}" />
                                 <StackPanel x:Name="PART_FactsPanel" Spacing="6">
                                     <Border
                                         x:Name="PART_DeadlineFactCard"
@@ -1961,6 +1982,28 @@
                             </Grid>
                         </Grid>
                     </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="shimmer:WinoShimmer">
+        <Setter Property="Background" Value="{ThemeResource WinoShimmerBaseBrush}" />
+        <Setter Property="HighlightBrush" Value="{ThemeResource WinoShimmerHighlightBrush}" />
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="MinHeight" Value="8" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="IsHitTestVisible" Value="False" />
+        <!--  A placeholder carries no information, so it stays out of the accessibility tree entirely.  -->
+        <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="shimmer:WinoShimmer">
+                    <Border
+                        x:Name="PART_ShimmerRoot"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="{TemplateBinding CornerRadius}" />
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

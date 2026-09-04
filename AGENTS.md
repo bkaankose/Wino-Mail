@@ -172,7 +172,9 @@ Mail requests flow through `WinoRequestDelegator`, `WinoRequestProcessor`, provi
 
 Register core services in `CoreContainerSetup`, shared services in `ServicesContainerSetup`, and ViewModels in `App.xaml.cs`.
 
-Published cross-repository dependencies must use unconditional `PackageReference` items. A sibling checkout must never change the dependency graph. Publish a new NuGet version and update the centrally managed package version to consume cross-repository changes.
+Published cross-repository dependencies must use unconditional `PackageReference` items. A sibling checkout must never change the dependency graph.
+
+If a change requires a new package, run the security audit and publish the new NuGet version during the task. Then update the centrally managed package version in every consumer. Do not substitute a local NuGet feed or sibling-project reference.
 
 ## Core implementation rules
 

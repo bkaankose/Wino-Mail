@@ -831,44 +831,39 @@ public class MailService : BaseDatabaseService, IMailService
             if (mailsByRemoteId.Count == 0)
                 continue;
 
-            var artifactsByRemoteId = await _localIntelligenceStore.GetCurrentArtifactsAsync(
+            var documentsByRemoteId = await _localIntelligenceStore.GetCurrentDocumentsAsync(
                 accountGroup.Key,
                 mailsByRemoteId.Keys.ToArray(),
                 cancellationToken).ConfigureAwait(false);
-            var briefingIds = artifactsByRemoteId.Values.SelectMany(static x => x)
-                .Where(static x => x.BriefingFact is not null)
-                .Select(static x => x.BriefingFact!.BriefingId).Distinct().ToArray();
-            var headlines = await _localIntelligenceStore.GetBriefingHeadlinesAsync(accountGroup.Key, briefingIds, cancellationToken).ConfigureAwait(false);
 
             foreach (var (remoteId, matchingMails) in mailsByRemoteId)
             {
-                var metadata = artifactsByRemoteId.TryGetValue(remoteId, out var artifacts)
-                    ? CreateIntelligenceMetadata(remoteId, artifacts, headlines)
-                    : null;
+                documentsByRemoteId.TryGetValue(remoteId, out var document);
+                var metadata = CreateIntelligenceMetadata(remoteId, document);
                 foreach (var mail in matchingMails)
                     mail.IntelligenceMetadata = metadata;
             }
         }
     }
 
-    private static MailIntelligenceMetadata CreateIntelligenceMetadata(
+    internal static MailIntelligenceMetadata CreateIntelligenceMetadata(
         string remoteMessageId,
-        IReadOnlyList<IntelligenceArtifactDto> artifacts,
-        IReadOnlyDictionary<Guid, string> headlines)
+        MessageIntelligenceDownloadDto document)
     {
-        var current = artifacts.Where(static artifact => !artifact.IsDeleted).ToArray();
-        var smartLabels = current.FirstOrDefault(static artifact => artifact.Capability == IntelligenceCapability.SmartLabels)
-            ?.SmartLabels?.Labels
-            ?.DistinctBy(static label => label.Label)
+        var documentLabels = document?.Analysis.SmartLabels
+            .Where(static label => label.Label != SmartLabelV1.Unknown)
+            .Select(static label => Enum.TryParse<MailSmartLabel>(label.Label.ToString(), out var mapped)
+                ? new SmartLabelScore(mapped, label.Confidence)
+                : null)
+            .OfType<SmartLabelScore>()
             .ToArray() ?? [];
-        var briefingFact = (current.FirstOrDefault(static artifact => artifact.Capability == IntelligenceCapability.BriefingFact)
-            ?? artifacts.FirstOrDefault(static artifact => artifact.IsDeleted && artifact.Capability == IntelligenceCapability.BriefingFact))?.BriefingFact;
-        var headline = briefingFact is not null && headlines.TryGetValue(briefingFact.BriefingId, out var value) ? value : string.Empty;
+        var smartLabels = documentLabels.DistinctBy(static label => label.Label).ToArray();
         var metadata = new MailIntelligenceMetadata(
             remoteMessageId,
             smartLabels,
-            briefingFact,
-            headline);
+            null,
+            document?.Analysis.Headline ?? string.Empty,
+            document?.Analysis.Summary ?? string.Empty);
         return metadata.HasVisibleMetadata ? metadata : null;
     }
 

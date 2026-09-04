@@ -26,7 +26,6 @@
 		<PackageReference Include="System.Security.Cryptography.ProtectedData" />
 		<PackageReference Include="Wino.Mail.Contracts" />
 		<PackageReference Include="Wino.Mail.AI.Abstractions" />
-		<PackageReference Include="Wino.Mail.AI.SqliteVec" />
 		<PackageReference Include="Wino.Mail.AI.ContentProcessing" />
 	</ItemGroup>
 	<ItemGroup>

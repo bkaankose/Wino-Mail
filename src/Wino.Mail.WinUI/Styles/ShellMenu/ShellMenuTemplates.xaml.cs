@@ -177,7 +177,7 @@ public sealed partial class ShellMenuTemplates
 
     private void ManageAccountSettingsMenuItemClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { DataContext: AccountMenuItem accountMenuItem })
+        if (sender is not FrameworkElement { DataContext: IAccountNavigationMenuItem accountMenuItem })
             return;
 
         NavigationService.ChangeApplicationMode(
@@ -186,9 +186,15 @@ public sealed partial class ShellMenuTemplates
             {
                 Parameter = new SettingsPageActivationContext(
                     WinoPage.ManageAccountsPage,
-                    new AccountDetailsNavigationContext(accountMenuItem.AccountId, AccountDetailsTab.General)),
+                    new AccountDetailsNavigationContext(accountMenuItem.Account.Id, accountMenuItem.AccountDetailsTab)),
                 SuppressStartupFlows = true
             });
+    }
+
+    private async void SynchronizeAccountMenuItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: IAccountNavigationMenuItem accountMenuItem })
+            await accountMenuItem.SynchronizeAccountAsync();
     }
 
     private async void CreateFolderMenuItemClicked(object sender, RoutedEventArgs e)

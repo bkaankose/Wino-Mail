@@ -5,7 +5,6 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Tests.Helpers;
-using Wino.Mail.AI.Abstractions;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Services;
 using Xunit;
@@ -15,7 +14,7 @@ namespace Wino.Core.Tests.Services;
 public sealed class LocalIntelligenceServiceTests
 {
     [Fact]
-    public async Task GetBriefingFactsAsync_UsesBoundParametersForMailWindow()
+    public async Task GetBriefingFactsAsync_UsesV1DocumentsAndBoundMailWindow()
     {
         await using var database = new InMemoryDatabaseService();
         await database.InitializeAsync();
@@ -33,11 +32,7 @@ public sealed class LocalIntelligenceServiceTests
             IsMailAccessGranted = true,
         };
 
-        await database.Connection.InsertAsync(new WinoAccount
-        {
-            Id = winoAccountId,
-            AccessToken = "local-test-token",
-        });
+        await database.Connection.InsertAsync(new WinoAccount { Id = winoAccountId, AccessToken = "local-test-token" });
         await database.Connection.InsertAsync(new MailItemFolder
         {
             Id = folderId,
@@ -62,59 +57,20 @@ public sealed class LocalIntelligenceServiceTests
                 accountId, winoAccountId, true, true, mailboxId, DateTimeOffset.UtcNow));
         var expectedRemoteMessageId = RemoteMessageIdentity.TryCreate(
             MailProviderType.Outlook, "message-1", null, 0, 0)!;
-        var briefingId = Guid.NewGuid();
-        var artifact = new IntelligenceArtifactDto
-        {
-            RemoteMessageId = expectedRemoteMessageId,
-            ContentHash = "hash",
-            Capability = IntelligenceCapability.BriefingFact,
-            GenerationVersion = 1,
-            PayloadSchemaVersion = 2,
-            ArtifactRevision = 1,
-            GeneratedAtUtc = DateTimeOffset.UtcNow,
-            BriefingFact = new ConversationFactPayload
-            {
-                BriefingId = briefingId,
-                OccurredAtUtc = DateTimeOffset.UtcNow.AddDays(-1),
-                Kind = MessageKind.Conversation,
-                Status = BriefingStatus.Informational,
-                Urgency = MailPriority.Normal,
-                PrimaryAction = new NoActionPayload { Confidence = 1 },
-                TemporalReferences =
-                [
-                    new DeadlineTemporalPayload
-                    {
-                        Due = new TemporalPointPayload(
-                            DateOnly.FromDateTime(DateTime.UtcNow).AddDays(6),
-                            null,
-                            null,
-                            string.Empty,
-                            null,
-                            TemporalPrecision.Date),
-                        Confidence = 1,
-                    },
-                ],
-                Confidence = 1,
-            },
-        };
-        var currentArtifact = artifact;
+        var currentDocument = CreateDocument(expectedRemoteMessageId, 1);
         IReadOnlyCollection<string>? requestedMessageIds = null;
-        store.Setup(x => x.GetCurrentArtifactsAsync(
+        store.Setup(x => x.GetCurrentDocumentsAsync(
                 accountId, It.IsAny<IReadOnlyCollection<string>>(), It.IsAny<CancellationToken>()))
             .Callback<Guid, IReadOnlyCollection<string>, CancellationToken>((_, ids, _) => requestedMessageIds = ids)
-            .ReturnsAsync(() => new Dictionary<string, IReadOnlyList<IntelligenceArtifactDto>>
+            .ReturnsAsync(() => new Dictionary<string, MessageIntelligenceDownloadDto>
             {
-                [expectedRemoteMessageId] = [currentArtifact],
+                [expectedRemoteMessageId] = currentDocument,
             });
-        store.Setup(x => x.GetBriefingHeadlinesAsync(
-                accountId, It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<Guid, string> { [briefingId] = "Upcoming test item" });
 
         var accountService = new Mock<IAccountService>();
         accountService.Setup(x => x.GetAccountsAsync()).ReturnsAsync([account]);
 
         using var service = new LocalIntelligenceService(database, store.Object, accountService.Object);
-
         var facts = await service.GetBriefingFactsAsync(
             DateOnly.FromDateTime(DateTime.UtcNow), TimeZoneInfo.Utc);
 
@@ -122,11 +78,11 @@ public sealed class LocalIntelligenceServiceTests
         Assert.Equal(expectedRemoteMessageId, fact.RemoteMessageId);
         Assert.Equal("Upcoming test item", fact.Headline);
         Assert.Equal([expectedRemoteMessageId], requestedMessageIds);
+        var briefingId = fact.Fact.BriefingId;
 
-        var ignoredRevisions = new Dictionary<Guid, long>();
+        var ignoredRevisions = new Dictionary<Guid, long> { [briefingId] = 1 };
         store.Setup(x => x.GetDailyBriefingIgnoreRevisionsAsync(accountId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(ignoredRevisions);
-        ignoredRevisions[briefingId] = 1;
 
         var hidden = await service.GetBriefingFactsAsync(
             DateOnly.FromDateTime(DateTime.UtcNow), TimeZoneInfo.Utc);
@@ -135,23 +91,55 @@ public sealed class LocalIntelligenceServiceTests
 
         var included = await service.GetBriefingFactsAsync(
             DateOnly.FromDateTime(DateTime.UtcNow), TimeZoneInfo.Utc, includeIgnored: true);
-        var ignoredFact = Assert.Single(included.Facts);
-        Assert.True(ignoredFact.IsIgnored);
+        Assert.True(Assert.Single(included.Facts).IsIgnored);
 
-        currentArtifact = new IntelligenceArtifactDto
-        {
-            RemoteMessageId = artifact.RemoteMessageId,
-            ContentHash = artifact.ContentHash,
-            Capability = artifact.Capability,
-            GenerationVersion = artifact.GenerationVersion,
-            PayloadSchemaVersion = artifact.PayloadSchemaVersion,
-            ArtifactRevision = 2,
-            GeneratedAtUtc = artifact.GeneratedAtUtc,
-            BriefingFact = artifact.BriefingFact,
-        };
+        currentDocument = CreateDocument(expectedRemoteMessageId, 2);
         var revised = await service.GetBriefingFactsAsync(
             DateOnly.FromDateTime(DateTime.UtcNow), TimeZoneInfo.Utc);
-        var revisedFact = Assert.Single(revised.Facts);
-        Assert.False(revisedFact.IsIgnored);
+        Assert.False(Assert.Single(revised.Facts).IsIgnored);
     }
+
+    private static MessageIntelligenceDownloadDto CreateDocument(string serverMessageKey, long revision)
+        => new()
+        {
+            ServerMessageKey = serverMessageKey,
+            ContentHash = "hash",
+            Subject = "Test",
+            Sender = "sender@example.com",
+            ReceivedAtUtc = DateTimeOffset.UtcNow.AddDays(-1),
+            IsOutgoing = false,
+            IsRead = false,
+            IsFlagged = false,
+            HasAttachments = false,
+            FolderIds = ["inbox"],
+            SenderAddresses = ["sender@example.com"],
+            RecipientAddresses = ["test@example.com"],
+            Analysis = new MessageIntelligenceDocumentV1
+            {
+                SourceLanguage = "en",
+                Headline = "Upcoming test item",
+                Summary = "Summary",
+                Category = MessageCategoryV1.Conversation,
+                Intent = MessageIntentV1.Inform,
+                Urgency = MessageUrgencyV1.Normal,
+                Confidence = 1,
+                TemporalReferences =
+                [
+                    new TemporalReferenceV1(
+                        "due",
+                        TemporalReferenceTypeV1.Due,
+                        "in six days",
+                        DateTimeOffset.UtcNow.Date.AddDays(6),
+                        null,
+                        TemporalPrecisionV1.Day,
+                        "UTC",
+                        1),
+                ],
+            },
+            Embedding = Convert.ToBase64String(new byte[3_072]),
+            EmbeddingDimensions = 768,
+            EmbeddingEncoding = "float32-le",
+            ArtifactRevision = revision,
+            GeneratedAtUtc = DateTimeOffset.UtcNow,
+        };
 }

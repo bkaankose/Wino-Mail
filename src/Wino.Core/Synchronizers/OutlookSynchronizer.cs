@@ -3370,7 +3370,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         var message = await _graphClient.Me.Messages[providerMessageId]
             .GetAsync(request =>
             {
-                request.QueryParameters.Select = ["body", "from", "toRecipients", "ccRecipients"];
+                request.QueryParameters.Select = ["body", "from", "toRecipients", "ccRecipients", "attachments"];
+                request.QueryParameters.Expand = ["attachments($select=name,contentType)"];
                 request.Headers.Add("Prefer", "outlook.body-content-type=\"html\"");
             }, cancellationToken)
             .ConfigureAwait(false);
@@ -3385,7 +3386,10 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
                 ? [new MailAddress(address, from.Name)]
                 : [],
             message?.ToRecipients?.Select(x => x.EmailAddress?.Address).Where(x => !string.IsNullOrWhiteSpace(x)).Cast<string>().ToArray() ?? [],
-            message?.CcRecipients?.Select(x => x.EmailAddress?.Address).Where(x => !string.IsNullOrWhiteSpace(x)).Cast<string>().ToArray() ?? []);
+            message?.CcRecipients?.Select(x => x.EmailAddress?.Address).Where(x => !string.IsNullOrWhiteSpace(x)).Cast<string>().ToArray() ?? [],
+            message?.Attachments?.Select(static attachment => new SemanticMailAttachment(
+                attachment.Name ?? string.Empty,
+                attachment.ContentType ?? string.Empty)).ToArray() ?? []);
     }
 
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem,

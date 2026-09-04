@@ -9,6 +9,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Contacts;
+using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -37,6 +38,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     internal Action<ContactFilterViewModel> RenameRequested { get; set; }
 
     internal Action<ContactFilterViewModel> DeleteRequested { get; set; }
+    internal Func<Guid, Task> SynchronizeAccountRequested { get; set; }
 
     public ContactFilterKind Kind { get; }
     [ObservableProperty]
@@ -68,9 +70,16 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public double SynchronizationProgressValue => 0;
     public bool IsAttentionRequired => false;
     public bool SupportsMailAccountActions => false;
+    public AccountDetailsTab AccountDetailsTab => global::Wino.Core.Domain.Models.Navigation.AccountDetailsTab.People;
+    public bool SupportsAccountSynchronization => HasAccountIcon && Account.IsContactAccessGranted;
 
     /// <summary>An address book is the destination itself, not a parent of one.</summary>
     public bool SelectsOnInvoked => true;
+
+    public Task SynchronizeAccountAsync()
+        => SupportsAccountSynchronization && SynchronizeAccountRequested is not null
+            ? SynchronizeAccountRequested(Account.Id)
+            : Task.CompletedTask;
 
     #endregion
 

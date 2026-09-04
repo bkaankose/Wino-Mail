@@ -59,7 +59,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     /// </summary>
     private IReadOnlyCollection<MailItemFolder> _folders = [];
 
-    private IntelligenceMailboxStatusDto? _intelligenceStatus;
     public WinoIntelligenceManagementPageViewModel(
         IMailDialogService dialogService,
         IAccountService accountService,
@@ -557,6 +556,8 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             if (hasSnapshot)
             {
                 await RefreshLocalIndexStateAsync().ConfigureAwait(false);
+                var currentState = await _coordinator.GetStateAsync(account.Id).ConfigureAwait(false);
+                await ExecuteUIThread(() => ApplyState(currentState));
                 await ExecuteUIThread(() => IsPageReady = true);
                 if (IsSemanticIndexingEnabled)
                     await RecalculatePlanAsync().ConfigureAwait(false);
@@ -576,11 +577,9 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 });
                 return;
             }
-            var status = SemanticMailboxId is { } mailboxId
-                ? await _apiClient.GetIntelligenceStatusAsync(mailboxId).ConfigureAwait(false)
-                : null;
-            await ExecuteUIThread(() => ApplyStatus(status));
-            await RefreshHeadlineLanguageAsync(status).ConfigureAwait(false);
+            var state = await _coordinator.GetStateAsync(account.Id).ConfigureAwait(false);
+            await ExecuteUIThread(() => ApplyState(state));
+            await RefreshHeadlineLanguageAsync().ConfigureAwait(false);
         }
         catch (Exception exception)
         {
@@ -771,7 +770,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         {
             SemanticMailboxId = mailbox?.MailboxId;
             HasAccountConsent = currentConsent;
-            if (mailbox is not null) ApplyStatus(snapshot.MailboxStatuses.GetValueOrDefault(mailbox.MailboxId));
             IsQuotaAvailable = snapshot.Usage is not null;
             QuotaUsagePercentage = snapshot.Usage is null ? 0 : (double)snapshot.Usage.UsagePercentage;
             QuotaSummary = snapshot.Usage is null
@@ -807,7 +805,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 {
                     SemanticMailboxId = mailbox?.MailboxId;
                     HasAccountConsent = currentConsent;
-                    if (mailbox is not null) ApplyStatus(result.Snapshot.MailboxStatuses.GetValueOrDefault(mailbox.MailboxId));
                     IsQuotaAvailable = result.Snapshot.Usage is not null;
                     QuotaUsagePercentage = result.Snapshot.Usage is null ? 0 : (double)result.Snapshot.Usage.UsagePercentage;
                     QuotaSummary = result.Snapshot.Usage is null
@@ -880,14 +877,11 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             var result = await _coordinator.DownloadAvailableIntelligenceAsync(Account.Id).ConfigureAwait(false);
             _coveredRemoteMessageIds = result.CoveredRemoteMessageIds.ToHashSet(StringComparer.Ordinal);
             await LoadCoverageAsync(Account).ConfigureAwait(false);
-            var status = SemanticMailboxId is { } mailboxId
-                ? await _apiClient.GetIntelligenceStatusAsync(mailboxId).ConfigureAwait(false)
-                : null;
-            await SaveCachedMailboxStatusAsync(status).ConfigureAwait(false);
+            var state = await _coordinator.GetStateAsync(Account.Id).ConfigureAwait(false);
 
             await ExecuteUIThread(() =>
             {
-                ApplyStatus(status);
+                ApplyState(state);
                 if (showSuccess)
                 {
                     StatusMessage = string.Format(
@@ -898,7 +892,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             });
             await RefreshIndexedMessageCountAsync().ConfigureAwait(false);
             await RefreshLocalIndexStateAsync(updateCoverage: false).ConfigureAwait(false);
-            await RefreshHeadlineLanguageAsync(status).ConfigureAwait(false);
+            await RefreshHeadlineLanguageAsync().ConfigureAwait(false);
         }
         catch (Exception exception)
         {
@@ -999,7 +993,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             var deletedMailboxId = SemanticMailboxId;
             await _coordinator.DeleteIndexAsync(Account.Id).ConfigureAwait(false);
             if (deletedMailboxId is { } mailboxId)
-                await RemoveCachedMailboxStatusAsync(mailboxId).ConfigureAwait(false);
+                await RemoveCachedMailboxHeadAsync(mailboxId).ConfigureAwait(false);
             Account.Preferences.IsSemanticIndexingEnabled = false;
             await _accountService.UpdateAccountAsync(Account).ConfigureAwait(false);
             await ExecuteUIThread(() =>
@@ -1008,7 +1002,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 SemanticMailboxId = null;
                 HasIndexData = false;
                 HasLocalIndexData = false;
-                _intelligenceStatus = null;
                 _coveredRemoteMessageIds.Clear();
                 IndexedMessageCount = 0;
                 CoverageDescription = Translator.SemanticIndex_NoIndexedMessages;
@@ -1204,7 +1197,10 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         try
         {
             await SetBusyAsync(true, Translator.SemanticIndex_UpgradeInProgress);
-            await _apiClient.RebuildIntelligenceEmbeddingsAsync(SemanticMailboxId.Value).ConfigureAwait(false);
+            var manifest = await _apiClient.GetWinoIntelligenceManifestAsync().ConfigureAwait(false);
+            await _apiClient.BeginIntelligenceReindexAsync(
+                SemanticMailboxId.Value,
+                new BeginIntelligenceReindexRequest(manifest.LatestIntelligenceVersion, Guid.NewGuid())).ConfigureAwait(false);
             await _coordinator.StartIndexingAsync(
                 Account.Id,
                 _selectedRemoteMessageIds.ToArray(),
@@ -1229,13 +1225,14 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         HasError = false;
         IsConsentActionVisible = false;
         IsSemanticIndexingEnabled = state.IsEnabled;
-        HasIndexData = state.IntelligenceState?.IndexedMessageCount > 0 || state.LastImportedVersion > 0;
-        IsUpgradeRecommended = state.IntelligenceState?.IndexState == IntelligenceIndexStates.UpgradeRecommended;
-        _recommendedProfileId = state.IntelligenceState?.RecommendedEmbeddingProfile.Id ?? string.Empty;
-        ApplyProfile(state.IntelligenceState?.IndexingProfile);
-        StartButtonText = state.IntelligenceState?.IndexingProfile?.BackfillStatus == "in-progress"
-            ? Translator.SemanticIndex_ContinueButton
-            : Translator.SemanticIndex_StartButton;
+        HasIndexData = state.LocalIndexedMessageCount > 0 || state.ServerHead?.IndexedMessageCount > 0;
+        IndexedMessageCount = checked((int)Math.Min(
+            Math.Max(state.LocalIndexedMessageCount, state.ServerHead?.IndexedMessageCount ?? 0),
+            int.MaxValue));
+        IsUpgradeRecommended = state.ServerHead is { IntelligenceVersion: not WinoIntelligenceVersions.V1 };
+        _recommendedProfileId = state.ServerHead?.IntelligenceVersion ?? string.Empty;
+        ApplyProfile(null);
+        StartButtonText = Translator.SemanticIndex_StartButton;
         CoverageDescription = CreateCoverageDescription(state);
         StatusMessage = state switch
         {
@@ -1247,28 +1244,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         ApplySnapshot(_coordinator.GetJobSnapshot(Account.Id));
     }
 
-    private void ApplyStatus(IntelligenceMailboxStatusDto? status)
-    {
-        _intelligenceStatus = status;
-        HasError = false;
-        IsConsentActionVisible = false;
-        HasIndexData = status is { StorageSizeBytes: > 0 };
-        IndexedMessageCount = status is null
-            ? 0
-            : checked((int)Math.Min(status.IndexedMessageCount, int.MaxValue));
-        RefreshIndexStateSummary();
-        IsUpgradeRecommended = status?.EmbeddingModelStatus is
-            EmbeddingModelStatuses.UpgradeAvailable or EmbeddingModelStatuses.ReindexRequired;
-        CoverageDescription = CreateCoverageDescription(status);
-        RecomputeCoverage();
-        StatusMessage = HasIndexData ? Translator.SemanticIndex_UpToDate : Translator.SemanticIndex_NotReady;
-        StatusType = HasIndexData ? InfoBarMessageType.Success : InfoBarMessageType.Information;
-        StartButtonText = Translator.SemanticIndex_StartButton;
-        ApplySnapshot(_coordinator.GetJobSnapshot(Account.Id));
-        RefreshHeroState();
-    }
-
-    private void ApplyProfile(IntelligenceIndexingProfileDto profile)
+    private void ApplyProfile(IntelligenceIndexingProfileDto? profile)
     {
         if (Account is null)
             return;
@@ -1335,11 +1311,8 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     {
         try
         {
-            var status = SemanticMailboxId is { } mailboxId
-                ? await _apiClient.GetIntelligenceStatusAsync(mailboxId).ConfigureAwait(false)
-                : null;
-            await SaveCachedMailboxStatusAsync(status).ConfigureAwait(false);
-            await ExecuteUIThread(() => ApplyStatus(status));
+            var state = await _coordinator.GetStateAsync(Account.Id).ConfigureAwait(false);
+            await ExecuteUIThread(() => ApplyState(state));
             await RefreshLocalIndexStateAsync().ConfigureAwait(false);
             await RefreshQuotaAsync().ConfigureAwait(false);
             if (!IsJobActive)
@@ -1356,10 +1329,10 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             return;
         try
         {
-            var status = await _apiClient.GetIntelligenceStatusAsync(mailboxId).ConfigureAwait(false);
-            await SaveCachedMailboxStatusAsync(status).ConfigureAwait(false);
-            await ExecuteUIThread(() => ApplyStatus(status));
-            await RefreshHeadlineLanguageAsync(status).ConfigureAwait(false);
+            _ = mailboxId;
+            var state = await _coordinator.GetStateAsync(Account.Id).ConfigureAwait(false);
+            await ExecuteUIThread(() => ApplyState(state));
+            await RefreshHeadlineLanguageAsync().ConfigureAwait(false);
         }
         catch
         {
@@ -1370,48 +1343,24 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     private string CreateCoverageDescription(SemanticIndexAccountState state)
     {
-        if (state.IntelligenceState is null || state.IntelligenceState.IndexedMessageCount == 0)
+        if (state.ServerHead is null || state.ServerHead.IndexedMessageCount == 0)
             return Translator.SemanticIndex_NoIndexedMessages;
-        var count = string.Format(Translator.SemanticIndex_IndexedCount, state.IntelligenceState.IndexedMessageCount);
-        var size = string.Format(Translator.SemanticIndex_StorageSize, FormatStorageSize(state.IntelligenceState.StorageSizeBytes));
-        if (state.IntelligenceState.OldestIndexedAtUtc is null || state.IntelligenceState.NewestIndexedAtUtc is null)
+        var count = string.Format(Translator.SemanticIndex_IndexedCount, state.ServerHead.IndexedMessageCount);
+        var size = string.Format(Translator.SemanticIndex_StorageSize, FormatStorageSize(state.ServerHead.StorageSizeBytes));
+        if (state.ServerHead.OldestAnalyzedMessageUtc is null || state.ServerHead.NewestAnalyzedMessageUtc is null)
             return $"{count}\n{size}";
         return string.Format(
             Translator.SemanticIndex_CoverageRangeWithSize,
             count,
-            state.IntelligenceState.OldestIndexedAtUtc.Value.LocalDateTime.ToString("d MMMM yyyy"),
-            state.IntelligenceState.NewestIndexedAtUtc.Value.LocalDateTime.ToString("d MMMM yyyy"),
+            state.ServerHead.OldestAnalyzedMessageUtc.Value.LocalDateTime.ToString("d MMMM yyyy"),
+            state.ServerHead.NewestAnalyzedMessageUtc.Value.LocalDateTime.ToString("d MMMM yyyy"),
             size);
     }
 
-    private string CreateCoverageDescription(IntelligenceMailboxStatusDto? status)
+    private async Task RefreshHeadlineLanguageAsync()
     {
-
-        if (status is null || status.StorageSizeBytes == 0)
-            return Translator.SemanticIndex_NoIndexedMessages;
-        var size = string.Format(Translator.SemanticIndex_StorageSize, FormatStorageSize(status.StorageSizeBytes));
-        if (status.OldestReceivedAtUtc is null || status.NewestReceivedAtUtc is null)
-            return size;
-
-        if (string.IsNullOrEmpty(status.HeadlineLanguage))
-        {
-            return $"{status.OldestReceivedAtUtc.Value.LocalDateTime:d MMMM yyyy} – " +
-               $"{status.NewestReceivedAtUtc.Value.LocalDateTime:d MMMM yyyy}\n{size}";
-        }
-        else
-        {
-            return $"{status.OldestReceivedAtUtc.Value.LocalDateTime:d MMMM yyyy} – " +
-          $"{status.NewestReceivedAtUtc.Value.LocalDateTime:d MMMM yyyy}\n{size}\n{status.HeadlineLanguage}";
-        }
-    }
-
-    private async Task RefreshHeadlineLanguageAsync(IntelligenceMailboxStatusDto? status)
-    {
-        if (Account is null || SemanticMailboxId is not { } mailboxId) return;
-        var serverLanguage = status?.HeadlineLanguage;
-        if (!string.IsNullOrWhiteSpace(serverLanguage))
-            await _localStore.SetHeadlineLanguageAsync(Account.Id, mailboxId, serverLanguage, CancellationToken.None).ConfigureAwait(false);
-        var language = serverLanguage ?? await _localStore.GetHeadlineLanguageAsync(Account.Id).ConfigureAwait(false) ?? string.Empty;
+        if (Account is null || SemanticMailboxId is null) return;
+        var language = await _localStore.GetHeadlineLanguageAsync(Account.Id).ConfigureAwait(false) ?? string.Empty;
         var current = _translationService.CurrentLanguageModel.Code;
         var suppressed = await _localStore.GetHeadlineLanguagePromptSuppressedAsync(Account.Id).ConfigureAwait(false);
         await ExecuteUIThread(() =>
@@ -1754,7 +1703,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         try
         {
             var state = await _coordinator.GetStateAsync(Account.Id).ConfigureAwait(false);
-            var serverVectorCount = state?.ServerIndex?.VectorCount ?? 0;
+            var serverVectorCount = state?.ServerHead?.IndexedMessageCount ?? 0;
             var indexedMessageCount = (int)Math.Max(
                 state?.LocalIndexedMessageCount ?? 0,
                 Math.Min(serverVectorCount, int.MaxValue));
@@ -1777,13 +1726,10 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
         try
         {
-            var artifacts = await _localStore.GetCurrentArtifactsAsync(
+            var documents = await _localStore.GetCurrentDocumentsAsync(
                 Account.Id,
                 _inventory.RemoteMessageIds).ConfigureAwait(false);
-            var coveredIds = artifacts
-                .Where(static pair => pair.Value.Any(static artifact => !artifact.IsDeleted))
-                .Select(static pair => pair.Key)
-                .ToHashSet(StringComparer.Ordinal);
+            var coveredIds = documents.Keys.ToHashSet(StringComparer.Ordinal);
 
             await ExecuteUIThread(() =>
             {
@@ -1799,40 +1745,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         }
     }
 
-    private async Task SaveCachedMailboxStatusAsync(IntelligenceMailboxStatusDto? status)
-    {
-        if (status is null || _profileService is null || _snapshotService is null)
-            return;
-
-        try
-        {
-            var winoAccount = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
-            if (winoAccount is null)
-                return;
-
-            var snapshot = await _snapshotService.GetCachedAsync(winoAccount.Id).ConfigureAwait(false);
-            if (snapshot is null)
-                return;
-
-            var statuses = new Dictionary<Guid, IntelligenceMailboxStatusDto>(snapshot.MailboxStatuses)
-            {
-                [status.MailboxId] = status,
-            };
-            var now = DateTimeOffset.UtcNow;
-            await _snapshotService.SaveAsync(snapshot with
-            {
-                MailboxStatuses = statuses,
-                StatusesUpdatedAtUtc = now,
-                LastSuccessfulRefreshUtc = now,
-            }).ConfigureAwait(false);
-        }
-        catch
-        {
-            // The live status is already applied. Cache persistence is best effort.
-        }
-    }
-
-    private async Task RemoveCachedMailboxStatusAsync(Guid mailboxId)
+    private async Task RemoveCachedMailboxHeadAsync(Guid mailboxId)
     {
         if (_profileService is null || _snapshotService is null)
             return;
@@ -1849,11 +1762,14 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
             var statuses = new Dictionary<Guid, IntelligenceMailboxStatusDto>(snapshot.MailboxStatuses);
             statuses.Remove(mailboxId);
+            var heads = new Dictionary<Guid, MailboxIntelligenceHeadDto>(snapshot.MailboxHeads);
+            heads.Remove(mailboxId);
             var now = DateTimeOffset.UtcNow;
             await _snapshotService.SaveAsync(snapshot with
             {
                 MailboxStatuses = statuses,
-                StatusesUpdatedAtUtc = now,
+                MailboxHeads = heads,
+                HeadsUpdatedAtUtc = now,
                 LastSuccessfulRefreshUtc = now,
             }).ConfigureAwait(false);
         }

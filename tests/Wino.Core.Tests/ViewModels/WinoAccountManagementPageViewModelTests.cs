@@ -125,10 +125,10 @@ public sealed class WinoAccountManagementPageViewModelTests
             new SemanticMailboxDto(localMailboxId, localAccount.Address, (int)localAccount.ProviderType, null),
             new SemanticMailboxDto(remoteMailboxId, "remote@example.com", (int)MailProviderType.Gmail, null)
         ]);
-        apiClient.Setup(x => x.GetIntelligenceStatusAsync(localMailboxId, It.IsAny<CancellationToken>())).ReturnsAsync(
-            CreateIntelligenceStatus(localMailboxId, 1024));
-        apiClient.Setup(x => x.GetIntelligenceStatusAsync(remoteMailboxId, It.IsAny<CancellationToken>())).ReturnsAsync(
-            CreateIntelligenceStatus(remoteMailboxId, 2048));
+        apiClient.Setup(x => x.GetIntelligenceHeadAsync(localMailboxId, It.IsAny<CancellationToken>())).ReturnsAsync(
+            CreateIntelligenceHead(localMailboxId, 1024));
+        apiClient.Setup(x => x.GetIntelligenceHeadAsync(remoteMailboxId, It.IsAny<CancellationToken>())).ReturnsAsync(
+            CreateIntelligenceHead(remoteMailboxId, 2048));
 
         var accountService = new Mock<IAccountService>();
         accountService.Setup(x => x.GetAccountsAsync()).ReturnsAsync([localAccount]);
@@ -153,8 +153,9 @@ public sealed class WinoAccountManagementPageViewModelTests
         viewModel.IntelligenceUsagePercentage.Should().Be(42.5);
         viewModel.IntelligenceMailboxes.Single(x => x.Address == localAccount.Address).CanManage.Should().BeTrue();
         viewModel.IntelligenceMailboxes.Single(x => x.Address == "remote@example.com").CanManage.Should().BeFalse();
-        apiClient.Verify(x => x.GetIntelligenceStatusAsync(localMailboxId, It.IsAny<CancellationToken>()), Times.Once);
-        apiClient.Verify(x => x.GetIntelligenceStatusAsync(remoteMailboxId, It.IsAny<CancellationToken>()), Times.Once);
+        apiClient.Verify(x => x.GetIntelligenceHeadAsync(localMailboxId, It.IsAny<CancellationToken>()), Times.Once);
+        apiClient.Verify(x => x.GetIntelligenceHeadAsync(remoteMailboxId, It.IsAny<CancellationToken>()), Times.Once);
+        apiClient.Verify(x => x.GetIntelligenceStatusAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
 
         var localItem = viewModel.IntelligenceMailboxes.Single(x => x.Address == localAccount.Address);
         await viewModel.ToggleIntelligenceMailboxCommand.ExecuteAsync(localItem);
@@ -165,17 +166,17 @@ public sealed class WinoAccountManagementPageViewModelTests
     }
 
     [Fact]
-    public async Task IntelligencePage_AcceptsOneAccountWideConsent()
+    public async Task IntelligencePage_RefreshesPolicyBeforeAcceptingOneAccountWideConsent()
     {
-        const string policyVersion = "intelligence-v1";
+        const string policyVersion = "2026-08-15";
         var apiClient = new Mock<IWinoAccountApiClient>();
-        var notAccepted = new IntelligenceConsentDto(ConsentStatuses.NotAccepted, policyVersion, null, null, null,
+        var notAccepted = new IntelligenceConsentDto(ConsentStatuses.NotAccepted, "stale-policy", null, null, null,
             "https://www.winomail.app/privacy", IntelligenceDeletionStatuses.NotRequired);
         var accepted = new IntelligenceConsentDto(ConsentStatuses.Active, policyVersion, policyVersion, DateTimeOffset.UtcNow, null,
             "https://www.winomail.app/privacy", IntelligenceDeletionStatuses.NotRequired);
-        apiClient.SetupSequence(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(notAccepted)
-            .ReturnsAsync(accepted);
+        var consentRequestCount = 0;
+        apiClient.Setup(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => consentRequestCount++ == 0 ? notAccepted : accepted);
         apiClient.Setup(x => x.AcceptIntelligenceConsentAsync(policyVersion, ConsentActionSources.ConsentPage, It.IsAny<CancellationToken>())).ReturnsAsync(
             accepted);
         var viewModel = CreateConsentViewModel(apiClient, Mock.Of<IAccountService>(), Mock.Of<ISemanticIndexCoordinator>());
@@ -187,6 +188,7 @@ public sealed class WinoAccountManagementPageViewModelTests
         viewModel.IsConsentGranted.Should().BeTrue();
         apiClient.Verify(x => x.AcceptIntelligenceConsentAsync(
             policyVersion, ConsentActionSources.ConsentPage, It.IsAny<CancellationToken>()), Times.Once);
+        apiClient.Verify(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>()), Times.AtLeast(2));
     }
 
     [Fact]
@@ -412,9 +414,22 @@ public sealed class WinoAccountManagementPageViewModelTests
             Mock.Of<IAiActionOptionsService>());
     }
 
-    private static IntelligenceMailboxStatusDto CreateIntelligenceStatus(Guid mailboxId, long size)
-        => new(mailboxId, DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow, size,
-            "openai-text-embedding-3-small-768-v2", EmbeddingModelStatuses.Current, "en-US");
+    private static MailboxIntelligenceHeadDto CreateIntelligenceHead(Guid mailboxId, long size)
+    {
+        var now = DateTimeOffset.UtcNow;
+
+        return new MailboxIntelligenceHeadDto(
+            mailboxId,
+            WinoIntelligenceVersions.V1,
+            Guid.NewGuid(),
+            1,
+            1,
+            size,
+            now.AddDays(-1),
+            now,
+            now,
+            now);
+    }
 
     private static async Task WaitUntilAsync(Func<bool> condition)
     {

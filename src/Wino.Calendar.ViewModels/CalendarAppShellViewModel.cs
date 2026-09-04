@@ -429,6 +429,18 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         }
     }
 
+    private Task SynchronizeAccountAsync(Guid accountId)
+    {
+        Messenger.Send(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+        {
+            AccountId = accountId,
+            Type = CalendarSynchronizationType.Strict
+        }));
+        RefreshShellSynchronizationState();
+
+        return Task.CompletedTask;
+    }
+
     private DateTime GetDisplayTypeSwitchDate()
     {
         var today = _dateContextProvider.GetToday();

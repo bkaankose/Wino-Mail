@@ -534,7 +534,13 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
                     textPart.Text ?? string.Empty),
                 summary.Envelope?.From?.Mailboxes.Select(x => new MailAddress(x.Address, x.Name)).ToArray() ?? [],
                 summary.Envelope?.To?.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray() ?? [],
-                summary.Envelope?.Cc?.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray() ?? []);
+                summary.Envelope?.Cc?.Mailboxes.Select(x => x.Address).Where(x => !string.IsNullOrWhiteSpace(x)).ToArray() ?? [],
+                summary.BodyParts
+                    .Where(static part => part.IsAttachment)
+                    .Select(static part => new SemanticMailAttachment(
+                        part.ContentDisposition?.FileName ?? part.ContentType.Name ?? string.Empty,
+                        part.ContentType.MimeType))
+                    .ToArray());
         }
         catch
         {

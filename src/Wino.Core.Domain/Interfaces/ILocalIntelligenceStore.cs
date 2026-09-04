@@ -10,15 +10,16 @@ namespace Wino.Core.Domain.Interfaces;
 public interface ILocalIntelligenceStore : IInitializeAsync
 {
     bool DatabaseExists { get; }
-    Task<IReadOnlyList<IntelligenceArtifactDto>> GetCurrentArtifactsAsync(Guid localAccountId, string remoteMessageId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyDictionary<string, IReadOnlyList<IntelligenceArtifactDto>>> GetCurrentArtifactsAsync(Guid localAccountId, IReadOnlyCollection<string> remoteMessageIds, CancellationToken cancellationToken = default);
-    Task UpsertArtifactsAsync(Guid localAccountId, Guid mailboxId, IReadOnlyList<IntelligenceArtifactDto> artifacts, CancellationToken cancellationToken = default);
+    Task<LocalIntelligenceMailboxState?> GetMailboxStateAsync(Guid localAccountId, CancellationToken cancellationToken = default);
+    Task AlignMailboxHeadAsync(Guid localAccountId, MailboxIntelligenceHeadDto head, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<MessageIntelligenceDownloadDto>> GetCurrentDocumentsAsync(Guid localAccountId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<LocalIntelligenceSearchDocument>> GetSearchDocumentsAsync(Guid localAccountId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyDictionary<string, MessageIntelligenceDownloadDto>> GetCurrentDocumentsAsync(Guid localAccountId, IReadOnlyCollection<string> serverMessageKeys, CancellationToken cancellationToken = default);
+    Task<LocalIntelligenceChangeApplyResult> ApplyChangesAsync(Guid localAccountId, Guid mailboxId, IntelligenceChangesPageDto page, CancellationToken cancellationToken = default);
     Task<string?> GetHeadlineLanguageAsync(Guid localAccountId, CancellationToken cancellationToken = default);
     Task SetHeadlineLanguageAsync(Guid localAccountId, Guid mailboxId, string language, CancellationToken cancellationToken = default);
     Task<bool> GetHeadlineLanguagePromptSuppressedAsync(Guid localAccountId, CancellationToken cancellationToken = default);
     Task SetHeadlineLanguagePromptSuppressedAsync(Guid localAccountId, bool suppressed, CancellationToken cancellationToken = default);
-    Task<IReadOnlyDictionary<Guid, string>> GetBriefingHeadlinesAsync(Guid localAccountId, IReadOnlyCollection<Guid> briefingIds, CancellationToken cancellationToken = default);
-    Task ApplyBriefingHeadlineUpdatesAsync(Guid localAccountId, Guid mailboxId, string language, IReadOnlyList<BriefingHeadlineUpdateDto> headlines, long throughRevision, CancellationToken cancellationToken = default);
     Task SaveAccessSnapshotAsync(LocalIntelligenceAccessSnapshot snapshot, CancellationToken cancellationToken = default);
     Task<LocalIntelligenceAccessSnapshot?> GetAccessSnapshotAsync(Guid localAccountId, CancellationToken cancellationToken = default);
     Task DeleteAccessSnapshotsAsync(CancellationToken cancellationToken = default);

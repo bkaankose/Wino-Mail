@@ -110,6 +110,12 @@ public static class XamlHelpers
         _ => "TextFillColorSecondaryBrush"
     }, "TextFillColorSecondaryBrush");
 
+    public static Visibility GetBriefingNeutralToneVisibility(DailyBriefingTone tone)
+        => tone == DailyBriefingTone.Neutral ? Visibility.Visible : Visibility.Collapsed;
+
+    public static Visibility GetBriefingNonNeutralToneVisibility(DailyBriefingTone tone)
+        => tone == DailyBriefingTone.Neutral ? Visibility.Collapsed : Visibility.Visible;
+
     public static Brush GetBriefingPriorityBorderBrush(bool isPriority)
         => GetThemeBrush(isPriority ? "SystemFillColorCriticalBackgroundBrush" : "CardStrokeColorDefaultBrush", "CardStrokeColorDefaultBrush");
 
@@ -559,6 +565,10 @@ public static class XamlHelpers
 
     public static string GetCreationDateString(DateTime date, TimeFormatPreference timeFormatPreference)
     {
+        // The reader binds this before the MIME is parsed. An unset date must read as nothing,
+        // not as "1 January 0001".
+        if (date == default) return string.Empty;
+
         var localTime = date.ToLocalTime();
         var displayType = DateTimeDisplayFormatter.GetTimeDisplayType(timeFormatPreference, AppDisplayCulture);
         return $"{localTime.ToString("D", AppDisplayCulture)} {DateTimeDisplayFormatter.FormatTime(localTime, displayType, AppDisplayCulture)}";

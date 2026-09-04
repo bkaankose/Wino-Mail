@@ -23,6 +23,29 @@ namespace Wino.Mail.ViewModels.Tests;
 public class ContactsPageViewModelTests
 {
     [Fact]
+    public async Task AddressBookAccountMenu_UsesPeopleSettingsAndSynchronizesClickedAccount()
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "People",
+            IsContactAccessGranted = true
+        };
+        var addressBook = new ContactAddressBook
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = account.Id,
+            DisplayName = "Contacts"
+        };
+        var item = ContactFilterViewModel.CreateAddressBook(addressBook, account);
+
+        await item.SynchronizeAccountAsync();
+
+        item.AccountDetailsTab.Should().Be(AccountDetailsTab.People);
+        item.SupportsAccountSynchronization.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task KeyboardShortcut_NewContact_UsesExistingEditorNavigation()
     {
         var navigation = new Mock<INavigationService>();

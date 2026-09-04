@@ -593,6 +593,15 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
         try
         {
+            if (granted)
+            {
+                var currentConsent = await _apiClient.GetIntelligenceConsentAsync().ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(currentConsent.CurrentPolicyVersion))
+                    throw new InvalidOperationException(ApiErrorCodes.ValidationFailed);
+
+                await ExecuteUIThread(() => ApplyIntelligenceConsent(currentConsent));
+            }
+
             var consent = granted
                 ? await _apiClient.AcceptIntelligenceConsentAsync(
                     _intelligencePolicyVersion,
@@ -938,7 +947,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     {
         var localAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
         var mailboxItems = snapshot.Mailboxes.Select(mailbox => CreateCachedIntelligenceMailboxItem(
-            mailbox, localAccounts, snapshot.MailboxStatuses.GetValueOrDefault(mailbox.MailboxId))).ToArray();
+            mailbox, localAccounts, snapshot.MailboxHeads.GetValueOrDefault(mailbox.MailboxId))).ToArray();
         mailboxItems = [.. mailboxItems, .. localAccounts.Where(account => mailboxItems.All(item => item.LocalAccountId != account.Id))
             .Select(CreateLocalIntelligenceMailboxItem)];
         var aiPack = snapshot.Billing?.AiPack;
@@ -968,10 +977,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         });
     }
 
-    private IntelligenceMailboxData CreateCachedIntelligenceMailboxItem(SemanticMailboxDto mailbox, IReadOnlyList<MailAccount> localAccounts, IntelligenceMailboxStatusDto? status)
+    private IntelligenceMailboxData CreateCachedIntelligenceMailboxItem(SemanticMailboxDto mailbox, IReadOnlyList<MailAccount> localAccounts, MailboxIntelligenceHeadDto? head)
     {
         var localAccount = localAccounts.FirstOrDefault(account => (int)account.ProviderType == mailbox.ProviderType && string.Equals(account.Address?.Trim(), mailbox.Address?.Trim(), StringComparison.OrdinalIgnoreCase));
-        var storage = status?.StorageSizeBytes ?? mailbox.IndexState?.StorageSizeBytes ?? 0;
+        var storage = head?.StorageSizeBytes ?? mailbox.IndexState?.StorageSizeBytes ?? 0;
         return new IntelligenceMailboxData
         {
             MailboxId = mailbox.MailboxId, Address = mailbox.Address, ProviderType = (MailProviderType)mailbox.ProviderType,
@@ -980,7 +989,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             IsEnabled = localAccount?.Preferences?.IsSemanticIndexingEnabled == true,
             CanToggle = localAccount is not null && (localAccount.Preferences?.IsSemanticIndexingEnabled == true || HasIntelligenceAccess && IsConsentGranted),
             StorageSizeBytes = storage,
-            IntelligenceSummary = string.Format(Translator.WinoAccount_Management_IntelligenceMailboxSummary, 0, 0, FormatStorageSize(storage)),
+            IntelligenceSummary = string.Format(Translator.WinoAccount_Management_IntelligenceMailboxSummary, head?.IndexedMessageCount ?? 0, 0, FormatStorageSize(storage)),
             ManageCommand = ManageIntelligenceMailboxCommand, DeleteCommand = DeleteIntelligenceCommand, ToggleEnabledCommand = ToggleIntelligenceMailboxCommand
         };
     }
@@ -1316,10 +1325,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         SemanticMailboxDto mailbox,
         IReadOnlyList<Wino.Core.Domain.Entities.Shared.MailAccount> localAccounts)
     {
-        IntelligenceMailboxStatusDto? intelligenceStatus = null;
+        MailboxIntelligenceHeadDto? intelligenceHead = null;
         try
         {
-            intelligenceStatus = await _apiClient.GetIntelligenceStatusAsync(mailbox.MailboxId).ConfigureAwait(false);
+            intelligenceHead = await _apiClient.GetIntelligenceHeadAsync(mailbox.MailboxId).ConfigureAwait(false);
         }
         catch
         {
@@ -1329,7 +1338,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         var localAccount = localAccounts.FirstOrDefault(account =>
             (int)account.ProviderType == mailbox.ProviderType &&
             string.Equals(account.Address?.Trim(), mailbox.Address?.Trim(), StringComparison.OrdinalIgnoreCase));
-        var storageSize = intelligenceStatus?.StorageSizeBytes ?? mailbox.IndexState?.StorageSizeBytes ?? 0;
+        var storageSize = intelligenceHead?.StorageSizeBytes ?? mailbox.IndexState?.StorageSizeBytes ?? 0;
 
         return new IntelligenceMailboxData
         {
@@ -1347,7 +1356,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             StorageSizeBytes = storageSize,
             IntelligenceSummary = string.Format(
                 Translator.WinoAccount_Management_IntelligenceMailboxSummary,
-                0,
+                intelligenceHead?.IndexedMessageCount ?? 0,
                 0,
                 FormatStorageSize(storageSize)),
             ManageCommand = ManageIntelligenceMailboxCommand,

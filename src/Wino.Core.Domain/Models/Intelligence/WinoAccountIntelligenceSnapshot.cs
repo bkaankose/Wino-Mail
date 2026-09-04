@@ -22,6 +22,11 @@ public sealed record WinoAccountIntelligenceSnapshot(
     DateTimeOffset? StatusesUpdatedAtUtc,
     DateTimeOffset? LastSuccessfulRefreshUtc)
 {
+    public IReadOnlyDictionary<Guid, MailboxIntelligenceHeadDto> MailboxHeads { get; init; }
+        = new Dictionary<Guid, MailboxIntelligenceHeadDto>();
+
+    public DateTimeOffset? HeadsUpdatedAtUtc { get; init; }
+
     public static WinoAccountIntelligenceSnapshot Empty(Guid accountId) => new(
         accountId, null, null, null, [], new Dictionary<Guid, IntelligenceMailboxStatusDto>(),
         null, null, null, null, null, null);

@@ -11,12 +11,31 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Navigation;
 using Xunit;
 
 namespace Wino.Core.Tests;
 
 public sealed class CalendarShellMenuProjectionTests
 {
+    [Fact]
+    public async Task CalendarAccountMenu_UsesCalendarSettingsAndSynchronizesClickedAccount()
+    {
+        var group = CreateGroup("First", 1, "Calendar");
+        Guid? synchronizedAccountId = null;
+        var item = new CalendarAccountMenuItem(group, accountId =>
+        {
+            synchronizedAccountId = accountId;
+            return Task.CompletedTask;
+        });
+
+        await item.SynchronizeAccountAsync();
+
+        item.AccountDetailsTab.Should().Be(AccountDetailsTab.Calendar);
+        item.SupportsAccountSynchronization.Should().BeTrue();
+        synchronizedAccountId.Should().Be(group.Account.Id);
+    }
+
     [Fact]
     public void GroupedProjection_PreservesExistingGroupRows()
     {

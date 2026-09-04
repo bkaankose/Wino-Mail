@@ -2760,7 +2760,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
         var providerMessageId = locator.ProviderMessageId ?? locator.RemoteMessageId;
         var request = _gmailService.Users.Messages.Get("me", providerMessageId);
         request.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Full;
-        request.Fields = "payload(headers,mimeType,filename,body(data,attachmentId),parts(headers,mimeType,filename,body(data,attachmentId),parts(headers,mimeType,filename,body(data,attachmentId),parts(headers,mimeType,filename,body(data,attachmentId),parts)))))";
+        request.Fields = "payload(headers,mimeType,filename,body(data,attachmentId),parts(headers,mimeType,filename,body(data,attachmentId),parts(headers,mimeType,filename,body(data,attachmentId),parts(headers,mimeType,filename,body(data,attachmentId),parts))))";
 
         var message = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
         var parts = new List<GmailMessagePart>();
@@ -2791,7 +2791,28 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
             new MailBodyContent(format, Encoding.UTF8.GetString(Base64UrlEncoder.DecodeBytes(data))),
             ParseSemanticFrom(message?.Payload),
             ParseSemanticRecipients(message?.Payload, "To"),
-            ParseSemanticRecipients(message?.Payload, "Cc"));
+            ParseSemanticRecipients(message?.Payload, "Cc"),
+            ParseSemanticAttachments(message?.Payload));
+    }
+
+    private static IReadOnlyList<SemanticMailAttachment> ParseSemanticAttachments(GmailMessagePart? root)
+    {
+        if (root is null)
+            return [];
+        var attachments = new List<SemanticMailAttachment>();
+        var pending = new Stack<GmailMessagePart>();
+        pending.Push(root);
+        while (pending.Count > 0)
+        {
+            var part = pending.Pop();
+            if (!string.IsNullOrWhiteSpace(part.Filename))
+                attachments.Add(new SemanticMailAttachment(part.Filename, part.MimeType ?? string.Empty));
+            if (part.Parts is null)
+                continue;
+            foreach (var child in part.Parts)
+                pending.Push(child);
+        }
+        return attachments;
     }
 
     internal static string BuildOnlineSearchQuery(RemoteMailSearchCriteria criteria)

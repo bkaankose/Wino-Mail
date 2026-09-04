@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.Contracts.Intelligence;
 
 namespace Wino.Services;
@@ -15,7 +16,9 @@ public sealed class IntelligenceSearchService(
     IAccountService accountService,
     IWinoAccountApiClient apiClient,
     IIntelligenceMessageContextResolver messageResolver,
-    IMailService mailService) : IIntelligenceSearchService
+    IMailService mailService,
+    ILocalIntelligenceStore localStore,
+    ILocalIntelligenceSearchEngine localSearch) : IIntelligenceSearchService
 {
     public async Task<IntelligenceMailSearchResult> SearchAsync(IntelligenceSearchOptions options, CancellationToken cancellationToken = default)
     {
@@ -24,69 +27,87 @@ public sealed class IntelligenceSearchService(
             return new([], []);
 
         var serverMailboxes = await apiClient.GetSemanticMailboxesAsync(cancellationToken).ConfigureAwait(false);
-        var scopes = new List<IntelligenceMailboxSearchScopeDto>();
-        var localAccountByMailbox = new Dictionary<Guid, Guid>();
-        foreach (var group in options.Folders.GroupBy(x => x.MailAccountId))
+        var scopes = new List<LocalIntelligenceSearchScope>();
+        var states = new Dictionary<Guid, LocalIntelligenceMailboxState>();
+        var omissions = new List<IntelligenceSearchOmission>();
+        foreach (var group in options.Folders.GroupBy(static folder => folder.MailAccountId))
         {
             var account = await accountService.GetAccountAsync(group.Key).ConfigureAwait(false);
             if (account is null || !account.Preferences.IsSemanticIndexingEnabled)
                 continue;
-            var mailbox = serverMailboxes.SingleOrDefault(x => x.ProviderType == (int)account.ProviderType &&
-                string.Equals(x.Address.Trim(), account.Address.Trim(), StringComparison.OrdinalIgnoreCase));
+            var mailbox = serverMailboxes.SingleOrDefault(item => item.ProviderType == (int)account.ProviderType &&
+                string.Equals(item.Address.Trim(), account.Address.Trim(), StringComparison.OrdinalIgnoreCase));
             if (mailbox is null)
                 continue;
-
-            scopes.Add(new IntelligenceMailboxSearchScopeDto(mailbox.MailboxId, new IntelligenceSearchFilterDto(
-                ProviderFolderIds: group.Select(x => x.RemoteFolderId).Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.Ordinal).ToArray(),
-                IsUnread: options.IsUnread,
-                IsFlagged: options.IsFlagged,
-                HasAttachments: options.HasAttachments)));
-            localAccountByMailbox[mailbox.MailboxId] = account.Id;
+            var state = await localStore.GetMailboxStateAsync(account.Id, cancellationToken).ConfigureAwait(false);
+            if (state is null || state.MailboxId != mailbox.MailboxId)
+            {
+                omissions.Add(new(mailbox.MailboxId, IntelligenceMailboxCompatibilityStatuses.NotInitialized, "localIndexUnavailable"));
+                continue;
+            }
+            states[account.Id] = state;
+            scopes.Add(new(
+                account.Id,
+                mailbox.MailboxId,
+                group.Select(static folder => folder.RemoteFolderId)
+                    .Where(static id => !string.IsNullOrWhiteSpace(id))
+                    .ToHashSet(StringComparer.Ordinal)));
         }
 
         if (scopes.Count == 0)
-            return new([], []);
-
-        var language = string.IsNullOrWhiteSpace(CultureInfo.CurrentUICulture.Name)
-            ? "en-US"
-            : CultureInfo.CurrentUICulture.Name;
-        var request = new IntelligenceSemanticSearchRequest(
+            return new([], omissions);
+        var request = new IntelligenceSearchPlanRequest(
             options.Query.Trim(),
-            scopes,
-            Math.Clamp(options.Limit, 1, 100),
-            null,
+            string.IsNullOrWhiteSpace(CultureInfo.CurrentUICulture.Name) ? "en-US" : CultureInfo.CurrentUICulture.Name,
             TimeZoneInfo.Local.Id,
-            language,
-            true);
-        var response = await apiClient.SearchIntelligenceAsync(request, cancellationToken).ConfigureAwait(false);
+            Math.Clamp(options.Limit, 1, 100),
+            scopes.Select(scope => new IntelligenceSearchTargetRequest(
+                scope.MailboxId,
+                states[scope.LocalAccountId].IntelligenceVersion,
+                states[scope.LocalAccountId].IndexEpoch)).ToArray());
+        var response = await apiClient.CreateIntelligenceSearchPlanAsync(request, cancellationToken).ConfigureAwait(false);
+        omissions.AddRange(response.Mailboxes
+            .Where(static mailbox => mailbox.Status is not IntelligenceMailboxCompatibilityStatuses.Ready and
+                                                   not IntelligenceMailboxCompatibilityStatuses.UpgradeAvailable)
+            .Select(static mailbox => new IntelligenceSearchOmission(mailbox.MailboxId, mailbox.Status, mailbox.ErrorCode)));
 
-        var mappingByMailbox = new Dictionary<Guid, IReadOnlyDictionary<string, Guid>>();
-        foreach (var mailboxGroup in response.Items.GroupBy(x => x.MailboxId))
+        var executableMailboxIds = response.Plans.SelectMany(static plan => plan.MailboxIds).ToHashSet();
+        var matches = (await localSearch.SearchAsync(
+            response,
+            scopes.Where(scope => executableMailboxIds.Contains(scope.MailboxId)).ToArray(),
+            // Apply the explicit UI filters below before enforcing the caller's limit. Asking
+            // the engine for its bounded maximum prevents an unread/flagged filter from
+            // discarding a full page merely because the first semantic hits do not qualify.
+            100,
+            cancellationToken).ConfigureAwait(false))
+            .Where(match => options.IsUnread != true || !match.Document.IsRead)
+            .Where(match => options.IsFlagged != true || match.Document.IsFlagged)
+            .Where(match => options.HasAttachments != true || match.Document.HasAttachments)
+            .Take(options.Limit)
+            .ToArray();
+        var candidates = new Dictionary<(Guid AccountId, string RemoteId), IntelligenceMessageCandidate>();
+        foreach (var accountId in matches.Select(static match => match.LocalAccountId).Distinct())
         {
-            if (!localAccountByMailbox.TryGetValue(mailboxGroup.Key, out var accountId))
-                continue;
-            var wanted = mailboxGroup.Select(x => x.RemoteMessageId).ToHashSet(StringComparer.Ordinal);
-            mappingByMailbox[mailboxGroup.Key] = (await messageResolver.GetCandidatesAsync(
-                    accountId, null, cancellationToken).ConfigureAwait(false))
-                .Where(candidate => wanted.Contains(candidate.RemoteMessageId))
-                .GroupBy(candidate => candidate.RemoteMessageId, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.First().UniqueId, StringComparer.Ordinal);
+            foreach (var candidate in await messageResolver.GetCandidatesAsync(accountId, null, cancellationToken).ConfigureAwait(false))
+                candidates.TryAdd((accountId, candidate.RemoteMessageId), candidate);
         }
-
-        var hydrated = new List<MailCopy>(response.Items.Count);
-        foreach (var item in response.Items)
+        var selected = matches
+            .Select(match => candidates.GetValueOrDefault((match.LocalAccountId, match.RemoteMessageId)))
+            .Where(static candidate => candidate is not null)
+            .Cast<IntelligenceMessageCandidate>()
+            .ToArray();
+        var hydrated = await mailService.GetMailItemsAsync(selected.Select(static candidate => candidate.ProviderMessageId)).ConfigureAwait(false);
+        var mailByIdentity = hydrated
+            .Where(static mail => mail.AssignedAccount is not null)
+            .GroupBy(static mail => (mail.AssignedAccount.Id, mail.Id))
+            .ToDictionary(static group => group.Key, static group => group.First());
+        var result = new List<MailCopy>(matches.Length);
+        foreach (var match in matches)
         {
-            if (!mappingByMailbox.TryGetValue(item.MailboxId, out var mapping) ||
-                !mapping.TryGetValue(item.RemoteMessageId, out var localMessageId))
-                continue;
-            var mail = await mailService.GetSingleMailItemAsync(localMessageId).ConfigureAwait(false);
-            if (mail is not null)
-                hydrated.Add(mail);
+            var candidate = candidates.GetValueOrDefault((match.LocalAccountId, match.RemoteMessageId));
+            if (candidate is not null && mailByIdentity.TryGetValue((match.LocalAccountId, candidate.ProviderMessageId), out var mail))
+                result.Add(mail);
         }
-
-        return new(
-            hydrated,
-            response.Mailboxes.Where(x => x.OmissionReason is not null)
-                .Select(x => new IntelligenceSearchOmission(x.MailboxId, x.State, x.OmissionReason)).ToArray());
+        return new(result, omissions);
     }
 }

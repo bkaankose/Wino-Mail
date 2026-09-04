@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     x:Class="Wino.Mail.WinUI.Controls.DailyBriefingPanel"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -69,67 +69,87 @@
                                     Margin="-5,0,0,0"
                                     HorizontalSpacing="5"
                                     VerticalSpacing="5">
-                                <Border
-                                    MinHeight="21"
-                                    Padding="7,1"
-                                    Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
-                                    CornerRadius="11"
-                                    Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.UrgencyVisibility(Fact), Mode=OneWay}">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <FontIcon
-                                            VerticalAlignment="Center"
-                                            FontSize="11"
-                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                            Glyph="{x:Bind vm:DailyBriefingIcons.PriorityGlyph, Mode=OneTime}" />
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            FontSize="11"
-                                            FontWeight="SemiBold"
-                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                            Text="{x:Bind presentation:DailyBriefingPanelPresentation.UrgencyText(Fact)}" />
-                                    </StackPanel>
-                                </Border>
+                                    <Border
+                                        MinHeight="21"
+                                        Padding="7,1"
+                                        Background="{ThemeResource SystemFillColorCriticalBackgroundBrush}"
+                                        CornerRadius="11"
+                                        Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.UrgencyVisibility(Fact), Mode=OneWay}">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <FontIcon
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                Glyph="{x:Bind vm:DailyBriefingIcons.PriorityGlyph, Mode=OneTime}" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                FontWeight="SemiBold"
+                                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                Text="{x:Bind presentation:DailyBriefingPanelPresentation.UrgencyText(Fact)}" />
+                                        </StackPanel>
+                                    </Border>
 
-                                <Border
-                                    MinHeight="21"
-                                    Padding="7,1"
-                                    Background="{x:Bind helpers:XamlHelpers.GetBriefingToneBackground(Tone)}"
-                                    CornerRadius="11"
-                                    Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.CategoryVisibility(Fact), Mode=OneWay}">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <FontIcon
-                                            VerticalAlignment="Center"
-                                            FontSize="11"
-                                            Foreground="{x:Bind helpers:XamlHelpers.GetBriefingToneForeground(Tone)}"
-                                            Glyph="{x:Bind presentation:DailyBriefingPanelPresentation.CategoryGlyph(Fact)}" />
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            FontSize="11"
-                                            Foreground="{x:Bind helpers:XamlHelpers.GetBriefingToneForeground(Tone)}"
-                                            Text="{x:Bind presentation:DailyBriefingPanelPresentation.CategoryText(Fact)}" />
-                                    </StackPanel>
-                                </Border>
+                                    <Border
+                                        MinHeight="21"
+                                        Padding="7,1"
+                                        Background="{x:Bind helpers:XamlHelpers.GetBriefingToneBackground(Tone)}"
+                                        CornerRadius="11"
+                                        Visibility="{x:Bind helpers:XamlHelpers.GetBriefingNonNeutralToneVisibility(Tone), Mode=OneWay}">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <FontIcon
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="{x:Bind helpers:XamlHelpers.GetBriefingToneForeground(Tone)}"
+                                                Glyph="{x:Bind presentation:DailyBriefingPanelPresentation.CategoryGlyph(Fact)}" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="{x:Bind helpers:XamlHelpers.GetBriefingToneForeground(Tone)}"
+                                                Text="{x:Bind presentation:DailyBriefingPanelPresentation.CategoryText(Fact)}" />
+                                        </StackPanel>
+                                    </Border>
 
-                                <Border
-                                    MinHeight="21"
-                                    Padding="7,1"
-                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                    CornerRadius="11"
-                                    Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.DueVisibility(Fact), Mode=OneWay}">
-                                    <StackPanel Orientation="Horizontal" Spacing="4">
-                                        <FontIcon
-                                            VerticalAlignment="Center"
-                                            FontSize="11"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Glyph="{x:Bind vm:DailyBriefingIcons.TimeGlyph, Mode=OneTime}" />
-                                        <TextBlock
-                                            VerticalAlignment="Center"
-                                            FontSize="11"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Text="{x:Bind presentation:DailyBriefingPanelPresentation.DueText(Fact)}"
-                                            TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
-                                </Border>
+                                    <Border
+                                        MinHeight="21"
+                                        Padding="7,1"
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="11"
+                                        Visibility="{x:Bind helpers:XamlHelpers.GetBriefingNeutralToneVisibility(Tone), Mode=OneWay}">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <FontIcon
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Glyph="{x:Bind presentation:DailyBriefingPanelPresentation.CategoryGlyph(Fact)}" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Text="{x:Bind presentation:DailyBriefingPanelPresentation.CategoryText(Fact)}" />
+                                        </StackPanel>
+                                    </Border>
+
+                                    <Border
+                                        MinHeight="21"
+                                        Padding="7,1"
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="11"
+                                        Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.DueVisibility(Fact), Mode=OneWay}">
+                                        <StackPanel Orientation="Horizontal" Spacing="4">
+                                            <FontIcon
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Glyph="{x:Bind vm:DailyBriefingIcons.TimeGlyph, Mode=OneTime}" />
+                                            <TextBlock
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                Text="{x:Bind presentation:DailyBriefingPanelPresentation.DueText(Fact)}"
+                                                TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Border>
                                 </primitives:WinoWrapPanel>
 
                                 <TextBlock
@@ -299,9 +319,7 @@
                         Margin="0,6,0,6"
                         Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                         CornerRadius="4">
-                        <accountIcon:WinoAccountIcon
-                            Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account.Account)}"
-                            IconSize="30" />
+                        <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account.Account)}" IconSize="30" />
                     </Border>
                     <TextBlock
                         Grid.Column="2"

@@ -721,6 +721,14 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     [RelayCommand]
     private async Task RefreshContactsAsync()
+        => await SynchronizeAccountsAsync(_accounts.Values.Where(account => account.IsContactAccessGranted)).ConfigureAwait(false);
+
+    private Task SynchronizeAccountAsync(Guid accountId)
+        => _accounts.TryGetValue(accountId, out var account) && account.IsContactAccessGranted
+            ? SynchronizeAccountsAsync([account])
+            : Task.CompletedTask;
+
+    private async Task SynchronizeAccountsAsync(IEnumerable<MailAccount> accounts)
     {
         if (IsRefreshing) return;
         IsRefreshing = true;
@@ -729,7 +737,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         try
         {
             var results = new List<ContactSynchronizationResult>();
-            foreach (var account in _accounts.Values.Where(account => account.IsContactAccessGranted))
+            foreach (var account in accounts)
                 results.Add(await _synchronizationManager.SynchronizeContactsAsync(new() { AccountId = account.Id, Type = ContactSynchronizationType.Delta }).ConfigureAwait(false));
 
             await RefreshCardDavCreationAvailabilityAsync().ConfigureAwait(false);

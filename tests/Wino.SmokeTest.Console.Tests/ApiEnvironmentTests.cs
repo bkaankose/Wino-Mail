@@ -1,8 +1,9 @@
 using Wino.SmokeTest.ConsoleApp;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.SemanticIndexing;
-using Wino.Mail.Contracts.SemanticIndex;
+using Wino.Mail.Contracts.Intelligence;
 using Xunit;
 
 namespace Wino.SmokeTest.Console.Tests;
@@ -46,9 +47,10 @@ public sealed class ApiEnvironmentTests
 
     [Theory]
     [InlineData(MailProviderType.Outlook, true)]
-    [InlineData(MailProviderType.Gmail, false)]
-    [InlineData(MailProviderType.IMAP4, false)]
-    public void OnlyOutlookAccountsAreSupported(MailProviderType providerType, bool expected)
+    [InlineData(MailProviderType.Gmail, true)]
+    [InlineData(MailProviderType.IMAP4, true)]
+    [InlineData(MailProviderType.POP3, false)]
+    public void AccountsWithSemanticBodySynchronizersAreSupported(MailProviderType providerType, bool expected)
     {
         Assert.Equal(expected, Program.IsSupportedAccount(new MailAccount { ProviderType = providerType }));
     }
@@ -67,7 +69,13 @@ public sealed class ApiEnvironmentTests
     [Fact]
     public void LocalImportedRevisionCountsAsExistingIntelligence()
     {
-        var state = new SemanticIndexAccountState(false, null, null, 1, 0, false, false, false);
+        var localState = new LocalIntelligenceMailboxState(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            WinoIntelligenceVersions.V1,
+            Guid.NewGuid(),
+            1);
+        var state = new SemanticIndexAccountState(false, null, null, localState, 0, false, false, false);
 
         Assert.True(Program.HasIntelligence(state));
     }
@@ -76,9 +84,18 @@ public sealed class ApiEnvironmentTests
     public void MinimalServerStatusCountsAsExistingIntelligence()
     {
         var now = DateTimeOffset.UtcNow;
-        var status = new SemanticMailboxIndexStateDto(
-            Guid.NewGuid(), "profile", "model", 768, now.AddMonths(-1), now, 0, 1024, 0, now);
-        var state = new SemanticIndexAccountState(true, status.MailboxId, status, 0, 0, true, true, false);
+        var head = new MailboxIntelligenceHeadDto(
+            Guid.NewGuid(),
+            WinoIntelligenceVersions.V1,
+            Guid.NewGuid(),
+            1,
+            1,
+            1024,
+            now.AddMonths(-1),
+            now,
+            now,
+            now);
+        var state = new SemanticIndexAccountState(true, head.MailboxId, head, null, 0, true, true, false);
 
         Assert.True(Program.HasIntelligence(state));
     }
@@ -86,7 +103,7 @@ public sealed class ApiEnvironmentTests
     [Fact]
     public void WaitingMessagesCountAsIncompleteIntelligence()
     {
-        var state = new SemanticIndexAccountState(true, Guid.NewGuid(), null, 0, 12, true, false, false);
+        var state = new SemanticIndexAccountState(true, Guid.NewGuid(), null, null, 12, true, false, false);
 
         Assert.True(Program.HasIncompleteIntelligence(state));
     }

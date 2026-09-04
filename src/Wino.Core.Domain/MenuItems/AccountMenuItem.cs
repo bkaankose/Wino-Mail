@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Core.Domain.MenuItems;
 
@@ -41,6 +43,8 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
 
     public bool IsAttentionRequired => AttentionReason != AccountAttentionReason.None;
     public bool SupportsMailAccountActions => true;
+    public AccountDetailsTab AccountDetailsTab => global::Wino.Core.Domain.Models.Navigation.AccountDetailsTab.General;
+    public bool SupportsAccountSynchronization => false;
     public bool SelectsOnInvoked => false;
     public MailAccount Account => Parameter;
     public string AccountAddress => Parameter.Address;
@@ -63,6 +67,8 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
     public bool IsProgressIndeterminate => IsSynchronizationInProgress && TotalItemsToSync <= 0;
 
     public Guid AccountId => Parameter.Id;
+
+    public Task SynchronizeAccountAsync() => Task.CompletedTask;
 
     private AccountAttentionReason attentionReason;
 

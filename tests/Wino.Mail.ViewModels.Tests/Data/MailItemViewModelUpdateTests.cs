@@ -130,7 +130,7 @@ public class MailItemViewModelUpdateTests
                 new SmartLabelScore(MailSmartLabel.Finance, 0.8),
             ],
             null,
-            string.Empty);
+            "Review the attached contract by Friday.");
 
         var sut = new MailItemViewModel(mail);
 

@@ -75,6 +75,7 @@ public sealed class SemanticSynchronizerBodyTests
         Assert.DoesNotContain("snippet", query, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("headers", query, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("/raw", request.AbsolutePath, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(query.Count(character => character == '('), query.Count(character => character == ')'));
     }
 
     [Fact]

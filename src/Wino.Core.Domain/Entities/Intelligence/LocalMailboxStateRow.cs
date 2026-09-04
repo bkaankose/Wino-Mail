@@ -10,6 +10,8 @@ public sealed class LocalMailboxStateRow
     public Guid LocalAccountId { get; set; }
 
     public Guid MailboxId { get; set; }
+    public string IntelligenceVersion { get; set; } = string.Empty;
+    public string IndexEpoch { get; set; } = string.Empty;
     public long LastImportedRevision { get; set; }
     public string HeadlineLanguage { get; set; } = string.Empty;
     public bool SuppressHeadlineLanguagePrompt { get; set; }
