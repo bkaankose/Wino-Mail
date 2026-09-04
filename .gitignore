@@ -402,3 +402,6 @@ Wino/obj/x86/Debug/XamlSaveStateFile.xml
 /.claude/settings.local.json
 scripts/translate_resources.local.bat
 /scripts/validate_resources.local.bat
+
+# Local signing keys for sideload builds
+/Wino.Mail.WinUI/keys/
