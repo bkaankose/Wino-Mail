@@ -59,6 +59,18 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         Translator.HoverActionOption_MoveJunk
     ];
 
+    private readonly List<HoverActionSize> availableHoverActionSizes =
+    [
+        HoverActionSize.Standard,
+        HoverActionSize.Large
+    ];
+
+    public List<string> AvailableHoverActionSizeTranslations { get; set; } =
+    [
+        Translator.HoverActionSize_Standard,
+        Translator.HoverActionSize_Large
+    ];
+
     public List<string> AvailableSwipeActionsTranslations { get; set; } =
     [
         Translator.HoverActionOption_Archive,
@@ -230,6 +242,19 @@ public partial class MessageListPageViewModel : MailBaseViewModel
             }
         }
     }
+
+    private int hoverActionSizeIndex;
+    public int SelectedHoverActionSizeIndex
+    {
+        get => hoverActionSizeIndex;
+        set
+        {
+            if (SetProperty(ref hoverActionSizeIndex, value) && IsValidHoverActionSizeIndex(value))
+            {
+                PreferencesService.HoverActionSize = availableHoverActionSizes[value];
+            }
+        }
+    }
     #endregion
 
     public MessageListPageViewModel(IPreferencesService preferencesService,
@@ -286,6 +311,12 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         {
             selectedTimeFormatPreferenceIndex = timeFormatPreferenceOptions.IndexOf(TimeFormatPreference.UseLanguageCulture);
         }
+
+        hoverActionSizeIndex = availableHoverActionSizes.IndexOf(PreferencesService.HoverActionSize);
+        if (hoverActionSizeIndex < 0)
+        {
+            hoverActionSizeIndex = 0;
+        }
     }
 
     [RelayCommand]
@@ -297,6 +328,8 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     private bool IsValidHoverActionIndex(int index) => index >= 0 && index < availableHoverActions.Count;
 
     private bool IsValidSwipeActionIndex(int index) => index >= 0 && index < availableSwipeActions.Count;
+
+    private bool IsValidHoverActionSizeIndex(int index) => index >= 0 && index < availableHoverActionSizes.Count;
 
     private sealed class DemoMailItemDisplayInformation : IMailItemDisplayInformation
     {

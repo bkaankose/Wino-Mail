@@ -21,6 +21,15 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
 {
     public ImagePreviewControl GetImagePreviewControl() => ContactImage;
 
+    /// <summary>
+    /// Returns the icon font size for the inline hover action buttons based on the user's HoverActionSize preference.
+    /// </summary>
+    public double GetHoverActionFontSizeForInner() => HoverActionSize switch
+    {
+        HoverActionSize.Large => 20.0,
+        _ => 16.0,
+    };
+
     public bool IsRunningHoverAction { get; set; }
 
     // Busy animation fields
@@ -54,6 +63,9 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
     [GeneratedDependencyProperty(DefaultValue = true)]
     public partial bool IsHoverActionsEnabled { get; set; }
 
+    [GeneratedDependencyProperty(DefaultValue = HoverActionSize.Standard)]
+    public partial HoverActionSize HoverActionSize { get; set; }
+
     public event EventHandler<MailOperationPreperationRequest>? HoverActionExecuted;
 
     [GeneratedDependencyProperty(DefaultValue = Wino.Core.Domain.Enums.TimeFormatPreference.UseLanguageCulture)]
@@ -83,6 +95,7 @@ public sealed partial class MailItemDisplayInformationControl : UserControl
         LeftHoverAction = preferencesService.LeftHoverAction;
         CenterHoverAction = preferencesService.CenterHoverAction;
         RightHoverAction = preferencesService.RightHoverAction;
+        HoverActionSize = preferencesService.HoverActionSize;
 
         var compositor = this.Visual().Compositor;
 
