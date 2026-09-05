@@ -725,7 +725,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     private Task SynchronizeAccountAsync(Guid accountId)
         => _accounts.TryGetValue(accountId, out var account) && account.IsContactAccessGranted
-            ? SynchronizeAccountsAsync([account])
+            ? SynchronizeAccountsAsync(new[] { account })
             : Task.CompletedTask;
 
     private async Task SynchronizeAccountsAsync(IEnumerable<MailAccount> accounts)

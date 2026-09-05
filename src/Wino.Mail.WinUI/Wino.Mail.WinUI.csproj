@@ -22,7 +22,7 @@
     <PublishAot Condition="'$(WinoIsReleaseBuild)' == 'true'">$(UseNativeAot)</PublishAot>
     <PublishTrimmed Condition="'$(WinoIsReleaseBuild)' == 'true'">$(UseNativeAot)</PublishTrimmed>
     <TrimMode Condition="'$(WinoIsReleaseBuild)' == 'true'">full</TrimMode>
-    <IncludePublishItemsOutputGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">true</IncludePublishItemsOutputGroup>
+    <IncludePublishItemsOutputGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true' and '$(GenerateAppxPackageOnBuild)' == 'true'">true</IncludePublishItemsOutputGroup>
     <!--
       Ical.Net 5.2.3 intentionally reflects over its RFC 5545 model and serializer types,
       MimeKit's otherwise-unused default context probes SQLite dynamically, and CsWinRT's
