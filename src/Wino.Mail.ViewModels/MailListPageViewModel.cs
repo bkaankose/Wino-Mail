@@ -446,6 +446,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private IReadOnlyList<IMenuOperation> CreateDisabledTopBarActions()
         =>
+        (IMenuOperation[])
         [
             MailOperationMenuItem.Create(MailOperation.Reply, false),
             MailOperationMenuItem.Create(MailOperation.ReplyAll, false),
