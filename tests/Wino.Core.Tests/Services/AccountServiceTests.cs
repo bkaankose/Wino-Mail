@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Misc;
 using Wino.Core.Tests.Helpers;
 using Wino.Messaging.UI;
@@ -39,6 +40,46 @@ public class AccountServiceTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _databaseService.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task UpdateAccountPreferencesAsync_PersistsAndPublishesIntelligenceVisibility()
+    {
+        var accountId = Guid.NewGuid();
+        var preferences = new MailAccountPreferences
+        {
+            Id = Guid.NewGuid(),
+            AccountId = accountId
+        };
+        await _databaseService.Connection.InsertAsync(preferences);
+
+        IntelligenceVisibilityChanged? notification = null;
+        var recipient = new object();
+        WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(
+            recipient,
+            (_, message) => notification = message);
+
+        try
+        {
+            preferences.ExcludedIntelligenceIndicatorIds =
+            [IntelligenceIndicatorId.FactDeadline, IntelligenceIndicatorId.FactPriority];
+
+            await _accountService.UpdateAccountPreferencesAsync(preferences);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+
+        var persisted = await _accountService.GetAccountPreferencesAsync(accountId);
+        persisted.ExcludedIntelligenceIndicatorIds.Should().BeEquivalentTo(
+            IntelligenceIndicatorId.FactDeadline,
+            IntelligenceIndicatorId.FactPriority);
+        notification.Should().NotBeNull();
+        notification!.LocalAccountId.Should().Be(accountId);
+        notification.ExcludedIndicatorIds.Should().BeEquivalentTo(
+            IntelligenceIndicatorId.FactDeadline,
+            IntelligenceIndicatorId.FactPriority);
     }
 
     [Fact]

@@ -61,6 +61,9 @@ public sealed partial class IntelligenceIndicatorSettingsItem : ObservableObject
 
     [ObservableProperty]
     public partial bool IsVisible { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsBusy { get; set; }
 }
 
 /// <summary>Builds the ordered settings checklist and translates contract smart labels.</summary>

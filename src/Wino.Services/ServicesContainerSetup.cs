@@ -57,6 +57,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IKnownImapProviderCatalog, EmbeddedKnownImapProviderCatalog>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
         services.AddSingleton<IKeyboardShortcutService, KeyboardShortcutService>();
+        services.AddSingleton<IWinoAccountSessionService>(provider => WinoAccountSessionService.For(provider.GetRequiredService<IDatabaseService>()));
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
         services.AddSingleton<IIntelligenceBackend, CloudIntelligenceBackend>();
         services.AddSingleton<IIntelligenceSearchEligibilityService, IntelligenceSearchEligibilityService>();
@@ -64,6 +65,8 @@ public static class ServicesContainerSetup
         services.AddSingleton<ILocalIntelligenceSearchEngine, LocalIntelligenceSearchEngine>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
         services.AddSingleton<IWinoBillingService, WinoBillingService>();
+        services.AddSingleton<IWinoPendingCheckoutStore, WinoPendingCheckoutStore>();
+        services.AddSingleton<IWinoPurchaseReconciliationService, WinoPurchaseReconciliationService>();
         services.AddSingleton<IWinoAccountIntelligenceSnapshotService, WinoAccountIntelligenceSnapshotService>();
         services.AddSingleton<ISemanticIndexJobRegistry, SemanticIndexJobRegistry>();
         services.AddSingleton<IIntelligenceMessageContextResolver, IntelligenceMessageContextResolver>();

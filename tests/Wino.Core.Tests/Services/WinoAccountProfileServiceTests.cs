@@ -172,7 +172,7 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
             .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(authResult));
 
         _apiClient
-            .Setup(x => x.GetCurrentUserAsync(default))
+            .Setup(x => x.GetCurrentUserAsync(It.IsAny<System.Threading.CancellationToken>()))
             .ReturnsAsync(ApiEnvelope<AuthUserDto>.Success(new AuthUserDto(
                 authResult.User.UserId,
                 "updated@example.com",
@@ -199,6 +199,61 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
         persisted.IsUnlimitedAccountsEnabled.Should().BeTrue();
         persisted.AccessToken.Should().Be(authResult.AccessToken);
         persisted.RefreshToken.Should().Be(authResult.RefreshToken);
+    }
+
+    [Fact]
+    public async Task RefreshProfileAsync_PreservesTokensRotatedDuringProfileRequest()
+    {
+        var auth = CreateAuthResult("first@example.com");
+        _apiClient.Setup(x => x.LoginAsync("first@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(auth));
+        await _service.LoginAsync("first@example.com", "pw");
+        _apiClient.Setup(x => x.GetCurrentUserAsync(It.IsAny<System.Threading.CancellationToken>()))
+            .Returns(async () =>
+            {
+                var account = (await _service.GetActiveAccountAsync())!;
+                account.AccessToken = "new-access";
+                account.RefreshToken = "new-refresh";
+                await _databaseService.Connection.UpdateAsync(account);
+                return ApiEnvelope<AuthUserDto>.Success(new AuthUserDto(auth.User.UserId,
+                    "updated@example.com", "Premium", true, false, false, true));
+            });
+
+        var result = await _service.RefreshProfileAsync();
+
+        result.IsSuccess.Should().BeTrue();
+        var persisted = (await _service.GetActiveAccountAsync())!;
+        persisted.AccessToken.Should().Be("new-access");
+        persisted.RefreshToken.Should().Be("new-refresh");
+        persisted.IsUnlimitedAccountsEnabled.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RefreshProfileAsync_DoesNotRestoreAccountAfterSignOut()
+    {
+        var auth = CreateAuthResult("first@example.com");
+        _apiClient.Setup(x => x.LoginAsync("first@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(auth));
+        await _service.LoginAsync("first@example.com", "pw");
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _apiClient.Setup(x => x.GetCurrentUserAsync(It.IsAny<System.Threading.CancellationToken>()))
+            .Returns(async () =>
+            {
+                started.SetResult();
+                await release.Task;
+                return ApiEnvelope<AuthUserDto>.Success(auth.User);
+            });
+        _apiClient.Setup(x => x.LogoutAsync(It.IsAny<string>(), It.IsAny<System.Threading.CancellationToken>()))
+            .ReturnsAsync(ApiEnvelope<JsonElement>.Success(default));
+
+        var pending = _service.RefreshProfileAsync();
+        await started.Task;
+        await _service.SignOutAsync();
+        release.SetResult();
+
+        (await pending).IsSuccess.Should().BeFalse();
+        (await _service.GetActiveAccountAsync()).Should().BeNull();
     }
 
     [Fact]

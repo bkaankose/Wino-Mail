@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
+using Wino.Mail.Controls.IntelligenceTileBar;
 using Wino.Mail.Controls.IntelligenceProgressRing;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.UI.ViewManagement;
@@ -48,6 +49,7 @@ public sealed partial class WinoIntelligenceHeader : Control
     private TextBlock? _processingStatusTextBlock;
     private FontIcon? _chevronIcon;
     private FrameworkElement? _bodyRoot;
+    private WinoMailIntelligenceTileBar? _intelligenceTileBar;
     private FrameworkElement? _factsPanel;
     private FrameworkElement? _deadlineFactCard;
     private TextBlock? _deadlineFactTextBlock;
@@ -415,6 +417,7 @@ public sealed partial class WinoIntelligenceHeader : Control
         _processingStatusTextBlock = GetTemplateChild(PartProcessingStatusTextBlockName) as TextBlock;
         _chevronIcon = GetTemplateChild(PartChevronIconName) as FontIcon;
         _bodyRoot = GetTemplateChild(PartBodyRootName) as FrameworkElement;
+        _intelligenceTileBar = GetTemplateChild(PartIntelligenceTileBarName) as WinoMailIntelligenceTileBar;
         _factsPanel = GetTemplateChild(PartFactsPanelName) as FrameworkElement;
         _deadlineFactCard = GetTemplateChild(PartDeadlineFactCardName) as FrameworkElement;
         _deadlineFactTextBlock = GetTemplateChild(PartDeadlineFactTextBlockName) as TextBlock;
@@ -462,6 +465,7 @@ public sealed partial class WinoIntelligenceHeader : Control
 
         if (_suggestedRepliesList is not null) _suggestedRepliesList.ItemsSource = _replies;
         if (_similarMailList is not null) _similarMailList.ItemsSource = _similarItems;
+        SyncIntelligenceTiles();
         AttachTemplateHandlers();
         RefreshCollections();
         SyncAll(animateExpansion: false);
@@ -629,6 +633,8 @@ public sealed partial class WinoIntelligenceHeader : Control
     private void OnContentKeyPropertyChanged(DependencyObject sender, DependencyProperty dp) => Reset();
     private void OnStatePropertyChanged(DependencyObject sender, DependencyProperty dp) => SyncAll(animateExpansion: false);
 
+    private void OnIntelligenceTilesPropertyChanged() => SyncIntelligenceTiles();
+
     private void OnExpansionPropertyChanged(DependencyObject sender, DependencyProperty dp)
     {
         SyncExpansionVisuals(animate: true);
@@ -677,6 +683,12 @@ public sealed partial class WinoIntelligenceHeader : Control
         SyncFactVisuals();
         SyncFeatureVisuals();
         SyncTranslationVisuals();
+    }
+
+    private void SyncIntelligenceTiles()
+    {
+        if (_intelligenceTileBar is not null)
+            _intelligenceTileBar.Items = IntelligenceTiles ?? [];
     }
 
     private void SyncHeaderVisuals()

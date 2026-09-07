@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Mail.Controls.IntelligenceTileBar;
 using Wino.Mail.Controls.IntelligenceProgressRing;
 
 namespace Wino.Mail.Controls.IntelligenceHeader;
@@ -20,6 +21,7 @@ namespace Wino.Mail.Controls.IntelligenceHeader;
 [TemplatePart(Name = PartProcessingStatusTextBlockName, Type = typeof(TextBlock))]
 [TemplatePart(Name = PartChevronIconName, Type = typeof(FontIcon))]
 [TemplatePart(Name = PartBodyRootName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartIntelligenceTileBarName, Type = typeof(WinoMailIntelligenceTileBar))]
 [TemplatePart(Name = PartFactsPanelName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartDeadlineFactCardName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartDeadlineFactTextBlockName, Type = typeof(TextBlock))]
@@ -97,6 +99,7 @@ public sealed partial class WinoIntelligenceHeader
     private const string PartProcessingStatusTextBlockName = "PART_ProcessingStatusTextBlock";
     private const string PartChevronIconName = "PART_ChevronIcon";
     private const string PartBodyRootName = "PART_BodyRoot";
+    private const string PartIntelligenceTileBarName = "PART_IntelligenceTileBar";
     private const string PartFactsPanelName = "PART_FactsPanel";
     private const string PartDeadlineFactCardName = "PART_DeadlineFactCard";
     private const string PartDeadlineFactTextBlockName = "PART_DeadlineFactTextBlock";

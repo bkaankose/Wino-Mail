@@ -3143,5 +3143,7 @@
     "UnreadBadges_TaskbarTotal_Description": "The sum of every account allowed to contribute.",
     "UnreadBadges_TaskbarTotal_Title": "Combined taskbar badge",
     "UnreadBadges_Title": "Unread badges",
-    "SettingsFolderSynchronize_Title": "Synchronize"
+    "SettingsFolderSynchronize_Title": "Synchronize",
+    "WinoAccount_PurchasePending": "Your purchase is still being confirmed. Select Refresh to check again.",
+    "WinoAccount_PurchaseRefreshFailed": "We couldn't refresh your purchases. Please try again."
 }

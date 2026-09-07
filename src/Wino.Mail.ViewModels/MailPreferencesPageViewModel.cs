@@ -28,6 +28,7 @@ public partial class MailPreferencesPageViewModel : MailBaseViewModel
     private int _emailSyncIntervalMinutes;
     private int _undoSendingDraftsIntervalInSeconds;
     private int _undoDeletingMailsIntervalInSeconds;
+    private int _markAsDelay;
     private int _selectedMarkAsOptionIndex;
     private string _selectedDefaultSearchMode;
 
@@ -51,6 +52,7 @@ public partial class MailPreferencesPageViewModel : MailBaseViewModel
         _emailSyncIntervalMinutes = PreferencesService.EmailSyncIntervalMinutes;
         _undoSendingDraftsIntervalInSeconds = PreferencesService.UndoSendingDraftsIntervalInSeconds;
         _undoDeletingMailsIntervalInSeconds = PreferencesService.UndoDeletingMailsIntervalInSeconds;
+        _markAsDelay = PreferencesService.MarkAsDelay;
         _selectedMarkAsOptionIndex = Array.IndexOf(Enum.GetValues<MailMarkAsOption>(), PreferencesService.MarkAsPreference);
     }
 
@@ -128,6 +130,19 @@ public partial class MailPreferencesPageViewModel : MailBaseViewModel
             if (SetProperty(ref _selectedMarkAsOptionIndex, value) && value >= 0)
             {
                 PreferencesService.MarkAsPreference = Enum.GetValues<MailMarkAsOption>()[value];
+            }
+        }
+    }
+
+    public int MarkAsDelay
+    {
+        get => _markAsDelay;
+        set
+        {
+            var normalizedValue = Math.Max(0, value);
+            if (SetProperty(ref _markAsDelay, normalizedValue))
+            {
+                PreferencesService.MarkAsDelay = normalizedValue;
             }
         }
     }

@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
@@ -140,6 +141,69 @@ public class MailItemViewModelUpdateTests
         sut.IntelligenceTiles.Select(static tile => tile.Text).Should().Equal(
             "IntelligenceTile_LabelTravel",
             "IntelligenceTile_LabelFinance");
+    }
+
+    [Fact]
+    public void UpdateFrom_ClearingIntelligenceMetadata_ShouldNotifyEmptyTiles()
+    {
+        var mail = CreateMailCopy("thread-1", DateTime.UtcNow);
+        mail.IntelligenceMetadata = CreatePriorityMetadata(MailPriority.High);
+        var sut = new MailItemViewModel(mail);
+        var raisedProperties = new List<string>();
+        sut.PropertyChanged += (_, args) =>
+        {
+            if (!string.IsNullOrEmpty(args.PropertyName))
+                raisedProperties.Add(args.PropertyName);
+        };
+
+        mail.IntelligenceMetadata = null;
+
+        sut.UpdateFrom(mail, MailCopyChangeFlags.IntelligenceMetadata);
+
+        sut.IntelligenceTiles.Should().BeEmpty();
+        sut.RowIntelligenceTiles.Should().BeEmpty();
+        sut.RowTiles.Should().BeEmpty();
+        raisedProperties.Should().Contain(
+            nameof(MailItemViewModel.IntelligenceTiles),
+            nameof(MailItemViewModel.HasIntelligenceTiles),
+            nameof(MailItemViewModel.RowIntelligenceTiles),
+            nameof(MailItemViewModel.HasRowIntelligenceTiles),
+            nameof(MailItemViewModel.RowTiles),
+            nameof(MailItemViewModel.HasRowTiles));
+    }
+
+    [Fact]
+    public void ApplyIntelligenceVisibility_ShouldUpdateAccountSnapshotAndNotifyTiles()
+    {
+        var mail = CreateMailCopy("thread-1", DateTime.UtcNow);
+        mail.AssignedAccount = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Preferences = new MailAccountPreferences()
+        };
+        mail.IntelligenceMetadata = CreatePriorityMetadata(MailPriority.High);
+        var sut = new MailItemViewModel(mail);
+        var raisedProperties = new List<string>();
+        sut.PropertyChanged += (_, args) =>
+        {
+            if (!string.IsNullOrEmpty(args.PropertyName))
+                raisedProperties.Add(args.PropertyName);
+        };
+
+        sut.IntelligenceTiles.Should().ContainSingle(tile => tile.Kind == WinoIntelligenceTileKind.Priority);
+
+        sut.ApplyIntelligenceVisibility([IntelligenceIndicatorId.FactPriority]);
+
+        mail.AssignedAccount.Preferences.ExcludedIntelligenceIndicatorIds.Should()
+            .ContainSingle(IntelligenceIndicatorId.FactPriority);
+        sut.IntelligenceTiles.Should().NotContain(tile => tile.Kind == WinoIntelligenceTileKind.Priority);
+        raisedProperties.Should().Contain(
+            nameof(MailItemViewModel.IntelligenceTiles),
+            nameof(MailItemViewModel.HasIntelligenceTiles),
+            nameof(MailItemViewModel.RowIntelligenceTiles),
+            nameof(MailItemViewModel.HasRowIntelligenceTiles),
+            nameof(MailItemViewModel.RowTiles),
+            nameof(MailItemViewModel.HasRowTiles));
     }
 
     [Fact]

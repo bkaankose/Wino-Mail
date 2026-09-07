@@ -183,13 +183,40 @@
                 Padding="0,16,24,40"
                 HorizontalAlignment="Stretch"
                 Spacing="4">
-                <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.IsIntelligenceRefreshing, Mode=OneWay}">
-                    <ProgressRing Width="16" Height="16" IsActive="{x:Bind ViewModel.IsIntelligenceRefreshing, Mode=OneWay}" />
+                <StackPanel
+                    Orientation="Horizontal"
+                    Spacing="8"
+                    Visibility="{x:Bind ViewModel.IsIntelligenceRefreshing, Mode=OneWay}">
+                    <ProgressRing
+                        Width="16"
+                        Height="16"
+                        IsActive="{x:Bind ViewModel.IsIntelligenceRefreshing, Mode=OneWay}" />
                     <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.WinoIntelligence_Updating, Mode=OneTime}" />
                 </StackPanel>
-                <InfoBar AutomationProperties.AutomationId="WinoAccountCachedRefreshInfoBar" IsClosable="True" IsOpen="{x:Bind ViewModel.HasIntelligenceRefreshError, Mode=OneWay}" Message="{x:Bind ViewModel.IntelligenceRefreshError, Mode=OneWay}" Severity="Warning">
+                <InfoBar
+                    AutomationProperties.AutomationId="WinoAccountPurchaseStatus"
+                    IsClosable="False"
+                    IsOpen="{x:Bind ViewModel.HasPurchaseStatus, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.PurchaseStatusMessage, Mode=OneWay}"
+                    Severity="Informational">
                     <InfoBar.ActionButton>
-                        <Button AutomationProperties.AutomationId="WinoAccountRetryCachedRefreshButton" Command="{x:Bind ViewModel.RetryIntelligenceRefreshCommand}" Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
+                        <Button
+                            AutomationProperties.AutomationId="WinoAccountPurchaseStatusRefreshButton"
+                            Command="{x:Bind ViewModel.RefreshPurchasesCommand}"
+                            Content="{x:Bind domain:Translator.WinoAccount_Management_RefreshPurchases, Mode=OneTime}" />
+                    </InfoBar.ActionButton>
+                </InfoBar>
+                <InfoBar
+                    AutomationProperties.AutomationId="WinoAccountCachedRefreshInfoBar"
+                    IsClosable="True"
+                    IsOpen="{x:Bind ViewModel.HasIntelligenceRefreshError, Mode=OneWay}"
+                    Message="{x:Bind ViewModel.IntelligenceRefreshError, Mode=OneWay}"
+                    Severity="Warning">
+                    <InfoBar.ActionButton>
+                        <Button
+                            AutomationProperties.AutomationId="WinoAccountRetryCachedRefreshButton"
+                            Command="{x:Bind ViewModel.RetryIntelligenceRefreshCommand}"
+                            Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
                     </InfoBar.ActionButton>
                 </InfoBar>
 
@@ -289,12 +316,12 @@
                             <Border
                                 x:Name="BenefitDetailArtColumn"
                                 Width="300"
-                                Visibility="Collapsed"
                                 Padding="24"
                                 Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                                 BorderThickness="0,0,1,0"
-                                CornerRadius="7,0,0,7">
+                                CornerRadius="7,0,0,7"
+                                Visibility="Collapsed">
                                 <Grid VerticalAlignment="Center">
 
                                     <!--  Move to a new PC: the same setup arriving on a second device.  -->
@@ -575,9 +602,7 @@
                                                 Opacity="0.7"
                                                 RadiusX="4"
                                                 RadiusY="4" />
-                                            <Path
-                                                Data="M183.3,16 L188.5,32 L204.5,37.2 L188.5,42.4 L183.3,58.4 L178.1,42.4 L162.1,37.2 L178.1,32 Z"
-                                                Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                                            <Path Data="M183.3,16 L188.5,32 L204.5,37.2 L188.5,42.4 L183.3,58.4 L178.1,42.4 L162.1,37.2 L178.1,32 Z" Fill="{ThemeResource AccentFillColorDefaultBrush}" />
                                             <Path
                                                 Data="M206.9,44 L209.6,52 L217.6,54.7 L209.6,57.4 L206.9,65.4 L204.2,57.4 L196.2,54.7 L204.2,52 Z"
                                                 Fill="{ThemeResource AccentFillColorDefaultBrush}"

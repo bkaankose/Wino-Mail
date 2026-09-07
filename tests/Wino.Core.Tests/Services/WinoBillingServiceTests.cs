@@ -87,6 +87,32 @@ public sealed class WinoBillingServiceTests : IAsyncLifetime
         result.Should().BeSameAs(expected);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task OpenCheckoutAsync_RecordsAccountAndProductBeforeLaunching_AndClearsFailedLaunch(bool launched)
+    {
+        var accountId = Guid.NewGuid();
+        await _databaseService.Connection.InsertAsync(new WinoAccount { Id = accountId });
+        var pending = new Mock<IWinoPendingCheckoutStore>();
+        var sessions = new WinoAccountSessionService(_databaseService);
+        var service = new WinoBillingService(_databaseService, _apiClient.Object, _storeManagementService.Object,
+            _nativeAppService.Object, pending.Object, sessions);
+        var checkoutUri = new Uri("https://checkout.example.test/session");
+        _apiClient.Setup(x => x.CreateCheckoutSessionAsync("AI_PACK", default))
+            .ReturnsAsync(ApiEnvelope<CheckoutSessionResultDto>.Success(
+                new CheckoutSessionResultDto(checkoutUri.AbsoluteUri, DateTimeOffset.UtcNow.AddMinutes(30))));
+        _nativeAppService.Setup(x => x.LaunchUriAsync(checkoutUri)).Returns(() =>
+        {
+            pending.Verify(x => x.Save(accountId, WinoAddOnProductType.AI_PACK), Times.Once);
+            return Task.FromResult(launched);
+        });
+
+        (await service.OpenCheckoutAsync(WinoAddOnProductType.AI_PACK)).Should().Be(launched);
+
+        pending.Verify(x => x.Clear(accountId), launched ? Times.Never() : Times.Once());
+    }
+
     [Fact]
     public async Task OpenCheckoutAsync_ReturnsFalse_WhenBrowserLaunchFails()
     {

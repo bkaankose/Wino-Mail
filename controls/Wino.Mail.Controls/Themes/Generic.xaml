@@ -1057,7 +1057,7 @@
                             BorderThickness="0,1,0,0"
                             Visibility="Collapsed">
                             <StackPanel Spacing="10">
-                                <intelligenceTiles:WinoMailIntelligenceTileBar AutomationProperties.AutomationId="WinoIntelligenceHeaderTileBar" Items="{TemplateBinding IntelligenceTiles}" />
+                                <intelligenceTiles:WinoMailIntelligenceTileBar x:Name="PART_IntelligenceTileBar" AutomationProperties.AutomationId="WinoIntelligenceHeaderTileBar" />
                                 <StackPanel x:Name="PART_FactsPanel" Spacing="6">
                                     <Border
                                         x:Name="PART_DeadlineFactCard"

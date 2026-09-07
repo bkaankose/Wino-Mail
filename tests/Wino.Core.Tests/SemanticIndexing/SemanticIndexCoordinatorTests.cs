@@ -12,6 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.SemanticIndexing;
+using Wino.Core.Domain.Models.Translations;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.Cryptography;
 using Wino.Mail.Contracts.Intelligence;
@@ -338,6 +339,7 @@ public sealed class SemanticIndexCoordinatorTests
                 using var body = JsonDocument.Parse(plaintext);
                 body.RootElement.GetProperty("IntelligenceVersion").GetString().Should().Be(WinoIntelligenceVersions.V1);
                 body.RootElement.GetProperty("IndexEpoch").GetGuid().Should().Be(fixture.Epoch);
+                body.RootElement.GetProperty("Language").GetString().Should().Be("tr-TR");
                 var message = body.RootElement.GetProperty("Messages")[0];
                 message.GetProperty("ServerMessageKey").GetString().Should().Be("missing");
                 message.GetProperty("ContentHash").GetString().Should().MatchRegex("^[0-9a-f]{64}$");
@@ -581,6 +583,9 @@ public sealed class SemanticIndexCoordinatorTests
         });
         var messenger = new StrongReferenceMessenger();
         var registry = new SemanticIndexJobRegistry();
+        var translationService = new Mock<ITranslationService>();
+        translationService.SetupGet(service => service.CurrentLanguageModel)
+            .Returns(new AppLanguageModel(AppLanguage.Turkish, "Turkish", "tr-TR"));
         var coordinator = new SemanticIndexCoordinator(
             database,
             accountService.Object,
@@ -589,7 +594,7 @@ public sealed class SemanticIndexCoordinatorTests
             Mock.Of<ILocalIntelligenceService>(),
             encryptor,
             registry,
-            Mock.Of<ITranslationService>(),
+            translationService.Object,
             messageResolver.Object,
             messenger);
 

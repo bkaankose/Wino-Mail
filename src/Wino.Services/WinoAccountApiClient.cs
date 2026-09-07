@@ -1,6 +1,6 @@
 #nullable enable
-using System.Buffers.Binary;
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -40,24 +40,26 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private readonly IDatabaseService _databaseService;
     private readonly IContentEnvelopeEncryptor _contentEnvelopeEncryptor;
     private readonly ITranslationService? _translationService;
-    private readonly SemaphoreSlim _tokenRefreshLock = new(1, 1);
+    private readonly IWinoAccountSessionService _sessions;
     private readonly bool _ownsHttpClient;
     private readonly int _maximumEncryptedAttempts;
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromMinutes(10);
 
-    private const string ApiUrl = "https://localhost:7204/";
-    // private const string ApiUrl = "https://api.winomail.app/";
+    // private const string ApiUrl = "https://localhost:7204/";
+    private const string ApiUrl = "https://api.winomail.app/";
 
     public WinoAccountApiClient(
         IDatabaseService databaseService,
         HttpClient? httpClient = null,
         IContentEnvelopeEncryptor? contentEnvelopeEncryptor = null,
         ITranslationService? translationService = null,
-        int maximumEncryptedAttempts = 5)
+        int maximumEncryptedAttempts = 5,
+        IWinoAccountSessionService? sessionService = null)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(maximumEncryptedAttempts, 1);
 
         _databaseService = databaseService;
+        _sessions = sessionService ?? WinoAccountSessionService.For(databaseService);
         _contentEnvelopeEncryptor = contentEnvelopeEncryptor ??
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load());
         _translationService = translationService;
@@ -1046,6 +1048,10 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     private async Task<HttpResponseMessage?> SendAuthorizedAsync(Func<Task<HttpRequestMessage?>> requestFactory, CancellationToken cancellationToken)
     {
+        var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
+        if (session is null) return null;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, session.CancellationToken);
+        cancellationToken = linked.Token;
         using var initialRequest = await requestFactory().ConfigureAwait(false);
         if (initialRequest == null)
         {
@@ -1053,12 +1059,18 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         }
 
         var response = await _httpClient.SendAsync(initialRequest, cancellationToken).ConfigureAwait(false);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            response.Dispose();
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
         if (response.StatusCode != System.Net.HttpStatusCode.Unauthorized)
         {
             return response;
         }
 
-        if (!await TryRefreshAccessTokenAsync(cancellationToken).ConfigureAwait(false))
+        if (!await TryRefreshAccessTokenAsync(session, initialRequest.Headers.Authorization?.Parameter, cancellationToken).ConfigureAwait(false))
         {
             return response;
         }
@@ -1071,7 +1083,14 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             return null;
         }
 
-        return await _httpClient.SendAsync(retryRequest, cancellationToken).ConfigureAwait(false);
+        var retryResponse = await _httpClient.SendAsync(retryRequest, cancellationToken).ConfigureAwait(false);
+        if (cancellationToken.IsCancellationRequested)
+        {
+            retryResponse.Dispose();
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        return retryResponse;
     }
 
     private async Task<string?> GetAccessTokenAsync()
@@ -1091,40 +1110,16 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             : CultureInfo.CurrentUICulture.Name;
     }
 
-    private async Task<bool> TryRefreshAccessTokenAsync(CancellationToken cancellationToken)
+    private async Task<bool> TryRefreshAccessTokenAsync(WinoAccountSession session, string? rejectedAccessToken, CancellationToken cancellationToken)
     {
-        await _tokenRefreshLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-
-        try
+        var refreshed = await _sessions.RefreshCredentialsAsync(session, rejectedAccessToken, async (account, token) =>
         {
-            var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
-            if (account == null || string.IsNullOrWhiteSpace(account.RefreshToken))
-            {
-                return false;
-            }
+            var result = await RefreshAsync(account.RefreshToken, token).ConfigureAwait(false);
+            return result.IsSuccess && result.Result is not null
+                ? MapAccount(result.Result, account.LastAuthenticatedUtc) : null;
+        }, cancellationToken).ConfigureAwait(false);
 
-            if (!string.IsNullOrWhiteSpace(account.AccessToken) && account.AccessTokenExpiresAtUtc > DateTime.UtcNow)
-            {
-                return true;
-            }
-
-            var refreshResult = await RefreshAsync(account.RefreshToken, cancellationToken).ConfigureAwait(false);
-            if (!refreshResult.IsSuccess || refreshResult.Result == null)
-            {
-                return false;
-            }
-
-            var refreshedAccount = MapAccount(refreshResult.Result, account.LastAuthenticatedUtc);
-
-            await _databaseService.Connection.DeleteAllAsync<WinoAccount>().ConfigureAwait(false);
-            await _databaseService.Connection.InsertOrReplaceAsync(refreshedAccount, typeof(WinoAccount)).ConfigureAwait(false);
-
-            return true;
-        }
-        finally
-        {
-            _tokenRefreshLock.Release();
-        }
+        return refreshed is not null;
     }
 
     private static WinoAccount MapAccount(AuthResultDto result, DateTime lastAuthenticatedUtc)
@@ -1183,8 +1178,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         {
             _httpClient.Dispose();
         }
-
-        _tokenRefreshLock.Dispose();
     }
 }
 

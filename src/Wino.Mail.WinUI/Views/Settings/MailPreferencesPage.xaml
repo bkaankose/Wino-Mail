@@ -1,4 +1,4 @@
-<abstract:MailPreferencesPageAbstract
+﻿<abstract:MailPreferencesPageAbstract
     x:Class="Wino.Views.Settings.MailPreferencesPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -129,8 +129,7 @@
                             <RadioButton
                                 x:Name="MailPreferencesMarkAsTimerRadio"
                                 AutomationProperties.AutomationId="MailPreferencesMarkAsTimerRadio"
-                                Content="{x:Bind domain:Translator.SettingsMarkAsRead_Timer}"
-                                Visibility="Collapsed" />
+                                Content="{x:Bind domain:Translator.SettingsMarkAsRead_Timer}" />
                         </RadioButtons>
 
                         <NumberBox
@@ -138,8 +137,10 @@
                             AutomationProperties.AutomationId="MailPreferencesMarkAsDelayNumberBox"
                             Header="{x:Bind domain:Translator.SettingsMarkAsRead_SecondsToWait}"
                             IsEnabled="{x:Bind MailPreferencesMarkAsTimerRadio.IsChecked.GetValueOrDefault(), Mode=OneWay}"
-                            Text="{x:Bind ViewModel.PreferencesService.MarkAsDelay, Mode=TwoWay}"
-                            Visibility="Collapsed" />
+                            Minimum="0"
+                            SmallChange="1"
+                            SpinButtonPlacementMode="Inline"
+                            Value="{x:Bind ViewModel.MarkAsDelay, Mode=TwoWay}" />
                     </StackPanel>
                 </controls:SettingsCard>
             </controls:SettingsExpander.Items>

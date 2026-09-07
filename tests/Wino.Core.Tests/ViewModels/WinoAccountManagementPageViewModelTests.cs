@@ -5,8 +5,12 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
+using Wino.Core.Tests.Helpers;
+using Wino.Services;
+using Wino.Messaging.UI;
 using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Contracts.Intelligence;
@@ -17,6 +21,108 @@ namespace Wino.Core.Tests.ViewModels;
 
 public sealed class WinoAccountManagementPageViewModelTests
 {
+    [Fact]
+    public async Task SignOutDuringBackgroundRefresh_QueuesResetAndRejectsLateSnapshot()
+    {
+        await using var database = new InMemoryDatabaseService();
+        await database.InitializeAsync();
+        var sessions = new WinoAccountSessionService(database);
+        var account = new WinoAccount { Id = Guid.NewGuid(), Email = "old@example.test" };
+        await sessions.ReplaceAsync(account, () => Task.CompletedTask);
+        var profile = new Mock<IWinoAccountProfileService>();
+        profile.Setup(x => x.GetActiveAccountAsync()).ReturnsAsync(account);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<WinoAccountIntelligenceRefreshResult?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var snapshots = new Mock<IWinoAccountIntelligenceSnapshotService>();
+        snapshots.Setup(x => x.RefreshAsync(It.IsAny<CancellationToken>())).Returns(() =>
+        {
+            started.SetResult();
+            return release.Task;
+        });
+        var viewModel = new WinoAccountManagementPageViewModel(profile.Object,
+            Mock.Of<IWinoAccountDataSyncService>(), Mock.Of<IMailDialogService>(),
+            Mock.Of<IWinoBillingService>(), Mock.Of<IWinoAccountApiClient>(), Mock.Of<IAccountService>(),
+            Mock.Of<ISemanticIndexCoordinator>(), Mock.Of<IPreferencesService>(), Mock.Of<IAiActionOptionsService>(),
+            snapshots.Object, sessions: sessions);
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+        try
+        {
+            await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            viewModel.IsSignedIn.Should().BeTrue();
+            await sessions.ReplaceAsync(null, () => Task.CompletedTask);
+            profile.Setup(x => x.GetActiveAccountAsync()).ReturnsAsync((WinoAccount?)null);
+            viewModel.Receive(new WinoAccountProfileDeletedMessage(account));
+            release.SetResult(new(WinoAccountIntelligenceSnapshot.Empty(account.Id), true, null));
+
+            await WaitUntilAsync(() => !viewModel.IsSignedIn && !viewModel.IsBusy);
+            viewModel.AccountEmail.Should().BeEmpty();
+            viewModel.HasIntelligenceAccess.Should().BeFalse();
+        }
+        finally { viewModel.OnNavigatedFrom(NavigationMode.New, null!); }
+    }
+
+    [Fact]
+    public async Task RestorePurchases_WithProductionServices_AwaitsAuthoritativeReconciliation()
+    {
+        var account = new WinoAccount { Id = Guid.NewGuid(), Email = "restore@example.test" };
+        var snapshot = WinoAccountIntelligenceSnapshot.Empty(account.Id);
+        var snapshots = new Mock<IWinoAccountIntelligenceSnapshotService>();
+        snapshots.Setup(x => x.GetCachedAsync(account.Id, It.IsAny<CancellationToken>())).ReturnsAsync(snapshot);
+        snapshots.Setup(x => x.RefreshAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WinoAccountIntelligenceRefreshResult(snapshot, false, null));
+        var reconciliation = new Mock<IWinoPurchaseReconciliationService>();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource<WinoPurchaseRefreshResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        reconciliation.Setup(x => x.RefreshAsync(false, It.IsAny<CancellationToken>())).Returns(() =>
+        {
+            started.SetResult();
+            return release.Task;
+        });
+        var viewModel = CreatePurchaseViewModel(account, snapshots.Object, reconciliation.Object);
+
+        var command = viewModel.RefreshPurchasesCommand.ExecuteAsync(null);
+        await started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        command.IsCompleted.Should().BeFalse();
+        viewModel.IsBusy.Should().BeTrue();
+        snapshots.Verify(x => x.RefreshAsync(It.IsAny<CancellationToken>()), Times.Never);
+        release.SetResult(new(WinoPurchaseRefreshOutcome.Refreshed, account, snapshot));
+        await command.WaitAsync(TimeSpan.FromSeconds(5));
+
+        reconciliation.Verify(x => x.RefreshAsync(false, It.IsAny<CancellationToken>()), Times.Once);
+        snapshots.Verify(x => x.RefreshAsync(It.IsAny<CancellationToken>()), Times.Once);
+        viewModel.IsBusy.Should().BeFalse();
+        viewModel.IsSignedIn.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RestorePurchases_FailedReconciliation_ReportsFailureWithoutBackgroundSuccess()
+    {
+        var account = new WinoAccount { Id = Guid.NewGuid(), Email = "restore@example.test" };
+        var snapshots = new Mock<IWinoAccountIntelligenceSnapshotService>();
+        var reconciliation = new Mock<IWinoPurchaseReconciliationService>();
+        reconciliation.Setup(x => x.RefreshAsync(false, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WinoPurchaseRefreshResult(WinoPurchaseRefreshOutcome.Failed));
+        var viewModel = CreatePurchaseViewModel(account, snapshots.Object, reconciliation.Object);
+
+        await viewModel.RefreshPurchasesCommand.ExecuteAsync(null).WaitAsync(TimeSpan.FromSeconds(5));
+
+        viewModel.IntelligenceRefreshError.Should().NotBeNullOrWhiteSpace();
+        viewModel.IsBusy.Should().BeFalse();
+        snapshots.Verify(x => x.RefreshAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static WinoAccountManagementPageViewModel CreatePurchaseViewModel(WinoAccount account,
+        IWinoAccountIntelligenceSnapshotService snapshots, IWinoPurchaseReconciliationService reconciliation)
+    {
+        var profile = new Mock<IWinoAccountProfileService>();
+        profile.Setup(x => x.GetActiveAccountAsync()).ReturnsAsync(account);
+        return new(profile.Object, Mock.Of<IWinoAccountDataSyncService>(), Mock.Of<IMailDialogService>(),
+            Mock.Of<IWinoBillingService>(), Mock.Of<IWinoAccountApiClient>(), Mock.Of<IAccountService>(),
+            Mock.Of<ISemanticIndexCoordinator>(), Mock.Of<IPreferencesService>(), Mock.Of<IAiActionOptionsService>(),
+            snapshots, reconciliation);
+    }
+
     [Fact]
     public async Task CheckoutCompletedNavigation_ForcesOneProfileAndBillingRefresh()
     {

@@ -27,7 +27,8 @@ namespace Wino.Core.ViewModels;
 
 public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     IRecipient<WinoAccountProfileUpdatedMessage>,
-    IRecipient<WinoAccountProfileDeletedMessage>
+    IRecipient<WinoAccountProfileDeletedMessage>,
+    IRecipient<WinoIntelligenceAccessChanged>
 {
     private readonly IWinoAccountProfileService _profileService;
     private readonly IWinoAccountDataSyncService _syncService;
@@ -42,7 +43,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private readonly IWinoAccountIntelligenceSnapshotService? _snapshotService;
     private readonly WinoAddOnItemViewModel _aiPackAddOn;
     private readonly WinoAddOnItemViewModel _unlimitedAccountsAddOn;
-    private bool _isLoading;
+    private readonly System.Threading.SemaphoreSlim _loadLock = new(1, 1);
+    private readonly IWinoPurchaseReconciliationService? _purchaseReconciliation;
+    private readonly IWinoAccountSessionService? _sessions;
+    private readonly IWinoLogger? _logger;
     private string _intelligencePolicyVersion = string.Empty;
 
     public ObservableCollection<WinoAddOnItemViewModel> AddOns { get; } = [];
@@ -119,6 +123,12 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasIntelligenceRefreshError))]
     public partial string IntelligenceRefreshError { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPurchaseStatus))]
+    public partial string PurchaseStatusMessage { get; set; } = string.Empty;
+
+    public bool HasPurchaseStatus => !string.IsNullOrWhiteSpace(PurchaseStatusMessage);
 
     [ObservableProperty]
     public partial string IntelligenceLastUpdatedText { get; set; } = string.Empty;
@@ -202,7 +212,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                                                ISemanticIndexCoordinator semanticIndexCoordinator,
                                                IPreferencesService preferencesService,
                                                IAiActionOptionsService aiActionOptionsService,
-                                               IWinoAccountIntelligenceSnapshotService? snapshotService = null)
+                                               IWinoAccountIntelligenceSnapshotService? snapshotService = null,
+                                               IWinoPurchaseReconciliationService? purchaseReconciliation = null,
+                                               IWinoAccountSessionService? sessions = null,
+                                               IWinoLogger? logger = null)
     {
         _profileService = profileService;
         _syncService = syncService;
@@ -214,6 +227,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         _preferencesService = preferencesService;
         _aiActionOptionsService = aiActionOptionsService;
         _snapshotService = snapshotService;
+        _purchaseReconciliation = purchaseReconciliation;
+        _sessions = sessions;
+        _logger = logger;
 
         _aiPackAddOn = CreateAddOnItem(WinoAddOnProductType.AI_PACK);
         _unlimitedAccountsAddOn = CreateAddOnItem(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
@@ -395,7 +411,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
         var forceProfileRefresh = parameters is WinoAccountManagementActivationReason.CheckoutCompleted;
-        _ = InitializeAsync(forceProfileRefresh);
+        _ = LoadAsync(forceProfileRefresh, checkoutCompleted: forceProfileRefresh);
     }
 
     [RelayCommand]
@@ -814,6 +830,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
         Messenger.Register<WinoAccountProfileUpdatedMessage>(this);
         Messenger.Register<WinoAccountProfileDeletedMessage>(this);
+        Messenger.Register<WinoIntelligenceAccessChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -822,36 +839,53 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
         Messenger.Unregister<WinoAccountProfileUpdatedMessage>(this);
         Messenger.Unregister<WinoAccountProfileDeletedMessage>(this);
+        Messenger.Unregister<WinoIntelligenceAccessChanged>(this);
     }
 
     public void Receive(WinoAccountProfileUpdatedMessage message)
-        => _ = LoadAsync();
+        => _ = LoadAsync(waitForLoad: true);
 
     public void Receive(WinoAccountProfileDeletedMessage message)
-        => _ = LoadAsync();
+        => _ = LoadAsync(waitForLoad: true);
 
-    private async Task InitializeAsync(bool forceProfileRefresh)
+    public void Receive(WinoIntelligenceAccessChanged message)
+        => _ = ApplyCachedAccessChangeAsync();
+
+    private async Task ApplyCachedAccessChangeAsync()
     {
-        await LoadAsync(forceProfileRefresh).ConfigureAwait(false);
-    }
-
-    private async Task LoadAsync(bool forceProfileRefresh = false)
-    {
-        if (_isLoading)
-        {
-            return;
-        }
-
-        _isLoading = true;
-        WinoAccount? cachedAccount = null;
+        if (_snapshotService is null || _loadLock.CurrentCount == 0) return;
 
         try
         {
+            var session = _sessions is null ? null : await _sessions.CaptureAsync().ConfigureAwait(false);
+            var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+            if (account is null) return;
+
+            var snapshot = await _snapshotService.GetCachedAsync(account.Id).ConfigureAwait(false);
+            if (snapshot is not null)
+                await ApplyAccountIntelligenceSnapshotAsync(snapshot, null, session).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { /* Explicit refresh owns the recoverable error UI. */ }
+    }
+
+    private async Task LoadAsync(bool forceProfileRefresh = false, bool checkoutCompleted = false, bool waitForLoad = false)
+    {
+        if (forceProfileRefresh || waitForLoad)
+            await _loadLock.WaitAsync().ConfigureAwait(false);
+        else if (!await _loadLock.WaitAsync(0).ConfigureAwait(false))
+            return;
+        WinoAccount? cachedAccount = null;
+        WinoAccountSession? session = null;
+
+        try
+        {
+            session = _sessions is null ? null : await _sessions.CaptureAsync().ConfigureAwait(false);
             cachedAccount = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
 
             if (cachedAccount != null)
             {
-                await ApplyAccountStateAsync(cachedAccount).ConfigureAwait(false);
+                await ApplyAccountStateAsync(cachedAccount, session).ConfigureAwait(false);
             }
 
             if (cachedAccount is null)
@@ -880,18 +914,18 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                     }
                 }
                 catch { }
-                await ApplyAccountStateAsync(resolvedAccount).ConfigureAwait(false);
+                await ApplyAccountStateAsync(resolvedAccount, session).ConfigureAwait(false);
                 await LoadAddOnsAsync(resolvedAccount).ConfigureAwait(false);
                 return;
             }
 
             var cachedSnapshot = await _snapshotService.GetCachedAsync(cachedAccount.Id).ConfigureAwait(false);
             if (cachedSnapshot?.HasData == true)
-                await ApplyAccountIntelligenceSnapshotAsync(cachedSnapshot, null).ConfigureAwait(false);
+                await ApplyAccountIntelligenceSnapshotAsync(cachedSnapshot, null, session).ConfigureAwait(false);
             else
                 await ExecuteUIThread(() => IsBusy = true);
 
-            _ = RefreshAccountIntelligenceSnapshotAsync(forceProfileRefresh);
+            await RefreshAccountIntelligenceSnapshotAsync(forceProfileRefresh, checkoutCompleted, session).ConfigureAwait(false);
         }
         catch (Exception)
         {
@@ -906,32 +940,64 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         finally
         {
             await ExecuteUIThread(() => IsBusy = false);
-            _isLoading = false;
+            _loadLock.Release();
         }
     }
 
     [RelayCommand(CanExecute = nameof(CanRefreshPurchases))]
-    private Task RetryIntelligenceRefreshAsync() => RefreshAccountIntelligenceSnapshotAsync(forceProfileRefresh: true);
+    private Task RetryIntelligenceRefreshAsync() => LoadAsync(forceProfileRefresh: true);
 
-    private async Task RefreshAccountIntelligenceSnapshotAsync(bool forceProfileRefresh)
+    private async Task RefreshAccountIntelligenceSnapshotAsync(bool forceProfileRefresh, bool checkoutCompleted = false, WinoAccountSession? session = null)
     {
         if (_snapshotService is null) return;
-        await ExecuteUIThread(() =>
+        await ApplySessionUIAsync(session, () =>
         {
             IsIntelligenceRefreshing = true;
+            IsBusy = true;
             IntelligenceRefreshError = string.Empty;
+            PurchaseStatusMessage = string.Empty;
         });
         try
         {
-            if (forceProfileRefresh)
-                await _profileService.RefreshProfileAsync().ConfigureAwait(false);
-            var result = await _snapshotService.RefreshAsync().ConfigureAwait(false);
+            if (forceProfileRefresh && _purchaseReconciliation is not null)
+            {
+                var purchase = await _purchaseReconciliation.RefreshAsync(checkoutCompleted, session?.CancellationToken ?? default).ConfigureAwait(false);
+                if (purchase.Outcome == WinoPurchaseRefreshOutcome.SignInRequired)
+                {
+                    await ResetStateAsync().ConfigureAwait(false);
+                    return;
+                }
+
+                if (purchase.Account is not null)
+                    await ApplyAccountStateAsync(purchase.Account, session).ConfigureAwait(false);
+                if (purchase.Snapshot is not null)
+                    await ApplyAccountIntelligenceSnapshotAsync(purchase.Snapshot, null, session).ConfigureAwait(false);
+
+                await ApplySessionUIAsync(session, () =>
+                {
+                    PurchaseStatusMessage = purchase.Outcome == WinoPurchaseRefreshOutcome.Pending ? Translator.WinoAccount_PurchasePending : string.Empty;
+                    IntelligenceRefreshError = purchase.Outcome == WinoPurchaseRefreshOutcome.Failed ? Translator.WinoAccount_PurchaseRefreshFailed : string.Empty;
+                });
+                if (purchase.Outcome != WinoPurchaseRefreshOutcome.Refreshed) return;
+            }
+            else if (forceProfileRefresh)
+            {
+                var profile = await _profileService.RefreshProfileAsync().ConfigureAwait(false);
+                if (!profile.IsSuccess)
+                {
+                    await ApplySessionUIAsync(session, () => IntelligenceRefreshError = Translator.WinoAccount_PurchaseRefreshFailed);
+                    return;
+                }
+            }
+            var result = await _snapshotService.RefreshAsync(session?.CancellationToken ?? default).ConfigureAwait(false);
             if (result is not null)
-                await ApplyAccountIntelligenceSnapshotAsync(result.Snapshot, result.Error).ConfigureAwait(false);
+                await ApplyAccountIntelligenceSnapshotAsync(result.Snapshot, result.Error, session).ConfigureAwait(false);
         }
+        catch (OperationCanceledException) when (session?.CancellationToken.IsCancellationRequested == true) { }
         catch (Exception exception)
         {
-            await ExecuteUIThread(() => IntelligenceRefreshError = WinoAccountApiErrorTranslator.Translate(exception.Message));
+            _logger?.CaptureException(exception, nameof(RefreshAccountIntelligenceSnapshotAsync));
+            await ApplySessionUIAsync(session, () => IntelligenceRefreshError = Translator.WinoAccount_PurchaseRefreshFailed);
         }
         finally
         {
@@ -943,31 +1009,39 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         }
     }
 
-    private async Task ApplyAccountIntelligenceSnapshotAsync(WinoAccountIntelligenceSnapshot snapshot, string? refreshError)
+    private async Task ApplyAccountIntelligenceSnapshotAsync(WinoAccountIntelligenceSnapshot snapshot, string? refreshError, WinoAccountSession? session = null)
     {
         var localAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
-        var mailboxItems = snapshot.Mailboxes.Select(mailbox => CreateCachedIntelligenceMailboxItem(
-            mailbox, localAccounts, snapshot.MailboxHeads.GetValueOrDefault(mailbox.MailboxId))).ToArray();
-        mailboxItems = [.. mailboxItems, .. localAccounts.Where(account => mailboxItems.All(item => item.LocalAccountId != account.Id))
-            .Select(CreateLocalIntelligenceMailboxItem)];
         var aiPack = snapshot.Billing?.AiPack;
         var usage = snapshot.Usage;
-        await ExecuteUIThread(() =>
+        var hasUnlimitedAccounts = snapshot.Billing?.IsUnlimitedAccountsEnabled == true ||
+            await _billingService.HasUnlimitedAccountsAsync().ConfigureAwait(false);
+        await ApplySessionUIAsync(session, () =>
         {
+            _unlimitedAccountsAddOn.IsPurchased = hasUnlimitedAccounts;
+            _unlimitedAccountsAddOn.IsLoading = false;
+            ApplyAccountUsage(localAccounts.Count, hasUnlimitedAccounts);
             _aiPackAddOn.IsPurchased = aiPack?.HasAccess == true;
             _aiPackAddOn.IsLoading = false;
             _aiPackAddOn.ErrorText = string.Empty;
             _aiPackAddOn.RenewalText = aiPack?.RenewsAtUtc is DateTimeOffset renewal ? string.Format(Translator.WinoAccount_Management_AiPackRenews, renewal.LocalDateTime) : string.Empty;
             HasIntelligenceAccess = _aiPackAddOn.IsPurchased;
             ApplyAiPackBillingTexts(aiPack);
+            if (snapshot.Consent is not null) ApplyIntelligenceConsent(snapshot.Consent);
+            var mailboxItems = snapshot.Mailboxes.Select(mailbox => CreateCachedIntelligenceMailboxItem(
+                mailbox, localAccounts, snapshot.MailboxHeads.GetValueOrDefault(mailbox.MailboxId))).ToArray();
+            mailboxItems = [.. mailboxItems, .. localAccounts.Where(account => mailboxItems.All(item => item.LocalAccountId != account.Id))
+                .Select(CreateLocalIntelligenceMailboxItem)];
             IntelligenceMailboxes.Clear();
-            foreach (var item in mailboxItems.OrderBy(item => item.Address, StringComparer.OrdinalIgnoreCase)) IntelligenceMailboxes.Add(item);
+            foreach (var item in mailboxItems.OrderBy(item => item.Address, StringComparer.OrdinalIgnoreCase))
+            {
+                IntelligenceMailboxes.Add(item);
+            }
             IsIntelligenceUsageAvailable = usage is not null;
             IntelligenceUsagePercentage = usage is null ? 0 : (double)usage.UsagePercentage;
             IntelligenceUsageSummary = usage is null ? Translator.WinoAccount_Management_IntelligenceUsageUnavailable : string.Format(Translator.WinoAccount_Management_IntelligenceUsageSummary, usage.UsagePercentage, usage.RemainingPercentage);
             IntelligenceResetText = usage?.ResetsAtUtc is DateTimeOffset reset ? string.Format(Translator.WinoAccount_Management_IntelligenceResets, reset.LocalDateTime) : string.Empty;
             IntelligenceStorageSummary = string.Format(Translator.WinoAccount_Management_IntelligenceStorageSummary, mailboxItems.Count(item => item.HasServerIntelligence), FormatStorageSize(mailboxItems.Sum(item => item.StorageSizeBytes)));
-            if (snapshot.Consent is not null) ApplyIntelligenceConsent(snapshot.Consent);
             IntelligenceLastUpdatedText = snapshot.LastSuccessfulRefreshUtc is DateTimeOffset updated ? updated.LocalDateTime.ToString("g") : string.Empty;
             IntelligenceRefreshError = string.IsNullOrWhiteSpace(refreshError) ? string.Empty : string.Format(
                 Translator.WinoIntelligence_CachedRefreshFailed,
@@ -994,20 +1068,26 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         };
     }
 
-    private async Task ApplyAccountStateAsync(Wino.Core.Domain.Entities.Shared.WinoAccount? account)
+    private async Task ApplyAccountStateAsync(Wino.Core.Domain.Entities.Shared.WinoAccount? account, WinoAccountSession? session = null)
     {
-        await ExecuteUIThread(() =>
+        await ApplySessionUIAsync(session, () =>
         {
             IsSignedIn = account != null;
             AccountEmail = account?.Email ?? string.Empty;
         });
     }
 
+    private Task ApplySessionUIAsync(WinoAccountSession? session, Action action)
+        => _sessions is null ? ExecuteUIThread(action)
+            : session is null ? Task.CompletedTask
+            : _sessions.CommitAsync(session, () => ExecuteUIThread(action));
+
     private async Task ResetStateAsync()
     {
         await ExecuteUIThread(() =>
         {
             IsSignedIn = false;
+            PurchaseStatusMessage = string.Empty;
             AccountEmail = string.Empty;
             IsCheckoutInProgress = false;
             PurchaseAddOnCommand.NotifyCanExecuteChanged();

@@ -16,6 +16,7 @@ public sealed partial class WinoIntelligenceHeader
     partial void OnNeedsReplyTextChanged(string newValue) => OnStatePropertyChanged(this, NeedsReplyTextProperty);
     partial void OnNeedsReplyDetailTextChanged(string newValue) => OnStatePropertyChanged(this, NeedsReplyDetailTextProperty);
     partial void OnBriefingFactTextChanged(string newValue) => OnStatePropertyChanged(this, BriefingFactTextProperty);
+    partial void OnIntelligenceTilesChanged(IEnumerable<WinoIntelligenceTile>? newValue) => OnIntelligenceTilesPropertyChanged();
     partial void OnUnprocessedSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, UnprocessedSubtitleTextProperty);
     partial void OnQueuedSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, QueuedSubtitleTextProperty);
     partial void OnProcessingSubtitleTextChanged(string newValue) => OnStatePropertyChanged(this, ProcessingSubtitleTextProperty);

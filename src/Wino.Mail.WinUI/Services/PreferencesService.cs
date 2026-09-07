@@ -210,8 +210,8 @@ public partial class PreferencesService(IConfigurationService configurationServi
 
     public int MarkAsDelay
     {
-        get => _configurationService.Get(nameof(MarkAsDelay), 5);
-        set => SetPropertyAndSave(nameof(MarkAsDelay), value);
+        get => Math.Max(0, _configurationService.Get(nameof(MarkAsDelay), 5));
+        set => SetPropertyAndSave(nameof(MarkAsDelay), Math.Max(0, value));
     }
 
     public bool IsSwipeActionsEnabled

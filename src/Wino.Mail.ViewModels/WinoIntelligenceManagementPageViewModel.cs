@@ -13,6 +13,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.SemanticIndexing;
 using Wino.Mail.Contracts.Intelligence;
@@ -22,7 +23,7 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
-public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel, IRecipient<SemanticIndexJobChanged>
+public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel, IRecipient<SemanticIndexJobChanged>, IRecipient<WinoIntelligenceAccessChanged>, IRecipient<WinoAccountProfileDeletedMessage>, IRecipient<WinoAccountProfileUpdatedMessage>
 {
     private const int LargeMailboxMessageThreshold = 2_000;
 
@@ -42,7 +43,12 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     private readonly ITranslationService _translationService;
     private readonly IWinoAccountProfileService? _profileService;
     private readonly IWinoAccountIntelligenceSnapshotService? _snapshotService;
+    private readonly IWinoPurchaseReconciliationService? _purchaseReconciliation;
+    private readonly IWinoAccountSessionService? _sessions;
+    private readonly IWinoLogger? _logger;
+    private readonly SemaphoreSlim _remoteRefreshLock = new(1, 1);
     private readonly IIntelligenceCoverageHandoff _coverageHandoff;
+    private readonly SemaphoreSlim _intelligenceIndicatorUpdateGate = new(1, 1);
     private bool _isApplyingProfile;
     private HashSet<string> _selectedRemoteMessageIds = new(StringComparer.Ordinal);
     private HashSet<string> _coveredRemoteMessageIds = new(StringComparer.Ordinal);
@@ -70,7 +76,10 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         ITranslationService translationService,
         IIntelligenceCoverageHandoff coverageHandoff,
         IWinoAccountProfileService? profileService = null,
-        IWinoAccountIntelligenceSnapshotService? snapshotService = null)
+        IWinoAccountIntelligenceSnapshotService? snapshotService = null,
+        IWinoPurchaseReconciliationService? purchaseReconciliation = null,
+        IWinoAccountSessionService? sessions = null,
+        IWinoLogger? logger = null)
     {
         _coverageHandoff = coverageHandoff;
         _dialogService = dialogService;
@@ -83,10 +92,19 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         _translationService = translationService;
         _profileService = profileService;
         _snapshotService = snapshotService;
+        _purchaseReconciliation = purchaseReconciliation;
+        _sessions = sessions;
+        _logger = logger;
     }
 
     [ObservableProperty]
     public partial MailAccount Account { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPurchaseStatus))]
+    public partial string PurchaseStatusMessage { get; set; } = string.Empty;
+
+    public bool HasPurchaseStatus => !string.IsNullOrWhiteSpace(PurchaseStatusMessage);
 
     [ObservableProperty]
     public partial bool IsDailyBriefingEnabled { get; set; } = true;
@@ -516,6 +534,10 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             return;
         }
 
+        // This page is cached. Close the interaction gate before replacing the previous account's
+        // indicator collection so ToggleSwitch hydration cannot be mistaken for a user change.
+        IsPageReady = false;
+
         try
         {
             await SetBusyAsync(true, Translator.SemanticIndex_OperationLoading);
@@ -656,12 +678,24 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
 
     private void ReplaceIntelligenceIndicatorSettings(IEnumerable<string>? excludedIndicatorIds)
     {
-        IntelligenceIndicatorSettings.Clear();
-        foreach (var item in IntelligenceIndicatorSettingsCatalog.Create(
-            excludedIndicatorIds?.ToHashSet(StringComparer.Ordinal)))
+        var replacements = IntelligenceIndicatorSettingsCatalog.Create(
+            excludedIndicatorIds?.ToHashSet(StringComparer.Ordinal));
+        var canUpdateInPlace = IntelligenceIndicatorSettings.Count == replacements.Count &&
+            IntelligenceIndicatorSettings.Select(static item => item.Identifier)
+                .SequenceEqual(replacements.Select(static item => item.Identifier), StringComparer.Ordinal);
+        if (canUpdateInPlace)
         {
-            IntelligenceIndicatorSettings.Add(item);
+            for (var index = 0; index < replacements.Count; index++)
+            {
+                IntelligenceIndicatorSettings[index].IsBusy = false;
+                IntelligenceIndicatorSettings[index].IsVisible = replacements[index].IsVisible;
+            }
+            return;
         }
+
+        IntelligenceIndicatorSettings.Clear();
+        foreach (var item in replacements)
+            IntelligenceIndicatorSettings.Add(item);
     }
 
     public async Task<bool> SetDailyBriefingEnabledAsync(bool isEnabled)
@@ -691,41 +725,59 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         if (!IsPageReady || Account is null || string.IsNullOrWhiteSpace(indicatorId))
             return isVisible;
 
-        var previousExcluded = Account.Preferences.ExcludedIntelligenceIndicatorIds?.ToHashSet(StringComparer.Ordinal)
-            ?? new HashSet<string>(StringComparer.Ordinal);
-        var previousVisible = !previousExcluded.Contains(indicatorId);
-        if (previousVisible == isVisible)
-            return previousVisible;
-
-        var updatedExcluded = previousExcluded.ToHashSet(StringComparer.Ordinal);
-        if (isVisible)
-            updatedExcluded.Remove(indicatorId);
-        else
-            updatedExcluded.Add(indicatorId);
-
+        var account = Account;
+        await _intelligenceIndicatorUpdateGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            Account.Preferences.ExcludedIntelligenceIndicatorIds = updatedExcluded;
-            await _accountService.UpdateAccountPreferencesAsync(Account.Preferences).ConfigureAwait(false);
-            await ExecuteUIThread(() =>
+            if (!ReferenceEquals(Account, account))
+                return isVisible;
+
+            var previousExcluded = account.Preferences.ExcludedIntelligenceIndicatorIds?.ToHashSet(StringComparer.Ordinal)
+                ?? new HashSet<string>(StringComparer.Ordinal);
+            var previousVisible = !previousExcluded.Contains(indicatorId);
+            if (previousVisible == isVisible)
+                return previousVisible;
+
+            var updatedExcluded = previousExcluded.ToHashSet(StringComparer.Ordinal);
+            if (isVisible)
+                updatedExcluded.Remove(indicatorId);
+            else
+                updatedExcluded.Add(indicatorId);
+
+            try
             {
-                var item = IntelligenceIndicatorSettings.FirstOrDefault(x => x.Identifier == indicatorId);
-                if (item is not null)
-                    item.IsVisible = isVisible;
-            });
-            return isVisible;
+                account.Preferences.ExcludedIntelligenceIndicatorIds = updatedExcluded;
+                await _accountService.UpdateAccountPreferencesAsync(account.Preferences).ConfigureAwait(false);
+                await ExecuteUIThread(() =>
+                {
+                    if (!ReferenceEquals(Account, account))
+                        return;
+
+                    var item = IntelligenceIndicatorSettings.FirstOrDefault(x => x.Identifier == indicatorId);
+                    if (item is not null)
+                        item.IsVisible = isVisible;
+                });
+                return isVisible;
+            }
+            catch (Exception exception)
+            {
+                account.Preferences.ExcludedIntelligenceIndicatorIds = previousExcluded;
+                await ExecuteUIThread(() =>
+                {
+                    if (!ReferenceEquals(Account, account))
+                        return;
+
+                    var item = IntelligenceIndicatorSettings.FirstOrDefault(x => x.Identifier == indicatorId);
+                    if (item is not null)
+                        item.IsVisible = previousVisible;
+                });
+                await ShowErrorAsync(exception);
+                return previousVisible;
+            }
         }
-        catch (Exception exception)
+        finally
         {
-            Account.Preferences.ExcludedIntelligenceIndicatorIds = previousExcluded;
-            await ExecuteUIThread(() =>
-            {
-                var item = IntelligenceIndicatorSettings.FirstOrDefault(x => x.Identifier == indicatorId);
-                if (item is not null)
-                    item.IsVisible = previousVisible;
-            });
-            await ShowErrorAsync(exception);
-            return previousVisible;
+            _intelligenceIndicatorUpdateGate.Release();
         }
     }
 
@@ -758,6 +810,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     private async Task<bool> TryApplyCachedAccountSnapshotAsync(MailAccount account)
     {
         if (_profileService is null || _snapshotService is null) return false;
+        var session = _sessions is null ? null : await _sessions.CaptureAsync().ConfigureAwait(false);
         var winoAccount = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
         if (winoAccount is null) return false;
         var snapshot = await _snapshotService.GetCachedAsync(winoAccount.Id).ConfigureAwait(false);
@@ -766,7 +819,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             string.Equals(x.Address.Trim(), account.Address.Trim(), StringComparison.OrdinalIgnoreCase));
         var currentConsent = snapshot.Consent is { } consent && consent.Status == ConsentStatuses.Active &&
             consent.AcceptedPolicyVersion == consent.CurrentPolicyVersion;
-        await ExecuteUIThread(() =>
+        await ApplySessionUIAsync(session, account, () =>
         {
             SemanticMailboxId = mailbox?.MailboxId;
             HasAccountConsent = currentConsent;
@@ -784,24 +837,38 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         return true;
     }
 
-    private async Task RefreshCachedAccountSnapshotAsync(MailAccount account)
+    private async Task RefreshCachedAccountSnapshotAsync(MailAccount account, bool forcePurchases = false)
     {
         if (_snapshotService is null) return;
+        await _remoteRefreshLock.WaitAsync().ConfigureAwait(false);
+        var session = _sessions is null ? null : await _sessions.CaptureAsync().ConfigureAwait(false);
         await ExecuteUIThread(() =>
         {
             IsRemoteRefreshInProgress = true;
             RemoteRefreshError = string.Empty;
+            PurchaseStatusMessage = string.Empty;
         });
         try
         {
-            var result = await _snapshotService.RefreshAsync().ConfigureAwait(false);
+            if (forcePurchases && _purchaseReconciliation is not null)
+            {
+                var purchase = await _purchaseReconciliation.RefreshAsync(cancellationToken: session?.CancellationToken ?? default).ConfigureAwait(false);
+                await ApplySessionUIAsync(session, account, () =>
+                {
+                    PurchaseStatusMessage = purchase.Outcome == WinoPurchaseRefreshOutcome.Pending ? Translator.WinoAccount_PurchasePending : string.Empty;
+                    RemoteRefreshError = purchase.Outcome is WinoPurchaseRefreshOutcome.Failed or WinoPurchaseRefreshOutcome.SignInRequired
+                        ? Translator.WinoAccount_PurchaseRefreshFailed : string.Empty;
+                });
+                if (purchase.Outcome != WinoPurchaseRefreshOutcome.Refreshed) return;
+            }
+            var result = await _snapshotService.RefreshAsync(session?.CancellationToken ?? default).ConfigureAwait(false);
             if (result is not null)
             {
                 var mailbox = result.Snapshot.Mailboxes.FirstOrDefault(x => x.ProviderType == (int)account.ProviderType &&
                     string.Equals(x.Address.Trim(), account.Address.Trim(), StringComparison.OrdinalIgnoreCase));
                 var currentConsent = result.Snapshot.Consent is { } consent && consent.Status == ConsentStatuses.Active &&
                     consent.AcceptedPolicyVersion == consent.CurrentPolicyVersion;
-                await ExecuteUIThread(() =>
+                await ApplySessionUIAsync(session, account, () =>
                 {
                     SemanticMailboxId = mailbox?.MailboxId;
                     HasAccountConsent = currentConsent;
@@ -824,22 +891,75 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 });
             }
         }
-        catch
+        catch (OperationCanceledException) when (session?.CancellationToken.IsCancellationRequested == true) { }
+        catch (Exception exception)
         {
+            _logger?.CaptureException(exception, nameof(RefreshCachedAccountSnapshotAsync));
             // Cached data remains authoritative for this visit. API operations still validate live access.
-            await ExecuteUIThread(() => RemoteRefreshError = string.Format(
+            await ApplySessionUIAsync(session, account, () => RemoteRefreshError = string.Format(
                 Translator.WinoIntelligence_CachedRefreshFailed,
                 Translator.GeneralTitle_Info));
         }
         finally
         {
             await ExecuteUIThread(() => IsRemoteRefreshInProgress = false);
+            _remoteRefreshLock.Release();
         }
     }
 
     [RelayCommand]
     private Task RetryRemoteRefreshAsync()
-        => Account is null ? Task.CompletedTask : RefreshCachedAccountSnapshotAsync(Account);
+        => Account is null ? Task.CompletedTask : RefreshCachedAccountSnapshotAsync(Account, forcePurchases: true);
+
+    public void Receive(WinoIntelligenceAccessChanged message)
+    {
+        if (Account is not null) _ = ApplyAccessChangeAsync(Account);
+    }
+
+    public void Receive(WinoAccountProfileDeletedMessage message) => _ = ResetAccountAccessAsync();
+
+    public void Receive(WinoAccountProfileUpdatedMessage message)
+    {
+        if (Account is not null) _ = ReloadAccountAccessAsync(Account);
+    }
+
+    private async Task ReloadAccountAccessAsync(MailAccount account)
+    {
+        await ResetAccountAccessAsync().ConfigureAwait(false);
+        await ApplyAccessChangeAsync(account).ConfigureAwait(false);
+    }
+
+    private Task ResetAccountAccessAsync() => ExecuteUIThread(() =>
+    {
+        HasAccountConsent = false;
+        SemanticMailboxId = null;
+        IsQuotaAvailable = false;
+        QuotaUsagePercentage = 0;
+        QuotaSummary = Translator.Intelligence_QuotaUnavailable;
+        PurchaseStatusMessage = string.Empty;
+        RemoteRefreshError = string.Empty;
+        HasIndexData = false;
+        HasLocalIndexData = false;
+        IndexedMessageCount = 0;
+    });
+
+    private Task ApplySessionUIAsync(WinoAccountSession? session, MailAccount account, Action action)
+    {
+        Task ApplyAsync() => ExecuteUIThread(() =>
+        {
+            if (ReferenceEquals(Account, account)) action();
+        });
+        return _sessions is null ? ApplyAsync()
+            : session is null ? Task.CompletedTask
+            : _sessions.CommitAsync(session, ApplyAsync);
+    }
+
+    private async Task ApplyAccessChangeAsync(MailAccount account)
+    {
+        try { await TryApplyCachedAccountSnapshotAsync(account).ConfigureAwait(false); }
+        catch (OperationCanceledException) { }
+        catch (Exception) { /* The explicit refresh flow reports recoverable failures. */ }
+    }
 
     [RelayCommand(CanExecute = nameof(CanCancelIndexing))]
     private async Task CancelIndexingAsync()
@@ -1040,11 +1160,17 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     {
         base.RegisterRecipients();
         Messenger.Register<SemanticIndexJobChanged>(this);
+        Messenger.Register<WinoIntelligenceAccessChanged>(this);
+        Messenger.Register<WinoAccountProfileDeletedMessage>(this);
+        Messenger.Register<WinoAccountProfileUpdatedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
     {
         Messenger.Unregister<SemanticIndexJobChanged>(this);
+        Messenger.Unregister<WinoIntelligenceAccessChanged>(this);
+        Messenger.Unregister<WinoAccountProfileDeletedMessage>(this);
+        Messenger.Unregister<WinoAccountProfileUpdatedMessage>(this);
         base.UnregisterRecipients();
     }
 

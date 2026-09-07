@@ -1028,18 +1028,21 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     void IRecipient<IntelligenceVisibilityChanged>.Receive(IntelligenceVisibilityChanged message)
     {
-        var account = _currentMailItem?.MailCopy?.AssignedAccount;
-        if (account?.Id != message.LocalAccountId)
+        var mailItem = _currentMailItem;
+        if (mailItem is null || mailItem.MailCopy?.AssignedAccount?.Id != message.LocalAccountId)
             return;
 
         DispatcherQueue.TryEnqueue(() =>
         {
-            _currentMailItem?.RefreshIntelligenceTiles();
-            IntelligenceHeader.IntelligenceTiles = _currentMailItem?.IntelligenceTiles;
-            if (_currentMailItem?.MailCopy.IntelligenceMetadata is { } metadata)
+            mailItem.ApplyIntelligenceVisibility(message.ExcludedIndicatorIds);
+            if (!ReferenceEquals(_currentMailItem, mailItem))
+                return;
+
+            IntelligenceHeader.IntelligenceTiles = mailItem.IntelligenceTiles;
+            if (mailItem.MailCopy.IntelligenceMetadata is { } metadata)
                 ApplyPassiveIntelligenceMetadata(metadata);
             else
-                IntelligenceHeader.IntelligenceTiles = _currentMailItem?.IntelligenceTiles;
+                IntelligenceHeader.IntelligenceTiles = mailItem.IntelligenceTiles;
         });
     }
 

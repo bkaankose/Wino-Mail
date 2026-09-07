@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
 #if WINRT_EXPOSED
@@ -240,6 +241,17 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
         OnPropertyChanged(nameof(HasRowIntelligenceTiles));
         OnPropertyChanged(nameof(RowTiles));
         OnPropertyChanged(nameof(HasRowTiles));
+    }
+
+    public void ApplyIntelligenceVisibility(IEnumerable<string>? excludedIndicatorIds)
+    {
+        var preferences = MailCopy?.AssignedAccount?.Preferences;
+        if (preferences is null)
+            return;
+
+        preferences.ExcludedIntelligenceIndicatorIds =
+            IntelligenceIndicatorId.NormalizeExcluded(excludedIndicatorIds);
+        RefreshIntelligenceTiles();
     }
 
     partial void OnMailCopyChanged(MailCopy value)

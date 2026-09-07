@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -24,27 +25,30 @@ public sealed class LocalIntelligenceStore(
     private const string V1EmbeddingEncoding = "float32-le";
     private const int V1EmbeddingDimensions = 768;
     private const int Float32ByteCount = sizeof(float);
-    private readonly SemaphoreSlim _initializeLock = new(1, 1);
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private SQLiteAsyncConnection? _connection;
+    private bool _disposed;
 
     public bool DatabaseExists => File.Exists(GetDatabasePath());
 
     public async Task InitializeAsync()
     {
-        if (_connection is not null)
-            return;
+        using var lease = await GetConnectionLeaseAsync(CancellationToken.None).ConfigureAwait(false);
+    }
 
-        await _initializeLock.WaitAsync().ConfigureAwait(false);
+    // The operation gate protects the complete connection lifetime, including schema creation.
+    private async Task<SQLiteAsyncConnection> InitializeConnectionAsync()
+    {
+        if (_connection is not null)
+            return _connection;
+
+        SQLiteAsyncConnection? connection = null;
         try
         {
-            if (_connection is not null)
-                return;
-
             Directory.CreateDirectory(applicationConfiguration.ApplicationDataFolderPath);
 
             var path = Path.Combine(applicationConfiguration.ApplicationDataFolderPath, DatabaseName);
-            var connection = new SQLiteAsyncConnection(path, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex);
+            connection = new SQLiteAsyncConnection(path, SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex);
             await connection.CreateTableAsync<LocalIntelligenceDocumentRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<LocalMailboxStateRow>().ConfigureAwait(false);
             var mailboxColumns = await connection.GetTableInfoAsync("LocalMailboxState").ConfigureAwait(false);
@@ -77,10 +81,23 @@ public sealed class LocalIntelligenceStore(
                 "ON LocalIntelligenceDocument(LocalAccountId, ServerMessageKey)")
                 .ConfigureAwait(false);
             _connection = connection;
+            return connection;
         }
-        finally
+        catch
         {
-            _initializeLock.Release();
+            if (connection is not null)
+            {
+                try
+                {
+                    await connection.CloseAsync().ConfigureAwait(false);
+                }
+                catch
+                {
+                    // Preserve the initialization failure if closing the failed connection also fails.
+                }
+            }
+
+            throw;
         }
     }
 
@@ -304,7 +321,6 @@ public sealed class LocalIntelligenceStore(
 
     public async Task<string?> GetHeadlineLanguageAsync(Guid localAccountId, CancellationToken cancellationToken = default)
     {
-        if (!DatabaseExists) return null;
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         var row = await lease.Connection.Table<LocalMailboxStateRow>().Where(x => x.LocalAccountId == localAccountId).FirstOrDefaultAsync().ConfigureAwait(false);
         return string.IsNullOrWhiteSpace(row?.HeadlineLanguage) ? null : row.HeadlineLanguage;
@@ -326,7 +342,6 @@ public sealed class LocalIntelligenceStore(
 
     public async Task<bool> GetHeadlineLanguagePromptSuppressedAsync(Guid localAccountId, CancellationToken cancellationToken = default)
     {
-        if (!DatabaseExists) return false;
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         var row = await lease.Connection.Table<LocalMailboxStateRow>().Where(x => x.LocalAccountId == localAccountId).FirstOrDefaultAsync().ConfigureAwait(false);
         return row?.SuppressHeadlineLanguagePrompt == true;
@@ -358,7 +373,6 @@ public sealed class LocalIntelligenceStore(
 
     public async Task<LocalIntelligenceAccessSnapshot?> GetAccessSnapshotAsync(Guid localAccountId, CancellationToken cancellationToken = default)
     {
-        if (!DatabaseExists) return null;
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         var row = await lease.Connection.Table<LocalIntelligenceAccessRow>()
             .Where(x => x.LocalAccountId == localAccountId).FirstOrDefaultAsync().ConfigureAwait(false);
@@ -366,12 +380,8 @@ public sealed class LocalIntelligenceStore(
             row.HasIntelligenceConsent, row.MailboxId, ToOffset(row.UpdatedAtUtc));
     }
 
-    public async Task DeleteAccessSnapshotsAsync(CancellationToken cancellationToken = default)
-    {
-        if (!DatabaseExists) return;
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        await lease.Connection.DeleteAllAsync<LocalIntelligenceAccessRow>().ConfigureAwait(false);
-    }
+    public Task DeleteAccessSnapshotsAsync(CancellationToken cancellationToken = default)
+        => DeleteSnapshotRowsAsync<LocalIntelligenceAccessRow>(cancellationToken);
 
     public async Task SaveAccountIntelligenceSnapshotAsync(WinoAccountIntelligenceSnapshot snapshot, CancellationToken cancellationToken = default)
     {
@@ -386,7 +396,6 @@ public sealed class LocalIntelligenceStore(
 
     public async Task<WinoAccountIntelligenceSnapshot?> GetAccountIntelligenceSnapshotAsync(Guid winoAccountId, CancellationToken cancellationToken = default)
     {
-        if (!DatabaseExists) return null;
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         var row = await lease.Connection.Table<LocalAccountIntelligenceSnapshotRow>()
             .Where(x => x.WinoAccountId == winoAccountId).FirstOrDefaultAsync().ConfigureAwait(false);
@@ -405,16 +414,31 @@ public sealed class LocalIntelligenceStore(
         }
     }
 
-    public async Task DeleteAccountIntelligenceSnapshotsAsync(CancellationToken cancellationToken = default)
+    public Task DeleteAccountIntelligenceSnapshotsAsync(CancellationToken cancellationToken = default)
+        => DeleteSnapshotRowsAsync<LocalAccountIntelligenceSnapshotRow>(cancellationToken);
+
+    private async Task DeleteSnapshotRowsAsync<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRow>(CancellationToken cancellationToken) where TRow : new()
     {
-        if (!DatabaseExists) return;
-        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        await lease.Connection.DeleteAllAsync<LocalAccountIntelligenceSnapshotRow>().ConfigureAwait(false);
+        await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!DatabaseExists)
+                return;
+
+            var connection = await InitializeConnectionAsync().ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            await connection.DeleteAllAsync<TRow>().ConfigureAwait(false);
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
     }
 
     public async Task<long> GetLatestBriefingFactRevisionAsync(Guid localAccountId, CancellationToken cancellationToken = default)
     {
-        if (!DatabaseExists) return 0;
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         return await GetLatestBriefingFactRevisionAsync(lease.Connection, localAccountId).ConfigureAwait(false);
     }
@@ -422,8 +446,6 @@ public sealed class LocalIntelligenceStore(
     public async Task<IReadOnlyDictionary<Guid, long>> GetDailyBriefingIgnoreRevisionsAsync(
         Guid localAccountId, CancellationToken cancellationToken = default)
     {
-        if (!DatabaseExists) return new Dictionary<Guid, long>();
-
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         var rows = await lease.Connection.Table<LocalDailyBriefingIgnoreRow>()
             .Where(x => x.LocalAccountId == localAccountId)
@@ -481,7 +503,7 @@ public sealed class LocalIntelligenceStore(
 
     public async Task<DailyBriefingUnseenState> GetDailyBriefingUnseenStateAsync(IReadOnlyCollection<Guid> localAccountIds, CancellationToken cancellationToken = default)
     {
-        if (localAccountIds.Count == 0 || !DatabaseExists) return new(false, null);
+        if (localAccountIds.Count == 0) return new(false, null);
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         DateTime? latestOpened = null;
         foreach (var accountId in localAccountIds)
@@ -553,25 +575,18 @@ public sealed class LocalIntelligenceStore(
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            await _initializeLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_connection is not null)
             {
-                if (_connection is not null)
-                {
-                    await _connection.CloseAsync().ConfigureAwait(false);
-                    _connection = null;
-                }
-
-                foreach (var suffix in new[] { string.Empty, "-wal", "-shm" })
-                {
-                    var path = GetDatabasePath() + suffix;
-                    if (File.Exists(path))
-                        File.Delete(path);
-                }
+                await _connection.CloseAsync().ConfigureAwait(false);
+                _connection = null;
             }
-            finally
+
+            foreach (var suffix in new[] { string.Empty, "-wal", "-shm" })
             {
-                _initializeLock.Release();
+                var path = GetDatabasePath() + suffix;
+                if (File.Exists(path))
+                    File.Delete(path);
             }
         }
         finally
@@ -590,16 +605,20 @@ public sealed class LocalIntelligenceStore(
         await _operationLock.WaitAsync().ConfigureAwait(false);
         try
         {
+            if (_disposed)
+                return;
+
             if (_connection is not null)
                 await _connection.CloseAsync().ConfigureAwait(false);
+
             _connection = null;
+            _disposed = true;
         }
         finally
         {
             _operationLock.Release();
         }
-        _initializeLock.Dispose();
-        _operationLock.Dispose();
+        // Keep the gate available so queued callers observe disposal after acquiring it.
     }
 
     private async Task<ConnectionLease> GetConnectionLeaseAsync(CancellationToken cancellationToken)
@@ -607,8 +626,10 @@ public sealed class LocalIntelligenceStore(
         await _operationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var connection = _connection
-                ?? throw new InvalidOperationException("The local intelligence store has not been initialized.");
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            cancellationToken.ThrowIfCancellationRequested();
+            var connection = await InitializeConnectionAsync().ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
 
             return new ConnectionLease(connection, _operationLock);
         }

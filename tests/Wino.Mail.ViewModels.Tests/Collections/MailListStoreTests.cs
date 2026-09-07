@@ -7,6 +7,8 @@ using FluentAssertions;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Intelligence;
+using Wino.Mail.AI.Abstractions;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.ViewModels.Collections;
@@ -116,6 +118,29 @@ public sealed class MailListStoreTests
 
         dispatcher.ExecutionCount.Should().Be(1);
         ((IEnumerable<MailItemViewModel>)store.Items).Should().OnlyContain(static item => item.IsRead);
+    }
+
+    [Fact]
+    public async Task UpdateMailCopiesAsync_ClearingIntelligenceMetadata_UpdatesTheExistingRow()
+    {
+        var store = CreateStore();
+        var mail = CreateMailCopy("thread-1");
+        mail.IntelligenceMetadata = new MailIntelligenceMetadata(
+            "outlook:test",
+            [new SmartLabelScore(MailSmartLabel.Important, 1)],
+            null,
+            string.Empty,
+            string.Empty);
+        await store.AddAsync(mail);
+        mail.IntelligenceMetadata = null;
+
+        await store.UpdateMailCopiesAsync(
+            [mail],
+            EntityUpdateSource.Server,
+            MailCopyChangeFlags.IntelligenceMetadata);
+
+        store.Find(mail.UniqueId).IntelligenceTiles.Should().BeEmpty();
+        store.Find(mail.UniqueId).RowTiles.Should().BeEmpty();
     }
 
     [Fact]

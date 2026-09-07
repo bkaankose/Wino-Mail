@@ -107,6 +107,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IDraftSyncRetryService _draftSyncRetryService;
     private readonly IIntelligenceSearchService _intelligenceSearchService;
     private MailItemViewModel _activeMailItem;
+    private CancellationTokenSource markAsReadDelayCancellationTokenSource;
     private IReadOnlyList<MailItemViewModel> _selectedItems = [];
     private IReadOnlySet<Guid> _selectedItemIds = new HashSet<Guid>();
     private IReadOnlySet<string> _fullySelectedThreadKeys = new HashSet<string>(StringComparer.Ordinal);
@@ -297,11 +298,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         RefreshMailListOptions();
 
         MailListLength = statePersistenceService.MailListPaneLength;
+        SetupTopBarActions();
     }
 
     partial void OnActiveFolderChanged(IBaseFolderMenuItem value)
     {
         UpdateAccountNicknamePositionForItems();
+        SetupTopBarActions();
     }
 
     private MailItemViewModel CreateMailItemViewModel(MailCopy mailCopy)
@@ -323,6 +326,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         base.OnNavigatedFrom(mode, parameters);
 
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
+        CancelPendingMarkAsRead();
         CancelActiveMailLoad();
         CompletePendingFolderNavigation(false);
 
@@ -409,7 +413,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private void SetupTopBarActions()
     {
         var nextActions = SelectedItemsCount == 0
-            ? []
+            ? CreateDisabledTopBarActions()
             : GetAvailableMailActions(SelectedItems).Cast<IMenuOperation>().ToArray();
 
         if (!HaveSameActionState(ActionItems, nextActions))
@@ -417,6 +421,23 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             ActionItems = nextActions;
         }
     }
+
+    private IReadOnlyList<IMenuOperation> CreateDisabledTopBarActions()
+        =>
+        [
+            MailOperationMenuItem.Create(MailOperation.Reply, false),
+            MailOperationMenuItem.Create(MailOperation.ReplyAll, false),
+            MailOperationMenuItem.Create(MailOperation.Forward, false),
+            MailOperationMenuItem.Create(MailOperation.Seperator, false),
+            MailOperationMenuItem.Create(IsArchiveSpecialFolder ? MailOperation.UnArchive : MailOperation.Archive, false),
+            MailOperationMenuItem.Create(MailOperation.SoftDelete, false),
+            MailOperationMenuItem.Create(MailOperation.Move, false),
+            MailOperationMenuItem.Create(MailOperation.SetFlag, false),
+            MailOperationMenuItem.Create(MailOperation.MarkAsRead, false),
+            MailOperationMenuItem.Create(MailOperation.Ignore, false),
+            MailOperationMenuItem.Create(MailOperation.Seperator, false),
+            MailOperationMenuItem.Create(IsJunkFolder ? MailOperation.MarkAsNotJunk : MailOperation.MoveToJunk, false)
+        ];
 
     private static bool HaveSameActionState(
         IReadOnlyList<IMenuOperation> current,
@@ -531,6 +552,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         if (_activeMailItem == selectedMailItemViewModel) return;
 
+        CancelPendingMarkAsRead();
+
         _activeMailItem = selectedMailItemViewModel;
 
         Messenger.Send(new ActiveMailItemChangedEvent(_activeMailItem));
@@ -543,21 +566,55 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         if (markAsPreference == MailMarkAsOption.WhenSelected)
         {
-            var operation = MailOperation.MarkAsRead;
-            var package = new MailOperationPreperationRequest(operation, _activeMailItem.MailCopy);
-
-            if (ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread &&
-                !gmailUnreadFolderMarkedAsReadUniqueIds.Contains(_activeMailItem.UniqueId))
-            {
-                gmailUnreadFolderMarkedAsReadUniqueIds.Add(_activeMailItem.UniqueId);
-            }
-
-            await ExecuteMailOperationAsync(package);
+            await MarkMailAsReadAsync(_activeMailItem);
         }
         else if (markAsPreference == MailMarkAsOption.AfterDelay && PreferencesService.MarkAsDelay >= 0)
         {
-            // TODO: Start a timer then queue.
+            var delayedMailItem = _activeMailItem;
+            var cancellationTokenSource = new CancellationTokenSource();
+            markAsReadDelayCancellationTokenSource = cancellationTokenSource;
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(PreferencesService.MarkAsDelay), cancellationTokenSource.Token);
+
+                if (ReferenceEquals(_activeMailItem, delayedMailItem) && !delayedMailItem.IsRead)
+                {
+                    await MarkMailAsReadAsync(delayedMailItem);
+                }
+            }
+            catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+            {
+            }
+            finally
+            {
+                if (ReferenceEquals(markAsReadDelayCancellationTokenSource, cancellationTokenSource))
+                {
+                    markAsReadDelayCancellationTokenSource = null;
+                }
+
+                cancellationTokenSource.Dispose();
+            }
         }
+    }
+
+    private Task MarkMailAsReadAsync(MailItemViewModel mailItem)
+    {
+        var package = new MailOperationPreperationRequest(MailOperation.MarkAsRead, mailItem.MailCopy);
+
+        if (ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread)
+        {
+            gmailUnreadFolderMarkedAsReadUniqueIds.Add(mailItem.UniqueId);
+        }
+
+        return ExecuteMailOperationAsync(package);
+    }
+
+    private void CancelPendingMarkAsRead()
+    {
+        var cancellationTokenSource = markAsReadDelayCancellationTokenSource;
+        markAsReadDelayCancellationTokenSource = null;
+        cancellationTokenSource?.Cancel();
     }
 
     public void NotifyItemSelected()
@@ -581,6 +638,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private async void PreferencesServiceChanged(object sender, string propertyName)
     {
+        if (propertyName is nameof(IPreferencesService.MarkAsPreference) or nameof(IPreferencesService.MarkAsDelay))
+        {
+            CancelPendingMarkAsRead();
+            return;
+        }
+
         if (propertyName == nameof(IPreferencesService.IsThreadingEnabled))
         {
             RefreshMailListOptions();
@@ -3202,7 +3265,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             foreach (var mailItem in ((IEnumerable<MailItemViewModel>)MailCollection.Items).Where(item =>
                 item.MailCopy?.AssignedAccount?.Id == message.LocalAccountId))
             {
-                mailItem.RefreshIntelligenceTiles();
+                mailItem.ApplyIntelligenceVisibility(message.ExcludedIndicatorIds);
             }
         });
     }

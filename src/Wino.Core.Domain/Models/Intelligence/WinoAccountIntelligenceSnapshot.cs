@@ -1,6 +1,8 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
+using Wino.Core.Domain.Interfaces;
 using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Mail.Contracts.SemanticIndex;
@@ -22,6 +24,9 @@ public sealed record WinoAccountIntelligenceSnapshot(
     DateTimeOffset? StatusesUpdatedAtUtc,
     DateTimeOffset? LastSuccessfulRefreshUtc)
 {
+    [JsonIgnore]
+    public WinoAccountSession? Session { get; init; }
+
     public IReadOnlyDictionary<Guid, MailboxIntelligenceHeadDto> MailboxHeads { get; init; }
         = new Dictionary<Guid, MailboxIntelligenceHeadDto>();
 
@@ -37,4 +42,7 @@ public sealed record WinoAccountIntelligenceSnapshot(
 public sealed record WinoAccountIntelligenceRefreshResult(
     WinoAccountIntelligenceSnapshot Snapshot,
     bool AnySectionUpdated,
-    string? Error);
+    string? Error)
+{
+    public bool BillingRefreshed { get; init; }
+}

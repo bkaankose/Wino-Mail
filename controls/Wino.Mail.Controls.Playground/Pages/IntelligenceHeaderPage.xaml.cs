@@ -315,6 +315,7 @@ public sealed partial class IntelligenceHeaderPage : Page
 
     private void SwapMessageClicked(object sender, RoutedEventArgs e)
     {
+        var wasExpanded = IntelligenceHeader.IsExpanded;
         _hostTimer.Stop();
         _processingTimer.Stop();
         _pendingSummaryId = null;
@@ -336,6 +337,18 @@ public sealed partial class IntelligenceHeaderPage : Page
             _isSynchronizing = false;
         }
         ApplyVariant(variant);
+        IntelligenceHeader.IsExpanded = wasExpanded;
+        IntelligenceHeader.IntelligenceTiles = _messageIndex % 2 == 0
+            ? new WinoIntelligenceTile[]
+            {
+                new(WinoIntelligenceTileKind.SmartLabel, "\uE8C7", "Finance", "Finance"),
+                new(WinoIntelligenceTileKind.SmartLabel, "\uE734", "Important", "Important"),
+            }
+            : new WinoIntelligenceTile[]
+            {
+                new(WinoIntelligenceTileKind.SmartLabel, "\uE709", "Travel", "Travel"),
+                new(WinoIntelligenceTileKind.SmartLabel, "\uE716", "Social", "Social"),
+            };
 
         AddTrace($"Content swapped · variant {variant.Title}");
         ResultSummary.Text = "New content key. Any in-flight request is now stale and will be rejected.";

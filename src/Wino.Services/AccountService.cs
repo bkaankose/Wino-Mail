@@ -661,7 +661,9 @@ public class AccountService : BaseDatabaseService, IAccountService
         ReportUIChange(new AccountUpdatedMessage(account));
 
         if (account.Preferences is not null)
-            WeakReferenceMessenger.Default.Send(new IntelligenceVisibilityChanged(account.Id));
+            WeakReferenceMessenger.Default.Send(new IntelligenceVisibilityChanged(
+                account.Id,
+                [.. account.Preferences.ExcludedIntelligenceIndicatorIds]));
     }
 
     public async Task UpdateAccountPreferencesAsync(MailAccountPreferences preferences)
@@ -670,7 +672,9 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         preferences.PrepareForStorage();
         await Connection.UpdateAsync(preferences, typeof(MailAccountPreferences)).ConfigureAwait(false);
-        WeakReferenceMessenger.Default.Send(new IntelligenceVisibilityChanged(preferences.AccountId));
+        WeakReferenceMessenger.Default.Send(new IntelligenceVisibilityChanged(
+            preferences.AccountId,
+            [.. preferences.ExcludedIntelligenceIndicatorIds]));
     }
 
     public async Task UpdateAccountCustomServerInformationAsync(CustomServerInformation customServerInformation)

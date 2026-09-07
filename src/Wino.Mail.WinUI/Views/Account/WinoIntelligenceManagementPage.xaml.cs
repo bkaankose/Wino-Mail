@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Mail.ViewModels.Data;
@@ -59,21 +60,42 @@ public sealed partial class WinoIntelligenceManagementPage : WinoIntelligenceMan
 
     private async void IntelligenceIndicatorToggle_Toggled(object sender, RoutedEventArgs e)
     {
-        if (_isApplyingIntelligencePreferenceState || !ViewModel.IsPageReady ||
-            sender is not ToggleSwitch toggleSwitch || toggleSwitch.DataContext is not IntelligenceIndicatorSettingsItem item)
+        if (!ViewModel.IsPageReady ||
+            sender is not ToggleSwitch toggleSwitch || toggleSwitch.Tag is not IntelligenceIndicatorSettingsItem item)
             return;
 
-        _isApplyingIntelligencePreferenceState = true;
+        if (item.IsBusy)
+            return;
+
+        // A recycled template updates its automation identity before its Tag. Ignore that
+        // intermediate state instead of applying the new toggle value to the previous item.
+        if (!string.Equals(
+            AutomationProperties.GetAutomationId(toggleSwitch),
+            item.AutomationId,
+            System.StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        // One-way binding hydration raises Toggled too. Only a user change differs from the
+        // current source item and should reach persistence.
+        if (toggleSwitch.IsOn == item.IsVisible)
+            return;
+
+        item.IsBusy = true;
         try
         {
             var actualState = await ViewModel.SetIntelligenceIndicatorVisibilityAsync(item.Identifier, toggleSwitch.IsOn);
+            if (!ReferenceEquals(toggleSwitch.Tag, item))
+                return;
+
             item.IsVisible = actualState;
             if (toggleSwitch.IsOn != actualState)
                 toggleSwitch.IsOn = actualState;
         }
         finally
         {
-            _isApplyingIntelligencePreferenceState = false;
+            item.IsBusy = false;
         }
     }
 }

@@ -27,19 +27,24 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     private readonly ITranslationService? _translationService;
     private readonly ISemanticIndexCoordinator? _semanticIndexCoordinator;
     private readonly ILocalIntelligenceStore? _localIntelligenceStore;
-    private readonly SemaphoreSlim _tokenRefreshLock = new(1, 1);
+    private readonly IWinoAccountSessionService _sessions;
+    private readonly IWinoPendingCheckoutStore? _pendingCheckouts;
     private readonly ILogger _logger = Log.ForContext<WinoAccountProfileService>();
 
     public WinoAccountProfileService(IDatabaseService databaseService,
                                      IWinoAccountApiClient apiClient,
                                      ITranslationService? translationService = null,
                                      ISemanticIndexCoordinator? semanticIndexCoordinator = null,
-                                     ILocalIntelligenceStore? localIntelligenceStore = null) : base(databaseService)
+                                     ILocalIntelligenceStore? localIntelligenceStore = null,
+                                     IWinoAccountSessionService? sessionService = null,
+                                     IWinoPendingCheckoutStore? pendingCheckouts = null) : base(databaseService)
     {
         _apiClient = apiClient;
         _translationService = translationService;
         _semanticIndexCoordinator = semanticIndexCoordinator;
         _localIntelligenceStore = localIntelligenceStore;
+        _sessions = sessionService ?? WinoAccountSessionService.For(databaseService);
+        _pendingCheckouts = pendingCheckouts;
     }
 
     public async Task<WinoAccountOperationResult> RegisterAsync(string email, string password, CancellationToken cancellationToken = default)
@@ -77,71 +82,44 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     public async Task<WinoAccountOperationResult> RefreshAsync(CancellationToken cancellationToken = default)
     {
-        await _tokenRefreshLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
+        if (session is null) return WinoAccountOperationResult.Failure(ApiErrorCodes.RefreshTokenInvalid);
 
-        try
+        WinoAccountOperationResult? failure = null;
+        WinoAccount? original = null;
+        var refreshed = await _sessions.RefreshCredentialsAsync(session, null, async (account, token) =>
         {
-            var account = await GetActiveAccountAsync().ConfigureAwait(false);
-            if (account == null || string.IsNullOrWhiteSpace(account.RefreshToken))
+            original = account;
+            var response = await _apiClient.RefreshAsync(account.RefreshToken, token).ConfigureAwait(false);
+            if (!response.IsSuccess || response.Result is null)
             {
-                _logger.Warning("Wino account token refresh skipped because there is no active account or refresh token.");
-                return WinoAccountOperationResult.Failure(ApiErrorCodes.RefreshTokenInvalid);
+                failure = WinoAccountOperationResult.Failure(response.ErrorCode, response.ErrorMessage, response.ErrorDetails);
+                return null;
             }
 
-            if (!string.IsNullOrWhiteSpace(account.AccessToken) && account.AccessTokenExpiresAtUtc > DateTime.UtcNow)
-            {
-                return WinoAccountOperationResult.Success(account);
-            }
+            return Map(response.Result);
+        }, cancellationToken).ConfigureAwait(false);
 
-            _logger.Information("Refreshing Wino account token for {Email}", account.Email);
-            var response = await _apiClient.RefreshAsync(account.RefreshToken, cancellationToken).ConfigureAwait(false);
-            var result = await PersistResponseAsync(response).ConfigureAwait(false);
-
-            if (!result.IsSuccess)
-            {
-                _logger.Warning("Wino account token refresh failed for {Email}. Error code: {ErrorCode}", account.Email, result.ErrorCode);
-                return result;
-            }
-
-            if (result.Account != null && !AreEquivalentProfiles(account, result.Account))
-            {
-                PublishProfileUpdated(result.Account);
-            }
-
-            return result;
-        }
-        finally
+        if (refreshed is null) return failure ?? WinoAccountOperationResult.Failure(ApiErrorCodes.RefreshTokenInvalid);
+        await _sessions.CommitAsync(session, () =>
         {
-            _tokenRefreshLock.Release();
-        }
+            if (original is not null && !AreEquivalentProfiles(original, refreshed))
+                PublishProfileUpdated(refreshed);
+            return Task.CompletedTask;
+        }, cancellationToken).ConfigureAwait(false);
+        return WinoAccountOperationResult.Success(refreshed);
     }
 
     public async Task<WinoAccountOperationResult> RefreshProfileAsync(CancellationToken cancellationToken = default)
     {
-        var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
-        if (account == null)
-        {
-            return WinoAccountOperationResult.Failure("MissingAccessToken");
-        }
-
-        var response = await _apiClient.GetCurrentUserAsync(cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccess || response.Result == null)
-        {
-            _logger.Warning("Failed to refresh Wino account profile for {Email}. Error code: {ErrorCode}", account.Email, response.ErrorCode);
+        var response = await GetCurrentUserAsync(cancellationToken).ConfigureAwait(false);
+        if (!response.IsSuccess || response.Result is null)
             return WinoAccountOperationResult.Failure(response.ErrorCode);
-        }
 
-        var refreshedAccount = MergeAccountProfile(account, response.Result);
-
-        if (AreEquivalentProfiles(account, refreshedAccount))
-        {
-            return WinoAccountOperationResult.Success(account);
-        }
-
-        await PersistAccountAsync(refreshedAccount).ConfigureAwait(false);
-        PublishProfileUpdated(refreshedAccount);
-
-        return WinoAccountOperationResult.Success(refreshedAccount);
+        var account = await GetActiveAccountAsync().ConfigureAwait(false);
+        return account is not null && account.Id == response.Result.UserId
+            ? WinoAccountOperationResult.Success(account)
+            : WinoAccountOperationResult.Failure("AccountSessionChanged");
     }
 
     public async Task<WinoAccount?> GetActiveAccountAsync()
@@ -184,26 +162,27 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     public async Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default)
     {
-        var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
-        if (account == null)
-        {
+        var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
+        if (session is null || await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false) is null)
             return ApiEnvelope<AuthUserDto>.Failure("MissingAccessToken");
-        }
 
-        var response = await _apiClient.GetCurrentUserAsync(cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccess)
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, session.CancellationToken);
+        var response = await _apiClient.GetCurrentUserAsync(linked.Token).ConfigureAwait(false);
+        if (!response.IsSuccess || response.Result is null) return response;
+        if (response.Result.UserId != session.AccountId) return ApiEnvelope<AuthUserDto>.Failure("AccountSessionChanged");
+
+        var committed = await _sessions.CommitAsync(session, async () =>
         {
-            _logger.Warning("Failed to load Wino account profile for {Email}. Error code: {ErrorCode}", account.Email, response.ErrorCode);
-            return response;
-        }
+            var current = await GetActiveAccountAsync().ConfigureAwait(false);
+            var refreshed = MergeAccountProfile(current!, response.Result);
+            if (!AreEquivalentProfiles(current!, refreshed))
+            {
+                await Connection.UpdateAsync(refreshed, typeof(WinoAccount)).ConfigureAwait(false);
+                PublishProfileUpdated(refreshed);
+            }
+        }, cancellationToken).ConfigureAwait(false);
 
-        if (response.Result != null)
-        {
-            var refreshedAccount = MergeAccountProfile(account, response.Result);
-            await PersistProfileDataAsync(account, refreshedAccount).ConfigureAwait(false);
-        }
-
-        return response;
+        return committed ? response : ApiEnvelope<AuthUserDto>.Failure("AccountSessionChanged");
     }
 
     public async Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default)
@@ -259,7 +238,13 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         var account = await GetActiveAccountAsync().ConfigureAwait(false);
 
         // Account-owned local intelligence must be gone before local sign-out can succeed.
-        await PurgeLocalIntelligenceAsync(cancellationToken).ConfigureAwait(false);
+        await _sessions.ReplaceAsync(null, () => PurgeLocalIntelligenceAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
+
+        if (account != null)
+        {
+            ReportUIChange(new WinoAccountProfileDeletedMessage(account));
+            ReportUIChange(new WinoAccountSignedOutMessage(account));
+        }
 
         if (account != null && !string.IsNullOrWhiteSpace(account.RefreshToken))
         {
@@ -277,12 +262,6 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             }
         }
 
-        await Connection.DeleteAllAsync<WinoAccount>().ConfigureAwait(false);
-        if (account != null)
-        {
-            ReportUIChange(new WinoAccountProfileDeletedMessage(account));
-            ReportUIChange(new WinoAccountSignedOutMessage(account));
-        }
     }
 
     private async Task<WinoAccountOperationResult> PersistResponseAsync(WinoAccountApiResult<AuthResultDto> response)
@@ -302,18 +281,19 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     private async Task PersistAccountAsync(WinoAccount account)
     {
-        var existingAccount = await GetActiveAccountAsync().ConfigureAwait(false);
-        if (existingAccount != null && existingAccount.Id != account.Id)
+        await _sessions.ReplaceAsync(account, async () =>
         {
-            await PurgeLocalIntelligenceAsync().ConfigureAwait(false);
-        }
-
-        await Connection.DeleteAllAsync<WinoAccount>().ConfigureAwait(false);
-        await Connection.InsertOrReplaceAsync(account, typeof(WinoAccount)).ConfigureAwait(false);
+            var existingAccount = await GetActiveAccountAsync().ConfigureAwait(false);
+            if (existingAccount is not null && existingAccount.Id != account.Id)
+                await PurgeLocalIntelligenceAsync().ConfigureAwait(false);
+        }).ConfigureAwait(false);
     }
 
     private async Task PurgeLocalIntelligenceAsync(CancellationToken cancellationToken = default)
     {
+        var account = await GetActiveAccountAsync().ConfigureAwait(false);
+        if (account is not null) _pendingCheckouts?.Clear(account.Id);
+
         if (_semanticIndexCoordinator != null)
         {
             await _semanticIndexCoordinator.ResetLocalStateAsync(cancellationToken).ConfigureAwait(false);
@@ -322,15 +302,6 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         if (_localIntelligenceStore != null)
         {
             await _localIntelligenceStore.DeleteDatabaseAsync(cancellationToken).ConfigureAwait(false);
-        }
-    }
-
-    private async Task PersistProfileDataAsync(WinoAccount originalAccount, WinoAccount refreshedAccount)
-    {
-        if (!AreEquivalentProfiles(originalAccount, refreshedAccount))
-        {
-            await PersistAccountAsync(refreshedAccount).ConfigureAwait(false);
-            PublishProfileUpdated(refreshedAccount);
         }
     }
 
