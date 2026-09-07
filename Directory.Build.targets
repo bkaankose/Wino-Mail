@@ -5,13 +5,6 @@
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(WinoIsSideloadBuild)' == 'true'">
-    <!-- Preserve the SDK's built-in Release compiler defaults for the custom configuration. -->
-    <Optimize>true</Optimize>
-    <DebugSymbols>false</DebugSymbols>
-    <DebugType>portable</DebugType>
-  </PropertyGroup>
-
   <PropertyGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(TargetFramework)' != 'netstandard2.0' and '$(IsTestProject)' != 'true'">
     <!-- Release is the repository-wide Native AOT compatibility gate. -->
     <IsAotCompatible>true</IsAotCompatible>

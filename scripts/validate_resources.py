@@ -8,12 +8,12 @@ Use `--apply` to write translated replacements.
 
 Examples:
   python scripts/validate_resources.py --dry-run
-  python scripts/validate_resources.py --dry-run --locales de_DE --report scripts/translation_audit.json
+  python scripts/validate_resources.py --dry-run --locales de_DE --report artifacts/translation_audit.json
   python scripts/validate_resources.py --apply --locales da_DK --model gpt-5-nano
   python scripts/validate_resources.py --dry-run --suspect-mode heuristic
 
 Usage:
-    $env:OPENAI_API_KEY="{open ai key here}"
+    Set WINO_OPENAI_API_KEY as described in docs/local-script-environment.md.
     python .\\scripts\\validate_resources.py --dry-run
     python .\\scripts\\validate_resources.py --apply --locales da_DK --workers 2
 """
@@ -31,6 +31,7 @@ from pathlib import Path
 from typing import Dict, List, Sequence
 
 from translate_resources import (
+    DEFAULT_TRANSLATIONS_ROOT,
     LOCALE_LABELS,
     discover_locales,
     has_utf8_bom,
@@ -133,7 +134,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--translations-root",
-        default=str(Path("Wino.Core.Domain") / "Translations"),
+        default=str(DEFAULT_TRANSLATIONS_ROOT),
         help="Path to the translations root directory.",
     )
     parser.add_argument(
@@ -148,8 +149,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--model",
-        default="gpt-5-nano",
-        help="OpenAI model name to use when --apply is enabled.",
+        default=os.environ.get("WINO_TRANSLATION_VALIDATION_MODEL") or "gpt-5-nano",
+        help="OpenAI model name. Defaults to WINO_TRANSLATION_VALIDATION_MODEL or gpt-5-nano.",
     )
     parser.add_argument(
         "--chunk-size",
@@ -170,11 +171,6 @@ def parse_args() -> argparse.Namespace:
         help="Maximum retries per translation chunk.",
     )
     parser.add_argument(
-        "--api-key-env",
-        default="OPENAI_API_KEY",
-        help="Environment variable that stores the OpenAI API key.",
-    )
-    parser.add_argument(
         "--suspect-mode",
         choices=("exact", "heuristic"),
         default="exact",
@@ -182,7 +178,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--allowlist",
-        default=str(Path("scripts") / "translation_allowlist.json"),
+        default=str(Path(__file__).resolve().parents[1] / ".config" / "translation_allowlist.json"),
         help="Path to JSON allowlist for legitimate untranslated keys or values.",
     )
     parser.add_argument(
@@ -421,7 +417,7 @@ def process_locale(
     if suspects and args.apply:
         if not api_key:
             raise RuntimeError(
-                f"Missing API key. Set the {args.api_key_env} environment variable before using --apply."
+                "Missing API key. Set WINO_OPENAI_API_KEY before using --apply."
             )
         suspect_entries = [(suspect["key"], source_data[suspect["key"]]) for suspect in suspects]
         translated = translate_missing_entries(
@@ -494,7 +490,7 @@ def main() -> int:
         print("No target locales found.", file=sys.stderr)
         return 1
 
-    api_key = os.environ.get(args.api_key_env)
+    api_key = os.environ.get("WINO_OPENAI_API_KEY")
     print(
         f"Auditing {len(locales)} locale(s) from {source_path} "
         f"using suspect-mode={args.suspect_mode} in {'apply' if args.apply else 'dry-run'} mode.",

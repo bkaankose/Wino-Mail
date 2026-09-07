@@ -13,7 +13,7 @@ Examples:
 
 
 Usage:
-    $env:OPENAI_API_KEY="{open ai key here}"
+    Set WINO_OPENAI_API_KEY as described in docs/local-script-environment.md.
     python .\\scripts\\translate_resources.py --dry-run
     python .\\scripts\\translate_resources.py --apply --workers 4
 """
@@ -63,7 +63,6 @@ LOCALE_LABELS = {
 DEFAULT_TRANSLATIONS_ROOT = (
     Path(__file__).resolve().parents[1] / "src" / "Wino.Core.Domain" / "Translations"
 )
-TRANSLATION_MODEL = "gpt-5.6-luna"
 
 
 def parse_args() -> argparse.Namespace:
@@ -102,9 +101,9 @@ def parse_args() -> argparse.Namespace:
         help="Maximum retries per translation chunk.",
     )
     parser.add_argument(
-        "--api-key-env",
-        default="OPENAI_API_KEY",
-        help="Environment variable that stores the OpenAI API key.",
+        "--model",
+        default=os.environ.get("WINO_TRANSLATION_MODEL") or "gpt-5.6-luna",
+        help="OpenAI model name. Defaults to WINO_TRANSLATION_MODEL or gpt-5.6-luna.",
     )
     parser.add_argument(
         "--dry-run",
@@ -230,7 +229,7 @@ def call_openai_chat(
             payload = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         details = exc.read().decode("utf-8", errors="replace")
-        raise RuntimeError(f"OpenAI API HTTP {exc.code}: {details}") from exc
+        raise RuntimeError(f"OpenAI API HTTP {exc.code}: {details.replace(api_key, '[redacted]')}") from exc
     except urllib.error.URLError as exc:
         raise RuntimeError(f"OpenAI API request failed: {exc}") from exc
 
@@ -318,12 +317,12 @@ def process_locale(
     if missing_keys and args.apply:
         if not api_key:
             raise RuntimeError(
-                f"Missing API key. Set the {args.api_key_env} environment variable before using --apply."
+                "Missing API key. Set WINO_OPENAI_API_KEY before using --apply."
             )
         missing_entries = [(key, source_data[key]) for key in missing_keys]
         translated_missing = translate_missing_entries(
             api_key=api_key,
-            model=TRANSLATION_MODEL,
+            model=args.model,
             locale=locale,
             entries=missing_entries,
             chunk_size=args.chunk_size,
@@ -377,10 +376,10 @@ def main() -> int:
         print("No target locales found.", file=sys.stderr)
         return 1
 
-    api_key = os.environ.get(args.api_key_env)
+    api_key = os.environ.get("WINO_OPENAI_API_KEY")
     print(
         f"Processing {len(locales)} locale(s) from {source_path} "
-        f"using model {TRANSLATION_MODEL} in {'apply' if args.apply else 'dry-run'} mode.",
+        f"using model {args.model} in {'apply' if args.apply else 'dry-run'} mode.",
         flush=True,
     )
 

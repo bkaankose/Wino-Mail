@@ -2,7 +2,6 @@
   <Configurations>
     <BuildType Name="Debug" />
     <BuildType Name="Release" />
-    <BuildType Name="ReleaseSideload" />
     <Platform Name="arm64" />
     <Platform Name="x64" />
     <Platform Name="x86" />

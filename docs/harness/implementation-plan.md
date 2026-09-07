@@ -4,6 +4,10 @@
 > Started: 2026-09-01  
 > Constraint: Use repository tools and free local automation only.
 
+This roadmap describes planned development-tooling work and records completed milestones for contributors.
+Commands under pending milestones are proposals, not available setup steps. The completion record at the end identifies each milestone's status.
+Use `pwsh -NoProfile -File .\scripts\wino.ps1 help` from the repository root to inspect the implemented commands.
+
 ## Outcome
 
 The repository will provide one fast and trustworthy development entry point.
@@ -67,7 +71,7 @@ Acceptance criteria:
 - The script excludes `bin` and `obj` directories.
 - A formatting failure returns a nonzero exit code.
 
-Baseline result:
+Baseline recorded for P0.2:
 
 - The repository contains 149 source XAML files in the four active UI roots.
 - The pinned CLI reports that 50 files match the current configuration.
@@ -101,7 +105,7 @@ Acceptance criteria:
 
 - Guidance uses `scripts/wino.ps1` for normal commands.
 - The design guide names WinApp project mode, not Visual Studio deployment.
-- XAML changes require `xaml changed -Check` before handoff.
+- XAML changes require `xaml changed -Check` before submission for review.
 
 ## P1: Deterministic control scenarios
 
@@ -120,7 +124,7 @@ Acceptance criteria:
 ### P1.2 Scenario catalog
 
 Add scenarios while a control changes.
-Start with hover actions because recent sessions exposed this gap.
+Start with hover actions to cover pointer transitions and recycled list items.
 
 Initial scenarios:
 

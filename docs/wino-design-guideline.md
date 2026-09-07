@@ -3,6 +3,8 @@
 > **Status:** Draft baseline, 2026-08-15  
 > **Use this for:** Every user-facing Wino feature, page, control, dialog, command, state, or visual change in `src/Wino.Mail.WinUI` and reusable Wino controls.
 
+This guide is for contributors designing or reviewing Wino interfaces. It explains product conventions that apply across features and developer environments.
+
 Wino is a Windows productivity workspace for correspondence. This guide turns Microsoft’s Windows and Fluent guidance into product-specific decisions, while protecting Wino’s signature: a calm, personal workspace with dense, fast mail and calendar workflows.
 
 This is a design starting point, not a mandate to rewrite working UI. Apply the guidance proportionately to the change. Pair it with the repository’s implementation rules in `AGENTS.md`.
