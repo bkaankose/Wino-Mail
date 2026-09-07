@@ -155,6 +155,7 @@
                             SenderPlaceholderText="{x:Bind domain:Translator.SearchBar_SenderPlaceholder}"
                             SenderSuggestionItemTemplate="{StaticResource TitleBarSenderSuggestionTemplate}"
                             SenderSuggestionsRequested="TitleBarSenderSuggestionsRequested"
+                            TitleBar.IsDragRegion="False"
                             UnreadFilterText="{x:Bind domain:Translator.SearchBar_Unread}">
                             <searchControls:WinoSearchBar.ItemTemplate>
                                 <DataTemplate x:DataType="searchModels:TitleBarSearchSuggestion">
