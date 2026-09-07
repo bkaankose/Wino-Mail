@@ -1053,9 +1053,7 @@ public sealed partial class WinoSearchBar : Control
             ? SemanticExplanationVisibleStateName
             : SemanticExplanationHiddenStateName, useTransitions);
 
-        // The toggle stays on screen while semantic search is unavailable but explainable, so the
-        // reason has somewhere to live; it only disappears when there is nothing to say about it.
-        GoToState(mail && (IsSemanticSearchAvailable || !string.IsNullOrWhiteSpace(SemanticUnavailableReasonText))
+        GoToState(mail && IsSemanticSearchAvailable
             ? MeaningToggleVisibleStateName
             : MeaningToggleCollapsedStateName, useTransitions);
 
