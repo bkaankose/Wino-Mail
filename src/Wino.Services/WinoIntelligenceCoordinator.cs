@@ -40,6 +40,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
     private readonly ILocalIntelligenceSearchEngine _localSearch;
     private readonly IMailContentProjector _contentProjector;
     private readonly IWinoAccountIntelligenceSnapshotService? _accountSnapshotService;
+    private readonly IWinoIntelligenceEntitlementService? _entitlementService;
     private readonly ConcurrentDictionary<Guid, PendingRequest> _requests = new();
 
     public WinoIntelligenceCoordinator(
@@ -57,7 +58,8 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         IWinoLogger logger,
         ILocalIntelligenceSearchEngine localSearch,
         IMailContentProjector contentProjector,
-        IWinoAccountIntelligenceSnapshotService? accountSnapshotService = null)
+        IWinoAccountIntelligenceSnapshotService? accountSnapshotService = null,
+        IWinoIntelligenceEntitlementService? entitlementService = null)
     {
         _profileService = profileService;
         _apiClient = apiClient;
@@ -74,6 +76,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         _localSearch = localSearch;
         _contentProjector = contentProjector;
         _accountSnapshotService = accountSnapshotService;
+        _entitlementService = entitlementService;
 
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this, static (recipient, _) =>
             ((WinoIntelligenceCoordinator)recipient).InvalidateAccess());
@@ -130,7 +133,8 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
             var candidate = access.HasIntelligenceConsent && isSupportedProvider
                 ? await _messageResolver.FindCandidateAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false)
                 : null;
-            var processingAvailable = access.HasIntelligenceConsent &&
+            var processingAvailable = access.CanConsumeQuota &&
+                                      access.HasIntelligenceConsent &&
                                       context.IsSemanticIndexingEnabled &&
                                       candidate is not null &&
                                       isSupportedProvider;
@@ -154,8 +158,8 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
             var visible = access.HasAiPack;
             return new WinoIntelligenceSnapshot(
                 visible,
-                access.HasIntelligenceConsent,
-                access.HasIntelligenceConsent,
+                access.CanConsumeQuota && access.HasIntelligenceConsent,
+                access.CanConsumeQuota && access.HasIntelligenceConsent,
                 processingAvailable,
                 processingAvailable,
                 processingAvailable && state == SemanticMessageIndexState.Indexed,
@@ -398,6 +402,12 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         if (winoAccount is null)
             return AccessSnapshot.None;
 
+        var entitlement = _entitlementService is null
+            ? null
+            : await _entitlementService.GetAsync(cancellationToken).ConfigureAwait(false);
+        if (entitlement is not null && !entitlement.CanAccessSurfaces)
+            return AccessSnapshot.None;
+
         if (_accountSnapshotService is not null)
         {
             var accountSnapshot = await _accountSnapshotService.GetCachedAsync(winoAccount.Id, cancellationToken).ConfigureAwait(false);
@@ -410,7 +420,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
                     x.ProviderType == (int)context.ProviderType &&
                     string.Equals(x.Address.Trim(), context.AccountAddress.Trim(), StringComparison.OrdinalIgnoreCase));
                 var hasConsent = accountSnapshot.Consent is { } consent && IsCurrent(consent);
-                return new(true, hasConsent, mailbox?.MailboxId);
+                return new(true, hasConsent, mailbox?.MailboxId, entitlement?.CanConsumeQuota ?? true);
             }
         }
 
@@ -418,7 +428,8 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         // migrate to WinoAccountIntelligenceSnapshot. A cache miss intentionally means no access.
         var persisted = await _localStore.GetAccessSnapshotAsync(context.LocalAccountId, cancellationToken).ConfigureAwait(false);
         if (persisted is not null && persisted.WinoAccountId == winoAccount.Id)
-            return new(persisted.HasAiPack, persisted.HasIntelligenceConsent, persisted.MailboxId);
+            return new(persisted.HasAiPack, persisted.HasIntelligenceConsent, persisted.MailboxId,
+                entitlement?.CanConsumeQuota ?? persisted.HasAiPack);
 
         return AccessSnapshot.None;
     }
@@ -566,8 +577,8 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
     };
 
     private sealed record PendingRequest(string ContentKey, CancellationTokenSource Cancellation);
-    private sealed record AccessSnapshot(bool HasAiPack, bool HasIntelligenceConsent, Guid? MailboxId)
+    private sealed record AccessSnapshot(bool HasAiPack, bool HasIntelligenceConsent, Guid? MailboxId, bool CanConsumeQuota)
     {
-        public static AccessSnapshot None { get; } = new(false, false, null);
+        public static AccessSnapshot None { get; } = new(false, false, null, false);
     }
 }

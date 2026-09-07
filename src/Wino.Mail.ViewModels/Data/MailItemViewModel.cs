@@ -97,6 +97,12 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasIntelligenceTiles))]
+    [NotifyPropertyChangedFor(nameof(HasRowIntelligenceTiles))]
+    [NotifyPropertyChangedFor(nameof(HasRowTiles))]
+    public partial bool CanShowIntelligence { get; set; }
+
     /// <summary>
     /// One-shot navigation hint used only when this draft was just created by a compose action.
     /// Existing drafts opened from the mail list leave keyboard focus in the list.
@@ -199,7 +205,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
         MailCopy?.IntelligenceMetadata,
         MailCopy?.AssignedAccount?.Preferences?.ExcludedIntelligenceIndicatorIds);
 
-    public bool HasIntelligenceTiles => IntelligenceTiles.Count > 0;
+    public bool HasIntelligenceTiles => CanShowIntelligence && IntelligenceTiles.Count > 0;
 
     /// <summary>
     /// The tiles a mail row shows. Briefing facts are left out: they are a headline the reading pane
@@ -208,7 +214,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     public IReadOnlyList<WinoIntelligenceTile> RowIntelligenceTiles
         => IntelligenceTiles.Where(static tile => tile.Kind != WinoIntelligenceTileKind.BriefingFact).ToArray();
 
-    public bool HasRowIntelligenceTiles => RowIntelligenceTiles.Count > 0;
+    public bool HasRowIntelligenceTiles => CanShowIntelligence && RowIntelligenceTiles.Count > 0;
 
     /// <summary>
     /// Intelligence metadata and categories in one list so a mail row renders both through a single

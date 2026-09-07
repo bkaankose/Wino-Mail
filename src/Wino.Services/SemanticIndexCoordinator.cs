@@ -36,7 +36,8 @@ public sealed class SemanticIndexCoordinator(
     ISemanticIndexJobRegistry jobRegistry,
     ITranslationService translationService,
     IIntelligenceMessageContextResolver messageResolver,
-    IMessenger messenger) : ISemanticIndexCoordinator, IAsyncDisposable
+    IMessenger messenger,
+    IWinoIntelligenceEntitlementService? entitlementService = null) : ISemanticIndexCoordinator, IAsyncDisposable
 {
     private static readonly ILogger Logger = Log.ForContext<SemanticIndexCoordinator>();
     private const int ReconciliationBatchSize = 1_000;
@@ -53,8 +54,13 @@ public sealed class SemanticIndexCoordinator(
     /// In-flight manual single-message runs, so repeated clicks on the same message join the run
     /// already going instead of ingesting it twice and billing the user twice for it.
     /// </summary>
-    private readonly ConcurrentDictionary<(Guid AccountId, string RemoteMessageId), Lazy<Task>> _singleMessageRuns = new();
+    private readonly ConcurrentDictionary<(Guid AccountId, string RemoteMessageId), SingleMessageRun> _singleMessageRuns = new();
     private readonly SemaphoreSlim _initializeLock = new(1, 1);
+    private readonly object _lifecycleLock = new();
+    private CancellationTokenSource _lifecycleCancellation = new();
+    private TaskCompletionSource _directOperationsDrained = CreateCompletedSource();
+    private int _activeDirectOperations;
+    private bool _acceptingWork = true;
     private bool _initialized;
 
     public async Task InitializeAsync()
@@ -76,6 +82,8 @@ public sealed class SemanticIndexCoordinator(
                 ((SemanticIndexCoordinator)recipient).CaptureSynchronizedMails([message.AddedMail], message.Source));
             messenger.Register<BulkMailAddedMessage>(this, static (recipient, message) =>
                 ((SemanticIndexCoordinator)recipient).CaptureSynchronizedMails(message.AddedMails, message.Source));
+            messenger.Register<WinoAccountSignedInMessage>(this, static (recipient, _) =>
+                ((SemanticIndexCoordinator)recipient).ResumeWork());
 
             _initialized = true;
         }
@@ -91,6 +99,8 @@ public sealed class SemanticIndexCoordinator(
         CancellationToken cancellationToken = default,
         bool notifyWhenCompleted = false)
     {
+        ThrowIfWorkUnavailable();
+        ThrowIfQuotaUnavailable();
         cancellationToken.ThrowIfCancellationRequested();
 
         var ids = NormalizeIds(remoteMessageIds);
@@ -112,6 +122,10 @@ public sealed class SemanticIndexCoordinator(
         string targetLanguage,
         CancellationToken cancellationToken = default)
     {
+        ThrowIfQuotaUnavailable();
+        using var operation = BeginDirectOperation(cancellationToken);
+        cancellationToken = operation.Token;
+
         if (jobRegistry.IsRunning(localMailAccountId) || !_headlineTranslations.TryAdd(localMailAccountId, 0))
             throw new InvalidOperationException("Indexing and headline translation cannot run at the same time.");
 
@@ -183,6 +197,9 @@ public sealed class SemanticIndexCoordinator(
         string mailUniqueId,
         CancellationToken cancellationToken = default)
     {
+        ThrowIfWorkUnavailable();
+        ThrowIfQuotaUnavailable();
+
         var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
         if (!account.Preferences.IsSemanticIndexingEnabled)
             throw new InvalidOperationException("Mail intelligence is not enabled for this account.");
@@ -200,18 +217,23 @@ public sealed class SemanticIndexCoordinator(
         // The shared run is started without the caller's token: one caller walking away must not
         // cancel the work another caller is still waiting on. The caller's token governs its own
         // wait instead.
-        var run = _singleMessageRuns.GetOrAdd(key, _ => new Lazy<Task>(
-            () => IndexSingleMessageAsync(account, candidate, CancellationToken.None),
-            LazyThreadSafetyMode.ExecutionAndPublication));
+        var run = _singleMessageRuns.GetOrAdd(key, _ =>
+        {
+            var cancellation = CreateOperationCancellation(CancellationToken.None);
+            return new SingleMessageRun(
+                new Lazy<Task>(() => IndexSingleMessageAsync(account, candidate, cancellation.Token),
+                    LazyThreadSafetyMode.ExecutionAndPublication),
+                cancellation);
+        });
 
         try
         {
-            await run.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await run.Task.Value.WaitAsync(cancellationToken).ConfigureAwait(false);
         }
         finally
         {
-            if (run.Value.IsCompleted)
-                _singleMessageRuns.TryRemove(key, out _);
+            if (run.Task.Value.IsCompleted && _singleMessageRuns.TryRemove(key, out var removed))
+                removed.Cancellation.Dispose();
         }
 
         if (GetMessageState(account.Id, candidate) != SemanticMessageIndexState.Indexed)
@@ -315,6 +337,9 @@ public sealed class SemanticIndexCoordinator(
         Guid localMailAccountId,
         CancellationToken cancellationToken = default)
     {
+        using var operation = BeginDirectOperation(cancellationToken);
+        cancellationToken = operation.Token;
+
         var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
         await RequireMailboxHeadAsync(account, cancellationToken).ConfigureAwait(false);
     }
@@ -324,6 +349,9 @@ public sealed class SemanticIndexCoordinator(
         IProgress<SemanticIndexingProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        using var operation = BeginDirectOperation(cancellationToken);
+        cancellationToken = operation.Token;
+
         var account = await RequireAccountAsync(localMailAccountId).ConfigureAwait(false);
         var mailbox = await RequireMailboxHeadAsync(account, cancellationToken).ConfigureAwait(false);
         await SynchronizeChangesAsync(account.Id, mailbox, cancellationToken).ConfigureAwait(false);
@@ -370,17 +398,52 @@ public sealed class SemanticIndexCoordinator(
 
     public async Task ResetLocalStateAsync(CancellationToken cancellationToken = default)
     {
-        foreach (var accountId in _snapshots.Keys.Concat(_automaticQueues.Keys).Distinct())
-            await jobRegistry.CancelAndWaitAsync(accountId).ConfigureAwait(false);
+        CancellationTokenSource lifecycle;
+        Task directOperationsDrained;
+        lock (_lifecycleLock)
+        {
+            _acceptingWork = false;
+            lifecycle = _lifecycleCancellation;
+            directOperationsDrained = _directOperationsDrained.Task;
+        }
+
+        lifecycle.Cancel();
+
+        _automaticQueues.Clear();
+        _synchronizedMailQueues.Clear();
+
+        await jobRegistry.CancelAllAndWaitAsync().ConfigureAwait(false);
+        await directOperationsDrained.ConfigureAwait(false);
+
+        var singleMessageRuns = _singleMessageRuns.Values.ToArray();
+        foreach (var run in singleMessageRuns)
+            run.Cancellation.Cancel();
+        foreach (var run in singleMessageRuns)
+        {
+            try
+            {
+                await run.Task.Value.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch
+            {
+                // The indexing pipeline records its own failure state.
+            }
+
+            run.Cancellation.Dispose();
+        }
+
+        _singleMessageRuns.Clear();
 
         _snapshots.Clear();
         _messageStates.Clear();
-        _automaticQueues.Clear();
-        _synchronizedMailQueues.Clear();
         _headlineTranslations.Clear();
 
         await localStore.DeleteAccessSnapshotsAsync(cancellationToken).ConfigureAwait(false);
         await localStore.DeleteAccountIntelligenceSnapshotsAsync(cancellationToken).ConfigureAwait(false);
+
     }
 
     public async ValueTask DisposeAsync()
@@ -391,16 +454,27 @@ public sealed class SemanticIndexCoordinator(
             await jobRegistry.CancelAndWaitAsync(accountId).ConfigureAwait(false);
 
         _initializeLock.Dispose();
+        _lifecycleCancellation.Dispose();
     }
 
     private void StartWorker(MailAccount account, IReadOnlyCollection<string> remoteMessageIds, bool notifyWhenCompleted)
     {
-        if (!jobRegistry.TryStart(
-                account.Id,
-                token => RunIndexingAsync(account, remoteMessageIds, notifyWhenCompleted, token),
-                out _))
+        lock (_lifecycleLock)
         {
-            throw new InvalidOperationException("Indexing is already in progress for this mailbox.");
+            ThrowIfWorkUnavailable();
+            ThrowIfQuotaUnavailable();
+            var lifecycleToken = _lifecycleCancellation.Token;
+            if (!jobRegistry.TryStart(
+                    account.Id,
+                    async token =>
+                    {
+                        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, lifecycleToken);
+                        await RunIndexingAsync(account, remoteMessageIds, notifyWhenCompleted, linked.Token).ConfigureAwait(false);
+                    },
+                    out _))
+            {
+                throw new InvalidOperationException("Indexing is already in progress for this mailbox.");
+            }
         }
     }
 
@@ -839,11 +913,16 @@ public sealed class SemanticIndexCoordinator(
             if (ids.Count == 0)
                 return;
 
-            var queue = _automaticQueues.GetOrAdd(
-                message.AccountId,
-                static _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal));
-            foreach (var id in ids)
-                queue[id] = 0;
+            lock (_lifecycleLock)
+            {
+                ThrowIfWorkUnavailable();
+                ThrowIfQuotaUnavailable();
+                var queue = _automaticQueues.GetOrAdd(
+                    message.AccountId,
+                    static _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal));
+                foreach (var id in ids)
+                    queue[id] = 0;
+            }
 
             await EnsureAutomaticQueueDrainedAsync(message.AccountId).ConfigureAwait(false);
         }
@@ -859,8 +938,21 @@ public sealed class SemanticIndexCoordinator(
         {
             var account = await RequireAccountAsync(accountId).ConfigureAwait(false);
 
-            if (jobRegistry.TryStart(accountId, token => DrainAutomaticQueueAsync(account, token), out var completion))
-                SetSnapshot(new(accountId, SemanticIndexJobStatus.Queued, 0, queue.Count));
+            Task completion;
+            lock (_lifecycleLock)
+            {
+                ThrowIfWorkUnavailable();
+                ThrowIfQuotaUnavailable();
+                var lifecycleToken = _lifecycleCancellation.Token;
+                if (jobRegistry.TryStart(accountId, async token =>
+                    {
+                        using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, lifecycleToken);
+                        await DrainAutomaticQueueAsync(account, linked.Token).ConfigureAwait(false);
+                    }, out completion))
+                {
+                    SetSnapshot(new(accountId, SemanticIndexJobStatus.Queued, 0, queue.Count));
+                }
+            }
 
             await completion.ConfigureAwait(false);
         }
@@ -883,13 +975,19 @@ public sealed class SemanticIndexCoordinator(
         if (source != EntityUpdateSource.Server)
             return;
 
-        foreach (var mail in mails)
+        lock (_lifecycleLock)
         {
-            if (mail.AssignedAccount is not { } account || RemoteMessageIdentity.TryCreate(mail) is not { } remoteMessageId)
-                continue;
+            if (!_acceptingWork || _lifecycleCancellation.IsCancellationRequested)
+                return;
 
-            _synchronizedMailQueues
-                .GetOrAdd(account.Id, static _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal))[remoteMessageId] = 0;
+            foreach (var mail in mails)
+            {
+                if (mail.AssignedAccount is not { } account || RemoteMessageIdentity.TryCreate(mail) is not { } remoteMessageId)
+                    continue;
+
+                _synchronizedMailQueues
+                    .GetOrAdd(account.Id, static _ => new ConcurrentDictionary<string, byte>(StringComparer.Ordinal))[remoteMessageId] = 0;
+            }
         }
     }
 
@@ -1095,6 +1193,82 @@ public sealed class SemanticIndexCoordinator(
             _messageStates.TryRemove(key, out _);
     }
 
+    private CancellationTokenSource CreateOperationCancellation(CancellationToken cancellationToken)
+    {
+        lock (_lifecycleLock)
+        {
+            ThrowIfWorkUnavailable();
+            return CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifecycleCancellation.Token);
+        }
+    }
+
+    private DirectOperation BeginDirectOperation(CancellationToken cancellationToken)
+    {
+        lock (_lifecycleLock)
+        {
+            ThrowIfWorkUnavailable();
+
+            var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                _lifecycleCancellation.Token);
+
+            if (_activeDirectOperations++ == 0)
+                _directOperationsDrained = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            return new DirectOperation(this, linkedCancellation);
+        }
+    }
+
+    private void CompleteDirectOperation()
+    {
+        TaskCompletionSource? drained = null;
+        lock (_lifecycleLock)
+        {
+            if (--_activeDirectOperations == 0)
+                drained = _directOperationsDrained;
+        }
+
+        drained?.TrySetResult();
+    }
+
+    private void ThrowIfWorkUnavailable()
+    {
+        if (!_acceptingWork || _lifecycleCancellation.IsCancellationRequested)
+            throw new InvalidOperationException("A signed-in Wino account is required for mail intelligence.");
+    }
+
+    private void ThrowIfQuotaUnavailable()
+    {
+        if (entitlementService is not null && !entitlementService.Current.CanConsumeQuota)
+            throw new InvalidOperationException("Wino Intelligence quota is unavailable.");
+    }
+
+    private void ResumeWork()
+    {
+        CancellationTokenSource? retiredLifecycle = null;
+        lock (_lifecycleLock)
+        {
+            if (!_lifecycleCancellation.IsCancellationRequested)
+            {
+                _acceptingWork = true;
+                return;
+            }
+
+            retiredLifecycle = _lifecycleCancellation;
+            _lifecycleCancellation = new CancellationTokenSource();
+            _acceptingWork = true;
+        }
+
+        retiredLifecycle.Dispose();
+    }
+
+    private static TaskCompletionSource CreateCompletedSource()
+    {
+        var source = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        source.SetResult();
+        return source;
+    }
+
     private static string[] NormalizeIds(IEnumerable<string> remoteMessageIds)
         => remoteMessageIds
             .Where(static id => !string.IsNullOrWhiteSpace(id))
@@ -1105,6 +1279,26 @@ public sealed class SemanticIndexCoordinator(
     private sealed record PreparedDocument(
         IntelligenceMessageCandidate Candidate,
         MessageIntelligenceSourceV1 Document);
+
+    private sealed record SingleMessageRun(Lazy<Task> Task, CancellationTokenSource Cancellation);
+
+    private sealed class DirectOperation(
+        SemanticIndexCoordinator owner,
+        CancellationTokenSource cancellation) : IDisposable
+    {
+        private int _disposed;
+
+        public CancellationToken Token => cancellation.Token;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
+
+            cancellation.Dispose();
+            owner.CompleteDirectOperation();
+        }
+    }
 
     private sealed record MailboxContext(
         SemanticMailboxDto Mailbox,

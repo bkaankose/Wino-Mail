@@ -51,4 +51,35 @@ public sealed class SemanticIndexJobRegistryTests
         release.TrySetResult();
         await first;
     }
+
+    [Fact]
+    public async Task CancelAllAndWaitAsync_CancelsAndAwaitsEveryAccount()
+    {
+        var registry = new SemanticIndexJobRegistry();
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cleanupCount = 0;
+
+        foreach (var accountId in new[] { Guid.NewGuid(), Guid.NewGuid() })
+        {
+            registry.TryStart(accountId, async token =>
+            {
+                if (Interlocked.Increment(ref cleanupCount) == 1)
+                    started.TrySetResult();
+
+                try
+                {
+                    await Task.Delay(Timeout.InfiniteTimeSpan, token);
+                }
+                finally
+                {
+                    Interlocked.Increment(ref cleanupCount);
+                }
+            }, out _).Should().BeTrue();
+        }
+
+        await started.Task;
+        await registry.CancelAllAndWaitAsync();
+
+        cleanupCount.Should().Be(4);
+    }
 }

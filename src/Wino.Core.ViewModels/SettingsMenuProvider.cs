@@ -11,6 +11,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.ViewModels;
 
@@ -18,11 +19,14 @@ namespace Wino.Core.ViewModels;
 /// Owns the settings navigation pane. Settings keeps its own breadcrumb frame inside
 /// <c>SettingsPage</c>, so this provider only tracks which root section is highlighted.
 /// </summary>
-public partial class SettingsMenuProvider(INavigationService navigationService) :
+public partial class SettingsMenuProvider(
+    INavigationService navigationService,
+    IWinoIntelligenceEntitlementService entitlementService) :
     CoreBaseViewModel,
     IShellMenuProvider,
     IRecipient<ActiveSettingsPageChanged>,
-    IRecipient<LanguageChanged>
+    IRecipient<LanguageChanged>,
+    IRecipient<WinoIntelligenceEntitlementChanged>
 {
     private bool _hasRegisteredPersistentRecipients;
     private ShellMenu _shellMenu;
@@ -51,6 +55,7 @@ public partial class SettingsMenuProvider(INavigationService navigationService) 
         };
 
         RebuildMenuItems();
+        _ = RefreshEntitlementAsync();
     }
 
     /// <summary>
@@ -149,6 +154,26 @@ public partial class SettingsMenuProvider(INavigationService navigationService) 
         SetSelectedRootPage(selectedPage);
     }
 
+    public void Receive(WinoIntelligenceEntitlementChanged message)
+        => _ = ExecuteUIThread(() =>
+        {
+            var selectedRootPage = SettingsNavigationInfoProvider.GetRootPage(
+                (SelectedMenuItem as SettingsShellPageMenuItem)?.PageType ?? WinoPage.SettingOptionsPage);
+
+            RebuildMenuItems();
+            if (!message.Entitlement.CanAccessSurfaces &&
+                selectedRootPage == WinoPage.WinoIntelligencePage)
+            {
+                SetSelectedRootPage(WinoPage.WinoAccountManagementPage);
+            }
+        });
+
+    private async Task RefreshEntitlementAsync()
+    {
+        await entitlementService.GetAsync().ConfigureAwait(false);
+        await entitlementService.RefreshAsync().ConfigureAwait(false);
+    }
+
     private void RebuildMenuItems()
     {
         if (_shellMenu is null)
@@ -168,6 +193,12 @@ public partial class SettingsMenuProvider(INavigationService navigationService) 
 
         foreach (var node in SettingsNavigationInfoProvider.GetPaneNodes())
         {
+            if (!entitlementService.Current.CanAccessSurfaces &&
+                node.Item?.PageType == WinoPage.WinoIntelligencePage)
+            {
+                continue;
+            }
+
             if (!node.IsGroup)
             {
                 _shellMenu.Items.Add(CreatePageMenuItem(node.Item));
@@ -251,6 +282,7 @@ public partial class SettingsMenuProvider(INavigationService navigationService) 
         base.RegisterRecipients();
         Messenger.Register<ActiveSettingsPageChanged>(this);
         Messenger.Register<LanguageChanged>(this);
+        Messenger.Register<WinoIntelligenceEntitlementChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -258,5 +290,6 @@ public partial class SettingsMenuProvider(INavigationService navigationService) 
         base.UnregisterRecipients();
         Messenger.Unregister<ActiveSettingsPageChanged>(this);
         Messenger.Unregister<LanguageChanged>(this);
+        Messenger.Unregister<WinoIntelligenceEntitlementChanged>(this);
     }
 }

@@ -3,11 +3,13 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
 using Wino.Helpers;
@@ -31,6 +33,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     IRecipient<AccountCreatedMessage>,
     IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>,
+    IRecipient<WinoIntelligenceEntitlementChanged>,
     IInnerNavigationHost,
     ITitleBarSearchHost
 {
@@ -43,9 +46,12 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     public SettingsPage()
     {
         InitializeComponent();
+        EntitlementService = WinoApplication.Current.Services.GetRequiredService<IWinoIntelligenceEntitlementService>();
     }
 
-    protected override void OnNavigatedTo(NavigationEventArgs e)
+    private IWinoIntelligenceEntitlementService EntitlementService { get; }
+
+    protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
 
@@ -57,6 +63,9 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         var initialPage = activationContext?.TargetPage
                           ?? e.Parameter as WinoPage?
                           ?? WinoPage.SettingOptionsPage;
+        await EntitlementService.GetAsync();
+        if (IsIntelligencePage(initialPage) && !EntitlementService.Current.CanAccessSurfaces)
+            initialPage = WinoPage.WinoAccountManagementPage;
         NavigateToRootPage(initialPage, activationContext?.PageParameter);
     }
 
@@ -115,6 +124,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         WeakReferenceMessenger.Default.Register<AccountCreatedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountRemovedMessage>(this);
         WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -128,6 +138,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         WeakReferenceMessenger.Default.Unregister<AccountCreatedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<AccountRemovedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<AccountUpdatedMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
     }
 
     void IRecipient<BreadcrumbNavigationRequested>.Receive(BreadcrumbNavigationRequested message)
@@ -193,6 +204,12 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     public void Receive(SettingsRootNavigationRequested message)
     {
+        if (IsIntelligencePage(message.PageType) && !EntitlementService.Current.CanAccessSurfaces)
+        {
+            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
+            return;
+        }
+
         var activePage = PageHistory.LastOrDefault()?.Request.PageType ?? WinoPage.SettingOptionsPage;
 
         if (activePage == message.PageType)
@@ -205,6 +222,19 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         }
 
         NavigateDirectlyToRootPage(message.PageType);
+    }
+
+    public void Receive(WinoIntelligenceEntitlementChanged message)
+    {
+        if (message.Entitlement.CanAccessSurfaces)
+            return;
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            var activePage = PageHistory.LastOrDefault()?.Request.PageType;
+            if (activePage is WinoPage.WinoIntelligencePage or WinoPage.WinoIntelligenceManagementPage or WinoPage.IntelligenceCoveragePage)
+                NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
+        });
     }
 
     public void Receive(AccountUpdatedMessage message)
@@ -248,6 +278,12 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void NavigateBreadcrumb(BreadcrumbNavigationRequested message)
     {
+        if (IsIntelligencePage(message.PageType) && !EntitlementService.Current.CanAccessSurfaces)
+        {
+            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
+            return;
+        }
+
         if (!BreadcrumbNavigationHelper.Navigate(SettingsFrame, PageHistory, message, ViewModel.NavigationService.GetPageType))
             return;
 
@@ -258,6 +294,12 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void NavigateToRootPage(WinoPage targetPage, object? pageParameter = null)
     {
+        if (IsIntelligencePage(targetPage) && !EntitlementService.Current.CanAccessSurfaces)
+        {
+            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
+            return;
+        }
+
         if (targetPage == WinoPage.SettingOptionsPage)
         {
             NavigateToSettingsHome();
@@ -278,12 +320,23 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
                 pageParameter)
         }));
 
+    private static bool IsIntelligencePage(WinoPage page)
+        => page is WinoPage.WinoIntelligencePage
+            or WinoPage.WinoIntelligenceManagementPage
+            or WinoPage.IntelligenceCoveragePage;
+
     private void NavigateToRoute(SettingsNavigationRoute route)
     {
         if (route.Steps.Count == 0)
             return;
 
         var destination = route.Destination;
+        if (IsIntelligencePage(destination.PageType) && !EntitlementService.Current.CanAccessSurfaces)
+        {
+            NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
+            return;
+        }
+
         var pageType = ViewModel.NavigationService.GetPageType(destination.PageType);
 
         if (pageType == null)

@@ -131,11 +131,11 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
 
     public IReadOnlyList<WinoIntelligenceTile> IntelligenceTiles => newestMailViewModel?.IntelligenceTiles ?? [];
 
-    public bool HasIntelligenceTiles => IntelligenceTiles.Count > 0;
+    public bool HasIntelligenceTiles => newestMailViewModel?.CanShowIntelligence == true && IntelligenceTiles.Count > 0;
 
     public IReadOnlyList<WinoIntelligenceTile> RowIntelligenceTiles => newestMailViewModel?.RowIntelligenceTiles ?? [];
 
-    public bool HasRowIntelligenceTiles => RowIntelligenceTiles.Count > 0;
+    public bool HasRowIntelligenceTiles => newestMailViewModel?.CanShowIntelligence == true && RowIntelligenceTiles.Count > 0;
 
     /// <summary>
     /// Gets whether any email in this thread is a draft
@@ -377,6 +377,17 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
             if (ReferenceEquals(updatedMailItem, newestMailViewModel))
             {
                 OnPropertyChanged(nameof(ThumbnailUpdatedEvent));
+            }
+
+            return;
+        }
+
+        if (e.PropertyName == nameof(MailItemViewModel.CanShowIntelligence))
+        {
+            if (ReferenceEquals(updatedMailItem, newestMailViewModel))
+            {
+                OnPropertyChanged(nameof(HasIntelligenceTiles));
+                OnPropertyChanged(nameof(HasRowIntelligenceTiles));
             }
 
             return;
@@ -644,4 +655,3 @@ public partial class ThreadMailItemViewModel : ObservableRecipient, IMailListIte
         return insertIndex;
     }
 }
-

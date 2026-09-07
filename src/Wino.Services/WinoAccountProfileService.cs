@@ -10,6 +10,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
@@ -238,7 +239,12 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         var account = await GetActiveAccountAsync().ConfigureAwait(false);
 
         // Account-owned local intelligence must be gone before local sign-out can succeed.
-        await _sessions.ReplaceAsync(null, () => PurgeLocalIntelligenceAsync(cancellationToken), cancellationToken).ConfigureAwait(false);
+        await _sessions.ReplaceAsync(null, async () =>
+        {
+            ReportUIChange(new WinoIntelligenceEntitlementChanged(
+                WinoIntelligenceEntitlementSnapshot.SignedOut(DateTimeOffset.UtcNow)));
+            await PurgeLocalIntelligenceAsync(cancellationToken).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
 
         if (account != null)
         {

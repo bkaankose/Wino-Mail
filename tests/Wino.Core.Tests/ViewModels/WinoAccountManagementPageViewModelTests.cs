@@ -365,8 +365,8 @@ public sealed class WinoAccountManagementPageViewModelTests
     [Fact]
     public async Task AiPackFooter_AnnouncesCancellation_WhenSubscriptionLapsesAtPeriodEnd()
     {
-        var periodStart = new DateTimeOffset(2026, 8, 1, 0, 0, 0, TimeSpan.Zero);
-        var periodEnd = new DateTimeOffset(2026, 9, 1, 0, 0, 0, TimeSpan.Zero);
+        var periodStart = DateTimeOffset.UtcNow.AddDays(-15);
+        var periodEnd = DateTimeOffset.UtcNow.AddDays(15);
         var viewModel = CreateViewModelWithAccounts(
             hasUnlimitedAccounts: false,
             mailAccountCount: 0,

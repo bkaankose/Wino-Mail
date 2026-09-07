@@ -67,6 +67,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly HashSet<Guid> gmailUnreadFolderMarkedAsReadUniqueIds = [];
 
     public MailListStore MailCollection { get; } = new();
+    private readonly IWinoIntelligenceEntitlementService? _entitlementService;
 
     [ObservableProperty]
     public partial MailListProjectionOptions MailListOptions { get; set; } = new();
@@ -155,7 +156,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public MailSearchCriteria SearchCriteria { get; private set; } = MailSearchCriteria.Empty;
     private IReadOnlyList<IMailItemFolder> SearchHandlingFolders { get; set; } = [];
 
-    public bool IsSemanticSearchAvailable => _intelligenceSearchService is not null;
+    public bool IsSemanticSearchAvailable => _intelligenceSearchService is not null &&
+        _entitlementService?.Current.CanAccessSurfaces == true;
 
     [ObservableProperty]
     public partial bool IsSemanticSearchBusy { get; set; }
@@ -166,6 +168,21 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         SearchHandlingFolders = folders ?? [];
         SearchQuery = SearchCriteria.Query;
         IsOnlineSearchEnabled = SearchCriteria.ExecutionMode == SearchMode.Online;
+    }
+
+    public async Task ApplyIntelligenceEntitlementAsync(bool canAccess)
+    {
+        foreach (var item in MailCollection.Items)
+            item.CanShowIntelligence = canAccess;
+
+        OnPropertyChanged(nameof(IsSemanticSearchAvailable));
+        if (canAccess || SearchCriteria.ExecutionMode != SearchMode.Semantic)
+            return;
+
+        CancelActiveMailLoad();
+        SearchCriteria = SearchCriteria with { ExecutionMode = SearchMode.Local };
+        IsSemanticSearchBusy = false;
+        await PerformSearchAsync();
     }
 
     [ObservableProperty]
@@ -268,7 +285,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  ISynchronizationManager synchronizationManager,
                                  IDraftSyncRetryService draftSyncRetryService,
                                  IMailShellClient shellMenuProvider = null,
-                                 IIntelligenceSearchService intelligenceSearchService = null)
+                                 IIntelligenceSearchService intelligenceSearchService = null,
+                                 IWinoIntelligenceEntitlementService entitlementService = null)
     {
         ShellMenuProvider = shellMenuProvider;
 
@@ -285,6 +303,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _synchronizationManager = synchronizationManager;
         _draftSyncRetryService = draftSyncRetryService;
         _intelligenceSearchService = intelligenceSearchService;
+        _entitlementService = entitlementService;
 
         PreferencesService = preferencesService;
         ThemeService = themeService;
@@ -308,7 +327,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     }
 
     private MailItemViewModel CreateMailItemViewModel(MailCopy mailCopy)
-        => new(mailCopy, CurrentAccountNicknamePosition);
+        => new(mailCopy, CurrentAccountNicknamePosition)
+        {
+            CanShowIntelligence = _entitlementService?.Current.CanAccessSurfaces == true
+        };
 
     private void UpdateAccountNicknamePositionForItems()
         => MailCollection.UpdateAccountNicknamePosition(CurrentAccountNicknamePosition);

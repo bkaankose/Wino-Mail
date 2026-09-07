@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
@@ -41,6 +42,24 @@ public sealed class SemanticIndexJobRegistry : ISemanticIndexJobRegistry
         }
         catch (OperationCanceledException)
         {
+        }
+    }
+
+    public async Task CancelAllAndWaitAsync()
+    {
+        var jobs = _jobs.Values.ToArray();
+        foreach (var job in jobs)
+            job.Cancellation.Cancel();
+
+        foreach (var job in jobs)
+        {
+            try
+            {
+                await job.Completion.Task.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
     }
 

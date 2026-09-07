@@ -42,6 +42,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<WinoAccountProfileDeletedMessage>,
     IRecipient<DailyBriefingStateChanged>,
     IRecipient<WinoIntelligenceAccessChanged>,
+    IRecipient<WinoIntelligenceEntitlementChanged>,
     IRecipient<AccountSynchronizationProgressUpdatedMessage>
 {
     private const int AutomaticPlacementRestorationBehaviorValue = 1;
@@ -53,7 +54,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public INavigationService NavigationService { get; } = WinoApplication.Current.Services.GetService<INavigationService>() ?? throw new Exception("NavigationService not registered in DI container.");
     private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
     private IWinoAccountProfileService WinoAccountProfileService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoAccountProfileService>();
-    private IWinoBillingService WinoBillingService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoBillingService>();
+    private IWinoIntelligenceEntitlementService EntitlementService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoIntelligenceEntitlementService>();
     private ILocalIntelligenceService LocalIntelligenceService { get; } = WinoApplication.Current.Services.GetRequiredService<ILocalIntelligenceService>();
 
     private bool _calendarReminderServerStartAttempted;
@@ -86,6 +87,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         ApplyTitleBarSearchHost();
         ApplyShellSynchronizationProvider();
         _ = RefreshDailyBriefingStateAsync();
+        _ = EntitlementService.RefreshAsync();
 
         // Handle window closing event for terminate vs background/tray behavior.
         Closed += OnWindowClosed;
@@ -304,6 +306,27 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     public async void Receive(WinoIntelligenceAccessChanged message) => await RefreshDailyBriefingStateAsync();
 
+    public void Receive(WinoIntelligenceEntitlementChanged message)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            _hasDailyBriefingAccess = message.Entitlement.CanAccessSurfaces;
+            if (!_hasDailyBriefingAccess)
+            {
+                DailyBriefingPanelControl.Close();
+                DailyBriefingUnseenBadge.Visibility = Visibility.Collapsed;
+            }
+
+            RefreshDailyBriefingButtonVisibility();
+            SynchronizeTitleBarSearchBox();
+            if (!message.Entitlement.CanAccessSurfaces)
+                TitleBarSearchBox.IsSemanticSearchEnabled = false;
+        });
+
+        if (message.Entitlement.CanAccessSurfaces)
+            _ = RefreshDailyBriefingStateAsync();
+    }
+
     private async void DailyBriefingToggleButtonClicked(object sender, RoutedEventArgs e)
     {
         await DailyBriefingPanelControl.ToggleAsync();
@@ -317,11 +340,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         try
         {
-            var winoAccount = await WinoAccountProfileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
-            var billing = winoAccount == null
-                ? null
-                : await WinoBillingService.GetStatusAsync().ConfigureAwait(false);
-            var hasAccess = billing?.IsSuccess == true && billing.Result?.AiPack?.HasAccess == true;
+            var entitlement = await EntitlementService.GetAsync().ConfigureAwait(false);
+            var hasAccess = entitlement.CanAccessSurfaces;
             var eligible = hasAccess
                 ? await LocalIntelligenceService.GetEligibleAccountsAsync().ConfigureAwait(false)
                 : [];
@@ -948,6 +968,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Register<WinoAccountProfileDeletedMessage>(this);
         WeakReferenceMessenger.Default.Register<DailyBriefingStateChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
         WeakReferenceMessenger.Default.Register<AccountSynchronizationProgressUpdatedMessage>(this);
     }
 
@@ -960,6 +981,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<WinoAccountProfileDeletedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<DailyBriefingStateChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
         WeakReferenceMessenger.Default.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
     }
 

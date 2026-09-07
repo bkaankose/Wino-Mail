@@ -429,7 +429,8 @@
                     Command="{x:Bind ViewModel.ManageWinoIntelligenceCommand}"
                     Description="{x:Bind domain:Translator.SemanticIndex_Description, Mode=OneTime}"
                     Header="{x:Bind domain:Translator.SemanticIndex_Title, Mode=OneTime}"
-                    IsClickEnabled="True">
+                    IsClickEnabled="True"
+                    Visibility="{x:Bind ViewModel.CanAccessWinoIntelligence, Mode=OneWay}">
                     <controls:SettingsCard.HeaderIcon>
                         <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
                     </controls:SettingsCard.HeaderIcon>

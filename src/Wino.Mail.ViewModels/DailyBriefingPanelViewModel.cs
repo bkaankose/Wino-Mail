@@ -23,7 +23,10 @@ using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
-public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IRecipient<IntelligenceVisibilityChanged>, IDisposable
+public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
+    IRecipient<IntelligenceVisibilityChanged>,
+    IRecipient<WinoIntelligenceEntitlementChanged>,
+    IDisposable
 {
     private const int DateCount = 7;
 
@@ -108,7 +111,8 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IRec
         _requestDelegator = requestDelegator;
         _dialogService = dialogService;
         IsShowingIgnored = preferencesService.IsDailyBriefingShowingIgnored;
-        WeakReferenceMessenger.Default.Register(this);
+        WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
     }
 
     public event EventHandler? CloseRequested;
@@ -623,9 +627,31 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject, IRec
             _ = LoadAllDatesAsync(refreshAccounts: true);
     }
 
+    public void Receive(WinoIntelligenceEntitlementChanged message)
+    {
+        if (message.Entitlement.CanAccessSurfaces)
+            return;
+
+        CancelPendingWork();
+        _eligibleAccounts = [];
+        _ = _dispatcher.ExecuteOnUIThread(() =>
+        {
+            foreach (var date in Dates)
+            {
+                date.Facts.Clear();
+                ClearGroups(date.Groups);
+            }
+
+            IsLoading = false;
+            IsUnavailable = true;
+            LoadError = string.Empty;
+            CloseRequested?.Invoke(this, EventArgs.Empty);
+        });
+    }
+
     public void Dispose()
     {
         CancelPendingWork();
-        WeakReferenceMessenger.Default.Unregister<IntelligenceVisibilityChanged>(this);
+        WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 }

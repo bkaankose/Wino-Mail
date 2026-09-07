@@ -16,6 +16,7 @@ namespace Wino.Core.ViewModels;
 public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
 {
     private readonly IAccountService _accountService;
+    private readonly IWinoIntelligenceEntitlementService _entitlementService;
     private IReadOnlyList<SettingsNavigationItemInfo> _accountSearchItems = [];
     private bool _isAccountSearchIndexInitialized;
 
@@ -23,11 +24,13 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
         INavigationService navigationService,
         IStatePersistanceService statePersistenceService,
         IAccountService accountService,
+        IWinoIntelligenceEntitlementService entitlementService,
         SettingsMenuProvider settingsMenuProvider)
     {
         NavigationService = navigationService;
         StatePersistenceService = statePersistenceService;
         _accountService = accountService;
+        _entitlementService = entitlementService;
         ShellMenuProvider = settingsMenuProvider;
     }
 
@@ -59,10 +62,16 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
         if (!_isAccountSearchIndexInitialized)
             await RefreshAccountSummaryAsync().ConfigureAwait(false);
 
-        return SettingsNavigationInfoProvider.Search(query, ManageAccountsDescription, _accountSearchItems);
+        var results = SettingsNavigationInfoProvider.Search(query, ManageAccountsDescription, _accountSearchItems);
+        return _entitlementService.Current.CanAccessSurfaces
+            ? results
+            : results.Where(item => item.PageType != WinoPage.WinoIntelligencePage &&
+                                    item.PageType != WinoPage.WinoIntelligenceManagementPage &&
+                                    item.PageType != WinoPage.IntelligenceCoveragePage)
+                .ToArray();
     }
 
-    private static IEnumerable<SettingsNavigationItemInfo> CreateAccountSearchItems(MailAccount account)
+    private IEnumerable<SettingsNavigationItemInfo> CreateAccountSearchItems(MailAccount account)
     {
         var accountTitle = !string.IsNullOrWhiteSpace(account.Address)
             ? string.Format(Translator.SettingsAccountDetails_NavigationTitle, account.Address)
@@ -105,13 +114,16 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
         if (!account.IsMailAccessGranted)
             yield break;
 
-        yield return CreateAccountSearchItem(
-            account,
-            Translator.SemanticIndex_Title,
-            Translator.SemanticIndex_Description,
-            WinoPage.WinoIntelligenceManagementPage,
-            AccountDetailsTab.Mail,
-            "AI intelligence semantic search summarize");
+        if (_entitlementService.Current.CanAccessSurfaces)
+        {
+            yield return CreateAccountSearchItem(
+                account,
+                Translator.SemanticIndex_Title,
+                Translator.SemanticIndex_Description,
+                WinoPage.WinoIntelligenceManagementPage,
+                AccountDetailsTab.Mail,
+                "AI intelligence semantic search summarize");
+        }
         yield return CreateAccountSearchItem(
             account,
             Translator.MailFilters_Title,

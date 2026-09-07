@@ -28,7 +28,8 @@ namespace Wino.Core.ViewModels;
 public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     IRecipient<WinoAccountProfileUpdatedMessage>,
     IRecipient<WinoAccountProfileDeletedMessage>,
-    IRecipient<WinoIntelligenceAccessChanged>
+    IRecipient<WinoIntelligenceAccessChanged>,
+    IRecipient<WinoIntelligenceEntitlementChanged>
 {
     private readonly IWinoAccountProfileService _profileService;
     private readonly IWinoAccountDataSyncService _syncService;
@@ -47,6 +48,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private readonly IWinoPurchaseReconciliationService? _purchaseReconciliation;
     private readonly IWinoAccountSessionService? _sessions;
     private readonly IWinoLogger? _logger;
+    private readonly IWinoIntelligenceEntitlementService? _entitlementService;
     private string _intelligencePolicyVersion = string.Empty;
 
     public ObservableCollection<WinoAddOnItemViewModel> AddOns { get; } = [];
@@ -215,7 +217,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                                                IWinoAccountIntelligenceSnapshotService? snapshotService = null,
                                                IWinoPurchaseReconciliationService? purchaseReconciliation = null,
                                                IWinoAccountSessionService? sessions = null,
-                                               IWinoLogger? logger = null)
+                                               IWinoLogger? logger = null,
+                                               IWinoIntelligenceEntitlementService? entitlementService = null)
     {
         _profileService = profileService;
         _syncService = syncService;
@@ -230,6 +233,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         _purchaseReconciliation = purchaseReconciliation;
         _sessions = sessions;
         _logger = logger;
+        _entitlementService = entitlementService;
 
         _aiPackAddOn = CreateAddOnItem(WinoAddOnProductType.AI_PACK);
         _unlimitedAccountsAddOn = CreateAddOnItem(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
@@ -574,7 +578,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     [RelayCommand(CanExecute = nameof(CanManageIntelligenceMailbox))]
     private void ManageIntelligenceMailbox(WinoIntelligenceMailboxItemViewModel? mailbox)
     {
-        if (mailbox?.LocalAccountId is not Guid localAccountId)
+        if (!HasIntelligenceAccess || mailbox?.LocalAccountId is not Guid localAccountId)
         {
             return;
         }
@@ -597,10 +601,16 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     [RelayCommand]
     private void OpenIntelligenceManagement()
-        => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.WinoIntelligencePage));
+    {
+        if (HasIntelligenceAccess)
+            Messenger.Send(new SettingsRootNavigationRequested(WinoPage.WinoIntelligencePage));
+    }
 
     public async Task<bool> SetIntelligenceConsentAsync(bool granted)
     {
+        if (granted && !HasIntelligenceAccess)
+            return false;
+
         await ExecuteUIThread(() =>
         {
             IsConsentBusy = true;
@@ -722,6 +732,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             return;
 
         var requested = !mailbox.IsEnabled;
+        if (requested && !HasIntelligenceAccess)
+            return;
         await ExecuteUIThread(() => mailbox.IsChangingEnabled = true);
         try
         {
@@ -831,6 +843,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         Messenger.Register<WinoAccountProfileUpdatedMessage>(this);
         Messenger.Register<WinoAccountProfileDeletedMessage>(this);
         Messenger.Register<WinoIntelligenceAccessChanged>(this);
+        Messenger.Register<WinoIntelligenceEntitlementChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -840,6 +853,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         Messenger.Unregister<WinoAccountProfileUpdatedMessage>(this);
         Messenger.Unregister<WinoAccountProfileDeletedMessage>(this);
         Messenger.Unregister<WinoIntelligenceAccessChanged>(this);
+        Messenger.Unregister<WinoIntelligenceEntitlementChanged>(this);
     }
 
     public void Receive(WinoAccountProfileUpdatedMessage message)
@@ -850,6 +864,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     public void Receive(WinoIntelligenceAccessChanged message)
         => _ = ApplyCachedAccessChangeAsync();
+
+    public void Receive(WinoIntelligenceEntitlementChanged message)
+        => _ = ExecuteUIThread(() => ApplyEntitlement(message.Entitlement));
 
     private async Task ApplyCachedAccessChangeAsync()
     {
@@ -1021,11 +1038,12 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             _unlimitedAccountsAddOn.IsPurchased = hasUnlimitedAccounts;
             _unlimitedAccountsAddOn.IsLoading = false;
             ApplyAccountUsage(localAccounts.Count, hasUnlimitedAccounts);
-            _aiPackAddOn.IsPurchased = aiPack?.HasAccess == true;
+            var entitlement = ResolveEntitlement(snapshot);
+            _aiPackAddOn.IsPurchased = entitlement.CanAccessSurfaces;
             _aiPackAddOn.IsLoading = false;
             _aiPackAddOn.ErrorText = string.Empty;
             _aiPackAddOn.RenewalText = aiPack?.RenewsAtUtc is DateTimeOffset renewal ? string.Format(Translator.WinoAccount_Management_AiPackRenews, renewal.LocalDateTime) : string.Empty;
-            HasIntelligenceAccess = _aiPackAddOn.IsPurchased;
+            HasIntelligenceAccess = entitlement.CanAccessSurfaces;
             ApplyAiPackBillingTexts(aiPack);
             if (snapshot.Consent is not null) ApplyIntelligenceConsent(snapshot.Consent);
             var mailboxItems = snapshot.Mailboxes.Select(mailbox => CreateCachedIntelligenceMailboxItem(
@@ -1267,7 +1285,15 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 ApplyAccountUsage(mailAccountCount, hasUnlimitedAccounts);
 
                 var aiPack = response?.Result?.AiPack;
-                _aiPackAddOn.IsPurchased = aiPack?.HasAccess == true;
+                var entitlement = account is not null && response?.IsSuccess == true && response.Result is not null
+                    ? WinoIntelligenceEntitlementSnapshot.Evaluate(
+                        account.Id,
+                        response.Result,
+                        usage: null,
+                        DateTimeOffset.UtcNow,
+                        isFreshBilling: true)
+                    : WinoIntelligenceEntitlementSnapshot.SignedOut(DateTimeOffset.UtcNow);
+                _aiPackAddOn.IsPurchased = entitlement.CanAccessSurfaces;
                 hasIntelligenceAccess = _aiPackAddOn.IsPurchased;
                 HasIntelligenceAccess = hasIntelligenceAccess;
                 _aiPackAddOn.ErrorText = account != null && (response == null || !response.IsSuccess || response.Result == null)
@@ -1283,8 +1309,17 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 PurchaseAddOnCommand.NotifyCanExecuteChanged();
             });
 
-            if (account is not null && response?.IsSuccess == true)
+            if (account is not null && response?.IsSuccess == true && response.Result is not null)
+            {
+                Messenger.Send(new WinoIntelligenceEntitlementChanged(
+                    WinoIntelligenceEntitlementSnapshot.Evaluate(
+                        account.Id,
+                        response.Result,
+                        usage: null,
+                        DateTimeOffset.UtcNow,
+                        isFreshBilling: true)));
                 WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+            }
 
             if (account != null)
             {
@@ -1482,6 +1517,28 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         IntelligenceDataError = string.Empty;
         IntelligenceMailboxes.Clear();
     });
+
+    private WinoIntelligenceEntitlementSnapshot ResolveEntitlement(WinoAccountIntelligenceSnapshot snapshot)
+    {
+        var current = _entitlementService?.Current;
+        if (current?.WinoAccountId == snapshot.WinoAccountId)
+            return current;
+
+        return WinoIntelligenceEntitlementSnapshot.Evaluate(
+            snapshot.WinoAccountId,
+            snapshot.Billing,
+            snapshot.Usage,
+            DateTimeOffset.UtcNow,
+            isFreshBilling: false);
+    }
+
+    private void ApplyEntitlement(WinoIntelligenceEntitlementSnapshot entitlement)
+    {
+        var canAccess = entitlement.CanAccessSurfaces;
+        HasIntelligenceAccess = canAccess;
+        _aiPackAddOn.IsPurchased = canAccess;
+        PurchaseAddOnCommand.NotifyCanExecuteChanged();
+    }
 
     private void ApplyIntelligenceConsent(IntelligenceConsentDto consent)
     {

@@ -651,6 +651,10 @@ public partial class App : WinoApplication,
             _preferencesService = Services.GetRequiredService<IPreferencesService>();
             _accountService = Services.GetRequiredService<IAccountService>();
 
+            var entitlementService = Services.GetRequiredService<IWinoIntelligenceEntitlementService>();
+            await entitlementService.GetAsync();
+            _ = entitlementService.RefreshAsync();
+
             await Services.GetRequiredService<ISemanticIndexCoordinator>().InitializeAsync();
 
             _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();

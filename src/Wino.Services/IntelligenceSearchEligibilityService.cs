@@ -9,7 +9,8 @@ namespace Wino.Services;
 
 public sealed class IntelligenceSearchEligibilityService(
     IAccountService accountService,
-    IIntelligenceBackend intelligenceBackend) : IIntelligenceSearchEligibilityService
+    IIntelligenceBackend intelligenceBackend,
+    IWinoIntelligenceEntitlementService? entitlementService = null) : IIntelligenceSearchEligibilityService
 {
     public async Task<IntelligenceSearchEligibilityResult> ResolveAsync(
         IReadOnlyCollection<Guid> accountIds,
@@ -22,13 +23,16 @@ public sealed class IntelligenceSearchEligibilityService(
             var account = await accountService.GetAccountAsync(accountId).ConfigureAwait(false);
             if (account is null)
                 continue;
-            var enabled = account.Preferences?.IsSemanticIndexingEnabled == true;
+            var entitled = entitlementService?.Current.CanAccessSurfaces ?? true;
+            var enabled = entitled && account.Preferences?.IsSemanticIndexingEnabled == true;
             results.Add(new(
                 accountId,
                 account.Name,
                 enabled,
                 intelligenceBackend.Kind,
-                enabled ? string.Empty : "Semantic indexing is disabled"));
+                enabled ? string.Empty : entitled
+                    ? "Semantic indexing is disabled"
+                    : "An active Wino Intelligence subscription is required"));
         }
 
         return new(results);

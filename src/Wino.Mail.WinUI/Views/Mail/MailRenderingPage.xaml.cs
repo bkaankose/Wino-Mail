@@ -46,6 +46,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IRecipient<ApplicationThemeChanged>,
     IRecipient<SemanticIndexJobChanged>,
     IRecipient<WinoIntelligenceAccessChanged>,
+    IRecipient<WinoIntelligenceEntitlementChanged>,
     IRecipient<IntelligenceMetadataChanged>,
     IRecipient<IntelligenceVisibilityChanged>
 {
@@ -506,6 +507,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         WeakReferenceMessenger.Default.Register<SemanticIndexJobChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
         WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
         WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(this);
     }
@@ -514,6 +516,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         WeakReferenceMessenger.Default.Unregister<SemanticIndexJobChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
         WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
         WeakReferenceMessenger.Default.Unregister<IntelligenceVisibilityChanged>(this);
     }
@@ -1009,6 +1012,21 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         _intelligenceCoordinator.InvalidateAccess();
         DispatcherQueue.TryEnqueue(async () => await RefreshIntelligenceSnapshotAsync());
+    }
+
+    void IRecipient<WinoIntelligenceEntitlementChanged>.Receive(WinoIntelligenceEntitlementChanged message)
+    {
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (!message.Entitlement.CanAccessSurfaces)
+            {
+                _intelligenceCoordinator.CancelContext(_intelligenceContext?.ContentKey ?? string.Empty);
+                IntelligenceHeader.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            await RefreshIntelligenceSnapshotAsync();
+        });
     }
 
     void IRecipient<IntelligenceMetadataChanged>.Receive(IntelligenceMetadataChanged message)

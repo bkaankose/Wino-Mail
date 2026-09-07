@@ -4,8 +4,10 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.ViewModels;
 using Xunit;
 
@@ -13,6 +15,63 @@ namespace Wino.Core.Tests;
 
 public class SettingsPageViewModelTests
 {
+    [Theory]
+    [InlineData(WinoIntelligenceEntitlementState.SignedOut, false)]
+    [InlineData(WinoIntelligenceEntitlementState.NoSubscription, false)]
+    [InlineData(WinoIntelligenceEntitlementState.Expired, false)]
+    [InlineData(WinoIntelligenceEntitlementState.Unavailable, false)]
+    [InlineData(WinoIntelligenceEntitlementState.Active, true)]
+    [InlineData(WinoIntelligenceEntitlementState.QuotaExhausted, true)]
+    public void SettingsMenu_ProjectsIntelligenceOnlyForSurfaceAccess(
+        WinoIntelligenceEntitlementState state,
+        bool expected)
+    {
+        var entitlement = Entitlement(state);
+        var service = EntitlementService(entitlement);
+        var provider = new SettingsMenuProvider(Mock.Of<INavigationService>(), service.Object)
+        {
+            Dispatcher = new ImmediateDispatcher(),
+        };
+
+        provider.ShellMenu.Items
+            .OfType<SettingsShellPageMenuItem>()
+            .Any(item => item.PageType == WinoPage.WinoIntelligencePage)
+            .Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task SearchSettingsAsync_HidesIntelligenceRoutesWhenAccessIsDenied()
+    {
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync(
+        [
+            new MailAccount
+            {
+                Id = Guid.NewGuid(),
+                Name = "Work",
+                Address = "work@example.com",
+                ProviderType = MailProviderType.Gmail,
+                IsMailAccessGranted = true,
+            },
+        ]);
+        var entitlementService = EntitlementService(Entitlement(WinoIntelligenceEntitlementState.Expired));
+        var viewModel = new SettingsPageViewModel(
+            Mock.Of<INavigationService>(),
+            Mock.Of<IStatePersistanceService>(),
+            accountService.Object,
+            entitlementService.Object,
+            new SettingsMenuProvider(Mock.Of<INavigationService>(), entitlementService.Object));
+
+        var results = await viewModel.SearchSettingsAsync("intelligence");
+
+        results.Select(item => item.PageType).Should().NotContain(
+        [
+            WinoPage.WinoIntelligencePage,
+            WinoPage.WinoIntelligenceManagementPage,
+            WinoPage.IntelligenceCoveragePage,
+        ]);
+    }
+
     [Fact]
     public async Task UpdateActivePageAsync_RefreshesAccountCount()
     {
@@ -110,9 +169,36 @@ public class SettingsPageViewModelTests
     }
 
     private static SettingsPageViewModel CreateViewModel(IAccountService accountService)
-        => new(
+    {
+        var entitlementService = EntitlementService(Entitlement(WinoIntelligenceEntitlementState.Active));
+
+        return new SettingsPageViewModel(
             Mock.Of<INavigationService>(),
             Mock.Of<IStatePersistanceService>(),
             accountService,
-            new SettingsMenuProvider(Mock.Of<INavigationService>()));
+            entitlementService.Object,
+            new SettingsMenuProvider(Mock.Of<INavigationService>(), entitlementService.Object));
+    }
+
+    private static WinoIntelligenceEntitlementSnapshot Entitlement(WinoIntelligenceEntitlementState state)
+        => new(state, state == WinoIntelligenceEntitlementState.SignedOut ? null : Guid.NewGuid(), DateTimeOffset.UtcNow);
+
+    private static Mock<IWinoIntelligenceEntitlementService> EntitlementService(
+        WinoIntelligenceEntitlementSnapshot entitlement)
+    {
+        var service = new Mock<IWinoIntelligenceEntitlementService>();
+        service.SetupGet(item => item.Current).Returns(entitlement);
+        service.Setup(item => item.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entitlement);
+        service.Setup(item => item.RefreshAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entitlement);
+        return service;
+    }
+
+    private sealed class ImmediateDispatcher : IDispatcher
+    {
+        public Task ExecuteOnUIThread(Action action)
+        {
+            action();
+            return Task.CompletedTask;
+        }
+    }
 }

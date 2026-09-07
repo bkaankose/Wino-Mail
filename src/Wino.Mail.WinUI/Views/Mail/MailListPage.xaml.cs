@@ -53,6 +53,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     IRecipient<ComposeDetachedDraftRequested>,
     IRecipient<DisposeRenderingFrameRequested>,
     IRecipient<WinoIntelligenceAccessChanged>,
+    IRecipient<WinoIntelligenceEntitlementChanged>,
     IHostedPopoutSource,
     IWinoFrameProvider,
     IInnerNavigationHost,
@@ -103,6 +104,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private IFolderService FolderService { get; } = WinoApplication.Current.Services.GetRequiredService<IFolderService>();
     private IAccountService AccountService { get; } = WinoApplication.Current.Services.GetRequiredService<IAccountService>();
     private IIntelligenceSearchEligibilityService IntelligenceEligibilityService { get; } = WinoApplication.Current.Services.GetRequiredService<IIntelligenceSearchEligibilityService>();
+    private IWinoIntelligenceEntitlementService EntitlementService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoIntelligenceEntitlementService>();
     private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
     private IKeyboardShortcutService KeyboardShortcutService { get; } = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
 
@@ -821,6 +823,16 @@ public sealed partial class MailListPage : MailListPageAbstract,
     public void Receive(WinoIntelligenceAccessChanged message)
         => DispatcherQueue.TryEnqueue(Bindings.Update);
 
+    public void Receive(WinoIntelligenceEntitlementChanged message)
+        => DispatcherQueue.TryEnqueue(async () => await ApplyIntelligenceEntitlementAsync(message.Entitlement.CanAccessSurfaces));
+
+    private async Task ApplyIntelligenceEntitlementAsync(bool canAccess)
+    {
+        await ViewModel.ApplyIntelligenceEntitlementAsync(canAccess);
+
+        Bindings.Update();
+    }
+
     protected override void RegisterRecipients()
     {
         WeakReferenceMessenger.Default.Register<ClearMailSelectionsRequested>(this);
@@ -829,6 +841,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
         WeakReferenceMessenger.Default.Register<ComposeDetachedDraftRequested>(this);
         WeakReferenceMessenger.Default.Register<DisposeRenderingFrameRequested>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
+        _ = RefreshIntelligenceEntitlementAsync();
     }
 
     protected override void UnregisterRecipients()
@@ -839,6 +853,13 @@ public sealed partial class MailListPage : MailListPageAbstract,
         WeakReferenceMessenger.Default.Unregister<ComposeDetachedDraftRequested>(this);
         WeakReferenceMessenger.Default.Unregister<DisposeRenderingFrameRequested>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
+    }
+
+    private async Task RefreshIntelligenceEntitlementAsync()
+    {
+        var entitlement = await EntitlementService.GetAsync().ConfigureAwait(false);
+        DispatcherQueue.TryEnqueue(async () => await ApplyIntelligenceEntitlementAsync(entitlement.CanAccessSurfaces));
     }
 
     private void PageSizeChanged(object sender, SizeChangedEventArgs e)

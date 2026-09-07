@@ -884,7 +884,8 @@
                         Command="{x:Bind ViewModel.OpenIntelligenceManagementCommand}"
                         Description="{x:Bind ViewModel.AiPackSubtitleText, Mode=OneWay}"
                         Header="{x:Bind domain:Translator.WinoIntelligence_SettingsTitle, Mode=OneTime}"
-                        IsClickEnabled="True">
+                        IsClickEnabled="True"
+                        Visibility="{x:Bind ViewModel.HasIntelligenceAccess, Mode=OneWay}">
                         <controls:SettingsCard.HeaderIcon>
                             <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
                         </controls:SettingsCard.HeaderIcon>
@@ -895,7 +896,7 @@
                         Description="{x:Bind ViewModel.AiPackSubtitleText, Mode=OneWay}"
                         Header="{x:Bind domain:Translator.WinoAddOn_AI_PACK_Name, Mode=OneTime}"
                         IsExpanded="False"
-                        Visibility="Collapsed">
+                        Visibility="{x:Bind ViewModel.AiPackAddOn.IsNotPurchased, Mode=OneWay}">
                         <controls:SettingsExpander.HeaderIcon>
                             <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
                         </controls:SettingsExpander.HeaderIcon>

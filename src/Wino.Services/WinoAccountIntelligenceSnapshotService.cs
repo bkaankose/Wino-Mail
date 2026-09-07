@@ -180,6 +180,16 @@ public sealed class WinoAccountIntelligenceSnapshotService(
             if (!await sessions.CommitAsync(session, async () =>
             {
                 await localStore.SaveAccountIntelligenceSnapshotAsync(snapshot, cancellationToken).ConfigureAwait(false);
+                if (billingRefreshed)
+                {
+                    WeakReferenceMessenger.Default.Send(new WinoIntelligenceEntitlementChanged(
+                        WinoIntelligenceEntitlementSnapshot.Evaluate(
+                            accountId,
+                            snapshot.Billing,
+                            snapshot.Usage,
+                            now,
+                            isFreshBilling: true)));
+                }
                 WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
             }, cancellationToken).ConfigureAwait(false)) return null;
         }
