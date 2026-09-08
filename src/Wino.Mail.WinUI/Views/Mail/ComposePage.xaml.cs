@@ -623,6 +623,14 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
     }
 
+    private void AttachmentClicked(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is MailAttachmentViewModel attachment)
+        {
+            ViewModel.OpenAttachmentCommand.Execute(attachment);
+        }
+    }
+
     private void SaveAttachment_Click(object sender, RoutedEventArgs e)
     {
         if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
