@@ -621,25 +621,10 @@
                 ContextRequested="MailItemContextRequested">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Grid
-                    x:Name="CompactExpandedThreadChevron"
-                    Width="12"
-                    VerticalAlignment="Stretch"
-                    x:Load="{x:Bind helpers:XamlHelpers.IsThreadMessageHead(Kind), Mode=OneTime}"
-                    Background="Transparent"
-                    PointerPressed="ThreadExpanderPointerPressed">
-                    <FontIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontSize="10"
-                        Glyph="&#xE96E;" />
-                </Grid>
                 <mailControls:WinoContactPicture
                     x:Name="CompactSenderPicture"
-                    Grid.Column="1"
                     Width="28"
                     Height="28"
                     Margin="8,0,6,0"
@@ -651,7 +636,8 @@
                     IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                     IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                 <ContentPresenter
-                    Grid.Column="2"
+                    Grid.Column="1"
+                    Margin="{x:Bind helpers:XamlHelpers.GetThreadExpanderContentMargin(Kind), Mode=OneTime}"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
             </Grid>
@@ -664,25 +650,10 @@
                 ContextRequested="MailItemContextRequested">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Grid
-                    x:Name="MediumExpandedThreadChevron"
-                    Width="12"
-                    VerticalAlignment="Stretch"
-                    x:Load="{x:Bind helpers:XamlHelpers.IsThreadMessageHead(Kind), Mode=OneTime}"
-                    Background="Transparent"
-                    PointerPressed="ThreadExpanderPointerPressed">
-                    <FontIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontSize="10"
-                        Glyph="&#xE96E;" />
-                </Grid>
                 <mailControls:WinoContactPicture
                     x:Name="MediumSenderPicture"
-                    Grid.Column="1"
                     Width="30"
                     Height="30"
                     Margin="8,0,8,0"
@@ -694,7 +665,8 @@
                     IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                     IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                 <ContentPresenter
-                    Grid.Column="2"
+                    Grid.Column="1"
+                    Margin="{x:Bind helpers:XamlHelpers.GetThreadExpanderContentMargin(Kind), Mode=OneTime}"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
             </Grid>
@@ -707,25 +679,10 @@
                 ContextRequested="MailItemContextRequested">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Grid
-                    x:Name="SpaciousExpandedThreadChevron"
-                    Width="12"
-                    VerticalAlignment="Stretch"
-                    x:Load="{x:Bind helpers:XamlHelpers.IsThreadMessageHead(Kind), Mode=OneTime}"
-                    Background="Transparent"
-                    PointerPressed="ThreadExpanderPointerPressed">
-                    <FontIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontSize="10"
-                        Glyph="&#xE96E;" />
-                </Grid>
                 <mailControls:WinoContactPicture
                     x:Name="SpaciousSenderPicture"
-                    Grid.Column="1"
                     Width="36"
                     Height="36"
                     Margin="4,0,8,0"
@@ -737,7 +694,8 @@
                     IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                     IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                 <ContentPresenter
-                    Grid.Column="2"
+                    Grid.Column="1"
+                    Margin="{x:Bind helpers:XamlHelpers.GetThreadExpanderContentMargin(Kind), Mode=OneTime}"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
             </Grid>
@@ -747,31 +705,10 @@
             <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Grid
-                    x:Name="CompactThreadChevron"
-                    Width="12"
-                    VerticalAlignment="Stretch"
-                    Background="Transparent"
-                    PointerPressed="ThreadExpanderPointerPressed">
-                    <FontIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontSize="10"
-                        Glyph="&#xE76C;"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsExpanded), Mode=OneWay}" />
-                    <FontIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontSize="10"
-                        Glyph="&#xE96E;"
-                        Visibility="{x:Bind IsExpanded, Mode=OneWay}" />
-                </Grid>
                 <mailControls:WinoContactPicture
                     x:Name="CompactThreadSenderPicture"
-                    Grid.Column="1"
                     Width="28"
                     Height="28"
                     Margin="8,0,6,0"
@@ -783,7 +720,8 @@
                     IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                     IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                 <ContentPresenter
-                    Grid.Column="2"
+                    Grid.Column="1"
+                    Margin="16,0,0,0"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
             </Grid>
@@ -793,31 +731,10 @@
             <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Grid
-                    x:Name="MediumThreadChevron"
-                    Width="12"
-                    VerticalAlignment="Stretch"
-                    Background="Transparent"
-                    PointerPressed="ThreadExpanderPointerPressed">
-                    <FontIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontSize="10"
-                        Glyph="&#xE76C;"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsExpanded), Mode=OneWay}" />
-                    <FontIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontSize="10"
-                        Glyph="&#xE96E;"
-                        Visibility="{x:Bind IsExpanded, Mode=OneWay}" />
-                </Grid>
                 <mailControls:WinoContactPicture
                     x:Name="MediumThreadSenderPicture"
-                    Grid.Column="1"
                     Width="30"
                     Height="30"
                     Margin="8,0,8,0"
@@ -829,7 +746,8 @@
                     IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                     IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                 <ContentPresenter
-                    Grid.Column="2"
+                    Grid.Column="1"
+                    Margin="16,0,0,0"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
             </Grid>
@@ -839,31 +757,10 @@
             <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Grid
-                    x:Name="SpaciousThreadChevron"
-                    Width="12"
-                    VerticalAlignment="Stretch"
-                    Background="Transparent"
-                    PointerPressed="ThreadExpanderPointerPressed">
-                    <FontIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontSize="10"
-                        Glyph="&#xE76C;"
-                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsExpanded), Mode=OneWay}" />
-                    <FontIcon
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
-                        FontSize="10"
-                        Glyph="&#xE96E;"
-                        Visibility="{x:Bind IsExpanded, Mode=OneWay}" />
-                </Grid>
                 <mailControls:WinoContactPicture
                     x:Name="SpaciousThreadSenderPicture"
-                    Grid.Column="1"
                     Width="36"
                     Height="36"
                     Margin="4,0,8,0"
@@ -875,7 +772,8 @@
                     IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                     IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
                 <ContentPresenter
-                    Grid.Column="2"
+                    Grid.Column="1"
+                    Margin="16,0,0,0"
                     Content="{x:Bind SourceItem}"
                     ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
             </Grid>

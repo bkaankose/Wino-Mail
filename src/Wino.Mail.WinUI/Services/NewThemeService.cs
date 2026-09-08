@@ -218,9 +218,8 @@ public class NewThemeService : INewThemeService
         if (storedBackdropType != currentBackdropType)
             _configurationService.Set(WindowBackdropTypeKey, (int)currentBackdropType);
 
-        // Apply backdrop first, then theme
-        ApplyBackdrop(currentBackdropType);
         await ApplyCustomThemeAsync(true);
+        ApplyBackdrop(currentBackdropType);
 
         // Registering to color changes, thus we notice when user changes theme system wide
 
@@ -243,6 +242,19 @@ public class NewThemeService : INewThemeService
 
         try
         {
+            // Keep an existing backdrop connected when restoring an already themed window.
+            var matchesCurrentBackdrop = backdropType switch
+            {
+                WindowBackdropType.Mica => windowEx.SystemBackdrop is MicaBackdrop { Kind: Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base },
+                WindowBackdropType.MicaAlt => windowEx.SystemBackdrop is MicaBackdrop { Kind: Microsoft.UI.Composition.SystemBackdrops.MicaKind.BaseAlt },
+                WindowBackdropType.DesktopAcrylic => windowEx.SystemBackdrop is DesktopAcrylicBackdrop,
+                WindowBackdropType.None => windowEx.SystemBackdrop is null,
+                _ => false
+            };
+
+            if (matchesCurrentBackdrop)
+                return;
+
             Microsoft.UI.Xaml.Media.SystemBackdrop? backdrop = backdropType switch
             {
                 WindowBackdropType.Mica => new MicaBackdrop() { Kind = Microsoft.UI.Composition.SystemBackdrops.MicaKind.Base },
@@ -982,9 +994,9 @@ public class NewThemeService : INewThemeService
 
     public async Task ApplyThemeToActiveWindowAsync()
     {
-        ApplyBackdrop(currentBackdropType);
         RootTheme = _configurationService.Get(UnderlyingThemeService.SelectedAppThemeKey, ApplicationElementTheme.Default);
         await ApplyCustomThemeAsync(false);
+        ApplyBackdrop(currentBackdropType);
         UpdateSystemCaptionButtonColors();
     }
 }

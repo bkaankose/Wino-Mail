@@ -402,14 +402,19 @@
                             TextTrimming="CharacterEllipsis" />
                         <Button
                             x:Name="RenameListButton"
-                            VerticalAlignment="Center"
+                            Width="28"
+                            Height="28"
+                            MinWidth="28"
+                            Margin="2,0,0,-2"
+                            Padding="6"
+                            VerticalAlignment="Bottom"
                             AutomationProperties.AutomationId="ToDoRenameListButton"
                             AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_RenameList, Mode=OneTime}"
                             Command="{x:Bind ViewModel.RenameSelectedListCommand}"
                             Style="{StaticResource TransparentActionButtonStyle}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_RenameList, Mode=OneTime}"
                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanEditSelectedList), Mode=OneWay}">
-                            <FontIcon FontSize="14" Glyph="&#xE8AC;" />
+                            <FontIcon FontSize="12" Glyph="&#xE70F;" />
                         </Button>
                     </StackPanel>
 
@@ -436,6 +441,7 @@
                         <TextBox
                             x:Name="ListFilterTextBox"
                             Grid.Column="0"
+                            Width="360"
                             MaxWidth="460"
                             HorizontalAlignment="Left"
                             VerticalAlignment="Center"

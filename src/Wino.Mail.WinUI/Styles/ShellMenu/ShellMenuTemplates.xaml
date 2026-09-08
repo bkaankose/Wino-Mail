@@ -156,7 +156,7 @@
                     Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Info_AccountAttentionRequiredClickableMessage, Mode=OneTime}"
                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
-                    <SymbolIcon Symbol="Important" />
+                    <FontIcon Glyph="&#xE90F;" />
                 </Button>
             </Grid>
         </controls:AccountNavigationItem>
@@ -248,7 +248,7 @@
                     Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Info_AccountAttentionRequiredClickableMessage, Mode=OneTime}"
                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
-                    <SymbolIcon Symbol="Important" />
+                    <FontIcon Glyph="&#xE90F;" />
                 </Button>
             </Grid>
         </controls:AccountNavigationItem>

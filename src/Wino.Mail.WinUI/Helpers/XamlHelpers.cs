@@ -135,6 +135,8 @@ public static class XamlHelpers
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadChild ? new Thickness(24, 0, 0, 0) : new Thickness(0);
     public static bool IsThreadMessageHead(global::Wino.Mail.Controls.Core.MailListRowKind kind)
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadHead;
+    public static Thickness GetThreadExpanderContentMargin(global::Wino.Mail.Controls.Core.MailListRowKind kind)
+        => IsThreadMessageHead(kind) ? new Thickness(16, 0, 0, 0) : new Thickness(0);
     public static bool IsMultiple(int count) => count > 1;
     public static bool ReverseIsMultiple(int count) => count < 1;
     public static PopupPlacementMode GetPlaccementModeForCalendarType(CalendarDisplayType type)

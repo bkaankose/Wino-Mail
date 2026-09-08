@@ -2323,7 +2323,9 @@ public partial class App : WinoApplication,
                                    ?? windowManager.GetWindow(WinoWindowKind.Welcome)
                                    ?? MainWindow;
 
-            if (activationWindow == null)
+            // A tracked window can still be waiting for theme and navigation initialization.
+            // Only the full activation route may show it for the first time.
+            if (activationWindow == null || !activationWindow.AppWindow.IsVisible)
                 return;
 
             MainWindow = activationWindow;
@@ -2373,8 +2375,7 @@ public partial class App : WinoApplication,
 
         if (route.ShouldActivateWindow && activationWindow != null)
         {
-            MainWindow = activationWindow;
-            windowManager.ActivateWindow(activationWindow);
+            await ActivateWindowAsync(activationWindow, applyThemeToWindow: !activationWindow.AppWindow.IsVisible);
         }
     }
 

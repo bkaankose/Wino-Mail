@@ -260,12 +260,12 @@
                                 <Button
                                     AutomationProperties.AutomationId="WinoAccountSignInButton"
                                     Command="{x:Bind ViewModel.SignInCommand}"
-                                    Content="{x:Bind domain:Translator.Buttons_SignIn, Mode=OneTime}"
-                                    Style="{StaticResource AccentButtonStyle}" />
-                                <Button
-                                    AutomationProperties.AutomationId="WinoAccountRegisterButton"
-                                    Command="{x:Bind ViewModel.RegisterCommand}"
-                                    Content="{x:Bind domain:Translator.Buttons_CreateAccount, Mode=OneTime}" />
+                                    Style="{StaticResource AccentButtonStyle}">
+                                    <TextBlock Text="{x:Bind domain:Translator.Buttons_SignIn, Mode=OneTime}" />
+                                </Button>
+                                <Button AutomationProperties.AutomationId="WinoAccountRegisterButton" Command="{x:Bind ViewModel.RegisterCommand}">
+                                    <TextBlock Text="{x:Bind domain:Translator.Buttons_CreateAccount, Mode=OneTime}" />
+                                </Button>
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -327,9 +327,9 @@
                                     <!--  Move to a new PC: the same setup arriving on a second device.  -->
                                     <Viewbox
                                         x:Name="DeviceTransferIllustration"
-                                        x:Load="{x:Bind ViewModel.IsDeviceTransferBenefitSelected, Mode=OneWay}"
                                         AutomationProperties.AccessibilityView="Raw"
-                                        Stretch="Uniform">
+                                        Stretch="Uniform"
+                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsDeviceTransferBenefitSelected), Mode=OneWay}">
                                         <Canvas Width="240" Height="170">
                                             <Rectangle
                                                 Canvas.Left="6"
@@ -470,9 +470,9 @@
                                     <!--  Add-ons follow you: one entitlement covering several machines.  -->
                                     <Viewbox
                                         x:Name="EntitlementsIllustration"
-                                        x:Load="{x:Bind ViewModel.IsEntitlementsBenefitSelected, Mode=OneWay}"
                                         AutomationProperties.AccessibilityView="Raw"
-                                        Stretch="Uniform">
+                                        Stretch="Uniform"
+                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsEntitlementsBenefitSelected), Mode=OneWay}">
                                         <Canvas Width="240" Height="170">
                                             <Path
                                                 Data="M43,92 V72 H120 V56 M120,72 H197 V92"
@@ -534,9 +534,9 @@
                                     <!--  Wino Intelligence: a message the AI has already worked on.  -->
                                     <Viewbox
                                         x:Name="IntelligenceIllustration"
-                                        x:Load="{x:Bind ViewModel.IsIntelligenceBenefitSelected, Mode=OneWay}"
                                         AutomationProperties.AccessibilityView="Raw"
-                                        Stretch="Uniform">
+                                        Stretch="Uniform"
+                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsIntelligenceBenefitSelected), Mode=OneWay}">
                                         <Canvas Width="240" Height="170">
                                             <Rectangle
                                                 Canvas.Left="34"
@@ -613,9 +613,9 @@
                                     <!--  Unlimited Accounts: the mailbox list that stops running out.  -->
                                     <Viewbox
                                         x:Name="UnlimitedAccountsIllustration"
-                                        x:Load="{x:Bind ViewModel.IsUnlimitedAccountsBenefitSelected, Mode=OneWay}"
                                         AutomationProperties.AccessibilityView="Raw"
-                                        Stretch="Uniform">
+                                        Stretch="Uniform"
+                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsUnlimitedAccountsBenefitSelected), Mode=OneWay}">
                                         <Canvas Width="240" Height="170">
                                             <Rectangle
                                                 Canvas.Left="26"

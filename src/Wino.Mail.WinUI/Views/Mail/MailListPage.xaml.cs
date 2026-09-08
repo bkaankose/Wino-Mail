@@ -985,7 +985,7 @@ public sealed partial class MailListPage : MailListPageAbstract,
         return null;
     }
 
-    private void ThreadExpanderPointerPressed(object sender, PointerRoutedEventArgs e)
+    internal void ThreadExpanderPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         // Mail & Calendar treats every row surface as a selection target while touch
         // multi-select is active; the chevron must not change thread structure.

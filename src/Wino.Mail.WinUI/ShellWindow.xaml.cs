@@ -20,9 +20,11 @@ using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Extensions;
 using Wino.Mail.WinUI.Activation;
+using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Messaging.Client.Mails;
@@ -72,6 +74,12 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     public ShellWindow()
     {
         InitializeComponent();
+
+        // Use the same root as NewThemeService. A local theme on ShellRoot would override
+        // later changes to the outer WinUIEx content root instead of inheriting them.
+        var configuration = WinoApplication.Current.Services.GetRequiredService<IConfigurationService>();
+        GetRootContent().RequestedTheme = configuration.Get(UnderlyingThemeService.SelectedAppThemeKey, ApplicationElementTheme.Default).ToWindowsElementTheme();
+
         _pointerPressedHandler = OnPointerPressed;
         RegisterRecipients();
         StatePersistanceService.StatePropertyChanged += StatePersistenceServiceChanged;
