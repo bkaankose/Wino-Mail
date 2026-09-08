@@ -167,8 +167,6 @@ public sealed class Database210MigrationCoordinatorTests
 
             var legacyTokenStorePath = Path.Combine(
                 directory,
-                "LocalCache",
-                "Roaming",
                 AuthenticationTokenStorePaths.GmailTokenStoreFolderName);
             Directory.CreateDirectory(legacyTokenStorePath);
             var legacyTokenPath = AuthenticationTokenStorePaths.GetLegacyGoogleTokenPath(
@@ -192,11 +190,10 @@ public sealed class Database210MigrationCoordinatorTests
             result.Status.Should().Be(MigrationStatus.AwaitingUser, result.ErrorMessage);
             var localTokenPath = Path.Combine(
                 directory,
-                "LocalState",
                 AuthenticationTokenStorePaths.GmailTokenStoreFolderName,
                 $"{accountId:N}.json");
             File.Exists(localTokenPath).Should().BeTrue();
-            File.Exists(legacyTokenPath).Should().BeFalse();
+            File.Exists(legacyTokenPath).Should().BeTrue();
 
             var destination = new SQLiteAsyncConnection(Path.Combine(directory, DatabaseService.CurrentDatabaseName));
             var migratedAccount = await destination.FindAsync<MailAccount>(accountId);
@@ -366,11 +363,12 @@ public sealed class Database210MigrationCoordinatorTests
 
     private static IApplicationConfiguration CreateConfiguration(string directory)
     {
-        var localStatePath = Path.Combine(directory, "LocalState");
+        var localStatePath = directory;
         Directory.CreateDirectory(localStatePath);
 
         var configuration = new Mock<IApplicationConfiguration>();
         configuration.SetupProperty(item => item.PublisherSharedFolderPath, directory);
+        configuration.SetupGet(item => item.AllowLegacyDataMigration).Returns(true);
         configuration.SetupProperty(item => item.ApplicationDataFolderPath, localStatePath);
         return configuration.Object;
     }

@@ -7,6 +7,8 @@ public class ApplicationConfiguration : IApplicationConfiguration
     public const string SharedFolderName = "WinoShared";
 
     public string ApplicationDataFolderPath { get; set; }
+    public bool AllowLegacyDataMigration { get; set; }
+    public string ApplicationDisplayName { get; set; } = "Wino Mail";
     public string PublisherSharedFolderPath { get; set; }
     public string ApplicationTempFolderPath { get; set; }
 

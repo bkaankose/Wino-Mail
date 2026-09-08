@@ -4,6 +4,7 @@ namespace Wino.Core.Domain.Interfaces;
 
 public interface IAuthenticatorConfig
 {
+    string ApplicationDisplayName => "Wino Mail";
     string OutlookAuthenticatorClientId { get; }
     string[] GetOutlookScopes(ProviderAuthorizationRequest request);
     string GmailAuthenticatorClientId { get; }

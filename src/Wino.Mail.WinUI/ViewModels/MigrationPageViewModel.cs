@@ -192,6 +192,12 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
 
         EnsureSteps();
 
+        if (plan.Status == MigrationStatus.Failed)
+        {
+            await ApplyResultAsync(new MigrationResult(MigrationStatus.Failed, MigrationStepKind.CheckExistingData, plan.Message), []);
+            return;
+        }
+
         if (plan.Status == MigrationStatus.AwaitingUser)
         {
             await BeginAuthorizationAsync(Accounts);
@@ -225,6 +231,9 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
 
     private async Task RunMigrationAsync()
     {
+        if (Accounts.Count == 0)
+            await InitializeAsync();
+
         BeginOperation();
         var selectedAccounts = Accounts.Select(account => account.ToOptions()).ToArray();
         var result = await _coordinator.RunAsync(selectedAccounts);

@@ -29,7 +29,7 @@ public sealed class DatabaseMigrationTests
             await legacyConnection.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
-            configuration.SetupProperty(item => item.PublisherSharedFolderPath, directory);
+            configuration.SetupProperty(item => item.ApplicationDataFolderPath, directory);
             databaseService = new DatabaseService(configuration.Object);
             await databaseService.InitializeAsync();
 
@@ -71,7 +71,7 @@ public sealed class DatabaseMigrationTests
             await existing.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
-            configuration.SetupProperty(item => item.PublisherSharedFolderPath, directory);
+            configuration.SetupProperty(item => item.ApplicationDataFolderPath, directory);
             databaseService = new DatabaseService(configuration.Object);
 
             await databaseService.InitializeAsync();
@@ -112,7 +112,7 @@ public sealed class DatabaseMigrationTests
             await legacy.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
-            configuration.SetupProperty(x => x.PublisherSharedFolderPath, directory);
+            configuration.SetupProperty(x => x.ApplicationDataFolderPath, directory);
             databaseService = new DatabaseService(configuration.Object);
             await databaseService.InitializeAsync();
             await databaseService.InitializeAsync();
@@ -148,7 +148,7 @@ public sealed class DatabaseMigrationTests
             await legacyConnection.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
-            configuration.SetupProperty(x => x.PublisherSharedFolderPath, directory);
+            configuration.SetupProperty(x => x.ApplicationDataFolderPath, directory);
             databaseService = new DatabaseService(configuration.Object);
 
             await databaseService.InitializeAsync();
@@ -189,7 +189,7 @@ public sealed class DatabaseMigrationTests
             await legacyConnection.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
-            configuration.SetupProperty(x => x.PublisherSharedFolderPath, directory);
+            configuration.SetupProperty(x => x.ApplicationDataFolderPath, directory);
             databaseService = new DatabaseService(configuration.Object);
 
             await databaseService.InitializeAsync();
@@ -244,7 +244,7 @@ public sealed class DatabaseMigrationTests
             await legacyConnection.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
-            configuration.SetupProperty(x => x.PublisherSharedFolderPath, directory);
+            configuration.SetupProperty(x => x.ApplicationDataFolderPath, directory);
             databaseService = new DatabaseService(configuration.Object);
 
             await databaseService.InitializeAsync();
@@ -297,7 +297,7 @@ public sealed class DatabaseMigrationTests
             await legacy.CloseAsync();
 
             var configuration = new Mock<IApplicationConfiguration>();
-            configuration.SetupProperty(item => item.PublisherSharedFolderPath, directory);
+            configuration.SetupProperty(item => item.ApplicationDataFolderPath, directory);
             databaseService = new DatabaseService(configuration.Object);
 
             await databaseService.InitializeAsync();

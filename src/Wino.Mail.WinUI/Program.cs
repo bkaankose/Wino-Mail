@@ -14,9 +14,9 @@ namespace Wino.Mail.WinUI;
 
 public class Program
 {
-    private const string SingleInstanceKey = "WinoMailSingleInstance";
-    private const string ForceAlternateModeSignalEventName = "Local\\WinoMailForceAlternateMode";
-    private const string MailHostRunningMutexName = "Local\\WinoMailMailHostRunning";
+    private static string SingleInstanceKey => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.SingleInstanceKey;
+    private static string ForceAlternateModeSignalEventName => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.AlternateModeEventName;
+    private static string MailHostRunningMutexName => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.MailHostMutexName;
     private const int VkControl = 0x11;
 
     private static bool _forceAlternateModeOnLaunch;
@@ -28,6 +28,14 @@ public class Program
     static int Main(string[] args)
     {
         WinRT.ComWrappersSupport.InitializeComWrappers();
+
+        var package = Windows.ApplicationModel.Package.Current;
+        Wino.NotificationHost.Contracts.ReleaseIdentity.Initialize(
+            package.InstalledLocation.Path, package.Id.Name, package.Id.Publisher, package.Id.FamilyName);
+
+        // Set before any editor/renderer creates an environment, including inherited overrides.
+        Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER",
+            System.IO.Path.Combine(Windows.Storage.ApplicationData.Current.LocalCacheFolder.Path, "WebView2"));
 
         var activationArgs = AppInstance.GetCurrent().GetActivatedEventArgs();
         var shouldBootstrapSecondaryEntry = SecondaryEntryBootstrapActivation.ShouldBootstrapToMailHost(activationArgs);

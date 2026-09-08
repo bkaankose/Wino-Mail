@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using SQLite;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Migration;
 
 namespace Wino.Services;
 
@@ -34,9 +35,9 @@ public sealed class DatabaseSchemaService(IApplicationConfiguration applicationC
         cancellationToken.ThrowIfCancellationRequested();
 
         var fullPath = Path.GetFullPath(databasePath);
-        var configuredRoot = Path.GetFullPath(applicationConfiguration.PublisherSharedFolderPath);
+        var configuredRoot = MainDatabasePaths.GetRoot(applicationConfiguration);
         if (!string.Equals(Path.GetDirectoryName(fullPath), configuredRoot, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("The migration database must be created in the publisher cache folder.");
+            throw new InvalidOperationException("The migration database must be created in the application LocalState folder.");
 
         var databaseService = new DatabaseService(applicationConfiguration, Path.GetFileName(fullPath));
         await databaseService.InitializeAsync().ConfigureAwait(false);

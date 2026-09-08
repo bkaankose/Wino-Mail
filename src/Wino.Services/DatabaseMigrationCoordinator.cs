@@ -45,6 +45,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
     private readonly IAuthenticationTokenMigrationService _authenticationTokenMigrationService;
     private readonly IMigrationClock _clock;
     private readonly SemaphoreSlim _migrationLock = new(1, 1);
+    private readonly MainDatabaseRelocationService _relocation;
 
     public event EventHandler<MigrationProgress> ProgressChanged;
 
@@ -57,6 +58,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
     {
         _configuration = configuration;
         _schemaService = schemaService;
+        _relocation = new MainDatabaseRelocationService(configuration, schemaService);
         _profilePictureFileService = profilePictureFileService;
         _authenticationTokenMigrationService = authenticationTokenMigrationService
             ?? new AuthenticationTokenMigrationService(configuration);
@@ -68,6 +70,16 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
         var sourcePath = GetPath(DatabaseService.LegacyDatabaseName);
         var stagingPath = GetPath(StagingDatabaseName);
         var destinationPath = GetPath(DatabaseService.CurrentDatabaseName);
+
+        try
+        {
+            await _relocation.PrepareAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return new MigrationPlan(MigrationStatus.Failed, sourcePath, stagingPath, destinationPath,
+                false, [], SanitizeError(ex));
+        }
 
         var invalidDestinationExists = false;
         if (File.Exists(destinationPath))
@@ -162,6 +174,8 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
         try
         {
             var plan = await InspectAsync(cancellationToken).ConfigureAwait(false);
+            if (plan.Status == MigrationStatus.Failed)
+                return new MigrationResult(MigrationStatus.Failed, MigrationStepKind.CheckExistingData, plan.Message);
             if (plan.Status == MigrationStatus.NotRequired)
                 return new MigrationResult(MigrationStatus.Completed);
 
@@ -920,7 +934,7 @@ WHERE Id = ?;",
         string detail = null)
         => ProgressChanged?.Invoke(this, new MigrationProgress(step, status, title, description, progress, detail));
 
-    private string GetPath(string fileName) => Path.Combine(_configuration.PublisherSharedFolderPath, fileName);
+    private string GetPath(string fileName) => MainDatabasePaths.GetPath(_configuration, fileName);
 
     private static async Task<long> CountAsync(SQLiteAsyncConnection connection, string table)
         => await connection.ExecuteScalarAsync<long>($"SELECT COUNT(*) FROM {QuoteIdentifier(table)};")
@@ -932,7 +946,8 @@ WHERE Id = ?;",
     private string SanitizeError(Exception exception)
     {
         var sanitizedMessage = exception.Message
-            .Replace(_configuration.PublisherSharedFolderPath, "[Wino data]", StringComparison.OrdinalIgnoreCase)
+            .Replace(string.IsNullOrEmpty(_configuration.PublisherSharedFolderPath) ? "[no legacy source]" : _configuration.PublisherSharedFolderPath, "[legacy Wino data]", StringComparison.OrdinalIgnoreCase)
+            .Replace(MainDatabasePaths.GetRoot(_configuration), "[Wino data]", StringComparison.OrdinalIgnoreCase)
             .Replace(Environment.NewLine, " ", StringComparison.Ordinal);
 
         return exception switch

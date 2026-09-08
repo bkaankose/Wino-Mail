@@ -49,6 +49,82 @@ function New-FixturePlan([bool]$Store, [bool]$Beta, [string[]]$Architectures = @
 }
 
 try {
+    Test-Case 'Store output retains the upload and its exact verified bundle' {
+        $plan = New-FixturePlan $true $false
+        $staging = Join-Path $plan.OutputRoot ('.staging/' + [guid]::NewGuid().ToString('N'))
+        $contents = Join-Path $staging 'upload-contents'
+        $sdk = Join-Path $staging 'sdk'
+        $null = New-Item -ItemType Directory -Path $contents, $sdk -Force
+        $originalBundle = Join-Path $contents 'sdk-name.msixbundle'
+        'bundle fixture' | Set-Content -LiteralPath $originalBundle
+        'symbols fixture' | Set-Content -LiteralPath (Join-Path $contents 'sdk-name.appxsym')
+        $upload = Join-Path $sdk 'sdk-name.msixupload'
+        [IO.Compression.ZipFile]::CreateFromDirectory($contents, $upload)
+        $script:StoreBundleVerified = $false
+        function Assert-ReleaseBundle {
+            param($Bundle, $Plan, $Name, $Publisher, $InspectionRoot)
+            Assert-True ((Get-FileHash -LiteralPath $Bundle).Hash -eq (Get-FileHash -LiteralPath $originalBundle).Hash) 'Verification received a different bundle.'
+            Assert-True ($Name -eq $Plan.StoreName -and $Publisher -eq $Plan.StorePublisher) 'Store identity was changed.'
+            $script:StoreBundleVerified = $true
+            return @{}
+        }
+        $null = Get-StoreReleaseArtifact $plan $staging
+        Complete-ReleaseOutputs $plan $staging
+        $folder = $plan.Destinations[0]
+        Assert-True $script:StoreBundleVerified 'Store bundle verification was skipped.'
+        Assert-True ((Get-FileHash -LiteralPath (Join-Path $folder "WinoMail_Store_$($plan.Version).msixbundle")).Hash -eq (Get-FileHash -LiteralPath $originalBundle).Hash) 'Final Store bundle differs from upload contents.'
+        Assert-True ((Get-FileHash -LiteralPath (Join-Path $folder "WinoMail_Store_$($plan.Version).msixupload")).Hash -eq (Get-FileHash -LiteralPath $upload).Hash) 'Store upload was changed.'
+    }
+    Test-Case 'Profiles isolate all notification hosts and retain stable identities' {
+        $plan = New-FixturePlan $true $true -Sideload $true
+        $profiles = @('Store', 'Beta', 'Sideload') | ForEach-Object { Get-ReleaseProfile $plan $_ }
+        Assert-True ($profiles[1].PackageName -ceq 'WinoMail.Beta') 'Beta identity is incorrect.'
+        Assert-True ($profiles[2].PackageName -ceq 'WinoMail.Sideload') 'Stable sideload identity changed.'
+        $ids = @($profiles | ForEach-Object { $_.NotificationActivatorIds.PSObject.Properties.Value })
+        Assert-True (($ids | Sort-Object -Unique).Count -eq 12) 'Notification IDs collide.'
+    }
+    Test-Case 'Beta overlay requires all artwork and keeps protocols unchanged' {
+        $plan = New-FixturePlan $false $true
+        $layout = Join-Path $script:TestRoot 'overlay'
+        $null = New-Item -ItemType Directory -Path (Join-Path $layout 'Assets') -Force
+        'stable' | Set-Content (Join-Path $layout 'Assets/Wino_Icon.ico')
+        [xml]$manifest = Get-Content (Join-Path $script:ReleaseRepositoryRoot 'src/Wino.Mail.WinUI/Package.appxmanifest')
+        $protocols = @($manifest.SelectNodes("//*[local-name()='Protocol']") | ForEach-Object { $_.OuterXml }) -join ''
+        $profile = Get-ReleaseProfile $plan 'Beta'
+        Assert-Throws { Set-ReleaseLayoutProfile $layout $manifest $profile $plan } 'Supply beta artwork'
+        $null = New-Item -ItemType Directory -Path (Join-Path $plan.BetaAssetsPath 'Assets') -Force
+        'beta' | Set-Content (Join-Path $plan.BetaAssetsPath 'Assets/Wino_Icon.ico')
+        Set-ReleaseLayoutProfile $layout $manifest $profile $plan
+        Assert-True ((Get-Content (Join-Path $layout 'Assets/Wino_Icon.ico')) -eq 'beta') 'Artwork was not replaced.'
+        Assert-True ($manifest.Package.Properties.DisplayName -ceq 'Wino Mail Beta') 'Missing beta display name.'
+        Assert-True ((@($manifest.SelectNodes("//*[local-name()='Protocol']") | ForEach-Object { $_.OuterXml }) -join '') -ceq $protocols) 'Protocol registrations changed.'
+        foreach ($node in $manifest.SelectNodes("//*[local-name()='ToastNotificationActivation']")) {
+            Assert-True ($node.ToastActivatorCLSID -in $profile.NotificationActivatorIds.PSObject.Properties.Value) 'Activator was not replaced.'
+        }
+    }
+    Test-Case 'Packaged profile matches its manifest and rejects tampering' {
+        $plan = New-FixturePlan $false $false -Sideload $true
+        $profile = Get-ReleaseProfile $plan 'Sideload'
+        $layout = Join-Path $script:TestRoot 'profile-validation'
+        $null = New-Item -ItemType Directory -Path $layout -Force
+        [xml]$manifest = Get-Content (Join-Path $script:ReleaseRepositoryRoot 'src/Wino.Mail.WinUI/Package.appxmanifest')
+        $manifest.Package.Identity.Name = $profile.PackageName
+        $manifest.Package.Identity.Publisher = $profile.Publisher
+        Set-ReleaseLayoutProfile $layout $manifest $profile $plan
+        $zip = Join-Path $script:TestRoot 'profile-validation.zip'
+        [IO.Compression.ZipFile]::CreateFromDirectory($layout, $zip)
+        $archive = [IO.Compression.ZipFile]::OpenRead($zip)
+        try {
+            Assert-PackagedReleaseProfile $archive $manifest $plan
+            $node = $manifest.SelectSingleNode("//*[local-name()='ToastNotificationActivation']")
+            $node.SetAttribute('ToastActivatorCLSID', [guid]::NewGuid().ToString())
+            Assert-Throws { Assert-PackagedReleaseProfile $archive $manifest $plan } 'Notification manifest and runtime IDs differ'
+        }
+        finally { $archive.Dispose() }
+    }
+    Test-Case 'Legacy beta feed cannot receive the new identity' {
+        Assert-Throws { Get-ReleaseDistributionConfiguration @{ AppInstallerUri = 'https://download.winomail.app/WinoMailBeta.appinstaller' } } 'legacy beta feed'
+    }
     Test-Case 'Explicit choices retry invalid input and support All' {
         $script:Answers = [Collections.Generic.Queue[string]]::new([string[]]@('', 'maybe', 'yes', 'no', 'invalid', 'yes', 'wrong', 'All'))
         function Read-Host { param($Prompt); return $script:Answers.Dequeue() }
@@ -169,7 +245,7 @@ try {
             WINO_BETA_RELEASE_AZURE_CLIENT_ID = 'test-client'
             WINO_BETA_RELEASE_AZURE_CLIENT_SECRET = 'test-wino-secret'
             WINO_BETA_RELEASE_SIGNING_DLIB_PATH = $dlib
-            WINO_BETA_RELEASE_APPINSTALLER_URI = 'https://example.com/WinoMailBeta.appinstaller'
+            WINO_BETA_RELEASE_APPINSTALLER_URI = 'https://example.com/WinoMailBetaIsolated.appinstaller'
             WINO_BETA_RELEASE_PACKAGE_BASE_URI = 'https://example.com/packages/'
         }
         $previous = @{}
@@ -206,10 +282,10 @@ try {
     }
     Test-Case 'Website defaults and URL validation' {
         $configuration = Get-ReleaseDistributionConfiguration @{}
-        Assert-True ($configuration.AppInstallerUri.AbsoluteUri -eq 'http://download.winomail.app/WinoMailBeta.appinstaller') 'Wrong stable feed URL.'
+        Assert-True ($configuration.AppInstallerUri.AbsoluteUri -eq 'http://download.winomail.app/WinoMailBetaIsolated.appinstaller') 'Wrong stable feed URL.'
         Assert-True ($configuration.PackageBaseUri.AbsoluteUri -eq 'http://download.winomail.app/') 'Wrong package base.'
-        Assert-Throws { Get-ReleaseDistributionConfiguration @{ AppInstallerUri = 'ftp://example.com/WinoMailBeta.appinstaller' } } 'HTTP or HTTPS'
-        Assert-True ((Get-ReleaseDistributionConfiguration @{ AppInstallerUri = 'https://example.com/WinoMailBeta.appinstaller' }).AppInstallerUri.Scheme -eq 'https') 'HTTPS override was rejected.'
+        Assert-Throws { Get-ReleaseDistributionConfiguration @{ AppInstallerUri = 'ftp://example.com/WinoMailBetaIsolated.appinstaller' } } 'HTTP or HTTPS'
+        Assert-True ((Get-ReleaseDistributionConfiguration @{ AppInstallerUri = 'https://example.com/WinoMailBetaIsolated.appinstaller' }).AppInstallerUri.Scheme -eq 'https') 'HTTPS override was rejected.'
         Assert-Throws { Get-ReleaseDistributionConfiguration @{ PackageBaseUri = 'https://example.com/files' } } 'slash'
         Assert-Throws { Get-ReleaseDistributionConfiguration @{ AppInstallerUri = 'https://example.com/Wino.msix' } } 'filename'
         Assert-True ((Get-ReleaseDownloadUri ([uri]'https://example.com/') 'Beta/with space.msix') -eq 'https://example.com/Beta/with%20space.msix') 'URL segments were not escaped.'
@@ -235,8 +311,8 @@ try {
         $null = New-Item -ItemType Directory -Path (Join-Path $folder 'Dependencies/x64') -Force
         [IO.Compression.ZipFile]::CreateFromDirectory($depSource, (Join-Path $folder 'Dependencies/x64/framework.msix'))
         New-SideloadAppInstaller $bundle $plan (Get-ReleaseDistributionConfiguration @{})
-        $xml = [xml](Get-Content -LiteralPath (Join-Path $folder 'WinoMailBeta.appinstaller') -Raw)
-        Assert-True ($xml.AppInstaller.Uri -eq 'http://download.winomail.app/WinoMailBeta.appinstaller') 'Wrong beta feed URL.'
+        $xml = [xml](Get-Content -LiteralPath (Join-Path $folder 'WinoMailBetaIsolated.appinstaller') -Raw)
+        Assert-True ($xml.AppInstaller.Uri -eq 'http://download.winomail.app/WinoMailBetaIsolated.appinstaller') 'Wrong beta feed URL.'
         Assert-True ($xml.AppInstaller.MainBundle.Publisher -ceq $script:SideloadPublisher) 'Publisher Unicode changed.'
         Assert-True ($xml.AppInstaller.MainBundle.Uri -eq 'http://download.winomail.app/WinoMail_Beta_2.53.0.0/WinoMail_Beta_2.53.0.0.msixbundle') 'Wrong bundle URL.'
         Assert-True ($xml.AppInstaller.Dependencies.Package.Publisher -eq 'CN=Test & Co') 'Dependency XML escaping failed.'
@@ -255,7 +331,7 @@ try {
     }
     foreach ($mask in 1..7) {
       foreach ($architectures in @(@('x64'), @('x86', 'x64', 'ARM64'))) {
-        Test-Case "One build and signing operation: channels=$mask, architectures=$($architectures -join ',')" {
+        Test-Case "One build and separate channel signing: channels=$mask, architectures=$($architectures -join ',')" {
             $plan = New-FixturePlan ([bool]($mask -band 1)) ([bool]($mask -band 2)) $architectures ([bool]($mask -band 4))
             $script:Commands = [Collections.Generic.List[string]]::new()
             $script:PackageCalls = 0
@@ -274,7 +350,7 @@ try {
             function New-SideloadPackage { param($Plan, $Tools, $Staging, $Architecture); $script:PackageCalls++ }
             function Assert-ReleaseBundle { param($Bundle, $Plan, $Name, $Publisher, $InspectionRoot); return @{ 'x64/app.exe' = 'hash' } }
             function Copy-ReleaseDependencies { param($SdkOutput, $Destination) }
-            function Sign-SideloadRelease { param($Bundle, $Plan, $Tools, $Signing, $Staging); $script:SignCalls++; 'signed' | Set-Content -LiteralPath $Bundle }
+            function Sign-SideloadRelease { param($Bundle, $Plan, $Tools, $Signing, $Staging, $Channel); $script:SignCalls++; $Channel | Set-Content -LiteralPath $Bundle }
             function New-SideloadAppInstaller { param($Bundle, $Plan, $Distribution) }
             Invoke-ReleaseBuild $plan ([pscustomobject]@{ MSBuild = 'dotnet'; MakeAppx = 'makeappx' }) @{ Distributions = @{ Beta = @{}; Sideload = @{} } }
             Assert-True (@($script:Commands | Where-Object { $_ -match '-t:Build' }).Count -eq 1) 'Compilation repeated.'
@@ -283,7 +359,7 @@ try {
             Assert-True (@($script:Commands | Where-Object { $_ -match "-p:UapAppxPackageBuildMode=$expectedMode" }).Count -eq 1) 'Wrong SDK packaging mode.'
             foreach ($destination in $plan.Destinations) { Assert-True (Test-Path -LiteralPath $destination) 'Missing selected output.' }
             Assert-True (-not (Test-Path -LiteralPath (Join-Path $plan.OutputRoot '.staging'))) 'Successful run retained staging.'
-            $expectedSigns = if ($mask -band 6) { 1 } else { 0 }
+            $expectedSigns = $plan.SideloadChannels.Count
             Assert-True ($script:SignCalls -eq $expectedSigns) 'Signing repeated or was skipped.'
             Assert-True ($script:PackageCalls -eq ($expectedSigns * $architectures.Count)) 'Sideload architecture packaging repeated.'
             Assert-True (@(Get-ChildItem -LiteralPath $plan.OutputRoot -Directory).Count -eq $plan.Destinations.Count) 'Unselected channel folder exists.'
@@ -292,7 +368,7 @@ try {
                 Assert-True (Test-Path -LiteralPath $stableBundle) 'Wrong stable output name.'
                 if ($plan.Selection.Beta) {
                     $betaBundle = Join-Path $plan.OutputRoot 'WinoMail_Beta_2.53.0.0/WinoMail_Beta_2.53.0.0.msixbundle'
-                    Assert-True ((Get-FileHash $stableBundle).Hash -ceq (Get-FileHash $betaBundle).Hash) 'Signed channel copies differ.'
+                    Assert-True ((Get-FileHash $stableBundle).Hash -cne (Get-FileHash $betaBundle).Hash) 'Independent channels must have distinct bundles.'
                 }
             }
         }

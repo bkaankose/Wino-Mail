@@ -1,0 +1,17 @@
+{
+  "Distribution": "Store",
+  "PackageName": "58272BurakKSE.WinoMailPreview",
+  "Publisher": "CN=51FBDAF3-E212-4149-89A2-A2636B3BC911",
+  "DisplayNames": {
+    "Mail": "Wino Mail",
+    "Calendar": "Wino Calendar",
+    "People": "Wino People",
+    "Tasks": "Wino To Do"
+  },
+  "NotificationActivatorIds": {
+    "Mail": "b67c209f-9f3b-4220-ad8f-828073616967",
+    "Calendar": "a075d82f-106f-4007-b69a-5c4135b2ac58",
+    "People": "427688f0-3b7f-4f5b-938f-f76535aa7970",
+    "Tasks": "a5851908-6870-4384-912c-be36b23f142f"
+  }
+}

@@ -25,7 +25,7 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
 
     public GmailAuthenticator(IAuthenticatorConfig authConfig, INativeAppService nativeAppService) : base(authConfig)
     {
-        _codeReceiver = new WinoGmailCodeReceiver(nativeAppService);
+        _codeReceiver = new WinoGmailCodeReceiver(nativeAppService, authConfig.ApplicationDisplayName);
         _tokenStorePath = authConfig.GmailTokenStorePath;
     }
 

@@ -16,6 +16,9 @@ public static class NotificationHostRuntime
 
         try
         {
+            var package = Package.Current;
+            ReleaseIdentity.Initialize(package.InstalledLocation.Path, package.Id.Name, package.Id.Publisher, package.Id.FamilyName);
+
             var localCachePath = ApplicationData.Current.LocalCacheFolder.Path;
             _ = NotificationHostFileStore.CleanupStaleFiles(localCachePath, StaleEnvelopeAge);
 
@@ -163,10 +166,10 @@ public static class NotificationHostRuntime
 
     private static Guid GetActivatorClassId(NotificationHostApplication application) => application switch
     {
-        NotificationHostApplication.Mail => new("b67c209f-9f3b-4220-ad8f-828073616967"),
-        NotificationHostApplication.Calendar => new("a075d82f-106f-4007-b69a-5c4135b2ac58"),
-        NotificationHostApplication.People => new("427688f0-3b7f-4f5b-938f-f76535aa7970"),
-        NotificationHostApplication.Tasks => new("a5851908-6870-4384-912c-be36b23f142f"),
+        NotificationHostApplication.Mail => ReleaseIdentity.Current.NotificationActivatorIds["Mail"],
+        NotificationHostApplication.Calendar => ReleaseIdentity.Current.NotificationActivatorIds["Calendar"],
+        NotificationHostApplication.People => ReleaseIdentity.Current.NotificationActivatorIds["People"],
+        NotificationHostApplication.Tasks => ReleaseIdentity.Current.NotificationActivatorIds["Tasks"],
         _ => throw new ArgumentOutOfRangeException(nameof(application))
     };
 

@@ -73,7 +73,7 @@ internal static class Program
         {
             if (!isInteractive)
                 ConsoleOutput.Header($"\nAPI: {apiEnvironment} ({apiUri})");
-            System.Console.WriteLine($"Database folder: {paths.PublisherFolder}");
+            System.Console.WriteLine($"Database folder: {paths.ApplicationDataFolder}");
             System.Console.WriteLine($"Application data: {paths.ApplicationDataFolder}");
             ConsoleOutput.Success("Wino Mail is closed and the smoke-console database lock is active.\n");
 
@@ -1616,7 +1616,7 @@ internal static class Program
 
     private static bool ValidatePaths(ConsolePaths paths)
     {
-        var databasePath = Path.Combine(paths.PublisherFolder, "Wino210.db");
+        var databasePath = Path.Combine(paths.ApplicationDataFolder, "Wino210.db");
         var tokenCachePath = Path.Combine(paths.ApplicationDataFolder, "OutlookCache.bin");
         var valid = true;
         if (!File.Exists(databasePath))

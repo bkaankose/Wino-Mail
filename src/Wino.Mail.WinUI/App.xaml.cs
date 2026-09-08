@@ -289,7 +289,7 @@ public partial class App : WinoApplication,
             trayIcon = new NativeTrayIcon(
                 dispatcherQueue,
                 iconPath,
-                "Wino Mail",
+                Wino.NotificationHost.Contracts.ReleaseIdentity.Current.DisplayNames["Mail"],
                 BuildTrayMenu,
                 ActivatePreferredWindowAsync);
             trayIcon.Create();
@@ -408,8 +408,8 @@ public partial class App : WinoApplication,
         if (welcomeWindow == null)
             return;
 
-        CloseShellWindowIfPresent();
         await ActivateWindowAsync(welcomeWindow);
+        CloseShellWindowIfPresent();
     }
 
     private void CloseWelcomeWindowIfPresent()
@@ -772,7 +772,7 @@ public partial class App : WinoApplication,
     {
         var validation = await Services.GetRequiredService<IDatabaseSchemaService>()
             .ValidateAsync(Path.Combine(
-                AppConfiguration.PublisherSharedFolderPath,
+                AppConfiguration.ApplicationDataFolderPath,
                 Wino.Services.DatabaseService.CurrentDatabaseName),
                 requireCompletedMigration: true);
         if (!validation.IsValid)
@@ -1918,21 +1918,24 @@ public partial class App : WinoApplication,
         if (windowManager.GetWindow(WinoWindowKind.Shell) == null)
             return;
 
-        MainWindow?.DispatcherQueue?.TryEnqueue(async () =>
-        {
-            var accounts = await _accountService!.GetAccountsAsync();
-            _hasConfiguredAccounts = accounts.Any();
-            if (_hasConfiguredAccounts) return;
+        _ = ExecuteOnActivationUiThreadAsync(HandleAccountRemovedAsync);
+    }
 
-            // All accounts removed — go back to welcome wizard from step 1
-            Services.GetRequiredService<WelcomeWizardContext>().Reset();
-            StopAutoSynchronizationLoop();
-            UpdateTrayIconState(allowCreation: false);
-            CloseShellWindowIfPresent();
-            CreateWelcomeWindow();
-            if (MainWindow != null)
-                await ActivateWindowAsync(MainWindow);
-        });
+    private async Task HandleAccountRemovedAsync()
+    {
+        var accounts = await _accountService!.GetAccountsAsync();
+        _hasConfiguredAccounts = accounts.Any();
+        if (_hasConfiguredAccounts)
+            return;
+
+        Services.GetRequiredService<WelcomeWizardContext>().Reset();
+        StopAutoSynchronizationLoop();
+        UpdateTrayIconState(allowCreation: false);
+
+        // Keep an active XAML window throughout the shell-to-welcome handoff. Closing
+        // the last active window first can terminate the WinUI application before the
+        // welcome window is created.
+        await ActivateWelcomeWindowAsync();
     }
 
     public void Receive(AccountUpdatedMessage message)

@@ -1,4 +1,4 @@
-<abstract:SettingOptionsPageAbstract
+﻿<abstract:SettingOptionsPageAbstract
     x:Class="Wino.Views.Settings.SettingOptionsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -12,6 +12,7 @@
     xmlns:mailViewModelData="using:Wino.Mail.ViewModels.Data"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:personalization="using:Wino.Core.Domain.Models.Personalization"
+    xmlns:release="using:Wino.NotificationHost.Contracts"
     xmlns:selectors="using:Wino.Selectors"
     xmlns:settingsModels="using:Wino.Core.Domain.Models.Settings"
     xmlns:translations="using:Wino.Core.Domain.Models.Translations"
@@ -123,7 +124,7 @@
                         <TextBlock
                             VerticalAlignment="Center"
                             Style="{StaticResource TitleTextBlockStyle}"
-                            Text="Wino Mail" />
+                            Text="{x:Bind release:ReleaseIdentity.Current.MailDisplayName, Mode=OneTime}" />
                         <TextBlock
                             VerticalAlignment="Top"
                             Foreground="{ThemeResource TextFillColorTertiaryBrush}"

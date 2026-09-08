@@ -65,7 +65,13 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
 
         // Make sure the paths are setup on app start.
         AppConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
-        AppConfiguration.PublisherSharedFolderPath = ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path;
+        var releaseIdentity = Wino.NotificationHost.Contracts.ReleaseIdentity.Current;
+        var configuration = (ApplicationConfiguration)AppConfiguration;
+        configuration.AllowLegacyDataMigration = releaseIdentity.AllowsLegacyMigration;
+        configuration.ApplicationDisplayName = releaseIdentity.DisplayNames["Mail"];
+        AppConfiguration.PublisherSharedFolderPath = releaseIdentity.AllowsLegacyMigration
+            ? ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path
+            : string.Empty;
         AppConfiguration.ApplicationTempFolderPath = ApplicationData.Current.TemporaryFolder.Path;
 
         // Keep new contact thumbnails beside the existing avatar cache. The new

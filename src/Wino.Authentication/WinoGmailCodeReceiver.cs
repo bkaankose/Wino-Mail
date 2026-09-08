@@ -11,22 +11,17 @@ using Wino.Messaging.UI;
 
 namespace Wino.Authentication;
 
-internal sealed class WinoGmailCodeReceiver(INativeAppService nativeAppService)
+internal sealed class WinoGmailCodeReceiver(INativeAppService nativeAppService, string applicationDisplayName)
 {
     public async Task<GoogleAuthorizationCode> ReceiveCodeAsync(
         Func<Uri, string, Uri> authorizationUriFactory,
         bool proposeCopyAuthorizationUrl,
         CancellationToken cancellationToken)
     {
-        var port = ReserveLoopbackPort();
-        var redirectUri = new Uri($"http://127.0.0.1:{port}/authorize/");
+        using var listener = StartListener(out var redirectUri);
         var state = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
         var codeVerifier = Base64UrlEncode(RandomNumberGenerator.GetBytes(48));
         var authorizationUri = AppendPkceParameters(authorizationUriFactory(redirectUri, state), codeVerifier);
-
-        using var listener = new HttpListener();
-        listener.Prefixes.Add(redirectUri.AbsoluteUri);
-        listener.Start();
 
         if (proposeCopyAuthorizationUrl)
         {
@@ -69,16 +64,41 @@ internal sealed class WinoGmailCodeReceiver(INativeAppService nativeAppService)
         return new Uri($"{authorizationUri.AbsoluteUri}{separator}code_challenge={Uri.EscapeDataString(challenge)}&code_challenge_method=S256");
     }
 
-    private static async Task WriteBrowserResponseAsync(HttpListenerResponse response, string? error)
+    private async Task WriteBrowserResponseAsync(HttpListenerResponse response, string? error)
     {
+        var name = WebUtility.HtmlEncode(applicationDisplayName);
         var message = string.IsNullOrWhiteSpace(error)
-            ? "Authorization complete. You can return to Wino Mail."
-            : "Authorization failed. You can return to Wino Mail.";
-        var bytes = Encoding.UTF8.GetBytes($"<!doctype html><meta charset=\"utf-8\"><title>Wino Mail</title><p>{message}</p>");
+            ? $"Authorization complete. You can return to {name}."
+            : $"Authorization failed. You can return to {name}.";
+        var bytes = Encoding.UTF8.GetBytes($"<!doctype html><meta charset=\"utf-8\"><title>{name}</title><p>{message}</p>");
         response.ContentType = "text/html; charset=utf-8";
         response.ContentLength64 = bytes.Length;
         await response.OutputStream.WriteAsync(bytes).ConfigureAwait(false);
         response.Close();
+    }
+
+    private static HttpListener StartListener(out Uri redirectUri)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            redirectUri = new Uri($"http://127.0.0.1:{ReserveLoopbackPort()}/authorize/");
+            var listener = new HttpListener();
+            listener.Prefixes.Add(redirectUri.AbsoluteUri);
+            try
+            {
+                listener.Start();
+                return listener;
+            }
+            catch (HttpListenerException) when (attempt < 4)
+            {
+                listener.Close();
+            }
+            catch
+            {
+                listener.Close();
+                throw;
+            }
+        }
     }
 
     private static int ReserveLoopbackPort()

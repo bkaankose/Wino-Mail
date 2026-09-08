@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_title:
-        description: Optional GitHub release title override
+        description: Optional GitHub prerelease title
         required: false
         type: string
 
@@ -14,174 +14,64 @@ permissions:
 
 jobs:
   release-beta:
-    name: Build and publish beta release
     runs-on: windows-latest
     env:
-      PROJECT_PATH: src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
-      MANIFEST_PATH: src/Wino.Mail.WinUI/Package.appxmanifest
-      CHANGELOG_PATH: CHANGELOG.md
-      NUGET_CONFIG_PATH: ${{ github.workspace }}\nuget.config
-      PACKAGE_OUTPUT_DIR: ${{ github.workspace }}\artifacts\package
-      RELEASE_OUTPUT_DIR: ${{ github.workspace }}\artifacts\release
-      CERTIFICATE_PFX_PATH: ${{ github.workspace }}\artifacts\signing\beta-signing-cert.pfx
-      CERTIFICATE_CER_PATH: ${{ github.workspace }}\artifacts\release\Wino-Mail-Beta.cer
+      WINO_BETA_RELEASE_SIGNING_ENDPOINT: ${{ secrets.WINO_BETA_RELEASE_SIGNING_ENDPOINT }}
+      WINO_BETA_RELEASE_SIGNING_ACCOUNT_NAME: ${{ secrets.WINO_BETA_RELEASE_SIGNING_ACCOUNT_NAME }}
+      WINO_BETA_RELEASE_SIGNING_CERTIFICATE_PROFILE_NAME: ${{ secrets.WINO_BETA_RELEASE_SIGNING_CERTIFICATE_PROFILE_NAME }}
+      WINO_BETA_RELEASE_PUBLISHER_SUBJECT: ${{ secrets.WINO_BETA_RELEASE_PUBLISHER_SUBJECT }}
+      WINO_BETA_RELEASE_AZURE_TENANT_ID: ${{ secrets.WINO_BETA_RELEASE_AZURE_TENANT_ID }}
+      WINO_BETA_RELEASE_AZURE_CLIENT_ID: ${{ secrets.WINO_BETA_RELEASE_AZURE_CLIENT_ID }}
+      WINO_BETA_RELEASE_AZURE_CLIENT_SECRET: ${{ secrets.WINO_BETA_RELEASE_AZURE_CLIENT_SECRET }}
+      WINO_BETA_RELEASE_APPINSTALLER_URI: ${{ vars.WINO_BETA_RELEASE_APPINSTALLER_URI }}
+      WINO_BETA_RELEASE_PACKAGE_BASE_URI: ${{ vars.WINO_BETA_RELEASE_PACKAGE_BASE_URI }}
     steps:
-      - name: Checkout selected branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
         with:
-          ref: ${{ github.ref }}
-          fetch-depth: 0
-
-      - name: Fetch tags from origin
-        shell: pwsh
-        run: git fetch origin --force --tags
-
-      - name: Validate release secrets
-        shell: pwsh
-        env:
-          BETA_SIGNING_CERT_PFX_BASE64: ${{ secrets.BETA_SIGNING_CERT_PFX_BASE64 }}
-        run: |
-          if ([string]::IsNullOrWhiteSpace($env:BETA_SIGNING_CERT_PFX_BASE64)) {
-            throw "Missing required secret: BETA_SIGNING_CERT_PFX_BASE64"
-          }
-
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.0.x
+          global-json-file: global.json
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Compute beta version and release metadata
-        id: metadata
+      - name: Check beta artwork
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'release-assets/Beta/Assets/Wino_Icon.ico')) {
+            throw 'Supply the beta artwork under release-assets/Beta before publishing.'
+          }
+      - name: Install Artifact Signing client
+        shell: pwsh
+        run: |
+          nuget install Microsoft.Trusted.Signing.Client -Version 1.0.95 -Source https://api.nuget.org/v3/index.json -OutputDirectory "$env:RUNNER_TEMP/signing" -NonInteractive
+          if ($LASTEXITCODE -ne 0) { throw 'Artifact Signing client installation failed.' }
+          $dlib = Get-ChildItem "$env:RUNNER_TEMP/signing" -Filter Azure.CodeSigning.Dlib.dll -Recurse |
+            Where-Object { $_.FullName -match '[\\/]x64[\\/]' } | Select-Object -First 1
+          if (-not $dlib) { throw 'The x64 Artifact Signing library was not found.' }
+          "WINO_BETA_RELEASE_SIGNING_DLIB_PATH=$($dlib.FullName)" >> $env:GITHUB_ENV
+      - name: Verify packaging logic
+        shell: pwsh
+        run: ./tests/scripts/Build-Releases.Tests.ps1
+      - name: Build and sign isolated beta
         shell: pwsh
         env:
-          RELEASE_TITLE_INPUT: ${{ github.event.inputs.release_title }}
-        run: |
-          $manifestPath = Join-Path $env:GITHUB_WORKSPACE $env:MANIFEST_PATH
-          if (-not (Test-Path $manifestPath)) {
-            throw "Package manifest not found: $manifestPath"
-          }
-
-          $changelogPath = Join-Path $env:GITHUB_WORKSPACE $env:CHANGELOG_PATH
-          if (-not (Test-Path $changelogPath)) {
-            throw "Release notes file not found: $changelogPath"
-          }
-
-          [xml]$manifest = Get-Content -LiteralPath $manifestPath
-          $identityNode = $manifest.Package.Identity
-          if (-not $identityNode) {
-            throw "Could not locate the Package/Identity node in $manifestPath"
-          }
-
-          $currentVersionText = [string]$identityNode.Version
-          if ($currentVersionText -notmatch '^(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)\.(?<revision>\d+)$') {
-            throw "Manifest version '$currentVersionText' is not a four-part numeric version."
-          }
-
-          $packageVersion = $currentVersionText
-          $releaseTag = "v$packageVersion"
-          $releaseTitleInput = $env:RELEASE_TITLE_INPUT
-          $releaseTitle = if ([string]::IsNullOrWhiteSpace($releaseTitleInput)) { $releaseTag } else { $releaseTitleInput.Trim() }
-
-          $headSha = (git rev-parse HEAD).Trim()
-          if ([string]::IsNullOrWhiteSpace($headSha)) {
-            throw "Failed to resolve the checked out commit SHA."
-          }
-
-          $notesInput = Get-Content -LiteralPath $changelogPath -Raw
-          if ([string]::IsNullOrWhiteSpace($notesInput)) {
-            throw "Release notes file is empty: $changelogPath"
-          }
-
-          $notesInput = $notesInput.Trim()
-          New-Item -ItemType Directory -Path $env:RELEASE_OUTPUT_DIR -Force | Out-Null
-          $releaseNotesPath = Join-Path $env:RELEASE_OUTPUT_DIR 'beta-release-notes.md'
-          $notesInput | Set-Content -LiteralPath $releaseNotesPath -Encoding utf8
-
-          "package_version=$packageVersion" >> $env:GITHUB_OUTPUT
-          "release_tag=$releaseTag" >> $env:GITHUB_OUTPUT
-          "release_title=$releaseTitle" >> $env:GITHUB_OUTPUT
-          "release_notes_path=$releaseNotesPath" >> $env:GITHUB_OUTPUT
-          "head_sha=$headSha" >> $env:GITHUB_OUTPUT
-
-      - name: Materialize signing certificate
+          NuGetPackageSourceCredentials_github: Username=${{ github.actor }};Password=${{ secrets.GITHUB_TOKEN }}
+        run: ./scripts/build-releases.ps1 -NonInteractive -Beta -Architectures x86,x64,ARM64
+      - name: Preserve verified artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: isolated-beta
+          path: src/Wino.Mail.WinUI/AppPackages/WinoMail_Beta_*
+          if-no-files-found: error
+      - name: Publish GitHub prerelease
         shell: pwsh
         env:
-          BETA_SIGNING_CERT_PFX_BASE64: ${{ secrets.BETA_SIGNING_CERT_PFX_BASE64 }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TITLE: ${{ inputs.release_title }}
         run: |
-          $signingDir = Split-Path -Parent $env:CERTIFICATE_PFX_PATH
-          New-Item -ItemType Directory -Path $signingDir -Force | Out-Null
-          [IO.File]::WriteAllBytes($env:CERTIFICATE_PFX_PATH, [Convert]::FromBase64String($env:BETA_SIGNING_CERT_PFX_BASE64))
-
-          $certificate = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($env:CERTIFICATE_PFX_PATH, $null, [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::Exportable)
-
-          New-Item -ItemType Directory -Path (Split-Path -Parent $env:CERTIFICATE_CER_PATH) -Force | Out-Null
-          [IO.File]::WriteAllBytes($env:CERTIFICATE_CER_PATH, $certificate.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert))
-
-      - name: Restore WinUI project dependencies
-        shell: pwsh
-        run: |
-          if (-not (Test-Path $env:NUGET_CONFIG_PATH)) {
-            throw "NuGet config file not found: $env:NUGET_CONFIG_PATH"
-          }
-
-          dotnet restore $env:PROJECT_PATH `
-            --configfile $env:NUGET_CONFIG_PATH `
-            -p:Platform=x64 `
-            /p:RestoreConfigFile="$env:NUGET_CONFIG_PATH"
-
-      - name: Build MSIX bundle
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path $env:PACKAGE_OUTPUT_DIR -Force | Out-Null
-
-          dotnet build $env:PROJECT_PATH `
-            --configuration Release `
-            --no-restore `
-            --configfile $env:NUGET_CONFIG_PATH `
-            /p:Platform=x64 `
-            /p:RestoreConfigFile="$env:NUGET_CONFIG_PATH" `
-            /p:GenerateAppxPackageOnBuild=true `
-            /p:UapAppxPackageBuildMode=SideloadOnly `
-            /p:AppxBundle=Always `
-            /p:AppxBundlePlatforms="x86|x64|arm64" `
-            /p:AppxPackageDir="$env:PACKAGE_OUTPUT_DIR\\" `
-            /p:AppxPackageVersion=${{ steps.metadata.outputs.package_version }} `
-            /p:PackageCertificateKeyFile="$env:CERTIFICATE_PFX_PATH" `
-            /p:PackageCertificatePassword= `
-            /p:PackageCertificateThumbprint= `
-            /p:AppxPackageSigningEnabled=true
-
-      - name: Collect packaged artifacts
-        id: package
-        shell: pwsh
-        run: |
-          $bundle = Get-ChildItem -Path $env:PACKAGE_OUTPUT_DIR -Recurse -Filter *.msixbundle | Select-Object -First 1
-          if (-not $bundle) {
-            throw "No .msixbundle file was generated under $env:PACKAGE_OUTPUT_DIR"
-          }
-
-          $releaseAssetPath = Join-Path $env:RELEASE_OUTPUT_DIR "Wino_${{ steps.metadata.outputs.package_version }}.zip"
-          if (Test-Path $releaseAssetPath) {
-            Remove-Item -LiteralPath $releaseAssetPath -Force
-          }
-
-          Compress-Archive -LiteralPath @($bundle.FullName, $env:CERTIFICATE_CER_PATH) -DestinationPath $releaseAssetPath -Force
-
-          "bundle_path=$($bundle.FullName)" >> $env:GITHUB_OUTPUT
-          "bundle_name=$($bundle.Name)" >> $env:GITHUB_OUTPUT
-          "release_asset_path=$releaseAssetPath" >> $env:GITHUB_OUTPUT
-
-      - name: Create GitHub prerelease
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release create "${{ steps.metadata.outputs.release_tag }}" `
-            "${{ steps.package.outputs.release_asset_path }}" `
-            --repo "${{ github.repository }}" `
-            --target "${{ steps.metadata.outputs.head_sha }}" `
-            --title "${{ steps.metadata.outputs.release_title }}" `
-            --notes-file "${{ steps.metadata.outputs.release_notes_path }}" `
-            --prerelease
+          [xml]$manifest = Get-Content src/Wino.Mail.WinUI/Package.appxmanifest
+          $version = [string]$manifest.Package.Identity.Version
+          $folder = "src/Wino.Mail.WinUI/AppPackages/WinoMail_Beta_$version"
+          $archive = Join-Path $env:RUNNER_TEMP "WinoMail_Beta_$version.zip"
+          Compress-Archive -Path "$folder/*" -DestinationPath $archive
+          $title = if ($env:RELEASE_TITLE) { $env:RELEASE_TITLE } else { "Wino Mail Beta $version" }
+          gh release create "beta/v$version" $archive --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title $title --notes-file CHANGELOG.md --prerelease
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub prerelease publication failed.' }

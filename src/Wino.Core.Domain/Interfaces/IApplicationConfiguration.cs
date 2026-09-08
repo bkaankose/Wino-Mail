@@ -1,13 +1,13 @@
 ﻿namespace Wino.Core.Domain.Interfaces;
 
 /// <summary>
-/// Singleton object that holds the application data folder path and the publisher shared folder path.
-/// Load the values before calling any service.
-/// App data folder is used for storing files.
-/// Pubhlisher cache folder is only used for database file so other apps can access it in the same package by same publisher.
+/// Identity-local storage and optional read-only legacy publisher source.
+/// Initialize before calling services.
 /// </summary>
 public interface IApplicationConfiguration
 {
+    bool AllowLegacyDataMigration => false;
+    string ApplicationDisplayName => "Wino Mail";
     /// <summary>
     /// Application data folder.
     /// </summary>

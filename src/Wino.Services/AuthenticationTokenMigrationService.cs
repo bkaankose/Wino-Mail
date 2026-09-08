@@ -23,6 +23,9 @@ public sealed class AuthenticationTokenMigrationService(
     {
         ArgumentNullException.ThrowIfNull(accounts);
 
+        if (!configuration.AllowLegacyDataMigration)
+            return new AuthenticationTokenMigrationResult(false, []);
+
         var outlookMigrated = await PrepareOutlookCacheAsync(cancellationToken).ConfigureAwait(false);
         var reusableGmailAccounts = new List<Guid>();
 
@@ -45,38 +48,8 @@ public sealed class AuthenticationTokenMigrationService(
 
         await PrepareAsync(accounts, cancellationToken).ConfigureAwait(false);
 
-        var localOutlookPath = AuthenticationTokenStorePaths.GetOutlookTokenCachePath(configuration);
-        var legacyOutlookPath = AuthenticationTokenStorePaths.GetLegacyOutlookTokenCachePath(configuration);
-        if (!PathsEqual(localOutlookPath, legacyOutlookPath) && File.Exists(legacyOutlookPath))
-        {
-            await EnsureFilesMatchAsync(localOutlookPath, legacyOutlookPath, cancellationToken).ConfigureAwait(false);
-            File.Delete(legacyOutlookPath);
-        }
-
-        foreach (var account in accounts.Where(account => account.ProviderType == MailProviderType.Gmail))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var localTokenPath = AuthenticationTokenStorePaths.GetGmailTokenPath(configuration, account.AccountId);
-            foreach (var legacyStorePath in AuthenticationTokenStorePaths.GetLegacyGmailTokenStorePaths(configuration))
-            {
-                var legacyCurrentPath = Path.Combine(legacyStorePath, $"{account.AccountId:N}.json");
-                if (!PathsEqual(localTokenPath, legacyCurrentPath))
-                    DeleteIfExists(legacyCurrentPath);
-
-                DeleteIfExists(AuthenticationTokenStorePaths.GetLegacyGoogleTokenPath(legacyStorePath, account.AccountId));
-            }
-        }
-
-        var publisherTokenStorePath = AuthenticationTokenStorePaths
-            .GetLegacyPublisherGmailTokenStorePath(configuration);
-        if (!PathsEqual(
-                publisherTokenStorePath,
-                AuthenticationTokenStorePaths.GetGmailTokenStorePath(configuration)) &&
-            Directory.Exists(publisherTokenStorePath))
-        {
-            Directory.Delete(publisherTokenStorePath, recursive: true);
-        }
+        // Publisher and roaming sources may still belong to another installed release.
+        // Import is copy-only, including after successful database promotion.
     }
 
     private async Task<bool> PrepareOutlookCacheAsync(CancellationToken cancellationToken)
@@ -97,8 +70,8 @@ public sealed class AuthenticationTokenMigrationService(
     private async Task<bool> PrepareGmailTokenAsync(Guid accountId, CancellationToken cancellationToken)
     {
         var localPath = AuthenticationTokenStorePaths.GetGmailTokenPath(configuration, accountId);
-        if (await IsReusableGmailTokenAsync(localPath, cancellationToken).ConfigureAwait(false))
-            return true;
+        if (File.Exists(localPath))
+            return await IsReusableGmailTokenAsync(localPath, cancellationToken).ConfigureAwait(false);
 
         foreach (var legacyStorePath in AuthenticationTokenStorePaths.GetLegacyGmailTokenStorePaths(configuration))
         {

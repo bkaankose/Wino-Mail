@@ -31,7 +31,7 @@ The script passes the three login values to SignTool through its environment. Az
 
 | Optional key | Default or value | Purpose and source |
 | --- | --- | --- |
-| `WINO_BETA_RELEASE_APPINSTALLER_URI` | `http://download.winomail.app/WinoMailBeta.appinstaller` | Beta update feed URL. Obtain an override from the distribution-site administrator. |
+| `WINO_BETA_RELEASE_APPINSTALLER_URI` | `http://download.winomail.app/WinoMailBetaIsolated.appinstaller` | Beta update feed URL. Obtain an override from the distribution-site administrator. |
 | `WINO_BETA_RELEASE_PACKAGE_BASE_URI` | Parent URL of the App Installer URL; normally `http://download.winomail.app/` | Root for versioned beta downloads. Use HTTP or HTTPS and a trailing slash. |
 | `WINO_BETA_RELEASE_SIGNING_DLIB_PATH` | Unset; tools are discovered automatically | Custom installation only. Full path to the x64 `Azure.CodeSigning.Dlib.dll`. |
 | `WINO_SIDELOAD_RELEASE_APPINSTALLER_URI` | `http://download.winomail.app/WinoMail.appinstaller` | Stable sideload update feed URL. Obtain an override from the distribution-site administrator. |

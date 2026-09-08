@@ -231,11 +231,11 @@ public class NavigationService : NavigationServiceBase, INavigationService
     private static string GetApplicationModeTitle(WinoApplicationMode mode)
         => mode switch
         {
-            WinoApplicationMode.Calendar => "Wino Calendar",
-            WinoApplicationMode.Contacts => "Wino People",
-            WinoApplicationMode.Tasks => "Wino To Do",
-            WinoApplicationMode.Settings => "Wino Settings",
-            _ => "Wino Mail"
+            WinoApplicationMode.Calendar => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.DisplayNames["Calendar"],
+            WinoApplicationMode.Contacts => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.DisplayNames["People"],
+            WinoApplicationMode.Tasks => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.DisplayNames["Tasks"],
+            WinoApplicationMode.Settings => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.Distribution == "Beta" ? "Wino Settings Beta" : "Wino Settings",
+            _ => Wino.NotificationHost.Contracts.ReleaseIdentity.Current.MailDisplayName
         };
 
     private static NavigationTransitionInfo GetApplicationModeTransitionInfo(WinoApplicationMode currentMode, WinoApplicationMode targetMode)

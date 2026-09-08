@@ -1,0 +1,39 @@
+{
+    "sections": [
+        {
+            "title": "Wino Calendar is here!",
+            "description": "You can now create local or remote CalDAV-compatible calendars, manage recurring events, and respond to invitations — all from within Wino.",
+            "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Calendar.svg",
+            "imageWidth": 128,
+            "imageHeight": 128
+        },
+        {
+            "title": "S/MIME Signing & Encryption",
+            "description": "Wino now supports signing and encrypting your emails with personal certificates. Keep your communications secure and verifiable.",
+            "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Security.svg",
+            "imageWidth": 128,
+            "imageHeight": 128
+        },
+        {
+            "title": "Threaded Mail View",
+            "description": "Emails are now grouped by conversation, making it easier to follow long discussions without losing context.",
+            "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Thread.svg",
+            "imageWidth": 128,
+            "imageHeight": 128
+        },
+        {
+            "title": "Smarter Notifications",
+            "description": "Act on your emails directly from toast notifications — mark as read, delete, or archive without opening the app.",
+            "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Notification.svg",
+            "imageWidth": 128,
+            "imageHeight": 128
+        },
+        {
+            "title": "And much more...",
+            "description": "Folder management, swipe actions, keyboard shortcuts, a custom print dialog, and significant performance improvements are all included in this release.\n\nThank you for using Wino Mail!",
+            "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/More.svg",
+            "imageWidth": 128,
+            "imageHeight": 128
+        }
+    ]
+}

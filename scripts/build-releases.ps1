@@ -7,12 +7,20 @@ Asks for channels and architectures. Reads the source manifest version. Outputs
 verified packages under src/Wino.Mail.WinUI/AppPackages. See docs/releases.md.
 #>
 [CmdletBinding()]
-param()
+param(
+    [switch]$NonInteractive,
+    [switch]$Store,
+    [switch]$Beta,
+    [switch]$Sideload,
+    [ValidateSet('x86', 'x64', 'ARM64')][string[]]$Architectures = @('x64'),
+    [string]$BetaAssetsPath
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:ReleaseRepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $script:SideloadIdentityName = 'WinoMail.Sideload'
+$script:BetaAssetsPath = $BetaAssetsPath
 $script:SideloadPublisher = 'CN=Burak Kaan Köse, O=Burak Kaan Köse, L=Wroclaw, S=Dolnośląskie, C=PL'
 
 function Read-ReleaseChoice {
@@ -103,6 +111,7 @@ function New-ReleasePlan {
         StoreName = [string]$manifest.Package.Identity.Name
         StorePublisher = [string]$manifest.Package.Identity.Publisher
         OutputRoot = $outputRoot; Destinations = $destinations; SideloadChannels = $sideloadChannels
+        BetaAssetsPath = if ($script:BetaAssetsPath) { [IO.Path]::GetFullPath($script:BetaAssetsPath) } else { Join-Path $RepositoryRoot 'release-assets/Beta' }
     }
 }
 
@@ -274,8 +283,9 @@ function Invoke-ReleaseTool {
 function Get-ReleaseBuildArguments {
     param([object]$Plan, [string]$Staging, [switch]$Restore)
 
-    $arguments = @('msbuild', $Plan.Project, '-nologo', '-m', '-nr:false', '-verbosity:normal', '-p:Configuration=Release', '-p:Platform=x64')
-    if ($Plan.Selection.Architectures.Count -eq 1) { $arguments += '-p:RuntimeIdentifiers=win-x64' }
+    $platform = if ($Plan.Selection.Architectures.Count -eq 1) { $Plan.Selection.Architectures[0] } else { 'x64' }
+    $arguments = @('msbuild', $Plan.Project, '-nologo', '-m', '-nr:false', '-verbosity:normal', '-p:Configuration=Release', "-p:Platform=$platform")
+    if ($Plan.Selection.Architectures.Count -eq 1) { $arguments += "-p:RuntimeIdentifiers=win-$($platform.ToLowerInvariant())" }
     if ($Restore) {
         return $arguments + @('-t:Restore', "-p:RestoreConfigFile=$(Join-Path $Plan.RepositoryRoot 'nuget.config')")
     }
@@ -338,9 +348,64 @@ function Get-PriCandidates {
     return @($items | Sort-Object)
 }
 
-function New-SideloadPackage {
-    param([object]$Plan, [object]$Tools, [string]$Staging, [string]$Architecture)
+function Get-ReleaseProfile {
+    param([object]$Plan, [ValidateSet('Store', 'Beta', 'Sideload')][string]$Channel)
 
+    $path = if ($Channel -eq 'Store') { Join-Path $script:ReleaseRepositoryRoot 'src/Wino.Mail.WinUI/release-profile.json' }
+        else { Join-Path $PSScriptRoot "release-profiles/$Channel.json" }
+    return Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+}
+
+function Get-ReleaseBrandingPaths {
+    param([string]$Layout)
+
+    return @(Get-ChildItem -LiteralPath $Layout -File -Recurse | ForEach-Object {
+        [IO.Path]::GetRelativePath($Layout, $_.FullName).Replace('\', '/')
+    } | Where-Object {
+        ($_ -match '^Assets/AppEntries/.+\.(png|svg)$' -and $_ -notmatch '/_Sources/') -or
+        $_ -match '^Assets/(Wino_Icon\.ico|WinoLogo\.png|StoreLogo[^/]*\.png)$' -or
+        $_ -eq 'EML/eml.png'
+    } | Sort-Object)
+}
+
+function Set-ReleaseLayoutProfile {
+    param([string]$Layout, [xml]$Manifest, [object]$Profile, [object]$Plan)
+
+    $Profile | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Layout 'release-profile.json') -Encoding utf8
+    $Manifest.Package.Properties.DisplayName = $Profile.DisplayNames.Mail
+    $entries = @{ App = 'Mail'; CalendarApp = 'Calendar'; ContactsApp = 'People'; ToDoApp = 'Tasks';
+        MailNotificationHost = 'Mail'; CalendarNotificationHost = 'Calendar'; PeopleNotificationHost = 'People'; ToDoNotificationHost = 'Tasks' }
+    foreach ($app in $Manifest.Package.Applications.Application) {
+        $mode = $entries[[string]$app.Id]
+        if (-not $mode) { throw "Unknown packaged application: $($app.Id)" }
+        $name = $Profile.DisplayNames.$mode
+        $visual = $app.SelectSingleNode("*[local-name()='VisualElements']")
+        $visual.SetAttribute('DisplayName', $name)
+        foreach ($startup in $app.SelectNodes(".//*[local-name()='StartupTask']")) { $startup.SetAttribute('DisplayName', "$name Startup Service") }
+        foreach ($node in $app.SelectNodes(".//*[local-name()='ToastNotificationActivation']")) { $node.SetAttribute('ToastActivatorCLSID', $Profile.NotificationActivatorIds.$mode) }
+        foreach ($node in $app.SelectNodes(".//*[local-name()='Class']")) {
+            $node.SetAttribute('Id', $Profile.NotificationActivatorIds.$mode)
+            $node.SetAttribute('DisplayName', "$name notification host")
+        }
+        foreach ($node in $app.SelectNodes(".//*[local-name()='ExeServer']")) { $node.SetAttribute('DisplayName', "$name notification host") }
+    }
+    if ($Profile.Distribution -eq 'Beta') {
+        $paths = @(Get-ReleaseBrandingPaths $Layout)
+        if ($paths.Count -eq 0) { throw 'The package contains no branding assets.' }
+        foreach ($relative in $paths) {
+            $source = Resolve-ReleaseChildPath $Plan.BetaAssetsPath $relative
+            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Supply beta artwork at $source. No stable artwork fallback is permitted." }
+        }
+        foreach ($relative in $paths) {
+            Copy-Item -LiteralPath (Resolve-ReleaseChildPath $Plan.BetaAssetsPath $relative) -Destination (Resolve-ReleaseChildPath $Layout $relative)
+        }
+    }
+}
+
+function New-SideloadPackage {
+    param([object]$Plan, [object]$Tools, [string]$Staging, [string]$Architecture, [string]$Channel = 'Sideload')
+
+    $profile = Get-ReleaseProfile $Plan $Channel
     $export = Join-Path $Staging "exports/$Architecture"
     $source = Join-Path $export 'payload'
     foreach ($file in @('payload/AppxManifest.xml', 'application.pri', 'application-pri-path.txt', 'payload-paths.txt')) {
@@ -352,20 +417,21 @@ function New-SideloadPackage {
         $payloadPath = Resolve-ReleaseChildPath $source $relative
         if (-not (Test-Path -LiteralPath $payloadPath -PathType Leaf)) { throw "The exported payload is incomplete: $relative" }
     }
-    $layout = Join-Path $Staging "sideload-layouts/$Architecture"
+    $layout = Join-Path $Staging "$Channel/layouts/$Architecture"
     $null = New-Item -ItemType Directory -Path $layout -Force
     Get-ChildItem -LiteralPath $source | Copy-Item -Destination $layout -Recurse
     $manifestPath = Join-Path $layout 'AppxManifest.xml'
     $manifest = [xml](Get-Content -LiteralPath $manifestPath -Raw)
     Assert-ReleaseIdentity $manifest.Package.Identity $Plan.StoreName $Plan.StorePublisher $Plan.Version
     if ([string]$manifest.Package.Identity.ProcessorArchitecture -ine $Architecture) { throw 'The exported package architecture is incorrect.' }
-    $manifest.Package.Identity.Name = $script:SideloadIdentityName
-    $manifest.Package.Identity.Publisher = $script:SideloadPublisher
+    $manifest.Package.Identity.Name = $profile.PackageName
+    $manifest.Package.Identity.Publisher = $profile.Publisher
+    Set-ReleaseLayoutProfile $layout $manifest $profile $Plan
     $manifest.Save($manifestPath)
 
     $priRelative = (Get-Content -LiteralPath (Join-Path $export 'application-pri-path.txt') -Raw).Trim()
     $priPath = Resolve-ReleaseChildPath $layout $priRelative
-    $priWork = Join-Path $Staging "pri/$Architecture"
+    $priWork = Join-Path $Staging "$Channel/pri/$Architecture"
     $priInput = Join-Path $priWork 'input'
     $null = New-Item -ItemType Directory -Path $priInput -Force
     Copy-Item -LiteralPath (Join-Path $export 'application.pri') -Destination (Join-Path $priInput 'application.pri')
@@ -381,7 +447,7 @@ function New-SideloadPackage {
   </index>
 </resources>
 '@ | Set-Content -LiteralPath $config -Encoding utf8
-    Invoke-ReleaseTool $Tools.MakePri @('new', '/pr', $priInput, '/cf', $config, '/in', $script:SideloadIdentityName, '/of', $priPath, '/o') (Join-Path $Staging "logs/pri-$Architecture.log")
+    Invoke-ReleaseTool $Tools.MakePri @('new', '/pr', $priInput, '/cf', $config, '/in', $profile.PackageName, '/of', $priPath, '/o') (Join-Path $Staging "logs/pri-$Architecture.log")
     $beforeDump = Join-Path $priWork 'before.xml'
     $afterDump = Join-Path $priWork 'after.xml'
     Invoke-ReleaseTool $Tools.MakePri @('dump', '/if', (Join-Path $export 'application.pri'), '/of', $beforeDump, '/dt', 'detailed', '/o') (Join-Path $Staging "logs/pri-before-$Architecture.log")
@@ -389,14 +455,14 @@ function New-SideloadPackage {
     $before = [xml](Get-Content -LiteralPath $beforeDump -Raw)
     $after = [xml](Get-Content -LiteralPath $afterDump -Raw)
     $map = $after.SelectSingleNode("//*[local-name()='ResourceMap']")
-    if ($null -eq $map -or $map.GetAttribute('name') -cne $script:SideloadIdentityName) { throw 'The beta PRI has an incorrect resource-map identity.' }
+    if ($null -eq $map -or $map.GetAttribute('name') -cne $profile.PackageName) { throw 'The beta PRI has an incorrect resource-map identity.' }
     $beforeCandidates = @(Get-PriCandidates $before $source)
     $afterCandidates = @(Get-PriCandidates $after $layout)
     if (@(Compare-Object $beforeCandidates $afterCandidates -CaseSensitive).Count -gt 0) {
         throw "Sideload resource candidates differ from the compiled resources for $Architecture."
     }
 
-    $package = Join-Path $Staging "sideload-packages/WinoMail_Sideload_$($Plan.Version)_$Architecture.msix"
+    $package = Join-Path $Staging "$Channel/packages/WinoMail_${Channel}_$($Plan.Version)_$Architecture.msix"
     $null = New-Item -ItemType Directory -Path (Split-Path $package) -Force
     Invoke-ReleaseTool $Tools.MakeAppx @('pack', '/d', $layout, '/p', $package, '/h', 'SHA256') (Join-Path $Staging "logs/pack-$Architecture.log")
     return $package
@@ -426,6 +492,7 @@ function Assert-ReleaseBundle {
             if ([string]$appManifest.Package.Identity.ProcessorArchitecture -ine $architecture) { throw 'The inner package architecture is incorrect.' }
             $inner = [IO.Compression.ZipFile]::OpenRead($path)
             try {
+                Assert-PackagedReleaseProfile $inner $appManifest $Plan
                 $binaryEntries = @($inner.Entries | Where-Object { $_.Name -match '\.(exe|dll)$' })
                 if (@($binaryEntries | Where-Object { $_.Name -eq 'Wino.Mail.WinUI.exe' }).Count -ne 1) { throw 'The package has no Wino executable.' }
                 foreach ($binary in $binaryEntries) {
@@ -446,6 +513,36 @@ function Assert-ReleaseBundle {
     return $hashes
 }
 
+function Assert-PackagedReleaseProfile {
+    param([object]$Archive, [xml]$Manifest, [object]$Plan)
+
+    $entry = $Archive.GetEntry('release-profile.json')
+    if ($null -eq $entry) { throw 'The package is missing release-profile.json.' }
+    $reader = [IO.StreamReader]::new($entry.Open())
+    try { $profile = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
+    $expected = Get-ReleaseProfile $Plan $profile.Distribution
+    if ($profile.PackageName -cne $expected.PackageName -or $profile.Publisher -cne $expected.Publisher -or
+        $profile.PackageName -cne [string]$Manifest.Package.Identity.Name -or $profile.Publisher -cne [string]$Manifest.Package.Identity.Publisher) {
+        throw 'The packaged release profile does not match its manifest or distribution.'
+    }
+    $entries = @{ App = 'Mail'; CalendarApp = 'Calendar'; ContactsApp = 'People'; ToDoApp = 'Tasks';
+        MailNotificationHost = 'Mail'; CalendarNotificationHost = 'Calendar'; PeopleNotificationHost = 'People'; ToDoNotificationHost = 'Tasks' }
+    foreach ($app in $Manifest.Package.Applications.Application) {
+        $mode = $entries[[string]$app.Id]
+        if (-not $mode) { throw 'Unknown application in release manifest.' }
+        if ($profile.DisplayNames.$mode -cne $expected.DisplayNames.$mode -or
+            $profile.NotificationActivatorIds.$mode -cne $expected.NotificationActivatorIds.$mode) { throw 'Unexpected release branding or notification identity.' }
+        $visual = $app.SelectSingleNode("*[local-name()='VisualElements']")
+        if ($visual.GetAttribute('DisplayName') -cne $profile.DisplayNames.$mode) { throw 'Manifest display name differs from release branding.' }
+        foreach ($node in $app.SelectNodes(".//*[local-name()='ToastNotificationActivation']")) {
+            if ($node.GetAttribute('ToastActivatorCLSID') -cne $profile.NotificationActivatorIds.$mode) { throw 'Notification manifest and runtime IDs differ.' }
+        }
+        foreach ($node in $app.SelectNodes(".//*[local-name()='Class']")) {
+            if ($node.GetAttribute('Id') -cne $profile.NotificationActivatorIds.$mode) { throw 'COM manifest and runtime IDs differ.' }
+        }
+    }
+}
+
 function Get-StoreReleaseArtifact {
     param([object]$Plan, [string]$Staging)
 
@@ -464,6 +561,7 @@ function Get-StoreReleaseArtifact {
     $folder = Join-Path $Staging "ready/WinoMail_Store_$($Plan.Version)"
     $null = New-Item -ItemType Directory -Path $folder -Force
     Copy-Item -LiteralPath $uploads[0].FullName -Destination (Join-Path $folder "WinoMail_Store_$($Plan.Version).msixupload")
+    Copy-Item -LiteralPath $bundlePath -Destination (Join-Path $folder "WinoMail_Store_$($Plan.Version).msixbundle")
     return $hashes
 }
 
@@ -489,7 +587,7 @@ function Copy-ReleaseDependencies {
 function Get-ReleaseDistributionConfiguration {
     param([hashtable]$Configuration)
 
-    $installerText = if ($Configuration['AppInstallerUri']) { $Configuration['AppInstallerUri'] } else { 'http://download.winomail.app/WinoMailBeta.appinstaller' }
+    $installerText = if ($Configuration['AppInstallerUri']) { $Configuration['AppInstallerUri'] } else { 'http://download.winomail.app/WinoMailBetaIsolated.appinstaller' }
     $baseText = if ($Configuration['PackageBaseUri']) { $Configuration['PackageBaseUri'] } else { ([uri]::new([uri]$installerText, '.')).AbsoluteUri }
     $uris = @{}
     foreach ($entry in @{ AppInstallerUri = $installerText; PackageBaseUri = $baseText }.GetEnumerator()) {
@@ -503,6 +601,7 @@ function Get-ReleaseDistributionConfiguration {
     $fileName = [Uri]::UnescapeDataString($uris.AppInstallerUri.Segments[-1])
     if ($fileName -notmatch '^[A-Za-z0-9_.-]+\.appinstaller$') { throw 'AppInstallerUri must end with an .appinstaller filename.' }
     if (-not $uris.PackageBaseUri.AbsolutePath.EndsWith('/')) { throw 'PackageBaseUri must end with a slash.' }
+    if ($uris.AppInstallerUri.AbsolutePath -match '/WinoMailBeta\.appinstaller$') { throw 'The legacy beta feed belongs to WinoMail.Sideload. Use a new beta feed URL.' }
     return [pscustomobject]@{ AppInstallerUri = $uris.AppInstallerUri; PackageBaseUri = $uris.PackageBaseUri; FileName = $fileName }
 }
 
@@ -514,10 +613,11 @@ function Get-ReleaseDownloadUri {
 }
 
 function New-SideloadAppInstaller {
-    param([string]$Bundle, [object]$Plan, [object]$Distribution)
+    param([string]$Bundle, [object]$Plan, [object]$Distribution, [string]$Channel = 'Sideload')
 
+    $profile = Get-ReleaseProfile $Plan $Channel
     $manifest = Get-ArchiveXml $Bundle 'AppxMetadata/AppxBundleManifest.xml'
-    Assert-ReleaseIdentity $manifest.Bundle.Identity $script:SideloadIdentityName $script:SideloadPublisher $Plan.Version
+    Assert-ReleaseIdentity $manifest.Bundle.Identity $profile.PackageName $script:SideloadPublisher $Plan.Version
     $folder = Split-Path $Bundle
     $folderName = Split-Path $folder -Leaf
     $namespace = 'http://schemas.microsoft.com/appx/appinstaller/2017/2'
@@ -566,7 +666,7 @@ function New-SideloadAppInstaller {
     $path = Join-Path $folder $Distribution.FileName
     $document.Save($path)
     $saved = [xml](Get-Content -LiteralPath $path -Raw)
-    Assert-ReleaseIdentity $saved.AppInstaller.MainBundle $script:SideloadIdentityName $script:SideloadPublisher $Plan.Version
+    Assert-ReleaseIdentity $saved.AppInstaller.MainBundle $profile.PackageName $script:SideloadPublisher $Plan.Version
     if ($saved.AppInstaller.Uri -cne $Distribution.AppInstallerUri.AbsoluteUri -or
         $saved.AppInstaller.UpdateSettings.OnLaunch.HoursBetweenUpdateChecks -ne '4' -or
         $null -eq $saved.SelectSingleNode("//*[local-name()='AutomaticBackgroundTask']")) {
@@ -576,10 +676,11 @@ function New-SideloadAppInstaller {
 }
 
 function Sign-SideloadRelease {
-    param([string]$Bundle, [object]$Plan, [object]$Tools, [object]$Signing, [string]$Staging)
+    param([string]$Bundle, [object]$Plan, [object]$Tools, [object]$Signing, [string]$Staging, [string]$Channel = 'Sideload')
 
+    $profile = Get-ReleaseProfile $Plan $Channel
     $manifest = Get-ArchiveXml $Bundle 'AppxMetadata/AppxBundleManifest.xml'
-    Assert-ReleaseIdentity $manifest.Bundle.Identity $script:SideloadIdentityName $Signing.Configuration.PublisherSubject $Plan.Version
+    Assert-ReleaseIdentity $manifest.Bundle.Identity $profile.PackageName $Signing.Configuration.PublisherSubject $Plan.Version
     $metadata = @{
         Endpoint = $Signing.Configuration.Endpoint
         CodeSigningAccountName = $Signing.Configuration.CodeSigningAccountName
@@ -665,34 +766,33 @@ function Invoke-ReleaseBuild {
             $stage = 'Store verification'
             $storeHashes = Get-StoreReleaseArtifact $Plan $staging
         }
-        if ($Plan.SideloadChannels.Count -gt 0) {
-            $stage = 'sideload packaging'
-            foreach ($architecture in $Plan.Selection.Architectures) { $null = New-SideloadPackage $Plan $Tools $staging $architecture }
-            $bundle = Join-Path $staging 'sideload.msixbundle'
-            Invoke-ReleaseTool $Tools.MakeAppx @('bundle', '/d', (Join-Path $staging 'sideload-packages'), '/p', $bundle, '/bv', $Plan.Version) (Join-Path $staging 'logs/bundle.log')
-            $stage = 'sideload verification'
-            $sideloadHashes = Assert-ReleaseBundle $bundle $Plan $script:SideloadIdentityName $script:SideloadPublisher (Join-Path $staging 'inspect/sideload')
+        foreach ($channel in $Plan.SideloadChannels) {
+            $profile = Get-ReleaseProfile $Plan $channel.Name
+            $stage = "$($channel.Name) packaging"
+            foreach ($architecture in $Plan.Selection.Architectures) { $null = New-SideloadPackage $Plan $Tools $staging $architecture $channel.Name }
+            $channelStage = Join-Path $staging $channel.Name
+            $null = New-Item -ItemType Directory -Path $channelStage -Force
+            $bundle = Join-Path $channelStage 'release.msixbundle'
+            Invoke-ReleaseTool $Tools.MakeAppx @('bundle', '/d', (Join-Path $channelStage 'packages'), '/p', $bundle, '/bv', $Plan.Version) (Join-Path $channelStage 'logs/bundle.log')
+            $stage = "$($channel.Name) verification"
+            $hashes = Assert-ReleaseBundle $bundle $Plan $profile.PackageName $profile.Publisher (Join-Path $channelStage 'inspect')
             if ($null -ne $storeHashes) {
-                if ($sideloadHashes.Count -ne $storeHashes.Count) { throw 'The channels contain different binary sets.' }
-                foreach ($key in $sideloadHashes.Keys) {
-                    if (-not $storeHashes.ContainsKey($key) -or $storeHashes[$key] -cne $sideloadHashes[$key]) { throw "The channels contain different binaries: $key" }
+                if ($hashes.Count -ne $storeHashes.Count) { throw 'The channels contain different binary sets.' }
+                foreach ($key in $hashes.Keys) {
+                    if (-not $storeHashes.ContainsKey($key) -or $storeHashes[$key] -cne $hashes[$key]) { throw "The channels contain different binaries: $key" }
                 }
             }
+            else { $storeHashes = $hashes }
             $stage = 'Azure signing'
-            Sign-SideloadRelease $bundle $Plan $Tools $Signing $staging
+            Sign-SideloadRelease $bundle $Plan $Tools $Signing $channelStage $channel.Name
             $signedHash = (Get-FileHash -LiteralPath $bundle -Algorithm SHA256).Hash
-            foreach ($channel in $Plan.SideloadChannels) {
-                $stage = "$($channel.Name) output and App Installer generation"
-                $folder = Join-Path $staging "ready/$($channel.FolderName)"
-                $null = New-Item -ItemType Directory -Path $folder -Force
-                $channelBundle = Join-Path $folder "$($channel.FolderName).msixbundle"
-                Copy-Item -LiteralPath $bundle -Destination $channelBundle
-                if ((Get-FileHash -LiteralPath $channelBundle -Algorithm SHA256).Hash -cne $signedHash) {
-                    throw 'The sideload copy differs from the verified signed bundle.'
-                }
-                Copy-ReleaseDependencies (Join-Path $staging 'sdk') (Join-Path $folder 'Dependencies')
-                New-SideloadAppInstaller $channelBundle $Plan $Signing.Distributions[$channel.Name]
-            }
+            $folder = Join-Path $staging "ready/$($channel.FolderName)"
+            $null = New-Item -ItemType Directory -Path $folder -Force
+            $channelBundle = Join-Path $folder "$($channel.FolderName).msixbundle"
+            Copy-Item -LiteralPath $bundle -Destination $channelBundle
+            if ((Get-FileHash -LiteralPath $channelBundle -Algorithm SHA256).Hash -cne $signedHash) { throw 'The final bundle differs from its verified signed package.' }
+            Copy-ReleaseDependencies (Join-Path $staging 'sdk') (Join-Path $folder 'Dependencies')
+            New-SideloadAppInstaller $channelBundle $Plan $Signing.Distributions[$channel.Name] $channel.Name
         }
         $stage = 'finalize outputs'
         if ((Get-FileHash -LiteralPath $Plan.ManifestPath -Algorithm SHA256).Hash -cne $Plan.ManifestHash) {
@@ -711,15 +811,23 @@ function Invoke-ReleaseBuild {
 }
 
 function Invoke-InteractiveRelease {
-    $selection = Read-ReleaseSelection
+    $selection = if ($NonInteractive) {
+        if (-not $Store -and -not $Beta -and -not $Sideload) { throw 'Select at least one distribution.' }
+        [pscustomobject]@{ Store = [bool]$Store; Beta = [bool]$Beta; Sideload = [bool]$Sideload; Architectures = $Architectures }
+    } else { Read-ReleaseSelection }
     if ($null -eq $selection) { Write-Host 'No channels selected. Nothing to build.'; return }
     $plan = New-ReleasePlan $selection
+    if ($selection.Beta -and -not (Test-Path -LiteralPath (Join-Path $plan.BetaAssetsPath 'Assets/Wino_Icon.ico') -PathType Leaf)) {
+        throw "Supply beta artwork under $($plan.BetaAssetsPath) before building. See release-assets/Beta/README.md."
+    }
     Write-Host "Version: $($plan.Version) | Store: $($selection.Store) | Beta: $($selection.Beta) | Stable sideload: $($selection.Sideload) | Architectures: $($selection.Architectures -join ', ')"
     $plan.Destinations | ForEach-Object { Write-Host "Output: $_" }
     $tools = Get-ReleaseTools $selection
     $signing = if ($selection.Beta -or $selection.Sideload) { Get-ReleaseSigningConfiguration -IncludeBeta:$selection.Beta -IncludeSideload:$selection.Sideload } else { $null }
     Invoke-ReleaseBuild $plan $tools $signing
-    try { Invoke-Item -LiteralPath $plan.OutputRoot } catch { Write-Warning 'Packages are ready, but Explorer could not open the output folder.' }
+    if (-not $NonInteractive) {
+        try { Invoke-Item -LiteralPath $plan.OutputRoot } catch { Write-Warning 'Packages are ready, but Explorer could not open the output folder.' }
+    }
 }
 
 # Dot-sourcing exposes functions for the script tests without prompting or building.

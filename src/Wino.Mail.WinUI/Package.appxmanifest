@@ -23,7 +23,7 @@
   <Identity
     Name="58272BurakKSE.WinoMailPreview"
     Publisher="CN=51FBDAF3-E212-4149-89A2-A2636B3BC911"
-    Version="2.0.55.0" />
+    Version="2.1.0.0" />
 
   <mp:PhoneIdentity PhoneProductId="7b7e90e9-cc55-4409-9769-99b4b5ed6e9b" PhonePublisherId="00000000-0000-0000-0000-000000000000"/>
 
@@ -204,7 +204,9 @@
         Description="Wino Mail notification host"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\MailAssets\Square150x150Logo.png"
-        Square44x44Logo="Assets\AppEntries\MailAssets\Square44x44Logo.png" />
+        Square44x44Logo="Assets\AppEntries\MailAssets\Square44x44Logo.png" >
+       <uap:DefaultTile/>
+      </uap:VisualElements>
       <Extensions>
         <desktop:Extension Category="windows.toastNotificationActivation">
           <desktop:ToastNotificationActivation ToastActivatorCLSID="b67c209f-9f3b-4220-ad8f-828073616967" />
@@ -228,7 +230,9 @@
         Description="Wino Calendar notification host"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\CalendarAssets\Square150x150Logo.png"
-        Square44x44Logo="Assets\AppEntries\CalendarAssets\Square44x44Logo.png" />
+        Square44x44Logo="Assets\AppEntries\CalendarAssets\Square44x44Logo.png" >
+       <uap:DefaultTile/>
+      </uap:VisualElements>
       <Extensions>
         <desktop:Extension Category="windows.toastNotificationActivation">
           <desktop:ToastNotificationActivation ToastActivatorCLSID="a075d82f-106f-4007-b69a-5c4135b2ac58" />
@@ -252,7 +256,9 @@
         Description="Wino People notification host"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\PeopleAssets\Square150x150Logo.png"
-        Square44x44Logo="Assets\AppEntries\PeopleAssets\Square44x44Logo.png" />
+        Square44x44Logo="Assets\AppEntries\PeopleAssets\Square44x44Logo.png" >
+       <uap:DefaultTile/>
+      </uap:VisualElements>
       <Extensions>
         <desktop:Extension Category="windows.toastNotificationActivation">
           <desktop:ToastNotificationActivation ToastActivatorCLSID="427688f0-3b7f-4f5b-938f-f76535aa7970" />
@@ -276,7 +282,9 @@
         Description="Wino To Do notification host"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\AppEntries\ToDoAssets\Square150x150Logo.png"
-        Square44x44Logo="Assets\AppEntries\ToDoAssets\Square44x44Logo.png" />
+        Square44x44Logo="Assets\AppEntries\ToDoAssets\Square44x44Logo.png" >
+       <uap:DefaultTile/>
+      </uap:VisualElements>
       <Extensions>
         <desktop:Extension Category="windows.toastNotificationActivation">
           <desktop:ToastNotificationActivation ToastActivatorCLSID="a5851908-6870-4384-912c-be36b23f142f" />

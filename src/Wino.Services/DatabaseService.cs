@@ -51,8 +51,8 @@ public class DatabaseService : IDatabaseService
         if (_isInitialized)
             return;
 
-        var publisherCacheFolder = _folderConfiguration.PublisherSharedFolderPath;
-        var databaseFileName = Path.Combine(publisherCacheFolder, _databaseName);
+        var databaseFileName = MainDatabasePaths.GetPath(_folderConfiguration, _databaseName);
+        Directory.CreateDirectory(MainDatabasePaths.GetRoot(_folderConfiguration));
         var databaseAlreadyExists = File.Exists(databaseFileName);
 
         Connection = new SQLiteAsyncConnection(databaseFileName);
@@ -885,9 +885,7 @@ SET {nameof(KeyboardShortcut.Action)} =
             connection.Execute("DROP TABLE IF EXISTS AccountContact");
         }).ConfigureAwait(false);
 
-        var contactsRoot = string.IsNullOrWhiteSpace(_folderConfiguration.ApplicationDataFolderPath)
-            ? _folderConfiguration.PublisherSharedFolderPath
-            : _folderConfiguration.ApplicationDataFolderPath;
+        var contactsRoot = MainDatabasePaths.GetRoot(_folderConfiguration);
         var contactsFolder = Path.Combine(contactsRoot, "contacts");
         foreach (var pictureId in legacyPictureIds)
         {

@@ -194,6 +194,7 @@
     <Content Include="Assets\AppEntries\ToDo.svg" />
     <Content Include="Assets\AppEntries\Calendar.svg" />
     <Content Include="Assets\AppEntries\People.svg" />
+    <Content Include="release-profile.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="Assets\Wino_Icon.ico" />
     <Content Include="Assets\WinoLogo.png" />
     <Content Include="BackgroundImages\Acrylic.jpg" />

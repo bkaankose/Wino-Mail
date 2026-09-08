@@ -46,7 +46,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
         var options = new BrokerOptions(BrokerOptions.OperatingSystems.Windows)
         {
-            Title = "Wino Mail",
+            Title = authenticatorConfig.ApplicationDisplayName,
             ListOperatingSystemAccounts = true,
         };
 
@@ -244,12 +244,28 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
             ? account.Address
             : account.AuthenticationAddress;
 
-        var storedAccount = (await _publicClientApplication.GetAccountsAsync().ConfigureAwait(false)).FirstOrDefault(
-            a => string.Equals(a.Username?.Trim(), authenticationAddress?.Trim(), StringComparison.OrdinalIgnoreCase));
+        // Removing an account through WAM can affect broker state shared by installations.
+        // Attach a non-broker client only to this package's persisted cache for local removal.
+        var localClient = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
+            .WithDefaultRedirectUri().WithAuthority(Authority).Build();
+        var path = AuthenticationTokenStorePaths.GetOutlookTokenCachePath(_applicationConfiguration);
+        var cache = await MsalCacheHelper.CreateAsync(new StorageCreationPropertiesBuilder(
+            Path.GetFileName(path), Path.GetDirectoryName(path)!).Build()).ConfigureAwait(false);
+        cache.RegisterCache(localClient.UserTokenCache);
 
-        if (storedAccount != null)
+        try
         {
-            await _publicClientApplication.RemoveAsync(storedAccount).ConfigureAwait(false);
+            var storedAccount = (await localClient.GetAccountsAsync().ConfigureAwait(false)).FirstOrDefault(
+                a => string.Equals(a.Username?.Trim(), authenticationAddress?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            if (storedAccount != null)
+            {
+                await localClient.RemoveAsync(storedAccount).ConfigureAwait(false);
+            }
+        }
+        finally
+        {
+            cache.UnregisterCache(localClient.UserTokenCache);
         }
     }
 

@@ -26,7 +26,7 @@ public sealed partial class WelcomeWindow : WindowEx, IWinoFrameProvider
 
         MinWidth = 980;
         MinHeight = 900;
-        Title = "Wino Mail";
+        Title = Wino.NotificationHost.Contracts.ReleaseIdentity.Current.DisplayNames["Mail"];
         this.SetIcon("Assets/Wino_Icon.ico");
 
         ConfigureWindowChrome();

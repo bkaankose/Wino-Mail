@@ -15,7 +15,7 @@ namespace Wino.Core.Tests.Services;
 public sealed class AuthenticationTokenMigrationServiceTests
 {
     [Fact]
-    public async Task PrepareAndFinalizeAsync_MovesOutlookAndStoreGmailTokensIntoLocalState()
+    public async Task PrepareAndFinalizeAsync_CopiesOutlookAndStoreGmailTokensIntoLocalState()
     {
         var packageDataPath = Path.Combine(Path.GetTempPath(), $"wino-token-migration-{Guid.NewGuid():N}");
         var localStatePath = Path.Combine(packageDataPath, "LocalState");
@@ -36,6 +36,7 @@ public sealed class AuthenticationTokenMigrationServiceTests
             var configuration = new ApplicationConfiguration
             {
                 ApplicationDataFolderPath = localStatePath,
+                AllowLegacyDataMigration = true,
                 PublisherSharedFolderPath = publisherPath
             };
             var legacyOutlookPath = AuthenticationTokenStorePaths.GetLegacyOutlookTokenCachePath(configuration);
@@ -103,9 +104,9 @@ public sealed class AuthenticationTokenMigrationServiceTests
 
             File.Exists(localOutlookPath).Should().BeTrue();
             File.Exists(localGmailPath).Should().BeTrue();
-            File.Exists(legacyOutlookPath).Should().BeFalse();
-            File.Exists(legacyGmailPath).Should().BeFalse();
-            Directory.Exists(publisherGmailStorePath).Should().BeFalse();
+            File.Exists(legacyOutlookPath).Should().BeTrue();
+            File.Exists(legacyGmailPath).Should().BeTrue();
+            Directory.Exists(publisherGmailStorePath).Should().BeTrue();
         }
         finally
         {
