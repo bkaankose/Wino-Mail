@@ -195,29 +195,38 @@
                                 Content="{x:Bind domain:Translator.Buttons_Reset, Mode=OneTime}" />
                         </StackPanel>
                     </controls:SettingsCard>
-                    <ItemsControl ItemsSource="{x:Bind ViewModel.AdvancedColorOptions}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate x:DataType="data:ThemePaletteColorOptionViewModel">
-                                <controls:SettingsCard
-                                    Margin="0,0,0,2"
-                                    AutomationProperties.AutomationId="ApplicationThemeEditorAdvancedColorCard"
-                                    Description="{x:Bind Group}"
-                                    Header="{x:Bind Label}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBox
-                                            Width="130"
-                                            AutomationProperties.AutomationId="ApplicationThemeEditorAdvancedColorTextBox"
-                                            Text="{x:Bind Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                        <Button
-                                            AutomationProperties.AutomationId="ApplicationThemeEditorResetAdvancedColorButton"
-                                            Command="{Binding ElementName=Root, Path=ViewModel.ResetColorCommand}"
-                                            CommandParameter="{x:Bind}"
-                                            Content="{x:Bind domain:Translator.Buttons_Reset, Mode=OneTime}" />
-                                    </StackPanel>
-                                </controls:SettingsCard>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                    <controls:SettingsCard AutomationProperties.AutomationId="ApplicationThemeEditorAdvancedColorsCard">
+                        <ItemsControl HorizontalContentAlignment="Stretch" ItemsSource="{x:Bind ViewModel.AdvancedColorOptions}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="data:ThemePaletteColorOptionViewModel">
+                                    <Grid Padding="0,6" ColumnSpacing="16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="{x:Bind Label}" />
+                                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Group}" />
+                                        </StackPanel>
+                                        <StackPanel
+                                            Grid.Column="1"
+                                            Orientation="Horizontal"
+                                            Spacing="8">
+                                            <TextBox
+                                                Width="130"
+                                                AutomationProperties.AutomationId="ApplicationThemeEditorAdvancedColorTextBox"
+                                                Text="{x:Bind Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                            <Button
+                                                AutomationProperties.AutomationId="ApplicationThemeEditorResetAdvancedColorButton"
+                                                Command="{Binding ElementName=Root, Path=ViewModel.ResetColorCommand}"
+                                                CommandParameter="{x:Bind}"
+                                                Content="{x:Bind domain:Translator.Buttons_Reset, Mode=OneTime}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </controls:SettingsCard>
                 </controls:SettingsExpander.Items>
             </controls:SettingsExpander>
 
