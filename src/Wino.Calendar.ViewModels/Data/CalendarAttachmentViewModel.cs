@@ -1,20 +1,23 @@
+#nullable enable
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Extensions;
+using Wino.Core.ViewModels.Attachments;
 
 namespace Wino.Calendar.ViewModels.Data;
 
-public partial class CalendarAttachmentViewModel : ObservableObject
+public partial class CalendarAttachmentViewModel : AttachmentViewModelBase
 {
     public CalendarAttachment Attachment { get; }
-
     public Guid Id => Attachment.Id;
-    public string FileName => Attachment.FileName;
+    public override string FileName => Attachment.FileName;
     public string ReadableSize { get; }
-    public MailAttachmentType AttachmentType { get; }
     public bool IsDownloaded => Attachment.IsDownloaded;
 
     [ObservableProperty]
@@ -24,48 +27,18 @@ public partial class CalendarAttachmentViewModel : ObservableObject
     {
         Attachment = attachment;
         ReadableSize = attachment.Size.GetBytesReadable();
-
-        var extension = Path.GetExtension(FileName);
-        AttachmentType = GetAttachmentType(extension);
     }
 
-    private MailAttachmentType GetAttachmentType(string extension)
-    {
-        if (string.IsNullOrEmpty(extension))
-            return MailAttachmentType.None;
+    public AttachmentFileSource CreateFileSource() =>
+        new(FileName, Attachment.ContentType, AttachmentFileOrigin.Received, OpenReadAsync, Attachment.LocalFilePath);
 
-        switch (extension.ToLower())
-        {
-            case ".exe":
-                return MailAttachmentType.Executable;
-            case ".rar":
-                return MailAttachmentType.RarArchive;
-            case ".zip":
-                return MailAttachmentType.Archive;
-            case ".ogg":
-            case ".mp3":
-            case ".wav":
-            case ".aac":
-            case ".alac":
-                return MailAttachmentType.Audio;
-            case ".mp4":
-            case ".wmv":
-            case ".avi":
-            case ".flv":
-                return MailAttachmentType.Video;
-            case ".pdf":
-                return MailAttachmentType.PDF;
-            case ".htm":
-            case ".html":
-                return MailAttachmentType.HTML;
-            case ".png":
-            case ".jpg":
-            case ".jpeg":
-            case ".gif":
-            case ".jiff":
-                return MailAttachmentType.Image;
-            default:
-                return MailAttachmentType.Other;
-        }
+    private ValueTask<Stream> OpenReadAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (string.IsNullOrWhiteSpace(Attachment.LocalFilePath))
+            throw new FileNotFoundException("The calendar attachment has not been downloaded.");
+
+        return ValueTask.FromResult<Stream>(File.OpenRead(Attachment.LocalFilePath));
     }
 }

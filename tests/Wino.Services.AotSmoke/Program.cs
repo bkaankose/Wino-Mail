@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Services;
+using Wino.Core.ML;
 
 var databaseDirectory = Path.Combine(Path.GetTempPath(), $"WinoAotSmoke-{Guid.NewGuid():N}");
 Directory.CreateDirectory(databaseDirectory);
@@ -102,7 +103,17 @@ try
     var winoAccountId = Guid.NewGuid();
     await ExerciseAsync(connection, new WinoAccount { Id = winoAccountId, Email = "before@example.test" }, item => item.Id == winoAccountId, item => item.Email = "after@example.test");
 
-    Console.WriteLine("Native AOT SQLite smoke test passed for all 24 entities.");
+    using var contentTypeModel = new MagikaContentTypeClassificationModel();
+    await using var contentTypeStream = new MemoryStream("Native AOT content type smoke test"u8.ToArray());
+    var classification = await contentTypeModel.ClassifyAsync(contentTypeStream).ConfigureAwait(false);
+
+    if (contentTypeModel.IsSupported && classification.Label != "txt")
+        throw new InvalidOperationException($"Magika Native AOT smoke test returned {classification.Label ?? classification.Status.ToString()}.");
+
+    if (!contentTypeModel.IsSupported && classification.Status != ContentTypeClassificationStatus.Unavailable)
+        throw new InvalidOperationException("The unsupported Magika facade did not report unavailable.");
+
+    Console.WriteLine("Native AOT SQLite and local-ML smoke tests passed.");
 }
 finally
 {

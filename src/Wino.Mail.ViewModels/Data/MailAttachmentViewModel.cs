@@ -1,97 +1,60 @@
-﻿using System.IO;
+#nullable enable
+using System;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MimeKit;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Extensions;
+using Wino.Core.ViewModels.Attachments;
 
 namespace Wino.Mail.ViewModels.Data;
 
-public partial class MailAttachmentViewModel : ObservableObject
+public partial class MailAttachmentViewModel : AttachmentViewModelBase
 {
-    private readonly MimePart _mimePart;
+    private readonly MimePart? _mimePart;
 
-    public MailAttachmentType AttachmentType { get; }
-    public string FileName { get; }
-    public string FilePath { get; set; }
+    public override string FileName { get; }
+    public string FilePath { get; set; } = string.Empty;
     public string ReadableSize { get; }
     public byte[] Content { get; set; }
+    public IMimeContent? MimeContent => _mimePart?.Content;
+    public string? DeclaredMimeType => _mimePart?.ContentType?.MimeType;
 
-    public IMimeContent MimeContent => _mimePart.Content;
-
-    /// <summary>
-    /// Gets or sets whether attachment is busy with opening or saving etc.
-    /// </summary>
     [ObservableProperty]
     public partial bool IsBusy { get; set; }
 
     public MailAttachmentViewModel(MimePart mimePart)
     {
+        ArgumentNullException.ThrowIfNull(mimePart);
         _mimePart = mimePart;
 
-        var memoryStream = new MemoryStream();
-
-        using (memoryStream) mimePart.Content.DecodeTo(memoryStream);
+        using var memoryStream = new MemoryStream();
+        mimePart.Content?.DecodeTo(memoryStream);
 
         Content = memoryStream.ToArray();
-
-        FileName = mimePart.FileName;
+        FileName = string.IsNullOrWhiteSpace(mimePart.FileName) ? "attachment.bin" : mimePart.FileName;
         ReadableSize = ((long)Content.Length).GetBytesReadable();
-
-        var extension = Path.GetExtension(FileName);
-        AttachmentType = GetAttachmentType(extension);
     }
 
     public MailAttachmentViewModel(SharedFile sharedFile)
     {
-        Content = sharedFile.Data;
-
-        FileName = sharedFile.FileName;
-        FilePath = sharedFile.FullFilePath;
-
-        ReadableSize = ((long)sharedFile.Data.Length).GetBytesReadable();
-
-        var extension = Path.GetExtension(FileName);
-        AttachmentType = GetAttachmentType(extension);
+        ArgumentNullException.ThrowIfNull(sharedFile);
+        Content = sharedFile.Data ?? [];
+        FileName = string.IsNullOrWhiteSpace(sharedFile.FileName) ? "attachment.bin" : sharedFile.FileName;
+        FilePath = sharedFile.FullFilePath ?? string.Empty;
+        ReadableSize = ((long)Content.Length).GetBytesReadable();
     }
 
-    public MailAttachmentType GetAttachmentType(string mediaSubtype)
-    {
-        if (string.IsNullOrEmpty(mediaSubtype))
-            return MailAttachmentType.None;
+    public AttachmentFileSource CreateFileSource(AttachmentFileOrigin origin) =>
+        new(FileName, DeclaredMimeType, origin, OpenReadAsync, FilePath);
 
-        switch (mediaSubtype.ToLower())
-        {
-            case ".exe":
-                return MailAttachmentType.Executable;
-            case ".rar":
-                return MailAttachmentType.RarArchive;
-            case ".zip":
-                return MailAttachmentType.Archive;
-            case ".ogg":
-            case ".mp3":
-            case ".wav":
-            case ".aac":
-            case ".alac":
-                return MailAttachmentType.Audio;
-            case ".mp4":
-            case ".wmv":
-            case ".avi":
-            case ".flv":
-                return MailAttachmentType.Video;
-            case ".pdf":
-                return MailAttachmentType.PDF;
-            case ".htm":
-            case ".html":
-                return MailAttachmentType.HTML;
-            case ".png":
-            case ".jpg":
-            case ".jpeg":
-            case ".gif":
-            case ".jiff":
-                return MailAttachmentType.Image;
-            default:
-                return MailAttachmentType.Other;
-        }
+    private ValueTask<Stream> OpenReadAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult<Stream>(new MemoryStream(Content, writable: false));
     }
 }

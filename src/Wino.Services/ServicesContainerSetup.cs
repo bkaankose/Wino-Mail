@@ -6,6 +6,7 @@ using Wino.Mail.AI.Cryptography;
 using Wino.Mail.AI.ContentProcessing;
 using Wino.Services.CardDav;
 using Wino.Services.Dav;
+using Wino.Core.ML;
 
 namespace Wino.Services;
 
@@ -31,6 +32,10 @@ public static class ServicesContainerSetup
         services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
         services.AddSingleton<IShareActivationService, ShareActivationService>();
         services.AddSingleton<IMimeFileService, MimeFileService>();
+        services.AddSingleton<IContentTypeClassificationModel, MagikaContentTypeClassificationModel>();
+        services.AddSingleton<IContentTypeDetectionService, ContentTypeDetectionService>();
+        services.AddSingleton<IWindowsAttachmentPolicyService, WindowsAttachmentPolicyService>();
+        services.AddSingleton<IAttachmentFileService, AttachmentFileService>();
         services.AddSingleton<ICalendarIcsFileService, CalendarIcsFileService>();
         services.AddSingleton<IActivationFileImportService, ActivationFileImportService>();
         services.AddTransient<IMimeStorageService, MimeStorageService>();

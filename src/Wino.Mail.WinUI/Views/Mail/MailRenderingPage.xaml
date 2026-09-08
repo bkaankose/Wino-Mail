@@ -115,6 +115,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="40" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
                     <!--  Icon  -->
@@ -148,6 +149,17 @@
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind ReadableSize}" />
                     </Grid>
+
+                    <SymbolIcon
+                        Grid.Column="2"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="MailAttachmentContentTypeWarning"
+                        AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                        Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                        Symbol="Important"
+                        ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                        Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
                 </Grid>
                 <ProgressBar
                     Grid.Row="1"

@@ -23,6 +23,8 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Attachments;
+using Wino.Core.Domain.Models.Common;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
@@ -180,6 +182,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private readonly IDraftUpdateCoordinator _draftUpdates;
     private readonly DraftUpdateRegistry _draftRegistry;
     private readonly IDraftSaveService _draftSaveService;
+    private readonly IAttachmentFileService _attachmentFileService;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -196,7 +199,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 ISmimeCertificateService smimeCertificateService,
                                 IShareActivationService shareActivationService,
                                 IDraftSyncRetryService draftSyncRetryService,
-                                IDraftUpdateCoordinator draftUpdates, DraftUpdateRegistry draftRegistry, IDraftSaveService draftSaveService)
+                                IDraftUpdateCoordinator draftUpdates, DraftUpdateRegistry draftRegistry,
+                                IDraftSaveService draftSaveService,
+                                IAttachmentFileService attachmentFileService = null)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
@@ -217,6 +222,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _draftUpdates = draftUpdates;
         _draftRegistry = draftRegistry;
         _draftSaveService = draftSaveService;
+        _attachmentFileService = attachmentFileService;
 
         foreach (var cert in _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias?.AliasAddress))
         {
@@ -257,11 +263,47 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         try
         {
-            await NativeAppService.LaunchFileAsync(attachmentViewModel.FilePath);
+            attachmentViewModel.IsBusy = true;
+            var detection = await attachmentViewModel.GetInspectionAsync();
+            var source = attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Local);
+            var result = await _attachmentFileService.OpenAsync(
+                source,
+                Path.GetTempPath(),
+                detection,
+                mismatchApproved: false);
+
+            if (result.Status == AttachmentFileOperationStatus.ConfirmationRequired)
+            {
+                var approved = await _dialogService.ShowWinoCustomMessageDialogAsync(
+                    Translator.Attachment_ContentTypeMismatchTitle,
+                    string.Format(
+                        Translator.Attachment_ContentTypeMismatchMessage,
+                        attachmentViewModel.FileName,
+                        detection.Description ?? detection.Label ?? Translator.Attachment_UnknownContentType),
+                    Translator.Attachment_OpenAnyway,
+                    WinoCustomMessageDialogIcon.Warning,
+                    Translator.Buttons_Cancel);
+
+                if (approved)
+                {
+                    result = await _attachmentFileService.OpenAsync(
+                        source,
+                        Path.GetTempPath(),
+                        detection,
+                        mismatchApproved: true);
+                }
+            }
+
+            if (result.Status is AttachmentFileOperationStatus.Failed or AttachmentFileOperationStatus.PolicyBlocked)
+                throw new IOException(result.ErrorMessage);
         }
         catch
         {
             _dialogService.InfoBarMessage(Translator.Info_FailedToOpenFileTitle, Translator.Info_FailedToOpenFileMessage, InfoBarMessageType.Error);
+        }
+        finally
+        {
+            attachmentViewModel.IsBusy = false;
         }
     }
 
@@ -274,7 +316,13 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         try
         {
-            await _fileService.CopyFileAsync(attachmentViewModel.FilePath, pickedFilePath);
+            var result = await _attachmentFileService.SaveAsync(
+                attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Local),
+                Path.GetDirectoryName(pickedFilePath)!,
+                Path.GetFileName(pickedFilePath));
+
+            if (!result.IsSuccess)
+                throw new IOException(result.ErrorMessage);
         }
         catch
         {
@@ -291,9 +339,15 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         foreach (var file in pickedFiles)
         {
-            var attachmentViewModel = new MailAttachmentViewModel(file);
-            IncludedAttachments.Add(attachmentViewModel);
+            AddAttachment(file);
         }
+    }
+
+    public void AddAttachment(SharedFile sharedFile)
+    {
+        var attachmentViewModel = new MailAttachmentViewModel(sharedFile);
+        IncludedAttachments.Add(attachmentViewModel);
+        BeginAttachmentInspection(attachmentViewModel, AttachmentFileOrigin.Local);
     }
 
     [RelayCommand]
@@ -878,7 +932,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             if (attachment.IsAttachment && attachment is MimePart attachmentPart)
             {
-                IncludedAttachments.Add(new MailAttachmentViewModel(attachmentPart));
+                var attachmentViewModel = new MailAttachmentViewModel(attachmentPart);
+                IncludedAttachments.Add(attachmentViewModel);
+                BeginAttachmentInspection(attachmentViewModel, AttachmentFileOrigin.Local);
             }
         }
     }
@@ -897,7 +953,31 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         foreach (var sharedFile in shareRequest.Files)
         {
-            IncludedAttachments.Add(new MailAttachmentViewModel(sharedFile));
+            AddAttachment(sharedFile);
+        }
+    }
+
+    private void BeginAttachmentInspection(MailAttachmentViewModel attachmentViewModel, AttachmentFileOrigin origin)
+    {
+        if (_attachmentFileService == null)
+            return;
+
+        var inspection = _attachmentFileService.InspectAsync(attachmentViewModel.CreateFileSource(origin)).AsTask();
+        attachmentViewModel.BeginInspection(inspection);
+        _ = ApplyAttachmentInspectionAsync(attachmentViewModel, inspection);
+    }
+
+    private async Task ApplyAttachmentInspectionAsync(
+        MailAttachmentViewModel attachmentViewModel,
+        Task<ContentTypeDetectionResult> inspection)
+    {
+        try
+        {
+            var detection = await inspection.ConfigureAwait(false);
+            await ExecuteUIThread(() => attachmentViewModel.ContentTypeDetection = detection).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
         }
     }
 

@@ -9,6 +9,7 @@
   <Folder Name="/Solution Items/" Id="8ec462fd-d22e-90a8-e5ce-7e832ba40c5d">
     <File Path=".editorconfig" />
     <File Path="Directory.Build.Props" />
+    <File Path="Directory.Build.targets" />
     <File Path="Directory.Packages.props" />
     <File Path="nuget.config" />
     <File Path="Settings.XamlStyler" />
@@ -42,6 +43,11 @@
       <Platform Solution="*|x86" Project="x86" />
     </Project>
     <Project Path="src/Wino.Core/Wino.Core.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="src/Wino.Core.ML/Wino.Core.ML.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
@@ -109,6 +115,11 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Wino.Core.Tests/Wino.Core.Tests.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="tests/Wino.Core.ML.Tests/Wino.Core.ML.Tests.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />

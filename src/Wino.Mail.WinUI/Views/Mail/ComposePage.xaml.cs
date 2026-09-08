@@ -281,7 +281,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             var sharedFile = await file.ToSharedFileAsync();
 
-            ViewModel.IncludedAttachments.Add(new MailAttachmentViewModel(sharedFile));
+            ViewModel.AddAttachment(sharedFile);
         }
     }
 

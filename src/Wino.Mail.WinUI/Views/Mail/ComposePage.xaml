@@ -103,6 +103,7 @@
                     <ColumnDefinition Width="36" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <!--  Icon  -->
@@ -136,8 +137,19 @@
                         Text="{x:Bind ReadableSize}" />
                 </Grid>
 
-                <Button
+                <SymbolIcon
                     Grid.Column="2"
+                    Margin="8,0,0,0"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="ComposeAttachmentContentTypeWarning"
+                    AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                    Symbol="Important"
+                    ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                    Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
+
+                <Button
+                    Grid.Column="3"
                     Width="28"
                     Height="28"
                     Padding="4"

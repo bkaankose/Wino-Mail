@@ -18,6 +18,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Validation;
 using Wino.Core.ViewModels;
@@ -35,6 +36,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly CalendarEventComposeResultValidator _composeResultValidator = new();
+    private readonly IAttachmentFileService _attachmentFileService;
 
     public Func<Task<string>> GetHtmlNotesAsync { get; set; }
 
@@ -119,7 +121,8 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
                                              IContactService contactService,
                                              IPreferencesService preferencesService,
                                              IUnderlyingThemeService underlyingThemeService,
-                                             IWinoRequestDelegator winoRequestDelegator)
+                                             IWinoRequestDelegator winoRequestDelegator,
+                                             IAttachmentFileService attachmentFileService = null)
     {
         _accountService = accountService;
         _calendarService = calendarService;
@@ -129,6 +132,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         _preferencesService = preferencesService;
         _underlyingThemeService = underlyingThemeService;
         _winoRequestDelegator = winoRequestDelegator;
+        _attachmentFileService = attachmentFileService;
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
@@ -770,8 +774,34 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
             return false;
         }
 
-        Attachments.Add(new CalendarComposeAttachmentViewModel(fileName, filePath, fileExtension, size));
+        var attachment = new CalendarComposeAttachmentViewModel(fileName, filePath, fileExtension, size);
+        Attachments.Add(attachment);
+        BeginAttachmentInspection(attachment);
         return true;
+    }
+
+    private void BeginAttachmentInspection(CalendarComposeAttachmentViewModel attachment)
+    {
+        if (_attachmentFileService == null)
+            return;
+
+        var inspection = _attachmentFileService.InspectAsync(attachment.CreateFileSource()).AsTask();
+        attachment.BeginInspection(inspection);
+        _ = ApplyAttachmentInspectionAsync(attachment, inspection);
+    }
+
+    private async Task ApplyAttachmentInspectionAsync(
+        CalendarComposeAttachmentViewModel attachment,
+        Task<ContentTypeDetectionResult> inspection)
+    {
+        try
+        {
+            var detection = await inspection.ConfigureAwait(false);
+            await ExecuteUIThread(() => attachment.ContentTypeDetection = detection).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 
 }

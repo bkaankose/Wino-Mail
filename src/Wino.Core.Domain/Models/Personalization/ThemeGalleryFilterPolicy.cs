@@ -8,7 +8,9 @@ namespace Wino.Core.Domain.Models.Personalization;
 public static class ThemeGalleryFilterPolicy
 {
     public static IReadOnlyList<AppThemeBase> Apply(IEnumerable<AppThemeBase> themes, Guid? currentThemeId, ThemeGalleryFilter filter)
-        => themes.Where(theme => theme.Id != currentThemeId).Where(theme => Matches(theme, filter)).ToList();
+        => filter == ThemeGalleryFilter.Online
+            ? []
+            : themes.Where(theme => theme.Id == currentThemeId || Matches(theme, filter)).ToList();
 
     public static bool Matches(AppThemeBase theme, ThemeGalleryFilter filter)
         => filter switch

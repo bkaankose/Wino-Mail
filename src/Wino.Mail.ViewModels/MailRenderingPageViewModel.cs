@@ -20,6 +20,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
+using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
@@ -55,6 +56,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IClipboardService _clipboardService;
     private readonly IUnsubscriptionService _unsubscriptionService;
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly IAttachmentFileService _attachmentFileService;
     private bool forceImageLoading = false;
 
     private MailItemViewModel initializedMailItemViewModel = null;
@@ -211,7 +213,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IUnsubscriptionService unsubscriptionService,
         IPreferencesService preferencesService,
         IPrintService printService,
-        IApplicationConfiguration applicationConfiguration)
+        IApplicationConfiguration applicationConfiguration,
+        IAttachmentFileService attachmentFileService = null)
     {
         _dialogService = dialogService;
         NativeAppService = nativeAppService;
@@ -220,6 +223,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         PreferencesService = preferencesService;
         PrintService = printService;
         _applicationConfiguration = applicationConfiguration;
+        _attachmentFileService = attachmentFileService;
         _clipboardService = clipboardService;
         _unsubscriptionService = unsubscriptionService;
         _underlyingThemeService = underlyingThemeService;
@@ -671,7 +675,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             foreach (var attachment in CurrentRenderModel.Attachments)
             {
-                Attachments.Add(new MailAttachmentViewModel(attachment));
+                var attachmentViewModel = new MailAttachmentViewModel(attachment);
+                Attachments.Add(attachmentViewModel);
+                BeginAttachmentInspection(attachmentViewModel, renderCancellationTokenSource.Token);
             }
 
             RefreshDisplayedAttachments();
@@ -871,23 +877,54 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task OpenAttachmentAsync(MailAttachmentViewModel attachmentViewModel)
     {
+        if (attachmentViewModel == null || initializedMimeMessageInformation == null)
+            return;
+
         try
         {
-            var fileFolderPath = Path.Combine(initializedMimeMessageInformation.Path, attachmentViewModel.FileName);
-            var directoryInfo = new DirectoryInfo(initializedMimeMessageInformation.Path);
+            attachmentViewModel.IsBusy = true;
+            var detection = await attachmentViewModel.GetInspectionAsync();
+            var source = attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Received);
+            var result = await _attachmentFileService.OpenAsync(
+                source,
+                initializedMimeMessageInformation.Path,
+                detection,
+                mismatchApproved: false);
 
-            var fileExists = File.Exists(fileFolderPath);
+            if (result.Status == AttachmentFileOperationStatus.ConfirmationRequired)
+            {
+                var approved = await _dialogService.ShowWinoCustomMessageDialogAsync(
+                    Translator.Attachment_ContentTypeMismatchTitle,
+                    string.Format(
+                        Translator.Attachment_ContentTypeMismatchMessage,
+                        attachmentViewModel.FileName,
+                        detection.Description ?? detection.Label ?? Translator.Attachment_UnknownContentType),
+                    Translator.Attachment_OpenAnyway,
+                    WinoCustomMessageDialogIcon.Warning,
+                    Translator.Buttons_Cancel);
 
-            if (!fileExists)
-                await SaveAttachmentInternalAsync(attachmentViewModel, initializedMimeMessageInformation.Path);
+                if (approved)
+                {
+                    result = await _attachmentFileService.OpenAsync(
+                        source,
+                        initializedMimeMessageInformation.Path,
+                        detection,
+                        mismatchApproved: true);
+                }
+            }
 
-            await LaunchFileInternalAsync(fileFolderPath);
+            if (result.Status is AttachmentFileOperationStatus.Failed or AttachmentFileOperationStatus.PolicyBlocked)
+                throw new IOException(result.ErrorMessage);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to open attachment.");
 
             _dialogService.InfoBarMessage(Translator.Info_AttachmentOpenFailedTitle, Translator.Info_AttachmentOpenFailedMessage, InfoBarMessageType.Error);
+        }
+        finally
+        {
+            attachmentViewModel.IsBusy = false;
         }
     }
 
@@ -905,7 +942,12 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             if (string.IsNullOrEmpty(pickedPath)) return;
 
-            await SaveAttachmentInternalAsync(attachmentViewModel, pickedPath);
+            var result = await _attachmentFileService.SaveAsync(
+                attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Received),
+                pickedPath);
+
+            if (!result.IsSuccess)
+                throw new IOException(result.ErrorMessage);
 
             _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveSuccessTitle, Translator.Info_AttachmentSaveSuccessMessage, InfoBarMessageType.Success);
         }
@@ -957,13 +999,26 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
         try
         {
-
+            var failedAttachmentCount = 0;
             foreach (var attachmentViewModel in Attachments)
             {
-                await SaveAttachmentInternalAsync(attachmentViewModel, pickedPath);
+                var result = await _attachmentFileService.SaveAsync(
+                    attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Received),
+                    pickedPath);
+
+                if (!result.IsSuccess)
+                    failedAttachmentCount++;
             }
 
-            _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveSuccessTitle, Translator.Info_AttachmentSaveSuccessMessage, InfoBarMessageType.Success);
+            if (failedAttachmentCount == 0)
+            {
+                _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveSuccessTitle, Translator.Info_AttachmentSaveSuccessMessage, InfoBarMessageType.Success);
+            }
+            else
+            {
+                Log.Warning("Failed to save {FailedAttachmentCount} of {AttachmentCount} attachments.", failedAttachmentCount, Attachments.Count);
+                _dialogService.InfoBarMessage(Translator.Info_AttachmentSaveFailedTitle, Translator.Info_AttachmentSaveFailedMessage, InfoBarMessageType.Error);
+            }
         }
         catch (Exception ex)
         {
@@ -1049,29 +1104,29 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         return await PrintService.PrintAsync(windowHandle, printTitle, RenderPdfStreamFuncAsync);
     }
 
-    // Returns created file path.
-    private async Task<string> SaveAttachmentInternalAsync(MailAttachmentViewModel attachmentViewModel, string saveFolderPath)
+    private void BeginAttachmentInspection(MailAttachmentViewModel attachmentViewModel, CancellationToken cancellationToken)
     {
-        var fullFilePath = Path.Combine(saveFolderPath, attachmentViewModel.FileName);
-        var stream = await _fileService.GetFileStreamAsync(saveFolderPath, attachmentViewModel.FileName);
+        if (_attachmentFileService == null)
+            return;
 
-        using (stream)
-        {
-            await attachmentViewModel.MimeContent.DecodeToAsync(stream);
-        }
-
-        return fullFilePath;
+        var inspection = _attachmentFileService
+            .InspectAsync(attachmentViewModel.CreateFileSource(AttachmentFileOrigin.Received), cancellationToken)
+            .AsTask();
+        attachmentViewModel.BeginInspection(inspection);
+        _ = ApplyAttachmentInspectionAsync(attachmentViewModel, inspection);
     }
 
-    private async Task LaunchFileInternalAsync(string filePath)
+    private async Task ApplyAttachmentInspectionAsync(
+        MailAttachmentViewModel attachmentViewModel,
+        Task<ContentTypeDetectionResult> inspection)
     {
         try
         {
-            await NativeAppService.LaunchFileAsync(filePath);
+            var detection = await inspection.ConfigureAwait(false);
+            await ExecuteUIThread(() => attachmentViewModel.ContentTypeDetection = detection).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            _dialogService.InfoBarMessage(Translator.Info_FileLaunchFailedTitle, ex.Message, InfoBarMessageType.Error);
         }
     }
 

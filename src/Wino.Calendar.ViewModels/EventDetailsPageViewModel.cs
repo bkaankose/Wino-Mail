@@ -18,6 +18,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Services;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Calendar;
@@ -35,6 +36,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IContactService _contactService;
+    private readonly IAttachmentFileService _attachmentFileService;
 
     public CalendarSettings CurrentSettings { get; }
     public INativeAppService NativeAppService => _nativeAppService;
@@ -149,7 +151,8 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                                      INavigationService navigationService,
                                      INotificationBuilder notificationBuilder,
                                      IUnderlyingThemeService underlyingThemeService,
-                                     IContactService contactService)
+                                     IContactService contactService,
+                                     IAttachmentFileService attachmentFileService = null)
     {
         _calendarService = calendarService;
         _nativeAppService = nativeAppService;
@@ -160,6 +163,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         _underlyingThemeService = underlyingThemeService;
         _notificationBuilder = notificationBuilder;
         _contactService = contactService;
+        _attachmentFileService = attachmentFileService;
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
@@ -384,7 +388,11 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
                 foreach (var attachment in attachments)
                 {
-                    Attachments.Add(new CalendarAttachmentViewModel(attachment));
+                    var attachmentViewModel = new CalendarAttachmentViewModel(attachment);
+                    Attachments.Add(attachmentViewModel);
+
+                    if (attachmentViewModel.IsDownloaded && File.Exists(attachment.LocalFilePath))
+                        BeginAttachmentInspection(attachmentViewModel);
                 }
 
                 OnPropertyChanged(nameof(HasAttachments));
@@ -692,11 +700,44 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                 await DownloadAttachmentAsync(attachmentViewModel);
             }
 
-            // Launch the file
             if (!string.IsNullOrEmpty(attachmentViewModel.Attachment.LocalFilePath) &&
                 File.Exists(attachmentViewModel.Attachment.LocalFilePath))
             {
-                await _nativeAppService.LaunchFileAsync(attachmentViewModel.Attachment.LocalFilePath);
+                if (attachmentViewModel.InspectionTask == null)
+                    BeginAttachmentInspection(attachmentViewModel);
+
+                var detection = await attachmentViewModel.GetInspectionAsync();
+                var source = attachmentViewModel.CreateFileSource();
+                var result = await _attachmentFileService.OpenAsync(
+                    source,
+                    _nativeAppService.GetCalendarAttachmentsFolderPath(),
+                    detection,
+                    mismatchApproved: false);
+
+                if (result.Status == AttachmentFileOperationStatus.ConfirmationRequired)
+                {
+                    var approved = await _dialogService.ShowWinoCustomMessageDialogAsync(
+                        Translator.Attachment_ContentTypeMismatchTitle,
+                        string.Format(
+                            Translator.Attachment_ContentTypeMismatchMessage,
+                            attachmentViewModel.FileName,
+                            detection.Description ?? detection.Label ?? Translator.Attachment_UnknownContentType),
+                        Translator.Attachment_OpenAnyway,
+                        WinoCustomMessageDialogIcon.Warning,
+                        Translator.Buttons_Cancel);
+
+                    if (approved)
+                    {
+                        result = await _attachmentFileService.OpenAsync(
+                            source,
+                            _nativeAppService.GetCalendarAttachmentsFolderPath(),
+                            detection,
+                            mismatchApproved: true);
+                    }
+                }
+
+                if (result.Status is AttachmentFileOperationStatus.Failed or AttachmentFileOperationStatus.PolicyBlocked)
+                    throw new IOException(result.ErrorMessage);
             }
         }
         catch (Exception ex)
@@ -735,8 +776,12 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
             if (!string.IsNullOrEmpty(attachmentViewModel.Attachment.LocalFilePath) &&
                 File.Exists(attachmentViewModel.Attachment.LocalFilePath))
             {
-                var destinationPath = Path.Combine(pickedPath, attachmentViewModel.FileName);
-                File.Copy(attachmentViewModel.Attachment.LocalFilePath, destinationPath, overwrite: true);
+                var result = await _attachmentFileService.SaveAsync(
+                    attachmentViewModel.CreateFileSource(),
+                    pickedPath);
+
+                if (!result.IsSuccess)
+                    throw new IOException(result.ErrorMessage);
 
                 _dialogService.InfoBarMessage(
                     Translator.Info_AttachmentSaveSuccessTitle,
@@ -786,6 +831,31 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         attachmentViewModel.Attachment.IsDownloaded = true;
         attachmentViewModel.Attachment.LocalFilePath = localFilePath;
         OnPropertyChanged(nameof(attachmentViewModel.IsDownloaded));
+        BeginAttachmentInspection(attachmentViewModel);
+    }
+
+    private void BeginAttachmentInspection(CalendarAttachmentViewModel attachmentViewModel)
+    {
+        if (_attachmentFileService == null)
+            return;
+
+        var inspection = _attachmentFileService.InspectAsync(attachmentViewModel.CreateFileSource()).AsTask();
+        attachmentViewModel.BeginInspection(inspection);
+        _ = ApplyAttachmentInspectionAsync(attachmentViewModel, inspection);
+    }
+
+    private async Task ApplyAttachmentInspectionAsync(
+        CalendarAttachmentViewModel attachmentViewModel,
+        Task<ContentTypeDetectionResult> inspection)
+    {
+        try
+        {
+            var detection = await inspection.ConfigureAwait(false);
+            await ExecuteUIThread(() => attachmentViewModel.ContentTypeDetection = detection).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+        }
     }
 }
 

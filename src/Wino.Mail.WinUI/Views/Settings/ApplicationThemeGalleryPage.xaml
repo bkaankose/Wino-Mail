@@ -1,4 +1,4 @@
-<abstract:ApplicationThemeGalleryPageAbstract
+﻿<abstract:ApplicationThemeGalleryPageAbstract
     x:Class="Wino.Views.Settings.ApplicationThemeGalleryPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -19,7 +19,10 @@
             Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
             Severity="Error">
             <InfoBar.ActionButton>
-                <Button AutomationProperties.AutomationId="ApplicationThemeGalleryRetryButton" Command="{x:Bind ViewModel.LoadThemesCommand}" Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
+                <Button
+                    AutomationProperties.AutomationId="ApplicationThemeGalleryRetryButton"
+                    Command="{x:Bind ViewModel.LoadThemesCommand}"
+                    Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
             </InfoBar.ActionButton>
         </InfoBar>
         <InfoBar
@@ -29,11 +32,18 @@
             Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
             Severity="Error">
             <InfoBar.ActionButton>
-                <Button AutomationProperties.AutomationId="ApplicationThemeGalleryRetryApplyButton" Command="{x:Bind ViewModel.RetryApplyCommand}" Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
+                <Button
+                    AutomationProperties.AutomationId="ApplicationThemeGalleryRetryApplyButton"
+                    Command="{x:Bind ViewModel.RetryApplyCommand}"
+                    Content="{x:Bind domain:Translator.Buttons_Retry, Mode=OneTime}" />
             </InfoBar.ActionButton>
         </InfoBar>
 
-        <StackPanel x:Name="ThemeLoadingState" x:Load="{x:Bind ViewModel.IsLoading, Mode=OneWay}" HorizontalAlignment="Center" Spacing="8">
+        <StackPanel
+            x:Name="ThemeLoadingState"
+            HorizontalAlignment="Center"
+            x:Load="{x:Bind ViewModel.IsLoading, Mode=OneWay}"
+            Spacing="8">
             <ProgressRing IsActive="True" />
             <TextBlock Text="{x:Bind domain:Translator.ApplicationThemeGallery_Loading, Mode=OneTime}" />
         </StackPanel>
@@ -47,32 +57,31 @@
                             Padding="8"
                             BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
                             BorderThickness="2"
-                            CornerRadius="6"
-                            ContextRequested="ThemeCardContextRequested"
-                            Loaded="ThemeCardLoaded">
-                            <Border.ContextFlyout>
-                                <MenuFlyout>
-                                    <MenuFlyoutItem AutomationProperties.AutomationId="ApplicationThemeGalleryCurrentEditMenuItem" Command="{Binding ElementName=Root, Path=ViewModel.EditThemeCommand}" CommandParameter="{x:Bind}" Text="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
-                                    <MenuFlyoutItem AutomationProperties.AutomationId="ApplicationThemeGalleryCurrentRemoveMenuItem" Command="{Binding ElementName=Root, Path=ViewModel.RemoveThemeCommand}" CommandParameter="{x:Bind}" Text="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
-                                </MenuFlyout>
-                            </Border.ContextFlyout>
+                            CornerRadius="6">
                             <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="72" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                <Border Height="48" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="72" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border
+                                    Height="48"
+                                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                    CornerRadius="4">
                                     <Image Source="{x:Bind BackgroundPreviewImage}" Stretch="UniformToFill" />
                                 </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                                    <TextBlock FontWeight="SemiBold" Text="{x:Bind ThemeName}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind CompatibilityTitle, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
-                                </StackPanel>
-                                <Button
-                                    Grid.Column="2"
-                                    AutomationProperties.AutomationId="ApplicationThemeGalleryCurrentEditButton"
+                                <StackPanel
+                                    Grid.Column="1"
                                     VerticalAlignment="Center"
-                                    Command="{Binding ElementName=Root, Path=ViewModel.EditThemeCommand}"
-                                    CommandParameter="{x:Bind}"
-                                    Content="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
+                                    Spacing="2">
+                                    <TextBlock
+                                        FontWeight="SemiBold"
+                                        Text="{x:Bind ThemeName}"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Bind CompatibilityTitle, Mode=OneTime}"
+                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
+                                </StackPanel>
                             </Grid>
                         </Border>
                     </DataTemplate>
@@ -81,20 +90,14 @@
         </StackPanel>
 
         <Grid ColumnSpacing="12" RowSpacing="8">
-            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <VisualStateManager.VisualStateGroups>
-                <VisualStateGroup>
-                    <VisualState x:Name="WideThemeFilterCommands">
-                        <VisualState.StateTriggers><AdaptiveTrigger MinWindowWidth="760" /></VisualState.StateTriggers>
-                        <VisualState.Setters>
-                            <Setter Target="ThemeFilter.(Grid.ColumnSpan)" Value="1" />
-                            <Setter Target="CreateThemeButton.(Grid.Row)" Value="0" />
-                            <Setter Target="CreateThemeButton.(Grid.Column)" Value="1" />
-                        </VisualState.Setters>
-                    </VisualState>
-                </VisualStateGroup>
-            </VisualStateManager.VisualStateGroups>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
             <controls:Segmented
                 x:Name="ThemeFilter"
                 Grid.ColumnSpan="2"
@@ -110,9 +113,25 @@
             <Button
                 x:Name="CreateThemeButton"
                 Grid.Row="1"
+                HorizontalAlignment="Right"
+                x:Load="{x:Bind ViewModel.IsCreateThemeVisible, Mode=OneWay}"
                 AutomationProperties.AutomationId="ApplicationThemeGalleryCreateButton"
                 Command="{x:Bind ViewModel.CreateThemeCommand}"
                 Content="{x:Bind domain:Translator.ApplicationThemeGallery_Create, Mode=OneTime}" />
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup>
+                    <VisualState x:Name="WideThemeFilterCommands">
+                        <VisualState.StateTriggers>
+                            <AdaptiveTrigger MinWindowWidth="640" />
+                        </VisualState.StateTriggers>
+                        <VisualState.Setters>
+                            <Setter Target="ThemeFilter.(Grid.ColumnSpan)" Value="1" />
+                            <Setter Target="CreateThemeButton.(Grid.Row)" Value="0" />
+                            <Setter Target="CreateThemeButton.(Grid.Column)" Value="1" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
         </Grid>
 
         <GridView
@@ -121,11 +140,16 @@
             AutomationProperties.AutomationId="ApplicationThemeGalleryGrid"
             IsItemClickEnabled="True"
             ItemClick="ThemeGridItemClick"
-            SelectionMode="None"
-            ItemsSource="{x:Bind ViewModel.FilteredThemes}">
+            ItemsSource="{x:Bind ViewModel.FilteredThemes}"
+            SelectionMode="None">
             <GridView.ItemTemplate>
                 <DataTemplate x:DataType="themes:AppThemeBase">
-                    <Border Width="175" AutomationProperties.Name="{x:Bind ThemeName}" CornerRadius="6" ContextRequested="ThemeCardContextRequested" Loaded="ThemeCardLoaded">
+                    <Border
+                        Width="175"
+                        AutomationProperties.Name="{x:Bind ThemeName}"
+                        ContextRequested="ThemeCardContextRequested"
+                        CornerRadius="6"
+                        Loaded="ThemeCardLoaded">
                         <Border.ContextFlyout>
                             <MenuFlyout>
                                 <MenuFlyoutItem
@@ -143,16 +167,35 @@
                             </MenuFlyout>
                         </Border.ContextFlyout>
                         <Grid>
-                            <Grid.RowDefinitions><RowDefinition Height="125" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="125" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
                             <Border AutomationProperties.AutomationId="ApplicationThemeGalleryThemeButton">
-                                <Image Width="175" Height="125" Source="{x:Bind BackgroundPreviewImage}" Stretch="UniformToFill" />
+                                <Image
+                                    Width="175"
+                                    Height="125"
+                                    Source="{x:Bind BackgroundPreviewImage}"
+                                    Stretch="UniformToFill" />
                             </Border>
-                            <StackPanel Grid.Row="1" Padding="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Spacing="4">
-                                <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="{x:Bind ThemeName}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind CompatibilityTitle, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
+                            <StackPanel
+                                Grid.Row="1"
+                                Padding="8"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                Spacing="4">
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ThemeName}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="{x:Bind CompatibilityTitle, Mode=OneTime}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
                                 <Button
-                                    AutomationProperties.AutomationId="ApplicationThemeGalleryEditButton"
                                     HorizontalAlignment="Stretch"
+                                    AutomationProperties.AutomationId="ApplicationThemeGalleryEditButton"
                                     Command="{Binding ElementName=Root, Path=ViewModel.EditThemeCommand}"
                                     CommandParameter="{x:Bind}"
                                     Content="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}"
@@ -164,19 +207,29 @@
             </GridView.ItemTemplate>
         </GridView>
 
-        <StackPanel x:Name="ThemeEmptyState" x:Load="{x:Bind ViewModel.IsEmpty, Mode=OneWay}" HorizontalAlignment="Center" Spacing="8">
+        <StackPanel
+            x:Name="ThemeEmptyState"
+            HorizontalAlignment="Center"
+            x:Load="{x:Bind ViewModel.IsEmpty, Mode=OneWay}"
+            Spacing="8">
             <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.ApplicationThemeGallery_Empty, Mode=OneTime}" />
-            <Button AutomationProperties.AutomationId="ApplicationThemeGalleryEmptyCreateButton" Command="{x:Bind ViewModel.CreateThemeCommand}" Content="{x:Bind domain:Translator.ApplicationThemeGallery_Create, Mode=OneTime}" />
         </StackPanel>
 
         <StackPanel
             x:Name="ThemeOnlineState"
+            HorizontalAlignment="Center"
             x:Load="{x:Bind ViewModel.IsOnline, Mode=OneWay}"
             AutomationProperties.AutomationId="ApplicationThemeGalleryOnlineState"
-            HorizontalAlignment="Center"
             Spacing="6">
-            <TextBlock HorizontalAlignment="Center" Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.ApplicationThemeGallery_ComingSoon, Mode=OneTime}" />
-            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.ApplicationThemeGallery_OnlineDescription, Mode=OneTime}" TextAlignment="Center" TextWrapping="Wrap" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Style="{StaticResource SubtitleTextBlockStyle}"
+                Text="{x:Bind domain:Translator.ApplicationThemeGallery_ComingSoon, Mode=OneTime}" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind domain:Translator.ApplicationThemeGallery_OnlineDescription, Mode=OneTime}"
+                TextAlignment="Center"
+                TextWrapping="Wrap" />
         </StackPanel>
     </StackPanel>
 </abstract:ApplicationThemeGalleryPageAbstract>

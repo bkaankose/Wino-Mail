@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <abstract:EventDetailsPageAbstract
     x:Class="Wino.Calendar.Views.EventDetailsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -13,8 +13,8 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:editor="using:Wino.Editor"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Calendar.Views"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
@@ -104,8 +104,9 @@
 
                     <!--  Save  -->
                     <Button
-
-                        AutomationProperties.AutomationId="EventDetailsPageButton" Command="{x:Bind ViewModel.SaveCommand}" Style="{StaticResource TransparentActionButtonStyle}">
+                        AutomationProperties.AutomationId="EventDetailsPageButton"
+                        Command="{x:Bind ViewModel.SaveCommand}"
+                        Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="16" Icon="Save" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Buttons_Save}" />
@@ -114,8 +115,9 @@
 
                     <!--  Delete  -->
                     <Button
-
-                        AutomationProperties.AutomationId="EventDetailsPageButton2" Command="{x:Bind ViewModel.DeleteCommand}" Style="{StaticResource TransparentActionButtonStyle}">
+                        AutomationProperties.AutomationId="EventDetailsPageButton2"
+                        Command="{x:Bind ViewModel.DeleteCommand}"
+                        Style="{StaticResource TransparentActionButtonStyle}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <coreControls:WinoFontIcon FontSize="16" Icon="Delete" />
                             <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Buttons_Delete}" />
@@ -175,9 +177,9 @@
                         Spacing="8">
                         <coreControls:WinoFontIcon FontSize="20" Icon="CalendarShowAs" />
                         <ComboBox
-                            AutomationProperties.AutomationId="EventDetailsPageComboBox"
                             Width="150"
                             VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="EventDetailsPageComboBox"
                             ItemsSource="{x:Bind ViewModel.ShowAsOptions}"
                             SelectedItem="{x:Bind ViewModel.SelectedShowAsOption, Mode=TwoWay}">
                             <ComboBox.ItemTemplate>
@@ -283,10 +285,10 @@
 
                 <!--  Close Button  -->
                 <Button
-                    AutomationProperties.AutomationId="EventDetailsPageButton8"
                     Grid.Column="1"
                     HorizontalAlignment="Right"
                     VerticalAlignment="Top"
+                    AutomationProperties.AutomationId="EventDetailsPageButton8"
                     Command="{x:Bind ViewModel.CloseRsvpPanelCommand}"
                     Style="{StaticResource TransparentActionButtonStyle}">
                     <coreControls:WinoFontIcon FontSize="16" Icon="Dismiss" />
@@ -342,11 +344,11 @@
 
                 <!--  Reply Message TextBox  -->
                 <TextBox
-                    AutomationProperties.AutomationId="EventDetailsPageTextBox"
                     Grid.Row="1"
                     Grid.ColumnSpan="2"
                     VerticalAlignment="Center"
                     AcceptsReturn="True"
+                    AutomationProperties.AutomationId="EventDetailsPageTextBox"
                     PlaceholderText="{x:Bind domain:Translator.CalendarEventRsvpPanel_AddMessage, Mode=OneTime}"
                     Text="{x:Bind ViewModel.RsvpMessage, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                     TextWrapping="Wrap">
@@ -451,16 +453,16 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <AutoSuggestBox
-                            AutomationProperties.AutomationId="EventDetailsPageAutoSuggestBox"
                             Margin="6,0"
+                            AutomationProperties.AutomationId="EventDetailsPageAutoSuggestBox"
                             BorderThickness="0"
                             PlaceholderText="{x:Bind domain:Translator.CalendarEventDetails_InviteSomeone}"
                             Visibility="{x:Bind ViewModel.IsCurrentUserOrganizer, Mode=OneWay}" />
 
                         <ListView
-                            AutomationProperties.AutomationId="EventDetailsPageListView2"
                             Grid.Row="1"
                             Margin="0"
+                            AutomationProperties.AutomationId="EventDetailsPageListView2"
                             IsItemClickEnabled="True"
                             ItemsSource="{x:Bind ViewModel.CurrentEvent.Attendees, Mode=OneWay}"
                             SelectionMode="None">
@@ -545,9 +547,9 @@
                     <TextBlock Style="{StaticResource EventDetailsPanelTitleStyle}" Text="{x:Bind domain:Translator.CalendarEventDetails_Attachments}" />
 
                     <ListView
-                        AutomationProperties.AutomationId="EventDetailsPageListView3"
                         Grid.Row="1"
                         Margin="0"
+                        AutomationProperties.AutomationId="EventDetailsPageListView3"
                         IsItemClickEnabled="True"
                         ItemClick="AttachmentClicked"
                         ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
@@ -593,6 +595,7 @@
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="40" />
                                             <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
                                         <!--  Icon  -->
@@ -627,6 +630,17 @@
                                                 Style="{StaticResource CaptionTextBlockStyle}"
                                                 Text="{x:Bind ReadableSize}" />
                                         </Grid>
+
+                                        <SymbolIcon
+                                            Grid.Column="2"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.AutomationId="CalendarAttachmentContentTypeWarning"
+                                            AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                            Symbol="Important"
+                                            ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                            Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
                                     </Grid>
                                     <ProgressBar
                                         Grid.Row="1"

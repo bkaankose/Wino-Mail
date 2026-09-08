@@ -35,6 +35,7 @@ public partial class ApplicationThemeGalleryPageViewModel : CoreBaseViewModel, I
     public bool IsOnline => SelectedFilter == ThemeGalleryFilter.Online;
     public bool IsLocalGalleryVisible => !IsOnline;
     public bool IsEmpty => !IsOnline && !IsLoading && !IsStorageError && FilteredThemes.Count == 0;
+    public bool IsCreateThemeVisible => IsLocalGalleryVisible && !IsLoading && !IsStorageError && FilteredThemes.Count > 0;
     public int SelectedFilterIndex
     {
         get => (int)SelectedFilter;
@@ -79,6 +80,7 @@ public partial class ApplicationThemeGalleryPageViewModel : CoreBaseViewModel, I
         IsLoading = true;
         IsStorageError = false;
         IsApplyError = false;
+        OnPropertyChanged(nameof(IsCreateThemeVisible));
 
         try
         {
@@ -94,11 +96,13 @@ public partial class ApplicationThemeGalleryPageViewModel : CoreBaseViewModel, I
             IsStorageError = true;
             FilteredThemes.Clear();
             OnPropertyChanged(nameof(IsEmpty));
+            OnPropertyChanged(nameof(IsCreateThemeVisible));
         }
         finally
         {
             IsLoading = false;
             OnPropertyChanged(nameof(IsEmpty));
+            OnPropertyChanged(nameof(IsCreateThemeVisible));
         }
     }
 
@@ -190,5 +194,6 @@ public partial class ApplicationThemeGalleryPageViewModel : CoreBaseViewModel, I
             FilteredThemes.Add(theme);
 
         OnPropertyChanged(nameof(IsEmpty));
+        OnPropertyChanged(nameof(IsCreateThemeVisible));
     }
 }

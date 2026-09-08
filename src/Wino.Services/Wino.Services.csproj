@@ -7,6 +7,7 @@
 		<IsTrimmable>true</IsTrimmable>
 		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
 		<TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 	</PropertyGroup>
 	<ItemGroup>
 	  <Compile Remove="Misc\**" />
@@ -30,6 +31,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+		<ProjectReference Include="..\Wino.Core.ML\Wino.Core.ML.csproj" />
 		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
 	</ItemGroup>
 	<ItemGroup>

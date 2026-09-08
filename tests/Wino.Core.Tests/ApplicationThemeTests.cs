@@ -19,7 +19,7 @@ namespace Wino.Core.Tests;
 public sealed class ApplicationThemeTests
 {
     [Fact]
-    public void GalleryFilter_ExcludesCurrentAndAppliesCompatibility()
+    public void GalleryFilter_AlwaysIncludesCurrentAndAppliesCompatibility()
     {
         var current = Theme(AppThemeType.System, ThemeCompatibility.Both);
         var light = Theme(AppThemeType.PreDefined, ThemeCompatibility.Light);
@@ -29,15 +29,15 @@ public sealed class ApplicationThemeTests
         var themes = new[] { current, light, dark, both, custom };
 
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.All)
-            .Should().BeEquivalentTo(new[] { light, dark, both, custom });
+            .Should().BeEquivalentTo(new[] { current, light, dark, both, custom });
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Light)
-            .Should().BeEquivalentTo(new[] { light, both });
+            .Should().BeEquivalentTo(new[] { current, light, both });
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Dark)
-            .Should().BeEquivalentTo(new[] { dark, both });
+            .Should().BeEquivalentTo(new[] { current, dark, both });
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Both)
-            .Should().ContainSingle().Which.Should().Be(both);
+            .Should().BeEquivalentTo(new[] { current, both });
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Custom)
-            .Should().ContainSingle().Which.Should().Be(custom);
+            .Should().BeEquivalentTo(new[] { current, custom });
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Online)
             .Should().BeEmpty();
     }
@@ -74,6 +74,7 @@ public sealed class ApplicationThemeTests
         viewModel.IsOnline.Should().BeTrue();
         viewModel.IsLocalGalleryVisible.Should().BeFalse();
         viewModel.IsEmpty.Should().BeFalse();
+        viewModel.IsCreateThemeVisible.Should().BeFalse();
         viewModel.FilteredThemes.Should().BeEmpty();
     }
 
@@ -107,7 +108,7 @@ public sealed class ApplicationThemeTests
 
         service.Verify(candidate => candidate.SelectThemeAsync(selected.Id, false), Times.Once);
         viewModel.CurrentTheme.Should().BeSameAs(selected);
-        viewModel.FilteredThemes.Should().NotContain(selected);
+        viewModel.FilteredThemes.Should().Contain(selected);
     }
 
     [Fact]

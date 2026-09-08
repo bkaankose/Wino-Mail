@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <abstract:CalendarEventComposePageAbstract
     x:Class="Wino.Calendar.Views.CalendarEventComposePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -547,6 +547,7 @@
                                             <ColumnDefinition Width="32" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
 
                                         <ContentControl
@@ -568,8 +569,19 @@
                                                 Text="{x:Bind ReadableSize}" />
                                         </StackPanel>
 
-                                        <Button
+                                        <SymbolIcon
                                             Grid.Column="2"
+                                            Margin="8,0,0,0"
+                                            VerticalAlignment="Center"
+                                            AutomationProperties.AutomationId="CalendarComposeAttachmentContentTypeWarning"
+                                            AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                            Symbol="Important"
+                                            ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                            Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
+
+                                        <Button
+                                            Grid.Column="3"
                                             Padding="6,4"
                                             VerticalAlignment="Center"
                                             AutomationProperties.AutomationId="CalendarEventComposePageButton5"
