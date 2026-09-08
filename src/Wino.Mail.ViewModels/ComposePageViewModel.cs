@@ -177,6 +177,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public readonly ISmimeCertificateService _smimeCertificateService;
     private readonly IShareActivationService _shareActivationService;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
+    private readonly IDraftUpdateCoordinator _draftUpdates;
+    private readonly DraftUpdateRegistry _draftRegistry;
+    private readonly IDraftSaveService _draftSaveService;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -192,7 +195,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IPreferencesService preferencesService,
                                 ISmimeCertificateService smimeCertificateService,
                                 IShareActivationService shareActivationService,
-                                IDraftSyncRetryService draftSyncRetryService)
+                                IDraftSyncRetryService draftSyncRetryService,
+                                IDraftUpdateCoordinator draftUpdates, DraftUpdateRegistry draftRegistry, IDraftSaveService draftSaveService)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
@@ -210,6 +214,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _smimeCertificateService = smimeCertificateService;
         _shareActivationService = shareActivationService;
         _draftSyncRetryService = draftSyncRetryService;
+        _draftUpdates = draftUpdates;
+        _draftRegistry = draftRegistry;
+        _draftSaveService = draftSaveService;
 
         foreach (var cert in _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias?.AliasAddress))
         {
@@ -320,9 +327,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         }
 
         // Save mime changes before sending.
-        await UpdateMimeChangesAsync().ConfigureAwait(false);
+        if (!await UpdateMimeChangesAsync().ConfigureAwait(false)) return;
 
         isUpdatingMimeBlocked = true;
+        var currentDraft = await _draftUpdates.StopAsync(ComposingAccount.Id, CurrentMailDraftItem.UniqueId).ConfigureAwait(false);
+        if (currentDraft != null)
+            await ExecuteUIThread(() => DraftUpdateIdentity.From(currentDraft).Apply(CurrentMailDraftItem.MailCopy));
 
         var assignedAccount = CurrentMailDraftItem.MailCopy.AssignedAccount;
         var sentFolder = await _folderService.GetSpecialFolderByAccountIdAsync(assignedAccount.Id, SpecialFolderType.Sent);
@@ -436,44 +446,60 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         }
     }
 
-    public async Task UpdateMimeChangesAsync()
+    public async Task<bool> UpdateMimeChangesAsync()
     {
-        if (isUpdatingMimeBlocked || CurrentMimeMessage == null || ComposingAccount == null || CurrentMailDraftItem == null) return;
-
-        MailCopy draftMailCopy = null;
-        Guid composingAccountId = Guid.Empty;
-
-        await ExecuteUIThreadAsync(async () =>
+        Guid accountId = Guid.Empty;
+        Guid uniqueId = Guid.Empty;
+        await ExecuteUIThread(() =>
         {
-            // Recipient collections, editor callbacks, and MailItemViewModel notifications
-            // are all UI-bound. Keep the complete snapshot/update phase on the dispatcher.
-            SaveAddressInfo(ToItems, CurrentMimeMessage.To);
-            SaveAddressInfo(CCItems, CurrentMimeMessage.Cc);
-            SaveAddressInfo(BCCItems, CurrentMimeMessage.Bcc);
-
-            SaveImportance();
-            SaveSubject();
-            SaveFromAddress();
-            SaveReadReceiptRequest();
-            SaveReplyToAddress();
-
-            await SaveAttachmentsAsync();
-            await SaveBodyAsync();
-            UpdateMailCopyProperties();
-
-            draftMailCopy = CurrentMailDraftItem.MailCopy;
-            composingAccountId = ComposingAccount.Id;
+            if (!isUpdatingMimeBlocked && CurrentMimeMessage != null && ComposingAccount != null && CurrentMailDraftItem != null)
+            {
+                accountId = ComposingAccount.Id;
+                uniqueId = CurrentMailDraftItem.UniqueId;
+            }
         }).ConfigureAwait(false);
+        if (accountId == Guid.Empty) return false;
 
-        if (draftMailCopy == null || composingAccountId == Guid.Empty)
-            return;
+        var entry = _draftRegistry.Get(accountId, uniqueId);
+        await entry.SaveLock.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            MailCopy metadata = null;
+            byte[] bytes = null;
+            await ExecuteUIThreadAsync(async () =>
+            {
+                if (isUpdatingMimeBlocked || CurrentMailDraftItem?.UniqueId != uniqueId || ComposingAccount?.Id != accountId) return;
 
-        await _mailService.UpdateMailAsync(draftMailCopy).ConfigureAwait(false);
+                SaveAddressInfo(ToItems, CurrentMimeMessage.To);
+                SaveAddressInfo(CCItems, CurrentMimeMessage.Cc);
+                SaveAddressInfo(BCCItems, CurrentMimeMessage.Bcc);
+                SaveImportance();
+                SaveSubject();
+                SaveFromAddress();
+                SaveReadReceiptRequest();
+                SaveReplyToAddress();
+                await SaveAttachmentsAsync();
+                await SaveBodyAsync();
+                UpdateMailCopyProperties();
 
-        // Save mime file.
-        await _mimeFileService
-            .SaveMimeMessageAsync(draftMailCopy.FileId, CurrentMimeMessage, composingAccountId)
-            .ConfigureAwait(false);
+                var mail = CurrentMailDraftItem.MailCopy;
+                metadata = new MailCopy
+                {
+                    UniqueId = uniqueId, FileId = mail.FileId, Id = mail.Id, FolderId = mail.FolderId,
+                    MessageId = mail.MessageId, Subject = mail.Subject, PreviewText = mail.PreviewText,
+                    FromAddress = mail.FromAddress, FromName = mail.FromName, HasAttachments = mail.HasAttachments,
+                    Importance = mail.Importance, IsDraft = true
+                };
+                using var stream = new MemoryStream();
+                CurrentMimeMessage.WriteTo(stream);
+                bytes = stream.ToArray();
+            }).ConfigureAwait(false);
+            if (metadata == null) return false;
+
+            var snapshot = new DraftUpdateSnapshot(accountId, uniqueId, bytes);
+            return await _draftSaveService.SaveAsync(snapshot, metadata).ConfigureAwait(false);
+        }
+        finally { entry.SaveLock.Release(); }
     }
 
     private void UpdateMailCopyProperties()
@@ -544,6 +570,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         }
 
         isUpdatingMimeBlocked = true;
+        var currentDraft = await _draftUpdates.StopAsync(ComposingAccount.Id, CurrentMailDraftItem.UniqueId).ConfigureAwait(false);
+        if (currentDraft != null)
+            await ExecuteUIThread(() => DraftUpdateIdentity.From(currentDraft).Apply(CurrentMailDraftItem.MailCopy));
 
         try
         {

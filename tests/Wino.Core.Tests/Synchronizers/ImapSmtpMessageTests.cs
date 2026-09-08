@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using MailKit;
 using MailKit.Search;
 using MimeKit;
@@ -21,7 +21,9 @@ public class ImapSmtpMessageTests
         };
         draftMessage.Headers.Add(Constants.WinoLocalDraftHeader, "local-draft-id");
 
+        draftMessage.Headers.Add("X-Wino-Draft-Revision", "revision");
         var smtpMessage = ImapSynchronizer.CreateSmtpMessage(draftMessage);
+        smtpMessage.Headers.Contains("X-Wino-Draft-Revision").Should().BeFalse();
 
         smtpMessage.Headers.Contains(Constants.WinoLocalDraftHeader).Should().BeFalse();
         draftMessage.Headers[Constants.WinoLocalDraftHeader].Should().Be("local-draft-id");

@@ -32,6 +32,7 @@ public class MailService : BaseDatabaseService, IMailService
     private const int ItemLoadCount = 100;
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _draftLifecycleLocks = new();
 
+    private readonly DraftUpdateRegistry _draftUpdates;
     private readonly IFolderService _folderService;
     private readonly IContactService _contactService;
     private readonly IAccountService _accountService;
@@ -55,8 +56,10 @@ public class MailService : BaseDatabaseService, IMailService
                        ISentMailReceiptService sentMailReceiptService,
                        IMailCategoryService mailCategoryService,
                        IWinoAccountProfileService winoAccountProfileService = null,
-                       ILocalIntelligenceStore localIntelligenceStore = null) : base(databaseService)
+                       ILocalIntelligenceStore localIntelligenceStore = null,
+                       DraftUpdateRegistry draftUpdates = null) : base(databaseService)
     {
+        _draftUpdates = draftUpdates;
         _folderService = folderService;
         _contactService = contactService;
         _accountService = accountService;
@@ -1028,7 +1031,8 @@ public class MailService : BaseDatabaseService, IMailService
         if (targetMailIds.Count == 0)
             return;
 
-        var allMails = await GetMailCopiesByIdAsync(targetMailIds).ConfigureAwait(false);
+        var allMails = (await GetMailCopiesByIdAsync(targetMailIds).ConfigureAwait(false))
+            .Where(x => x.AssignedAccount?.Id == accountId).ToList();
         await DeleteMailCopiesAsync(allMails, preserveMimeFile: false, reportUiChange: true).ConfigureAwait(false);
     }
 
@@ -1083,7 +1087,16 @@ public class MailService : BaseDatabaseService, IMailService
 
         _logger.Debug("Inserting mail {MailCopyId} to {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
-        await Connection.InsertAsync(mailCopy, typeof(MailCopy)).ConfigureAwait(false);
+        var inserted = false;
+        await Connection.RunInTransactionAsync(connection =>
+        {
+            var accountId = mailCopy.AssignedAccount.Id;
+            if (_draftUpdates?.IsRemoteProtected(accountId, mailCopy) == true ||
+                _draftUpdates?.IsStaleRemote(accountId, mailCopy.Id) == true) return;
+            connection.Insert(mailCopy, typeof(MailCopy));
+            inserted = true;
+        }).ConfigureAwait(false);
+        if (!inserted) return null;
 
         var hydratedMailCopy = await HydrateMailCopyAsync(mailCopy).ConfigureAwait(false);
         if (reportUiChange)
@@ -1092,10 +1105,79 @@ public class MailService : BaseDatabaseService, IMailService
         return hydratedMailCopy;
     }
 
+    public async Task SaveDraftMetadataAsync(Guid accountId, MailCopy snapshot)
+    {
+        var gate = _draftUpdates?.Get(accountId, snapshot.UniqueId).PersistenceLock
+                   ?? _draftLifecycleLocks.GetOrAdd(snapshot.UniqueId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var current = await GetSingleMailItemAsync(snapshot.UniqueId).ConfigureAwait(false);
+            if (current?.AssignedAccount?.Id != accountId || !current.IsDraft)
+                throw new InvalidOperationException("Draft no longer exists.");
+
+            current.Subject = snapshot.Subject;
+            current.PreviewText = snapshot.PreviewText;
+            current.FromAddress = snapshot.FromAddress;
+            current.FromName = snapshot.FromName;
+            current.HasAttachments = snapshot.HasAttachments;
+            current.Importance = snapshot.Importance;
+            await Connection.UpdateAsync(current, typeof(MailCopy)).ConfigureAwait(false);
+            ReportUpdatedMails([current]);
+        }
+        finally { gate.Release(); }
+    }
+
+    public async Task UpdateDraftIdentityAsync(Guid accountId, Guid uniqueId, DraftUpdateIdentity identity)
+    {
+        var gate = _draftUpdates?.Get(accountId, uniqueId).PersistenceLock
+                   ?? _draftLifecycleLocks.GetOrAdd(uniqueId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            var current = await GetSingleMailItemAsync(uniqueId).ConfigureAwait(false);
+            if (current?.AssignedAccount?.Id != accountId || !current.IsDraft) return;
+
+            _draftUpdates?.Remember(accountId, uniqueId, current.Id);
+            _draftUpdates?.ConfirmIdentity(accountId, uniqueId, identity.MessageId);
+            var duplicates = await Connection.QueryAsync<MailCopy>(
+                "SELECT * FROM MailCopy WHERE Id = ? AND FolderId = ? AND UniqueId <> ?",
+                identity.MessageId, current.FolderId, uniqueId).ConfigureAwait(false);
+            foreach (var duplicate in duplicates)
+            {
+                await Connection.DeleteAsync<MailCopy>(duplicate.UniqueId).ConfigureAwait(false);
+                await Connection.ExecuteAsync("DELETE FROM MailCategoryAssignment WHERE MailCopyUniqueId = ?", duplicate.UniqueId).ConfigureAwait(false);
+            }
+            if (duplicates.Count > 0) ReportRemovedMails(await HydrateMailCopiesAsync(duplicates).ConfigureAwait(false));
+            identity.Apply(current);
+            await Connection.UpdateAsync(current, typeof(MailCopy)).ConfigureAwait(false);
+            ReportUpdatedMails([current], MailCopyChangeFlags.Id | MailCopyChangeFlags.DraftId | MailCopyChangeFlags.ThreadId);
+        }
+        finally { gate.Release(); }
+    }
+
     public async Task UpdateMailAsync(MailCopy mailCopy)
         => await UpdateMailAsync(mailCopy, reportUiChange: true).ConfigureAwait(false);
 
     private async Task<MailCopy> UpdateMailAsync(MailCopy mailCopy, bool reportUiChange, MailCopy existingMailCopy = null)
+    {
+        var accountId = mailCopy?.AssignedAccount?.Id ?? Guid.Empty;
+        var gate = mailCopy?.IsDraft == true ? _draftUpdates?.Get(accountId, mailCopy.UniqueId).PersistenceLock : null;
+        if (gate != null) await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (mailCopy?.IsDraft == true)
+            {
+                existingMailCopy = await Connection.FindAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false);
+                if (_draftUpdates?.IsStaleRemote(accountId, mailCopy.Id) == true)
+                    return existingMailCopy == null ? null : await HydrateMailCopyAsync(existingMailCopy).ConfigureAwait(false);
+            }
+            return await UpdateMailCoreAsync(mailCopy, reportUiChange, existingMailCopy).ConfigureAwait(false);
+        }
+        finally { gate?.Release(); }
+    }
+
+    private async Task<MailCopy> UpdateMailCoreAsync(MailCopy mailCopy, bool reportUiChange, MailCopy existingMailCopy = null)
     {
         if (mailCopy == null)
         {
@@ -1109,6 +1191,9 @@ public class MailService : BaseDatabaseService, IMailService
         existingMailCopy ??= mailCopy.UniqueId != Guid.Empty
             ? await Connection.FindAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false)
             : null;
+
+        if (existingMailCopy != null && _draftUpdates?.IsProtected(mailCopy.AssignedAccount?.Id ?? Guid.Empty, existingMailCopy.UniqueId) == true)
+            return await HydrateMailCopyAsync(existingMailCopy).ConfigureAwait(false);
 
         if (existingMailCopy != null)
         {
@@ -1131,12 +1216,30 @@ public class MailService : BaseDatabaseService, IMailService
 
     private async Task<MailCopy> DeleteMailInternalAsync(MailCopy mailCopy, bool preserveMimeFile, bool reportUiChange)
     {
+        var gate = mailCopy?.IsDraft == true ? _draftUpdates?.Get(mailCopy.AssignedAccount.Id, mailCopy.UniqueId).PersistenceLock : null;
+        if (gate != null) await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (mailCopy?.IsDraft == true)
+            {
+                var current = await Connection.FindAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false);
+                if (current == null || current.Id != mailCopy.Id) return null;
+            }
+            return await DeleteMailCoreAsync(mailCopy, preserveMimeFile, reportUiChange).ConfigureAwait(false);
+        }
+        finally { gate?.Release(); }
+    }
+
+    private async Task<MailCopy> DeleteMailCoreAsync(MailCopy mailCopy, bool preserveMimeFile, bool reportUiChange)
+    {
         if (mailCopy == null)
         {
             _logger.Warning("Null mail passed to DeleteMailAsync call.");
 
             return null;
         }
+
+        if (_draftUpdates?.IsProtected(mailCopy.AssignedAccount.Id, mailCopy.UniqueId) == true) return null;
 
         _logger.Debug("Deleting mail {Id} from folder {FolderName}", mailCopy.Id, mailCopy.AssignedFolder.FolderName);
 
@@ -1237,13 +1340,41 @@ public class MailService : BaseDatabaseService, IMailService
         if (pendingUpdates == null || pendingUpdates.Count == 0)
             return;
 
+        var appliedUpdates = new List<(MailCopy MailCopy, MailCopyChangeFlags ChangedProperties)>();
+
         await Connection.RunInTransactionAsync(connection =>
         {
-            foreach (var (mailCopy, _) in pendingUpdates)
+            foreach (var (mailCopy, changedProperties) in pendingUpdates)
             {
-                connection.Update(mailCopy, typeof(MailCopy));
+                var persisted = mailCopy;
+                const MailCopyChangeFlags stateFlags = MailCopyChangeFlags.IsRead | MailCopyChangeFlags.IsFlagged |
+                    MailCopyChangeFlags.IsPinned | MailCopyChangeFlags.IsFocused;
+
+                if (mailCopy.IsDraft && (changedProperties & ~stateFlags) == 0)
+                {
+                    // A state response may have been captured before a local save or remote replacement.
+                    // Merge only its state fields into the current row, never its content or identity.
+                    persisted = connection.Find<MailCopy>(mailCopy.UniqueId);
+                    if (persisted == null || persisted.Id != mailCopy.Id)
+                        continue;
+
+                    if ((changedProperties & MailCopyChangeFlags.IsRead) != 0) persisted.IsRead = mailCopy.IsRead;
+                    if ((changedProperties & MailCopyChangeFlags.IsFlagged) != 0) persisted.IsFlagged = mailCopy.IsFlagged;
+                    if ((changedProperties & MailCopyChangeFlags.IsPinned) != 0) persisted.IsPinned = mailCopy.IsPinned;
+                    if ((changedProperties & MailCopyChangeFlags.IsFocused) != 0) persisted.IsFocused = mailCopy.IsFocused;
+                }
+                else if (mailCopy.IsDraft && (_draftUpdates?.IsRemoteProtected(mailCopy.AssignedAccount?.Id ?? Guid.Empty, mailCopy) == true ||
+                    _draftUpdates?.IsStaleRemote(mailCopy.AssignedAccount?.Id ?? Guid.Empty, mailCopy.Id) == true))
+                {
+                    continue;
+                }
+
+                connection.Update(persisted, typeof(MailCopy));
+                appliedUpdates.Add((persisted, changedProperties));
             }
         }).ConfigureAwait(false);
+
+        pendingUpdates = appliedUpdates;
 
         var readMailUniqueIds = pendingUpdates
             .Where(x => (x.ChangedProperties & MailCopyChangeFlags.IsRead) != 0 &&
@@ -1685,6 +1816,8 @@ public class MailService : BaseDatabaseService, IMailService
 
         foreach (var package in targetPackages)
         {
+            if (_draftUpdates?.IsRemoteProtected(accountId, package.Copy) == true || _draftUpdates?.IsStaleRemote(accountId, package.Copy.Id) == true) continue;
+
             if (string.IsNullOrEmpty(package.AssignedRemoteFolderId))
             {
                 _logger.Warning("Remote folder id is not set for {MailCopyId}.", package.Copy?.Id);
@@ -1783,6 +1916,7 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)
     {
+        if (_draftUpdates?.IsRemoteProtected(accountId, package.Copy) == true || _draftUpdates?.IsStaleRemote(accountId, package.Copy.Id) == true) return false;
         var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
 
         if (account == null) return false;
@@ -2250,7 +2384,8 @@ public class MailService : BaseDatabaseService, IMailService
 
     private async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint? imapUid, uint? imapUidValidity)
     {
-        var lifecycleLock = _draftLifecycleLocks.GetOrAdd(localDraftCopyUniqueId, static _ => new SemaphoreSlim(1, 1));
+        var lifecycleLock = _draftUpdates?.Get(accountId, localDraftCopyUniqueId).PersistenceLock
+                            ?? _draftLifecycleLocks.GetOrAdd(localDraftCopyUniqueId, static _ => new SemaphoreSlim(1, 1));
         await lifecycleLock.WaitAsync().ConfigureAwait(false);
 
         try
@@ -2265,6 +2400,10 @@ public class MailService : BaseDatabaseService, IMailService
 
                 return false;
             }
+
+            if (_draftUpdates?.IsStaleIdentity(accountId, localDraftCopyUniqueId, newMailCopyId) == true ||
+                (!localDraftCopy.IsLocalDraft && _draftUpdates?.IsProtected(accountId, localDraftCopyUniqueId) == true))
+                return true;
 
             var oldLocalDraftId = localDraftCopy.Id;
 
@@ -2292,6 +2431,8 @@ public class MailService : BaseDatabaseService, IMailService
                                                      MailCopyChangeFlags.ThreadId |
                                                      MailCopyChangeFlags.DraftSyncState);
 
+            _draftUpdates?.ConfirmIdentity(accountId, localDraftCopyUniqueId, newMailCopyId);
+            _draftUpdates?.NotifyMapped(accountId, localDraftCopyUniqueId);
             ReportUIChange(new DraftMapped(oldLocalDraftId, hydratedDraftCopy.DraftId));
 
             return true;
@@ -2304,7 +2445,8 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<MailCopy> DiscardLocalDraftAsync(Guid accountId, Guid uniqueMailId)
     {
-        var lifecycleLock = _draftLifecycleLocks.GetOrAdd(uniqueMailId, static _ => new SemaphoreSlim(1, 1));
+        var lifecycleLock = _draftUpdates?.Get(accountId, uniqueMailId).PersistenceLock
+                            ?? _draftLifecycleLocks.GetOrAdd(uniqueMailId, static _ => new SemaphoreSlim(1, 1));
         await lifecycleLock.WaitAsync().ConfigureAwait(false);
 
         try
@@ -2316,7 +2458,8 @@ public class MailService : BaseDatabaseService, IMailService
             if (!currentDraft.IsLocalDraft)
                 return currentDraft;
 
-            await DeleteMailInternalAsync(currentDraft, preserveMimeFile: false, reportUiChange: true)
+            _draftUpdates?.Release(accountId, uniqueMailId);
+            await DeleteMailCoreAsync(currentDraft, preserveMimeFile: false, reportUiChange: true)
                 .ConfigureAwait(false);
             return null;
         }

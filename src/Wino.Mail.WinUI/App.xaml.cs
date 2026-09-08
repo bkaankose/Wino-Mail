@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -457,23 +457,30 @@ public partial class App : WinoApplication,
         UpdateTrayIconState(window is IWinoShellWindow);
     }
 
-    private Task ExitApplicationAsync()
+    private async Task ExitApplicationAsync()
     {
-        ExitApplication();
-        return Task.CompletedTask;
-    }
-
-    internal void ExitApplication()
-    {
-        if (_isExiting)
-            return;
-
+        if (_isExiting) return;
         _isExiting = true;
-        DisposeTrayIcon();
-        ReleaseBackgroundLifetimeWindow();
 
-        Application.Current.Exit();
+        try
+        {
+            var updates = Services.GetService<IDraftUpdateCoordinator>();
+            if (updates != null)
+                await updates.DisposeAsync().AsTask().WaitAsync(TimeSpan.FromSeconds(5));
+        }
+        catch (Exception)
+        {
+            // Shutdown is bounded. Draft content is already persisted locally.
+        }
+        finally
+        {
+            DisposeTrayIcon();
+            ReleaseBackgroundLifetimeWindow();
+            Application.Current.Exit();
+        }
     }
+
+    internal async void ExitApplication() => await ExitApplicationAsync();
 
     public bool IsNotificationActivation(out AppNotificationActivatedEventArgs args)
     {

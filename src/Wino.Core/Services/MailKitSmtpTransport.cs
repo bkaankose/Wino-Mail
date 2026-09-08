@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -76,6 +76,7 @@ public sealed class MailKitSmtpTransport : ISmtpTransport
 
         var smtpMessage = MimeMessage.Load(stream);
         smtpMessage.Headers.Remove(Constants.WinoLocalDraftHeader);
+        smtpMessage.Headers.Remove("X-Wino-Draft-Revision");
         return smtpMessage;
     }
 }

@@ -41,6 +41,8 @@ public static class CoreContainerSetup
         services.AddTransient<IProviderFeatureAuthorizationService, ProviderFeatureAuthorizationService>();
         services.AddTransient<IMigrationAccountAuthorizationService, MigrationAccountAuthorizationService>();
         services.AddTransient<IAccountCapabilityService, AccountCapabilityService>();
+        services.AddTransient<IDraftSaveService, DraftSaveService>();
+        services.AddSingleton<IDraftUpdateCoordinator, DraftUpdateCoordinator>();
         services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();
         services.AddTransient<IImapTestService, ImapTestService>();
         services.AddTransient<IPop3TestService, Pop3TestService>();

@@ -981,6 +981,9 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     #endregion
 
 
+    public virtual Task<DraftUpdateIdentity> UpdateDraftAsync(DraftUpdateSnapshot snapshot, MailCopy draft, CancellationToken cancellationToken = default)
+        => Task.FromResult<DraftUpdateIdentity>(null);
+
     /// <summary>
     /// Downloads a single missing message from synchronizer and saves it to given FileId from IMailItem.
     /// </summary>

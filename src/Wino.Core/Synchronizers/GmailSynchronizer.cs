@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -85,7 +85,7 @@ public partial class GmailSynchronizerJsonContext : JsonSerializerContext;
 /// - CreateMinimalMailCopyAsync: Extracts MailCopy fields from Gmail Metadata format
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
-public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Event, global::Google.Apis.PeopleService.v1.Data.Person>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
+public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Event, global::Google.Apis.PeopleService.v1.Data.Person>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
 {
     public override uint BatchModificationSize => 1000;
 
@@ -2887,7 +2887,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                 return;
             }
 
-            await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+            await _gmailChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id, mailItem.Id).ConfigureAwait(false);
         }
         catch (GoogleApiException ex) when (ex.HttpStatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -3793,7 +3793,7 @@ public class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Message, Ev
                                     if (mappedCopy.FileId == Guid.Empty || !savedFileIds.Add(mappedCopy.FileId))
                                         continue;
 
-                                    await _gmailChangeProcessor.SaveMimeFileAsync(mappedCopy.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+                                    await _gmailChangeProcessor.SaveMimeFileAsync(mappedCopy.FileId, mimeMessage, Account.Id, baseMailCopy.Id).ConfigureAwait(false);
                                 }
                             }
                         }

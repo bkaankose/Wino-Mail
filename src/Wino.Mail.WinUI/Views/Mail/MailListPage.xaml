@@ -40,807 +40,821 @@
     mc:Ignorable="d">
 
     <Page.Resources>
-        <x:Double x:Key="ItemContainerDisabledOpacity">1</x:Double>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="UnreadMailSubjectForegroundBrush" Color="{ThemeResource SystemAccentColor}" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="UnreadMailSubjectForegroundBrush" Color="{ThemeResource SystemAccentColorLight2}" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <StaticResource x:Key="UnreadMailSubjectForegroundBrush" ResourceKey="SystemColorWindowTextColorBrush" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
 
-        <listview:WinoMailItemContainerStyleSelector
-            x:Key="WinoMailItemContainerStyleSelector"
-            IsSwipeActionsEnabled="{x:Bind ViewModel.PreferencesService.IsSwipeActionsEnabled, Mode=OneWay}"
-            MailItemStyle="{StaticResource DefaultMailListViewItemStyle}"
-            MailItemStyleWithoutSwipe="{StaticResource DefaultMailListViewItemStyleWithoutSwipe}"
-            ThreadStyle="{StaticResource DefaultThreadListViewItemStyle}"
-            ThreadStyleWithoutSwipe="{StaticResource DefaultThreadListViewItemStyleWithoutSwipe}" />
+            <x:Double x:Key="ItemContainerDisabledOpacity">1</x:Double>
 
-        <Thickness x:Key="ExpanderHeaderPadding">0,0,0,0</Thickness>
-        <Thickness x:Key="ExpanderChevronMargin">0,0,12,0</Thickness>
-        <Thickness x:Key="ExpanderHeaderBorderThickness">0,0,0,0</Thickness>
+            <listview:WinoMailItemContainerStyleSelector
+                x:Key="WinoMailItemContainerStyleSelector"
+                IsSwipeActionsEnabled="{x:Bind ViewModel.PreferencesService.IsSwipeActionsEnabled, Mode=OneWay}"
+                MailItemStyle="{StaticResource DefaultMailListViewItemStyle}"
+                MailItemStyleWithoutSwipe="{StaticResource DefaultMailListViewItemStyleWithoutSwipe}"
+                ThreadStyle="{StaticResource DefaultThreadListViewItemStyle}"
+                ThreadStyleWithoutSwipe="{StaticResource DefaultThreadListViewItemStyleWithoutSwipe}" />
 
-        <SolidColorBrush x:Key="ExpanderContentBorderBrush">Transparent</SolidColorBrush>
+            <Thickness x:Key="ExpanderHeaderPadding">0,0,0,0</Thickness>
+            <Thickness x:Key="ExpanderChevronMargin">0,0,12,0</Thickness>
+            <Thickness x:Key="ExpanderHeaderBorderThickness">0,0,0,0</Thickness>
 
-        <StaticResource x:Key="ExpanderContentBackground" ResourceKey="CardBackgroundFillColorSecondaryBrush" />
-        <StaticResource x:Key="ExpanderHeaderBackground" ResourceKey="CardBackgroundFillColorDefaultBrush" />
+            <SolidColorBrush x:Key="ExpanderContentBorderBrush">Transparent</SolidColorBrush>
 
-        <SolidColorBrush x:Key="SystemControlRevealFocusVisualBrush" Color="#FF4C4A48" />
-        <SolidColorBrush x:Key="SystemControlFocusVisualSecondaryBrush" Color="#FFFFFFFF" />
+            <StaticResource x:Key="ExpanderContentBackground" ResourceKey="CardBackgroundFillColorSecondaryBrush" />
+            <StaticResource x:Key="ExpanderHeaderBackground" ResourceKey="CardBackgroundFillColorDefaultBrush" />
 
-        <SolidColorBrush x:Key="ButtonBackgroundDisabled">Transparent</SolidColorBrush>
+            <SolidColorBrush x:Key="SystemControlRevealFocusVisualBrush" Color="#FF4C4A48" />
+            <SolidColorBrush x:Key="SystemControlFocusVisualSecondaryBrush" Color="#FFFFFFFF" />
 
-        <DataTemplate x:Key="CompactThreadMailItemTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
-            <Grid
-                x:DefaultBindMode="OneWay"
-                Background="Transparent"
-                ContextRequested="MailItemContextRequested">
+            <SolidColorBrush x:Key="ButtonBackgroundDisabled">Transparent</SolidColorBrush>
+
+            <DataTemplate x:Key="CompactThreadMailItemTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
                 <Grid
-                    MinHeight="56"
-                    Padding="8,4,8,4"
-                    ColumnSpacing="6">
+                    x:DefaultBindMode="OneWay"
+                    Background="Transparent"
+                    ContextRequested="MailItemContextRequested">
+                    <Grid
+                        MinHeight="56"
+                        Padding="8,4,8,4"
+                        ColumnSpacing="6">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <mailControls:WinoContactPicture
+                            x:Name="SenderPictureControl"
+                            Width="28"
+                            Height="28"
+                            VerticalAlignment="Center"
+                            x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                            x:Phase="2"
+                            ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
+                            FontSize="12"
+                            IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                            IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                        <Grid
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            RowSpacing="2">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <controls:AccountNicknameIndicatorControl
+                                    x:Name="LeftAccountNicknameIndicator"
+                                    Margin="0,0,4,0"
+                                    x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
+                                    AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                    AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
+                                <TextBlock
+                                    x:Name="DraftTagTextBlock"
+                                    Grid.Column="1"
+                                    Margin="0,0,4,0"
+                                    x:Load="{x:Bind IsDraft, Mode=OneWay}"
+                                    Foreground="{StaticResource DeleteBrush}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                                    Text="{x:Bind FromName, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis"
+                                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                                    Text="{x:Bind FromAddress, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis"
+                                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                                <controls:AccountNicknameIndicatorControl
+                                    x:Name="RightAccountNicknameIndicator"
+                                    Grid.Column="3"
+                                    Margin="0,0,4,0"
+                                    x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
+                                    AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                    AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
+                            </Grid>
+                            <Grid Grid.Row="1" ColumnSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid
+                                    Width="12"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    PointerPressed="ThreadExpanderPointerPressed">
+                                    <FontIcon
+                                        FontSize="10"
+                                        Glyph="&#xE76C;"
+                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                                    <FontIcon
+                                        x:Name="ExpandedThreadGlyph"
+                                        x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}"
+                                        FontSize="10"
+                                        Glyph="&#xE96E;" />
+                                </Grid>
+                                <TextBlock
+                                    x:Name="ReadSubjectTextBlock"
+                                    Grid.Column="1"
+                                    x:Load="{x:Bind IsRead, Mode=OneWay}"
+                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    x:Name="UnreadSubjectTextBlock"
+                                    Grid.Column="1"
+                                    x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource UnreadMailSubjectForegroundBrush}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    x:Phase="2"
+                                    Opacity="0.7"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.CurrentMailTimeFormatPreference), Mode=OneWay}" />
+                                <Ellipse
+                                    Grid.Column="3"
+                                    Width="6"
+                                    Height="6"
+                                    VerticalAlignment="Center"
+                                    Fill="{ThemeResource SystemAccentColor}"
+                                    IsHitTestVisible="False"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
+                            </Grid>
+                        </Grid>
+                        <StackPanel
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <StackPanel
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal"
+                                Spacing="2">
+                                <TextBlock
+                                    Margin="0,0,4,0"
+                                    Opacity="0.8"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ReadReceiptDisplayText, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis"
+                                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
+                                <ContentPresenter
+                                    x:Name="AttachmentSymbolPresenter"
+                                    x:Load="{x:Bind HasAttachments, Mode=OneWay}"
+                                    x:Phase="1"
+                                    ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
+                                <ContentPresenter
+                                    x:Name="FlaggedSymbolPresenter"
+                                    x:Load="{x:Bind IsFlagged, Mode=OneWay}"
+                                    x:Phase="1"
+                                    ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
+                                <ProgressRing
+                                    x:Name="BusyProgressRing"
+                                    Width="12"
+                                    Height="12"
+                                    x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                                    IsActive="{x:Bind IsBusy, Mode=OneWay}" />
+                            </StackPanel>
+                            <ItemsControl
+                                x:Name="IntelligenceTilesItemsControl"
+                                HorizontalAlignment="Right"
+                                x:Load="{x:Bind HasRowIntelligenceTiles, Mode=OneWay}"
+                                x:Phase="1"
+                                IsHitTestVisible="False"
+                                ItemTemplateSelector="{StaticResource CompactMailRowTileTemplateSelector}"
+                                ItemsSource="{x:Bind RowIntelligenceTiles, Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <primitives:WinoWrapPanel VerticalSpacing="4" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="MediumThreadMailItemTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
+                <Grid
+                    x:DefaultBindMode="OneWay"
+                    Background="Transparent"
+                    ContextRequested="MailItemContextRequested">
+                    <Grid
+                        MinHeight="76"
+                        Padding="8,6,8,6"
+                        ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <mailControls:WinoContactPicture
+                            x:Name="SenderPictureControl"
+                            Width="30"
+                            Height="30"
+                            VerticalAlignment="Center"
+                            x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                            x:Phase="2"
+                            ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
+                            FontSize="12"
+                            IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                            IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <controls:AccountNicknameIndicatorControl
+                                    x:Name="LeftAccountNicknameIndicator"
+                                    Margin="0,0,4,0"
+                                    x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
+                                    AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                    AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
+                                <TextBlock
+                                    x:Name="DraftTagTextBlock"
+                                    Grid.Column="1"
+                                    Margin="0,0,4,0"
+                                    x:Load="{x:Bind IsDraft, Mode=OneWay}"
+                                    Foreground="{StaticResource DeleteBrush}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                                    Text="{x:Bind FromName, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis"
+                                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                                    Text="{x:Bind FromAddress, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis"
+                                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                                <controls:AccountNicknameIndicatorControl
+                                    x:Name="RightAccountNicknameIndicator"
+                                    Grid.Column="3"
+                                    Margin="0,0,4,0"
+                                    x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
+                                    AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                    AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
+                            </Grid>
+                            <Grid ColumnSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid
+                                    Width="12"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    PointerPressed="ThreadExpanderPointerPressed">
+                                    <FontIcon
+                                        FontSize="10"
+                                        Glyph="&#xE76C;"
+                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                                    <FontIcon
+                                        x:Name="ExpandedThreadGlyph"
+                                        x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}"
+                                        FontSize="10"
+                                        Glyph="&#xE96E;" />
+                                </Grid>
+                                <TextBlock
+                                    x:Name="ReadSubjectTextBlock"
+                                    Grid.Column="1"
+                                    x:Load="{x:Bind IsRead, Mode=OneWay}"
+                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    x:Name="UnreadSubjectTextBlock"
+                                    Grid.Column="1"
+                                    x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource UnreadMailSubjectForegroundBrush}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    x:Phase="2"
+                                    Opacity="0.7"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.CurrentMailTimeFormatPreference), Mode=OneWay}" />
+                                <Ellipse
+                                    Grid.Column="3"
+                                    Width="6"
+                                    Height="6"
+                                    VerticalAlignment="Center"
+                                    Fill="{ThemeResource SystemAccentColor}"
+                                    IsHitTestVisible="False"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
+                            </Grid>
+                            <TextBlock
+                                x:Phase="1"
+                                MaxLines="1"
+                                Opacity="0.7"
+                                Text="{x:Bind PreviewText, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis"
+                                Visibility="{x:Bind helpers:XamlHelpers.GetMailItemPreviewTextVisibility(PreviewText), Mode=OneWay}" />
+                        </StackPanel>
+                        <StackPanel
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <StackPanel
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal"
+                                Spacing="2">
+                                <TextBlock
+                                    Margin="0,0,4,0"
+                                    Opacity="0.8"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ReadReceiptDisplayText, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis"
+                                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
+                                <ContentPresenter
+                                    x:Name="AttachmentSymbolPresenter"
+                                    x:Load="{x:Bind HasAttachments, Mode=OneWay}"
+                                    x:Phase="1"
+                                    ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
+                                <ContentPresenter
+                                    x:Name="FlaggedSymbolPresenter"
+                                    x:Load="{x:Bind IsFlagged, Mode=OneWay}"
+                                    x:Phase="1"
+                                    ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
+                                <ProgressRing
+                                    x:Name="BusyProgressRing"
+                                    Width="12"
+                                    Height="12"
+                                    x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                                    IsActive="{x:Bind IsBusy, Mode=OneWay}" />
+                            </StackPanel>
+                            <ItemsControl
+                                x:Name="IntelligenceTilesItemsControl"
+                                HorizontalAlignment="Right"
+                                x:Load="{x:Bind HasRowIntelligenceTiles, Mode=OneWay}"
+                                x:Phase="1"
+                                IsHitTestVisible="False"
+                                ItemTemplateSelector="{StaticResource DetailedMailRowTileTemplateSelector}"
+                                ItemsSource="{x:Bind RowIntelligenceTiles, Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <primitives:WinoWrapPanel VerticalSpacing="4" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </DataTemplate>
+
+            <DataTemplate x:Key="SpaciousThreadMailItemTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
+                <Grid
+                    x:DefaultBindMode="OneWay"
+                    Background="Transparent"
+                    ContextRequested="MailItemContextRequested">
+                    <Grid
+                        MinHeight="88"
+                        Padding="4,8,8,8"
+                        ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <mailControls:WinoContactPicture
+                            x:Name="SenderPictureControl"
+                            Width="36"
+                            Height="36"
+                            VerticalAlignment="Center"
+                            x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                            x:Phase="2"
+                            ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
+                            FontSize="12"
+                            IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                            IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <controls:AccountNicknameIndicatorControl
+                                    x:Name="LeftAccountNicknameIndicator"
+                                    Margin="0,0,4,0"
+                                    x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
+                                    AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                    AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
+                                <TextBlock
+                                    x:Name="DraftTagTextBlock"
+                                    Grid.Column="1"
+                                    Margin="0,0,4,0"
+                                    x:Load="{x:Bind IsDraft, Mode=OneWay}"
+                                    Foreground="{StaticResource DeleteBrush}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                                    Text="{x:Bind FromName, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis"
+                                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
+                                    Text="{x:Bind FromAddress, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis"
+                                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
+                                <controls:AccountNicknameIndicatorControl
+                                    x:Name="RightAccountNicknameIndicator"
+                                    Grid.Column="3"
+                                    Margin="0,0,4,0"
+                                    x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
+                                    AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
+                                    AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
+                            </Grid>
+                            <Grid ColumnSpacing="4">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid
+                                    Width="12"
+                                    VerticalAlignment="Center"
+                                    Background="Transparent"
+                                    PointerPressed="ThreadExpanderPointerPressed">
+                                    <FontIcon
+                                        FontSize="10"
+                                        Glyph="&#xE76C;"
+                                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
+                                    <FontIcon
+                                        x:Name="ExpandedThreadGlyph"
+                                        x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}"
+                                        FontSize="10"
+                                        Glyph="&#xE96E;" />
+                                </Grid>
+                                <TextBlock
+                                    x:Name="ReadSubjectTextBlock"
+                                    Grid.Column="1"
+                                    x:Load="{x:Bind IsRead, Mode=OneWay}"
+                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    x:Name="UnreadSubjectTextBlock"
+                                    Grid.Column="1"
+                                    x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource UnreadMailSubjectForegroundBrush}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis" />
+                                <TextBlock
+                                    Grid.Column="2"
+                                    x:Phase="2"
+                                    Opacity="0.7"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.CurrentMailTimeFormatPreference), Mode=OneWay}" />
+                                <Ellipse
+                                    Grid.Column="3"
+                                    Width="6"
+                                    Height="6"
+                                    VerticalAlignment="Center"
+                                    Fill="{ThemeResource SystemAccentColor}"
+                                    IsHitTestVisible="False"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
+                            </Grid>
+                            <TextBlock
+                                x:Phase="1"
+                                MaxLines="1"
+                                Opacity="0.7"
+                                Text="{x:Bind PreviewText, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis"
+                                Visibility="{x:Bind helpers:XamlHelpers.GetMailItemPreviewTextVisibility(PreviewText), Mode=OneWay}" />
+                        </StackPanel>
+                        <StackPanel
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                            <StackPanel
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal"
+                                Spacing="2">
+                                <TextBlock
+                                    Margin="0,0,4,0"
+                                    Opacity="0.8"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ReadReceiptDisplayText, Mode=OneWay}"
+                                    TextTrimming="CharacterEllipsis"
+                                    Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
+                                <ContentPresenter
+                                    x:Name="AttachmentSymbolPresenter"
+                                    x:Load="{x:Bind HasAttachments, Mode=OneWay}"
+                                    x:Phase="1"
+                                    ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
+                                <ContentPresenter
+                                    x:Name="FlaggedSymbolPresenter"
+                                    x:Load="{x:Bind IsFlagged, Mode=OneWay}"
+                                    x:Phase="1"
+                                    ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
+                                <ProgressRing
+                                    x:Name="BusyProgressRing"
+                                    Width="12"
+                                    Height="12"
+                                    x:Load="{x:Bind IsBusy, Mode=OneWay}"
+                                    IsActive="{x:Bind IsBusy, Mode=OneWay}" />
+                            </StackPanel>
+                            <ItemsControl
+                                x:Name="IntelligenceTilesItemsControl"
+                                HorizontalAlignment="Right"
+                                x:Load="{x:Bind HasRowIntelligenceTiles, Mode=OneWay}"
+                                x:Phase="1"
+                                IsHitTestVisible="False"
+                                ItemTemplateSelector="{StaticResource DetailedMailRowTileTemplateSelector}"
+                                ItemsSource="{x:Bind RowIntelligenceTiles, Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <primitives:WinoWrapPanel VerticalSpacing="4" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </DataTemplate>
+
+            <!--  Calendar Mail Item Template  -->
+            <DataTemplate x:Key="CalendarMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
+                <controls:CalendarMailItemDisplayInformationControl
+                    x:DefaultBindMode="OneWay"
+                    ContextRequested="MailItemContextRequested"
+                    MailItem="{x:Bind}" />
+            </DataTemplate>
+
+            <!--
+                The list selects stable projected rows. These lightweight wrappers keep the
+                existing mail visuals bound to their original view-model types.
+            -->
+            <DataTemplate x:Key="CompactSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid
+                    Margin="{x:Bind helpers:XamlHelpers.GetCompactMailListRowMargin(Kind), Mode=OneTime}"
+                    Background="Transparent"
+                    ContextRequested="MailItemContextRequested">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <mailControls:WinoContactPicture
-                        x:Name="SenderPictureControl"
+                        x:Name="CompactSenderPicture"
                         Width="28"
                         Height="28"
+                        Margin="8,0,6,0"
                         VerticalAlignment="Center"
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                        x:Phase="2"
-                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
                         FontSize="12"
                         IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                         IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-                    <Grid
+                    <ContentPresenter
                         Grid.Column="1"
-                        VerticalAlignment="Center"
-                        RowSpacing="2">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <controls:AccountNicknameIndicatorControl
-                                x:Name="LeftAccountNicknameIndicator"
-                                Margin="0,0,4,0"
-                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
-                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
-                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
-                            <TextBlock
-                                x:Name="DraftTagTextBlock"
-                                Grid.Column="1"
-                                Margin="0,0,4,0"
-                                x:Load="{x:Bind IsDraft, Mode=OneWay}"
-                                Foreground="{StaticResource DeleteBrush}"
-                                Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
-                            <TextBlock
-                                Grid.Column="2"
-                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Text="{x:Bind FromName, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
-                            <TextBlock
-                                Grid.Column="2"
-                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Text="{x:Bind FromAddress, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
-                            <controls:AccountNicknameIndicatorControl
-                                x:Name="RightAccountNicknameIndicator"
-                                Grid.Column="3"
-                                Margin="0,0,4,0"
-                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
-                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
-                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
-                        </Grid>
-                        <Grid Grid.Row="1" ColumnSpacing="4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Grid
-                                Width="12"
-                                VerticalAlignment="Center"
-                                Background="Transparent"
-                                PointerPressed="ThreadExpanderPointerPressed">
-                                <FontIcon
-                                    FontSize="10"
-                                    Glyph="&#xE76C;"
-                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
-                                <FontIcon
-                                    x:Name="ExpandedThreadGlyph"
-                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}"
-                                    FontSize="10"
-                                    Glyph="&#xE96E;" />
-                            </Grid>
-                            <TextBlock
-                                x:Name="ReadSubjectTextBlock"
-                                Grid.Column="1"
-                                x:Load="{x:Bind IsRead, Mode=OneWay}"
-                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis" />
-                            <TextBlock
-                                x:Name="UnreadSubjectTextBlock"
-                                Grid.Column="1"
-                                x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
-                                FontWeight="SemiBold"
-                                Foreground="{ThemeResource SystemAccentColor}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis" />
-                            <TextBlock
-                                Grid.Column="2"
-                                x:Phase="2"
-                                Opacity="0.7"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.CurrentMailTimeFormatPreference), Mode=OneWay}" />
-                            <Ellipse
-                                Grid.Column="3"
-                                Width="6"
-                                Height="6"
-                                VerticalAlignment="Center"
-                                Fill="{ThemeResource SystemAccentColor}"
-                                IsHitTestVisible="False"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
-                        </Grid>
-                    </Grid>
-                    <StackPanel
-                        Grid.Column="2"
-                        VerticalAlignment="Center"
-                        Spacing="2">
-                        <StackPanel
-                            HorizontalAlignment="Right"
-                            Orientation="Horizontal"
-                            Spacing="2">
-                            <TextBlock
-                                Margin="0,0,4,0"
-                                Opacity="0.8"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind ReadReceiptDisplayText, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
-                            <ContentPresenter
-                                x:Name="AttachmentSymbolPresenter"
-                                x:Load="{x:Bind HasAttachments, Mode=OneWay}"
-                                x:Phase="1"
-                                ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
-                            <ContentPresenter
-                                x:Name="FlaggedSymbolPresenter"
-                                x:Load="{x:Bind IsFlagged, Mode=OneWay}"
-                                x:Phase="1"
-                                ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
-                            <ProgressRing
-                                x:Name="BusyProgressRing"
-                                Width="12"
-                                Height="12"
-                                x:Load="{x:Bind IsBusy, Mode=OneWay}"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}" />
-                        </StackPanel>
-                        <ItemsControl
-                            x:Name="IntelligenceTilesItemsControl"
-                            HorizontalAlignment="Right"
-                            x:Load="{x:Bind HasRowIntelligenceTiles, Mode=OneWay}"
-                            x:Phase="1"
-                            IsHitTestVisible="False"
-                            ItemTemplateSelector="{StaticResource CompactMailRowTileTemplateSelector}"
-                            ItemsSource="{x:Bind RowIntelligenceTiles, Mode=OneWay}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <primitives:WinoWrapPanel VerticalSpacing="4" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </StackPanel>
+                        Margin="{x:Bind helpers:XamlHelpers.GetThreadExpanderContentMargin(Kind), Mode=OneTime}"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
                 </Grid>
-            </Grid>
-        </DataTemplate>
+            </DataTemplate>
 
-        <DataTemplate x:Key="MediumThreadMailItemTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
-            <Grid
-                x:DefaultBindMode="OneWay"
-                Background="Transparent"
-                ContextRequested="MailItemContextRequested">
+            <DataTemplate x:Key="MediumSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
                 <Grid
-                    MinHeight="76"
-                    Padding="8,6,8,6"
-                    ColumnSpacing="8">
+                    Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}"
+                    Background="Transparent"
+                    ContextRequested="MailItemContextRequested">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <mailControls:WinoContactPicture
-                        x:Name="SenderPictureControl"
+                        x:Name="MediumSenderPicture"
                         Width="30"
                         Height="30"
+                        Margin="8,0,8,0"
                         VerticalAlignment="Center"
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                        x:Phase="2"
-                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
                         FontSize="12"
                         IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                         IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-                    <StackPanel
+                    <ContentPresenter
                         Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Spacing="2">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <controls:AccountNicknameIndicatorControl
-                                x:Name="LeftAccountNicknameIndicator"
-                                Margin="0,0,4,0"
-                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
-                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
-                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
-                            <TextBlock
-                                x:Name="DraftTagTextBlock"
-                                Grid.Column="1"
-                                Margin="0,0,4,0"
-                                x:Load="{x:Bind IsDraft, Mode=OneWay}"
-                                Foreground="{StaticResource DeleteBrush}"
-                                Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
-                            <TextBlock
-                                Grid.Column="2"
-                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Text="{x:Bind FromName, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
-                            <TextBlock
-                                Grid.Column="2"
-                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Text="{x:Bind FromAddress, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
-                            <controls:AccountNicknameIndicatorControl
-                                x:Name="RightAccountNicknameIndicator"
-                                Grid.Column="3"
-                                Margin="0,0,4,0"
-                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
-                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
-                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
-                        </Grid>
-                        <Grid ColumnSpacing="4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Grid
-                                Width="12"
-                                VerticalAlignment="Center"
-                                Background="Transparent"
-                                PointerPressed="ThreadExpanderPointerPressed">
-                                <FontIcon
-                                    FontSize="10"
-                                    Glyph="&#xE76C;"
-                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
-                                <FontIcon
-                                    x:Name="ExpandedThreadGlyph"
-                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}"
-                                    FontSize="10"
-                                    Glyph="&#xE96E;" />
-                            </Grid>
-                            <TextBlock
-                                x:Name="ReadSubjectTextBlock"
-                                Grid.Column="1"
-                                x:Load="{x:Bind IsRead, Mode=OneWay}"
-                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis" />
-                            <TextBlock
-                                x:Name="UnreadSubjectTextBlock"
-                                Grid.Column="1"
-                                x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
-                                FontWeight="SemiBold"
-                                Foreground="{ThemeResource SystemAccentColor}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis" />
-                            <TextBlock
-                                Grid.Column="2"
-                                x:Phase="2"
-                                Opacity="0.7"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.CurrentMailTimeFormatPreference), Mode=OneWay}" />
-                            <Ellipse
-                                Grid.Column="3"
-                                Width="6"
-                                Height="6"
-                                VerticalAlignment="Center"
-                                Fill="{ThemeResource SystemAccentColor}"
-                                IsHitTestVisible="False"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
-                        </Grid>
-                        <TextBlock
-                            x:Phase="1"
-                            MaxLines="1"
-                            Opacity="0.7"
-                            Text="{x:Bind PreviewText, Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis"
-                            Visibility="{x:Bind helpers:XamlHelpers.GetMailItemPreviewTextVisibility(PreviewText), Mode=OneWay}" />
-                    </StackPanel>
-                    <StackPanel
-                        Grid.Column="2"
-                        VerticalAlignment="Center"
-                        Spacing="2">
-                        <StackPanel
-                            HorizontalAlignment="Right"
-                            Orientation="Horizontal"
-                            Spacing="2">
-                            <TextBlock
-                                Margin="0,0,4,0"
-                                Opacity="0.8"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind ReadReceiptDisplayText, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
-                            <ContentPresenter
-                                x:Name="AttachmentSymbolPresenter"
-                                x:Load="{x:Bind HasAttachments, Mode=OneWay}"
-                                x:Phase="1"
-                                ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
-                            <ContentPresenter
-                                x:Name="FlaggedSymbolPresenter"
-                                x:Load="{x:Bind IsFlagged, Mode=OneWay}"
-                                x:Phase="1"
-                                ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
-                            <ProgressRing
-                                x:Name="BusyProgressRing"
-                                Width="12"
-                                Height="12"
-                                x:Load="{x:Bind IsBusy, Mode=OneWay}"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}" />
-                        </StackPanel>
-                        <ItemsControl
-                            x:Name="IntelligenceTilesItemsControl"
-                            HorizontalAlignment="Right"
-                            x:Load="{x:Bind HasRowIntelligenceTiles, Mode=OneWay}"
-                            x:Phase="1"
-                            IsHitTestVisible="False"
-                            ItemTemplateSelector="{StaticResource DetailedMailRowTileTemplateSelector}"
-                            ItemsSource="{x:Bind RowIntelligenceTiles, Mode=OneWay}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <primitives:WinoWrapPanel VerticalSpacing="4" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </StackPanel>
+                        Margin="{x:Bind helpers:XamlHelpers.GetThreadExpanderContentMargin(Kind), Mode=OneTime}"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
                 </Grid>
-            </Grid>
-        </DataTemplate>
+            </DataTemplate>
 
-        <DataTemplate x:Key="SpaciousThreadMailItemTemplate" x:DataType="viewModelData:ThreadMailItemViewModel">
-            <Grid
-                x:DefaultBindMode="OneWay"
-                Background="Transparent"
-                ContextRequested="MailItemContextRequested">
+            <DataTemplate x:Key="SpaciousSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
                 <Grid
-                    MinHeight="88"
-                    Padding="4,8,8,8"
-                    ColumnSpacing="8">
+                    Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}"
+                    Background="Transparent"
+                    ContextRequested="MailItemContextRequested">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-
                     <mailControls:WinoContactPicture
-                        x:Name="SenderPictureControl"
+                        x:Name="SpaciousSenderPicture"
                         Width="36"
                         Height="36"
+                        Margin="4,0,8,0"
                         VerticalAlignment="Center"
                         x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                        x:Phase="2"
-                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
                         FontSize="12"
                         IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
                         IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-                    <StackPanel
+                    <ContentPresenter
                         Grid.Column="1"
-                        VerticalAlignment="Center"
-                        Spacing="2">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <controls:AccountNicknameIndicatorControl
-                                x:Name="LeftAccountNicknameIndicator"
-                                Margin="0,0,4,0"
-                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Left), Mode=OneWay}"
-                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
-                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
-                            <TextBlock
-                                x:Name="DraftTagTextBlock"
-                                Grid.Column="1"
-                                Margin="0,0,4,0"
-                                x:Load="{x:Bind IsDraft, Mode=OneWay}"
-                                Foreground="{StaticResource DeleteBrush}"
-                                Text="{x:Bind helpers:XamlHelpers.GetDraftTagText(), Mode=OneTime}" />
-                            <TextBlock
-                                Grid.Column="2"
-                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Text="{x:Bind FromName, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(FromName), Mode=OneWay}" />
-                            <TextBlock
-                                Grid.Column="2"
-                                FontWeight="{x:Bind helpers:XamlHelpers.GetMailItemSenderFontWeightByReadState(IsRead), Mode=OneWay}"
-                                Text="{x:Bind FromAddress, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityReversedConverter(FromName), Mode=OneWay}" />
-                            <controls:AccountNicknameIndicatorControl
-                                x:Name="RightAccountNicknameIndicator"
-                                Grid.Column="3"
-                                Margin="0,0,4,0"
-                                x:Load="{x:Bind helpers:XamlHelpers.IsAccountNicknameVisible(AccountNickname, AccountNicknamePosition, enums:AccountNicknamePosition.Right), Mode=OneWay}"
-                                AccountColorHex="{x:Bind AccountColorHex, Mode=OneWay}"
-                                AccountNickname="{x:Bind AccountNickname, Mode=OneWay}" />
-                        </Grid>
-                        <Grid ColumnSpacing="4">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Grid
-                                Width="12"
-                                VerticalAlignment="Center"
-                                Background="Transparent"
-                                PointerPressed="ThreadExpanderPointerPressed">
-                                <FontIcon
-                                    FontSize="10"
-                                    Glyph="&#xE76C;"
-                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsThreadExpanded), Mode=OneWay}" />
-                                <FontIcon
-                                    x:Name="ExpandedThreadGlyph"
-                                    x:Load="{x:Bind IsThreadExpanded, Mode=OneWay}"
-                                    FontSize="10"
-                                    Glyph="&#xE96E;" />
-                            </Grid>
-                            <TextBlock
-                                x:Name="ReadSubjectTextBlock"
-                                Grid.Column="1"
-                                x:Load="{x:Bind IsRead, Mode=OneWay}"
-                                Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis" />
-                            <TextBlock
-                                x:Name="UnreadSubjectTextBlock"
-                                Grid.Column="1"
-                                x:Load="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsRead), Mode=OneWay}"
-                                FontWeight="SemiBold"
-                                Foreground="{ThemeResource SystemAccentColor}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemSubjectForListing(Subject), Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis" />
-                            <TextBlock
-                                Grid.Column="2"
-                                x:Phase="2"
-                                Opacity="0.7"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind helpers:XamlHelpers.GetMailItemDisplaySummaryForListing(IsDraft, CreationDate, helpers:XamlHelpers.CurrentMailTimeFormatPreference), Mode=OneWay}" />
-                            <Ellipse
-                                Grid.Column="3"
-                                Width="6"
-                                Height="6"
-                                VerticalAlignment="Center"
-                                Fill="{ThemeResource SystemAccentColor}"
-                                IsHitTestVisible="False"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsRead), Mode=OneWay}" />
-                        </Grid>
-                        <TextBlock
-                            x:Phase="1"
-                            MaxLines="1"
-                            Opacity="0.7"
-                            Text="{x:Bind PreviewText, Mode=OneWay}"
-                            TextTrimming="CharacterEllipsis"
-                            Visibility="{x:Bind helpers:XamlHelpers.GetMailItemPreviewTextVisibility(PreviewText), Mode=OneWay}" />
-                    </StackPanel>
-                    <StackPanel
-                        Grid.Column="2"
-                        VerticalAlignment="Center"
-                        Spacing="2">
-                        <StackPanel
-                            HorizontalAlignment="Right"
-                            Orientation="Horizontal"
-                            Spacing="2">
-                            <TextBlock
-                                Margin="0,0,4,0"
-                                Opacity="0.8"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind ReadReceiptDisplayText, Mode=OneWay}"
-                                TextTrimming="CharacterEllipsis"
-                                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ReadReceiptDisplayText), Mode=OneWay}" />
-                            <ContentPresenter
-                                x:Name="AttachmentSymbolPresenter"
-                                x:Load="{x:Bind HasAttachments, Mode=OneWay}"
-                                x:Phase="1"
-                                ContentTemplate="{StaticResource AttachmentSymbolControlTemplate}" />
-                            <ContentPresenter
-                                x:Name="FlaggedSymbolPresenter"
-                                x:Load="{x:Bind IsFlagged, Mode=OneWay}"
-                                x:Phase="1"
-                                ContentTemplate="{StaticResource FlaggedSymbolControlTemplate}" />
-                            <ProgressRing
-                                x:Name="BusyProgressRing"
-                                Width="12"
-                                Height="12"
-                                x:Load="{x:Bind IsBusy, Mode=OneWay}"
-                                IsActive="{x:Bind IsBusy, Mode=OneWay}" />
-                        </StackPanel>
-                        <ItemsControl
-                            x:Name="IntelligenceTilesItemsControl"
-                            HorizontalAlignment="Right"
-                            x:Load="{x:Bind HasRowIntelligenceTiles, Mode=OneWay}"
-                            x:Phase="1"
-                            IsHitTestVisible="False"
-                            ItemTemplateSelector="{StaticResource DetailedMailRowTileTemplateSelector}"
-                            ItemsSource="{x:Bind RowIntelligenceTiles, Mode=OneWay}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <primitives:WinoWrapPanel VerticalSpacing="4" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                        </ItemsControl>
-                    </StackPanel>
+                        Margin="{x:Bind helpers:XamlHelpers.GetThreadExpanderContentMargin(Kind), Mode=OneTime}"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
                 </Grid>
-            </Grid>
-        </DataTemplate>
+            </DataTemplate>
 
-        <!--  Calendar Mail Item Template  -->
-        <DataTemplate x:Key="CalendarMailItemTemplate" x:DataType="viewModelData:MailItemViewModel">
-            <controls:CalendarMailItemDisplayInformationControl
-                x:DefaultBindMode="OneWay"
-                ContextRequested="MailItemContextRequested"
-                MailItem="{x:Bind}" />
-        </DataTemplate>
+            <DataTemplate x:Key="CompactThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <mailControls:WinoContactPicture
+                        x:Name="CompactThreadSenderPicture"
+                        Width="28"
+                        Height="28"
+                        Margin="8,0,6,0"
+                        VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                        FontSize="12"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    <ContentPresenter
+                        Grid.Column="1"
+                        Margin="16,0,0,0"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
+                </Grid>
+            </DataTemplate>
 
-        <!--
-            The list selects stable projected rows. These lightweight wrappers keep the
-            existing mail visuals bound to their original view-model types.
-        -->
-        <DataTemplate x:Key="CompactSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid
-                Margin="{x:Bind helpers:XamlHelpers.GetCompactMailListRowMargin(Kind), Mode=OneTime}"
-                Background="Transparent"
-                ContextRequested="MailItemContextRequested">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <mailControls:WinoContactPicture
-                    x:Name="CompactSenderPicture"
-                    Width="28"
-                    Height="28"
-                    Margin="8,0,6,0"
-                    VerticalAlignment="Center"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                    x:Phase="1"
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-                <ContentPresenter
-                    Grid.Column="1"
-                    Margin="{x:Bind helpers:XamlHelpers.GetThreadExpanderContentMargin(Kind), Mode=OneTime}"
-                    Content="{x:Bind SourceItem}"
-                    ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
-            </Grid>
-        </DataTemplate>
+            <DataTemplate x:Key="MediumThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <mailControls:WinoContactPicture
+                        x:Name="MediumThreadSenderPicture"
+                        Width="30"
+                        Height="30"
+                        Margin="8,0,8,0"
+                        VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                        FontSize="12"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    <ContentPresenter
+                        Grid.Column="1"
+                        Margin="16,0,0,0"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
+                </Grid>
+            </DataTemplate>
 
-        <DataTemplate x:Key="MediumSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid
-                Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}"
-                Background="Transparent"
-                ContextRequested="MailItemContextRequested">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <mailControls:WinoContactPicture
-                    x:Name="MediumSenderPicture"
-                    Width="30"
-                    Height="30"
-                    Margin="8,0,8,0"
-                    VerticalAlignment="Center"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                    x:Phase="1"
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-                <ContentPresenter
-                    Grid.Column="1"
-                    Margin="{x:Bind helpers:XamlHelpers.GetThreadExpanderContentMargin(Kind), Mode=OneTime}"
-                    Content="{x:Bind SourceItem}"
-                    ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
-            </Grid>
-        </DataTemplate>
+            <DataTemplate x:Key="SpaciousThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <mailControls:WinoContactPicture
+                        x:Name="SpaciousThreadSenderPicture"
+                        Width="36"
+                        Height="36"
+                        Margin="4,0,8,0"
+                        VerticalAlignment="Center"
+                        x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
+                        x:Phase="1"
+                        ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
+                        FontSize="12"
+                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                    <ContentPresenter
+                        Grid.Column="1"
+                        Margin="16,0,0,0"
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
+                </Grid>
+            </DataTemplate>
 
-        <DataTemplate x:Key="SpaciousSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid
-                Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}"
-                Background="Transparent"
-                ContextRequested="MailItemContextRequested">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <mailControls:WinoContactPicture
-                    x:Name="SpaciousSenderPicture"
-                    Width="36"
-                    Height="36"
-                    Margin="4,0,8,0"
-                    VerticalAlignment="Center"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                    x:Phase="1"
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-                <ContentPresenter
-                    Grid.Column="1"
-                    Margin="{x:Bind helpers:XamlHelpers.GetThreadExpanderContentMargin(Kind), Mode=OneTime}"
-                    Content="{x:Bind SourceItem}"
-                    ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
-            </Grid>
-        </DataTemplate>
+            <DataTemplate x:Key="CalendarMailRowTemplate" x:DataType="mailListCore:MailListRow">
+                <Grid Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}">
+                    <ContentPresenter Content="{x:Bind SourceItem}" ContentTemplate="{StaticResource CalendarMailItemTemplate}" />
+                </Grid>
+            </DataTemplate>
 
-        <DataTemplate x:Key="CompactThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <mailControls:WinoContactPicture
-                    x:Name="CompactThreadSenderPicture"
-                    Width="28"
-                    Height="28"
-                    Margin="8,0,6,0"
-                    VerticalAlignment="Center"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                    x:Phase="1"
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-                <ContentPresenter
-                    Grid.Column="1"
-                    Margin="16,0,0,0"
-                    Content="{x:Bind SourceItem}"
-                    ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
-            </Grid>
-        </DataTemplate>
+            <listview:WinoMailItemTemplateSelector
+                x:Key="MailItemTemplateSelector"
+                CalendarMailItemTemplate="{StaticResource CalendarMailRowTemplate}"
+                CompactSingleMailItemTemplate="{StaticResource CompactSingleMailRowTemplate}"
+                CompactThreadMailItemTemplate="{StaticResource CompactThreadMailRowTemplate}"
+                MediumSingleMailItemTemplate="{StaticResource MediumSingleMailRowTemplate}"
+                MediumThreadMailItemTemplate="{StaticResource MediumThreadMailRowTemplate}"
+                SpaciousSingleMailItemTemplate="{StaticResource SpaciousSingleMailRowTemplate}"
+                SpaciousThreadMailItemTemplate="{StaticResource SpaciousThreadMailRowTemplate}" />
 
-        <DataTemplate x:Key="MediumThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <mailControls:WinoContactPicture
-                    x:Name="MediumThreadSenderPicture"
-                    Width="30"
-                    Height="30"
-                    Margin="8,0,8,0"
-                    VerticalAlignment="Center"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                    x:Phase="1"
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-                <ContentPresenter
-                    Grid.Column="1"
-                    Margin="16,0,0,0"
-                    Content="{x:Bind SourceItem}"
-                    ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
-            </Grid>
-        </DataTemplate>
+            <CollectionViewSource x:Key="MailCollectionViewSource" IsSourceGrouped="True" />
 
-        <DataTemplate x:Key="SpaciousThreadMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid Background="Transparent" ContextRequested="MailItemContextRequested">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <mailControls:WinoContactPicture
-                    x:Name="SpaciousThreadSenderPicture"
-                    Width="36"
-                    Height="36"
-                    Margin="4,0,8,0"
-                    VerticalAlignment="Center"
-                    x:Load="{x:Bind helpers:XamlHelpers.GetMailItemSenderPictureVisibility(), Mode=OneTime}"
-                    x:Phase="1"
-                    ContactPicture="{x:Bind helpers:XamlHelpers.GetRowContactPicture(SourceItem), Mode=OneTime}"
-                    FontSize="12"
-                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-                <ContentPresenter
-                    Grid.Column="1"
-                    Margin="16,0,0,0"
-                    Content="{x:Bind SourceItem}"
-                    ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
-            </Grid>
-        </DataTemplate>
-
-        <DataTemplate x:Key="CalendarMailRowTemplate" x:DataType="mailListCore:MailListRow">
-            <Grid Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}">
-                <ContentPresenter Content="{x:Bind SourceItem}" ContentTemplate="{StaticResource CalendarMailItemTemplate}" />
-            </Grid>
-        </DataTemplate>
-
-        <listview:WinoMailItemTemplateSelector
-            x:Key="MailItemTemplateSelector"
-            CalendarMailItemTemplate="{StaticResource CalendarMailRowTemplate}"
-            CompactSingleMailItemTemplate="{StaticResource CompactSingleMailRowTemplate}"
-            CompactThreadMailItemTemplate="{StaticResource CompactThreadMailRowTemplate}"
-            MediumSingleMailItemTemplate="{StaticResource MediumSingleMailRowTemplate}"
-            MediumThreadMailItemTemplate="{StaticResource MediumThreadMailRowTemplate}"
-            SpaciousSingleMailItemTemplate="{StaticResource SpaciousSingleMailRowTemplate}"
-            SpaciousThreadMailItemTemplate="{StaticResource SpaciousThreadMailRowTemplate}" />
-
-        <CollectionViewSource x:Key="MailCollectionViewSource" IsSourceGrouped="True" />
-
-        <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="mailListCore:MailListGroup">
-            <Grid
-                Margin="0,0,0,6"
-                AllowFocusOnInteraction="False"
-                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}"
-                Background="{ThemeResource MailListHeaderBackgroundColor}"
-                CornerRadius="6">
-                <TextBlock
-                    Padding="12"
-                    VerticalAlignment="Center"
+            <DataTemplate x:Key="MailGroupHeaderDefaultTemplate" x:DataType="mailListCore:MailListGroup">
+                <Grid
+                    Margin="0,0,0,6"
                     AllowFocusOnInteraction="False"
-                    FontWeight="SemiBold"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}" />
-            </Grid>
-        </DataTemplate>
+                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}"
+                    Background="{ThemeResource MailListHeaderBackgroundColor}"
+                    CornerRadius="6">
+                    <TextBlock
+                        Padding="12"
+                        VerticalAlignment="Center"
+                        AllowFocusOnInteraction="False"
+                        FontWeight="SemiBold"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Key)}" />
+                </Grid>
+            </DataTemplate>
 
-        <DataTemplate x:Key="MailGroupHeaderEmptyTemplate" x:DataType="mailListCore:MailListGroup">
-            <Grid />
-        </DataTemplate>
+            <DataTemplate x:Key="MailGroupHeaderEmptyTemplate" x:DataType="mailListCore:MailListGroup">
+                <Grid />
+            </DataTemplate>
 
-        <DataTemplate x:Key="MailSemanticZoomGroupTemplate" x:DataType="xamlData:ICollectionViewGroup">
-            <Border
-                MinHeight="52"
-                Margin="4"
-                Padding="12"
-                AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Group)}"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="6">
-                <TextBlock
-                    VerticalAlignment="Center"
-                    FontWeight="SemiBold"
-                    Style="{StaticResource BodyStrongTextBlockStyle}"
-                    Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Group)}"
-                    TextTrimming="CharacterEllipsis" />
-            </Border>
-        </DataTemplate>
+            <DataTemplate x:Key="MailSemanticZoomGroupTemplate" x:DataType="xamlData:ICollectionViewGroup">
+                <Border
+                    MinHeight="52"
+                    Margin="4"
+                    Padding="12"
+                    AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Group)}"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                    <TextBlock
+                        VerticalAlignment="Center"
+                        FontWeight="SemiBold"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="{x:Bind helpers:XamlHelpers.GetMailGroupDateString(Group)}"
+                        TextTrimming="CharacterEllipsis" />
+                </Border>
+            </DataTemplate>
 
-        <listview:WinoMailGroupHeaderTemplateSelector
-            x:Key="MailGroupHeaderTemplateSelector"
-            DefaultHeaderTemplate="{StaticResource MailGroupHeaderDefaultTemplate}"
-            EmptyHeaderTemplate="{StaticResource MailGroupHeaderEmptyTemplate}" />
+            <listview:WinoMailGroupHeaderTemplateSelector
+                x:Key="MailGroupHeaderTemplateSelector"
+                DefaultHeaderTemplate="{StaticResource MailGroupHeaderDefaultTemplate}"
+                EmptyHeaderTemplate="{StaticResource MailGroupHeaderEmptyTemplate}" />
+        </ResourceDictionary>
     </Page.Resources>
 
     <FlyoutBase.AttachedFlyout>

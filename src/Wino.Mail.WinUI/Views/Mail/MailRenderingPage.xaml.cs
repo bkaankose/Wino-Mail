@@ -251,6 +251,10 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     public async Task PrepareForIdleAsync()
     {
+        // Clearing the renderer means this item is no longer being shown. The page stays alive for
+        // a short grace period, so a re-selection must not be suppressed as an already-loaded item.
+        _currentMailItem = null;
+
         await ClearRenderedContentAsync();
         await MailRenderer.EnterIdleAsync();
     }

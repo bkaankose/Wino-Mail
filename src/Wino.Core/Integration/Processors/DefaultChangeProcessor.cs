@@ -35,6 +35,7 @@ public interface IDefaultChangeProcessor
     Task DeleteMailsAsync(Guid accountId, IEnumerable<string> mailIds);
     Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds);
     Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId);
+    Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId, string remoteId);
     Task DeleteFolderAsync(Guid accountId, string remoteFolderId);
     Task InsertFolderAsync(MailItemFolder folder);
     Task UpdateFolderAsync(MailItemFolder folder);
@@ -42,6 +43,7 @@ public interface IDefaultChangeProcessor
     Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity);
+    Task UpdateDraftIdentityAsync(Guid accountId, Guid uniqueId, DraftUpdateIdentity identity);
     Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error);
     Task<bool> IsMailExistsAsync(Guid accountId, Guid mailUniqueId);
     Task UpdateFolderLastSyncDateAsync(Guid folderId);
@@ -283,6 +285,9 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
     public Task CreateAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments)
         => MailService.CreateAssignmentsAsync(accountId, assignments);
 
+    public Task UpdateDraftIdentityAsync(Guid accountId, Guid uniqueId, DraftUpdateIdentity identity)
+        => MailService.UpdateDraftIdentityAsync(accountId, uniqueId, identity);
+
     public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
         => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId);
 
@@ -315,6 +320,10 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId)
         => _mimeFileService.SaveMimeMessageAsync(fileId, mimeMessage, accountId);
+
+    public Task SaveMimeFileAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId, string remoteId)
+        => remoteId == null ? _mimeFileService.SaveMimeMessageAsync(fileId, mimeMessage, accountId)
+            : _mimeFileService.SaveRemoteMimeMessageAsync(fileId, mimeMessage, accountId, remoteId);
 
     public Task UpdateFolderLastSyncDateAsync(Guid folderId)
         => FolderService.UpdateFolderLastSyncDateAsync(folderId);

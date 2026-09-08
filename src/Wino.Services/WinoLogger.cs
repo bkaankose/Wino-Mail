@@ -125,6 +125,9 @@ public class WinoLogger : IWinoLogger
                     .CreateLogger();
     }
 
+    public void LogDraftUpdateFailure(System.Guid accountId, System.Guid messageId)
+        => Log.Warning("Draft update failed for account {AccountId}, message {MessageId}.", accountId, messageId);
+
     public void TrackEvent(string eventName, Dictionary<string, string> properties = null)
     {
         var telemetryContext = _telemetryContextProvider.GetCurrent();

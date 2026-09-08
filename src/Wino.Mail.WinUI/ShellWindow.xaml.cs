@@ -47,9 +47,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<WinoIntelligenceEntitlementChanged>,
     IRecipient<AccountSynchronizationProgressUpdatedMessage>
 {
-    private const int AutomaticPlacementRestorationBehaviorValue = 1;
-    private static readonly Guid ShellWindowPersistedStateId = new("6BEB6E1D-BEAF-4CE7-9967-13B2A4F46187");
-
     private bool _allowClose;
     public IStatePersistanceService StatePersistanceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception("StatePersistanceService not registered in DI container.");
     public IPreferencesService PreferencesService { get; } = WinoApplication.Current.Services.GetService<IPreferencesService>() ?? throw new Exception("PreferencesService not registered in DI container.");
@@ -88,7 +85,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         MinWidth = 420;
         MinHeight = 420;
-        ConfigureWindowPlacementPersistence();
         ConfigureTitleBar();
         UpdateShellTitles();
         UpdateWinoAccountButtonVisibility();
@@ -156,14 +152,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
                 UpdateTitleBarColors(underlyingThemeService.IsUnderlyingThemeDark());
             }
         }
-    }
-
-    private void ConfigureWindowPlacementPersistence()
-    {
-        AppWindow.PersistedStateId = ShellWindowPersistedStateId;
-#pragma warning disable CS8305 // PlacementRestorationBehavior is experimental in Windows App SDK 2.0.
-        AppWindow.PlacementRestorationBehavior = (PlacementRestorationBehavior)AutomaticPlacementRestorationBehaviorValue;
-#pragma warning restore CS8305
     }
 
     private void RegisterMouseBackButtonListener()
@@ -663,7 +651,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             if (app?.TryPrepareForBackgroundShellWindowClose(closeBehavior) != true)
                 return;
 
-            SaveWindowPlacement();
             PrepareForClose();
 
             // PrepareForClose removes this handler and permits the real close. The managed
@@ -929,8 +916,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void OnWindowClosed(object sender, WindowEventArgs e)
     {
-        SaveWindowPlacement();
-
         Closed -= OnWindowClosed;
         AppWindow.Closing -= OnAppWindowClosing;
 
@@ -939,18 +924,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             return;
 
         PrepareForClose();
-    }
-
-    private void SaveWindowPlacement()
-    {
-        try
-        {
-            AppWindow.SaveCurrentPlacement();
-        }
-        catch (Exception ex)
-        {
-            Serilog.Log.Error(ex, "Failed to save shell window placement.");
-        }
     }
 
     private async Task<bool> PrepareMailModeForCloseAsync()

@@ -32,6 +32,10 @@ public interface IMimeFileService
     /// <param name="copy">MailCopy of the native message.</param>
     /// <param name="mimeMessage">MimeMessage that is parsed from native message.</param>
     /// <param name="accountId">Which account Id to save this file for.</param>
+    Task<bool> SaveRemoteMimeMessageAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId, string remoteId);
+
+    Task<bool> SaveDraftMimeMessageAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId);
+
     Task<bool> SaveMimeMessageAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId);
 
     /// <summary>

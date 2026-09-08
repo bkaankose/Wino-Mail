@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
@@ -39,6 +39,8 @@ public class SynchronizationManagerInitializer : IInitializeAsync
             authenticationProvider,
             telemetryService,
             preferencesService,
-            draftSyncRetryService);
+            draftSyncRetryService,
+            _serviceProvider.GetRequiredService<IDraftUpdateCoordinator>(),
+            _serviceProvider.GetRequiredService<IMailService>());
     }
 }

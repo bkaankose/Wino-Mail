@@ -81,6 +81,9 @@ public interface IMailService
     /// <param name="newThreadId"></param>
     Task MapLocalDraftAsync(string newMailCopyId, string newDraftId, string newThreadId);
 
+    Task UpdateDraftIdentityAsync(Guid accountId, Guid uniqueId, DraftUpdateIdentity identity);
+    Task SaveDraftMetadataAsync(Guid accountId, MailCopy snapshot);
+
     Task UpdateMailAsync(MailCopy mailCopy);
 
     /// <summary>

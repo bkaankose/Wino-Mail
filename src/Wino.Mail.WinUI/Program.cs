@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Settings;
 using Microsoft.Windows.AppNotifications;
 using Microsoft.Windows.AppLifecycle;
 using Wino.Core.Activation;
@@ -106,6 +107,8 @@ public class Program
 
     private static void StartApplication()
     {
+        EnableAllXamlOptionalChanges();
+
         Application.Start((p) =>
         {
             var context = new DispatcherQueueSynchronizationContext(
@@ -113,6 +116,20 @@ public class Program
             SynchronizationContext.SetSynchronizationContext(context);
             _ = new App();
         });
+    }
+
+    private static void EnableAllXamlOptionalChanges()
+    {
+        foreach (var changeId in Enum.GetValues<XamlChangeId>())
+        {
+            if (changeId == XamlChangeId._Reserved)
+                continue;
+
+            if (!XamlOptionalChanges.EnableChange(changeId))
+                throw new InvalidOperationException($"Failed to enable optional XAML change '{changeId}'.");
+        }
+
+        XamlOptionalChanges.Lock();
     }
 
     private static bool IsMailHostRunning()

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,9 +20,13 @@ public class MimeFileService : IMimeFileService
     private readonly INativeAppService _nativeAppService;
     private ILogger _logger = Log.ForContext<MimeFileService>();
 
-    public MimeFileService(INativeAppService nativeAppService)
+    private readonly DraftUpdateRegistry _draftUpdates;
+    private readonly ConcurrentDictionary<(Guid, Guid), SemaphoreSlim> _writeLocks = new();
+
+    public MimeFileService(INativeAppService nativeAppService, DraftUpdateRegistry draftUpdates = null)
     {
         _nativeAppService = nativeAppService;
+        _draftUpdates = draftUpdates;
     }
 
     public async Task<MimeMessageInformation> GetMimeMessageInformationAsync(Guid fileId, Guid accountId, CancellationToken cancellationToken = default)
@@ -42,25 +47,54 @@ public class MimeFileService : IMimeFileService
         return new MimeMessageInformation(loadedMimeMessage, emlDirectoryPath);
     }
 
-    public async Task<bool> SaveMimeMessageAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId)
+    public Task<bool> SaveMimeMessageAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId)
+        => SaveMimeCoreAsync(fileId, mimeMessage, accountId, false);
+
+    public Task<bool> SaveRemoteMimeMessageAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId, string remoteId)
+        => SaveMimeCoreAsync(fileId, mimeMessage, accountId, false, remoteId);
+
+    public Task<bool> SaveDraftMimeMessageAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId)
+        => SaveMimeCoreAsync(fileId, mimeMessage, accountId, true);
+
+    private async Task<bool> SaveMimeCoreAsync(Guid fileId, MimeMessage mimeMessage, Guid accountId, bool localSave, string remoteId = null)
     {
+        var version = _draftUpdates?.FileVersion(accountId, fileId);
+        var gate = _writeLocks.GetOrAdd((accountId, fileId), _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync().ConfigureAwait(false);
+        string temporaryPath = null;
         try
         {
+            if (!localSave && (_draftUpdates?.IsFileProtected(accountId, fileId) == true ||
+                _draftUpdates?.IsStaleRemote(accountId, remoteId) == true || version != _draftUpdates?.FileVersion(accountId, fileId))) return true;
             var resourcePath = await GetMimeResourcePathAsync(accountId, fileId).ConfigureAwait(false);
             var completeFilePath = GetEMLPath(resourcePath);
+            temporaryPath = Path.Combine(resourcePath, $"{Guid.NewGuid():N}.tmp");
 
-            using var fileStream = File.Open(completeFilePath, FileMode.OpenOrCreate);
+            await using (var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                await mimeMessage.WriteToAsync(stream).ConfigureAwait(false);
+                await stream.FlushAsync().ConfigureAwait(false);
+            }
 
-            await mimeMessage.WriteToAsync(fileStream).ConfigureAwait(false);
-
+            if (!localSave && (_draftUpdates?.IsFileProtected(accountId, fileId) == true ||
+                _draftUpdates?.IsStaleRemote(accountId, remoteId) == true || version != _draftUpdates?.FileVersion(accountId, fileId))) return true;
+            File.Move(temporaryPath, completeFilePath, overwrite: true);
             return true;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            _logger.Error(ex, "Could not save mime file for FileId: {FileId}", fileId);
+            _logger.Warning("Could not save MIME for account {AccountId}, file {FileId}.", accountId, fileId);
+            return false;
         }
-
-        return false;
+        finally
+        {
+            gate.Release();
+            if (temporaryPath != null)
+            {
+                try { File.Delete(temporaryPath); }
+                catch (Exception) { /* Best-effort removal of an incomplete local write. */ }
+            }
+        }
     }
 
     private string GetEMLPath(string resourcePath) => $"{resourcePath}\\mail.eml";

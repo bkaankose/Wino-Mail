@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,6 +8,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -16,6 +17,8 @@ namespace Wino.Core.Domain.Interfaces;
 /// </summary>
 public interface ISynchronizationManager
 {
+    Task<DraftUpdateIdentity> UpdateDraftAsync(DraftUpdateSnapshot snapshot, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Initializes the SynchronizationManager with required dependencies.
     /// </summary>
@@ -26,7 +29,8 @@ public interface ISynchronizationManager
                         IAuthenticationProvider authenticationProvider,
                         IWinoTelemetryService telemetryService,
                         IPreferencesService preferencesService,
-                        IDraftSyncRetryService draftSyncRetryService);
+                        IDraftSyncRetryService draftSyncRetryService,
+                        IDraftUpdateCoordinator draftUpdateCoordinator = null, IMailService draftMailService = null);
 
     /// <summary>
     /// Tests IMAP server connectivity for the given server information.

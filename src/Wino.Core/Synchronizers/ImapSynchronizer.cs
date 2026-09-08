@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -44,7 +44,7 @@ using Wino.Mail.AI.Abstractions;
 
 namespace Wino.Core.Synchronizers.Mail;
 
-public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object, AccountContact>, IImapSynchronizer, ISemanticMailBodySynchronizer
+public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreationPackage, object, AccountContact>, IImapSynchronizer, ISemanticMailBodySynchronizer
 {
     private readonly LocalContactSynchronizer _localContactSynchronizer;
     private readonly LocalTaskSynchronizer _localTaskSynchronizer;
@@ -575,7 +575,7 @@ public class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessageCreatio
 
             var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken, transferProgress).ConfigureAwait(false);
 
-            await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id).ConfigureAwait(false);
+            await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id, mailItem.Id).ConfigureAwait(false);
             await remoteFolder.CloseAsync(false, cancellationToken).ConfigureAwait(false);
         }
         catch (FolderNotFoundException ex)

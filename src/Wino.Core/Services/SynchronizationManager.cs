@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -17,6 +17,8 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Telemetry;
 using Wino.Core.Helpers;
 using Wino.Core.Requests.Folder;
@@ -56,6 +58,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private IPreferencesService _preferencesService;
     private IDraftSyncRetryService _draftSyncRetryService;
 
+    private IDraftUpdateCoordinator _draftUpdateCoordinator;
+    private IMailService _draftMailService;
+
     private bool _isInitialized = false;
     private bool _isRegisteredForProgressMessages;
 
@@ -77,7 +82,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                      IAuthenticationProvider authenticationProvider,
                                      IWinoTelemetryService telemetryService,
                                      IPreferencesService preferencesService,
-                                     IDraftSyncRetryService draftSyncRetryService)
+                                     IDraftSyncRetryService draftSyncRetryService,
+                        IDraftUpdateCoordinator draftUpdateCoordinator = null, IMailService draftMailService = null)
     {
         await _initializationSemaphore.WaitAsync();
 
@@ -92,6 +98,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _notificationBuilder = notificationBuilder ?? throw new ArgumentNullException(nameof(notificationBuilder));
             _telemetryService = telemetryService ?? throw new ArgumentNullException(nameof(telemetryService));
             _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
+            _draftUpdateCoordinator = draftUpdateCoordinator;
+            _draftMailService = draftMailService;
             _draftSyncRetryService = draftSyncRetryService ?? throw new ArgumentNullException(nameof(draftSyncRetryService));
 
             // DO NOT create synchronizers here to avoid requiring window handles during initialization.
@@ -472,6 +480,12 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         foreach (var request in requestList)
         {
+            if (_draftUpdateCoordinator != null && request is MailRequestBase mailRequest && mailRequest.Item.IsDraft &&
+                request is SendDraftRequest or DeleteRequest or MoveRequest)
+            {
+                var current = await _draftUpdateCoordinator.StopAsync(accountId, mailRequest.Item.UniqueId).ConfigureAwait(false);
+                if (current != null) DraftUpdateIdentity.From(current).Apply(mailRequest.Item);
+            }
             synchronizer.QueueRequest(request);
         }
 
@@ -1108,6 +1122,20 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
     }
 
+    public async Task<DraftUpdateIdentity> UpdateDraftAsync(DraftUpdateSnapshot snapshot, CancellationToken cancellationToken = default)
+    {
+        EnsureInitialized();
+        var draft = await _draftMailService.GetSingleMailItemAsync(snapshot.UniqueId).ConfigureAwait(false);
+        if (draft?.AssignedAccount?.Id != snapshot.AccountId || !draft.IsDraft || draft.IsLocalDraft)
+            return null;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var synchronizer = _synchronizerCache.TryGetValue(snapshot.AccountId, out var existing)
+            ? existing : await GetOrCreateSynchronizerAsync(snapshot.AccountId).ConfigureAwait(false);
+        if (synchronizer == null) throw new InvalidOperationException("Draft account is unavailable.");
+        return await synchronizer.UpdateDraftAsync(snapshot, draft, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Downloads a MIME message for the given mail item.
     /// </summary>
@@ -1264,6 +1292,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task DestroySynchronizerAsync(Guid accountId)
     {
         EnsureInitialized();
+        if (_draftUpdateCoordinator != null) await _draftUpdateCoordinator.StopAccountAsync(accountId).ConfigureAwait(false);
         await CancelSynchronizationsAsync(accountId);
 
         if (_synchronizerCache.TryRemove(accountId, out var synchronizer))

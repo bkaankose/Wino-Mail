@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
@@ -89,6 +89,26 @@ namespace Google.Apis.Gmail.v1
             public ListRequest List(string userId) => new(_httpClient, _service, userId);
 
             public SendRequest Send(Draft body, string userId) => new(_httpClient, _service, body, userId);
+
+            public UpdateRequest Update(Draft body, string userId, string draftId) => new(_httpClient, _service, body, userId, draftId);
+            public GetRequest Get(string userId, string draftId) => new(_httpClient, _service, userId, draftId);
+
+            public sealed class UpdateRequest : GoogleApiRequest<Draft>
+            {
+                internal UpdateRequest(HttpClient client, object service, Draft body, string userId, string draftId)
+                    : base(client, service, HttpMethod.Put,
+                        () => $"{BaseUri}/{GoogleUrl.Segment(userId)}/drafts/{GoogleUrl.Segment(draftId)}",
+                        GoogleApiJsonContext.Default.Draft,
+                        () => GoogleJsonContent.Create(body, GoogleApiJsonContext.Default.Draft)) { }
+            }
+
+            public sealed class GetRequest : GoogleApiRequest<Draft>
+            {
+                internal GetRequest(HttpClient client, object service, string userId, string draftId)
+                    : base(client, service, HttpMethod.Get,
+                        () => $"{BaseUri}/{GoogleUrl.Segment(userId)}/drafts/{GoogleUrl.Segment(draftId)}?format=minimal",
+                        GoogleApiJsonContext.Default.Draft) { }
+            }
 
             public sealed class CreateRequest : GoogleApiRequest<Draft>
             {

@@ -1,4 +1,4 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Mail.AI.Abstractions;
@@ -13,6 +13,7 @@ public static class ServicesContainerSetup
 {
     public static void RegisterSharedServices(this IServiceCollection services)
     {
+        services.AddSingleton<Wino.Core.Domain.Models.MailItem.DraftUpdateRegistry>();
         services.AddSingleton<IMessenger>(WeakReferenceMessenger.Default);
         services.AddSingleton<ITranslationService, TranslationService>();
         services.AddSingleton<IMailContentProjector, MailContentProjector>();

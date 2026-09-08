@@ -29,6 +29,8 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
 
     Task<TaskSynchronizationResult> SynchronizeTasksAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default);
 
+    Task<DraftUpdateIdentity> UpdateDraftAsync(DraftUpdateSnapshot snapshot, MailCopy draft, CancellationToken cancellationToken = default);
+
     /// <summary>
     /// Downloads a single MIME message from the server and saves it to disk.
     /// </summary>

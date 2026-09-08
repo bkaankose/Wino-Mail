@@ -79,7 +79,7 @@ public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 /// - CreateMailCopyFromMessageAsync: Creates MailCopy from Message metadata
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
-public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event, Contact>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
+public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event, Contact>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
 {
     private const string WinoTaskExtensionName = "com.winomail.taskIdentity";
     private const string WinoTaskLocalIdProperty = "localTaskId";
@@ -3173,7 +3173,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         // Graph API ignores the From header in direct MIME uploads, so we must convert
         // to a JSON Message object to properly support sending from aliases.
         var conversationId = sendDraftPreparationRequest.MailItem.ThreadId;
-        var outlookMessage = mimeMessage.AsOutlookMessage(false, conversationId);
+        var outlookMessage = CreateDraftPatch(mimeMessage);
 
         var patchDraftRequest = _graphClient.Me.Messages[mailCopyId].ToPatchRequestInformation(outlookMessage);
         var patchDraftBundle = new HttpRequestBundle<RequestInformation>(patchDraftRequest, request, request);
@@ -3186,57 +3186,8 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         return [patchDraftBundle, sendBundle];
     }
 
-    private async Task UploadDraftAttachmentsAsync(SendDraftRequest sendDraftRequest, CancellationToken cancellationToken)
-    {
-        var mailCopyId = sendDraftRequest.Request.MailItem.Id;
-        var attachments = sendDraftRequest.Request.Mime.ExtractAttachments();
-
-        if (!attachments.Any())
-        {
-            return;
-        }
-
-        foreach (var attachment in attachments)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var contentBytes = attachment.ContentBytes ?? [];
-            if (contentBytes.Length <= SimpleAttachmentUploadLimitBytes)
-            {
-                await _graphClient.Me.Messages[mailCopyId].Attachments.PostAsync(attachment, cancellationToken: cancellationToken).ConfigureAwait(false);
-                continue;
-            }
-
-            if (contentBytes.Length > MaximumUploadSessionAttachmentSizeBytes)
-            {
-                var attachmentSizeMb = contentBytes.LongLength / (1024d * 1024d);
-                var maximumSizeMb = MaximumUploadSessionAttachmentSizeBytes / (1024d * 1024d);
-
-                throw new InvalidOperationException(
-                    $"Attachment '{attachment.Name}' is {attachmentSizeMb:F1} MB, which exceeds Outlook's upload limit of {maximumSizeMb:F0} MB per attachment.");
-            }
-
-            var sessionBody = new Microsoft.Graph.Me.Messages.Item.Attachments.CreateUploadSession.CreateUploadSessionPostRequestBody
-            {
-                AttachmentItem = new AttachmentItem
-                {
-                    AttachmentType = AttachmentType.File,
-                    ContentType = attachment.ContentType,
-                    Name = attachment.Name,
-                    Size = contentBytes.LongLength
-                }
-            };
-
-            var uploadSession = await _graphClient.Me.Messages[mailCopyId].Attachments.CreateUploadSession.PostAsync(sessionBody, cancellationToken: cancellationToken).ConfigureAwait(false);
-
-            if (uploadSession?.UploadUrl == null)
-            {
-                throw new InvalidOperationException($"Failed to create upload session for attachment '{attachment.Name}'.");
-            }
-
-            await UploadAttachmentInChunksAsync(uploadSession.UploadUrl, contentBytes, cancellationToken).ConfigureAwait(false);
-        }
-    }
+    private Task UploadDraftAttachmentsAsync(SendDraftRequest request, CancellationToken cancellationToken)
+        => ReconcileDraftAttachmentsAsync(request.Request.MailItem.Id, request.Request.Mime, cancellationToken);
 
     private static async Task UploadAttachmentInChunksAsync(string uploadUrl, byte[] content, CancellationToken cancellationToken)
     {
@@ -3264,8 +3215,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
             // Upload session returns either 202 (continue) or 201/200 (completed).
             if (!response.IsSuccessStatusCode)
             {
-                var responseContent = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                throw new InvalidOperationException($"Attachment chunk upload failed with status {(int)response.StatusCode}: {responseContent}");
+                throw new InvalidOperationException($"Attachment chunk upload failed with status {(int)response.StatusCode}.");
             }
 
             offset += chunkLength;
@@ -3399,7 +3349,7 @@ public class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message,
         try
         {
             var mimeMessage = await DownloadMimeMessageAsync(mailItem.Id, cancellationToken).ConfigureAwait(false);
-            await _outlookChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+            await _outlookChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id, mailItem.Id).ConfigureAwait(false);
         }
         catch (ODataError ex) when (ex.ResponseStatusCode == 404)
         {
