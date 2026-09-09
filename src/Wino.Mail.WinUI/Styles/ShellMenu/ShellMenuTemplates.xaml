@@ -1156,6 +1156,17 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
+    <DataTemplate x:Key="SettingsShellPathIconItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
+        <coreControls:WinoNavigationViewItem
+            AutomationProperties.AutomationId="SettingsShellPathIconNavigationViewItem"
+            Content="{x:Bind Title}"
+            DataContext="{x:Bind}">
+            <muxc:NavigationViewItem.Icon>
+                <PathIcon Data="{x:Bind helpers:XamlHelpers.GetGeometryFromPathMarkup(IconPathData), Mode=OneTime}" />
+            </muxc:NavigationViewItem.Icon>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
     <DataTemplate x:Key="SettingsShellWinoAccountItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
         <coreControls:WinoNavigationViewItem
             AutomationProperties.AutomationId="DataTemplatesWinoNavigationViewItem4"

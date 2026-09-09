@@ -131,6 +131,14 @@ Reuse existing Wino resources and styles where applicable:
 
 The selected backdrop is decorative. The content layer, selected state, focus visual, and readable text must remain clear independently of it.
 
+### Calendar event display
+
+- Offer the calendar-wide **Overlapping events** choice at the top of Calendar Rendering settings. Use a SettingsCard with a labeled ComboBox containing **Stacked** and **Overlapped**.
+- Default to Stacked, preserving side-by-side timed events. Overlapped applies only to Day, Week, and Work Week timed events; month and all-day layouts stay unchanged.
+- Cascade later events in front of earlier events toward a shared right edge. For matching start times, place longer events first, then use event ID for stable ordering.
+- Indent each active overlap depth by 24 epx, reducing the indent per connected group when needed to preserve at least 60% of the usable day width for the deepest event. Touching end/start times do not overlap.
+- Give overlapped cards an opaque backing and a themed outline. Preserve event commands, exposed hit targets, and focus behavior in Light, Dark, and High Contrast.
+
 ## 7. Navigation
 
 - Keep folder and account navigation structural and stable.

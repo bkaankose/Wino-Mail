@@ -580,8 +580,11 @@ public class FolderService : BaseDatabaseService, IFolderService
         var favoriteCategories = await GetFavoriteCategoryMenuItemsAsync(mailAccount, folders, accountMenuItem).ConfigureAwait(false);
         preparedFolderMenuItems.AddRange(favoriteCategories);
 
-        // Only add category folder if it's Gmail.
-        if (mailAccount.ProviderType == MailProviderType.Gmail) preparedFolderMenuItems.Add(categoryFolderMenuItem);
+        // An empty Categories item is a dead end after the user hides every Gmail category.
+        if (mailAccount.ProviderType == MailProviderType.Gmail && categoryFolderMenuItem.SubMenuItems.Any())
+        {
+            preparedFolderMenuItems.Add(categoryFolderMenuItem);
+        }
 
         // Only add More folder if there are any items in it.
         if (moreFolderMenuItem.SubMenuItems.Any()) preparedFolderMenuItems.Add(moreFolderMenuItem);

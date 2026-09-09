@@ -45,8 +45,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private readonly int _maximumEncryptedAttempts;
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromMinutes(10);
 
-    // private const string ApiUrl = "https://localhost:7204/";
-    private const string ApiUrl = "https://api.winomail.app/";
+    private const string ApiUrl = "https://localhost:7204/";
+    // private const string ApiUrl = "https://api.winomail.app/";
 
     public WinoAccountApiClient(
         IDatabaseService databaseService,

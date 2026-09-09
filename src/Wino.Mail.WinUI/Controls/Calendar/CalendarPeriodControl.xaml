@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <UserControl
     x:Class="Wino.Calendar.Controls.CalendarPeriodControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
@@ -19,6 +19,15 @@
 
         <DataTemplate x:Key="CalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
             <local:CalendarItemControl CalendarItem="{x:Bind}" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="OverlappedCalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
+            <local:CalendarItemControl
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CalendarItem="{x:Bind}"
+                CornerRadius="4" />
         </DataTemplate>
 
         <DataTemplate x:Key="MonthEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
@@ -78,7 +87,10 @@
                 Height="44"
                 Margin="64,0,0,0"
                 Background="{ThemeResource LayerFillColorDefaultBrush}">
-                <win2d:CanvasControl x:Name="TimedHeaderCanvas" Draw="TimedHeaderCanvasDraw" IsHitTestVisible="False" />
+                <win2d:CanvasControl
+                    x:Name="TimedHeaderCanvas"
+                    Draw="TimedHeaderCanvasDraw"
+                    IsHitTestVisible="False" />
                 <ItemsControl
                     x:Name="TimedHeadersItemsControl"
                     HorizontalContentAlignment="Stretch"
@@ -104,16 +116,19 @@
                 x:Name="TimedAllDayHost"
                 Grid.Row="1"
                 Grid.Column="1"
+                Height="{x:Bind TimedAllDayHeight, Mode=OneWay}"
                 AllowDrop="True"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
                 DragLeave="CalendarDropTargetDragLeave"
                 DragOver="TimedAllDayHostDragOver"
                 Drop="TimedAllDayHostDrop"
-                Height="{x:Bind TimedAllDayHeight, Mode=OneWay}"
-                Background="{ThemeResource LayerFillColorDefaultBrush}"
                 PointerExited="CalendarDropTargetPointerExited"
                 PointerMoved="TimedAllDayHostPointerMoved"
                 Visibility="{x:Bind HasTimedAllDayItems, Mode=OneWay}">
-                <win2d:CanvasControl x:Name="TimedAllDayCanvas" Draw="TimedAllDayCanvasDraw" IsHitTestVisible="False" />
+                <win2d:CanvasControl
+                    x:Name="TimedAllDayCanvas"
+                    Draw="TimedAllDayCanvasDraw"
+                    IsHitTestVisible="False" />
                 <Canvas x:Name="TimedAllDayItemsCanvas" />
             </Grid>
 
@@ -141,14 +156,17 @@
                         <Grid
                             x:Name="TimedViewport"
                             Grid.Column="1"
+                            Height="{x:Bind TimelineHeight, Mode=OneWay}"
                             AllowDrop="True"
                             DragLeave="CalendarDropTargetDragLeave"
                             DragOver="TimedViewportDragOver"
                             Drop="TimedViewportDrop"
-                            Height="{x:Bind TimelineHeight, Mode=OneWay}"
                             PointerExited="CalendarDropTargetPointerExited"
                             PointerMoved="TimedViewportPointerMoved">
-                            <win2d:CanvasControl x:Name="TimedStructureCanvas" Draw="TimedStructureCanvasDraw" IsHitTestVisible="False" />
+                            <win2d:CanvasControl
+                                x:Name="TimedStructureCanvas"
+                                Draw="TimedStructureCanvasDraw"
+                                IsHitTestVisible="False" />
                             <Border
                                 x:Name="TimedInteractionLayer"
                                 Background="Transparent"
@@ -182,15 +200,18 @@
             <Grid
                 x:Name="MonthViewport"
                 Grid.Row="1"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch"
                 AllowDrop="True"
                 DragLeave="CalendarDropTargetDragLeave"
                 DragOver="MonthViewportDragOver"
                 Drop="MonthViewportDrop"
-                HorizontalAlignment="Stretch"
                 PointerExited="CalendarDropTargetPointerExited"
-                PointerMoved="MonthViewportPointerMoved"
-                VerticalAlignment="Stretch">
-                <win2d:CanvasControl x:Name="MonthStructureCanvas" Draw="MonthStructureCanvasDraw" IsHitTestVisible="False" />
+                PointerMoved="MonthViewportPointerMoved">
+                <win2d:CanvasControl
+                    x:Name="MonthStructureCanvas"
+                    Draw="MonthStructureCanvasDraw"
+                    IsHitTestVisible="False" />
                 <Border
                     x:Name="MonthInteractionLayer"
                     Background="Transparent"

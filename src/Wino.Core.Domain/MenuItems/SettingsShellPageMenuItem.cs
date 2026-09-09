@@ -7,7 +7,8 @@ public partial class SettingsShellPageMenuItem(
     WinoPage pageType,
     string title,
     string description,
-    string glyph) : MenuItemBase
+    string glyph,
+    string iconPathData = "") : MenuItemBase
 {
     public WinoPage PageType { get; } = pageType;
 
@@ -19,4 +20,8 @@ public partial class SettingsShellPageMenuItem(
 
     [ObservableProperty]
     public partial string Glyph { get; set; } = glyph;
+
+    public string IconPathData { get; } = iconPathData;
+
+    public bool HasIconPathData => !string.IsNullOrWhiteSpace(IconPathData);
 }

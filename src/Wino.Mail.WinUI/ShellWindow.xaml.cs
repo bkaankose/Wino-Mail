@@ -10,7 +10,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Hosting;
-using Windows.UI;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -374,34 +373,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private void UpdateTitleBarColors(bool isDarkTheme)
     {
         DispatcherQueue.TryEnqueue(() =>
-        {
-            var titleBar = AppWindow.TitleBar;
-            if (titleBar == null) return;
-
-            // Set button colors based on theme
-            // Background is always transparent for all buttons
-            titleBar.ButtonBackgroundColor = Color.FromArgb(0, 0, 0, 0); // Transparent
-            titleBar.ButtonInactiveBackgroundColor = Color.FromArgb(0, 0, 0, 0); // Transparent
-            titleBar.ButtonHoverBackgroundColor = Color.FromArgb(0, 0, 0, 0); // Transparent
-            titleBar.ButtonPressedBackgroundColor = Color.FromArgb(0, 0, 0, 0); // Transparent
-
-            if (isDarkTheme)
-            {
-                // Dark theme: use light text/icons for better contrast
-                titleBar.ButtonForegroundColor = Color.FromArgb(255, 255, 255, 255); // White
-                titleBar.ButtonInactiveForegroundColor = Color.FromArgb(128, 255, 255, 255); // Semi-transparent white
-                titleBar.ButtonHoverForegroundColor = Color.FromArgb(255, 255, 255, 255); // White
-                titleBar.ButtonPressedForegroundColor = Color.FromArgb(200, 255, 255, 255); // Slightly dimmed white
-            }
-            else
-            {
-                // Light theme: use dark text/icons for better contrast
-                titleBar.ButtonForegroundColor = Color.FromArgb(255, 0, 0, 0); // Black
-                titleBar.ButtonInactiveForegroundColor = Color.FromArgb(128, 0, 0, 0); // Semi-transparent black
-                titleBar.ButtonHoverForegroundColor = Color.FromArgb(255, 0, 0, 0); // Black
-                titleBar.ButtonPressedForegroundColor = Color.FromArgb(200, 0, 0, 0); // Slightly dimmed black
-            }
-        });
+            SystemCaptionButtonColorHelper.Apply(AppWindow.TitleBar, isDarkTheme));
     }
 
     private void ApplyTitleBarSearchHost()

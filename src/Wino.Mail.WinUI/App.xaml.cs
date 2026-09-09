@@ -82,6 +82,7 @@ public partial class App : WinoApplication,
     private int _initialNotificationActivationHandled;
     private int _initialShareActivationHandled;
     private CancellationTokenSource? _autoSynchronizationLoopCts;
+    private CancellationTokenSource? _calendarAutoSynchronizationLoopCts;
     private readonly SemaphoreSlim _autoSynchronizationSemaphore = new(1, 1);
     private readonly SemaphoreSlim _activationInfrastructureSemaphore = new(1, 1);
     private readonly SemaphoreSlim _appHostInfrastructureSemaphore = new(1, 1);
@@ -695,7 +696,7 @@ public partial class App : WinoApplication,
 
             if (_hasConfiguredAccounts)
             {
-                RestartAutoSynchronizationLoop();
+                RestartAutoSynchronizationLoops();
             }
 
             _appHostInfrastructureInitialized = true;
@@ -1817,7 +1818,7 @@ public partial class App : WinoApplication,
 
             await SynchronizeCreatedAccountAsync(message.Account);
 
-            RestartAutoSynchronizationLoop();
+            RestartAutoSynchronizationLoops();
         });
     }
 
@@ -1825,7 +1826,7 @@ public partial class App : WinoApplication,
         Wino.Core.Domain.Entities.Shared.MailAccount account)
     {
         await SynchronizeCreatedAccountAsync(account).ConfigureAwait(false);
-        EnsureAutoSynchronizationLoop();
+        EnsureAutoSynchronizationLoops();
     }
 
     private async Task SynchronizeCreatedAccountAsync(Wino.Core.Domain.Entities.Shared.MailAccount account)
@@ -1867,12 +1868,13 @@ public partial class App : WinoApplication,
         }
     }
 
-    private void EnsureAutoSynchronizationLoop()
+    private void EnsureAutoSynchronizationLoops()
     {
-        if (_autoSynchronizationLoopCts != null)
-            return;
+        if (_autoSynchronizationLoopCts == null)
+            RestartAutoSynchronizationLoop();
 
-        RestartAutoSynchronizationLoop();
+        if (_calendarAutoSynchronizationLoopCts == null)
+            RestartCalendarAutoSynchronizationLoop();
     }
 
     public void Receive(WelcomeImportCompletedMessage message)
@@ -1905,7 +1907,7 @@ public partial class App : WinoApplication,
 
             CloseWelcomeWindowIfPresent();
 
-            RestartAutoSynchronizationLoop();
+            RestartAutoSynchronizationLoops();
             await UpdateJumpListOptionsSafeAsync();
 
             Services.GetRequiredService<IMailDialogService>().InfoBarMessage(
@@ -1936,7 +1938,7 @@ public partial class App : WinoApplication,
             return;
 
         Services.GetRequiredService<WelcomeWizardContext>().Reset();
-        StopAutoSynchronizationLoop();
+        StopAutoSynchronizationLoops();
         UpdateTrayIconState(allowCreation: false);
 
         // Keep an active XAML window throughout the shell-to-welcome handoff. Closing
@@ -2090,6 +2092,12 @@ public partial class App : WinoApplication,
             return;
         }
 
+        if (propertyName == nameof(IPreferencesService.CalendarSyncIntervalMinutes))
+        {
+            RestartCalendarAutoSynchronizationLoop();
+            return;
+        }
+
         if (propertyName is nameof(IPreferencesService.AppCloseBehavior) or nameof(IPreferencesService.IsSystemTrayIconEnabled))
         {
             UpdateTrayIconState(allowCreation: true);
@@ -2110,6 +2118,26 @@ public partial class App : WinoApplication,
         LogActivation($"Automatic sync loop started. Interval: {intervalMinutes} minute(s).");
     }
 
+    private void RestartCalendarAutoSynchronizationLoop()
+    {
+        if (_preferencesService == null)
+            return;
+
+        StopCalendarAutoSynchronizationLoop();
+
+        int intervalMinutes = Math.Max(1, _preferencesService.CalendarSyncIntervalMinutes);
+        _calendarAutoSynchronizationLoopCts = new CancellationTokenSource();
+
+        _ = RunCalendarAutoSynchronizationLoopAsync(TimeSpan.FromMinutes(intervalMinutes), _calendarAutoSynchronizationLoopCts.Token);
+        LogActivation($"Automatic calendar sync loop started. Interval: {intervalMinutes} minute(s).");
+    }
+
+    private void RestartAutoSynchronizationLoops()
+    {
+        RestartAutoSynchronizationLoop();
+        RestartCalendarAutoSynchronizationLoop();
+    }
+
     private void StopAutoSynchronizationLoop()
     {
         if (_autoSynchronizationLoopCts == null)
@@ -2118,6 +2146,22 @@ public partial class App : WinoApplication,
         _autoSynchronizationLoopCts.Cancel();
         _autoSynchronizationLoopCts.Dispose();
         _autoSynchronizationLoopCts = null;
+    }
+
+    private void StopCalendarAutoSynchronizationLoop()
+    {
+        if (_calendarAutoSynchronizationLoopCts == null)
+            return;
+
+        _calendarAutoSynchronizationLoopCts.Cancel();
+        _calendarAutoSynchronizationLoopCts.Dispose();
+        _calendarAutoSynchronizationLoopCts = null;
+    }
+
+    private void StopAutoSynchronizationLoops()
+    {
+        StopAutoSynchronizationLoop();
+        StopCalendarAutoSynchronizationLoop();
     }
 
     private async Task LoadInitialWinoAccountAsync()
@@ -2151,6 +2195,29 @@ public partial class App : WinoApplication,
         catch (Exception ex)
         {
             LogActivation($"Automatic sync loop failed: {ex.Message}");
+        }
+    }
+
+    private async Task RunCalendarAutoSynchronizationLoopAsync(TimeSpan interval, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ExecuteCalendarAutoSynchronizationAsync(cancellationToken);
+
+            using var timer = new PeriodicTimer(interval);
+
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await ExecuteCalendarAutoSynchronizationAsync(cancellationToken);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // no-op
+        }
+        catch (Exception ex)
+        {
+            LogActivation($"Automatic calendar sync loop failed: {ex.Message}");
         }
     }
 
@@ -2189,6 +2256,48 @@ public partial class App : WinoApplication,
         }
     }
 
+    private async Task ExecuteCalendarAutoSynchronizationAsync(CancellationToken cancellationToken)
+    {
+        if (_synchronizationManager == null || _accountService == null)
+            return;
+
+        await _autoSynchronizationSemaphore.WaitAsync(cancellationToken);
+
+        try
+        {
+            var accounts = await _accountService.GetAccountsAsync();
+            var synchronizationTasks = accounts
+                .Where(account => account.IsCalendarAccessGranted)
+                .Select(account => ExecuteCalendarAutoSynchronizationForAccountAsync(account, cancellationToken))
+                .ToList();
+
+            await Task.WhenAll(synchronizationTasks);
+        }
+        finally
+        {
+            _autoSynchronizationSemaphore.Release();
+        }
+    }
+
+    private async Task ExecuteCalendarAutoSynchronizationForAccountAsync(
+        Wino.Core.Domain.Entities.Shared.MailAccount account,
+        CancellationToken cancellationToken)
+    {
+        if (_synchronizationManager == null)
+            return;
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (_synchronizationManager.IsAccountSynchronizing(account.Id))
+            return;
+
+        await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = CalendarSynchronizationType.CalendarMetadata
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
     private async Task ExecuteAutoSynchronizationForAccountAsync(Wino.Core.Domain.Entities.Shared.MailAccount account, CancellationToken cancellationToken)
     {
         if (_synchronizationManager == null)
@@ -2218,17 +2327,7 @@ public partial class App : WinoApplication,
         }
 
         if (!account.IsMailAccessGranted)
-        {
-            if (account.IsCalendarAccessGranted)
-            {
-                await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
-                {
-                    AccountId = account.Id,
-                    Type = CalendarSynchronizationType.CalendarMetadata
-                }, cancellationToken).ConfigureAwait(false);
-            }
             return;
-        }
 
         var inboxSyncOptions = new MailSynchronizationOptions
         {
@@ -2257,16 +2356,6 @@ public partial class App : WinoApplication,
             }
         }
 
-        if (!account.IsCalendarAccessGranted)
-            return;
-
-        var calendarOptions = new CalendarSynchronizationOptions
-        {
-            AccountId = account.Id,
-            Type = CalendarSynchronizationType.CalendarMetadata
-        };
-
-        await _synchronizationManager.SynchronizeCalendarAsync(calendarOptions, cancellationToken);
     }
 
     private async Task ClearInvalidCredentialAttentionIfNeededAsync(Guid accountId)

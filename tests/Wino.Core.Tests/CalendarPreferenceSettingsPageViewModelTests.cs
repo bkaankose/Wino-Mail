@@ -78,6 +78,27 @@ public sealed class CalendarPreferenceSettingsPageViewModelTests
         preferences.Object.CalendarStartupAccountId.Should().BeNull();
     }
 
+    [Fact]
+    public async Task CalendarSyncInterval_InitializesFromAndWritesPreference()
+    {
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
+        var preferences = CreatePreferences(grouped: true, startupAccountId: null);
+        preferences.Object.CalendarSyncIntervalMinutes = 5;
+
+        var viewModel = new CalendarPreferenceSettingsPageViewModel(
+            preferences.Object,
+            Mock.Of<ICalendarService>(),
+            accountService.Object);
+        await viewModel.InitializationTask;
+
+        viewModel.CalendarSyncIntervalMinutes.Should().Be(5);
+
+        viewModel.CalendarSyncIntervalMinutes = 10;
+
+        preferences.Object.CalendarSyncIntervalMinutes.Should().Be(10);
+    }
+
     private static Mock<IPreferencesService> CreatePreferences(bool grouped, Guid? startupAccountId)
     {
         var preferences = new Mock<IPreferencesService>();
@@ -85,6 +106,7 @@ public sealed class CalendarPreferenceSettingsPageViewModelTests
         preferences.SetupProperty(service => service.CalendarStartupAccountId, startupAccountId);
         preferences.SetupProperty(service => service.NewEventButtonBehavior, NewEventButtonBehavior.AskEachTime);
         preferences.SetupProperty(service => service.DefaultNewEventCalendarId, null);
+        preferences.SetupProperty(service => service.CalendarSyncIntervalMinutes, 5);
         return preferences;
     }
 

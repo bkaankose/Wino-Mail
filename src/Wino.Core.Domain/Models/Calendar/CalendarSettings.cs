@@ -15,7 +15,8 @@ public record CalendarSettings(DayOfWeek FirstDayOfWeek,
                                double HourHeight,
                                DayHeaderDisplayType DayHeaderDisplayType,
                                CultureInfo CultureInfo,
-                               string TimedDayHeaderDateFormat = "ddd dd")
+                               string TimedDayHeaderDateFormat = "ddd dd",
+                               CalendarEventDisplayMode EventDisplayMode = CalendarEventDisplayMode.Stacked)
 {
     public int WorkWeekDayCount
     {

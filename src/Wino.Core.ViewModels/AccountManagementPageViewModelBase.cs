@@ -22,11 +22,12 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     public ObservableCollection<IAccountProviderDetailViewModel> StartupAccounts { get; } = [];
 
     public bool IsPurchasePanelVisible => !HasUnlimitedAccountProduct;
-    public bool IsAccountCreationAlmostOnLimit => Accounts != null && Accounts.Count == FREE_ACCOUNT_COUNT - 1;
+    public int UsedAccountCount => Accounts?.Sum(account => account.HoldingAccountCount) ?? 0;
+    public bool IsAccountCreationAlmostOnLimit => UsedAccountCount == FREE_ACCOUNT_COUNT - 1;
     public bool HasAccountsDefined => Accounts != null && Accounts.Any();
     public bool CanReorderAccounts => Accounts?.Sum(a => a.HoldingAccountCount) > 1;
 
-    public string UsedAccountsString => string.Format(Translator.WinoUpgradeRemainingAccountsMessage, Accounts.Count, FREE_ACCOUNT_COUNT);
+    public string UsedAccountsString => string.Format(Translator.WinoUpgradeRemainingAccountsMessage, UsedAccountCount, FREE_ACCOUNT_COUNT);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsPurchasePanelVisible))]
@@ -126,7 +127,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         await ExecuteUIThread(() =>
         {
             HasUnlimitedAccountProduct = hasUnlimitedAccountProduct;
-            IsAccountCreationBlocked = !hasUnlimitedAccountProduct && Accounts.Count >= FREE_ACCOUNT_COUNT;
+            IsAccountCreationBlocked = !hasUnlimitedAccountProduct && UsedAccountCount >= FREE_ACCOUNT_COUNT;
         });
     }
 
@@ -157,6 +158,9 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     private void AccountsChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
         OnPropertyChanged(nameof(HasAccountsDefined));
+        OnPropertyChanged(nameof(UsedAccountCount));
+        OnPropertyChanged(nameof(UsedAccountsString));
+        OnPropertyChanged(nameof(IsAccountCreationAlmostOnLimit));
         RefreshStartupAccounts();
         RestoreStartupAccountSelection();
     }

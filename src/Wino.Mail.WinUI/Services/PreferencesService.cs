@@ -388,6 +388,16 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SaveProperty(propertyName: nameof(FirstDayOfWeek), value);
     }
 
+    public CalendarEventDisplayMode CalendarEventDisplayMode
+    {
+        get
+        {
+            var value = _configurationService.Get(nameof(CalendarEventDisplayMode), CalendarEventDisplayMode.Stacked);
+            return Enum.IsDefined(value) ? value : CalendarEventDisplayMode.Stacked;
+        }
+        set => SetPropertyAndSave(nameof(CalendarEventDisplayMode), Enum.IsDefined(value) ? value : CalendarEventDisplayMode.Stacked);
+    }
+
     public double HourHeight
     {
         get => _configurationService.Get(nameof(HourHeight), 60.0);
@@ -568,6 +578,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsCalendarDatePickerExpanded), value);
     }
 
+    public int CalendarSyncIntervalMinutes
+    {
+        get => _configurationService.Get(nameof(CalendarSyncIntervalMinutes), 5);
+        set => SetPropertyAndSave(nameof(CalendarSyncIntervalMinutes), Math.Max(1, value));
+    }
+
     public int EmailSyncIntervalMinutes
     {
         get => _configurationService.Get(nameof(EmailSyncIntervalMinutes), 3);
@@ -688,7 +704,8 @@ public partial class PreferencesService(IConfigurationService configurationServi
                                     HourHeight,
                                     DateTimeDisplayFormatter.GetTimeDisplayType(CalendarTimeFormatPreference, GetCurrentLanguageCulture()),
                                     GetCurrentLanguageCulture(),
-                                    CalendarTimedDayHeaderDateFormat);
+                                    CalendarTimedDayHeaderDateFormat,
+                                    CalendarEventDisplayMode);
     }
 
     private CultureInfo GetCurrentLanguageCulture()

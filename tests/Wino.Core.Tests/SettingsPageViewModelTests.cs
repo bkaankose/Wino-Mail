@@ -40,6 +40,27 @@ public class SettingsPageViewModelTests
     }
 
     [Fact]
+    public void SettingsMenu_CalendarGroupStartsWithPreferencesAndUsesRenderingPathIcon()
+    {
+        var service = EntitlementService(Entitlement(WinoIntelligenceEntitlementState.Active));
+        var provider = new SettingsMenuProvider(Mock.Of<INavigationService>(), service.Object)
+        {
+            Dispatcher = new ImmediateDispatcher(),
+        };
+
+        var calendarGroup = provider.ShellMenu.Items
+            .OfType<SettingsShellGroupMenuItem>()
+            .Single(group => group.Title == Translator.SettingsOptions_CalendarSection);
+
+        calendarGroup.SubMenuItems.Select(item => item.PageType).Should().Equal(
+            WinoPage.CalendarPreferenceSettingsPage,
+            WinoPage.CalendarRenderingSettingsPage,
+            WinoPage.CalendarNotificationSettingsPage);
+        calendarGroup.SubMenuItems[1].HasIconPathData.Should().BeTrue();
+        calendarGroup.SubMenuItems[1].IconPathData.Should().StartWith("F1 M 15.078125 1.25");
+    }
+
+    [Fact]
     public async Task SearchSettingsAsync_HidesIntelligenceRoutesWhenAccessIsDenied()
     {
         var accountService = new Mock<IAccountService>();

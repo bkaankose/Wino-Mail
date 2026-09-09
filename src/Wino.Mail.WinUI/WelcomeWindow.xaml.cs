@@ -43,8 +43,13 @@ public sealed partial class WelcomeWindow : WindowEx, IWinoFrameProvider
 
         this.CenterOnScreen();
 
-        var themeService = WinoApplication.Current.Services.GetService<INewThemeService>();
-        themeService?.UpdateSystemCaptionButtonColors();
+        var underlyingThemeService = WinoApplication.Current.Services.GetService<IUnderlyingThemeService>();
+        if (underlyingThemeService != null)
+        {
+            SystemCaptionButtonColorHelper.Apply(
+                AppWindow.TitleBar,
+                underlyingThemeService.IsUnderlyingThemeDark());
+        }
     }
 
     private void OnAppWindowClosing(object sender, AppWindowClosingEventArgs e)

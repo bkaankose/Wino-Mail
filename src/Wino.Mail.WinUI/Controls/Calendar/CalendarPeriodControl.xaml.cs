@@ -38,7 +38,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private const double TimedHourColumnWidth = 64d;
     private const double TimedGridIntervalMinutes = 30d;
     private const double TimedSelectionIntervalMinutes = 30d;
-    private const double TimedItemRightSpacing = 10d;
+    private const double TimedItemRightSpacing = TimedCalendarLayoutCalculator.ItemRightSpacing;
     private VisibleDateRange _currentRange = new(
         CalendarDisplayType.Month,
         DateOnly.FromDateTime(DateTime.Today),
@@ -516,7 +516,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         TimedAllDayItemsCanvas.Width = timedSurfaceWidth;
         TimedAllDayItemsCanvas.Height = TimedAllDayHeight;
 
-        _timedLayout = TimedCalendarLayoutCalculator.Calculate(_currentRange, CurrentItems, timedSurfaceWidth, GetHourHeight());
+        _timedLayout = TimedCalendarLayoutCalculator.Calculate(_currentRange, CurrentItems, timedSurfaceWidth, GetHourHeight(), CalendarSettings!.EventDisplayMode);
 
         ReplaceCollection(
             TimedHeaderTextsCollection,
@@ -526,6 +526,9 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                     TimedDayWidth)));
 
         var eventTemplate = (DataTemplate)Resources["CalendarEventTemplate"];
+        var timedEventTemplate = CalendarSettings.EventDisplayMode == CalendarEventDisplayMode.Overlapped
+            ? (DataTemplate)Resources["OverlappedCalendarEventTemplate"]
+            : eventTemplate;
 
         ReplaceCollection(TimedAllDayItemsCollection, TimedCalendarLayoutCalculator.CalculateAllDayItems(_currentRange, CurrentItems, timedSurfaceWidth).Select(item =>
         {
@@ -537,7 +540,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         ReplaceCollection(TimedItemsCollection, _timedLayout.Items.Select(item =>
         {
             PrepareDisplayMetadata(item.Item, item.Date);
-            item.Template = eventTemplate;
+            item.Template = timedEventTemplate;
             return item;
         }));
         RenderHourLabels();

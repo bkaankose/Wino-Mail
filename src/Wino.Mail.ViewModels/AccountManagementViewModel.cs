@@ -277,10 +277,6 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
     private void AccountCollectionChanged(object sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
     {
-        OnPropertyChanged(nameof(HasAccountsDefined));
-        OnPropertyChanged(nameof(UsedAccountsString));
-        OnPropertyChanged(nameof(IsAccountCreationAlmostOnLimit));
-
         ReorderAccountsCommand.NotifyCanExecuteChanged();
     }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Wino.Calendar.ViewModels.Data;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
 
 namespace Wino.Calendar.Controls;
@@ -29,6 +30,8 @@ internal sealed record TimedCalendarLayoutResult(IReadOnlyList<DateOnly> Visible
 
 internal static class TimedCalendarLayoutCalculator
 {
+    internal const double ItemRightSpacing = 10d;
+
     private const double AllDayItemHeight = 32d;
     private const double AllDayItemGap = 4d;
     private const double AllDaySectionPadding = 6d;
@@ -47,7 +50,7 @@ internal static class TimedCalendarLayoutCalculator
                ((laneCount - 1) * AllDayItemGap);
     }
 
-    public static TimedCalendarLayoutResult Calculate(VisibleDateRange range, IEnumerable<CalendarItemViewModel> items, double availableWidth, double hourHeight)
+    public static TimedCalendarLayoutResult Calculate(VisibleDateRange range, IEnumerable<CalendarItemViewModel> items, double availableWidth, double hourHeight, CalendarEventDisplayMode displayMode = CalendarEventDisplayMode.Stacked)
     {
         var visibleDates = range.Dates;
         var dayWidth = visibleDates.Count == 0 ? 0d : availableWidth / visibleDates.Count;
@@ -60,6 +63,26 @@ internal static class TimedCalendarLayoutCalculator
                 .OrderBy(segment => segment.StartMinute)
                 .ThenBy(segment => segment.EndMinute)
                 .ToList();
+
+            if (displayMode == CalendarEventDisplayMode.Overlapped)
+            {
+                // Reserve the same outer spacing as Stacked before computing the width floor.
+                var usableWidth = Math.Max(0d, dayWidth - 4d - ItemRightSpacing);
+                var placements = OverlappedCalendarLayout.Calculate(daySegments.Select((segment, index) =>
+                    new CalendarOverlapInterval(index, segment.Item.Id, segment.StartMinute, segment.EndMinute)), usableWidth);
+
+                foreach (var placement in placements)
+                {
+                    var segment = daySegments[placement.SourceIndex];
+                    var x = (dayIndex * dayWidth) + Math.Min(2d, dayWidth) + placement.Left;
+                    var y = (segment.StartMinute / 60d) * hourHeight;
+                    var height = Math.Max(1d, ((segment.EndMinute - segment.StartMinute) / 60d) * hourHeight);
+                    layouts.Add(new TimedItemLayout(segment.Item, dayIndex, date,
+                        new LayoutRect(x, y, placement.Width + ItemRightSpacing, height)));
+                }
+
+                continue;
+            }
 
             foreach (var cluster in BuildClusters(daySegments))
             {

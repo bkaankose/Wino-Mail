@@ -26,6 +26,9 @@ public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsS
     [ObservableProperty]
     public partial MailAccount SelectedCalendarStartupAccount { get; set; }
 
+    [ObservableProperty]
+    public partial int CalendarSyncIntervalMinutes { get; set; }
+
     public ObservableCollection<MailAccount> CalendarStartupAccounts { get; } = [];
 
     public bool ShouldShowSpecificNewEventCalendar
@@ -44,6 +47,7 @@ public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsS
         LoadNewEventBehaviorOptions();
         SelectedNewEventBehaviorOption = GetSelectedNewEventBehaviorOption();
         IsCalendarAccountsGrouped = preferencesService.IsCalendarAccountsGrouped;
+        CalendarSyncIntervalMinutes = Math.Max(1, preferencesService.CalendarSyncIntervalMinutes);
 
         IsLoaded = true;
         InitializationTask = LoadCalendarOptionsAsync();
@@ -80,6 +84,14 @@ public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsS
             return;
 
         PreferencesService.CalendarStartupAccountId = value?.Id;
+    }
+
+    partial void OnCalendarSyncIntervalMinutesChanged(int value)
+    {
+        if (!IsLoaded || value < 1)
+            return;
+
+        PreferencesService.CalendarSyncIntervalMinutes = value;
     }
 
     private async Task LoadCalendarOptionsAsync()

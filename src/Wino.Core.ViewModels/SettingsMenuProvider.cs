@@ -222,7 +222,7 @@ public partial class SettingsMenuProvider(
     }
 
     private static SettingsShellPageMenuItem CreatePageMenuItem(SettingsNavigationItemInfo item)
-        => new(item.PageType.Value, item.Title, item.Description, item.Glyph);
+        => new(item.PageType.Value, item.Title, item.Description, item.Glyph, item.IconPathData);
 
     private void SetSelectedRootPage(WinoPage pageType)
     {

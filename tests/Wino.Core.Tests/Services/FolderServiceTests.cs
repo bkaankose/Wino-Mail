@@ -4,6 +4,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
@@ -182,6 +183,52 @@ public class FolderServiceTests : IAsyncLifetime
             [cycleA.Id, cycleB.Id, selfParent.Id, orphan.Id]);
         hierarchy.Folders.Should().Contain(folder => folder.Id == selfParent.Id);
         hierarchy.Folders.Should().Contain(folder => folder.Id == orphan.Id);
+    }
+
+    [Fact]
+    public async Task GetAccountFoldersForDisplayAsync_AllGmailCategoriesHidden_OmitsCategoriesMenuItem()
+    {
+        _account.ProviderType = MailProviderType.Gmail;
+        await _databaseService.Connection.UpdateAsync(_account, typeof(MailAccount));
+
+        var inbox = CreateFolder("Inbox", ServiceConstants.INBOX_LABEL_ID, specialFolderType: SpecialFolderType.Inbox);
+        var hiddenPromotions = CreateFolder(
+            "Promotions",
+            $"{ServiceConstants.CATEGORY_PREFIX}{ServiceConstants.PROMOTIONS_LABEL_ID}",
+            isHidden: true,
+            specialFolderType: SpecialFolderType.Promotions);
+
+        await InsertFoldersAsync(inbox, hiddenPromotions);
+
+        var accountMenuItem = new AccountMenuItem(_account, null);
+        var menuItems = await _folderService.GetAccountFoldersForDisplayAsync(accountMenuItem);
+
+        menuItems
+            .OfType<FolderMenuItem>()
+            .Should().NotContain(folderMenuItem => folderMenuItem.SpecialFolderType == SpecialFolderType.Category);
+    }
+
+    [Fact]
+    public async Task GetAccountFoldersForDisplayAsync_VisibleGmailCategory_ShowsCategoriesMenuItem()
+    {
+        _account.ProviderType = MailProviderType.Gmail;
+        await _databaseService.Connection.UpdateAsync(_account, typeof(MailAccount));
+
+        var promotions = CreateFolder(
+            "Promotions",
+            $"{ServiceConstants.CATEGORY_PREFIX}{ServiceConstants.PROMOTIONS_LABEL_ID}",
+            specialFolderType: SpecialFolderType.Promotions);
+
+        await InsertFoldersAsync(promotions);
+
+        var accountMenuItem = new AccountMenuItem(_account, null);
+        var menuItems = await _folderService.GetAccountFoldersForDisplayAsync(accountMenuItem);
+
+        var categoriesMenuItem = menuItems
+            .OfType<FolderMenuItem>()
+            .Should().ContainSingle(item => item.SpecialFolderType == SpecialFolderType.Category)
+            .Subject;
+        categoriesMenuItem.SubMenuItems.Should().ContainSingle();
     }
 
     private MailItemFolder CreateFolder(

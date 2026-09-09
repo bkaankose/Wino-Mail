@@ -1582,14 +1582,14 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             || (!string.IsNullOrEmpty(mailItem.FromAddress) && mailItem.FromAddress.Contains(query, StringComparison.OrdinalIgnoreCase));
     }
 
-    private bool MatchesActiveListSeed(MailCopy mail)
+    private bool MatchesActiveListScope(MailCopy mail)
     {
         if (mail == null || ActiveFolder == null || SelectedFolderPivot == null)
             return false;
 
         var folderMatch = MatchesActiveFolderOrCategory(mail) ||
                           (mail.IsDraft && IsActiveDraftFolder());
-        if (!folderMatch || ShouldPreventItemAdd(mail))
+        if (!folderMatch)
             return false;
 
         if (SelectedFolderPivot.IsFocused is bool isFocused && mail.IsFocused != isFocused)
@@ -1600,6 +1600,35 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 !AreSearchResultsOnline &&
                IsMailMatchingLocalSearch(mail));
     }
+
+    private bool MatchesActiveListSeed(MailCopy mail)
+        => MatchesActiveListScope(mail) && !ShouldPreventItemAdd(mail);
+
+    private bool ShouldRetainAfterActiveFilterMutation(MailCopy mail, MailCopyChangeFlags changedProperties)
+    {
+        if (!MatchesActiveListScope(mail))
+            return false;
+
+        return ShouldRetainFilterMutation(
+            SelectedFilterOption?.Type ?? FilterOptionType.All,
+            changedProperties,
+            mail.IsRead,
+            mail.IsFlagged);
+    }
+
+    internal static bool ShouldRetainFilterMutation(
+        FilterOptionType filterType,
+        MailCopyChangeFlags changedProperties,
+        bool isRead,
+        bool isFlagged)
+        => filterType switch
+        {
+            FilterOptionType.Unread =>
+                changedProperties.HasFlag(MailCopyChangeFlags.IsRead) && isRead,
+            FilterOptionType.Flagged =>
+                changedProperties.HasFlag(MailCopyChangeFlags.IsFlagged) && !isFlagged,
+            _ => false
+        };
 
     private bool ShouldIncludeLiveMail(MailCopy mail)
     {
@@ -1772,7 +1801,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             if (listedItem == null)
                 return;
 
-            if (PreferencesService.IsThreadingEnabled &&
+            var shouldRetainAfterFilterMutation =
+                ShouldRetainAfterActiveFilterMutation(listedItem.MailCopy, changedProperties);
+            if (!shouldRetainAfterFilterMutation &&
+                PreferencesService.IsThreadingEnabled &&
                 !string.IsNullOrWhiteSpace(listedItem.ThreadId))
             {
                 if (!ThreadHasActiveSeed(listedItem.ThreadId))
@@ -1784,7 +1816,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                     await MailCollection.RemoveRangeByIdAsync(threadIds);
                 }
             }
-            else if (!MatchesActiveListSeed(listedItem.MailCopy))
+            else if (!shouldRetainAfterFilterMutation && !MatchesActiveListSeed(listedItem.MailCopy))
             {
                 await MailCollection.RemoveAsync(listedItem.MailCopy);
             }
@@ -1824,7 +1856,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             await MailCollection.UpdateMailStateAsync(updatedState, source);
             var listedItem = MailCollection.Find(updatedState.UniqueId);
-            if (listedItem != null && !MatchesActiveListSeed(listedItem.MailCopy))
+            if (listedItem != null &&
+                !ShouldRetainAfterActiveFilterMutation(listedItem.MailCopy, updatedState.ChangedProperties) &&
+                !MatchesActiveListSeed(listedItem.MailCopy))
             {
                 if (PreferencesService.IsThreadingEnabled &&
                     !string.IsNullOrWhiteSpace(listedItem.ThreadId))
@@ -1888,8 +1922,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 return;
 
             await MailCollection.UpdateMailStatesAsync(listedStates, source);
+            var changedPropertiesById = listedStates.ToDictionary(
+                state => state.UniqueId,
+                state => state.ChangedProperties);
             await RemoveItemsWithoutActiveSeedAsync(
-                listedStates.Select(state => state.UniqueId));
+                listedStates.Select(state => state.UniqueId),
+                item => changedPropertiesById.GetValueOrDefault(item.UniqueId));
         }
         catch (Exception ex)
         {
@@ -1947,7 +1985,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             {
                 await MailCollection.UpdateMailCopiesAsync(listedMails, source, changedProperties);
                 await RemoveItemsWithoutActiveSeedAsync(
-                    listedMails.Select(mail => mail.UniqueId));
+                    listedMails.Select(mail => mail.UniqueId),
+                    _ => changedProperties);
             }
 
             if (additions.Count > 0)
@@ -1974,7 +2013,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
     }
 
-    private async Task RemoveItemsWithoutActiveSeedAsync(IEnumerable<Guid> candidateIds)
+    private async Task RemoveItemsWithoutActiveSeedAsync(
+        IEnumerable<Guid> candidateIds,
+        Func<MailItemViewModel, MailCopyChangeFlags> getChangedProperties = null)
     {
         var candidates = candidateIds
             .Select(MailCollection.Find)
@@ -1984,6 +2025,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         foreach (var item in candidates)
         {
+            var changedProperties = getChangedProperties?.Invoke(item) ?? MailCopyChangeFlags.None;
+            if (ShouldRetainAfterActiveFilterMutation(item.MailCopy, changedProperties))
+                continue;
+
             if (MatchesActiveListSeed(item.MailCopy))
                 continue;
 

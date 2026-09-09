@@ -23,6 +23,7 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Personalization;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
+using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models.Personalization;
 using Wino.Mail.WinUI.Services;
@@ -325,41 +326,8 @@ public class NewThemeService : INewThemeService
         {
             if (GetThemeWindow() is not WindowEx mainWindow) return;
 
-            var titleBar = mainWindow.AppWindow.TitleBar;
-            if (titleBar == null) return;
-
-            // Determine if current theme is dark
-            bool isDarkTheme = _underlyingThemeService.IsUnderlyingThemeDark();
-
-            // Set button colors based on theme
-            // Normal and inactive backgrounds are transparent, but hover/pressed have subtle backgrounds
-            titleBar.ButtonBackgroundColor = Color.FromArgb(0, 0, 0, 0); // Transparent
-            titleBar.ButtonInactiveBackgroundColor = Color.FromArgb(0, 0, 0, 0); // Transparent
-
-            if (isDarkTheme)
-            {
-                // Dark theme: use light text/icons for better contrast
-                titleBar.ButtonForegroundColor = Color.FromArgb(255, 255, 255, 255); // White
-                titleBar.ButtonInactiveForegroundColor = Color.FromArgb(128, 255, 255, 255); // Semi-transparent white
-                titleBar.ButtonHoverForegroundColor = Color.FromArgb(255, 255, 255, 255); // White
-                titleBar.ButtonPressedForegroundColor = Color.FromArgb(255, 255, 255, 255); // White
-
-                // Subtle hover and pressed backgrounds for dark theme
-                titleBar.ButtonHoverBackgroundColor = Color.FromArgb(20, 255, 255, 255); // Very subtle white overlay
-                titleBar.ButtonPressedBackgroundColor = Color.FromArgb(40, 255, 255, 255); // Slightly more visible white overlay
-            }
-            else
-            {
-                // Light theme: use dark text/icons for better contrast
-                titleBar.ButtonForegroundColor = Color.FromArgb(255, 0, 0, 0); // Black
-                titleBar.ButtonInactiveForegroundColor = Color.FromArgb(128, 0, 0, 0); // Semi-transparent black
-                titleBar.ButtonHoverForegroundColor = Color.FromArgb(255, 0, 0, 0); // Black
-                titleBar.ButtonPressedForegroundColor = Color.FromArgb(255, 0, 0, 0); // Black
-
-                // Subtle hover and pressed backgrounds for light theme
-                titleBar.ButtonHoverBackgroundColor = Color.FromArgb(20, 0, 0, 0); // Very subtle black overlay
-                titleBar.ButtonPressedBackgroundColor = Color.FromArgb(40, 0, 0, 0); // Slightly more visible black overlay
-            }
+            var isDarkTheme = _underlyingThemeService.IsUnderlyingThemeDark();
+            SystemCaptionButtonColorHelper.Apply(mainWindow.AppWindow.TitleBar, isDarkTheme);
 
             Debug.WriteLine($"Updated title bar button colors for {(isDarkTheme ? "dark" : "light")} theme");
         });

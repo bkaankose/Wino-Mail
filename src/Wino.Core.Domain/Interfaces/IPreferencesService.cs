@@ -348,6 +348,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     string CalendarTimedDayHeaderDateFormat { get; set; }
 
     /// <summary>
+    /// Setting: Interval in minutes for background calendar synchronization.
+    /// </summary>
+    int CalendarSyncIntervalMinutes { get; set; }
+
+    /// <summary>
     /// Setting: Preferred time format for calendar header display.
     /// </summary>
     TimeFormatPreference CalendarTimeFormatPreference { get; set; }
@@ -392,6 +397,8 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// Setting: System sound played for calendar reminder notifications.
     /// </summary>
     NotificationSoundEvent CalendarNotificationSoundEvent { get; set; }
+
+    CalendarEventDisplayMode CalendarEventDisplayMode { get; set; }
 
     CalendarSettings GetCurrentCalendarSettings();
 
