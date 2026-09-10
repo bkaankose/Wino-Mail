@@ -465,7 +465,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         {
             TitleBarSearchBox.IsEnabled = _activeTitleBarSearchHost != null;
             TitleBarSearchBox.Mode = _activeTitleBarSearchHost?.SearchMode ?? SearchBarMode.Mail;
-            TitleBarSearchBox.PlaceholderText = _activeTitleBarSearchHost?.SearchPlaceholderText ?? Translator.SearchBarPlaceholder;
+            TitleBarSearchBox.PlaceholderText = Translator.SearchBarPlaceholder;
             TitleBarSearchBox.ItemsSource = _activeTitleBarSearchHost?.SearchSuggestions;
             TitleBarSearchBox.Text = _activeTitleBarSearchHost?.SearchText ?? string.Empty;
             TitleBarSearchBox.SearchHistoryItemsSource = _activeTitleBarSearchHost is null

@@ -135,7 +135,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
         set => ViewModel.SearchQuery = value;
     }
 
-    public string SearchPlaceholderText => Translator.SearchBarPlaceholder;
     public string ContextFlyoutLanguage => WinoApplication.Current.Services.GetRequiredService<IPreferencesService>().CurrentLanguage == AppLanguage.Chinese
         ? "zh-CN"
         : string.Empty;

@@ -402,6 +402,56 @@ public class CalendarPageViewModelTests
         }
     }
 
+    [Theory]
+    [InlineData(23, 30, 1, 0, 1)]
+    [InlineData(9, 0, 12, 30, 0)]
+    public void SelectQuickEventRange_PreservesEndDateAndAllowsCrossMidnight(int startHour, int startMinute, int endHour, int endMinute, int days)
+    {
+        var viewModel = CreateViewModel(Mock.Of<ICalendarService>(), CreatePreferencesService(CreateSettings()).Object, new DateOnly(2026, 3, 20));
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+
+        try
+        {
+            var start = new DateTime(2026, 3, 20, startHour, startMinute, 0);
+            var end = new DateTime(2026, 3, 20, endHour, endMinute, 0).AddDays(days);
+            viewModel.SelectQuickEventRange(start, end, false);
+            viewModel.EventName = "Range selection";
+
+            viewModel.QuickEventStartTime.Should().Be(start);
+            viewModel.QuickEventEndTime.Should().Be(end);
+            viewModel.QuickEventSelectionEnd.Should().Be(end);
+            viewModel.CanSaveQuickEvent.Should().BeTrue();
+
+            viewModel.SelectedQuickEventDate = null;
+            viewModel.SelectedQuickEventEndDate.Should().BeNull();
+            viewModel.QuickEventSelectionEnd.Should().BeNull();
+        }
+        finally
+        {
+            viewModel.OnNavigatedFrom(NavigationMode.Back, null!);
+        }
+    }
+
+    [Fact]
+    public void SelectQuickEventRange_AllDay_PreservesExclusiveEnd()
+    {
+        var viewModel = CreateViewModel(Mock.Of<ICalendarService>(), CreatePreferencesService(CreateSettings()).Object, new DateOnly(2026, 3, 20));
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+
+        try
+        {
+            viewModel.SelectQuickEventRange(new DateTime(2026, 3, 20), new DateTime(2026, 3, 23), true);
+            viewModel.EventName = "Three days";
+
+            viewModel.QuickEventSelectionEnd.Should().Be(new DateTime(2026, 3, 23));
+            viewModel.CanSaveQuickEvent.Should().BeTrue();
+        }
+        finally
+        {
+            viewModel.OnNavigatedFrom(NavigationMode.Back, null!);
+        }
+    }
+
     private static CalendarPageViewModel CreateViewModel(
         ICalendarService calendarService,
         IPreferencesService preferencesService,

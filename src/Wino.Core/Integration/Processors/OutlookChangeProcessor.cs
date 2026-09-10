@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Graph.Models;
 using Serilog;
 using Wino.Core.Domain.Entities.Calendar;
@@ -11,6 +12,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Extensions;
 using Wino.Services;
+using Wino.Messaging.Client.Calendar;
 using Reminder = Wino.Core.Domain.Entities.Calendar.Reminder;
 
 namespace Wino.Core.Integration.Processors;
@@ -49,6 +51,23 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         // Occurrences from CalendarView are individual instances that are saved separately.
 
         var savingItem = await CalendarService.GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.Id);
+
+        // Older batched creates returned mutable IDs. Correlate the server's immutable
+        // ID with the original local item before considering this a new event.
+        var clientTrackingId = calendarEvent.TransactionId.GetClientTrackingId();
+        if (clientTrackingId.HasValue &&
+            calendarEvent.Type is EventType.SingleInstance or EventType.SeriesMaster)
+        {
+            var createdItem = await CalendarService.GetCalendarItemAsync(clientTrackingId.Value).ConfigureAwait(false);
+            if (createdItem?.CalendarId == assignedCalendar.Id &&
+                createdItem.RemoteEventId.GetClientTrackingId() == clientTrackingId)
+            {
+                if (savingItem != null && savingItem.Id != createdItem.Id)
+                    await MergeDuplicateCalendarItemAsync(createdItem, savingItem).ConfigureAwait(false);
+
+                savingItem = createdItem;
+            }
+        }
 
         Guid savingItemId = Guid.Empty;
         bool isNewItem = savingItem == null;
@@ -266,5 +285,21 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         {
             await CalendarService.InsertOrReplaceAttachmentsAsync(attachments).ConfigureAwait(false);
         }
+    }
+
+    private async Task MergeDuplicateCalendarItemAsync(CalendarItem original, CalendarItem duplicate)
+    {
+        // Only the provider transaction ID establishes identity; titles and dates do not.
+        // Keep local reminder choices, downloaded attachments and series relationships.
+        await Connection.RunInTransactionAsync(connection =>
+        {
+            connection.Execute("UPDATE Reminder SET CalendarItemId = ? WHERE CalendarItemId = ?", original.Id, duplicate.Id);
+            connection.Execute("UPDATE CalendarAttachment SET CalendarItemId = ? WHERE CalendarItemId = ?", original.Id, duplicate.Id);
+            connection.Execute("UPDATE CalendarEventAttendee SET CalendarItemId = ? WHERE CalendarItemId = ?", original.Id, duplicate.Id);
+            connection.Execute("UPDATE CalendarItem SET RecurringCalendarItemId = ? WHERE RecurringCalendarItemId = ?", original.Id, duplicate.Id);
+            connection.Delete<CalendarItem>(duplicate.Id);
+        }).ConfigureAwait(false);
+
+        WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(duplicate, EntityUpdateSource.Server));
     }
 }

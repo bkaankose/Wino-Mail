@@ -139,6 +139,11 @@ The selected backdrop is decorative. The content layer, selected state, focus vi
 - Indent each active overlap depth by 24 epx, reducing the indent per connected group when needed to preserve at least 60% of the usable day width for the deepest event. Touching end/start times do not overlap.
 - Give overlapped cards an opaque backing and a themed outline. Preserve event commands, exposed hit targets, and focus behavior in Light, Dark, and High Contrast.
 
+- Use compact event cards with a 1 epx corner radius and top-left title alignment. Show time and location below the title when height permits.
+- Calendar context commands use the shared context flyout and display enabled shortcuts from the global shortcut service.
+- A normal empty-cell click opens quick creation. Shift + left drag selects a continuous range from the first cell through the current cell, in either direction. Include both cells, show the highlight while dragging, and open quick creation on release. Escape cancels the drag.
+- Quick creation preserves the selected start and end dates across midnight. Month selections use an exclusive midnight end after the last selected day.
+
 ## 7. Navigation
 
 - Keep folder and account navigation structural and stable.

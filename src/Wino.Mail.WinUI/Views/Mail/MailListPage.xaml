@@ -1283,11 +1283,7 @@
                 Spacing="6"
                 Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.ThemeService.IsCustomTheme)}">
 
-                <illustrations:WinoNoMailSelectedIllustration
-                    Width="140"
-                    Height="140"
-                    Margin="0,0,0,8"
-                    HorizontalAlignment="Center" />
+                <illustrations:WinoNoMailSelectedIllustration Width="140" HorizontalAlignment="Center" />
 
                 <TextBlock
                     HorizontalAlignment="Center"

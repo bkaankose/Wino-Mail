@@ -60,11 +60,15 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSaveQuickEvent))]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
+    [NotifyPropertyChangedFor(nameof(QuickEventDateRangeText))]
+    [NotifyPropertyChangedFor(nameof(QuickEventSelectionEnd))]
     public partial DateTime? SelectedQuickEventDate { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSaveQuickEvent))]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
+    [NotifyPropertyChangedFor(nameof(QuickEventDateRangeText))]
+    [NotifyPropertyChangedFor(nameof(QuickEventSelectionEnd))]
     public partial bool IsAllDay { get; set; }
 
     [ObservableProperty]
@@ -75,6 +79,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSaveQuickEvent))]
     [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
+    [NotifyPropertyChangedFor(nameof(QuickEventDateRangeText))]
+    [NotifyPropertyChangedFor(nameof(QuickEventSelectionEnd))]
     public partial string SelectedEndTimeString { get; set; } = string.Empty;
 
     [ObservableProperty]
@@ -86,7 +92,57 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     public partial string EventName { get; set; } = string.Empty;
 
     public DateTime QuickEventStartTime => SelectedQuickEventDate.Value.Date.Add(CurrentSettings.GetTimeSpan(SelectedStartTimeString).Value);
-    public DateTime QuickEventEndTime => SelectedQuickEventDate.Value.Date.Add(CurrentSettings.GetTimeSpan(SelectedEndTimeString).Value);
+    public DateTime QuickEventEndTime => (SelectedQuickEventEndDate ?? SelectedQuickEventDate.Value).Date.Add(CurrentSettings.GetTimeSpan(SelectedEndTimeString).Value);
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSaveQuickEvent))]
+    [NotifyPropertyChangedFor(nameof(QuickEventDateRangeText))]
+    [NotifyPropertyChangedFor(nameof(QuickEventSelectionEnd))]
+    [NotifyCanExecuteChangedFor(nameof(SaveQuickEventCommand))]
+    public partial DateTime? SelectedQuickEventEndDate { get; set; }
+
+    public DateTime? QuickEventSelectionEnd => SelectedQuickEventDate == null ? null
+        : IsAllDay ? GetQuickEventAllDayEnd()
+        : CurrentSettings.GetTimeSpan(SelectedEndTimeString) is TimeSpan endTime
+            ? (SelectedQuickEventEndDate ?? SelectedQuickEventDate.Value).Date.Add(endTime)
+            : null;
+
+    public string QuickEventDateRangeText
+    {
+        get
+        {
+            if (SelectedQuickEventDate is not DateTime start)
+                return string.Empty;
+
+            var end = IsAllDay ? GetQuickEventAllDayEnd().AddDays(-1) : SelectedQuickEventEndDate ?? start;
+            var culture = CurrentSettings.CultureInfo;
+            return start.Date == end.Date ? start.ToString("D", culture)
+                : $"{start.ToString("d", culture)} – {end.ToString("d", culture)}";
+        }
+    }
+
+    private DateTime GetQuickEventAllDayEnd()
+    {
+        var start = SelectedQuickEventDate.Value.Date;
+        return SelectedQuickEventEndDate is DateTime end && end.Date > start ? end.Date : start.AddDays(1);
+    }
+
+    partial void OnSelectedQuickEventDateChanged(DateTime? value)
+    {
+        if (value == null)
+            SelectedQuickEventEndDate = null;
+    }
+
+    public void SelectQuickEventRange(DateTime start, DateTime end, bool isAllDay)
+    {
+        if (end <= start)
+            throw new ArgumentOutOfRangeException(nameof(end));
+
+        SelectedQuickEventDate = start;
+        SelectedQuickEventEndDate = end.Date;
+        IsAllDay = isAllDay;
+        SelectQuickEventTimeRange(start.TimeOfDay, end.TimeOfDay);
+    }
 
     public bool CanSaveQuickEvent
     {
@@ -110,7 +166,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
                 return false;
             }
 
-            return IsAllDay || endTime > startTime;
+            return IsAllDay || QuickEventEndTime > QuickEventStartTime;
         }
     }
 
@@ -490,7 +546,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         }
 
         var startDate = IsAllDay ? SelectedQuickEventDate.Value.Date : QuickEventStartTime;
-        var endDate = IsAllDay ? SelectedQuickEventDate.Value.Date.AddDays(1) : QuickEventEndTime;
+        var endDate = IsAllDay ? GetQuickEventAllDayEnd() : QuickEventEndTime;
         var composeResult = new CalendarEventComposeResult
         {
             CalendarId = SelectedQuickEventAccountCalendar.Id,
@@ -537,13 +593,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
             if (selectedEndTime.HasValue)
             {
-                endDate = SelectedQuickEventDate.Value.Date.Add(selectedEndTime.Value);
+                endDate = (SelectedQuickEventEndDate ?? SelectedQuickEventDate.Value).Date.Add(selectedEndTime.Value);
             }
         }
         else
         {
             startDate = SelectedQuickEventDate.Value.Date;
-            endDate = SelectedQuickEventDate.Value.Date.AddDays(1);
+            endDate = GetQuickEventAllDayEnd();
         }
 
         _navigationService.Navigate(WinoPage.CalendarEventComposePage, new CalendarEventComposeNavigationArgs

@@ -15,6 +15,10 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
     public CalendarItem CalendarItem { get; }
 
     public string Title => CalendarItem.Title;
+    public string Location => CalendarItem.Location;
+    public string DisplayTimeRange => CalendarSettings == null
+        ? $"{StartDate:t} – {EndDate:t}"
+        : $"{CalendarSettings.GetTimeString(StartDate.TimeOfDay)} – {CalendarSettings.GetTimeString(EndDate.TimeOfDay)}";
 
     public Guid Id => CalendarItem.Id;
 
@@ -72,12 +76,13 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
     public bool IsRecurringEvent => CalendarItem.IsRecurringEvent;
     public bool IsRecurringChild => CalendarItem.IsRecurringChild;
     public bool IsRecurringParent => CalendarItem.IsRecurringParent;
-    public bool CanDragDrop => CalendarItem.CanChangeStartAndEndDate;
+    public bool CanDragDrop => !IsBusy && CalendarItem.CanChangeStartAndEndDate;
 
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanDragDrop))]
     public partial bool IsBusy { get; set; }
 
     /// <summary>
@@ -93,6 +98,7 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DisplayTitle))]
+    [NotifyPropertyChangedFor(nameof(DisplayTimeRange))]
     public partial CalendarSettings CalendarSettings { get; set; }
 
     /// <summary>
@@ -149,6 +155,8 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
 
         // Raise property changed for all bindable properties
         OnPropertyChanged(nameof(Title));
+        OnPropertyChanged(nameof(Location));
+        OnPropertyChanged(nameof(DisplayTimeRange));
         OnPropertyChanged(nameof(StartDate));
         OnPropertyChanged(nameof(EndDate));
         OnPropertyChanged(nameof(DurationInSeconds));

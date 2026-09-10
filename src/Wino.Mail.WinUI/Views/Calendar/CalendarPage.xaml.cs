@@ -41,8 +41,6 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
 
     public string SearchText { get; set; } = string.Empty;
 
-    public string SearchPlaceholderText => Translator.SearchBarPlaceholder;
-
     public CalendarPage()
     {
         InitializeComponent();
@@ -176,8 +174,9 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
             return;
         }
 
-        ViewModel.SelectedQuickEventDate = e.ClickedDate;
-        ViewModel.IsAllDay = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
+        var isAllDay = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
+        ViewModel.SelectQuickEventRange(e.ClickedDate,
+            e.EndDate ?? (isAllDay ? e.ClickedDate.Date.AddDays(1) : e.ClickedDate.AddMinutes(30)), isAllDay);
 
         var transform = CalendarSurface.TransformToVisual(CalendarOverlayCanvas);
         var canvasPoint = transform.TransformPoint(e.AnchorPoint);
@@ -188,17 +187,16 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         Canvas.SetLeft(TeachingTipPositionerGrid, canvasPoint.X);
         Canvas.SetTop(TeachingTipPositionerGrid, canvasPoint.Y);
 
-        if (!ViewModel.IsAllDay)
-        {
-            var startTime = e.ClickedDate.TimeOfDay;
-            var endTime = startTime.Add(TimeSpan.FromMinutes(30));
-            ViewModel.SelectQuickEventTimeRange(startTime, endTime);
-        }
-
         _suppressSelectionResetOnPopupClose = true;
         QuickEventPopupDialog.IsOpen = false;
         QuickEventPopupDialog.IsOpen = true;
         _suppressSelectionResetOnPopupClose = false;
+    }
+
+    private void CalendarSurfaceRangeSelectionStarted(object? sender, EventArgs e)
+    {
+        CloseQuickEventPopup(clearSelection: true);
+        ViewModel.DisplayDetailsCalendarItemViewModel = null;
     }
 
     private async void CalendarSurfaceCalendarItemDropped(object sender, CalendarItemDroppedEventArgs e)

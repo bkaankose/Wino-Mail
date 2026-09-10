@@ -13,23 +13,23 @@
     CanDrag="True"
     DragStarting="ControlDragStarting"
     DropCompleted="ControlDropped"
+    SizeChanged="ControlSizeChanged"
     mc:Ignorable="d">
 
     <Grid
         x:Name="MainGrid"
-        CornerRadius="4"
+        CornerRadius="1"
         DoubleTapped="ControlDoubleTapped"
         RightTapped="ControlRightTapped"
         Tapped="ControlTapped">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="5" />
+            <ColumnDefinition Width="3" />
             <ColumnDefinition Width="*" />
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
 
         <Grid.ContextFlyout>
             <local:CalendarItemCommandBarFlyout
-                AlwaysExpanded="True"
                 Closed="CalendarItemCommandBarFlyout_Closed"
                 Opening="CalendarItemCommandBarFlyout_Opening"
                 Placement="BottomEdgeAlignedLeft"
@@ -66,19 +66,33 @@
             ContentTemplateSelector="{StaticResource ShowAsStripeSelector}"
             IsTabStop="False" />
 
-        <TextBlock
-            x:Name="EventTitleTextblock"
+        <StackPanel
+            x:Name="EventTextPanel"
             Grid.Column="1"
-            Margin="2,0"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Center"
-            CharacterSpacing="8"
-            FontSize="13"
-            Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
-            HorizontalTextAlignment="Center"
-            Text="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}"
-            TextTrimming="CharacterEllipsis" />
-
+            Margin="6,3,4,0"
+            VerticalAlignment="Top"
+            Spacing="2">
+            <TextBlock
+                x:Name="EventTitleTextblock"
+                FontSize="13"
+                FontWeight="SemiBold"
+                Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+                HorizontalTextAlignment="Left"
+                Text="{x:Bind CalendarItem.DisplayTitle, Mode=OneWay}"
+                TextTrimming="CharacterEllipsis" />
+            <StackPanel x:Name="EventDetailsPanel" Spacing="2">
+                <TextBlock
+                    FontSize="11"
+                    Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+                    Text="{x:Bind CalendarItem.DisplayTimeRange, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis" />
+                <TextBlock
+                    FontSize="11"
+                    Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(CalendarItem.AssignedCalendar.BackgroundColorHex), Mode=OneWay}"
+                    Text="{x:Bind CalendarItem.Location, Mode=OneWay}"
+                    TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </StackPanel>
 
         <muxc:ProgressRing
             x:Name="BusyRing"
@@ -164,7 +178,8 @@
                     <VisualState.Setters>
                         <Setter Target="EventTitleTextblock.HorizontalAlignment" Value="Stretch" />
                         <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
-                        <Setter Target="EventTitleTextblock.Margin" Value="6,0" />
+                        <Setter Target="EventTextPanel.Margin" Value="6,3,4,0" />
+                        <Setter Target="EventDetailsPanel.Visibility" Value="Collapsed" />
                         <Setter Target="AttributeStack.VerticalAlignment" Value="Center" />
                         <Setter Target="AttributeStack.Margin" Value="0,0,4,0" />
                         <Setter Target="MainGrid.MinHeight" Value="30" />
@@ -183,7 +198,8 @@
                         <Setter Target="MainGrid.MinHeight" Value="30" />
                         <Setter Target="EventTitleTextblock.HorizontalAlignment" Value="Stretch" />
                         <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
-                        <Setter Target="EventTitleTextblock.Margin" Value="6,0" />
+                        <Setter Target="EventTextPanel.Margin" Value="6,3,4,0" />
+                        <Setter Target="EventDetailsPanel.Visibility" Value="Collapsed" />
                     </VisualState.Setters>
                 </VisualState>
 
@@ -199,7 +215,7 @@
                         <Setter Target="MainGrid.IsHitTestVisible" Value="False" />
                         <Setter Target="MainBorder.StrokeThickness" Value="0" />
                         <Setter Target="AttributeStack.Visibility" Value="Collapsed" />
-                        <Setter Target="EventTitleTextblock.Visibility" Value="Collapsed" />
+                        <Setter Target="EventTextPanel.Visibility" Value="Collapsed" />
                     </VisualState.Setters>
                 </VisualState>
             </VisualStateGroup>

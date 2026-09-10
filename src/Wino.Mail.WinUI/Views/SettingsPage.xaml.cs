@@ -41,8 +41,6 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
     public SearchBarMode SearchMode => SearchBarMode.Settings;
     public string SearchText { get; set; } = string.Empty;
-    public string SearchPlaceholderText => Translator.SettingsHome_SearchPlaceholder;
-
     public SettingsPage()
     {
         InitializeComponent();

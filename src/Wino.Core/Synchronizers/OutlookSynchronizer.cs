@@ -4223,10 +4223,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                     var startDate = FormatGraphDateTimeOffset(DateTimeOffset.Now.AddYears(-2));
                     var endDate = FormatGraphDateTimeOffset(DateTimeOffset.Now.AddYears(2));
 
-                    // Get Id only. We will always download the full event.
+                    // Calendar-view delta does not support $select. Download attachment metadata separately below.
                     eventsDeltaResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
                     {
-                        requestConfiguration.QueryParameters.Select = ["id", "type"];
                         requestConfiguration.QueryParameters.StartDateTime = startDate;
                         requestConfiguration.QueryParameters.EndDateTime = endDate;
                     }, cancellationToken: cancellationToken);
@@ -4268,6 +4267,8 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
                 _logger.Information("Found {Count} events in total.", events.Count);
 
+                var allEventsProcessed = true;
+
                 foreach (var item in events)
                 {
                     // Declined events are returned as Deleted from the API.
@@ -4279,10 +4280,10 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                         continue;
                     }
 
+                    await _handleCalendarEventRetrievalSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+
                     try
                     {
-                        await _handleCalendarEventRetrievalSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-
                         Event fullEvent = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[item.Id]
                             .GetAsync(requestConfiguration =>
                             {
@@ -4311,6 +4312,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                         _ = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
                         CaptureSynchronizationIssue(errorContext);
                         _logger.Error(ex, "Error occurred while handling item {Id} for calendar {Name}", item.Id, calendar.Name);
+                        allEventsProcessed = false;
                     }
                     finally
                     {
@@ -4321,7 +4323,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 var latestDeltaLink = messageIteratorAsync.Deltalink;
 
                 //Store delta link for tracking new changes.
-                if (!string.IsNullOrEmpty(latestDeltaLink))
+                if (allEventsProcessed && !string.IsNullOrEmpty(latestDeltaLink))
                 {
                     // Parse Delta Token from Delta Link since v5 of Graph SDK works based on the token, not the link.
 
@@ -4604,6 +4606,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         }
 
         var createRequest = _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events.ToPostRequestInformation(outlookEvent);
+
+        // Batch steps do not inherit the outer request's immutable-ID preference.
+        createRequest.Headers.Add("Prefer", "IdType=\"ImmutableId\"");
 
         return [new HttpRequestBundle<RequestInformation>(createRequest, request)];
     }

@@ -40,8 +40,6 @@ public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearch
         set => _searchText = value ?? string.Empty;
     }
 
-    public string SearchPlaceholderText => Translator.ContactsPage_SearchPlaceholder;
-
     public ContactsPage()
     {
         InitializeComponent();

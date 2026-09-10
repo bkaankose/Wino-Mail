@@ -9,7 +9,6 @@ public interface ITitleBarSearchHost
 {
     SearchBarMode SearchMode { get; }
     string SearchText { get; set; }
-    string SearchPlaceholderText { get; }
     ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; }
 
     Task OnTitleBarSearchTextChangedAsync();

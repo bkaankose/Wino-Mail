@@ -1,4 +1,4 @@
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -109,6 +109,13 @@ public sealed partial class CalendarItemControl : UserControl
         args.Data.Properties.Title = CalendarItem.DisplayTitle;
         args.DragUI.SetContentFromDataPackage();
         IsDragging = true;
+    }
+
+    private void ControlSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        EventDetailsPanel.Visibility = !IsCustomEventArea && CalendarItem?.IsAllDayEvent == false &&
+            CalendarItem?.IsMultiDayEvent == false && e.NewSize.Height >= 52
+            ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ControlDropped(UIElement sender, DropCompletedEventArgs args) => IsDragging = false;

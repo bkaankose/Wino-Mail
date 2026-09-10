@@ -39,8 +39,6 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
     public SearchBarMode SearchMode => SearchBarMode.Tasks;
     public string SearchText { get; set; } = string.Empty;
 
-    public string SearchPlaceholderText => Translator.ToDoPage_Search;
-
     private CollectionViewSource TaskCollectionViewSource => (CollectionViewSource)Resources["TaskCollectionViewSource"];
 
     public ToDoPage()

@@ -1522,6 +1522,8 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                     .GroupBy(e => e.Id, StringComparer.Ordinal)
                     .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
+                var allEventsProcessed = true;
+
                 foreach (var @event in OrderCalendarEventsForPersistence(allEvents))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
@@ -1551,10 +1553,15 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                         _ = await _gmailSynchronizerErrorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
                         CaptureSynchronizationIssue(errorContext);
                         _logger.Error(ex, "Failed to process Gmail event {EventId} for calendar {CalendarName}", @event.Id, calendar.Name);
+                        allEventsProcessed = false;
                     }
                 }
 
-                await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+                if (allEventsProcessed)
+                {
+                    await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+                }
+
                 UpdateSyncProgress(totalCalendars, totalCalendars - (i + 1), Translator.SyncAction_SynchronizingCalendarEvents);
             }
             catch (OperationCanceledException)

@@ -10,6 +10,9 @@
     xmlns:viewModels="using:Wino.Calendar.ViewModels.Data"
     xmlns:win2d="using:Microsoft.Graphics.Canvas.UI.Xaml"
     x:Name="Root"
+    AutomationProperties.AutomationId="CalendarPeriodSurface"
+    IsTabStop="True"
+    KeyDown="SelectionKeyDown"
     SizeChanged="ControlSizeChanged"
     Unloaded="ControlUnloaded"
     mc:Ignorable="d">
@@ -22,12 +25,13 @@
         </DataTemplate>
 
         <DataTemplate x:Key="OverlappedCalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
-            <local:CalendarItemControl
-                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            <Border
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
                 BorderThickness="1"
-                CalendarItem="{x:Bind}"
-                CornerRadius="4" />
+                CornerRadius="1">
+                <local:CalendarItemControl CalendarItem="{x:Bind}" />
+            </Border>
         </DataTemplate>
 
         <DataTemplate x:Key="MonthEventTemplate" x:DataType="viewModels:CalendarItemViewModel">

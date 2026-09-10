@@ -98,6 +98,9 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     [GeneratedDependencyProperty]
     public partial DateTime? SelectedDateTime { get; set; }
 
+    [GeneratedDependencyProperty]
+    public partial DateTime? SelectedEndDateTime { get; set; }
+
     public CalendarPeriodControl()
     {
         InitializeComponent();
@@ -206,11 +209,16 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     public double TimelineHeight => TimedCalendarLayoutCalculator.GetTimelineHeight(GetHourHeight());
 
-    partial void OnVisibleRangeChanged(VisibleDateRange? newValue) => RequestRefresh();
+    partial void OnVisibleRangeChanged(VisibleDateRange? newValue)
+    {
+        CancelRangeSelection();
+        RequestRefresh();
+    }
     partial void OnCalendarSettingsChanged(CalendarSettings? newValue) => RequestRefresh();
     partial void OnTimedHeaderDateFormatChanged(string? newValue) => RequestRefresh();
     partial void OnSelectedSlotBackgroundChanged(Brush? newValue) => InvalidateStructureCanvases();
     partial void OnHoverSlotBackgroundChanged(Brush? newValue) => InvalidateStructureCanvases();
+    partial void OnSelectedEndDateTimeChanged(DateTime? newValue) => InvalidateStructureCanvases();
     partial void OnSelectedDateTimeChanged(DateTime? newValue) => InvalidateStructureCanvases();
 
     partial void OnCalendarItemsChanged(IReadOnlyList<CalendarItemViewModel>? newValue)
@@ -347,6 +355,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void ControlUnloaded(object sender, RoutedEventArgs e)
     {
+        CancelRangeSelection();
         ResetSwipeState(clearPressedPointers: true);
         DetachCurrentItemsSource();
         _sizeRefreshTimer.Stop();
@@ -355,6 +364,9 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void ControlPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        if (TryBeginRangeSelection(e))
+            return;
+
         if (e.Pointer.PointerDeviceType != PointerDeviceType.Touch)
         {
             return;
@@ -384,6 +396,9 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void ControlPointerMoved(object sender, PointerRoutedEventArgs e)
     {
+        if (TryUpdateRangeSelection(e))
+            return;
+
         if (e.Pointer.PointerDeviceType != PointerDeviceType.Touch ||
             _swipePointerId != e.Pointer.PointerId ||
             _pressedTouchPointerIds.Count != 1)
@@ -396,6 +411,9 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void ControlPointerReleased(object sender, PointerRoutedEventArgs e)
     {
+        if (TryCompleteRangeSelection(e))
+            return;
+
         if (e.Pointer.PointerDeviceType != PointerDeviceType.Touch)
         {
             return;
@@ -416,6 +434,9 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void ControlPointerCanceled(object sender, PointerRoutedEventArgs e)
     {
+        if (_rangePointer?.PointerId == e.Pointer.PointerId)
+            CancelRangeSelection();
+
         if (e.Pointer.PointerDeviceType != PointerDeviceType.Touch)
         {
             return;
@@ -427,6 +448,9 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void ControlPointerCaptureLost(object sender, PointerRoutedEventArgs e)
     {
+        if (_rangePointer?.PointerId == e.Pointer.PointerId)
+            CancelRangeSelection();
+
         if (e.Pointer.PointerDeviceType != PointerDeviceType.Touch)
         {
             return;
@@ -772,10 +796,19 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             drawingSession.FillRectangle(hoveredTimedSlotRect.Value, hoverFillColor);
         }
 
-        var selectedTimedSlotRect = GetSelectedTimedSlotRect(dayWidth, intervalHeight, intervalCount);
-        if (selectedTimedSlotRect.HasValue && selectedFillColor.A > 0)
+        if (CurrentSelection is CalendarSelectionRange selection && selectedFillColor.A > 0)
         {
-            drawingSession.FillRectangle(selectedTimedSlotRect.Value, selectedFillColor);
+            for (var dayIndex = 0; dayIndex < _timedLayout.VisibleDates.Count; dayIndex++)
+            {
+                var date = _timedLayout.VisibleDates[dayIndex];
+                if (selection.IntersectDay(date) is not CalendarSelectionRange segment)
+                    continue;
+
+                var dayStart = date.ToDateTime(TimeOnly.MinValue);
+                var y = (segment.Start - dayStart).TotalMinutes / TimedGridIntervalMinutes * intervalHeight;
+                var height = (segment.End - segment.Start).TotalMinutes / TimedGridIntervalMinutes * intervalHeight;
+                drawingSession.FillRectangle(new Rect(dayIndex * dayWidth, y, dayWidth, height), selectedFillColor);
+            }
         }
 
         for (var intervalIndex = 0; intervalIndex <= intervalCount; intervalIndex++)
@@ -829,10 +862,13 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
             drawingSession.FillRectangle(hoveredMonthCellRect.Value, hoverColor);
         }
 
-        var selectedMonthCellRect = GetSelectedMonthCellRect(scaleX, scaleY);
-        if (selectedMonthCellRect.HasValue && selectedColor.A > 0)
+        if (CurrentSelection is CalendarSelectionRange selection && selectedColor.A > 0)
         {
-            drawingSession.FillRectangle(selectedMonthCellRect.Value, selectedColor);
+            foreach (var cell in _monthLayout.Cells)
+            {
+                if (selection.IntersectDay(cell.Date) != null)
+                    drawingSession.FillRectangle(ToScaledRect(cell.Bounds, scaleX, scaleY), selectedColor);
+            }
         }
 
         for (var row = 0; row <= MonthCalendarLayoutCalculator.RowCount; row++)
@@ -968,6 +1004,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void TimedInteractionLayerTapped(object sender, TappedRoutedEventArgs e)
     {
+        if (_suppressRangeTap)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (_timedLayout.VisibleDates.Count == 0 || _timedLayout.DayWidth <= 0)
         {
             return;
@@ -995,6 +1037,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void MonthInteractionLayerTapped(object sender, TappedRoutedEventArgs e)
     {
+        if (_suppressRangeTap)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (_monthLayout.Cells.Count == 0 || _monthLayout.CellWidth <= 0 || _monthLayout.CellHeight <= 0)
         {
             return;
@@ -1267,27 +1315,6 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         InvalidateStructureCanvases();
     }
 
-    private Rect? GetSelectedTimedSlotRect(float dayWidth, float intervalHeight, int intervalCount)
-    {
-        if (SelectedDateTime is not DateTime selectedDateTime || _timedLayout.VisibleDates.Count == 0)
-        {
-            return null;
-        }
-
-        var dayIndex = FindVisibleDateIndex(DateOnly.FromDateTime(selectedDateTime));
-        if (dayIndex < 0)
-        {
-            return null;
-        }
-
-        var slotIndex = (int)Math.Floor(selectedDateTime.TimeOfDay.TotalMinutes / TimedSelectionIntervalMinutes);
-        slotIndex = Math.Clamp(slotIndex, 0, intervalCount - 1);
-
-        var x = dayIndex * dayWidth;
-        var y = slotIndex * intervalHeight;
-        return new Rect(x, y, dayWidth, intervalHeight);
-    }
-
     private Rect? GetHoveredTimedSlotRect(float dayWidth, float intervalHeight, int intervalCount)
     {
         if (_hoverTarget is not { Kind: CalendarDropTargetKind.TimedSlot } hoverTarget)
@@ -1310,27 +1337,6 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
         var x = hoverTarget.DayIndex * dayWidth;
         return new Rect(x, 0, dayWidth, height);
-    }
-
-    private Rect? GetSelectedMonthCellRect(float scaleX, float scaleY)
-    {
-        if (SelectedDateTime is not DateTime selectedDateTime)
-        {
-            return null;
-        }
-
-        var selectedDate = DateOnly.FromDateTime(selectedDateTime);
-        foreach (var cell in _monthLayout.Cells)
-        {
-            if (cell.Date != selectedDate)
-            {
-                continue;
-            }
-
-            return ToScaledRect(cell.Bounds, scaleX, scaleY);
-        }
-
-        return null;
     }
 
     private Rect? GetHoveredMonthCellRect(float scaleX, float scaleY)

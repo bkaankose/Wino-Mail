@@ -519,10 +519,11 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         var providerRemoteEventId = remoteEventId.GetProviderRemoteEventId();
 
         return Connection.FindWithQueryAsync<CalendarItem>(
-            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND (RemoteEventId = ? OR RemoteEventId LIKE ?)",
+            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND (RemoteEventId = ? OR substr(RemoteEventId, 1, ?) = ?)",
             calendarId,
             providerRemoteEventId,
-            $"{providerRemoteEventId}::%");
+            providerRemoteEventId.Length + 2,
+            $"{providerRemoteEventId}::");
     }
 
     private sealed class CalendarReminderCandidate

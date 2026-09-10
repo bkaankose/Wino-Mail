@@ -42,7 +42,7 @@ internal static class MailContextFlyoutBuilder
 
         var items = new List<ContextFlyoutMenuEntry>();
         var actions = availableActions?.ToList() ?? [];
-        var shortcutResolver = new MailContextFlyoutShortcutResolver(shortcutService);
+        var shortcutResolver = new ContextFlyoutShortcutResolver(shortcutService);
         var focusedInboxActions = actions.Where(action => IsFocusedInboxMoveOperation(action.Operation)).ToList();
 
         foreach (var action in actions)
@@ -108,7 +108,7 @@ internal static class MailContextFlyoutBuilder
 
     private static IReadOnlyList<ContextFlyoutHeaderEntry> CreateHeaderItems(
         IReadOnlyList<MailOperationMenuItem> actions,
-        MailContextFlyoutShortcutResolver shortcutResolver,
+        ContextFlyoutShortcutResolver shortcutResolver,
         Action<MailContextFlyoutSelection> selected)
     {
         var headerItems = new List<ContextFlyoutHeaderEntry>();
@@ -136,7 +136,7 @@ internal static class MailContextFlyoutBuilder
 
     private static ContextFlyoutCommandEntry CreateOperationItem(
         MailOperationMenuItem action,
-        MailContextFlyoutShortcutResolver shortcutResolver,
+        ContextFlyoutShortcutResolver shortcutResolver,
         Action<MailContextFlyoutSelection> selected)
         => new()
         {
@@ -154,7 +154,7 @@ internal static class MailContextFlyoutBuilder
         IReadOnlyList<MailOperationMenuItem> focusedInboxActions,
         IReadOnlyList<IMailItemFolder>? moveFolders,
         IReadOnlySet<Guid> sourceFolderIds,
-        MailContextFlyoutShortcutResolver shortcutResolver,
+        ContextFlyoutShortcutResolver shortcutResolver,
         Action<MailContextFlyoutSelection> selected)
     {
         var children = new List<ContextFlyoutMenuEntry>();

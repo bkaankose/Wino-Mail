@@ -273,6 +273,7 @@ public sealed class CalendarEventSynchronizationPayloadTests
         var createRequest = new CreateCalendarEventRequest(composeResult, (AccountCalendar)item.AssignedCalendar);
 
         var nativeRequest = synchronizer.CreateCalendarEvent(createRequest).Single().NativeRequest;
+        nativeRequest.Headers["Prefer"].Should().Contain("IdType=\"ImmutableId\"");
         using var payload = await ReadJsonAsync(nativeRequest.Content);
 
         payload.RootElement.GetProperty("isAllDay").GetBoolean().Should().BeTrue();

@@ -1,138 +1,99 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Extensions.DependencyInjection;
+using Wino.Core.Domain.Interfaces;
+using Wino.Mail.WinUI;
+using Wino.MenuFlyouts;
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.UI.Xaml.Automation;
-using Microsoft.UI.Xaml.Controls;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Messages;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Mail.Controls.ContextFlyout;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.WinUI.Controls;
 
 namespace Wino.Calendar.Controls;
 
-public partial class CalendarItemCommandBarFlyout : CommandBarFlyout
+public partial class CalendarItemCommandBarFlyout : WinoContextFlyout
 {
-    private readonly RelayCommand<CalendarContextMenuAction> _executeActionCommand;
-
-    public CalendarItemCommandBarFlyout()
-    {
-        _executeActionCommand = new RelayCommand<CalendarContextMenuAction>(ExecuteAction);
-    }
+    private readonly ContextFlyoutShortcutResolver _shortcutResolver = new(
+        WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>());
 
     public CalendarItemViewModel? Item { get; set; }
 
     public void SetMenuItems(IReadOnlyList<CalendarContextMenuItem> menuItems)
     {
-        ClearMenuItems();
+        // Submenus carry no command. Leaves capture the event before Closed clears Item.
+        var item = Item;
+        ItemsSource = item == null ? [] : menuItems.Select(entry => CreateEntry(entry, item)).ToArray();
+    }
 
-        foreach (var menuItem in menuItems)
+    private ContextFlyoutMenuEntry CreateEntry(CalendarContextMenuItem menuItem, CalendarItemViewModel item)
+    {
+        var action = menuItem.Action;
+        var automationId = $"CalendarContext{action.ActionType}{action.TargetType}{action.ShowAs}{action.ResponseStatus}";
+        var icon = CreateIcon(GetActionIcon(action));
+        var isMutation = action.ActionType is CalendarContextMenuActionType.Delete or
+            CalendarContextMenuActionType.ShowAs or CalendarContextMenuActionType.Respond;
+        var isEnabled = menuItem.IsEnabled && !item.IsBusy &&
+            (!isMutation || item.CalendarItem.AssignedCalendar?.IsReadOnly != true);
+
+        if (menuItem.HasChildren)
         {
-            var appBarButton = BuildAppBarButton(menuItem);
-
-            if (menuItem.IsPrimary)
-                PrimaryCommands.Add(appBarButton);
-            else
-                SecondaryCommands.Add(appBarButton);
+            return new ContextFlyoutSubMenuEntry
+            {
+                Text = GetActionLabel(action),
+                Icon = icon,
+                IsEnabled = isEnabled,
+                AutomationId = automationId,
+                Items = menuItem.Children.Select(child => CreateEntry(child, item)).ToArray()
+            };
         }
+
+        return new ContextFlyoutCommandEntry
+        {
+            Text = GetActionLabel(action),
+            Icon = icon,
+            IsEnabled = isEnabled,
+            Shortcut = action.ActionType == CalendarContextMenuActionType.Delete && action.TargetType != CalendarEventTargetType.Series
+                ? _shortcutResolver.Resolve(KeyboardShortcutAction.Delete, WinoApplicationMode.Calendar, KeyboardShortcutInputContext.Calendar)
+                : null,
+            IsDestructive = action.ActionType == CalendarContextMenuActionType.Delete,
+            AutomationId = automationId,
+            Command = new RelayCommand(
+                () => WeakReferenceMessenger.Default.Send(new CalendarItemContextActionRequestedMessage(item, action)),
+                () => isEnabled && !item.IsBusy)
+        };
     }
 
 #if DEBUG
     public void AddTestNotificationCommand(Func<Task> createNotificationAsync)
     {
-        var button = new AppBarButton
+        ItemsSource = (ContextFlyoutMenuEntry[])[.. ItemsSource ?? [], new ContextFlyoutCommandEntry
         {
-            Label = Translator.Buttons_TestNotification,
-            Icon = new WinoFontIcon
-            {
-                Icon = WinoIconGlyph.Reminder,
-                FontSize = 16
-            }
-        };
-        AutomationProperties.SetAutomationId(button, "CalendarEventTestNotification");
-        AutomationProperties.SetName(button, Translator.Buttons_TestNotification);
-        button.Click += async (_, _) =>
-        {
-            await createNotificationAsync();
-            Hide();
-        };
-        SecondaryCommands.Add(button);
+            Text = Translator.Buttons_TestNotification,
+            Icon = CreateIcon(WinoIconGlyph.Reminder),
+            AutomationId = "CalendarEventTestNotification",
+            Command = new AsyncRelayCommand(createNotificationAsync)
+        }];
     }
 #endif
 
     public void ClearMenuItems()
     {
-        PrimaryCommands.Clear();
-        SecondaryCommands.Clear();
+        ItemsSource = [];
+        HeaderItemsSource = [];
     }
 
-    private AppBarButton BuildAppBarButton(CalendarContextMenuItem menuItem)
-    {
-        var button = new AppBarButton
-        {
-            Label = GetActionLabel(menuItem.Action),
-            IsEnabled = menuItem.IsEnabled,
-            Command = _executeActionCommand,
-            CommandParameter = menuItem.Action,
-            Icon = new WinoFontIcon
-            {
-                Icon = GetActionIcon(menuItem.Action),
-                FontSize = 16
-            }
-        };
-
-        if (menuItem.HasChildren)
-        {
-            var flyout = new WinoMenuFlyout();
-            PopulateMenuFlyoutItems(flyout.Items, menuItem.Children);
-            button.Flyout = flyout;
-        }
-
-        return button;
-    }
-
-    private void PopulateMenuFlyoutItems(IList<MenuFlyoutItemBase> items, IReadOnlyList<CalendarContextMenuItem> menuItems)
-    {
-        foreach (var menuItem in menuItems)
-        {
-            if (menuItem.HasChildren)
-            {
-                var subItem = new MenuFlyoutSubItem
-                {
-                    Text = GetActionLabel(menuItem.Action),
-                    IsEnabled = menuItem.IsEnabled
-                };
-
-                PopulateMenuFlyoutItems(subItem.Items, menuItem.Children);
-                items.Add(subItem);
-            }
-            else
-            {
-                var flyoutItem = new MenuFlyoutItem
-                {
-                    Text = GetActionLabel(menuItem.Action),
-                    IsEnabled = menuItem.IsEnabled,
-                    Command = _executeActionCommand,
-                    CommandParameter = menuItem.Action
-                };
-
-                items.Add(flyoutItem);
-            }
-        }
-    }
-
-    private void ExecuteAction(CalendarContextMenuAction action)
-    {
-        // We don't want to trigger any action or hide the flyout if it's a sub menu item.
-        if (Item == null || (action.ShowAs == null && action.ResponseStatus == null && action.TargetType == null))
-            return;
-
-        WeakReferenceMessenger.Default.Send(new CalendarItemContextActionRequestedMessage(Item, action));
-        Hide();
-    }
+    private static ContextFlyoutIcon? CreateIcon(WinoIconGlyph icon)
+        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
+            ? new ContextFlyoutIcon(glyph)
+            : null;
 
     private static string GetActionLabel(CalendarContextMenuAction action)
     {

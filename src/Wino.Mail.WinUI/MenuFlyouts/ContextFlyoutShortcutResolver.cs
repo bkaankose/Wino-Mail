@@ -8,7 +8,7 @@ using Wino.Mail.Controls.Core.ContextFlyout;
 
 namespace Wino.MenuFlyouts;
 
-internal sealed class MailContextFlyoutShortcutResolver(IKeyboardShortcutService shortcutService)
+internal sealed class ContextFlyoutShortcutResolver(IKeyboardShortcutService shortcutService)
 {
     public ContextFlyoutShortcut? Resolve(MailOperation operation)
     {
@@ -18,13 +18,18 @@ internal sealed class MailContextFlyoutShortcutResolver(IKeyboardShortcutService
             return null;
         }
 
+        return Resolve(action.Value, WinoApplicationMode.Mail, KeyboardShortcutInputContext.List);
+    }
+
+    public ContextFlyoutShortcut? Resolve(KeyboardShortcutAction action, WinoApplicationMode mode, KeyboardShortcutInputContext context)
+    {
         var shortcut = shortcutService.EnabledShortcutsSnapshot
-            .Where(candidate => candidate.Mode == WinoApplicationMode.Mail && candidate.Action == action)
+            .Where(candidate => candidate.Mode == mode && candidate.Action == action)
             .Where(candidate => KeyboardShortcutContextPolicy.CanExecute(
                 candidate.Action,
                 candidate.Key,
                 candidate.ModifierKeys,
-                KeyboardShortcutInputContext.List,
+                context,
                 false))
             .OrderBy(candidate => candidate.CreatedAt)
             .ThenBy(candidate => candidate.Id)
@@ -41,7 +46,7 @@ internal sealed class MailContextFlyoutShortcutResolver(IKeyboardShortcutService
             shortcut.Action,
             shortcut.Key,
             shortcut.ModifierKeys,
-            KeyboardShortcutInputContext.List,
+            context,
             true);
 
         return new ContextFlyoutShortcut(
