@@ -133,16 +133,12 @@ The selected backdrop is decorative. The content layer, selected state, focus vi
 
 ### Calendar event display
 
-- Offer the calendar-wide **Overlapping events** choice at the top of Calendar Rendering settings. Use a SettingsCard with a labeled ComboBox containing **Stacked** and **Overlapped**.
-- Default to Stacked, preserving side-by-side timed events. Overlapped applies only to Day, Week, and Work Week timed events; month and all-day layouts stay unchanged.
-- Cascade later events in front of earlier events toward a shared right edge. For matching start times, place longer events first, then use event ID for stable ordering.
-- Indent each active overlap depth by 24 epx, reducing the indent per connected group when needed to preserve at least 60% of the usable day width for the deepest event. Touching end/start times do not overlap.
-- Give overlapped cards an opaque backing and a themed outline. Preserve event commands, exposed hit targets, and focus behavior in Light, Dark, and High Contrast.
-
-- Use compact event cards with a 1 epx corner radius and top-left title alignment. Show time and location below the title when height permits.
-- Calendar context commands use the shared context flyout and display enabled shortcuts from the global shortcut service.
-- A normal empty-cell click opens quick creation. Shift + left drag selects a continuous range from the first cell through the current cell, in either direction. Include both cells, show the highlight while dragging, and open quick creation on release. Escape cancels the drag.
-- Quick creation preserves the selected start and end dates across midnight. Month selections use an exclusive midnight end after the last selected day.
+- Put **Overlap behavior** in a SettingsExpander at the top of Calendar Preferences. Offer **Stacked** (default), **Cascade**, **Limited overlap**, and **Protect titles** in one labeled ComboBox with the selected description below it.
+- Place a separate Preview SettingsCard immediately below the expander. Use local sample events and the same placement calculator as the calendar. The preview changes with selection and never creates calendar events.
+- Keep the persisted `Overlapped` value for Cascade compatibility. Apply these choices only to timed Day, Week, and Work Week items.
+- Cascade uses 24 epx offsets, reduced per connected group to retain 60% width. Limited overlap reuses columns and widens them by 30%, with right-hand columns drawn on top.
+- Protect titles reserves the first 32 epx of each event for its title. Allocate columns for intersecting title areas and draw later bodies in front. Keep actual event times and heights unchanged.
+- Use opaque backing, themed outlines, and top-aligned titles for Protect titles. Keep the preview readable in Light, Dark, and High Contrast.
 
 ## 7. Navigation
 

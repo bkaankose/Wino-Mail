@@ -11,11 +11,13 @@ using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Core.Tests;
 
-public class CalendarRenderingSettingsPageViewModelTests
+public class CalendarOverlapPreferenceTests
 {
     [Theory]
     [InlineData(CalendarEventDisplayMode.Stacked)]
     [InlineData(CalendarEventDisplayMode.Overlapped)]
+    [InlineData(CalendarEventDisplayMode.LimitedOverlap)]
+    [InlineData(CalendarEventDisplayMode.ProtectTitles)]
     public void Initialization_LoadsPreferenceWithoutWriting(CalendarEventDisplayMode mode)
     {
         var preferences = CreatePreferences(mode);
@@ -60,6 +62,27 @@ public class CalendarRenderingSettingsPageViewModelTests
     }
 
     [Fact]
+    public void SelectionChanges_RefreshPreviewWithoutChangingEventTimes()
+    {
+        var viewModel = CreateViewModel(CreatePreferences(CalendarEventDisplayMode.Stacked).Object);
+        var notifications = new List<string?>();
+        viewModel.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+        var original = viewModel.OverlapPreviewItems.ToDictionary(item => item.Title);
+
+        foreach (var option in viewModel.EventDisplayModeOptions.Skip(1))
+        {
+            viewModel.SelectedEventDisplayModeOption = option;
+            var preview = viewModel.OverlapPreviewItems;
+
+            preview.Should().HaveCount(4);
+            preview.Should().OnlyContain(item => item.Top == original[item.Title].Top && item.Height == original[item.Title].Height);
+            preview.Should().Contain(item => item.Left != original[item.Title].Left || item.Width != original[item.Title].Width);
+        }
+
+        notifications.Count(name => name == nameof(viewModel.OverlapPreviewItems)).Should().Be(3);
+    }
+
+    [Fact]
     public void CalendarSettings_DefaultIsStackedAndExplicitModeIsPreserved()
     {
         var settings = new CalendarSettings(DayOfWeek.Monday, [], false, DayOfWeek.Monday, DayOfWeek.Friday,
@@ -77,6 +100,10 @@ public class CalendarRenderingSettingsPageViewModelTests
         return preferences;
     }
 
-    private static CalendarRenderingSettingsPageViewModel CreateViewModel(IPreferencesService preferences)
-        => new(preferences, Mock.Of<ICalendarService>(), Mock.Of<IAccountService>());
+    private static CalendarPreferenceSettingsPageViewModel CreateViewModel(IPreferencesService preferences)
+    {
+        var accounts = new Mock<IAccountService>();
+        accounts.Setup(service => service.GetAccountsAsync()).ReturnsAsync(new List<Wino.Core.Domain.Entities.Shared.MailAccount>());
+        return new(preferences, Mock.Of<ICalendarService>(), accounts.Object);
+    }
 }

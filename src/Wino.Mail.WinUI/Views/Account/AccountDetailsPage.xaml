@@ -353,7 +353,15 @@
                         AutomationProperties.AutomationId="AccountDetailsPageButton4"
                         Background="{ThemeResource DeleteBrush}"
                         Command="{x:Bind ViewModel.DeleteAccountCommand}"
-                        Content="{x:Bind domain:Translator.Buttons_Delete}" />
+                        Content="{x:Bind domain:Translator.Buttons_Delete}"
+                        Foreground="White">
+                        <Button.Resources>
+                            <SolidColorBrush x:Key="ButtonForeground" Color="White" />
+                            <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="White" />
+                            <SolidColorBrush x:Key="ButtonForegroundPressed" Color="White" />
+                            <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="White" />
+                        </Button.Resources>
+                    </Button>
                 </controls:SettingsCard>
             </StackPanel>
 

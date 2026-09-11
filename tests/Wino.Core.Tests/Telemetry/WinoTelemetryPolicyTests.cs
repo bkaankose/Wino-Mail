@@ -171,6 +171,18 @@ public sealed class WinoTelemetryPolicyTests
         sink.Events.Should().BeEmpty();
     }
 
+    [Fact]
+    public void SentryPolicy_DropsUserCanceledAttachmentPolicyException()
+    {
+        var sentryEvent = new SentryEvent(new WindowsAttachmentPolicyException(unchecked((int)0x800704C7)))
+        {
+            Level = SentryLevel.Fatal
+        };
+
+        WinoLogger.ShouldDropHandledSynchronizationEvent(sentryEvent, isAccountSetupError: true)
+            .Should().BeTrue();
+    }
+
     private static WinoTelemetryService CreateTelemetryService(
         RecordingTelemetrySink sink,
         bool isEnabled)

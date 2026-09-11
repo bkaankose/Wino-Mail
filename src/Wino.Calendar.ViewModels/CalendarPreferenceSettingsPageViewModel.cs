@@ -4,6 +4,10 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Models.Calendar;
+using Wino.Messaging.Client.Calendar;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -13,6 +17,47 @@ namespace Wino.Calendar.ViewModels;
 
 public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsSectionViewModelBase
 {
+    public IReadOnlyList<CalendarEventDisplayModeOption> EventDisplayModeOptions { get; } = (CalendarEventDisplayModeOption[])
+    [
+        new(CalendarEventDisplayMode.Stacked, Translator.CalendarSettings_OverlappingEvents_Stacked, Translator.CalendarSettings_Overlap_StackedDescription),
+        new(CalendarEventDisplayMode.Overlapped, Translator.CalendarSettings_Overlap_Cascade, Translator.CalendarSettings_Overlap_CascadeDescription),
+        new(CalendarEventDisplayMode.LimitedOverlap, Translator.CalendarSettings_Overlap_Limited, Translator.CalendarSettings_Overlap_LimitedDescription),
+        new(CalendarEventDisplayMode.ProtectTitles, Translator.CalendarSettings_Overlap_ProtectTitles, Translator.CalendarSettings_Overlap_ProtectTitlesDescription)
+    ];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OverlapPreviewItems))]
+    public partial CalendarEventDisplayModeOption SelectedEventDisplayModeOption { get; set; }
+
+    public IReadOnlyList<CalendarOverlapPreviewItem> OverlapPreviewItems
+    {
+        get
+        {
+            CalendarOverlapInterval[] samples =
+            [
+                new(0, Guid.Empty, 0, 180),
+                new(1, Guid.Empty, 30, 120),
+                new(2, Guid.Empty, 30, 90),
+                new(3, Guid.Empty, 60, 150)
+            ];
+            string[] titles = [Translator.CalendarSettings_Overlap_SampleWork, Translator.CalendarSettings_Overlap_SampleMeeting,
+                Translator.CalendarSettings_Overlap_SampleCall, Translator.CalendarSettings_Overlap_SampleReview];
+
+            return CalendarEventPlacementCalculator.Calculate(samples, 360, 60, SelectedEventDisplayModeOption?.Mode ?? CalendarEventDisplayMode.Stacked)
+                .Select(item => new CalendarOverlapPreviewItem(titles[item.SourceIndex], item.Left, samples[item.SourceIndex].StartMinute,
+                    item.Width, samples[item.SourceIndex].EndMinute - samples[item.SourceIndex].StartMinute)).ToArray();
+        }
+    }
+
+    partial void OnSelectedEventDisplayModeOptionChanged(CalendarEventDisplayModeOption value)
+    {
+        if (!IsLoaded || value is null)
+            return;
+
+        PreferencesService.CalendarEventDisplayMode = value.Mode;
+        Messenger.Send(new CalendarSettingsUpdatedMessage());
+    }
+
     [ObservableProperty]
     public partial CalendarNewEventBehaviorOption SelectedNewEventBehaviorOption { get; set; }
 
@@ -44,6 +89,9 @@ public partial class CalendarPreferenceSettingsPageViewModel : CalendarSettingsS
         IAccountService accountService)
         : base(preferencesService, calendarService, accountService)
     {
+        SelectedEventDisplayModeOption = EventDisplayModeOptions.FirstOrDefault(option => option.Mode == preferencesService.CalendarEventDisplayMode)
+            ?? EventDisplayModeOptions[0];
+
         LoadNewEventBehaviorOptions();
         SelectedNewEventBehaviorOption = GetSelectedNewEventBehaviorOption();
         IsCalendarAccountsGrouped = preferencesService.IsCalendarAccountsGrouped;

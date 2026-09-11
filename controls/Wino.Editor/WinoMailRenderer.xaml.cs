@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Web.WebView2.Core;
+using System.Runtime.InteropServices;
 
 namespace Wino.Editor;
 
@@ -165,8 +166,18 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
 
     public void SetMemoryUsageTargetLevel(CoreWebView2MemoryUsageTargetLevel level)
     {
-        if (!_disposed && RendererWebView2?.CoreWebView2 is not null)
-            RendererWebView2.CoreWebView2.MemoryUsageTargetLevel = level;
+        if (_disposed || RendererWebView2?.CoreWebView2 is not { } coreWebView)
+            return;
+
+        try
+        {
+            coreWebView.MemoryUsageTargetLevel = level;
+        }
+        catch (COMException exception) when ((uint)exception.HResult == 0x8007139F)
+        {
+            // Unloaded can race WebView2 shutdown while navigating. The browser is already
+            // releasing resources in this state, so lowering its memory target is unnecessary.
+        }
     }
 
     /// <summary>

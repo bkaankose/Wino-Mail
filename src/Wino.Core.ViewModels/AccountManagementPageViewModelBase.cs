@@ -92,8 +92,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
                                                          navigationContext));
     }
 
-    [RelayCommand]
-    public async Task PurchaseUnlimitedAccountAsync()
+    protected async Task PurchaseUnlimitedAccountWithWinoAccountAsync()
     {
         if (await WinoAccountProfileService.GetAuthenticatedAccountAsync().ConfigureAwait(false) == null)
         {

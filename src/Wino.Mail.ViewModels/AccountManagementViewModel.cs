@@ -38,6 +38,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     private readonly IWinoLogger _winoLogger;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly ICalDavClient _calDavClient;
+    private readonly IStoreManagementService _storeManagementService;
 
     public IMailDialogService MailDialogService { get; }
 
@@ -51,6 +52,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       ICalDavClient calDavClient,
+                                      IStoreManagementService storeManagementService,
                                       IAuthenticationProvider authenticationProvider,
                                       IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, billingService, winoAccountProfileService, authenticationProvider, preferencesService)
     {
@@ -59,6 +61,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         _winoLogger = winoLogger;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
+        _storeManagementService = storeManagementService;
     }
 
     [ObservableProperty]
@@ -110,6 +113,57 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     }
 
     public Task StartAddNewAccountAsync() => AddNewAccountAsync();
+
+    [RelayCommand]
+    private async Task PurchaseUnlimitedAccountAsync()
+    {
+        var channel = await MailDialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
+
+        if (channel == UnlimitedAccountsPurchaseChannel.WinoAccount)
+        {
+            await PurchaseUnlimitedAccountWithWinoAccountAsync();
+            return;
+        }
+
+        if (channel != UnlimitedAccountsPurchaseChannel.MicrosoftStore)
+            return;
+
+        try
+        {
+            var purchaseResult = await _storeManagementService
+                .PurchaseAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS)
+                .ConfigureAwait(false);
+
+            if (purchaseResult == StorePurchaseResult.Succeeded)
+            {
+                DialogService.InfoBarMessage(
+                    Translator.Info_PurchaseThankYouTitle,
+                    Translator.Info_PurchaseThankYouMessage,
+                    InfoBarMessageType.Success);
+            }
+            else if (purchaseResult == StorePurchaseResult.AlreadyPurchased)
+            {
+                DialogService.InfoBarMessage(
+                    Translator.Info_PurchaseExistsTitle,
+                    Translator.Info_PurchaseExistsMessage,
+                    InfoBarMessageType.Warning);
+            }
+            else
+            {
+                return;
+            }
+
+            await ManageStorePurchasesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _winoLogger.CaptureException(ex, nameof(PurchaseUnlimitedAccountAsync));
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                Translator.UnlimitedAccountsPurchaseDialog_MicrosoftStorePurchaseFailed,
+                InfoBarMessageType.Error);
+        }
+    }
 
     private async Task ValidateSpecialImapConnectivityAsync(CustomServerInformation serverInformation)
     {

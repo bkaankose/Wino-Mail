@@ -34,6 +34,16 @@
             </Border>
         </DataTemplate>
 
+        <DataTemplate x:Key="ProtectedTitleCalendarEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
+            <Border
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                BorderBrush="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="1">
+                <local:CalendarItemControl CalendarItem="{x:Bind}" ProtectTitle="True" />
+            </Border>
+        </DataTemplate>
+
         <DataTemplate x:Key="MonthEventTemplate" x:DataType="viewModels:CalendarItemViewModel">
             <local:CalendarItemControl CalendarItem="{x:Bind}" IsCustomEventArea="True" />
         </DataTemplate>

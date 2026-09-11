@@ -425,4 +425,18 @@ public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<S
 
         return dialog.Result;
     }
+
+    public async Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync()
+    {
+        var isWinoAccountAvailable = await _winoAccountProfileService.HasActiveAccountAsync();
+
+        var dialog = new UnlimitedAccountsPurchaseChannelDialog(isWinoAccountAvailable)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
+
+        return dialog.Result;
+    }
 }

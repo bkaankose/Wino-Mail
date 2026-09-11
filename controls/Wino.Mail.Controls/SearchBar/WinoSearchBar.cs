@@ -565,14 +565,19 @@ public sealed partial class WinoSearchBar : Control
         UpdateLayoutState();
         if (_fieldBorder is null || _compactFieldHost is null || _layoutRoot is not Panel rootPanel) return;
 
+        var reopenInCompactLayout = IsCompact && _searchPopup?.IsOpen == true;
+        CloseSearchPopup();
+
         if (IsCompact)
         {
             if (rootPanel.Children.Contains(_fieldBorder)) rootPanel.Children.Remove(_fieldBorder);
             if (!ReferenceEquals(_compactFieldHost.Content, _fieldBorder)) _compactFieldHost.Content = _fieldBorder;
+
+            if (reopenInCompactLayout)
+                DispatcherQueue.TryEnqueue(OpenCompactPopup);
         }
         else
         {
-            CloseSearchPopup();
             if (ReferenceEquals(_compactFieldHost.Content, _fieldBorder)) _compactFieldHost.Content = null;
             if (!rootPanel.Children.Contains(_fieldBorder)) rootPanel.Children.Insert(0, _fieldBorder);
         }

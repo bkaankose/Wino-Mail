@@ -14,6 +14,127 @@
     mc:Ignorable="d">
 
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="CalendarOverlapBehaviorExpander"
+            Description="{x:Bind domain:Translator.CalendarSettings_Overlap_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.CalendarSettings_Overlap_Header, Mode=OneTime}"
+            IsExpanded="True">
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard AutomationProperties.AutomationId="CalendarOverlappingEventsSettingCard" Header="{x:Bind domain:Translator.CalendarSettings_OverlappingEvents_Header, Mode=OneTime}">
+                    <StackPanel MaxWidth="320" Spacing="8">
+                        <ComboBox
+                            MinWidth="180"
+                            AutomationProperties.AutomationId="CalendarEventDisplayModeComboBox"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_Overlap_Header, Mode=OneTime}"
+                            ItemsSource="{x:Bind ViewModel.EventDisplayModeOptions, Mode=OneTime}"
+                            SelectedItem="{x:Bind ViewModel.SelectedEventDisplayModeOption, Mode=TwoWay}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="data:CalendarEventDisplayModeOption">
+                                    <TextBlock Text="{x:Bind DisplayName}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Text="{x:Bind ViewModel.SelectedEventDisplayModeOption.Description, Mode=OneWay}"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+        <controls:SettingsCard
+            HorizontalContentAlignment="Stretch"
+            AutomationProperties.AutomationId="CalendarOverlapPreviewCard"
+            ContentAlignment="Vertical"
+            Description="{x:Bind domain:Translator.CalendarSettings_Overlap_PreviewDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.CalendarSettings_Overlap_Preview, Mode=OneTime}">
+            <Viewbox
+                MaxWidth="410"
+                HorizontalAlignment="Left"
+                Stretch="Uniform"
+                StretchDirection="DownOnly">
+                <Grid
+                    Width="410"
+                    Height="196"
+                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_Overlap_PreviewDescription, Mode=OneTime}"
+                    Background="{ThemeResource LayerFillColorDefaultBrush}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="366" />
+                    </Grid.ColumnDefinitions>
+                    <Canvas>
+                        <TextBlock
+                            Canvas.Top="4"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="09:00" />
+                        <TextBlock
+                            Canvas.Top="64"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="10:00" />
+                        <TextBlock
+                            Canvas.Top="124"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="11:00" />
+                    </Canvas>
+                    <Canvas Grid.Column="1" IsHitTestVisible="False">
+                        <Rectangle
+                            Canvas.Top="4"
+                            Width="360"
+                            Height="1"
+                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                        <Rectangle
+                            Canvas.Top="64"
+                            Width="360"
+                            Height="1"
+                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                        <Rectangle
+                            Canvas.Top="124"
+                            Width="360"
+                            Height="1"
+                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                        <Rectangle
+                            Canvas.Top="184"
+                            Width="360"
+                            Height="1"
+                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                    </Canvas>
+                    <ItemsControl
+                        Grid.Column="1"
+                        Margin="0,4,0,0"
+                        IsTabStop="False"
+                        ItemsSource="{x:Bind ViewModel.OverlapPreviewItems, Mode=OneWay}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Canvas />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="data:CalendarOverlapPreviewItem">
+                                <Border
+                                    Width="{x:Bind Width}"
+                                    Height="{x:Bind Height}"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4">
+                                    <Border.RenderTransform>
+                                        <TranslateTransform X="{x:Bind Left}" Y="{x:Bind Top}" />
+                                    </Border.RenderTransform>
+                                    <TextBlock
+                                        Margin="6,4,6,0"
+                                        VerticalAlignment="Top"
+                                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind Title}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </Grid>
+            </Viewbox>
+        </controls:SettingsCard>
         <controls:SettingsCard
             AutomationProperties.AutomationId="CalendarPreferenceSyncIntervalCard"
             Description="{x:Bind domain:Translator.CalendarSettings_SyncInterval_Description, Mode=OneTime}"

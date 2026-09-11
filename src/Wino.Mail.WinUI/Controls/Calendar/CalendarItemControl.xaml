@@ -128,6 +128,19 @@
         </StackPanel>
 
         <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="TitlePlacementStates">
+                <VisualState x:Name="DefaultTitlePlacement" />
+                <VisualState x:Name="ProtectedTitlePlacement">
+                    <VisualState.StateTriggers>
+                        <StateTrigger IsActive="{x:Bind ProtectTitle, Mode=OneWay}" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="EventTitleTextblock.VerticalAlignment" Value="Top" />
+                        <Setter Target="EventTitleTextblock.HorizontalTextAlignment" Value="Left" />
+                        <Setter Target="EventTitleTextblock.Margin" Value="6,4,6,0" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
             <!--  TODO: Selection of items are disabled temporarily.  -->
             <VisualStateGroup x:Name="SelectionStates">
                 <VisualState x:Name="NonSelected" />

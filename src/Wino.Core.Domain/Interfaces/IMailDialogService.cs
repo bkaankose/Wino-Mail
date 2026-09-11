@@ -99,4 +99,6 @@ public interface IMailDialogService : IDialogServiceBase
     Task<WinoAccount?> ShowWinoAccountLoginDialogAsync();
 
     Task<WinoAccountSyncExportResult?> ShowWinoAccountExportDialogAsync();
+
+    Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync();
 }

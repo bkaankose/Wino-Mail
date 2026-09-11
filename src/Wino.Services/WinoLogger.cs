@@ -278,8 +278,11 @@ public class WinoLogger : IWinoLogger
         sentryEvent.SetExtra("SentryDist", _appMetadataService.SentryDist);
     }
 
-    private static bool ShouldDropHandledSynchronizationEvent(SentryEvent sentryEvent, bool isAccountSetupError)
+    internal static bool ShouldDropHandledSynchronizationEvent(SentryEvent sentryEvent, bool isAccountSetupError)
     {
+        if (sentryEvent.Exception is WindowsAttachmentPolicyException { IsCancellation: true })
+            return true;
+
         if (isAccountSetupError || sentryEvent.Level == SentryLevel.Fatal)
             return false;
 

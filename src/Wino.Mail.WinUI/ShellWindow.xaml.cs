@@ -8,7 +8,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Hosting;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -18,6 +17,7 @@ using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Extensions;
+using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.WinUI.Activation;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
@@ -25,7 +25,6 @@ using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Views;
-using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
@@ -130,9 +129,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         ShellTitleHost.Visibility = stateName == "MinimalTitleBarState" ? Visibility.Collapsed : Visibility.Visible;
         TitleBarSearchBox.IsCompact = isCompact;
 
-        // The icon is the whole control in compact mode, so the wide layout's width floor has to go
-        // with it; leaving MinWidth at 400 would keep an empty 400px hole in the middle of the bar.
-        TitleBarSearchBox.MinWidth = isCompact ? 0 : 400;
+        // The wide field contracts with the title bar before switching to the compact icon. The icon
+        // is the whole control in compact mode, so the wide layout's width floor must then disappear.
+        TitleBarSearchBox.MinWidth = isCompact ? 0 : 280;
         TitleBarSearchBox.MaxWidth = isCompact ? 48 : 520;
         TitleBarSearchBox.HorizontalAlignment = isCompact ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
     }
@@ -373,17 +372,25 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private void UpdateTitleBarColors(bool isDarkTheme)
     {
         DispatcherQueue.TryEnqueue(() =>
-            SystemCaptionButtonColorHelper.Apply(AppWindow.TitleBar, isDarkTheme));
+        {
+            if (AppWindow == null) return;
+
+            SystemCaptionButtonColorHelper.Apply(AppWindow.TitleBar, isDarkTheme);
+        });
     }
 
     private void ApplyTitleBarSearchHost()
     {
         if (_activeTitleBarSearchHost is IMailTitleBarSearchHost previousMailHost)
             previousMailHost.SemanticSearchBusyChanged -= MailHostSemanticSearchBusyChanged;
+
         _activeTitleBarSearchHost = ResolveActiveTitleBarSearchHost();
+
         if (_activeTitleBarSearchHost is IMailTitleBarSearchHost mailHost)
             mailHost.SemanticSearchBusyChanged += MailHostSemanticSearchBusyChanged;
+
         SynchronizeTitleBarSearchBox(resetMeaning: true);
+
         _ = RefreshSemanticAvailabilityAsync();
     }
 
@@ -391,6 +398,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     {
         if (!ReferenceEquals(sender, _activeTitleBarSearchHost))
             return;
+
         DispatcherQueue.TryEnqueue(() => TitleBarSearchBox.IsSemanticSearchBusy = isBusy);
     }
 

@@ -5,28 +5,11 @@
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-    xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
-        <controls:SettingsCard
-            AutomationProperties.AutomationId="CalendarOverlappingEventsSettingCard"
-            Description="{x:Bind domain:Translator.CalendarSettings_OverlappingEvents_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.CalendarSettings_OverlappingEvents_Header, Mode=OneTime}">
-            <ComboBox
-                MinWidth="160"
-                AutomationProperties.AutomationId="CalendarEventDisplayModeComboBox"
-                AutomationProperties.Name="{x:Bind domain:Translator.CalendarSettings_OverlappingEvents_Header, Mode=OneTime}"
-                ItemsSource="{x:Bind ViewModel.EventDisplayModeOptions, Mode=OneTime}"
-                SelectedItem="{x:Bind ViewModel.SelectedEventDisplayModeOption, Mode=TwoWay}">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="data:CalendarEventDisplayModeOption">
-                        <TextBlock Text="{x:Bind DisplayName}" />
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-        </controls:SettingsCard>
+
         <controls:SettingsCard
             AutomationProperties.AutomationId="CalendarRenderingSettingsPageSettingsCard"
             Description="{x:Bind domain:Translator.CalendarSettings_FirstDayOfWeek_Description, Mode=OneTime}"

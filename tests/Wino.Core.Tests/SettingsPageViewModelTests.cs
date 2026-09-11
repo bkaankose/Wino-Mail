@@ -133,6 +133,13 @@ public class SettingsPageViewModelTests
     }
 
     [Fact]
+    public void GetRootPage_MapsAccountUnreadBadgePageToUnreadBadgeSettings()
+    {
+        SettingsNavigationInfoProvider.GetRootPage(WinoPage.AccountUnreadBadgePage)
+            .Should().Be(WinoPage.UnreadBadgeSettingsPage);
+    }
+
+    [Fact]
     public async Task SearchSettingsAsync_ReturnsAccountSpecificMailFiltersRoute()
     {
         var accountId = Guid.NewGuid();

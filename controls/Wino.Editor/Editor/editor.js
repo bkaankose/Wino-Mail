@@ -298,9 +298,7 @@
         }
 
         if (command === "foreColor" || command === "backColor" || command === "hiliteColor" || command === "fontName") {
-            document.execCommand("styleWithCSS", false, true);
-            result = document.execCommand(command, false, value);
-            document.execCommand("styleWithCSS", false, false);
+            result = execStyledCommand(command, value);
         } else if (command === "fontSize") {
             const existingFonts = new Set(editor.querySelectorAll('font[size="7"]'));
             result = document.execCommand("fontSize", false, "7");
@@ -311,6 +309,25 @@
 
         rememberSelection();
         sendContentChanged();
+        return result;
+    }
+
+    function execStyledCommand(command, value) {
+        const commands = command === "backColor" || command === "hiliteColor"
+            ? ["hiliteColor", "backColor"]
+            : [command];
+        let result = false;
+
+        document.execCommand("styleWithCSS", false, true);
+        try {
+            for (const candidate of commands) {
+                result = document.execCommand(candidate, false, value);
+                if (result) break;
+            }
+        } finally {
+            document.execCommand("styleWithCSS", false, false);
+        }
+
         return result;
     }
 
@@ -366,9 +383,7 @@
             element.style ? element.style.getPropertyValue(property) : ""
         ]));
 
-        document.execCommand("styleWithCSS", false, true);
-        const result = document.execCommand(command, false, sentinel);
-        document.execCommand("styleWithCSS", false, false);
+        const result = execStyledCommand(command, sentinel);
 
         const markedElements = Array.from(editor.querySelectorAll("*")).filter(element =>
             normalizeColor(element.style && element.style.getPropertyValue(property)) === normalizeColor(sentinel) &&

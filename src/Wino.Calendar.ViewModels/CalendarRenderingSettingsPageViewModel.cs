@@ -2,9 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Messaging;
-using Wino.Calendar.ViewModels.Data;
-using Wino.Messaging.Client.Calendar;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -13,24 +10,6 @@ namespace Wino.Calendar.ViewModels;
 
 public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSectionViewModelBase
 {
-    public IReadOnlyList<CalendarEventDisplayModeOption> EventDisplayModeOptions { get; } =
-    [
-        new(CalendarEventDisplayMode.Stacked, Translator.CalendarSettings_OverlappingEvents_Stacked),
-        new(CalendarEventDisplayMode.Overlapped, Translator.CalendarSettings_OverlappingEvents_Overlapped)
-    ];
-
-    [ObservableProperty]
-    public partial CalendarEventDisplayModeOption SelectedEventDisplayModeOption { get; set; }
-
-    partial void OnSelectedEventDisplayModeOptionChanged(CalendarEventDisplayModeOption value)
-    {
-        if (!IsLoaded || value is null)
-            return;
-
-        PreferencesService.CalendarEventDisplayMode = value.Mode;
-        Messenger.Send(new CalendarSettingsUpdatedMessage());
-    }
-
     [ObservableProperty]
     public partial double CellHourHeight { get; set; }
 
@@ -96,8 +75,6 @@ public partial class CalendarRenderingSettingsPageViewModel : CalendarSettingsSe
         IAccountService accountService)
         : base(preferencesService, calendarService, accountService)
     {
-        SelectedEventDisplayModeOption = EventDisplayModeOptions.FirstOrDefault(option => option.Mode == preferencesService.CalendarEventDisplayMode)
-            ?? EventDisplayModeOptions[0];
         SelectedFirstDayOfWeekIndex = DayNames.IndexOf(CalendarCulture.DateTimeFormat.GetDayName(preferencesService.FirstDayOfWeek));
         selectedTimeFormatPreferenceIndex = timeFormatPreferences.IndexOf(preferencesService.CalendarTimeFormatPreference);
         IsWorkingHoursEnabled = preferencesService.IsWorkingHoursEnabled;

@@ -481,32 +481,32 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         await ExecuteAsync(EditorCommand.SetParagraphStyle(paragraphStyle.Tag));
     }
 
-    private async void TextColorGridView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void TextColorGridView_ItemClick(object sender, ItemClickEventArgs e)
     {
-        SelectedTextColorOption = TextColorGridView.SelectedItem as EditorColorOption;
-
-        if (_isApplyingState || SelectedTextColorOption == null)
+        if (_isApplyingState || e.ClickedItem is not EditorColorOption color)
         {
             return;
         }
 
+        SelectedTextColorOption = color;
+        TextColorGridView.SelectedItem = color;
         TextColorFlyout.Hide();
 
-        await ExecuteAsync(EditorCommand.SetTextColor(SelectedTextColorOption.Value));
+        await ExecuteAsync(EditorCommand.SetTextColor(color.Value));
     }
 
-    private async void HighlightColorGridView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void HighlightColorGridView_ItemClick(object sender, ItemClickEventArgs e)
     {
-        SelectedHighlightColorOption = HighlightColorGridView.SelectedItem as EditorColorOption;
-
-        if (_isApplyingState || SelectedHighlightColorOption == null)
+        if (_isApplyingState || e.ClickedItem is not EditorColorOption color)
         {
             return;
         }
 
+        SelectedHighlightColorOption = color;
+        HighlightColorGridView.SelectedItem = color;
         HighlightColorFlyout.Hide();
 
-        await ExecuteAsync(EditorCommand.SetHighlightColor(SelectedHighlightColorOption.Value));
+        await ExecuteAsync(EditorCommand.SetHighlightColor(color.Value));
     }
 
     // The primary half of the split button re-applies the color that is already shown on it.

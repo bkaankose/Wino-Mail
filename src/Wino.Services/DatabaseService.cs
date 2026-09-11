@@ -153,6 +153,7 @@ VALUES
             Connection.CreateTableAsync<CardDavResourceShadow>(),
             Connection.CreateTableAsync<CardDavQuarantine>(),
             Connection.CreateTableAsync<CardDavConflict>(),
+            Connection.CreateTableAsync<CardDavOutboxItem>(),
             Connection.CreateTableAsync<AccountTaskListGroup>(),
             Connection.CreateTableAsync<AccountTaskSyncState>(),
             Connection.CreateTableAsync<AccountTaskList>(),

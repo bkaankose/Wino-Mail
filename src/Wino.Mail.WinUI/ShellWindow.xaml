@@ -118,15 +118,14 @@
                                 Visibility="Collapsed" />
                         </Grid>
                     </TitleBar.LeftHeader>
-                    <!--<TitleBar.Resources>
+                    <TitleBar.Resources>
                         <HorizontalAlignment x:Key="TitleBarContentHorizontalAlignment">Stretch</HorizontalAlignment>
                         <VerticalAlignment x:Key="TitleBarContentVerticalAlignment">Stretch</VerticalAlignment>
-                    </TitleBar.Resources>-->
+                    </TitleBar.Resources>
                     <TitleBar.Content>
                         <searchControls:WinoSearchBar
                             x:Name="TitleBarSearchBox"
-                            MinWidth="400"
-                            MaxWidth="520"
+                            MaxWidth="400"
                             Margin="12,0,16,0"
                             VerticalAlignment="Center"
                             AttachmentsFilterText="{x:Bind domain:Translator.SearchBar_Attachments}"

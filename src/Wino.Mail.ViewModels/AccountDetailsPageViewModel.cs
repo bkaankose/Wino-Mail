@@ -47,6 +47,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     private readonly IAccountProfilePictureFileService _accountProfilePictureFileService;
     private readonly IWinoLogger _winoLogger;
     private readonly IAccountCapabilityService _accountCapabilityService;
+    private readonly ISynchronizationManager _synchronizationManager;
     private readonly IWinoIntelligenceEntitlementService? _entitlementService;
     private bool isLoaded = false;
 
@@ -239,6 +240,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IPreferencesService preferencesService,
         IWinoLogger winoLogger,
         IAccountCapabilityService accountCapabilityService,
+        ISynchronizationManager synchronizationManager,
         IWinoIntelligenceEntitlementService? entitlementService = null)
     {
         _dialogService = dialogService;
@@ -255,6 +257,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         _preferencesService = preferencesService;
         _winoLogger = winoLogger;
         _accountCapabilityService = accountCapabilityService;
+        _synchronizationManager = synchronizationManager;
         _entitlementService = entitlementService;
         CanAccessWinoIntelligence = entitlementService?.Current.CanAccessSurfaces == true;
 
@@ -540,17 +543,19 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         if (Account == null)
             return;
 
-        var confirmation = await _dialogService.ShowConfirmationDialogAsync(Translator.DialogMessage_DeleteAccountConfirmationTitle,
-                                                                            string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, Account.Name),
-                                                                            Translator.Buttons_Delete);
+        var account = Account;
+        var confirmation = await _dialogService.ShowConfirmationDialogAsync(
+            string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, account.Name),
+            Translator.DialogMessage_DeleteAccountConfirmationTitle,
+            Translator.Buttons_Delete);
 
         if (!confirmation)
             return;
 
-        await SynchronizationManager.Instance.DestroySynchronizerAsync(Account.Id);
-        await _accountService.DeleteAccountAsync(Account);
+        await _synchronizationManager.DestroySynchronizerAsync(account.Id);
+        await _accountService.DeleteAccountAsync(account);
 
-        _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, Account.Name), InfoBarMessageType.Success);
+        _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, account.Name), InfoBarMessageType.Success);
 
         Messenger.Send(new BackBreadcrumNavigationRequested());
     }
@@ -590,7 +595,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             Account.ServerInformation = candidate;
             Account.AttentionReason = AccountAttentionReason.None;
             await _accountService.UpdateImapConnectionSettingsAsync(Account, candidate);
-            await SynchronizationManager.Instance.DestroySynchronizerAsync(Account.Id);
+            await _synchronizationManager.DestroySynchronizerAsync(Account.Id);
             ServerInformation = candidate;
 
             Messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
@@ -919,7 +924,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         {
             // The MailKit protocol logger is selected when the account synchronizer and its pool
             // are constructed. Recreate it so the opt-in change takes effect immediately.
-            await SynchronizationManager.Instance.DestroySynchronizerAsync(Account.Id);
+            await _synchronizationManager.DestroySynchronizerAsync(Account.Id);
         }
     }
 

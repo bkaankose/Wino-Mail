@@ -80,6 +80,8 @@ public sealed class DatabaseMigrationTests
             state.RequiresRediscovery.Should().BeTrue();
             (await databaseService.Connection.GetTableInfoAsync(nameof(CardDavAccountState)))
                 .Should().Contain(column => column.Name == nameof(CardDavAccountState.SupportsAddressBookCreation));
+            (await databaseService.Connection.GetTableInfoAsync(nameof(CardDavOutboxItem)))
+                .Should().NotBeEmpty();
         }
         finally
         {

@@ -378,7 +378,9 @@
 
     <Style TargetType="local:WinoSearchBar">
         <Setter Property="MinWidth" Value="280" />
+        <Setter Property="MinHeight" Value="32" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Template">
             <Setter.Value>

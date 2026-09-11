@@ -550,9 +550,12 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
                     TimedDayWidth)));
 
         var eventTemplate = (DataTemplate)Resources["CalendarEventTemplate"];
-        var timedEventTemplate = CalendarSettings.EventDisplayMode == CalendarEventDisplayMode.Overlapped
-            ? (DataTemplate)Resources["OverlappedCalendarEventTemplate"]
-            : eventTemplate;
+        var timedEventTemplate = CalendarSettings.EventDisplayMode switch
+        {
+            CalendarEventDisplayMode.ProtectTitles => (DataTemplate)Resources["ProtectedTitleCalendarEventTemplate"],
+            CalendarEventDisplayMode.Overlapped or CalendarEventDisplayMode.LimitedOverlap => (DataTemplate)Resources["OverlappedCalendarEventTemplate"],
+            _ => eventTemplate
+        };
 
         ReplaceCollection(TimedAllDayItemsCollection, TimedCalendarLayoutCalculator.CalculateAllDayItems(_currentRange, CurrentItems, timedSurfaceWidth).Select(item =>
         {

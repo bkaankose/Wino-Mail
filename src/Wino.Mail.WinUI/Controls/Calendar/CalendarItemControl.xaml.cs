@@ -13,6 +13,9 @@ namespace Wino.Calendar.Controls;
 
 public sealed partial class CalendarItemControl : UserControl
 {
+    [CommunityToolkit.WinUI.GeneratedDependencyProperty]
+    public partial bool ProtectTitle { get; set; }
+
     private readonly ICalendarContextMenuItemService _contextMenuItemService;
 #if DEBUG
     private readonly INotificationBuilder _notificationBuilder;

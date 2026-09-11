@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     x:Class="Wino.Mail.Controls.EditorTabbedCommandBarControl"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -21,7 +21,10 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
 
-        <Style x:Key="PickerComboBoxStyle" BasedOn="{StaticResource DefaultComboBoxStyle}" TargetType="ComboBox">
+        <Style
+            x:Key="PickerComboBoxStyle"
+            BasedOn="{StaticResource DefaultComboBoxStyle}"
+            TargetType="ComboBox">
             <Setter Property="MinWidth" Value="0" />
             <Setter Property="Height" Value="32" />
             <Setter Property="MinHeight" Value="32" />
@@ -29,14 +32,17 @@
             <Setter Property="Padding" Value="10,0,0,0" />
         </Style>
 
-        <Style x:Key="ColorPickerButtonStyle" BasedOn="{StaticResource SplitButtonCommandBarStyle}" TargetType="SplitButton">
+        <Style
+            x:Key="ColorPickerButtonStyle"
+            BasedOn="{StaticResource SplitButtonCommandBarStyle}"
+            TargetType="SplitButton">
             <Setter Property="Padding" Value="12,8,0,8" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
 
         <Style x:Key="ColorPaletteGridViewStyle" TargetType="GridView">
             <Setter Property="SelectionMode" Value="Single" />
-            <Setter Property="IsItemClickEnabled" Value="False" />
+            <Setter Property="IsItemClickEnabled" Value="True" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Width" Value="228" />
             <Setter Property="MaxHeight" Value="184" />
@@ -214,8 +220,8 @@
                                         x:Name="TextColorGridView"
                                         AutomationProperties.AutomationId="TextColorGridView"
                                         AutomationProperties.Name="{x:Bind domain:Translator.Composer_TextColor, Mode=OneTime}"
+                                        ItemClick="TextColorGridView_ItemClick"
                                         ItemTemplate="{StaticResource ColorSwatchTemplate}"
-                                        SelectionChanged="TextColorGridView_SelectionChanged"
                                         Style="{StaticResource ColorPaletteGridViewStyle}" />
                                 </StackPanel>
                             </Flyout>
@@ -259,8 +265,8 @@
                                         x:Name="HighlightColorGridView"
                                         AutomationProperties.AutomationId="HighlightColorGridView"
                                         AutomationProperties.Name="{x:Bind domain:Translator.Composer_HighlightColor, Mode=OneTime}"
+                                        ItemClick="HighlightColorGridView_ItemClick"
                                         ItemTemplate="{StaticResource ColorSwatchTemplate}"
-                                        SelectionChanged="HighlightColorGridView_SelectionChanged"
                                         Style="{StaticResource ColorPaletteGridViewStyle}" />
                                 </StackPanel>
                             </Flyout>

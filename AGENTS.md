@@ -178,6 +178,7 @@ If a change requires a new package, run the security audit and publish the new N
 
 ## Core implementation rules
 
+- Give collection expressions an explicit concrete backing type when the target is a non-mutable interface such as `IReadOnlyList<T>`, `IReadOnlyCollection<T>`, or `IEnumerable<T>`. Never assign an uncast collection expression directly to these interfaces: the compiler-generated collection type can fail WinRT trimming and Native AOT checks with `CsWinRT1032`. Preserve the interface API with an explicit array cast, for example `public IReadOnlyList<Option> Options { get; } = (Option[])[new(...), new(...)];`, or construct an array or `List<T>` explicitly. Apply this rule to properties, fields, return values, and arguments. When changing these expressions in WinRT-facing code, verify with the compile-only Release build above; a successful Debug build does not prove AOT compatibility.
 - Use public partial properties with `[ObservableProperty]`.
 - Do not annotate private backing fields.
 - Register messenger handlers in `RegisterRecipients()` and unregister them in `UnregisterRecipients()`.

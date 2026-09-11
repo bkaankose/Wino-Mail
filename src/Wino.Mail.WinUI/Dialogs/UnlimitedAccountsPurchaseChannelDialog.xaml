@@ -1,0 +1,127 @@
+﻿<ContentDialog
+    x:Class="Wino.Dialogs.UnlimitedAccountsPurchaseChannelDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    Title="{x:Bind domain:Translator.UnlimitedAccountsPurchaseDialog_Title, Mode=OneTime}"
+    DefaultButton="Primary"
+    PrimaryButtonClick="PrimaryButtonClicked"
+    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Continue, Mode=OneTime}"
+    SecondaryButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+    Style="{StaticResource WinoDialogStyle}"
+    mc:Ignorable="d">
+
+    <ContentDialog.Resources>
+        <x:Double x:Key="ContentDialogMinWidth">480</x:Double>
+    </ContentDialog.Resources>
+
+    <StackPanel Spacing="16">
+        <TextBlock
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Text="{x:Bind domain:Translator.UnlimitedAccountsPurchaseDialog_Description, Mode=OneTime}"
+            TextWrapping="Wrap" />
+
+        <StackPanel Spacing="8">
+            <RadioButton
+                x:Name="MicrosoftStoreOption"
+                AutomationProperties.AutomationId="UnlimitedAccountsMicrosoftStoreOption"
+                AutomationProperties.Name="{x:Bind domain:Translator.UnlimitedAccountsPurchaseDialog_MicrosoftStoreTitle, Mode=OneTime}"
+                GroupName="PurchaseChannel"
+                IsChecked="True">
+                <RadioButton.Content>
+                    <Grid ColumnSpacing="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="36" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Viewbox
+                            Width="28"
+                            Height="28"
+                            AutomationProperties.AccessibilityView="Raw">
+                            <Grid Width="32" Height="32">
+                                <Path
+                                    Data="M6,10 L26,10 L28,29 L4,29 Z M11,10 C11,5.5 13,3 16,3 C19,3 21,5.5 21,10"
+                                    Fill="Transparent"
+                                    Stroke="{ThemeResource TextFillColorPrimaryBrush}"
+                                    StrokeLineJoin="Round"
+                                    StrokeThickness="2" />
+                                <Grid
+                                    Width="12"
+                                    Height="12"
+                                    Margin="0,6,0,0">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition />
+                                        <RowDefinition />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition />
+                                        <ColumnDefinition />
+                                    </Grid.ColumnDefinitions>
+                                    <Rectangle Margin="0,0,0.75,0.75" Fill="#F25022" />
+                                    <Rectangle
+                                        Grid.Column="1"
+                                        Margin="0.75,0,0,0.75"
+                                        Fill="#7FBA00" />
+                                    <Rectangle
+                                        Grid.Row="1"
+                                        Margin="0,0.75,0.75,0"
+                                        Fill="#00A4EF" />
+                                    <Rectangle
+                                        Grid.Row="1"
+                                        Grid.Column="1"
+                                        Margin="0.75,0.75,0,0"
+                                        Fill="#FFB900" />
+                                </Grid>
+                            </Grid>
+                        </Viewbox>
+
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.UnlimitedAccountsPurchaseDialog_MicrosoftStoreTitle, Mode=OneTime}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind domain:Translator.UnlimitedAccountsPurchaseDialog_MicrosoftStoreDescription, Mode=OneTime}"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </RadioButton.Content>
+            </RadioButton>
+
+            <RadioButton
+                x:Name="WinoAccountOption"
+                AutomationProperties.AutomationId="UnlimitedAccountsWinoAccountOption"
+                AutomationProperties.Name="{x:Bind domain:Translator.UnlimitedAccountsPurchaseDialog_WinoAccountTitle, Mode=OneTime}"
+                GroupName="PurchaseChannel"
+                IsEnabled="{x:Bind IsWinoAccountAvailable, Mode=OneTime}">
+                <RadioButton.Content>
+                    <Grid ColumnSpacing="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="36" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Viewbox
+                            Width="28"
+                            Height="28"
+                            AutomationProperties.AccessibilityView="Raw">
+                            <Path
+                                Data="M13.976,9.15 C11.804,8.344 10.62,7.724 10.62,6.741 C10.62,5.91 11.303,5.436 12.521,5.436 C14.748,5.436 17.036,6.302 18.611,7.04 L18.611,1.26 C16.89,0.577 15.16,0.304 12.9,0.304 C7.867,0.304 4.508,2.928 4.508,7.316 C4.508,14.156 13.928,13.06 13.928,16.016 C13.928,17.159 12.937,17.532 11.547,17.532 C9.487,17.532 6.857,16.685 4.767,15.542 L4.767,21.4 C7.072,22.394 9.397,22.819 11.547,22.819 C16.703,22.819 20.244,20.269 20.244,15.807 C20.243,8.427 10.824,9.737 10.824,6.895 C10.824,6.011 11.587,5.669 12.708,5.669 C14.529,5.669 16.844,6.403 18.495,7.211"
+                                Fill="#635BFF"
+                                Stretch="Uniform" />
+                        </Viewbox>
+
+                        <StackPanel Grid.Column="1" Spacing="2">
+                            <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.UnlimitedAccountsPurchaseDialog_WinoAccountTitle, Mode=OneTime}" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind WinoAccountDescription, Mode=OneTime}"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </RadioButton.Content>
+            </RadioButton>
+        </StackPanel>
+    </StackPanel>
+</ContentDialog>

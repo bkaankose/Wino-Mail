@@ -2,6 +2,7 @@ using Microsoft.Graphics.Canvas.Text;
 using Microsoft.UI;
 using Microsoft.Web.WebView2.Core;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.Storage.Pickers;
@@ -167,8 +168,18 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
 
     public void SetMemoryUsageTargetLevel(CoreWebView2MemoryUsageTargetLevel level)
     {
-        if (!_disposed && EditorWebView2?.CoreWebView2 is not null)
-            EditorWebView2.CoreWebView2.MemoryUsageTargetLevel = level;
+        if (_disposed || EditorWebView2?.CoreWebView2 is not { } coreWebView)
+            return;
+
+        try
+        {
+            coreWebView.MemoryUsageTargetLevel = level;
+        }
+        catch (COMException exception) when ((uint)exception.HResult == 0x8007139F)
+        {
+            // Unloaded can race WebView2 shutdown while navigating. The browser is already
+            // releasing resources in this state, so lowering its memory target is unnecessary.
+        }
     }
 
     public async Task InsertImagesAsync(IEnumerable<EditorImageInfo> images)

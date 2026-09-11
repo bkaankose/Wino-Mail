@@ -30,7 +30,7 @@ internal sealed record TimedCalendarLayoutResult(IReadOnlyList<DateOnly> Visible
 
 internal static class TimedCalendarLayoutCalculator
 {
-    internal const double ItemRightSpacing = 10d;
+    internal const double ItemRightSpacing = CalendarEventPlacementCalculator.RightSpacing;
 
     private const double AllDayItemHeight = 32d;
     private const double AllDayItemGap = 4d;
@@ -64,17 +64,15 @@ internal static class TimedCalendarLayoutCalculator
                 .ThenBy(segment => segment.EndMinute)
                 .ToList();
 
-            if (displayMode == CalendarEventDisplayMode.Overlapped)
+            if (displayMode is CalendarEventDisplayMode.Overlapped or CalendarEventDisplayMode.LimitedOverlap or CalendarEventDisplayMode.ProtectTitles)
             {
-                // Reserve the same outer spacing as Stacked before computing the width floor.
-                var usableWidth = Math.Max(0d, dayWidth - 4d - ItemRightSpacing);
-                var placements = OverlappedCalendarLayout.Calculate(daySegments.Select((segment, index) =>
-                    new CalendarOverlapInterval(index, segment.Item.Id, segment.StartMinute, segment.EndMinute)), usableWidth);
+                var placements = CalendarEventPlacementCalculator.Calculate(daySegments.Select((segment, index) =>
+                    new CalendarOverlapInterval(index, segment.Item.Id, segment.StartMinute, segment.EndMinute)), dayWidth, hourHeight, displayMode);
 
                 foreach (var placement in placements)
                 {
                     var segment = daySegments[placement.SourceIndex];
-                    var x = (dayIndex * dayWidth) + Math.Min(2d, dayWidth) + placement.Left;
+                    var x = (dayIndex * dayWidth) + placement.Left;
                     var y = (segment.StartMinute / 60d) * hourHeight;
                     var height = Math.Max(1d, ((segment.EndMinute - segment.StartMinute) / 60d) * hourHeight);
                     layouts.Add(new TimedItemLayout(segment.Item, dayIndex, date,

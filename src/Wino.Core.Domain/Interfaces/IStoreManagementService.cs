@@ -11,4 +11,9 @@ public interface IStoreManagementService
     /// </summary>
     Task<bool> HasProductAsync(WinoAddOnProductType productType);
 
+    /// <summary>
+    /// Requests a purchase through the Microsoft Store account signed in on this device.
+    /// </summary>
+    Task<StorePurchaseResult> PurchaseAsync(WinoAddOnProductType productType);
+
 }
