@@ -1,5 +1,7 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Windows.Storage;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Personalization;
@@ -28,12 +30,24 @@ public class PreDefinedAppTheme : AppThemeBase
 
     public override AppThemeType AppThemeType => AppThemeType.PreDefined;
 
-    public override string GetBackgroundPreviewImagePath()
-        => $"ms-appx:///BackgroundImages/{ThemeName}.jpg";
-
     public override async Task<string> GetThemeResourceDictionaryContentAsync()
     {
         var xamlDictionaryFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri($"ms-appx:///AppThemes/{ThemeName}.xaml"));
         return await FileIO.ReadTextAsync(xamlDictionaryFile);
+    }
+
+    protected override async Task<string> GetPreviewImagePathAsync()
+    {
+        var resourceDictionaryContent = await GetThemeResourceDictionaryContentAsync();
+        var resourceDictionary = XDocument.Parse(resourceDictionaryContent);
+        XNamespace xamlNamespace = "http://schemas.microsoft.com/winfx/2006/xaml";
+
+        return resourceDictionary.Root?
+                   .Elements()
+                   .FirstOrDefault(element =>
+                       element.Name.LocalName == "String" &&
+                       (string?)element.Attribute(xamlNamespace + "Key") == "PreviewImage")?
+                   .Value
+               ?? string.Empty;
     }
 }

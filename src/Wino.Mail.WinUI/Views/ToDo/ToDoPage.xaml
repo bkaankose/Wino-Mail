@@ -163,7 +163,7 @@
                                     Spacing="2">
                                     <TextBlock
                                         AutomationProperties.AutomationId="ToDoTaskRowTitle"
-                                        Foreground="{x:Bind helpers:XamlHelpers.GetTaskTitleBrush(IsCompleted), Mode=OneWay}"
+                                        Opacity="{x:Bind helpers:XamlHelpers.GetTaskTitleOpacity(IsCompleted), Mode=OneWay}"
                                         Text="{x:Bind Title, Mode=OneWay}"
                                         TextDecorations="{x:Bind helpers:XamlHelpers.GetTaskTitleDecorations(IsCompleted), Mode=OneWay}"
                                         TextTrimming="CharacterEllipsis" />
@@ -182,13 +182,20 @@
                                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasDueDate), Mode=OneWay}">
                                             <FontIcon
                                                 FontSize="11"
-                                                Foreground="{x:Bind helpers:XamlHelpers.GetTaskDueBrush(IsOverdue), Mode=OneWay}"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Glyph="&#xE787;" />
                                             <TextBlock
                                                 AutomationProperties.AutomationId="ToDoTaskRowDueDate"
-                                                Foreground="{x:Bind helpers:XamlHelpers.GetTaskDueBrush(IsOverdue), Mode=OneWay}"
+                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
-                                                Text="{x:Bind DueDisplayText, Mode=OneWay}" />
+                                                Text="{x:Bind DueDisplayText, Mode=OneWay}"
+                                                Visibility="{x:Bind helpers:XamlHelpers.GetTaskDueVisibility(HasDueDate, IsOverdue), Mode=OneWay}" />
+                                            <TextBlock
+                                                AutomationProperties.AutomationId="ToDoTaskRowOverdueDate"
+                                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Text="{x:Bind DueDisplayText, Mode=OneWay}"
+                                                Visibility="{x:Bind helpers:XamlHelpers.GetTaskOverdueVisibility(HasDueDate, IsOverdue), Mode=OneWay}" />
                                         </StackPanel>
 
                                         <TextBlock
@@ -228,10 +235,18 @@
                                     IsEnabled="{x:Bind IsEditable, Mode=OneTime}"
                                     Style="{StaticResource TransparentActionButtonStyle}"
                                     ToolTipService.ToolTip="{x:Bind ImportanceActionText, Mode=OneWay}">
-                                    <FontIcon
-                                        FontSize="15"
-                                        Foreground="{x:Bind helpers:XamlHelpers.GetTaskImportanceBrush(IsImportant), Mode=OneWay}"
-                                        Glyph="{x:Bind helpers:XamlHelpers.GetTaskImportanceGlyph(IsImportant), Mode=OneWay}" />
+                                    <Grid>
+                                        <FontIcon
+                                            FontSize="15"
+                                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                            Glyph="&#xE735;"
+                                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsImportant), Mode=OneWay}" />
+                                        <FontIcon
+                                            FontSize="15"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Glyph="&#xE734;"
+                                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsImportant), Mode=OneWay}" />
+                                    </Grid>
                                 </Button>
                             </Grid>
                         </Border>
@@ -270,10 +285,15 @@
                                             Style="{StaticResource CaptionTextBlockStyle}"
                                             Text="{x:Bind ListName, Mode=OneTime}" />
                                         <TextBlock
-                                            Foreground="{x:Bind helpers:XamlHelpers.GetTaskDueBrush(IsOverdue), Mode=OneTime}"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                             Style="{StaticResource CaptionTextBlockStyle}"
                                             Text="{x:Bind DueDisplayText, Mode=OneTime}"
-                                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasDueDate), Mode=OneTime}" />
+                                            Visibility="{x:Bind helpers:XamlHelpers.GetTaskDueVisibility(HasDueDate, IsOverdue), Mode=OneTime}" />
+                                        <TextBlock
+                                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind DueDisplayText, Mode=OneTime}"
+                                            Visibility="{x:Bind helpers:XamlHelpers.GetTaskOverdueVisibility(HasDueDate, IsOverdue), Mode=OneTime}" />
                                     </StackPanel>
                                 </StackPanel>
                             </Grid>
@@ -942,30 +962,20 @@
                         Style="{StaticResource TransparentActionButtonStyle}"
                         Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompactLayout), Mode=OneWay}" />
 
-                    <!--  Completion ring. A button, not a checkbox: empty while open, filled once done.  -->
-                    <Button
+                    <!--  Completion. The same checkbox the rows use, so one task reads the same on both surfaces.  -->
+                    <CheckBox
                         Grid.Row="0"
                         Grid.Column="1"
-                        Width="28"
-                        Height="28"
-                        Margin="0,2,0,0"
+                        MinWidth="0"
+                        Margin="0,4,0,0"
                         Padding="0"
                         VerticalAlignment="Top"
                         AutomationProperties.AutomationId="ToDoTaskCompleted"
                         AutomationProperties.Name="{x:Bind ViewModel.SelectedTask.CompletionActionText, Mode=OneWay}"
-                        Background="{x:Bind helpers:XamlHelpers.GetTaskCompletionBackgroundBrush(ViewModel.SelectedTask.IsCompleted), Mode=OneWay}"
-                        BorderBrush="{x:Bind helpers:XamlHelpers.GetTaskCompletionBrush(ViewModel.SelectedTask.IsCompleted), Mode=OneWay}"
-                        BorderThickness="1.5"
                         Click="DetailCheckBox_Click"
-                        CornerRadius="14"
+                        IsChecked="{x:Bind ViewModel.SelectedTask.IsCompleted, Mode=OneWay}"
                         IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
-                        ToolTipService.ToolTip="{x:Bind ViewModel.SelectedTask.CompletionActionText, Mode=OneWay}">
-                        <FontIcon
-                            FontSize="12"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetTaskCompletionBrush(ViewModel.SelectedTask.IsCompleted), Mode=OneWay}"
-                            Glyph="&#xE73E;"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.IsCompleted), Mode=OneWay}" />
-                    </Button>
+                        ToolTipService.ToolTip="{x:Bind ViewModel.SelectedTask.CompletionActionText, Mode=OneWay}" />
 
                     <TextBox
                         Grid.Row="0"
@@ -977,9 +987,9 @@
                         BorderThickness="0"
                         FontSize="18"
                         FontWeight="SemiBold"
-                        Foreground="{x:Bind helpers:XamlHelpers.GetTaskTitleBrush(ViewModel.SelectedTask.IsCompleted), Mode=OneWay}"
                         IsReadOnly="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.CanEditSelectedTask), Mode=OneWay}"
                         LostFocus="DetailField_LostFocus"
+                        Opacity="{x:Bind helpers:XamlHelpers.GetTaskTitleOpacity(ViewModel.SelectedTask.IsCompleted), Mode=OneWay}"
                         Text="{x:Bind ViewModel.SelectedTask.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                         TextWrapping="Wrap" />
 
@@ -993,10 +1003,18 @@
                         IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
                         Style="{StaticResource TransparentActionButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind ViewModel.SelectedTask.ImportanceActionText, Mode=OneWay}">
-                        <FontIcon
-                            FontSize="15"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetTaskImportanceBrush(ViewModel.SelectedTask.IsImportant), Mode=OneWay}"
-                            Glyph="{x:Bind helpers:XamlHelpers.GetTaskImportanceGlyph(ViewModel.SelectedTask.IsImportant), Mode=OneWay}" />
+                        <Grid>
+                            <FontIcon
+                                FontSize="15"
+                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                Glyph="&#xE735;"
+                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.IsImportant), Mode=OneWay}" />
+                            <FontIcon
+                                FontSize="15"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Glyph="&#xE734;"
+                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.SelectedTask.IsImportant), Mode=OneWay}" />
+                        </Grid>
                     </Button>
 
                     <Button
@@ -1022,10 +1040,16 @@
                         Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.HasDetailSummary), Mode=OneWay}">
                         <TextBlock
                             AutomationProperties.AutomationId="ToDoDetailSummaryDueText"
-                            Foreground="{x:Bind helpers:XamlHelpers.GetTaskDueBrush(ViewModel.SelectedTask.IsOverdue), Mode=OneWay}"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind ViewModel.SelectedTask.DueDisplayText, Mode=OneWay}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.HasDueDate), Mode=OneWay}" />
+                            Visibility="{x:Bind helpers:XamlHelpers.GetTaskDueVisibility(ViewModel.SelectedTask.HasDueDate, ViewModel.SelectedTask.IsOverdue), Mode=OneWay}" />
+                        <TextBlock
+                            AutomationProperties.AutomationId="ToDoDetailSummaryOverdueText"
+                            Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.SelectedTask.DueDisplayText, Mode=OneWay}"
+                            Visibility="{x:Bind helpers:XamlHelpers.GetTaskOverdueVisibility(ViewModel.SelectedTask.HasDueDate, ViewModel.SelectedTask.IsOverdue), Mode=OneWay}" />
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                             Style="{StaticResource CaptionTextBlockStyle}"
@@ -1125,7 +1149,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <FontIcon
                                     FontSize="14"
-                                    Foreground="{x:Bind helpers:XamlHelpers.GetMyDayBrush(ViewModel.SelectedTask.IsInMyDay), Mode=OneWay}"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                     Glyph="&#xE706;" />
                                 <TextBlock Text="{x:Bind ViewModel.SelectedTask.MyDayActionText, Mode=OneWay}" />
                             </StackPanel>
@@ -1141,14 +1165,18 @@
                             <StackPanel Orientation="Horizontal" Spacing="10">
                                 <FontIcon
                                     FontSize="14"
-                                    Foreground="{x:Bind helpers:XamlHelpers.GetTaskDueBrush(ViewModel.SelectedTask.IsOverdue), Mode=OneWay}"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                     Glyph="&#xE787;" />
                                 <TextBlock Text="{x:Bind domain:Translator.ToDoPage_AddDueDate, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.SelectedTask.HasDueDate), Mode=OneWay}" />
                                 <TextBlock
                                     AutomationProperties.AutomationId="ToDoDueDateText"
-                                    Foreground="{x:Bind helpers:XamlHelpers.GetTaskDueBrush(ViewModel.SelectedTask.IsOverdue), Mode=OneWay}"
                                     Text="{x:Bind ViewModel.SelectedTask.DueDisplayText, Mode=OneWay}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.HasDueDate), Mode=OneWay}" />
+                                    Visibility="{x:Bind helpers:XamlHelpers.GetTaskDueVisibility(ViewModel.SelectedTask.HasDueDate, ViewModel.SelectedTask.IsOverdue), Mode=OneWay}" />
+                                <TextBlock
+                                    AutomationProperties.AutomationId="ToDoOverdueDateText"
+                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                    Text="{x:Bind ViewModel.SelectedTask.DueDisplayText, Mode=OneWay}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.GetTaskOverdueVisibility(ViewModel.SelectedTask.HasDueDate, ViewModel.SelectedTask.IsOverdue), Mode=OneWay}" />
                             </StackPanel>
                             <Button.Flyout>
                                 <MenuFlyout>

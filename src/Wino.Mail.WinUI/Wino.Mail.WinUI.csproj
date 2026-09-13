@@ -148,6 +148,21 @@
     <None Remove="BackgroundImages\Mica.jpg" />
     <None Remove="BackgroundImages\Nighty.jpg" />
     <None Remove="BackgroundImages\Snowflake.jpg" />
+    <None Remove="BackgroundImages\Dunes.jpg" />
+    <None Remove="BackgroundImages\Lavender.jpg" />
+    <None Remove="BackgroundImages\Coastline.jpg" />
+    <None Remove="BackgroundImages\Blossom.jpg" />
+    <None Remove="BackgroundImages\Poppy.jpg" />
+    <None Remove="BackgroundImages\Aurora.jpg" />
+    <None Remove="BackgroundImages\Ember.jpg" />
+    <None Remove="BackgroundImages\Nebula.jpg" />
+    <None Remove="BackgroundImages\Skyline.jpg" />
+    <None Remove="BackgroundImages\Graphite.jpg" />
+    <None Remove="BackgroundImages\Mist.jpg" />
+    <None Remove="BackgroundImages\Cocoa.jpg" />
+    <None Remove="BackgroundImages\Moss.jpg" />
+    <None Remove="BackgroundImages\Rose.jpg" />
+    <None Remove="BackgroundImages\Indigo.jpg" />
     <None Remove="Controls\ListView\WinoListViewStyles.xaml" />
     <None Remove="Controls\Calendar\CalendarPeriodControl.xaml" />
     <None Remove="ShellWindow.xaml" />
@@ -170,6 +185,21 @@
     <Page Remove="AppThemes\Garden.xaml" />
     <Page Remove="AppThemes\Nighty.xaml" />
     <Page Remove="AppThemes\Snowflake.xaml" />
+    <Page Remove="AppThemes\Dunes.xaml" />
+    <Page Remove="AppThemes\Lavender.xaml" />
+    <Page Remove="AppThemes\Coastline.xaml" />
+    <Page Remove="AppThemes\Blossom.xaml" />
+    <Page Remove="AppThemes\Poppy.xaml" />
+    <Page Remove="AppThemes\Aurora.xaml" />
+    <Page Remove="AppThemes\Ember.xaml" />
+    <Page Remove="AppThemes\Nebula.xaml" />
+    <Page Remove="AppThemes\Skyline.xaml" />
+    <Page Remove="AppThemes\Graphite.xaml" />
+    <Page Remove="AppThemes\Mist.xaml" />
+    <Page Remove="AppThemes\Cocoa.xaml" />
+    <Page Remove="AppThemes\Moss.xaml" />
+    <Page Remove="AppThemes\Rose.xaml" />
+    <Page Remove="AppThemes\Indigo.xaml" />
   </ItemGroup>
 
   <ItemGroup>
@@ -181,6 +211,21 @@
     <Content Include="AppThemes\Garden.xaml" />
     <Content Include="AppThemes\Nighty.xaml" />
     <Content Include="AppThemes\Snowflake.xaml" />
+    <Content Include="AppThemes\Dunes.xaml" />
+    <Content Include="AppThemes\Lavender.xaml" />
+    <Content Include="AppThemes\Coastline.xaml" />
+    <Content Include="AppThemes\Blossom.xaml" />
+    <Content Include="AppThemes\Poppy.xaml" />
+    <Content Include="AppThemes\Aurora.xaml" />
+    <Content Include="AppThemes\Ember.xaml" />
+    <Content Include="AppThemes\Nebula.xaml" />
+    <Content Include="AppThemes\Skyline.xaml" />
+    <Content Include="AppThemes\Graphite.xaml" />
+    <Content Include="AppThemes\Mist.xaml" />
+    <Content Include="AppThemes\Cocoa.xaml" />
+    <Content Include="AppThemes\Moss.xaml" />
+    <Content Include="AppThemes\Rose.xaml" />
+    <Content Include="AppThemes\Indigo.xaml" />
     <Content Include="Assets\UpdateNotes\vnext.json" />
     <Content Include="Assets\UpdateNotes\features.json" />
     <Content Include="Assets\UpdateNotes\Images\Calendar.svg" />
@@ -204,6 +249,21 @@
     <Content Include="BackgroundImages\Mica.jpg" />
     <Content Include="BackgroundImages\Nighty.jpg" />
     <Content Include="BackgroundImages\Snowflake.jpg" />
+    <Content Include="BackgroundImages\Dunes.jpg" />
+    <Content Include="BackgroundImages\Lavender.jpg" />
+    <Content Include="BackgroundImages\Coastline.jpg" />
+    <Content Include="BackgroundImages\Blossom.jpg" />
+    <Content Include="BackgroundImages\Poppy.jpg" />
+    <Content Include="BackgroundImages\Aurora.jpg" />
+    <Content Include="BackgroundImages\Ember.jpg" />
+    <Content Include="BackgroundImages\Nebula.jpg" />
+    <Content Include="BackgroundImages\Skyline.jpg" />
+    <Content Include="BackgroundImages\Graphite.jpg" />
+    <Content Include="BackgroundImages\Mist.jpg" />
+    <Content Include="BackgroundImages\Cocoa.jpg" />
+    <Content Include="BackgroundImages\Moss.jpg" />
+    <Content Include="BackgroundImages\Rose.jpg" />
+    <Content Include="BackgroundImages\Indigo.jpg" />
     <Content Include="$(MailNotificationHostOutput)Wino.Mail.NotificationHost.exe" Link="Wino.Mail.NotificationHost.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="$(CalendarNotificationHostOutput)Wino.Calendar.NotificationHost.exe" Link="Wino.Calendar.NotificationHost.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Content Include="$(PeopleNotificationHostOutput)Wino.People.NotificationHost.exe" Link="Wino.People.NotificationHost.exe" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

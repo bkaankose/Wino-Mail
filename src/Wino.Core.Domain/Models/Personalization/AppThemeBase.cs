@@ -15,7 +15,7 @@ public abstract class AppThemeBase
     public ThemeCompatibility Compatibility { get; set; } = ThemeCompatibility.Both;
     public string AccentColor { get; set; }
     public bool IsAccentColorAssigned => !string.IsNullOrEmpty(AccentColor);
-    public string BackgroundPreviewImage => GetBackgroundPreviewImagePath();
+    public string PreviewImage { get; private set; } = string.Empty;
     public abstract AppThemeType AppThemeType { get; }
     public bool IsCustomTheme => AppThemeType == AppThemeType.Custom;
     public string CompatibilityTitle => Compatibility switch
@@ -32,5 +32,9 @@ public abstract class AppThemeBase
     }
 
     public abstract Task<string> GetThemeResourceDictionaryContentAsync();
-    public abstract string GetBackgroundPreviewImagePath();
+
+    public async Task LoadPreviewImageAsync()
+        => PreviewImage = await GetPreviewImagePathAsync();
+
+    protected abstract Task<string> GetPreviewImagePathAsync();
 }

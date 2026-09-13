@@ -3,11 +3,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
 using Windows.Graphics;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Controls.Companion;
+using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.ThirdParty.DesktopFlyouts;
 
 namespace Wino.Mail.WinUI.Services.Companion;
@@ -17,6 +19,8 @@ internal sealed class CompanionService : ICompanionService
     private readonly IServiceProvider _services;
     private readonly DispatcherQueue _dispatcher;
     private readonly INativeAppService _nativeAppService;
+    private readonly INewThemeService _themeService;
+    private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly Func<(bool Success, RectInt32 Rect)> _getTrayIconRect;
     private readonly CompanionNavigationCallbacks _navigation;
     private readonly IWinoLogger _logger;
@@ -42,6 +46,9 @@ internal sealed class CompanionService : ICompanionService
         _getTrayIconRect = getTrayIconRect;
         _navigation = navigation;
         _logger = services.GetRequiredService<IWinoLogger>();
+        _themeService = services.GetRequiredService<INewThemeService>();
+        _underlyingThemeService = services.GetRequiredService<IUnderlyingThemeService>();
+        _themeService.ElementThemeChanged += ThemeServiceElementThemeChanged;
     }
 
     public event EventHandler<string>? SessionDisabled;
@@ -166,6 +173,7 @@ internal sealed class CompanionService : ICompanionService
 
             _disposed = true;
             _enabled = false;
+            _themeService.ElementThemeChanged -= ThemeServiceElementThemeChanged;
             DisposeSurface();
         }
         catch (Exception ex)
@@ -188,6 +196,7 @@ internal sealed class CompanionService : ICompanionService
         _viewModel.NavigationCompleted += SurfaceHideRequested;
         _view = new CompanionFlyoutView(_viewModel);
         _host = new CompanionFlyoutHost(_view);
+        _host.ApplyTheme(ResolveCompanionTheme(_themeService.RootTheme));
         _view.HideRequested += SurfaceHideRequested;
         _host.HideRequested += SurfaceHideRequested;
         _host.PlacementInvalidated += PlacementInvalidated;
@@ -203,6 +212,22 @@ internal sealed class CompanionService : ICompanionService
     private void SurfaceHideRequested(object? sender, EventArgs args) => Hide();
 
     private void PlacementInvalidated(object? sender, EventArgs args) => RepositionIfOpen();
+
+    private void ThemeServiceElementThemeChanged(object? sender, ApplicationElementTheme theme)
+    {
+        if (_disposed)
+            return;
+
+        if (_dispatcher.HasThreadAccess)
+            DisposeSurface();
+        else
+            _dispatcher.TryEnqueue(DisposeSurface);
+    }
+
+    private ElementTheme ResolveCompanionTheme(ApplicationElementTheme theme)
+        => theme == ApplicationElementTheme.Default
+            ? _underlyingThemeService.IsUnderlyingThemeDark() ? ElementTheme.Dark : ElementTheme.Light
+            : theme.ToWindowsElementTheme();
 
     private void HideCore()
     {

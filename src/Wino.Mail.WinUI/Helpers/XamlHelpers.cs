@@ -185,18 +185,24 @@ public static class XamlHelpers
     // To Do
     // The star reuses the contacts favorite idiom: filled glyph when set, outline when not.
     public static string GetTaskImportanceGlyph(bool isImportant) => isImportant ? "\uE735" : "\uE734";
-    public static Brush GetTaskImportanceBrush(bool isImportant)
-        => (Brush)Application.Current.Resources[isImportant ? "SystemFillColorCautionBrush" : "TextFillColorTertiaryBrush"];
 
-    /// <summary>Overdue due-date text turns critical; everything else stays secondary.</summary>
-    public static Brush GetTaskDueBrush(bool isOverdue)
-        => (Brush)Application.Current.Resources[isOverdue ? "SystemFillColorCriticalBrush" : "TextFillColorSecondaryBrush"];
+    /// <summary>
+    /// Task state never resolves a brush here. A brush taken from the application dictionary
+    /// carries the application theme instead of the theme of the element that draws it, so a
+    /// dark shell painted these with the light palette. State-dependent colors now live on the
+    /// page as <c>{ThemeResource}</c> values, and task state only picks which element is shown.
+    /// </summary>
+    public static Visibility GetTaskDueVisibility(bool hasDueDate, bool isOverdue)
+        => hasDueDate && !isOverdue ? Visibility.Visible : Visibility.Collapsed;
+
+    public static Visibility GetTaskOverdueVisibility(bool hasDueDate, bool isOverdue)
+        => hasDueDate && isOverdue ? Visibility.Visible : Visibility.Collapsed;
 
     public static TextDecorations GetTaskTitleDecorations(bool isCompleted)
         => isCompleted ? TextDecorations.Strikethrough : TextDecorations.None;
 
-    public static Brush GetTaskTitleBrush(bool isCompleted)
-        => (Brush)Application.Current.Resources[isCompleted ? "TextFillColorTertiaryBrush" : "TextFillColorPrimaryBrush"];
+    /// <summary>A completed title keeps the theme's own text color and recedes with opacity.</summary>
+    public static double GetTaskTitleOpacity(bool isCompleted) => isCompleted ? 0.6 : 1d;
 
     /// <summary>x:Bind cannot convert double to GridLength, so the drawer width comes through here.</summary>
     public static GridLength GetTaskDrawerWidth(bool isOpen, bool isCompactLayout)
@@ -207,21 +213,8 @@ public static class XamlHelpers
     public static GridLength GetTaskListWidth(bool isDrawerOpen, bool isCompactLayout)
         => isDrawerOpen && isCompactLayout ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
 
-    /// <summary>
-    /// Completion is a ring button in the drawer, not a checkbox. The ring stays empty and neutral
-    /// while the task is open, and fills with the success tone once it is done.
-    /// </summary>
-    public static Brush GetTaskCompletionBrush(bool isCompleted)
-        => (Brush)Application.Current.Resources[isCompleted ? "SystemFillColorSuccessBrush" : "TextFillColorSecondaryBrush"];
-
-    public static Brush GetTaskCompletionBackgroundBrush(bool isCompleted)
-        => GetThemeBrush(isCompleted ? "SystemFillColorSuccessBackgroundBrush" : "SubtleFillColorTransparentBrush", "SubtleFillColorTransparentBrush");
-
     /// <summary>x:Bind will not widen the step counts to the double the ProgressBar expects.</summary>
     public static double GetTaskStepCountValue(int count) => count;
-
-    public static Brush GetMyDayBrush(bool isInMyDay)
-        => (Brush)Application.Current.Resources[isInMyDay ? "AccentTextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush"];
 
     public static string GetCompletedGroupCaretGlyph(bool isExpanded) => isExpanded ? "\uE70E" : "\uE70D";
     public static Visibility TextToVisibility(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;

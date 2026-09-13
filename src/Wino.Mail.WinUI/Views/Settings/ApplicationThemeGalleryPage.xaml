@@ -67,7 +67,7 @@
                                     Height="48"
                                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                                     CornerRadius="4">
-                                    <Image Source="{x:Bind BackgroundPreviewImage}" Stretch="UniformToFill" />
+                                    <Image Source="{x:Bind PreviewImage}" Stretch="UniformToFill" />
                                 </Border>
                                 <StackPanel
                                     Grid.Column="1"
@@ -175,7 +175,7 @@
                                 <Image
                                     Width="175"
                                     Height="125"
-                                    Source="{x:Bind BackgroundPreviewImage}"
+                                    Source="{x:Bind PreviewImage}"
                                     Stretch="UniformToFill" />
                             </Border>
                             <StackPanel

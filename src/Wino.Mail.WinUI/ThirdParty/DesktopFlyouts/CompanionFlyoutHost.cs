@@ -112,6 +112,13 @@ internal sealed partial class CompanionFlyoutHost : IDisposable
 
     internal bool IsOpen => _isOpen;
 
+    internal void ApplyTheme(ElementTheme theme)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        _surface.RequestedTheme = theme;
+        _content.RequestedTheme = theme;
+    }
+
     internal async Task ShowAsync(RectInt32? anchor, WindowsTaskbarPosition taskbarPosition)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);

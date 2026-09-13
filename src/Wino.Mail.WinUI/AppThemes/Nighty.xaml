@@ -1,18 +1,20 @@
-<ResourceDictionary
+﻿<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:xaml="using:Microsoft.UI.Xaml">
 
     <x:String x:Key="ThemeName">Nighty</x:String>
-    <x:String x:Key="ThemeBackgroundImage">ms-appx:///BackgroundImages/Nighty.jpg</x:String>
+    <x:String x:Key="Wallpaper">ms-appx:///BackgroundImages/Nighty.jpg</x:String>
+    <x:String x:Key="PreviewImage">ms-appx:///BackgroundImages/Nighty.jpg</x:String>
 
-    <ImageBrush x:Key="WinoApplicationBackgroundColor" ImageSource="{StaticResource ThemeBackgroundImage}" />
+    <ImageBrush x:Key="WinoApplicationBackgroundColor" ImageSource="{StaticResource Wallpaper}" />
     <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
-            <!--  Illustration palette. Night wallpaper, forced Dark, and its accent is already gold (#e1b12c). Amber would collide with the
-                 accent, so the warm role flips to moonlight blue here: the sun disc reads as a moon.
+            <!--
+                Illustration palette. Night wallpaper, forced Dark, and its accent is already gold (#e1b12c). Amber would collide with the
+                accent, so the warm role flips to moonlight blue here: the sun disc reads as a moon.
             -->
             <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#FFFFFF</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationLineBrush">#CBD3DE</SolidColorBrush>
@@ -26,6 +28,12 @@
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#66FDCB6E</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#4D0078D4</SolidColorBrush>
             <SolidColorBrush x:Key="WelcomeOverlayBrush">#D9FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush">#F3F5F8</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionCardBackgroundBrush">#FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush">#E5E9EF</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSecondaryTextBrush">#4E5967</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionTertiaryTextBrush">#5D6978</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionDividerBrush">#ACB5C0</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#343940</SolidColorBrush>
@@ -40,6 +48,20 @@
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#5413191F</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#66399BFF</SolidColorBrush>
             <SolidColorBrush x:Key="WelcomeOverlayBrush">#E61F1F1F</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush">#151B24</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionCardBackgroundBrush">#202A36</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush">#2A3543</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSecondaryTextBrush">#C5CFDA</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionTertiaryTextBrush">#A7B4C3</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionDividerBrush">#465467</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Name="HighContrast">
+            <StaticResource x:Key="CompanionFlyoutBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionCardBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionSubtleBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionSecondaryTextBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="CompanionTertiaryTextBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="CompanionDividerBrush" ResourceKey="SystemColorWindowTextBrush" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

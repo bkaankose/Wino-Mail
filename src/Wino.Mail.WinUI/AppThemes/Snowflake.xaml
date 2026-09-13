@@ -1,17 +1,19 @@
-<ResourceDictionary
+﻿<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:xaml="using:Microsoft.UI.Xaml">
 
     <x:String x:Key="ThemeName">Snowflake</x:String>
-    <x:String x:Key="ThemeBackgroundImage">ms-appx:///BackgroundImages/Snowflake.jpg</x:String>
+    <x:String x:Key="Wallpaper">ms-appx:///BackgroundImages/Snowflake.jpg</x:String>
+    <x:String x:Key="PreviewImage">ms-appx:///BackgroundImages/Snowflake.jpg</x:String>
 
-    <ImageBrush x:Key="WinoApplicationBackgroundColor" ImageSource="{StaticResource ThemeBackgroundImage}" />
+    <ImageBrush x:Key="WinoApplicationBackgroundColor" ImageSource="{StaticResource Wallpaper}" />
     <SolidColorBrush x:Key="AppBarBackgroundColor">Transparent</SolidColorBrush>
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Name="Light">
-            <!--  Illustration palette. Icy wallpaper, forced Light. Cool blue-grey neutrals; amber is kept deliberately as winter sun.
+            <!--
+                Illustration palette. Icy wallpaper, forced Light. Cool blue-grey neutrals; amber is kept deliberately as winter sun.
             -->
             <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#FFFFFF</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationLineBrush">#C3CFDF</SolidColorBrush>
@@ -25,6 +27,12 @@
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#66B0C6DD</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#4D0078D4</SolidColorBrush>
             <SolidColorBrush x:Key="WelcomeOverlayBrush">#D9FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush">#F2F6FA</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionCardBackgroundBrush">#FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush">#E1E9F2</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSecondaryTextBrush">#475B70</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionTertiaryTextBrush">#53677A</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionDividerBrush">#A9B7C7</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Name="Dark">
             <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#373C45</SolidColorBrush>
@@ -39,6 +47,20 @@
             <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush">#66B0C6DD</SolidColorBrush>
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#66399BFF</SolidColorBrush>
             <SolidColorBrush x:Key="WelcomeOverlayBrush">#E61F1F1F</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush">#19222D</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionCardBackgroundBrush">#242F3D</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush">#2D3B4C</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSecondaryTextBrush">#C5D0DC</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionTertiaryTextBrush">#A9B8C8</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionDividerBrush">#46586C</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Name="HighContrast">
+            <StaticResource x:Key="CompanionFlyoutBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionCardBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionSubtleBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionSecondaryTextBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="CompanionTertiaryTextBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="CompanionDividerBrush" ResourceKey="SystemColorWindowTextBrush" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

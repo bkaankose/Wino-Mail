@@ -1,14 +1,15 @@
-<ResourceDictionary
+﻿<ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:xaml="using:Microsoft.UI.Xaml">
 
     <x:String x:Key="ThemeName">Custom</x:String>
-    <x:String x:Key="ThemeBackgroundImage">ms-appdata:///local/CustomWallpaper.jpg</x:String>
+    <x:String x:Key="Wallpaper">ms-appdata:///local/CustomWallpaper.jpg</x:String>
+    <x:String x:Key="PreviewImage">ms-appdata:///local/CustomWallpaper_preview.jpg</x:String>
 
     <ImageBrush
         x:Key="WinoApplicationBackgroundColor"
-        ImageSource="{StaticResource ThemeBackgroundImage}"
+        ImageSource="{StaticResource Wallpaper}"
         Stretch="UniformToFill" />
 
     <!--  Navigation View Settings  -->
@@ -18,8 +19,9 @@
 
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
-            <!--  Illustration palette. User wallpaper behind a translucent overlay, so the backdrop is unknowable. Highest-contrast values in
-                 the family: fully opaque surface and the strongest shadow.
+            <!--
+                Illustration palette. User wallpaper behind a translucent overlay, so the backdrop is unknowable. Highest-contrast values in
+                the family: fully opaque surface and the strongest shadow.
             -->
             <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#FFFFFF</SolidColorBrush>
             <SolidColorBrush x:Key="WinoIllustrationLineBrush">#C8C8D2</SolidColorBrush>
@@ -30,9 +32,18 @@
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#ecf0f1</SolidColorBrush>
 
             <Color x:Key="MainCustomThemeColor">#D9FFFFFF</Color>
-            <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.55" />
-            <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.7" />
-            <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.85" />
+            <SolidColorBrush
+                x:Key="CalendarDefaultHourBackgroundBrush"
+                Opacity="0.55"
+                Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush
+                x:Key="CalendarHoverHourBackgroundBrush"
+                Opacity="0.7"
+                Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush
+                x:Key="CalendarWorkHourBackgroundBrush"
+                Opacity="0.85"
+                Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#4D0078D4</SolidColorBrush>
 
             <!--  Wallpaper overlay surfaces  -->
@@ -44,6 +55,12 @@
             <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="WelcomeOverlayBrush" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush">Transparent</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionCardBackgroundBrush">#0B000000</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush">#08000000</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSecondaryTextBrush">#4D4D4D</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionTertiaryTextBrush">#606060</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionDividerBrush">#A8A8A8</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <SolidColorBrush x:Key="WinoIllustrationSurfaceBrush">#3B3B42</SolidColorBrush>
@@ -55,9 +72,18 @@
             <SolidColorBrush x:Key="MailListHeaderBackgroundColor">#1f1f1f</SolidColorBrush>
 
             <Color x:Key="MainCustomThemeColor">#E61F1F1F</Color>
-            <SolidColorBrush x:Key="CalendarDefaultHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.55" />
-            <SolidColorBrush x:Key="CalendarHoverHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.7" />
-            <SolidColorBrush x:Key="CalendarWorkHourBackgroundBrush" Color="{StaticResource MainCustomThemeColor}" Opacity="0.85" />
+            <SolidColorBrush
+                x:Key="CalendarDefaultHourBackgroundBrush"
+                Opacity="0.55"
+                Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush
+                x:Key="CalendarHoverHourBackgroundBrush"
+                Opacity="0.7"
+                Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush
+                x:Key="CalendarWorkHourBackgroundBrush"
+                Opacity="0.85"
+                Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="CalendarSelectedHourBackgroundBrush">#66399BFF</SolidColorBrush>
 
             <!--  Wallpaper overlay surfaces  -->
@@ -69,6 +95,12 @@
             <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="{StaticResource MainCustomThemeColor}" />
             <SolidColorBrush x:Key="WelcomeOverlayBrush" Color="{StaticResource MainCustomThemeColor}" />
+            <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush">Transparent</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionCardBackgroundBrush">#10FFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush">#0CFFFFFF</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionSecondaryTextBrush">#C8C8C8</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionTertiaryTextBrush">#ADADAD</SolidColorBrush>
+            <SolidColorBrush x:Key="CompanionDividerBrush">#515151</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <StaticResource x:Key="WinoIllustrationSurfaceBrush" ResourceKey="SystemColorWindowBrush" />
@@ -88,6 +120,12 @@
             <StaticResource x:Key="NavigationViewExpandedPaneBackground" ResourceKey="SystemColorWindowBrush" />
             <StaticResource x:Key="NavigationViewDefaultPaneBackground" ResourceKey="SystemColorWindowBrush" />
             <StaticResource x:Key="WelcomeOverlayBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionFlyoutBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionCardBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionSubtleBackgroundBrush" ResourceKey="SystemColorWindowBrush" />
+            <StaticResource x:Key="CompanionSecondaryTextBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="CompanionTertiaryTextBrush" ResourceKey="SystemColorWindowTextBrush" />
+            <StaticResource x:Key="CompanionDividerBrush" ResourceKey="SystemColorWindowTextBrush" />
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

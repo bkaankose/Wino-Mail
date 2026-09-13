@@ -45,6 +45,21 @@ public class NewThemeService : INewThemeService
     private static string _nightyThemeId = "5b65e04e-fd7e-4c2d-8221-068d3e02d23a";
     private static string _snowflakeThemeId = "e143ddde-2e28-4846-9d98-dad63d6505f1";
     private static string _gardenThemeId = "698e4466-f88c-4799-9c61-f0ea1308ed49";
+    private static string _dunesThemeId = "fff1d070-e7f2-4a91-8e50-30f20a19bf7d";
+    private static string _lavenderThemeId = "41567cf1-31ca-4f8c-bd18-2f9a2d990cb5";
+    private static string _coastlineThemeId = "17434033-2152-41dc-bda6-933c52d250b4";
+    private static string _blossomThemeId = "02eb4827-50c7-4052-8dde-3a4af843317b";
+    private static string _poppyThemeId = "004c87bc-e540-406c-8c50-8eb8eb03d247";
+    private static string _auroraThemeId = "ba2974ca-7e03-4fe1-b102-efc6a6fa9cc9";
+    private static string _emberThemeId = "437d53b5-9228-408d-9374-c5ca457bf02f";
+    private static string _nebulaThemeId = "b509ae0e-ca7a-4d53-b052-c3f30bbd4bd5";
+    private static string _skylineThemeId = "1ae2d96e-1aa8-4058-ad08-84f11069c69a";
+    private static string _graphiteThemeId = "7e633982-ad91-4634-a926-25b154e7bfaf";
+    private static string _mistThemeId = "a0347ab8-d51e-411f-ab80-996d3b21a81b";
+    private static string _cocoaThemeId = "24b4f855-c9ea-485c-b9a9-0672d1b327dc";
+    private static string _mossThemeId = "e75ea27f-3757-4b46-8ad7-f5a4d4c58cdf";
+    private static string _roseThemeId = "ef2a1205-f6a4-4551-bac6-8747879669f7";
+    private static string _indigoThemeId = "14c784d9-d8d3-462d-9b2c-965967d86d38";
 
     public event EventHandler<ApplicationElementTheme>? ElementThemeChanged;
     public event EventHandler<string>? AccentColorChanged;
@@ -72,6 +87,24 @@ public class NewThemeService : INewThemeService
         new PreDefinedAppTheme("Clouds", Guid.Parse(_cloudsThemeId), "#0984e3", ApplicationElementTheme.Light),
         new PreDefinedAppTheme("Snowflake", Guid.Parse(_snowflakeThemeId), "#4a69bd", ApplicationElementTheme.Light),
         new PreDefinedAppTheme("Garden", Guid.Parse(_gardenThemeId), "#05c46b", ApplicationElementTheme.Light),
+
+        new PreDefinedAppTheme("Dunes", Guid.Parse(_dunesThemeId), "#e17055", ApplicationElementTheme.Light),
+        new PreDefinedAppTheme("Lavender", Guid.Parse(_lavenderThemeId), "#6c5ce7", ApplicationElementTheme.Light),
+        new PreDefinedAppTheme("Coastline", Guid.Parse(_coastlineThemeId), "#00a8b5", ApplicationElementTheme.Light),
+        new PreDefinedAppTheme("Blossom", Guid.Parse(_blossomThemeId), "#e84393", ApplicationElementTheme.Light),
+        new PreDefinedAppTheme("Poppy", Guid.Parse(_poppyThemeId), "#d63031", ApplicationElementTheme.Light),
+
+        new PreDefinedAppTheme("Aurora", Guid.Parse(_auroraThemeId), "#00cec9", ApplicationElementTheme.Dark),
+        new PreDefinedAppTheme("Ember", Guid.Parse(_emberThemeId), "#e58e26", ApplicationElementTheme.Dark),
+        new PreDefinedAppTheme("Nebula", Guid.Parse(_nebulaThemeId), "#8c7ae6", ApplicationElementTheme.Dark),
+        new PreDefinedAppTheme("Skyline", Guid.Parse(_skylineThemeId), "#0097e6", ApplicationElementTheme.Dark),
+        new PreDefinedAppTheme("Graphite", Guid.Parse(_graphiteThemeId), "#6b7b8c", ApplicationElementTheme.Dark),
+
+        new PreDefinedAppTheme("Mist", Guid.Parse(_mistThemeId), "#5e81ac", ApplicationElementTheme.Default),
+        new PreDefinedAppTheme("Cocoa", Guid.Parse(_cocoaThemeId), "#c07a4c", ApplicationElementTheme.Default),
+        new PreDefinedAppTheme("Moss", Guid.Parse(_mossThemeId), "#2f9e63", ApplicationElementTheme.Default),
+        new PreDefinedAppTheme("Rose", Guid.Parse(_roseThemeId), "#c4577e", ApplicationElementTheme.Default),
+        new PreDefinedAppTheme("Indigo", Guid.Parse(_indigoThemeId), "#4c5fd7", ApplicationElementTheme.Default),
     };
 
     public NewThemeService(IConfigurationService configurationService,
@@ -519,7 +552,8 @@ public class NewThemeService : INewThemeService
                         ConfigureCustomThemeDictionary(
                             resourceDictionary,
                             customTheme.Metadata,
-                            $"ms-appdata:///local/{CustomThemeFolderName}/{applyingTheme.Id}.jpg");
+                            $"ms-appdata:///local/{CustomThemeFolderName}/{applyingTheme.Id}.jpg",
+                            $"ms-appdata:///local/{CustomThemeFolderName}/{applyingTheme.Id}_preview.jpg");
                     }
 
                     _applicationResourceManager.RemoveResource(existingThemeDictionary);
@@ -564,9 +598,11 @@ public class NewThemeService : INewThemeService
     private static void ConfigureCustomThemeDictionary(
         ResourceDictionary dictionary,
         CustomThemeMetadata metadata,
-        string wallpaperUri)
+        string wallpaperUri,
+        string previewImageUri)
     {
-        dictionary["ThemeBackgroundImage"] = wallpaperUri;
+        dictionary["Wallpaper"] = wallpaperUri;
+        dictionary["PreviewImage"] = previewImageUri;
 
         if (dictionary["WinoApplicationBackgroundColor"] is ImageBrush imageBrush)
         {
@@ -640,6 +676,9 @@ public class NewThemeService : INewThemeService
 
         availableThemes.AddRange(customThemes.Select(a => new CustomAppTheme(a)));
 
+        foreach (var theme in availableThemes)
+            await theme.LoadPreviewImageAsync();
+
         return availableThemes;
     }
 
@@ -688,7 +727,7 @@ public class NewThemeService : INewThemeService
         var content = await FileIO.ReadTextAsync(customThemeFile);
         var dictionary = XamlReader.Load(content) as ResourceDictionary
                          ?? throw new InvalidOperationException("Custom theme resources could not be loaded.");
-        ConfigureCustomThemeDictionary(dictionary, metadata, wallpaperUri);
+        ConfigureCustomThemeDictionary(dictionary, metadata, wallpaperUri, wallpaperUri);
 
         var existingDictionary = _applicationResourceManager.GetLastResource();
         if (existingDictionary != null)

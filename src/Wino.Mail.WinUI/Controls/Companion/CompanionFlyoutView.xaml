@@ -14,28 +14,6 @@
     MaxHeight="720"
     IsTabStop="True"
     KeyDown="Root_KeyDown">
-    <UserControl.Resources>
-        <ResourceDictionary>
-            <ResourceDictionary.ThemeDictionaries>
-                <ResourceDictionary x:Key="Light">
-                    <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush" Color="Transparent" />
-                    <SolidColorBrush x:Key="CompanionCardBackgroundBrush" Color="#0B000000" />
-                    <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush" Color="#08000000" />
-                </ResourceDictionary>
-                <ResourceDictionary x:Key="Dark">
-                    <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush" Color="Transparent" />
-                    <SolidColorBrush x:Key="CompanionCardBackgroundBrush" Color="#10FFFFFF" />
-                    <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush" Color="#0CFFFFFF" />
-                </ResourceDictionary>
-                <ResourceDictionary x:Key="HighContrast">
-                    <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
-                    <SolidColorBrush x:Key="CompanionCardBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
-                    <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
-                </ResourceDictionary>
-            </ResourceDictionary.ThemeDictionaries>
-        </ResourceDictionary>
-    </UserControl.Resources>
-
     <Grid Background="{ThemeResource CompanionFlyoutBackgroundBrush}">
         <Grid
             Padding="32"
@@ -148,7 +126,7 @@
                         TextTrimming="CharacterEllipsis" />
                     <TextBlock
                         FontSize="12"
-                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                        Foreground="{ThemeResource CompanionTertiaryTextBrush}"
                         Text="{x:Bind ViewModel.DateText, Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
                 </StackPanel>
@@ -231,7 +209,7 @@
                                 <TextBlock
                                     HorizontalAlignment="Center"
                                     FontSize="11"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Foreground="{ThemeResource CompanionSecondaryTextBrush}"
                                     Text="{x:Bind FirstName, Mode=OneWay}"
                                     TextAlignment="Center"
                                     TextTrimming="CharacterEllipsis"
@@ -246,7 +224,7 @@
                 Grid.Row="2"
                 Height="1"
                 Margin="0,0,0,6"
-                Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                Background="{ThemeResource CompanionDividerBrush}" />
 
             <ScrollViewer
                 Grid.Row="3"
@@ -344,7 +322,7 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBlock
                                         FontSize="12.5"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Foreground="{ThemeResource CompanionSecondaryTextBrush}"
                                         Text="{x:Bind ViewModel.NextEventTimeText, Mode=OneWay}" />
                                     <StackPanel
                                         Grid.Column="1"
@@ -360,14 +338,14 @@
                                             RadiusY="2" />
                                         <TextBlock
                                             FontSize="11.5"
-                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                            Foreground="{ThemeResource CompanionTertiaryTextBrush}"
                                             Text="{x:Bind ViewModel.NextEventCalendarName, Mode=OneWay}"
                                             TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </Grid>
                                 <TextBlock
                                     FontSize="12.5"
-                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Foreground="{ThemeResource CompanionSecondaryTextBrush}"
                                     Text="{x:Bind ViewModel.NextEvent.Location, Mode=OneWay, TargetNullValue=''}"
                                     TextTrimming="CharacterEllipsis"
                                     Visibility="{x:Bind ViewModel.NextEventLocationVisibility, Mode=OneWay}" />
@@ -379,7 +357,7 @@
                                     <TextBlock
                                         VerticalAlignment="Center"
                                         FontSize="11.5"
-                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                        Foreground="{ThemeResource CompanionTertiaryTextBrush}"
                                         Text="{x:Bind ViewModel.NextEventAttendeesText, Mode=OneWay}"
                                         Visibility="{x:Bind ViewModel.NextEventAttendeesVisibility, Mode=OneWay}" />
                                     <Button
@@ -416,7 +394,7 @@
                                             Margin="4,0,0,4"
                                             FontSize="12"
                                             FontWeight="SemiBold"
-                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                            Foreground="{ThemeResource CompanionTertiaryTextBrush}"
                                             Text="{x:Bind domain:Translator.Companion_RestOfToday, Mode=OneTime}" />
                                         <ItemsControl AutomationProperties.AutomationId="CompanionLaterEventsList" ItemsSource="{x:Bind ViewModel.LaterEvents}">
                                             <ItemsControl.ItemTemplate>
@@ -438,7 +416,7 @@
                                                             <TextBlock
                                                                 VerticalAlignment="Center"
                                                                 FontSize="12"
-                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Foreground="{ThemeResource CompanionSecondaryTextBrush}"
                                                                 Text="{x:Bind DisplayStartTime, Mode=OneWay}"
                                                                 TextAlignment="Right" />
                                                             <StackPanel Grid.Column="1">
@@ -448,7 +426,7 @@
                                                                     TextTrimming="CharacterEllipsis" />
                                                                 <TextBlock
                                                                     FontSize="11.5"
-                                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                                    Foreground="{ThemeResource CompanionTertiaryTextBrush}"
                                                                     Text="{x:Bind Location}"
                                                                     TextTrimming="CharacterEllipsis" />
                                                             </StackPanel>
@@ -466,7 +444,7 @@
                     <Border
                         Height="1"
                         Margin="12,2,12,8"
-                        Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                        Background="{ThemeResource CompanionDividerBrush}"
                         Visibility="{x:Bind ViewModel.EventMailSeparatorVisibility, Mode=OneWay}" />
 
                     <StackPanel Padding="12,0,12,6" Visibility="{x:Bind ViewModel.UnreadMailVisibility, Mode=OneWay}">
@@ -481,7 +459,7 @@
                                 VerticalAlignment="Center"
                                 FontSize="12"
                                 FontWeight="Bold"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Foreground="{ThemeResource CompanionTertiaryTextBrush}"
                                 Text="{x:Bind domain:Translator.Companion_Unread, Mode=OneTime}" />
                             <Border
                                 Grid.Column="1"
@@ -557,7 +535,7 @@
                     <Border
                         Height="1"
                         Margin="12,2,12,8"
-                        Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                        Background="{ThemeResource CompanionDividerBrush}"
                         Visibility="{x:Bind ViewModel.MailTaskSeparatorVisibility, Mode=OneWay}" />
 
                     <StackPanel Padding="12,0,12,8" Visibility="{x:Bind ViewModel.TasksVisibility, Mode=OneWay}">
@@ -566,26 +544,19 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBlock
                                 VerticalAlignment="Center"
                                 FontSize="12"
                                 FontWeight="Bold"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Foreground="{ThemeResource CompanionTertiaryTextBrush}"
                                 Text="{x:Bind domain:Translator.Companion_MyDay, Mode=OneTime}" />
                             <TextBlock
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
                                 FontSize="11.5"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Foreground="{ThemeResource CompanionTertiaryTextBrush}"
                                 Text="{x:Bind ViewModel.TaskProgressText, Mode=OneWay}" />
-                            <HyperlinkButton
-                                Grid.Column="3"
-                                Padding="4,0"
-                                AutomationProperties.AutomationId="CompanionOpenTasksButton"
-                                Command="{x:Bind ViewModel.OpenTasksCommand}"
-                                Content="{x:Bind domain:Translator.Companion_OpenTasks, Mode=OneTime}" />
                         </Grid>
                         <ItemsControl AutomationProperties.AutomationId="CompanionTaskList" ItemsSource="{x:Bind ViewModel.Tasks}">
                             <ItemsControl.ItemTemplate>
@@ -614,12 +585,12 @@
                                                 Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsOverdue), Mode=OneWay}">
                                                 <TextBlock
                                                     FontSize="11.5"
-                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                    Foreground="{ThemeResource CompanionTertiaryTextBrush}"
                                                     Text="{x:Bind ListName}"
                                                     TextTrimming="CharacterEllipsis" />
                                                 <TextBlock
                                                     FontSize="11.5"
-                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                    Foreground="{ThemeResource CompanionTertiaryTextBrush}"
                                                     Text="{x:Bind DueDisplayText}"
                                                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasDueDate), Mode=OneWay}" />
                                             </StackPanel>
@@ -648,12 +619,12 @@
                         <Path
                             Data="M26 52h20l6 10h24l6-10h20v28a6 6 0 0 1-6 6H32a6 6 0 0 1-6-6V52z"
                             Fill="{ThemeResource CompanionSubtleBackgroundBrush}"
-                            Stroke="{ThemeResource TextFillColorTertiaryBrush}"
+                            Stroke="{ThemeResource CompanionTertiaryTextBrush}"
                             StrokeLineJoin="Round"
                             StrokeThickness="2" />
                         <Path
                             Data="M26 52 38 30a6 6 0 0 1 5.2-3h41.6A6 6 0 0 1 90 30l12 22"
-                            Stroke="{ThemeResource TextFillColorTertiaryBrush}"
+                            Stroke="{ThemeResource CompanionTertiaryTextBrush}"
                             StrokeLineJoin="Round"
                             StrokeThickness="2" />
                         <Ellipse
@@ -679,7 +650,7 @@
                 <TextBlock
                     MaxWidth="260"
                     HorizontalAlignment="Center"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Foreground="{ThemeResource CompanionSecondaryTextBrush}"
                     Text="{x:Bind domain:Translator.Companion_CaughtUpDescription, Mode=OneTime}"
                     TextAlignment="Center"
                     TextWrapping="Wrap" />
@@ -689,7 +660,7 @@
                 Grid.Row="4"
                 Padding="12,10,12,12"
                 Background="{ThemeResource CompanionSubtleBackgroundBrush}"
-                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                BorderBrush="{ThemeResource CompanionDividerBrush}"
                 BorderThickness="0,1,0,0">
                 <toolkit:Segmented
                     x:Name="AppModeSwitcher"

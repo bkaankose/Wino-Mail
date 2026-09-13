@@ -23,12 +23,12 @@ public class CustomAppTheme : AppThemeBase
 
     public override AppThemeType AppThemeType => AppThemeType.Custom;
 
-    public override string GetBackgroundPreviewImagePath()
-        => $"ms-appdata:///local/{NewThemeService.CustomThemeFolderName}/{Id}_preview.jpg";
-
     public override async Task<string> GetThemeResourceDictionaryContentAsync()
     {
         var customAppThemeFile = await StorageFile.GetFileFromApplicationUriAsync(new Uri("ms-appx:///AppThemes/Custom.xaml"));
         return await FileIO.ReadTextAsync(customAppThemeFile);
     }
+
+    protected override Task<string> GetPreviewImagePathAsync()
+        => Task.FromResult($"ms-appdata:///local/{NewThemeService.CustomThemeFolderName}/{Id}_preview.jpg");
 }

@@ -214,6 +214,6 @@ public sealed class ApplicationThemeTests
 
         public override AppThemeType AppThemeType => _type;
         public override Task<string> GetThemeResourceDictionaryContentAsync() => Task.FromResult(string.Empty);
-        public override string GetBackgroundPreviewImagePath() => string.Empty;
+        protected override Task<string> GetPreviewImagePathAsync() => Task.FromResult(string.Empty);
     }
 }
