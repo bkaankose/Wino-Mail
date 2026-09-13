@@ -299,11 +299,14 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 {
                     try
                     {
+                        LogTracedRequests("provider-request-started", (IRequestBase[])[request]);
                         await ExecuteTaskRequestsInternalAsync([request], cancellationToken).ConfigureAwait(false);
+                        LogTracedRequests("provider-request-completed", (IRequestBase[])[request]);
                         RequestUiChangeCoordinator.CompleteRequests([request]);
                     }
                     catch (Exception ex)
                     {
+                        LogTracedRequests("provider-request-failed", (IRequestBase[])[request], ex);
                         firstFailure ??= ex;
                         Logger.Error(ex, "Task request {Operation} failed for account {AccountId}", request.Operation, Account.Id);
                         CaptureSynchronizationIssue(SynchronizationIssue.FromException(ex, $"Task:{request.Operation}"));
@@ -436,6 +439,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 List<IRequestBundle<TBaseRequest>> nativeRequests = new();
 
                 requestCopies = new(changeRequestQueue.Where(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest));
+                LogTracedRequests("provider-batch-prepared", requestCopies);
 
                 var keys = changeRequestQueue
                     .Where(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest)
@@ -540,9 +544,11 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 try
                 {
                     await ExecuteNativeRequestsAsync(nativeRequests, activeSynchronizationCancellationToken).ConfigureAwait(false);
+                    LogTracedRequests("provider-batch-completed", requestCopies);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
+                    LogTracedRequests("provider-batch-failed", requestCopies, ex);
                     foreach (var createDraftRequest in requestCopies
                                  .OfType<CreateDraftRequest>()
                                  .Where(request => request.Item?.IsLocalDraft == true))
@@ -740,6 +746,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
                 List<IRequestBundle<TBaseRequest>> nativeRequests = new();
                 requestCopies = new(changeRequestQueue.Where(r => r is ICalendarActionRequest));
+                LogTracedRequests("provider-batch-prepared", requestCopies);
 
                 var keys = requestCopies.GroupBy(a => a.GroupingKey());
 
@@ -809,6 +816,12 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 try
                 {
                     await ExecuteNativeRequestsAsync(nativeRequests, cancellationToken).ConfigureAwait(false);
+                    LogTracedRequests("provider-batch-completed", requestCopies);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    LogTracedRequests("provider-batch-failed", requestCopies, ex);
+                    throw;
                 }
                 finally
                 {
@@ -864,10 +877,39 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     private void PublishUnreadItemChanges()
         => WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(Account.Id));
 
+    private void LogTracedRequests(string stage, IEnumerable<IRequestBase> requests, Exception exception = null)
+    {
+        foreach (var request in requests.Where(request => request?.Trace != null))
+        {
+            if (exception == null)
+            {
+                Logger.Information(
+                    "Request trace {RequestSource}/{RequestMessageId}: {RequestStage} {RequestType} for account {AccountId}",
+                    request.Trace.Source,
+                    request.Trace.MessageId,
+                    stage,
+                    request.GetType().Name,
+                    Account.Id);
+            }
+            else
+            {
+                Logger.Error(
+                    exception,
+                    "Request trace {RequestSource}/{RequestMessageId}: {RequestStage} {RequestType} for account {AccountId}",
+                    request.Trace.Source,
+                    request.Trace.MessageId,
+                    stage,
+                    request.GetType().Name,
+                    Account.Id);
+            }
+        }
+    }
+
     /// <summary>
     /// Attempts to find out the best possible synchronization options after the batch request execution.
     /// </summary>
-    /// <param name="batches">Batch requests to run in synchronization.</param>
+    /// <param name="requests">Requests that were executed.</param>
+    /// <param name="existingSynchronizationId">Current synchronization identifier.</param>
     /// <returns>New synchronization options with minimal HTTP effort.</returns>
     private MailSynchronizationOptions GetSynchronizationOptionsAfterRequestExecution(List<IRequestBase> requests, Guid existingSynchronizationId)
     {

@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Translations;
@@ -639,6 +640,36 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => AppCloseBehavior = value
             ? AppCloseBehavior.RunInBackgroundWithTrayIcon
             : AppCloseBehavior.Terminate;
+    }
+
+    public bool IsCompanionEnabled
+    {
+        get => _configurationService.Get(nameof(IsCompanionEnabled), true);
+        set => SetPropertyAndSave(nameof(IsCompanionEnabled), value);
+    }
+
+    public bool IsCompanionHotKeyEnabled
+    {
+        get => _configurationService.Get(nameof(IsCompanionHotKeyEnabled), false);
+        set => SetPropertyAndSave(nameof(IsCompanionHotKeyEnabled), value);
+    }
+
+    public string CompanionHotKeyKey
+    {
+        get => _configurationService.Get(nameof(CompanionHotKeyKey), HotKeyGesture.Default.Key);
+        set => SetPropertyAndSave(nameof(CompanionHotKeyKey), value);
+    }
+
+    public ModifierKeys CompanionHotKeyModifiers
+    {
+        get => _configurationService.Get(nameof(CompanionHotKeyModifiers), HotKeyGesture.Default.Modifiers);
+        set => SetPropertyAndSave(nameof(CompanionHotKeyModifiers), value);
+    }
+
+    public bool SnoozeNotifications
+    {
+        get => _configurationService.Get(nameof(SnoozeNotifications), false);
+        set => SetPropertyAndSave(nameof(SnoozeNotifications), value);
     }
 
     public AppCloseBehavior AppCloseBehavior

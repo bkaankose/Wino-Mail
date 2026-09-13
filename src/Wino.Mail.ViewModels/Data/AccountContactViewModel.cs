@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -29,6 +29,14 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public bool CanSendMail => !string.IsNullOrWhiteSpace(SourceContact.PrimaryEmailAddress);
     public string FavoriteActionText => IsFavorite ? Translator.ContactAction_Unfavorite : Translator.ContactAction_Favorite;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasUnread))]
+    [NotifyPropertyChangedFor(nameof(UnreadCountText))]
+    public partial int UnreadCount { get; set; }
+
+    public bool HasUnread => UnreadCount > 0;
+    public string UnreadCountText => UnreadCount > 9 ? "9+" : UnreadCount.ToString();
+
     /// <summary>
     /// Local-only favorite marker. Writes through to the underlying contact so that a
     /// toggle is reflected without reloading the page.
@@ -51,6 +59,30 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public string JobTitleOrCompany
         => string.Join(" · ", new[] { SourceContact.JobTitle, SourceContact.CompanyName }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    /// <summary>
+    /// First name of the contact. Falls back to the first word of the display name,
+    /// or to the local part of the address when no name is known.
+    /// </summary>
+    public string FirstName
+    {
+        get
+        {
+            if (!string.IsNullOrWhiteSpace(SourceContact.GivenName))
+                return SourceContact.GivenName.Trim();
+
+            var source = (string.IsNullOrWhiteSpace(Name) ? SourceContact.DisplayValue : Name)?.Trim();
+            if (string.IsNullOrWhiteSpace(source))
+                return string.Empty;
+
+            var separatorIndex = source.IndexOfAny([' ', ',']);
+            if (separatorIndex > 0)
+                return source[..separatorIndex];
+
+            var addressIndex = source.IndexOf('@');
+            return addressIndex > 0 ? source[..addressIndex] : source;
+        }
+    }
 
     /// <summary>
     /// Alphabetical section key. Non-letters collapse into a single "#" section.
@@ -103,6 +135,7 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
         OnPropertyChanged(nameof(SecondaryValue));
         OnPropertyChanged(nameof(IsFavorite));
         OnPropertyChanged(nameof(FavoriteActionText));
+        OnPropertyChanged(nameof(FirstName));
         OnPropertyChanged(nameof(JobTitleOrCompany));
         OnPropertyChanged(nameof(InitialLetter));
         OnPropertyChanged(nameof(ShortDisplayName));

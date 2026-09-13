@@ -176,6 +176,63 @@ public class MailService : BaseDatabaseService, IMailService
         return await HydrateMailCopiesAsync(unreadMails).ConfigureAwait(false);
     }
 
+    public async Task<Dictionary<string, int>> GetUnreadSenderCountsAsync(
+        IReadOnlyCollection<Guid> folderIds,
+        IReadOnlyCollection<string> senderAddresses,
+        CancellationToken cancellationToken = default)
+    {
+        if (folderIds is null || folderIds.Count == 0 || senderAddresses is null || senderAddresses.Count == 0)
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        var normalizedAddresses = senderAddresses
+            .Select(ContactEmailAddress.Normalize)
+            .Where(static address => !string.IsNullOrWhiteSpace(address))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (normalizedAddresses.Length == 0)
+            return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        var folderPlaceholders = string.Join(",", folderIds.Select(static _ => "?"));
+        var addressPlaceholders = string.Join(",", normalizedAddresses.Select(static _ => "?"));
+        var parameters = folderIds.Cast<object>().Concat(normalizedAddresses.Cast<object>()).ToArray();
+        var rows = await Connection.QueryAsync<UnreadSenderCountRow>(
+            $"""
+             SELECT NormalizedAddress, COUNT(*) AS UnreadCount
+             FROM
+             (
+                 SELECT UPPER(TRIM(mail.FromAddress)) AS NormalizedAddress,
+                        ROW_NUMBER() OVER
+                        (
+                            PARTITION BY folder.MailAccountId,
+                                CASE WHEN mail.Id IS NULL OR mail.Id = '' THEN hex(mail.UniqueId) ELSE mail.Id END
+                            ORDER BY mail.CreationDate DESC, hex(mail.UniqueId)
+                        ) AS DuplicateRank
+                 FROM MailCopy mail
+                 INNER JOIN MailItemFolder folder ON folder.Id = mail.FolderId
+                 WHERE mail.FolderId IN ({folderPlaceholders})
+                   AND mail.IsRead = 0
+                   AND mail.IsDraft = 0
+                   AND UPPER(TRIM(mail.FromAddress)) IN ({addressPlaceholders})
+             )
+             WHERE DuplicateRank = 1
+             GROUP BY NormalizedAddress;
+             """,
+            parameters).ConfigureAwait(false);
+
+        cancellationToken.ThrowIfCancellationRequested();
+        return rows.ToDictionary(
+            static row => row.NormalizedAddress,
+            static row => row.UnreadCount,
+            StringComparer.OrdinalIgnoreCase);
+    }
+
+    private sealed class UnreadSenderCountRow
+    {
+        public string NormalizedAddress { get; set; }
+        public int UnreadCount { get; set; }
+    }
+
     public async Task<MailCopy> GetMailCopyByMessageIdAsync(Guid accountId, string messageId)
     {
         var normalizedMessageId = MailHeaderExtensions.StripAngleBrackets(messageId)?.Trim();

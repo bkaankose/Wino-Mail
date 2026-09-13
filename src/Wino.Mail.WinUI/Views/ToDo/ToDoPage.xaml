@@ -20,6 +20,16 @@
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary>
                     <CollectionViewSource x:Key="TaskCollectionViewSource" IsSourceGrouped="True" />
+
+                    <!--  Detail drawer section label. Replaces the card strokes the drawer used to nest.  -->
+                    <Style
+                        x:Key="ToDoDetailSectionLabelStyle"
+                        BasedOn="{StaticResource CaptionTextBlockStyle}"
+                        TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Setter Property="FontWeight" Value="SemiBold" />
+                        <Setter Property="Margin" Value="12,0,12,4" />
+                    </Style>
                     <!--
                         Task row. Carded like the detail drawer so the two surfaces read as one
                         design. The card background is translucent, so the container's hover and
@@ -272,7 +282,7 @@
 
                     <!--  Detail drawer checklist step.  -->
                     <DataTemplate x:Key="TaskStepTemplate" x:DataType="viewModels:TaskStepViewModel">
-                        <Grid Padding="10,4" ColumnSpacing="10">
+                        <Grid Padding="12,4" ColumnSpacing="10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
@@ -762,8 +772,8 @@
                 toolkitExt:ListViewExtensions.ItemContainerStretchDirection="Horizontal"
                 AutomationProperties.AutomationId="ToDoTaskListNavigation"
                 ItemTemplate="{StaticResource TaskRowTemplate}"
-                SelectedItem="{x:Bind ViewModel.SelectedTask, Mode=TwoWay}"
-                SelectionMode="Single">
+                SelectionChanged="TaskListView_SelectionChanged"
+                SelectionMode="Extended">
                 <listview:WinoListView.ItemContainerStyle>
                     <!--  The row template draws its own card, so the container only spaces them.  -->
                     <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
@@ -882,266 +892,431 @@
         </Grid>
 
         <!--  ============ Detail drawer ============  -->
+        <!--
+            The header is pinned so the task's identity and its due state stay readable while a long
+            step list scrolls. The body uses section labels instead of cards; the drawer already has
+            its own left border, and nested card strokes competed with it.
+        -->
         <Grid
             x:Name="DetailPane"
             Grid.Column="1"
             Background="{ThemeResource LayerFillColorDefaultBrush}"
             BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
             BorderThickness="1,0,0,0"
-            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsDetailSurfaceVisible), Mode=OneWay}">
+            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsSingleTaskSelection), Mode=OneWay}">
             <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <ScrollViewer
+            <!--
+                Pinned header. Completion owns the left edge, where the eye lands and where the
+                checkbox used to sit; dismissing the pane retreats to the right with the window chrome.
+            -->
+            <Border
                 Grid.Row="0"
-                Padding="14"
-                HorizontalScrollBarVisibility="Disabled"
-                VerticalScrollBarVisibility="Auto">
-                <StackPanel Spacing="10">
+                Padding="10,8"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,0,0,1">
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
                     <Button
+                        Grid.Row="0"
+                        Grid.Column="0"
+                        VerticalAlignment="Top"
                         AutomationProperties.AutomationId="ToDoBackToTaskListButton"
                         Command="{x:Bind ViewModel.BackToTaskListCommand}"
                         Content="{x:Bind domain:Translator.ToDoPage_Back, Mode=OneTime}"
+                        Style="{StaticResource TransparentActionButtonStyle}"
                         Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompactLayout), Mode=OneWay}" />
 
-                    <!--  Title, completion, importance  -->
-                    <Border
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6">
-                        <StackPanel>
-                            <Grid Padding="10,10,6,8" ColumnSpacing="10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <CheckBox
-                                    Grid.Column="0"
-                                    MinWidth="0"
-                                    Margin="0"
-                                    Padding="0"
-                                    VerticalAlignment="Top"
-                                    AutomationProperties.AutomationId="ToDoTaskCompleted"
-                                    AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_ToggleCompleted, Mode=OneTime}"
-                                    Click="DetailCheckBox_Click"
-                                    IsChecked="{x:Bind ViewModel.SelectedTask.IsCompleted, Mode=OneWay}"
-                                    IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
-                                    ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_ToggleCompleted, Mode=OneTime}" />
-                                <TextBox
-                                    Grid.Column="1"
-                                    AcceptsReturn="False"
-                                    AutomationProperties.AutomationId="ToDoTaskTitle"
-                                    BorderThickness="0"
-                                    FontSize="16"
-                                    FontWeight="SemiBold"
-                                    IsReadOnly="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.CanEditSelectedTask), Mode=OneWay}"
-                                    LostFocus="DetailField_LostFocus"
-                                    Text="{x:Bind ViewModel.SelectedTask.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                    TextWrapping="Wrap" />
-                                <Button
-                                    Grid.Column="2"
-                                    VerticalAlignment="Top"
-                                    AutomationProperties.AutomationId="ToDoDetailImportanceToggle"
-                                    AutomationProperties.Name="{x:Bind ViewModel.SelectedTask.ImportanceActionText, Mode=OneWay}"
-                                    Click="DetailImportanceButton_Click"
-                                    IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
-                                    Style="{StaticResource TransparentActionButtonStyle}"
-                                    ToolTipService.ToolTip="{x:Bind ViewModel.SelectedTask.ImportanceActionText, Mode=OneWay}">
-                                    <FontIcon
-                                        FontSize="15"
-                                        Foreground="{x:Bind helpers:XamlHelpers.GetTaskImportanceBrush(ViewModel.SelectedTask.IsImportant), Mode=OneWay}"
-                                        Glyph="{x:Bind helpers:XamlHelpers.GetTaskImportanceGlyph(ViewModel.SelectedTask.IsImportant), Mode=OneWay}" />
-                                </Button>
-                            </Grid>
+                    <!--  Completion ring. A button, not a checkbox: empty while open, filled once done.  -->
+                    <Button
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Width="28"
+                        Height="28"
+                        Margin="0,2,0,0"
+                        Padding="0"
+                        VerticalAlignment="Top"
+                        AutomationProperties.AutomationId="ToDoTaskCompleted"
+                        AutomationProperties.Name="{x:Bind ViewModel.SelectedTask.CompletionActionText, Mode=OneWay}"
+                        Background="{x:Bind helpers:XamlHelpers.GetTaskCompletionBackgroundBrush(ViewModel.SelectedTask.IsCompleted), Mode=OneWay}"
+                        BorderBrush="{x:Bind helpers:XamlHelpers.GetTaskCompletionBrush(ViewModel.SelectedTask.IsCompleted), Mode=OneWay}"
+                        BorderThickness="1.5"
+                        Click="DetailCheckBox_Click"
+                        CornerRadius="14"
+                        IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.SelectedTask.CompletionActionText, Mode=OneWay}">
+                        <FontIcon
+                            FontSize="12"
+                            Foreground="{x:Bind helpers:XamlHelpers.GetTaskCompletionBrush(ViewModel.SelectedTask.IsCompleted), Mode=OneWay}"
+                            Glyph="&#xE73E;"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.IsCompleted), Mode=OneWay}" />
+                    </Button>
 
-                            <ItemsControl
-                                AutomationProperties.AutomationId="ToDoStepsList"
-                                ItemTemplate="{StaticResource TaskStepTemplate}"
-                                ItemsSource="{x:Bind ViewModel.SelectedTask.Steps, Mode=OneWay}" />
+                    <TextBox
+                        Grid.Row="0"
+                        Grid.Column="2"
+                        VerticalAlignment="Center"
+                        AcceptsReturn="False"
+                        AutomationProperties.AutomationId="ToDoTaskTitle"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        FontSize="18"
+                        FontWeight="SemiBold"
+                        Foreground="{x:Bind helpers:XamlHelpers.GetTaskTitleBrush(ViewModel.SelectedTask.IsCompleted), Mode=OneWay}"
+                        IsReadOnly="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.CanEditSelectedTask), Mode=OneWay}"
+                        LostFocus="DetailField_LostFocus"
+                        Text="{x:Bind ViewModel.SelectedTask.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        TextWrapping="Wrap" />
 
-                            <Button
-                                Margin="6,2,6,6"
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                AutomationProperties.AutomationId="ToDoAddStepButton"
-                                Command="{x:Bind ViewModel.AddStepCommand}"
-                                IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
-                                Style="{StaticResource TransparentActionButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <FontIcon FontSize="13" Glyph="&#xE710;" />
-                                    <TextBlock Text="{x:Bind domain:Translator.ToDoPage_AddStep, Mode=OneTime}" />
-                                </StackPanel>
-                            </Button>
-                        </StackPanel>
-                    </Border>
+                    <Button
+                        Grid.Row="0"
+                        Grid.Column="3"
+                        VerticalAlignment="Top"
+                        AutomationProperties.AutomationId="ToDoDetailImportanceToggle"
+                        AutomationProperties.Name="{x:Bind ViewModel.SelectedTask.ImportanceActionText, Mode=OneWay}"
+                        Click="DetailImportanceButton_Click"
+                        IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
+                        Style="{StaticResource TransparentActionButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind ViewModel.SelectedTask.ImportanceActionText, Mode=OneWay}">
+                        <FontIcon
+                            FontSize="15"
+                            Foreground="{x:Bind helpers:XamlHelpers.GetTaskImportanceBrush(ViewModel.SelectedTask.IsImportant), Mode=OneWay}"
+                            Glyph="{x:Bind helpers:XamlHelpers.GetTaskImportanceGlyph(ViewModel.SelectedTask.IsImportant), Mode=OneWay}" />
+                    </Button>
+
+                    <Button
+                        Grid.Row="0"
+                        Grid.Column="4"
+                        VerticalAlignment="Top"
+                        AutomationProperties.AutomationId="ToDoCloseDetailButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_CloseDetails, Mode=OneTime}"
+                        Command="{x:Bind ViewModel.CloseDetailCommand}"
+                        Style="{StaticResource TransparentActionButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_CloseDetails, Mode=OneTime}">
+                        <FontIcon FontSize="13" Glyph="&#xE8BB;" />
+                    </Button>
+
+                    <!--  Status summary. Repeats the schedule section so it survives a scrolled body.  -->
+                    <StackPanel
+                        Grid.Row="1"
+                        Grid.Column="2"
+                        Margin="0,0,0,2"
+                        AutomationProperties.AutomationId="ToDoDetailSummary"
+                        Orientation="Horizontal"
+                        Spacing="6"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.HasDetailSummary), Mode=OneWay}">
+                        <TextBlock
+                            AutomationProperties.AutomationId="ToDoDetailSummaryDueText"
+                            Foreground="{x:Bind helpers:XamlHelpers.GetTaskDueBrush(ViewModel.SelectedTask.IsOverdue), Mode=OneWay}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.SelectedTask.DueDisplayText, Mode=OneWay}"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.HasDueDate), Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="&#x2022;"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.ShowMyDaySummarySeparator), Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.ToDoPage_MyDay, Mode=OneTime}"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.IsInMyDay), Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="&#x2022;"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.ShowListSummarySeparator), Mode=OneWay}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.SelectedTask.ListName, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.ShowSummaryListName), Mode=OneWay}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <ScrollViewer
+                Grid.Row="1"
+                Padding="0,14,0,14"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto">
+                <StackPanel Spacing="16">
+                    <!--  Steps  -->
+                    <StackPanel>
+                        <Grid Margin="12,0,12,2" ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                Grid.Column="0"
+                                Margin="0"
+                                VerticalAlignment="Center"
+                                Style="{StaticResource ToDoDetailSectionLabelStyle}"
+                                Text="{x:Bind domain:Translator.ToDoPage_Steps, Mode=OneTime}" />
+                            <ProgressBar
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ToDoStepsProgress"
+                                Maximum="{x:Bind helpers:XamlHelpers.GetTaskStepCountValue(ViewModel.SelectedTask.StepCount), Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.HasSteps), Mode=OneWay}"
+                                Value="{x:Bind helpers:XamlHelpers.GetTaskStepCountValue(ViewModel.SelectedTask.CompletedStepCount), Mode=OneWay}" />
+                            <TextBlock
+                                Grid.Column="2"
+                                AutomationProperties.AutomationId="ToDoStepsSummaryText"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.SelectedTask.StepSummaryText, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.HasSteps), Mode=OneWay}" />
+                        </Grid>
+
+                        <ItemsControl
+                            AutomationProperties.AutomationId="ToDoStepsList"
+                            ItemTemplate="{StaticResource TaskStepTemplate}"
+                            ItemsSource="{x:Bind ViewModel.SelectedTask.Steps, Mode=OneWay}" />
+
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="ToDoAddStepButton"
+                            Command="{x:Bind ViewModel.AddStepCommand}"
+                            IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
+                            Style="{StaticResource TransparentActionButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon
+                                    FontSize="13"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Glyph="&#xE710;" />
+                                <TextBlock Text="{x:Bind domain:Translator.ToDoPage_AddStep, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
 
                     <!--  Scheduling. My Day is manual; the due presets never write to it.  -->
-                    <Border
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6">
-                        <StackPanel>
-                            <Button
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                AutomationProperties.AutomationId="ToDoAddToMyDayButton"
-                                AutomationProperties.Name="{x:Bind ViewModel.SelectedTask.MyDayActionText, Mode=OneWay}"
-                                Command="{x:Bind ViewModel.ToggleMyDayCommand}"
-                                CommandParameter="{x:Bind ViewModel.SelectedTask, Mode=OneWay}"
-                                IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
-                                Style="{StaticResource TransparentActionButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <FontIcon
-                                        FontSize="14"
-                                        Foreground="{x:Bind helpers:XamlHelpers.GetMyDayBrush(ViewModel.SelectedTask.IsInMyDay), Mode=OneWay}"
-                                        Glyph="&#xE706;" />
-                                    <TextBlock Text="{x:Bind ViewModel.SelectedTask.MyDayActionText, Mode=OneWay}" />
-                                </StackPanel>
-                            </Button>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource ToDoDetailSectionLabelStyle}" Text="{x:Bind domain:Translator.ToDoPage_Schedule, Mode=OneTime}" />
 
-                            <Button
-                                HorizontalAlignment="Stretch"
-                                HorizontalContentAlignment="Left"
-                                AutomationProperties.AutomationId="ToDoDueDatePresetButton"
-                                AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_DueDate, Mode=OneTime}"
-                                IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
-                                Style="{StaticResource TransparentActionButtonStyle}">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <FontIcon
-                                        FontSize="14"
-                                        Foreground="{x:Bind helpers:XamlHelpers.GetTaskDueBrush(ViewModel.SelectedTask.IsOverdue), Mode=OneWay}"
-                                        Glyph="&#xE787;" />
-                                    <TextBlock Text="{x:Bind domain:Translator.ToDoPage_AddDueDate, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.SelectedTask.HasDueDate), Mode=OneWay}" />
-                                    <TextBlock
-                                        AutomationProperties.AutomationId="ToDoDueDateText"
-                                        Foreground="{x:Bind helpers:XamlHelpers.GetTaskDueBrush(ViewModel.SelectedTask.IsOverdue), Mode=OneWay}"
-                                        Text="{x:Bind ViewModel.SelectedTask.DueDisplayText, Mode=OneWay}"
-                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.HasDueDate), Mode=OneWay}" />
-                                </StackPanel>
-                                <Button.Flyout>
-                                    <MenuFlyout>
-                                        <MenuFlyoutItem
-                                            AutomationProperties.AutomationId="ToDoDuePresetToday"
-                                            Command="{x:Bind ViewModel.SetDuePresetCommand}"
-                                            CommandParameter="today"
-                                            Text="{x:Bind domain:Translator.ToDoPage_DuePresetToday, Mode=OneTime}" />
-                                        <MenuFlyoutItem
-                                            AutomationProperties.AutomationId="ToDoDuePresetTomorrow"
-                                            Command="{x:Bind ViewModel.SetDuePresetCommand}"
-                                            CommandParameter="tomorrow"
-                                            Text="{x:Bind domain:Translator.ToDoPage_DuePresetTomorrow, Mode=OneTime}" />
-                                        <MenuFlyoutItem
-                                            AutomationProperties.AutomationId="ToDoDuePresetNextWeek"
-                                            Command="{x:Bind ViewModel.SetDuePresetCommand}"
-                                            CommandParameter="nextweek"
-                                            Text="{x:Bind domain:Translator.ToDoPage_DuePresetNextWeek, Mode=OneTime}" />
-                                        <MenuFlyoutSeparator />
-                                        <MenuFlyoutItem
-                                            AutomationProperties.AutomationId="ToDoRemoveDueDate"
-                                            Command="{x:Bind ViewModel.SetDuePresetCommand}"
-                                            CommandParameter="none"
-                                            Text="{x:Bind domain:Translator.ToDoPage_RemoveDueDate, Mode=OneTime}" />
-                                    </MenuFlyout>
-                                </Button.Flyout>
-                            </Button>
-
-                            <!--  Reminders and recurrence have nowhere to persist yet, so they read as unavailable.  -->
-                            <Grid
-                                Padding="12,10"
-                                ColumnSpacing="10"
-                                IsHitTestVisible="False">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="ToDoAddToMyDayButton"
+                            AutomationProperties.Name="{x:Bind ViewModel.SelectedTask.MyDayActionText, Mode=OneWay}"
+                            Command="{x:Bind ViewModel.ToggleMyDayCommand}"
+                            CommandParameter="{x:Bind ViewModel.SelectedTask, Mode=OneWay}"
+                            IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
+                            Style="{StaticResource TransparentActionButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
                                 <FontIcon
-                                    Grid.Column="0"
                                     FontSize="14"
-                                    Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                    Glyph="&#xE7ED;" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                    Text="{x:Bind domain:Translator.ToDoPage_RemindMe, Mode=OneTime}" />
-                                <TextBlock
-                                    Grid.Column="2"
-                                    Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.ToDoPage_ComingSoon, Mode=OneTime}" />
-                            </Grid>
+                                    Foreground="{x:Bind helpers:XamlHelpers.GetMyDayBrush(ViewModel.SelectedTask.IsInMyDay), Mode=OneWay}"
+                                    Glyph="&#xE706;" />
+                                <TextBlock Text="{x:Bind ViewModel.SelectedTask.MyDayActionText, Mode=OneWay}" />
+                            </StackPanel>
+                        </Button>
 
-                            <Grid
-                                Padding="12,10"
-                                ColumnSpacing="10"
-                                IsHitTestVisible="False">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="ToDoDueDatePresetButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_DueDate, Mode=OneTime}"
+                            IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
+                            Style="{StaticResource TransparentActionButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
                                 <FontIcon
-                                    Grid.Column="0"
                                     FontSize="14"
-                                    Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                    Glyph="&#xE8EE;" />
+                                    Foreground="{x:Bind helpers:XamlHelpers.GetTaskDueBrush(ViewModel.SelectedTask.IsOverdue), Mode=OneWay}"
+                                    Glyph="&#xE787;" />
+                                <TextBlock Text="{x:Bind domain:Translator.ToDoPage_AddDueDate, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.SelectedTask.HasDueDate), Mode=OneWay}" />
                                 <TextBlock
-                                    Grid.Column="1"
-                                    Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                    Text="{x:Bind domain:Translator.ToDoPage_Repeat, Mode=OneTime}" />
-                                <TextBlock
-                                    Grid.Column="2"
-                                    Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind domain:Translator.ToDoPage_ComingSoon, Mode=OneTime}" />
-                            </Grid>
-                        </StackPanel>
-                    </Border>
+                                    AutomationProperties.AutomationId="ToDoDueDateText"
+                                    Foreground="{x:Bind helpers:XamlHelpers.GetTaskDueBrush(ViewModel.SelectedTask.IsOverdue), Mode=OneWay}"
+                                    Text="{x:Bind ViewModel.SelectedTask.DueDisplayText, Mode=OneWay}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.HasDueDate), Mode=OneWay}" />
+                            </StackPanel>
+                            <Button.Flyout>
+                                <MenuFlyout>
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoDuePresetToday"
+                                        Command="{x:Bind ViewModel.SetDuePresetCommand}"
+                                        CommandParameter="today"
+                                        Text="{x:Bind domain:Translator.ToDoPage_DuePresetToday, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoDuePresetTomorrow"
+                                        Command="{x:Bind ViewModel.SetDuePresetCommand}"
+                                        CommandParameter="tomorrow"
+                                        Text="{x:Bind domain:Translator.ToDoPage_DuePresetTomorrow, Mode=OneTime}" />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoDuePresetNextWeek"
+                                        Command="{x:Bind ViewModel.SetDuePresetCommand}"
+                                        CommandParameter="nextweek"
+                                        Text="{x:Bind domain:Translator.ToDoPage_DuePresetNextWeek, Mode=OneTime}" />
+                                    <MenuFlyoutSeparator />
+                                    <MenuFlyoutItem
+                                        AutomationProperties.AutomationId="ToDoRemoveDueDate"
+                                        Command="{x:Bind ViewModel.SetDuePresetCommand}"
+                                        CommandParameter="none"
+                                        Text="{x:Bind domain:Translator.ToDoPage_RemoveDueDate, Mode=OneTime}" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
+
+                        <!--  Reminders and recurrence have nowhere to persist yet, so they read as unavailable.  -->
+                        <Grid
+                            Padding="12,10"
+                            ColumnSpacing="10"
+                            IsHitTestVisible="False">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon
+                                Grid.Column="0"
+                                FontSize="14"
+                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
+                                Glyph="&#xE7ED;" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
+                                Text="{x:Bind domain:Translator.ToDoPage_RemindMe, Mode=OneTime}" />
+                            <TextBlock
+                                Grid.Column="2"
+                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.ToDoPage_ComingSoon, Mode=OneTime}" />
+                        </Grid>
+
+                        <Grid
+                            Padding="12,10"
+                            ColumnSpacing="10"
+                            IsHitTestVisible="False">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon
+                                Grid.Column="0"
+                                FontSize="14"
+                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
+                                Glyph="&#xE8EE;" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
+                                Text="{x:Bind domain:Translator.ToDoPage_Repeat, Mode=OneTime}" />
+                            <TextBlock
+                                Grid.Column="2"
+                                Foreground="{ThemeResource TextFillColorDisabledBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.ToDoPage_ComingSoon, Mode=OneTime}" />
+                        </Grid>
+
+                        <!--  Delete closes the schedule group. A rule keeps the destructive row from reading as another toggle.  -->
+                        <Border
+                            Height="1"
+                            Margin="12,6"
+                            Background="{ThemeResource CardStrokeColorDefaultBrush}" />
+
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="ToDoDeleteTaskButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_DeleteTask, Mode=OneTime}"
+                            Click="DeleteTaskButton_Click"
+                            IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
+                            Style="{StaticResource TransparentActionButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
+                                <FontIcon
+                                    FontSize="14"
+                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                    Glyph="&#xE74D;" />
+                                <TextBlock Foreground="{ThemeResource SystemFillColorCriticalBrush}" Text="{x:Bind domain:Translator.ToDoPage_DeleteTask, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
 
                     <!--  Note  -->
-                    <Border
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6">
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource ToDoDetailSectionLabelStyle}" Text="{x:Bind domain:Translator.ToDoPage_Notes, Mode=OneTime}" />
+
                         <TextBox
                             MinHeight="90"
+                            Margin="12,0"
                             AcceptsReturn="True"
                             AutomationProperties.AutomationId="ToDoTaskNotes"
                             AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_Notes, Mode=OneTime}"
+                            Background="Transparent"
                             BorderThickness="0"
                             IsReadOnly="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.CanEditSelectedTask), Mode=OneWay}"
                             LostFocus="DetailField_LostFocus"
                             PlaceholderText="{x:Bind domain:Translator.ToDoPage_AddNote, Mode=OneTime}"
                             Text="{x:Bind ViewModel.SelectedTask.Notes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             TextWrapping="Wrap" />
-                    </Border>
+                    </StackPanel>
 
                     <Button
                         HorizontalAlignment="Stretch"
                         HorizontalContentAlignment="Left"
                         AutomationProperties.AutomationId="ToDoCreateCalendarEventButton"
                         Command="{x:Bind ViewModel.CreateCalendarEventCommand}"
+                        Style="{StaticResource TransparentActionButtonStyle}"
                         Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanCreateCalendarEvent), Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <FontIcon FontSize="14" Glyph="&#xE787;" />
+                            <FontIcon
+                                FontSize="14"
+                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                Glyph="&#xE787;" />
                             <TextBlock Text="{x:Bind domain:Translator.ToDoPage_CreateCalendarEvent, Mode=OneTime}" />
                         </StackPanel>
                     </Button>
+
+                    <!--  Provenance. Quiet caption at the end of the body now that the footer is gone.  -->
+                    <TextBlock
+                        Margin="12,0"
+                        AutomationProperties.AutomationId="ToDoTaskCreatedOn"
+                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind ViewModel.SelectedTask.CreatedOnText, Mode=OneWay}"
+                        TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </ScrollViewer>
+        </Grid>
 
-            <!--  Drawer footer: dismiss, provenance, delete  -->
+        <!--  Multiple selection uses the same right-side workspace as mail bulk selection.  -->
+        <Grid
+            Grid.Column="1"
+            Background="{ThemeResource LayerFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1,0,0,0"
+            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsMultipleTaskSelection), Mode=OneWay}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
             <Grid
-                Grid.Row="1"
-                Padding="10,6"
+                Padding="14,12,10,10"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="0,1,0,0"
+                BorderThickness="0,0,0,1"
                 ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -1150,36 +1325,103 @@
                 </Grid.ColumnDefinitions>
                 <Button
                     Grid.Column="0"
-                    AutomationProperties.AutomationId="ToDoCloseDetailButton"
+                    AutomationProperties.AutomationId="ToDoBackToMultipleSelectionListButton"
+                    Command="{x:Bind ViewModel.BackToTaskListCommand}"
+                    Content="{x:Bind domain:Translator.ToDoPage_Back, Mode=OneTime}"
+                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompactLayout), Mode=OneWay}" />
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="ToDoMultipleSelectionCount"
+                    Style="{StaticResource SubtitleTextBlockStyle}"
+                    Text="{x:Bind ViewModel.SelectedTaskCountText, Mode=OneWay}" />
+                <Button
+                    Grid.Column="2"
+                    AutomationProperties.AutomationId="ToDoCloseMultipleSelectionButton"
                     AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_CloseDetails, Mode=OneTime}"
                     Command="{x:Bind ViewModel.CloseDetailCommand}"
                     Style="{StaticResource TransparentActionButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_CloseDetails, Mode=OneTime}">
                     <FontIcon FontSize="13" Glyph="&#xE8BB;" />
                 </Button>
-                <TextBlock
-                    Grid.Column="1"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    AutomationProperties.AutomationId="ToDoTaskCreatedOn"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind ViewModel.SelectedTask.CreatedOnText, Mode=OneWay}"
-                    TextTrimming="CharacterEllipsis" />
-                <Button
-                    Grid.Column="2"
-                    AutomationProperties.AutomationId="ToDoDeleteTaskButton"
-                    AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_DeleteTask, Mode=OneTime}"
-                    Click="DeleteTaskButton_Click"
-                    IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
-                    Style="{StaticResource TransparentActionButtonStyle}"
-                    ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_DeleteTask, Mode=OneTime}">
-                    <FontIcon
-                        FontSize="13"
-                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                        Glyph="&#xE74D;" />
-                </Button>
             </Grid>
+
+            <ScrollViewer
+                Grid.Row="1"
+                Padding="24"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto">
+                <StackPanel
+                    MaxWidth="320"
+                    HorizontalAlignment="Stretch"
+                    Spacing="12">
+                    <FontIcon
+                        Margin="0,12,0,4"
+                        HorizontalAlignment="Center"
+                        FontSize="36"
+                        Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                        Glyph="&#xE762;" />
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Style="{StaticResource SubtitleTextBlockStyle}"
+                        Text="{x:Bind ViewModel.SelectedTaskCountText, Mode=OneWay}"
+                        TextAlignment="Center" />
+                    <TextBlock
+                        Margin="0,0,0,8"
+                        HorizontalAlignment="Center"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ToDoPage_SelectedTasksBody, Mode=OneTime}"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
+
+                    <Button
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        AutomationProperties.AutomationId="ToDoCompleteSelectedTasksButton"
+                        Command="{x:Bind ViewModel.CompleteSelectedTasksCommand}"
+                        IsEnabled="{x:Bind ViewModel.CanEditSelectedTasks, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon Glyph="&#xE73E;" />
+                            <TextBlock Text="{x:Bind domain:Translator.ToDoPage_CompleteSelectedTasks, Mode=OneTime}" />
+                        </StackPanel>
+                    </Button>
+                    <Button
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        AutomationProperties.AutomationId="ToDoReopenSelectedTasksButton"
+                        Command="{x:Bind ViewModel.ReopenSelectedTasksCommand}"
+                        IsEnabled="{x:Bind ViewModel.CanEditSelectedTasks, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon Glyph="&#xE777;" />
+                            <TextBlock Text="{x:Bind domain:Translator.ToDoPage_ReopenSelectedTasks, Mode=OneTime}" />
+                        </StackPanel>
+                    </Button>
+                    <Button
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        AutomationProperties.AutomationId="ToDoMarkSelectedTasksImportantButton"
+                        Command="{x:Bind ViewModel.MarkSelectedTasksImportantCommand}"
+                        IsEnabled="{x:Bind ViewModel.CanEditSelectedTasks, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon Glyph="&#xE734;" />
+                            <TextBlock Text="{x:Bind domain:Translator.ToDoPage_MarkSelectedTasksImportant, Mode=OneTime}" />
+                        </StackPanel>
+                    </Button>
+                    <Button
+                        Margin="0,8,0,0"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        AutomationProperties.AutomationId="ToDoDeleteSelectedTasksButton"
+                        Command="{x:Bind ViewModel.DeleteSelectedTasksCommand}"
+                        IsEnabled="{x:Bind ViewModel.CanEditSelectedTasks, Mode=OneWay}">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon Foreground="{ThemeResource SystemFillColorCriticalBrush}" Glyph="&#xE74D;" />
+                            <TextBlock Text="{x:Bind domain:Translator.ToDoPage_DeleteSelectedTasks, Mode=OneTime}" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="ResponsiveLayoutStates">

@@ -62,5 +62,6 @@ public enum WinoPage
     SpecialImapCredentialsPage,
     TestPage,
     WinoIntelligenceManagementPage,
-    IntelligenceCoveragePage
+    IntelligenceCoveragePage,
+    CompanionSettingsPage
 }

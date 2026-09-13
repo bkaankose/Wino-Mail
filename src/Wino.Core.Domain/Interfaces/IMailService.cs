@@ -135,6 +135,10 @@ public interface IMailService
     /// </summary>
     /// <param name="folderId">Folder id to get unread mails for.</param>
     Task<List<MailCopy>> GetUnreadMailsByFolderIdAsync(Guid folderId);
+    Task<Dictionary<string, int>> GetUnreadSenderCountsAsync(
+        IReadOnlyCollection<Guid> folderIds,
+        IReadOnlyCollection<string> senderAddresses,
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Checks whether the mail exists in the folder.

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -15,6 +16,8 @@ public interface INativeAppService
     string GetFullAppVersion();
 
     Task PinAppToTaskbarAsync();
+
+    WindowsTaskbarPosition GetTaskbarPosition();
 
     /// <summary>
     /// Gets or sets the function that returns a pointer for main window hwnd for UWP.

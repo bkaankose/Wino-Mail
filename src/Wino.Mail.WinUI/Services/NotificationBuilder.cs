@@ -581,6 +581,9 @@ public class NotificationBuilder : INotificationBuilder
         AppNotificationBuilder builder,
         string? tag = null)
     {
+        if (_preferencesService.SnoozeNotifications)
+            return;
+
         var notification = builder.BuildNotification();
 
         if (!string.IsNullOrWhiteSpace(tag))

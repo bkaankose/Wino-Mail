@@ -419,6 +419,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             return;
 
         var allRequests = normalizedRequestsByAccount.Values.SelectMany(requests => requests).ToList();
+        LogTracedRequests("accepted", allRequests);
 
         // Optimistic presentation is independent from provider availability. Apply first;
         // resolution or queue failures below revert the exact same request snapshots.
@@ -428,6 +429,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         if (undoActionSettings != null)
         {
+            LogTracedRequests("undo-delay-started", allRequests);
             QueueUndoActionPack(normalizedRequestsByAccount, undoActionSettings);
             return;
         }
@@ -487,6 +489,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 if (current != null) DraftUpdateIdentity.From(current).Apply(mailRequest.Item);
             }
             synchronizer.QueueRequest(request);
+            LogTracedRequests("synchronizer-queued", (IRequestBase[])[request], accountId);
         }
 
         if (triggerSynchronization)
@@ -538,6 +541,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         pendingPack.CancellationTokenSource.Dispose();
 
         RequestUiChangeCoordinator.RevertRequests(pendingPack.RequestsByAccount.Values.SelectMany(requests => requests));
+        LogTracedRequests("undo-reverted", pendingPack.RequestsByAccount.Values.SelectMany(requests => requests), accountId);
         PublishUndoableMailActionPackChanged(pendingPack, UndoableMailActionPackState.Undone);
 
         _logger.Information("Undid queued action pack {PackId} for account {AccountId}", pendingPack.Id, accountId);
@@ -606,6 +610,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         foreach (var pair in pack.RequestsByAccount)
         {
+            LogTracedRequests("undo-delay-expired", pair.Value, pair.Key);
             await QueueRequestsCoreAsync(pair.Value, pair.Key, triggerSynchronization: true).ConfigureAwait(false);
 
             if (pack.RequiresFolderSynchronizationByAccount.Contains(pair.Key))
@@ -619,6 +624,20 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         }
 
         _logger.Debug("Promoted undoable action pack {PackId} for execution", pack.Id);
+    }
+
+    private void LogTracedRequests(string stage, IEnumerable<IRequestBase> requests, Guid? accountId = null)
+    {
+        foreach (var request in requests.Where(request => request?.Trace != null))
+        {
+            _logger.Information(
+                "Request trace {RequestSource}/{RequestMessageId}: {RequestStage} {RequestType} for account {AccountId}",
+                request.Trace.Source,
+                request.Trace.MessageId,
+                stage,
+                request.GetType().Name,
+                accountId);
+        }
     }
 
     private bool HasPendingUndoAction(Guid accountId)

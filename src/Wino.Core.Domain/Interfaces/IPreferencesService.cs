@@ -42,6 +42,33 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsSystemTrayIconEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Whether the tray companion flyout is enabled.
+    /// </summary>
+    bool IsCompanionEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether the companion flyout can be toggled with a system-wide hot key.
+    /// </summary>
+    bool IsCompanionHotKeyEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: The non-modifier key used by the companion system-wide hot key.
+    /// </summary>
+    string CompanionHotKeyKey { get; set; }
+
+    /// <summary>
+    /// Setting: The modifiers used by the companion system-wide hot key.
+    /// </summary>
+    ModifierKeys CompanionHotKeyModifiers { get; set; }
+
+    /// <summary>
+    /// Setting: Whether notifications are suppressed. Persisted rather than held in memory so the
+    /// choice survives a restart, and so the companion flyout and the shell agree on it without
+    /// either of them owning the state.
+    /// </summary>
+    bool SnoozeNotifications { get; set; }
+
+    /// <summary>
     /// Setting: What Wino should do when the shell window is closed.
     /// </summary>
     AppCloseBehavior AppCloseBehavior { get; set; }

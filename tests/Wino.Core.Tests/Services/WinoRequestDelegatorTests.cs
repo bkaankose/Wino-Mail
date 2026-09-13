@@ -6,6 +6,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Tasks;
@@ -17,6 +18,31 @@ namespace Wino.Core.Tests.Services;
 
 public sealed class WinoRequestDelegatorTests
 {
+    [Fact]
+    public async Task ExecuteAsync_TracedRequest_PreservesTraceInSynchronizationQueue()
+    {
+        var accountId = Guid.NewGuid();
+        var messageId = Guid.NewGuid();
+        var synchronizationManager = CreateSynchronizationManager();
+        var processor = new Mock<IWinoRequestProcessor>();
+        processor.Setup(service => service.PrepareTaskRequestAsync(It.IsAny<Wino.Core.Domain.Models.Tasks.TaskOperationPreparationRequest>()))
+            .ReturnsAsync((Wino.Core.Domain.Models.Tasks.TaskOperationPreparationRequest preparation) =>
+                new TaskActionRequest(preparation.AccountId, preparation.Operation, Task: preparation.Task));
+        var delegator = CreateDelegator(synchronizationManager.Object, processor.Object);
+        var request = new TaskActionRequest(accountId, TaskSynchronizerOperation.UpdateTask)
+        {
+            Trace = new RequestTrace("tray-companion", messageId)
+        };
+
+        await delegator.ExecuteAsync(accountId, [request]);
+
+        synchronizationManager.Verify(manager => manager.QueueRequestPackAsync(
+            It.Is<IReadOnlyDictionary<Guid, List<IRequestBase>>>(pack =>
+                pack[accountId].Single().Trace == request.Trace &&
+                pack[accountId].Single().Trace.MessageId == messageId),
+            false), Times.Once);
+    }
+
     [Fact]
     public async Task ExecuteAsync_TaskRequest_QueuesOnceAndPublishesTaskSynchronization()
     {
@@ -114,9 +140,11 @@ public sealed class WinoRequestDelegatorTests
         }
     }
 
-    private static WinoRequestDelegator CreateDelegator(ISynchronizationManager synchronizationManager)
+    private static WinoRequestDelegator CreateDelegator(
+        ISynchronizationManager synchronizationManager,
+        IWinoRequestProcessor requestProcessor = null)
         => new(
-            Mock.Of<IWinoRequestProcessor>(),
+            requestProcessor ?? Mock.Of<IWinoRequestProcessor>(),
             Mock.Of<IFolderService>(),
             Mock.Of<IMailDialogService>(),
             Mock.Of<IAccountService>(),
@@ -138,6 +166,7 @@ public sealed class WinoRequestDelegatorTests
 
     private abstract class TestRequest : IRequestBase
     {
+        public RequestTrace Trace { get; set; }
         public int ResynchronizationDelay => 0;
         public object GroupingKey() => GetType();
         public void ApplyUIChanges() { }

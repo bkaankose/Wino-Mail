@@ -207,6 +207,19 @@ public static class XamlHelpers
     public static GridLength GetTaskListWidth(bool isDrawerOpen, bool isCompactLayout)
         => isDrawerOpen && isCompactLayout ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
 
+    /// <summary>
+    /// Completion is a ring button in the drawer, not a checkbox. The ring stays empty and neutral
+    /// while the task is open, and fills with the success tone once it is done.
+    /// </summary>
+    public static Brush GetTaskCompletionBrush(bool isCompleted)
+        => (Brush)Application.Current.Resources[isCompleted ? "SystemFillColorSuccessBrush" : "TextFillColorSecondaryBrush"];
+
+    public static Brush GetTaskCompletionBackgroundBrush(bool isCompleted)
+        => GetThemeBrush(isCompleted ? "SystemFillColorSuccessBackgroundBrush" : "SubtleFillColorTransparentBrush", "SubtleFillColorTransparentBrush");
+
+    /// <summary>x:Bind will not widen the step counts to the double the ProgressBar expects.</summary>
+    public static double GetTaskStepCountValue(int count) => count;
+
     public static Brush GetMyDayBrush(bool isInMyDay)
         => (Brush)Application.Current.Resources[isInMyDay ? "AccentTextFillColorPrimaryBrush" : "TextFillColorSecondaryBrush"];
 

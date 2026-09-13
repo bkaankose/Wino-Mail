@@ -2,6 +2,7 @@
 using FluentAssertions;
 using Moq;
 using System.Collections.Specialized;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -164,7 +165,9 @@ public sealed class ToDoPageViewModelTests
 
         await viewModel.AddTaskCommand.ExecuteAsync(null);
 
-        dialogs.Verify(service => service.ShowTaskListPickerDialogAsync(It.IsAny<IReadOnlyList<AccountTaskList>>()), Times.Never);
+        dialogs.Verify(service => service.ShowTaskListPickerDialogAsync(
+            It.IsAny<IReadOnlyList<AccountTaskList>>(),
+            It.IsAny<IReadOnlyList<MailAccount>>()), Times.Never);
         requests.Should().ContainSingle().Which.Should().BeOfType<TaskActionRequest>()
             .Which.Task.TaskListId.Should().Be(selectedList.Id);
     }
@@ -177,7 +180,9 @@ public sealed class ToDoPageViewModelTests
         var pickedList = CreateList(account.Id, TaskSourceKind.Local, isDefault: false);
         var taskService = CreateTaskService([defaultList, pickedList]);
         var dialogs = new Mock<IMailDialogService>();
-        dialogs.Setup(service => service.ShowTaskListPickerDialogAsync(It.IsAny<IReadOnlyList<AccountTaskList>>()))
+        dialogs.Setup(service => service.ShowTaskListPickerDialogAsync(
+                It.IsAny<IReadOnlyList<AccountTaskList>>(),
+                It.IsAny<IReadOnlyList<MailAccount>>()))
             .ReturnsAsync(pickedList);
         var preferences = new Mock<IPreferencesService>();
         preferences.SetupProperty(service => service.TaskCreationBehavior, NewItemDestinationBehavior.AskEachTime);
@@ -194,7 +199,8 @@ public sealed class ToDoPageViewModelTests
         await viewModel.AddTaskCommand.ExecuteAsync(null);
 
         dialogs.Verify(service => service.ShowTaskListPickerDialogAsync(
-            It.Is<IReadOnlyList<AccountTaskList>>(lists => lists.Count == 2)), Times.Once);
+            It.Is<IReadOnlyList<AccountTaskList>>(lists => lists.Count == 2),
+            It.Is<IReadOnlyList<MailAccount>>(accounts => accounts.Count == 1 && accounts[0].Id == account.Id)), Times.Once);
         requests.Should().ContainSingle().Which.Should().BeOfType<TaskActionRequest>()
             .Which.Task.TaskListId.Should().Be(pickedList.Id);
     }
@@ -404,12 +410,16 @@ public sealed class ToDoPageViewModelTests
         await viewModel.ReloadCommand.ExecuteAsync(null);
 
         viewModel.SelectedSort = TaskSortKind.Importance;
+        var oldReload = viewModel.ReloadTasksCommand.ExecuteAsync(null);
         await oldRequested.Task.WaitAsync(TimeSpan.FromSeconds(2));
         viewModel.SelectedSort = TaskSortKind.Alphabetical;
+        var newReload = viewModel.ReloadTasksCommand.ExecuteAsync(null);
         await newRequested.Task.WaitAsync(TimeSpan.FromSeconds(2));
         newResult.SetResult([CreateTask(account.Id, list.Id, "New result")]);
+        await newReload;
         await WaitUntilAsync(() => VisibleTaskTitles(viewModel).SequenceEqual(["New result"]));
         oldResult.SetResult([CreateTask(account.Id, list.Id, "Old result")]);
+        await oldReload;
         await Task.Delay(100);
 
         VisibleTaskTitles(viewModel).Should().Equal("New result");
@@ -865,6 +875,146 @@ public sealed class ToDoPageViewModelTests
     }
 
     [Fact]
+    public async Task TaskSynchronizationCompletion_DoesNotReloadTheVisibleList()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var task = CreateTask(account.Id, list.Id, "Task");
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, list.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync([task]);
+        var viewModel = CreateViewModel(taskService.Object, [account]);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = list;
+        await WaitUntilAsync(() => VisibleTaskTitles(viewModel).SequenceEqual(["Task"]));
+        var queryCount = taskService.Invocations.Count(invocation => invocation.Method.Name == nameof(ITaskQueryService.GetTasksAsync));
+
+        viewModel.Receive(new TaskSynchronizationCompleted(account.Id, SynchronizationCompletedState.Success));
+        await Task.Delay(50);
+
+        taskService.Invocations.Count(invocation => invocation.Method.Name == nameof(ITaskQueryService.GetTasksAsync))
+            .Should().Be(queryCount);
+    }
+
+    [Fact]
+    public async Task TaskStepDelete_UpdatesTheExistingTaskWrapperInPlace()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var task = CreateTask(account.Id, list.Id, "Task");
+        var step = new AccountTaskStep
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = account.Id,
+            TaskId = task.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            Title = "Step"
+        };
+        task.Steps.Add(step);
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, list.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync([task]);
+        var viewModel = CreateViewModel(taskService.Object, [account]);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = list;
+        await WaitUntilAsync(() => VisibleTaskTitles(viewModel).SequenceEqual(["Task"]));
+        var wrapper = viewModel.TaskGroups.Single().Single();
+        var actions = new List<NotifyCollectionChangedAction>();
+        viewModel.TaskGroups.Single().CollectionChanged += (_, args) => actions.Add(args.Action);
+
+        ((IRecipient<TaskStateChanged>)viewModel).Receive(new TaskStateChanged(
+            TaskSynchronizerOperation.DeleteStep,
+            null,
+            task,
+            step,
+            OptimisticEntityChange.Delete,
+            EntityUpdateSource.ClientUpdated));
+
+        viewModel.TaskGroups.Single().Single().Should().BeSameAs(wrapper);
+        wrapper.Steps.Should().BeEmpty();
+        actions.Should().NotContain(NotifyCollectionChangedAction.Reset);
+    }
+
+    [Fact]
+    public async Task MultipleSelection_QueuesOneCompletionUpdatePerTask()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var tasks = new[]
+        {
+            CreateTask(account.Id, list.Id, "First"),
+            CreateTask(account.Id, list.Id, "Second")
+        };
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, list.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync(tasks.ToList());
+        var requests = new List<IRequestBase>();
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, queued) => requests.AddRange(queued))
+            .Returns(Task.CompletedTask);
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = list;
+        await WaitUntilAsync(() => VisibleTaskTitles(viewModel).Count() == 2);
+
+        viewModel.SetSelectedTasks(viewModel.TaskGroups.SelectMany(group => group));
+        await viewModel.CompleteSelectedTasksCommand.ExecuteAsync(null);
+
+        viewModel.IsMultipleTaskSelection.Should().BeTrue();
+        viewModel.SelectedTask.Should().BeNull();
+        requests.OfType<TaskActionRequest>().Should().HaveCount(2)
+            .And.OnlyContain(request => request.Operation == TaskSynchronizerOperation.UpdateTask && request.Task.IsCompleted);
+    }
+
+    [Fact]
+    public async Task NewList_UsesTheEnteredName()
+    {
+        var account = CreateAccount(MailProviderType.Gmail, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Gmail, isDefault: true);
+        var taskService = CreateTaskService([list]);
+        var dialogs = new Mock<IMailDialogService>();
+        dialogs.Setup(service => service.ShowTextInputDialogAsync(
+                string.Empty,
+                Translator.ToDoPage_NewList,
+                Translator.ToDoPage_ListNamePrompt,
+                Translator.Buttons_Create))
+            .ReturnsAsync("Launch plan");
+        var requests = new List<IRequestBase>();
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, queued) => requests.AddRange(queued))
+            .Returns(Task.CompletedTask);
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object, dialogs.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+
+        await viewModel.OnMenuItemInvokedAsync(viewModel.ShellMenu.Items.OfType<NewTaskListMenuItem>().Single());
+
+        requests.Should().ContainSingle().Which.Should().BeOfType<TaskActionRequest>()
+            .Which.Should().Match<TaskActionRequest>(request =>
+                request.Operation == TaskSynchronizerOperation.CreateList && request.List.Title == "Launch plan");
+    }
+
+    [Fact]
+    public async Task SmartView_ClearsAccountSelectionAndHidesItsListHierarchy()
+    {
+        var account = CreateAccount(MailProviderType.Gmail, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Gmail, isDefault: true);
+        var taskService = CreateTaskService([list]);
+        var viewModel = CreateViewModel(taskService.Object, [account]);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        var accountItem = GetAccountMenu(viewModel);
+        await viewModel.OnMenuItemInvokedAsync(accountItem);
+        accountItem.IsSelected.Should().BeTrue();
+
+        await viewModel.OnMenuItemInvokedAsync(viewModel.ShellMenu.Items.OfType<MyDayTaskMenuItem>().Single());
+
+        accountItem.IsSelected.Should().BeFalse();
+        viewModel.ShellMenu.Items.OfType<AccountTaskListMenuItem>().Should().BeEmpty();
+        viewModel.ShellMenu.Items.OfType<AccountTaskListGroupMenuItem>().Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task PendingMyDayUpdate_SurvivesAStaleSurfaceReload()
     {
         var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
@@ -895,6 +1045,60 @@ public sealed class ToDoPageViewModelTests
 
         VisibleTaskTitles(viewModel).Should().Equal("Today");
         viewModel.TaskGroups.Single().Single().IsInMyDay.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ReloadTasks_KeepsTheDetailSelectionAndItsDrawer()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var task = CreateTask(account.Id, list.Id, "Task");
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, list.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync([task]);
+        var viewModel = CreateViewModel(taskService.Object, [account]);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = list;
+        await WaitUntilAsync(() => VisibleTaskTitles(viewModel).Any());
+
+        viewModel.SetSelectedTasks([viewModel.TaskGroups.SelectMany(group => group).Single()]);
+
+        // Leaving the mode and coming back reloads the surface. The drawer reads SelectedTasks, so
+        // the selection has to survive the rebuild on both sides.
+        viewModel.OnNavigatedFrom(NavigationMode.New, null);
+        viewModel.OnNavigatedTo(NavigationMode.New, null);
+        await WaitUntilAsync(() => VisibleTaskTitles(viewModel).Any());
+
+        viewModel.SelectedTasks.Should().ContainSingle();
+        viewModel.SelectedTask.Should().NotBeNull();
+        viewModel.SelectedTask.Id.Should().Be(task.Id);
+        viewModel.IsSingleTaskSelection.Should().BeTrue();
+        viewModel.IsDetailSurfaceVisible.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task CloseDetail_ClearsBothSidesOfTheSelection()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, list.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync([CreateTask(account.Id, list.Id, "Task")]);
+        var viewModel = CreateViewModel(taskService.Object, [account]);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = list;
+        await WaitUntilAsync(() => VisibleTaskTitles(viewModel).Any());
+
+        viewModel.SetSelectedTasks([viewModel.TaskGroups.SelectMany(group => group).Single()]);
+        var clearedSelections = new List<int>();
+        viewModel.TaskSelectionRestored += (_, selection) => clearedSelections.Add(selection.Count);
+
+        viewModel.CloseDetailCommand.Execute(null);
+
+        viewModel.SelectedTasks.Should().BeEmpty();
+        viewModel.SelectedTask.Should().BeNull();
+        viewModel.IsDetailSurfaceVisible.Should().BeFalse();
+        clearedSelections.Should().ContainSingle().Which.Should().Be(0);
     }
 
     private static ToDoPageViewModel CreateViewModel(

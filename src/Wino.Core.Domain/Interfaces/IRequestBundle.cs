@@ -2,6 +2,7 @@ using System;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Requests;
 
 namespace Wino.Core.Domain.Interfaces;
 
@@ -26,6 +27,8 @@ public interface IRequestBundle<TRequest> : IRequestBundle
 
 public interface IRequestBase : IClientMessage, IUIChangeRequest
 {
+    RequestTrace Trace { get; set; }
+
     /// <summary>
     /// Whether synchronizations should be delayed after executing this request.
     /// Specially Outlook sometimes don't report changes back immidiately after sending the API request.

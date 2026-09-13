@@ -19,6 +19,9 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
     public string DisplayTimeRange => CalendarSettings == null
         ? $"{StartDate:t} – {EndDate:t}"
         : $"{CalendarSettings.GetTimeString(StartDate.TimeOfDay)} – {CalendarSettings.GetTimeString(EndDate.TimeOfDay)}";
+    public string DisplayStartTime => CalendarSettings == null
+        ? $"{StartDate:t}"
+        : CalendarSettings.GetTimeString(StartDate.TimeOfDay);
 
     public Guid Id => CalendarItem.Id;
 
@@ -99,6 +102,7 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DisplayTitle))]
     [NotifyPropertyChangedFor(nameof(DisplayTimeRange))]
+    [NotifyPropertyChangedFor(nameof(DisplayStartTime))]
     public partial CalendarSettings CalendarSettings { get; set; }
 
     /// <summary>
@@ -157,6 +161,7 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(Location));
         OnPropertyChanged(nameof(DisplayTimeRange));
+        OnPropertyChanged(nameof(DisplayStartTime));
         OnPropertyChanged(nameof(StartDate));
         OnPropertyChanged(nameof(EndDate));
         OnPropertyChanged(nameof(DurationInSeconds));

@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.Requests.Contact;
@@ -34,6 +35,7 @@ public sealed record ContactActionRequest : IContactActionRequest
     public Guid AddressBookId => Contact.AddressBookId;
     public ContactSourceKind SourceKind => Contact.SourceKind;
     public int ResynchronizationDelay => 0;
+    public RequestTrace Trace { get; set; }
 
     public object GroupingKey() => (AddressBookId, LocalContactId, Operation);
 

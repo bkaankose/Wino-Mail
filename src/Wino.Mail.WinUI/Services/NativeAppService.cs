@@ -1,12 +1,14 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.Win32;
 using Windows.ApplicationModel;
 using Windows.Storage;
 using Windows.System;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Telemetry;
 
 
@@ -20,6 +22,7 @@ namespace Wino.Services;
 
 public class NativeAppService : INativeAppService, IAppMetadataService
 {
+    private const uint AbmGetTaskbarPosition = 0x00000005;
     private string _mimeMessagesFolder = string.Empty;
 
     public Func<IntPtr> GetCoreWindowHwnd { get; set; } = static () => IntPtr.Zero;
@@ -218,6 +221,22 @@ public class NativeAppService : INativeAppService, IAppMetadataService
         //await taskbarManager.RequestPinCurrentAppAsync();
     }
 
+    public WindowsTaskbarPosition GetTaskbarPosition()
+    {
+        var data = new APPBARDATA
+        {
+            cbSize = (uint)Marshal.SizeOf<APPBARDATA>()
+        };
+
+        if (SHAppBarMessage(AbmGetTaskbarPosition, ref data) == UIntPtr.Zero ||
+            !Enum.IsDefined(typeof(WindowsTaskbarPosition), (int)data.uEdge))
+        {
+            return WindowsTaskbarPosition.Bottom;
+        }
+
+        return (WindowsTaskbarPosition)data.uEdge;
+    }
+
     public bool IsAppRunningInBackground()
         => !Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().HasThreadAccess;
 
@@ -227,4 +246,27 @@ public class NativeAppService : INativeAppService, IAppMetadataService
         System.IO.Directory.CreateDirectory(attachmentsFolder);
         return attachmentsFolder;
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct APPBARDATA
+    {
+        public uint cbSize;
+        public IntPtr hWnd;
+        public uint uCallbackMessage;
+        public uint uEdge;
+        public RECT rc;
+        public IntPtr lParam;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [DllImport("shell32.dll")]
+    private static extern UIntPtr SHAppBarMessage(uint message, ref APPBARDATA data);
 }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -14,7 +14,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
-using Sentry;
 using Serilog;
 using Windows.ApplicationModel.Activation;
 using Windows.ApplicationModel.DataTransfer;
@@ -25,6 +24,7 @@ using Wino.Core;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Contacts;
@@ -41,14 +41,15 @@ using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
-using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.Navigation;
 using Wino.Mail.WinUI.Navigation.Rules;
+using Wino.Mail.WinUI.Services;
 using Wino.Mail.WinUI.ViewModels;
 using Wino.Messaging.Client.Accounts;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.Client.Shell;
+using Wino.Mail.WinUI.Services.Companion;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Wino.Services;
@@ -90,7 +91,7 @@ public partial class App : WinoApplication,
     private readonly AppNotificationHandler _notificationHandler;
     private readonly AppActivationHandler _activationHandler;
     private readonly DispatcherQueue? _applicationDispatcherQueue;
-    private NativeTrayIcon? _trayIcon;
+    private MainTrayController? _companionIntegration;
     private Window? _backgroundLifetimeWindow;
     private Microsoft.UI.Xaml.LaunchActivatedEventArgs? _pendingMigrationLaunchArgs;
     private AppActivationArguments? _pendingMigrationActivation;
@@ -153,9 +154,9 @@ public partial class App : WinoApplication,
 
         EnsureTrayIconCreated();
 
-        if (_trayIcon != null)
+        if (_companionIntegration != null)
         {
-            LogActivation("Background shell close prepared with a system tray icon.");
+            LogActivation("Background shell close prepared with the tray companion.");
             return true;
         }
 
@@ -258,75 +259,87 @@ public partial class App : WinoApplication,
 
     private void EnsureTrayIconCreated()
     {
-        if (_trayIcon != null)
-        {
-            LogActivation("System tray icon creation skipped because an icon instance already exists.");
+        if (_companionIntegration != null)
             return;
-        }
 
-        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "Wino_Icon.ico");
-        var iconExists = File.Exists(iconPath);
-        var appCloseBehavior = _preferencesService?.AppCloseBehavior ?? AppCloseBehavior.RunInBackgroundWithTrayIcon;
+        var dispatcher = DispatcherQueue.GetForCurrentThread()
+            ?? throw new InvalidOperationException("The native tray must be created on the application UI thread.");
 
-        LogActivation($"Creating system tray icon. IconPath: {iconPath}, IconExists: {iconExists}, AppCloseBehavior: {appCloseBehavior}, HasConfiguredAccounts: {_hasConfiguredAccounts}, OS: {Environment.OSVersion}");
-        SentrySdk.AddBreadcrumb(
-            "Creating system tray icon.",
-            category: "system-tray",
-            data: new Dictionary<string, string>
-            {
-                ["icon_path"] = iconPath,
-                ["icon_exists"] = iconExists.ToString(),
-                ["app_close_behavior"] = appCloseBehavior.ToString(),
-                ["has_configured_accounts"] = _hasConfiguredAccounts.ToString(),
-                ["os_version"] = Environment.OSVersion.ToString()
-            });
+        var navigation = new CompanionNavigationCallbacks(
+            cancellationToken => ExecuteCompanionNavigationAsync(ActivatePreferredWindowAsync, cancellationToken),
+            cancellationToken => ExecuteCompanionNavigationAsync(
+                () => _hasConfiguredAccounts
+                    ? ActivateShellFromTrayAsync(WinoApplicationMode.Calendar)
+                    : ActivateWelcomeWindowAsync(),
+                cancellationToken),
+            cancellationToken => ExecuteCompanionNavigationAsync(
+                () => EnsureShellWindowAsync(WinoApplicationMode.Tasks, activateWindow: true),
+                cancellationToken),
+            (accountId, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => OpenCompanionInboxAsync(accountId),
+                cancellationToken),
+            (accountId, mailId, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => HandleToastNavigationAsync(mailId),
+                cancellationToken),
+            (accountId, eventId, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => HandleCalendarToastNavigationAsync(eventId),
+                cancellationToken),
+            (accountId, eventId, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => HandleCalendarToastJoinOnlineAsync(eventId),
+                cancellationToken),
+            (query, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => FindCompanionContactAsync(query),
+                cancellationToken),
+            (accountId, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => OpenCompanionNewMailAsync(accountId),
+                cancellationToken),
+            (accountId, startAt, cancellationToken) => ExecuteCompanionNavigationAsync(
+                () => OpenCompanionNewEventAsync(accountId, startAt),
+                cancellationToken),
+            cancellationToken => ExecuteCompanionNavigationAsync(
+                () => EnsureShellWindowAsync(WinoApplicationMode.Settings, activateWindow: true),
+                cancellationToken));
 
-        var dispatcherQueue = DispatcherQueue.GetForCurrentThread()
-                             ?? throw new InvalidOperationException("Tray icon must be created on a thread with a DispatcherQueue.");
+        _companionIntegration = new MainTrayController(
+            dispatcher,
+            Services,
+            Services.GetRequiredService<INativeAppService>(),
+            navigation,
+            ActivatePreferredWindowAsync,
+            () => ActivateShellFromTrayAsync(WinoApplicationMode.Calendar),
+            ExitApplicationAsync);
 
-        NativeTrayIcon? trayIcon = null;
-        try
-        {
-            trayIcon = new NativeTrayIcon(
-                dispatcherQueue,
-                iconPath,
-                Wino.NotificationHost.Contracts.ReleaseIdentity.Current.DisplayNames["Mail"],
-                BuildTrayMenu,
-                ActivatePreferredWindowAsync);
-            trayIcon.Create();
-            _trayIcon = trayIcon;
-            LogActivation("System tray icon created successfully.");
-            SentrySdk.AddBreadcrumb("System tray icon created successfully.", category: "system-tray");
-        }
-        catch (Exception ex)
-        {
-            trayIcon?.Dispose();
-            Log.Error(ex, "Failed to create system tray icon. IconPath: {IconPath}, IconExists: {IconExists}, AppCloseBehavior: {AppCloseBehavior}, HasConfiguredAccounts: {HasConfiguredAccounts}, OS: {OSVersion}",
-                iconPath,
-                iconExists,
-                appCloseBehavior,
-                _hasConfiguredAccounts,
-                Environment.OSVersion);
+        var companion = _companionIntegration;
+        companion.TryConfigureHotKey(
+            _preferencesService?.IsCompanionHotKeyEnabled ?? false,
+            GetConfiguredCompanionHotKey());
+        _ = EnableCompanionAsync(companion);
+    }
 
-            LogInitializer.CaptureException(ex, "SystemTrayIconCreation", new Dictionary<string, string>
-            {
-                ["icon_path"] = iconPath,
-                ["icon_exists"] = iconExists.ToString(),
-                ["app_close_behavior"] = appCloseBehavior.ToString(),
-                ["has_configured_accounts"] = _hasConfiguredAccounts.ToString(),
-                ["os_version"] = Environment.OSVersion.ToString()
-            });
-        }
+    internal bool TryConfigureCompanionHotKey(bool enabled, HotKeyGesture gesture)
+        => _companionIntegration?.TryConfigureHotKey(enabled, gesture) ?? gesture.IsValid;
+
+    private HotKeyGesture GetConfiguredCompanionHotKey() => new(
+        _preferencesService?.CompanionHotKeyKey ?? HotKeyGesture.Default.Key,
+        _preferencesService?.CompanionHotKeyModifiers ?? HotKeyGesture.Default.Modifiers);
+
+    private async Task EnableCompanionAsync(MainTrayController companion)
+    {
+        await companion.SetCompanionEnabledAsync(_preferencesService?.IsCompanionEnabled ?? true);
+        await companion.SetReadinessAsync(_activationInfrastructureInitialized
+            ? _hasConfiguredAccounts ? CompanionReadinessState.Ready : CompanionReadinessState.NoAccounts
+            : CompanionReadinessState.Initializing);
     }
 
     private void DisposeTrayIcon()
     {
-        if (_trayIcon == null)
+        if (_companionIntegration == null)
             return;
 
-        LogActivation("Disposing system tray icon.");
-        _trayIcon?.Dispose();
-        _trayIcon = null;
+        LogActivation("Disconnecting the tray companion.");
+        var companion = _companionIntegration;
+        _companionIntegration = null;
+        _ = companion.ShutdownAsync();
     }
 
     private void EnsurePreferenceChangedSubscription()
@@ -339,13 +352,12 @@ public partial class App : WinoApplication,
     }
 
     private bool ShouldCreateTrayIcon()
-        => _hasConfiguredAccounts &&
-           (_preferencesService?.AppCloseBehavior ?? AppCloseBehavior.RunInBackgroundWithTrayIcon) == AppCloseBehavior.RunInBackgroundWithTrayIcon;
+        => (_preferencesService?.AppCloseBehavior ?? AppCloseBehavior.RunInBackgroundWithTrayIcon) == AppCloseBehavior.RunInBackgroundWithTrayIcon;
 
     private void UpdateTrayIconState(bool allowCreation)
     {
         var shouldCreateTrayIcon = ShouldCreateTrayIcon();
-        LogActivation($"Updating system tray icon state. AllowCreation: {allowCreation}, ShouldCreate: {shouldCreateTrayIcon}, HasConfiguredAccounts: {_hasConfiguredAccounts}, AppCloseBehavior: {_preferencesService?.AppCloseBehavior.ToString() ?? "Unknown"}");
+        LogActivation($"Updating tray companion state. AllowCreation: {allowCreation}, ShouldCreate: {shouldCreateTrayIcon}, HasConfiguredAccounts: {_hasConfiguredAccounts}, AppCloseBehavior: {_preferencesService?.AppCloseBehavior.ToString() ?? "Unknown"}");
 
         if (!allowCreation || !shouldCreateTrayIcon)
         {
@@ -356,24 +368,6 @@ public partial class App : WinoApplication,
         EnsureTrayIconCreated();
     }
 
-    private IReadOnlyList<NativeTrayIcon.NativeTrayMenuItem> BuildTrayMenu()
-    {
-        List<NativeTrayIcon.NativeTrayMenuItem> items =
-        [
-            new(Translator.SystemTrayMenu_Open, ActivatePreferredWindowAsync, IsDefault: true),
-            new(Translator.SystemTrayMenu_ShowWino, OpenMailFromTrayAsync)
-        ];
-
-        items.Add(new NativeTrayIcon.NativeTrayMenuItem(
-            Translator.SystemTrayMenu_ShowWinoCalendar,
-            OpenCalendarFromTrayAsync));
-        items.Add(new NativeTrayIcon.NativeTrayMenuItem(
-            Translator.SystemTrayMenu_ExitWino,
-            ExitApplicationAsync));
-
-        return items;
-    }
-
     private Task ActivatePreferredWindowAsync()
     {
         if (!_hasConfiguredAccounts)
@@ -382,18 +376,96 @@ public partial class App : WinoApplication,
         return ActivateShellFromTrayAsync(WinoApplicationMode.Mail);
     }
 
-    private Task OpenMailFromTrayAsync()
-        => _hasConfiguredAccounts
-            ? ActivateShellFromTrayAsync(WinoApplicationMode.Mail)
-            : ActivateWelcomeWindowAsync();
-
-    private Task OpenCalendarFromTrayAsync()
-        => _hasConfiguredAccounts
-            ? ActivateShellFromTrayAsync(WinoApplicationMode.Calendar)
-            : ActivateWelcomeWindowAsync();
-
     private Task ActivateShellFromTrayAsync(WinoApplicationMode mode)
         => EnsureShellWindowAsync(mode, activateWindow: true);
+
+    private async Task ExecuteCompanionNavigationAsync(Func<Task> action, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!HasActivationUiThreadAccess())
+        {
+            await ExecuteOnActivationUiThreadAsync(async () =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await action();
+            });
+            return;
+        }
+
+        await action();
+    }
+
+    private async Task FindCompanionContactAsync(string? query)
+    {
+        await EnsureShellWindowAsync(WinoApplicationMode.Contacts, activateWindow: true);
+        if (string.IsNullOrWhiteSpace(query))
+            return;
+
+        var contactsViewModel = Services.GetRequiredService<ContactsPageViewModel>();
+        var matches = await contactsViewModel.SearchContactsAsync(query, 1);
+        var match = matches.FirstOrDefault();
+        if (match != null)
+            await contactsViewModel.LoadAndSelectContactAsync(match.Id);
+    }
+
+    private async Task OpenCompanionInboxAsync(Guid? accountId)
+    {
+        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+
+        await ExecuteOnActivationUiThreadAsync(async () =>
+        {
+            var mailShell = Services.GetRequiredService<MailAppShellViewModel>();
+            if (accountId is { } id && mailShell.MenuItems.TryGetAccountMenuItem(id, out IAccountMenuItem accountMenuItem))
+                await mailShell.ChangeLoadedAccountAsync(accountMenuItem, navigateInbox: true);
+        });
+    }
+
+    private async Task OpenCompanionNewMailAsync(Guid? accountId)
+    {
+        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+
+        var mailShell = Services.GetRequiredService<MailAppShellViewModel>();
+        if (accountId is { } id)
+        {
+            var account = await Services.GetRequiredService<IAccountService>().GetAccountAsync(id);
+            if (account?.IsMailAccessGranted == true)
+            {
+                await ExecuteOnActivationUiThreadAsync(() => mailShell.CreateNewMailForAsync(account));
+                return;
+            }
+        }
+
+        await ExecuteOnActivationUiThreadAsync(mailShell.HandleCreateNewMailAsync);
+    }
+
+    private async Task OpenCompanionNewEventAsync(Guid? accountId, DateTimeOffset? startAt)
+    {
+        await EnsureShellWindowAsync(WinoApplicationMode.Calendar, activateWindow: true);
+
+        Guid? calendarId = null;
+        if (accountId is { } id)
+        {
+            calendarId = (await Services.GetRequiredService<ICalendarService>().GetAccountCalendarsAsync(id))
+                .FirstOrDefault(calendar => !calendar.IsReadOnly)?.Id;
+        }
+
+        var start = startAt?.LocalDateTime ?? DateTime.Now;
+        var args = new CalendarEventComposeNavigationArgs
+        {
+            SelectedCalendarId = calendarId,
+            StartDate = start,
+            EndDate = start.AddHours(1),
+            RequireCalendarPickerWhenUnresolved = calendarId == null
+        };
+
+        await ExecuteOnActivationUiThreadAsync(() =>
+        {
+            Services.GetRequiredService<INavigationService>()
+                .Navigate(WinoPage.CalendarEventComposePage, args);
+            return Task.CompletedTask;
+        });
+    }
 
     private async Task ActivateWelcomeWindowAsync()
     {
@@ -455,7 +527,7 @@ public partial class App : WinoApplication,
         // Activating first lets WinUI render one frame with its default light theme.
         windowManager.ActivateWindow(window);
 
-        UpdateTrayIconState(window is IWinoShellWindow);
+        UpdateTrayIconState(allowCreation: !_isExiting);
     }
 
     private async Task ExitApplicationAsync()
@@ -475,7 +547,12 @@ public partial class App : WinoApplication,
         }
         finally
         {
-            DisposeTrayIcon();
+            if (_companionIntegration != null)
+            {
+                var companion = _companionIntegration;
+                _companionIntegration = null;
+                await companion.ShutdownAsync();
+            }
             ReleaseBackgroundLifetimeWindow();
             Application.Current.Exit();
         }
@@ -562,6 +639,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(MessageListPageViewModel));
         services.AddTransient(typeof(MailNotificationSettingsPageViewModel));
         services.AddTransient(typeof(UnreadBadgeSettingsPageViewModel));
+        services.AddTransient(typeof(CompanionSettingsPageViewModel));
         services.AddTransient(typeof(AccountUnreadBadgePageViewModel));
         services.AddTransient(typeof(ReadComposePanePageViewModel));
         services.AddTransient(typeof(MergedAccountDetailsPageViewModel));
@@ -667,6 +745,13 @@ public partial class App : WinoApplication,
 
             _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
 
+            if (_companionIntegration != null)
+            {
+                await _companionIntegration.SetReadinessAsync(_hasConfiguredAccounts
+                    ? CompanionReadinessState.Ready
+                    : CompanionReadinessState.NoAccounts);
+            }
+
             _ = Services.GetRequiredService<AccountProfilePictureBackfillService>().RunAsync();
 
             _activationInfrastructureInitialized = true;
@@ -716,6 +801,14 @@ public partial class App : WinoApplication,
     protected override async void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {
         base.OnLaunched(args);
+
+        _preferencesService ??= Services.GetRequiredService<IPreferencesService>();
+        if (ShouldCreateTrayIcon())
+        {
+            EnsureTrayIconCreated();
+            if (_companionIntegration != null)
+                await _companionIntegration.SetReadinessAsync(CompanionReadinessState.Initializing);
+        }
 
         var activationArgs = ResolveStartupActivation();
 
@@ -1778,6 +1871,7 @@ public partial class App : WinoApplication,
     public void Receive(AccountCreatedMessage message)
     {
         _hasConfiguredAccounts = true;
+        _ = _companionIntegration?.SetReadinessAsync(CompanionReadinessState.Ready);
         EnsurePreferenceChangedSubscription();
         QueueJumpListOptionsUpdateOnUiThread();
 
@@ -1880,6 +1974,9 @@ public partial class App : WinoApplication,
     public void Receive(WelcomeImportCompletedMessage message)
     {
         _hasConfiguredAccounts = message.ImportedMailboxCount > 0;
+        _ = _companionIntegration?.SetReadinessAsync(_hasConfiguredAccounts
+            ? CompanionReadinessState.Ready
+            : CompanionReadinessState.NoAccounts);
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         if (windowManager.GetWindow(WinoWindowKind.Welcome) == null)
@@ -1934,12 +2031,18 @@ public partial class App : WinoApplication,
     {
         var accounts = await _accountService!.GetAccountsAsync();
         _hasConfiguredAccounts = accounts.Any();
+        if (_companionIntegration != null)
+        {
+            await _companionIntegration.SetReadinessAsync(_hasConfiguredAccounts
+                ? CompanionReadinessState.Ready
+                : CompanionReadinessState.NoAccounts);
+        }
         if (_hasConfiguredAccounts)
             return;
 
         Services.GetRequiredService<WelcomeWizardContext>().Reset();
         StopAutoSynchronizationLoops();
-        UpdateTrayIconState(allowCreation: false);
+        UpdateTrayIconState(allowCreation: true);
 
         // Keep an active XAML window throughout the shell-to-welcome handoff. Closing
         // the last active window first can terminate the WinUI application before the
@@ -2086,6 +2189,33 @@ public partial class App : WinoApplication,
 
     private void PreferencesServiceChanged(object? sender, string propertyName)
     {
+        if (propertyName == nameof(IPreferencesService.IsCompanionEnabled))
+        {
+            _applicationDispatcherQueue.TryEnqueue(() =>
+            {
+                if (_companionIntegration is { } companion)
+                {
+                    var isEnabled = _preferencesService?.IsCompanionEnabled ?? true;
+                    _ = companion.SetCompanionEnabledAsync(isEnabled);
+                }
+            });
+            return;
+        }
+
+        if (propertyName is nameof(IPreferencesService.IsCompanionHotKeyEnabled) or
+            nameof(IPreferencesService.CompanionHotKeyKey) or
+            nameof(IPreferencesService.CompanionHotKeyModifiers))
+        {
+            _applicationDispatcherQueue.TryEnqueue(() =>
+            {
+                _companionIntegration?.TryConfigureHotKey(
+                    _preferencesService?.IsCompanionHotKeyEnabled ?? false,
+                    GetConfiguredCompanionHotKey());
+            });
+
+            return;
+        }
+
         if (propertyName == nameof(IPreferencesService.EmailSyncIntervalMinutes))
         {
             RestartAutoSynchronizationLoop();
@@ -2714,5 +2844,3 @@ public partial class App : WinoApplication,
     }
 
 }
-
-

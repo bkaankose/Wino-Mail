@@ -23,6 +23,7 @@
             <StackPanel Orientation="Horizontal" Spacing="24">
                 <StackPanel>
                     <TextBlock
+                        HorizontalAlignment="Center"
                         AutomationProperties.AutomationId="AccountUnreadBadgePageAccountTotal"
                         FontSize="26"
                         FontWeight="SemiBold"
@@ -34,6 +35,7 @@
                 </StackPanel>
                 <StackPanel>
                     <TextBlock
+                        HorizontalAlignment="Center"
                         AutomationProperties.AutomationId="AccountUnreadBadgePageTaskbarTotal"
                         FontSize="26"
                         FontWeight="SemiBold"

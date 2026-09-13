@@ -25,6 +25,7 @@ public sealed partial class MainPage : Page
             "synchronizationButton" => typeof(SynchronizationButtonPage),
             "hoverActions" => typeof(HoverActionsPage),
             "contextFlyout" => typeof(ContextFlyoutPage),
+            "hotKeyInput" => typeof(HotKeyInputPage),
             "shimmer" => typeof(ShimmerPage),
             _ => typeof(AccountIconPage),
         };

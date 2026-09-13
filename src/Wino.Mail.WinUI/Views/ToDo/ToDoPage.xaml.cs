@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
@@ -57,6 +58,24 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         base.OnNavigatedTo(e);
         ViewModel.TaskComposerFocusRequested -= ViewModel_TaskComposerFocusRequested;
         ViewModel.TaskComposerFocusRequested += ViewModel_TaskComposerFocusRequested;
+        ViewModel.TaskSelectionRestored -= ViewModel_TaskSelectionRestored;
+        ViewModel.TaskSelectionRestored += ViewModel_TaskSelectionRestored;
+    }
+
+    /// <summary>
+    /// Keeps the list containers and the view model's selection in step after a reload. A cached page
+    /// comes back with its containers still selected, and a rebuilt one comes back with none.
+    /// </summary>
+    private void ViewModel_TaskSelectionRestored(object? sender, IReadOnlyList<TaskItemViewModel> selection)
+    {
+        var current = TaskListView.SelectedItems.OfType<TaskItemViewModel>().ToList();
+        if (current.Count == selection.Count && current.All(selection.Contains))
+            return;
+
+        TaskListView.SelectedItems.Clear();
+
+        foreach (var item in selection)
+            TaskListView.SelectedItems.Add(item);
     }
 
     partial void OnIsCompactLayoutPropertyChanged(DependencyPropertyChangedEventArgs e)
@@ -111,12 +130,16 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         SearchSuggestions.Clear();
         var selectedItem = await ViewModel.LoadAndSelectTaskAsync(task.Id);
         if (selectedItem is not null)
+        {
+            TaskListView.SelectedItem = selectedItem;
             TaskListView.ScrollIntoView(selectedItem, ScrollIntoViewAlignment.Leading);
+        }
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         ViewModel.TaskComposerFocusRequested -= ViewModel_TaskComposerFocusRequested;
+        ViewModel.TaskSelectionRestored -= ViewModel_TaskSelectionRestored;
         _searchCancellationTokenSource?.Cancel();
         _searchCancellationTokenSource?.Dispose();
         _searchCancellationTokenSource = null;
@@ -127,6 +150,9 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
     {
         DispatcherQueue.TryEnqueue(() => ComposerTextBox.Focus(FocusState.Programmatic));
     }
+
+    private void TaskListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        => ViewModel.SetSelectedTasks(TaskListView.SelectedItems.OfType<TaskItemViewModel>());
 
     private async void TaskCheckBox_Click(object sender, RoutedEventArgs e)
     {

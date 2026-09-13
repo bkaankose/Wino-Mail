@@ -322,6 +322,9 @@ public class WinoRequestDelegator : IWinoRequestDelegator
                     taskRequest.Group,
                     taskRequest.OriginalGroup)).ConfigureAwait(false);
 
+                if (prepared != null)
+                    prepared.Trace = taskRequest.Trace;
+
                 requestList.Add(prepared ?? taskRequest);
                 continue;
             }

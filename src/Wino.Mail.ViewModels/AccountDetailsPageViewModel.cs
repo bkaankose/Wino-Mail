@@ -297,7 +297,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
     [RelayCommand]
     private void ConfigureUnreadBadges()
-        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.UnreadBadges_Title, WinoPage.AccountUnreadBadgePage, Account.Id));
+        => Messenger.Send(new BreadcrumbNavigationRequested(
+            string.Format(Translator.UnreadBadges_AccountSettingsTitleFormat, Account.Name),
+            WinoPage.AccountUnreadBadgePage,
+            Account.Id));
 
     [RelayCommand]
     private void ManageWinoIntelligence()

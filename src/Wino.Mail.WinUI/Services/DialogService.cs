@@ -244,9 +244,11 @@ public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<S
         return dialog.PickedDestination;
     }
 
-    public async Task<AccountTaskList?> ShowTaskListPickerDialogAsync(IReadOnlyList<AccountTaskList> taskLists)
+    public async Task<AccountTaskList?> ShowTaskListPickerDialogAsync(
+        IReadOnlyList<AccountTaskList> taskLists,
+        IReadOnlyList<MailAccount> accounts)
     {
-        var dialog = new TaskListPickerDialog(taskLists)
+        var dialog = new TaskListPickerDialog(taskLists, accounts)
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };

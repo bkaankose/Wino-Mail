@@ -8,6 +8,9 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Serilog;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models;
+using VirtualKey = Windows.System.VirtualKey;
 
 namespace Wino.Mail.WinUI.Services;
 
@@ -21,8 +24,18 @@ internal sealed partial class NativeTrayIcon : IDisposable
     private const uint CsDblClks = 0x0008;
     private const uint WmDestroy = 0x0002;
     private const uint WmLButtonUp = 0x0202;
+    private const uint WmLButtonDoubleClick = 0x0203;
+    private const uint NinKeySelect = 0x0401;
     private const uint WmRButtonUp = 0x0205;
     private const uint WmContextMenu = 0x007B;
+    private const uint WmHotKey = 0x0312;
+    private const uint ModAlt = 0x0001;
+    private const uint ModControl = 0x0002;
+    private const uint ModShift = 0x0004;
+    private const uint ModWindows = 0x0008;
+    private const uint ModNoRepeat = 0x4000;
+    private const int PrimaryHotKeyId = 0x5749;
+    private const int SecondaryHotKeyId = 0x574A;
     private const int SmMenuDropAlignment = 40;
     private const uint TpmReturnCmd = 0x0100;
     private const uint TpmLeftButton = 0x0000;
@@ -36,6 +49,7 @@ internal sealed partial class NativeTrayIcon : IDisposable
     private const uint NifIcon = 0x00000002;
     private const uint NifTip = 0x00000004;
     private const uint NifShowTip = 0x00000080;
+    private const uint NifInfo = 0x00000010;
     private const uint NimAdd = 0x00000000;
     private const uint NimModify = 0x00000001;
     private const uint NimDelete = 0x00000002;
@@ -46,33 +60,43 @@ internal sealed partial class NativeTrayIcon : IDisposable
     private readonly string _iconPath;
     private readonly Func<IReadOnlyList<NativeTrayMenuItem>> _menuFactory;
     private readonly Func<Task> _primaryAction;
+    private readonly Func<Task> _doubleClickAction;
+    private readonly Action? _leftInteractionStarted;
     private readonly uint _taskbarRestartMessageId;
     private readonly NativeTrayIconWindow _iconWindow;
+    private long _ignoreButtonUpUntil;
 
     private nint _iconHandle;
     private string _toolTipText;
     private bool _isDisposed;
     private bool _isVisible;
     private bool _notifyIconCreated;
-    private DateTime _lastPrimaryActionDate;
+    private int _activeHotKeyId;
+    private HotKeyGesture? _activeHotKey;
 
     public NativeTrayIcon(
         DispatcherQueue dispatcherQueue,
         string iconPath,
         string toolTipText,
         Func<IReadOnlyList<NativeTrayMenuItem>> menuFactory,
-        Func<Task> primaryAction)
+        Func<Task> primaryAction,
+        Func<Task> doubleClickAction,
+        Action? leftInteractionStarted = null)
     {
         _dispatcherQueue = dispatcherQueue;
         _iconPath = iconPath;
         _toolTipText = toolTipText;
         _menuFactory = menuFactory;
         _primaryAction = primaryAction;
+        _doubleClickAction = doubleClickAction;
+        _leftInteractionStarted = leftInteractionStarted;
         _taskbarRestartMessageId = RegisterWindowMessageW("TaskbarCreated");
         _iconWindow = new NativeTrayIconWindow(this);
     }
 
     public Guid Id { get; } = TrayIconGuid;
+
+    public event EventHandler? TaskbarRecreated;
 
     public string ToolTipText
     {
@@ -104,12 +128,87 @@ internal sealed partial class NativeTrayIcon : IDisposable
         return this;
     }
 
+    public bool TrySetHotKey(HotKeyGesture? gesture)
+    {
+        if (_isDisposed)
+            return false;
+
+        var normalized = gesture?.Normalize();
+        if (normalized == _activeHotKey)
+            return true;
+
+        if (normalized is null)
+        {
+            UnregisterActiveHotKey();
+            return true;
+        }
+
+        if (!normalized.Value.IsValid ||
+            !Enum.TryParse(normalized.Value.Key, true, out VirtualKey key) ||
+            key is VirtualKey.None or VirtualKey.F12)
+        {
+            return false;
+        }
+
+        var candidateId = _activeHotKeyId == PrimaryHotKeyId ? SecondaryHotKeyId : PrimaryHotKeyId;
+        var nativeModifiers = ToNativeModifiers(normalized.Value.Modifiers) | ModNoRepeat;
+        if (!RegisterHotKey(_iconWindow.WindowHandle, candidateId, nativeModifiers, (uint)key))
+            return false;
+
+        if (_activeHotKeyId != 0)
+            UnregisterHotKey(_iconWindow.WindowHandle, _activeHotKeyId);
+
+        _activeHotKeyId = candidateId;
+        _activeHotKey = normalized;
+        return true;
+    }
+
+    public bool TryGetIconRect(out Windows.Graphics.RectInt32 rect)
+    {
+        rect = default;
+        if (_isDisposed || !_notifyIconCreated)
+            return false;
+
+        var identifier = new NOTIFYICONIDENTIFIER
+        {
+            cbSize = (uint)Marshal.SizeOf<NOTIFYICONIDENTIFIER>(),
+            hWnd = _iconWindow.WindowHandle,
+            uID = MenuCommandOpen,
+            guidItem = Id
+        };
+
+        if (Shell_NotifyIconGetRect(ref identifier, out var nativeRect) != 0)
+            return false;
+
+        rect = new Windows.Graphics.RectInt32(
+            nativeRect.Left,
+            nativeRect.Top,
+            nativeRect.Right - nativeRect.Left,
+            nativeRect.Bottom - nativeRect.Top);
+        return rect.Width > 0 && rect.Height > 0;
+    }
+
+    public void ShowNotification(string title, string message)
+    {
+        if (_isDisposed || !_notifyIconCreated || string.IsNullOrWhiteSpace(message))
+            return;
+
+        var data = CreateNotifyIconData();
+        data.uFlags = NifInfo;
+        data.szInfoTitle = title ?? string.Empty;
+        data.szInfo = message;
+
+        if (!Shell_NotifyIconW(NimModify, ref data))
+            Log.Warning("Failed to show tray notification. LastError: {LastError}", Marshal.GetLastWin32Error());
+    }
+
     public void Dispose()
     {
         if (_isDisposed)
             return;
 
         _isDisposed = true;
+        UnregisterActiveHotKey();
         Hide();
         _iconWindow.Dispose();
         DestroyIconHandle();
@@ -277,11 +376,25 @@ internal sealed partial class NativeTrayIcon : IDisposable
 
     private void OnLeftClicked()
     {
-        if (DateTime.Now - _lastPrimaryActionDate < TimeSpan.FromSeconds(1))
+        if (Environment.TickCount64 <= _ignoreButtonUpUntil)
+        {
+            _ignoreButtonUpUntil = 0;
             return;
+        }
 
-        _lastPrimaryActionDate = DateTime.Now;
         InvokeAction(_primaryAction);
+    }
+
+    private void NotifyLeftInteractionStarted()
+    {
+        try
+        {
+            _leftInteractionStarted?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Native tray icon interaction notification failed.");
+        }
     }
 
     private void InvokeAction(Func<Task> action)
@@ -307,7 +420,17 @@ internal sealed partial class NativeTrayIcon : IDisposable
                 switch (GetLowWord(lParam))
                 {
                     case WmLButtonUp:
+                        NotifyLeftInteractionStarted();
                         SetForegroundWindow(windowHandle);
+                        OnLeftClicked();
+                        break;
+                    case WmLButtonDoubleClick:
+                        NotifyLeftInteractionStarted();
+                        _ignoreButtonUpUntil = Environment.TickCount64 + GetDoubleClickTime();
+                        InvokeAction(_doubleClickAction);
+                        break;
+                    case NinKeySelect:
+                        NotifyLeftInteractionStarted();
                         OnLeftClicked();
                         break;
                     case WmRButtonUp:
@@ -318,13 +441,18 @@ internal sealed partial class NativeTrayIcon : IDisposable
 
                 break;
             case WmDestroy:
+                UnregisterActiveHotKey();
                 DeleteNotifyIcon();
+                break;
+            case WmHotKey when unchecked((int)wParam) == _activeHotKeyId:
+                InvokeAction(_primaryAction);
                 break;
             default:
                 if (message == _taskbarRestartMessageId)
                 {
                     DeleteNotifyIcon();
                     CreateOrModifyNotifyIcon();
+                    TaskbarRecreated?.Invoke(this, EventArgs.Empty);
                     break;
                 }
 
@@ -343,7 +471,33 @@ internal sealed partial class NativeTrayIcon : IDisposable
         _iconHandle = nint.Zero;
     }
 
+    private void UnregisterActiveHotKey()
+    {
+        if (_activeHotKeyId != 0)
+            UnregisterHotKey(_iconWindow.WindowHandle, _activeHotKeyId);
+
+        _activeHotKeyId = 0;
+        _activeHotKey = null;
+    }
+
+    private static uint ToNativeModifiers(ModifierKeys modifiers)
+    {
+        var result = 0u;
+        if (modifiers.HasFlag(ModifierKeys.Alt))
+            result |= ModAlt;
+        if (modifiers.HasFlag(ModifierKeys.Control))
+            result |= ModControl;
+        if (modifiers.HasFlag(ModifierKeys.Shift))
+            result |= ModShift;
+        if (modifiers.HasFlag(ModifierKeys.Windows))
+            result |= ModWindows;
+        return result;
+    }
+
     private static uint GetLowWord(nint value) => (uint)((long)value & 0xFFFF);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
 
     private static InvalidOperationException CreateWin32Exception(string message)
     {
@@ -446,9 +600,19 @@ internal sealed partial class NativeTrayIcon : IDisposable
         }
 
         private static nint StaticWindowProc(nint windowHandle, uint message, nuint wParam, nint lParam)
-            => OwnersByWindowHandle.TryGetValue(windowHandle, out var trayIcon)
-                ? trayIcon.WindowProc(windowHandle, message, wParam, lParam)
-                : DefWindowProcW(windowHandle, message, wParam, lParam);
+        {
+            try
+            {
+                return OwnersByWindowHandle.TryGetValue(windowHandle, out var trayIcon)
+                    ? trayIcon.WindowProc(windowHandle, message, wParam, lParam)
+                    : DefWindowProcW(windowHandle, message, wParam, lParam);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Native tray icon window procedure failed.");
+                return DefWindowProcW(windowHandle, message, wParam, lParam);
+            }
+        }
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
@@ -500,6 +664,24 @@ internal sealed partial class NativeTrayIcon : IDisposable
         public int Y;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NOTIFYICONIDENTIFIER
+    {
+        public uint cbSize;
+        public nint hWnd;
+        public uint uID;
+        public Guid guidItem;
+    }
+
     [UnmanagedFunctionPointer(CallingConvention.Winapi)]
     private delegate nint WindowProcDelegate(nint windowHandle, uint message, nuint wParam, nint lParam);
 
@@ -532,6 +714,9 @@ internal sealed partial class NativeTrayIcon : IDisposable
 
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool Shell_NotifyIconW(uint message, ref NOTIFYICONDATAW notifyIconData);
+
+    [DllImport("shell32.dll")]
+    private static extern int Shell_NotifyIconGetRect(ref NOTIFYICONIDENTIFIER identifier, out RECT iconLocation);
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern nint LoadImageW(
@@ -580,4 +765,10 @@ internal sealed partial class NativeTrayIcon : IDisposable
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern uint RegisterWindowMessageW(string message);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool RegisterHotKey(nint windowHandle, int id, uint modifiers, uint virtualKey);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool UnregisterHotKey(nint windowHandle, int id);
 }

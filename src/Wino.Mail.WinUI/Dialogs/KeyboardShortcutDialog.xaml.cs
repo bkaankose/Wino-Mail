@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Windows.System;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain;
@@ -11,6 +11,7 @@ using Wino.Core.Domain.Models;
 using Wino.Core.ViewModels.Data;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI;
+using Wino.Mail.Controls.HotKeyInput;
 
 namespace Wino.Dialogs;
 
@@ -87,7 +88,8 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
             _modifierKeys = existingShortcut.ModifierKeys;
             _key = existingShortcut.Key;
             RefreshAvailableActions(existingShortcut.Action);
-            KeyInputTextBox.Text = BuildDisplayString(_key, _modifierKeys);
+            KeyInputTextBox.Key = Enum.TryParse(_key, true, out VirtualKey key) ? key : VirtualKey.None;
+            KeyInputTextBox.Modifiers = ToVirtualModifiers(_modifierKeys);
             Title = Translator.KeyboardShortcuts_EditTitle;
         }
     }
@@ -153,23 +155,13 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
         }
     }
 
-    private void KeyInputTextBox_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    private void KeyInput_HotKeyCommitted(object? sender, HotKeyCommittedEventArgs e)
     {
         ErrorBorder.Visibility = Microsoft.UI.Xaml.Visibility.Collapsed;
-
-        _modifierKeys = GetCurrentModifierKeys();
-        var key = NormalizeKey(e.Key);
-
-        if (!string.IsNullOrEmpty(key))
-        {
-            _key = key;
-        }
-
-        KeyInputTextBox.Text = string.IsNullOrEmpty(_key)
-            ? BuildDisplayString(string.Empty, _modifierKeys)
-            : BuildDisplayString(_key, _modifierKeys);
-
-        e.Handled = true;
+        _modifierKeys = ToDomainModifiers(e.Modifiers);
+        _key = e.Key.ToString();
+        KeyInputTextBox.Key = e.Key;
+        KeyInputTextBox.Modifiers = e.Modifiers;
     }
 
     private void RefreshAvailableActions(KeyboardShortcutAction selectedAction = KeyboardShortcutAction.None)
@@ -224,62 +216,31 @@ public sealed partial class KeyboardShortcutDialog : ContentDialog
             .ToList();
     }
 
-    private static ModifierKeys GetCurrentModifierKeys()
+    private static ModifierKeys ToDomainModifiers(VirtualKeyModifiers modifiers)
     {
-        var modifiers = ModifierKeys.None;
-
-        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Control).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
-            modifiers |= ModifierKeys.Control;
-
-        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
-            modifiers |= ModifierKeys.Alt;
-
-        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Shift).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
-            modifiers |= ModifierKeys.Shift;
-
-        if (Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.LeftWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down) ||
-            Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.RightWindows).HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down))
-        {
-            modifiers |= ModifierKeys.Windows;
-        }
-
-        return modifiers;
+        var result = ModifierKeys.None;
+        if (modifiers.HasFlag(VirtualKeyModifiers.Control))
+            result |= ModifierKeys.Control;
+        if (modifiers.HasFlag(VirtualKeyModifiers.Menu))
+            result |= ModifierKeys.Alt;
+        if (modifiers.HasFlag(VirtualKeyModifiers.Shift))
+            result |= ModifierKeys.Shift;
+        if (modifiers.HasFlag(VirtualKeyModifiers.Windows))
+            result |= ModifierKeys.Windows;
+        return result;
     }
 
-    private static string NormalizeKey(Windows.System.VirtualKey key)
+    private static VirtualKeyModifiers ToVirtualModifiers(ModifierKeys modifiers)
     {
-        return key switch
-        {
-            Windows.System.VirtualKey.Control or
-            Windows.System.VirtualKey.LeftControl or
-            Windows.System.VirtualKey.RightControl or
-            Windows.System.VirtualKey.Menu or
-            Windows.System.VirtualKey.LeftMenu or
-            Windows.System.VirtualKey.RightMenu or
-            Windows.System.VirtualKey.Shift or
-            Windows.System.VirtualKey.LeftShift or
-            Windows.System.VirtualKey.RightShift or
-            Windows.System.VirtualKey.LeftWindows or
-            Windows.System.VirtualKey.RightWindows => string.Empty,
-            _ => key.ToString()
-        };
-    }
-
-    private static string BuildDisplayString(string key, ModifierKeys modifierKeys)
-    {
-        var parts = new List<string>();
-
-        if (modifierKeys.HasFlag(ModifierKeys.Control))
-            parts.Add("Ctrl");
-        if (modifierKeys.HasFlag(ModifierKeys.Alt))
-            parts.Add("Alt");
-        if (modifierKeys.HasFlag(ModifierKeys.Shift))
-            parts.Add("Shift");
-        if (modifierKeys.HasFlag(ModifierKeys.Windows))
-            parts.Add("Win");
-        if (!string.IsNullOrEmpty(key))
-            parts.Add(key);
-
-        return string.Join("+", parts);
+        var result = VirtualKeyModifiers.None;
+        if (modifiers.HasFlag(ModifierKeys.Control))
+            result |= VirtualKeyModifiers.Control;
+        if (modifiers.HasFlag(ModifierKeys.Alt))
+            result |= VirtualKeyModifiers.Menu;
+        if (modifiers.HasFlag(ModifierKeys.Shift))
+            result |= VirtualKeyModifiers.Shift;
+        if (modifiers.HasFlag(ModifierKeys.Windows))
+            result |= VirtualKeyModifiers.Windows;
+        return result;
     }
 }

@@ -33,7 +33,9 @@ public interface IMailDialogService : IDialogServiceBase
     Task<MailAccount> ShowAccountPickerDialogAsync(List<MailAccount> availableAccounts);
     Task<AccountCalendarPickingResult> ShowSingleCalendarPickerDialogAsync(List<CalendarPickerAccountGroup> availableCalendarGroups);
     Task<ContactCreateDestination?> ShowContactDestinationPickerDialogAsync(IReadOnlyList<ContactCreateDestination> destinations);
-    Task<AccountTaskList?> ShowTaskListPickerDialogAsync(IReadOnlyList<AccountTaskList> taskLists);
+    Task<AccountTaskList?> ShowTaskListPickerDialogAsync(
+        IReadOnlyList<AccountTaskList> taskLists,
+        IReadOnlyList<MailAccount> accounts);
 
     /// <summary>
     /// Displays a dialog to the user for reordering accounts.

@@ -1,21 +1,58 @@
-<ContentDialog
+﻿<ContentDialog
     x:Class="Wino.Dialogs.TaskListPickerDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:domain="using:Wino.Core.Domain"
-    xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:local="using:Wino.Dialogs"
     Title="{x:Bind domain:Translator.ToDoSettings_ListPicker_Title}"
     CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel}"
     Style="{StaticResource WinoDialogStyle}">
     <ListView
+        MinWidth="320"
         AutomationProperties.AutomationId="TaskListPickerList"
         IsItemClickEnabled="True"
         ItemClick="ItemClicked"
-        ItemsSource="{x:Bind TaskLists}"
+        ItemsSource="{x:Bind Items}"
         SelectionMode="None">
+        <ListView.ItemContainerStyle>
+            <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            </Style>
+        </ListView.ItemContainerStyle>
         <ListView.ItemTemplate>
-            <DataTemplate x:DataType="shared:AccountTaskList">
-                <TextBlock Margin="8" Text="{x:Bind Title}" />
+            <DataTemplate x:DataType="local:TaskListPickerItem">
+                <Grid
+                    MinHeight="52"
+                    Padding="8,6"
+                    AutomationProperties.Name="{x:Bind AutomationName}"
+                    ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <accountIcon:WinoAccountIcon
+                        VerticalAlignment="Center"
+                        Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account)}"
+                        IconSize="28" />
+
+                    <StackPanel
+                        Grid.Column="1"
+                        VerticalAlignment="Center"
+                        Spacing="2">
+                        <TextBlock
+                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind List.Title}"
+                            TextTrimming="CharacterEllipsis" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind AccountDisplayText}"
+                            TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Grid>
             </DataTemplate>
         </ListView.ItemTemplate>
     </ListView>

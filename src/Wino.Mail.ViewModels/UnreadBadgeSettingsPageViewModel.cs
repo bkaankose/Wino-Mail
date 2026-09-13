@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
@@ -15,8 +16,8 @@ using Wino.Messaging.Client.Navigation;
 namespace Wino.Mail.ViewModels;
 
 /// <summary>
-/// Backs the application level Unread badges page: the combined taskbar total, which accounts feed it,
-/// and whether a taskbar launch follows the badge instead of the configured startup item.
+/// Backs the application level Unread badges page: which accounts feed the taskbar badge and whether
+/// a taskbar launch follows the badge instead of the configured startup item.
 /// </summary>
 public partial class UnreadBadgeSettingsPageViewModel : MailBaseViewModel
 {
@@ -28,9 +29,6 @@ public partial class UnreadBadgeSettingsPageViewModel : MailBaseViewModel
     private bool _isLoaded;
 
     public ObservableCollection<TaskbarBadgeAccountViewModel> Accounts { get; } = [];
-
-    [ObservableProperty]
-    public partial int TaskbarUnreadCount { get; set; }
 
     [ObservableProperty]
     public partial bool IsLaunchNavigationEnabled { get; set; }
@@ -74,16 +72,12 @@ public partial class UnreadBadgeSettingsPageViewModel : MailBaseViewModel
                 var badge = snapshot.GetAccount(account.Id);
 
                 Accounts.Add(new TaskbarBadgeAccountViewModel(
-                    account.Id,
-                    account.Name,
-                    account.Address,
+                    account,
                     badge?.UnreadCount ?? 0,
                     account.Preferences.IsTaskbarBadgeEnabled,
                     GetCountSourceDescription(account.Preferences.UnreadBadgeCountSource),
                     OnAccountContributionChangedAsync));
             }
-
-            TaskbarUnreadCount = snapshot.TaskbarUnreadCount;
         });
 
         _isLoaded = true;
@@ -106,10 +100,6 @@ public partial class UnreadBadgeSettingsPageViewModel : MailBaseViewModel
 
         await _accountService.UpdateAccountAsync(account);
         await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
-
-        var snapshot = await _unreadBadgeService.GetSnapshotAsync();
-
-        await ExecuteUIThread(() => TaskbarUnreadCount = snapshot.TaskbarUnreadCount);
     }
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
@@ -128,7 +118,7 @@ public partial class UnreadBadgeSettingsPageViewModel : MailBaseViewModel
         if (accountViewModel == null) return;
 
         Messenger.Send(new BreadcrumbNavigationRequested(
-            Translator.UnreadBadges_Title,
+            string.Format(Translator.UnreadBadges_AccountSettingsTitleFormat, accountViewModel.AccountName),
             WinoPage.AccountUnreadBadgePage,
             accountViewModel.AccountId));
     }
@@ -142,26 +132,28 @@ public partial class TaskbarBadgeAccountViewModel : ObservableObject
     private readonly Func<TaskbarBadgeAccountViewModel, Task> _contributionChanged;
     private readonly bool _isInitialized;
 
-    public Guid AccountId { get; }
-    public string AccountName { get; }
-    public string AccountAddress { get; }
+    public MailAccount Account { get; }
+    public Guid AccountId => Account.Id;
+    public string AccountName => Account.Name;
+    public string DescriptionText => string.IsNullOrWhiteSpace(Account.Address)
+        ? CapabilitySummary
+        : $"{CapabilitySummary} | {Account.Address}";
     public int UnreadCount { get; }
     public string CountSourceDescription { get; }
+    private string CapabilitySummary => Account.IsCalendarAccessGranted
+        ? Translator.AccountCapability_MailAndCalendar
+        : Translator.AccountCapability_MailOnly;
 
     [ObservableProperty]
     public partial bool ContributesToTaskbar { get; set; }
 
-    public TaskbarBadgeAccountViewModel(Guid accountId,
-                                        string accountName,
-                                        string accountAddress,
+    public TaskbarBadgeAccountViewModel(MailAccount account,
                                         int unreadCount,
                                         bool contributesToTaskbar,
                                         string countSourceDescription,
                                         Func<TaskbarBadgeAccountViewModel, Task> contributionChanged)
     {
-        AccountId = accountId;
-        AccountName = accountName;
-        AccountAddress = accountAddress;
+        Account = account;
         UnreadCount = unreadCount;
         CountSourceDescription = countSourceDescription;
         ContributesToTaskbar = contributesToTaskbar;

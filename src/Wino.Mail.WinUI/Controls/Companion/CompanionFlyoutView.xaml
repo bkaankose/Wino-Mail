@@ -1,0 +1,739 @@
+﻿<UserControl
+    x:Class="Wino.Mail.WinUI.Controls.Companion.CompanionFlyoutView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:calendar="using:Wino.Calendar.ViewModels.Data"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mail="using:Wino.Mail.ViewModels.Data"
+    xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    x:Name="Root"
+    Width="400"
+    MinHeight="460"
+    MaxHeight="720"
+    IsTabStop="True"
+    KeyDown="Root_KeyDown">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="CompanionCardBackgroundBrush" Color="#0B000000" />
+                    <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush" Color="#08000000" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="CompanionCardBackgroundBrush" Color="#10FFFFFF" />
+                    <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush" Color="#0CFFFFFF" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="CompanionFlyoutBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="CompanionCardBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="CompanionSubtleBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid Background="{ThemeResource CompanionFlyoutBackgroundBrush}">
+        <Grid
+            Padding="32"
+            AutomationProperties.AutomationId="CompanionInitializingState"
+            Visibility="{x:Bind ViewModel.InitializingVisibility, Mode=OneWay}">
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="12">
+                <ProgressRing
+                    Width="42"
+                    Height="42"
+                    AutomationProperties.AutomationId="CompanionInitializingProgress"
+                    IsActive="True" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{ThemeResource SubtitleTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.Companion_InitializingTitle, Mode=OneTime}" />
+                <TextBlock
+                    MaxWidth="280"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind domain:Translator.Companion_InitializingDescription, Mode=OneTime}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+        </Grid>
+
+        <Grid
+            Padding="32"
+            AutomationProperties.AutomationId="CompanionNoAccountsState"
+            Visibility="{x:Bind ViewModel.NoAccountsVisibility, Mode=OneWay}">
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="12">
+                <FontIcon
+                    FontSize="48"
+                    Glyph="&#xE77B;"
+                    IsHitTestVisible="False" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{ThemeResource SubtitleTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.Companion_NoAccountsTitle, Mode=OneTime}" />
+                <TextBlock
+                    MaxWidth="280"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind domain:Translator.Companion_NoAccountsDescription, Mode=OneTime}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+                <Button
+                    HorizontalAlignment="Center"
+                    AutomationProperties.AutomationId="CompanionLaunchWinoNoAccountsButton"
+                    Command="{x:Bind ViewModel.OpenWinoCommand}"
+                    Content="{x:Bind domain:Translator.Companion_OpenWino, Mode=OneTime}"
+                    Style="{ThemeResource AccentButtonStyle}" />
+            </StackPanel>
+        </Grid>
+
+        <Grid
+            Padding="32"
+            AutomationProperties.AutomationId="CompanionUnavailableState"
+            Visibility="{x:Bind ViewModel.UnavailableVisibility, Mode=OneWay}">
+            <StackPanel
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Spacing="12">
+                <FontIcon
+                    FontSize="48"
+                    Glyph="&#xEA39;"
+                    IsHitTestVisible="False" />
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Style="{ThemeResource SubtitleTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.Companion_UnavailableTitle, Mode=OneTime}" />
+                <TextBlock
+                    MaxWidth="280"
+                    HorizontalAlignment="Center"
+                    Text="{x:Bind domain:Translator.Companion_UnavailableDescription, Mode=OneTime}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+                <Button
+                    HorizontalAlignment="Center"
+                    AutomationProperties.AutomationId="CompanionLaunchWinoUnavailableButton"
+                    Command="{x:Bind ViewModel.OpenWinoCommand}"
+                    Content="{x:Bind domain:Translator.Companion_OpenWino, Mode=OneTime}"
+                    Style="{ThemeResource AccentButtonStyle}" />
+            </StackPanel>
+        </Grid>
+
+        <Grid AutomationProperties.AutomationId="CompanionReadyState" Visibility="{x:Bind ViewModel.ReadyVisibility, Mode=OneWay}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Padding="12,13,8,9" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock
+                        FontSize="17"
+                        FontWeight="SemiBold"
+                        Text="{x:Bind ViewModel.GreetingText, Mode=OneWay}"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                        Text="{x:Bind ViewModel.DateText, Mode=OneWay}"
+                        TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <Button
+                    Grid.Column="1"
+                    Width="34"
+                    Height="34"
+                    Padding="0"
+                    AutomationProperties.AutomationId="CompanionSnoozeNotificationsButton"
+                    AutomationProperties.Name="{x:Bind ViewModel.SnoozeActionText, Mode=OneWay}"
+                    Command="{x:Bind ViewModel.ToggleNotificationsCommand}"
+                    Style="{ThemeResource SubtleButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind ViewModel.SnoozeActionText, Mode=OneWay}">
+                    <FontIcon FontSize="16" Glyph="{x:Bind ViewModel.SnoozeGlyph, Mode=OneWay}" />
+                </Button>
+                <Button
+                    Grid.Column="2"
+                    Width="34"
+                    Height="34"
+                    Padding="0"
+                    AutomationProperties.AutomationId="CompanionOpenSettingsButton"
+                    AutomationProperties.Name="{x:Bind domain:Translator.Companion_Settings, Mode=OneTime}"
+                    Command="{x:Bind ViewModel.OpenSettingsCommand}"
+                    Style="{ThemeResource SubtleButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Settings, Mode=OneTime}">
+                    <FontIcon FontSize="16" Glyph="&#xE713;" />
+                </Button>
+            </Grid>
+
+            <ItemsControl
+                Grid.Row="1"
+                Padding="12,2,12,12"
+                AutomationProperties.AutomationId="CompanionFavoriteContacts"
+                ItemsSource="{x:Bind ViewModel.Favorites}"
+                Visibility="{x:Bind ViewModel.FavoritesVisibility, Mode=OneWay}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="4" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="mail:AccountContactViewModel">
+                        <Button
+                            Width="56"
+                            Padding="2,4"
+                            AutomationProperties.AutomationId="CompanionFavoriteContactButton"
+                            AutomationProperties.Name="{x:Bind Name}"
+                            Click="Contact_Click"
+                            CommandParameter="{x:Bind}"
+                            CornerRadius="6"
+                            Style="{ThemeResource SubtleButtonStyle}"
+                            ToolTipService.ToolTip="{x:Bind Name}">
+                            <StackPanel Spacing="3">
+                                <Grid HorizontalAlignment="Center">
+                                    <mailControls:WinoContactPicture
+                                        Width="34"
+                                        Height="34"
+                                        ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(SenderContact, FromName, FromAddress), Mode=OneWay}"
+                                        FontSize="13"
+                                        IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                        IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}"
+                                        IsHitTestVisible="False" />
+                                    <Border
+                                        Margin="0,-2,-2,0"
+                                        Padding="4,0"
+                                        HorizontalAlignment="Right"
+                                        VerticalAlignment="Top"
+                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                        CornerRadius="8"
+                                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasUnread), Mode=OneWay}">
+                                        <TextBlock
+                                            MinWidth="9"
+                                            FontSize="10"
+                                            FontWeight="Bold"
+                                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                            Text="{x:Bind UnreadCountText, Mode=OneWay}"
+                                            TextAlignment="Center" />
+                                    </Border>
+                                </Grid>
+                                <TextBlock
+                                    HorizontalAlignment="Center"
+                                    FontSize="11"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="{x:Bind FirstName, Mode=OneWay}"
+                                    TextAlignment="Center"
+                                    TextTrimming="CharacterEllipsis"
+                                    TextWrapping="NoWrap" />
+                            </StackPanel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border
+                Grid.Row="2"
+                Height="1"
+                Margin="0,0,0,6"
+                Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+            <ScrollViewer
+                Grid.Row="3"
+                HorizontalScrollBarVisibility="Disabled"
+                VerticalScrollBarVisibility="Auto"
+                Visibility="{x:Bind ViewModel.ContentVisibility, Mode=OneWay}">
+                <StackPanel>
+                    <StackPanel Padding="12,0,12,10" Visibility="{x:Bind ViewModel.EventVisibility, Mode=OneWay}">
+                        <Border
+                            Padding="14,13"
+                            AutomationProperties.AutomationId="CompanionNextEventCard"
+                            Background="{ThemeResource CompanionCardBackgroundBrush}"
+                            BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                            <StackPanel Spacing="6">
+                                <Grid ColumnSpacing="7">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border
+                                        Padding="9,2"
+                                        VerticalAlignment="Center"
+                                        Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                        CornerRadius="11">
+                                        <TextBlock
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                            Text="{x:Bind ViewModel.NextEventCountdownText, Mode=OneWay}" />
+                                    </Border>
+                                    <Border
+                                        Grid.Column="1"
+                                        Padding="9,2"
+                                        VerticalAlignment="Center"
+                                        Background="{ThemeResource CompanionSubtleBackgroundBrush}"
+                                        CornerRadius="11"
+                                        Visibility="{x:Bind ViewModel.NextEventOnlineVisibility, Mode=OneWay}">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <FontIcon
+                                                VerticalAlignment="Center"
+                                                FontSize="11"
+                                                Glyph="&#xE71B;" />
+                                            <TextBlock
+                                                FontSize="12"
+                                                FontWeight="SemiBold"
+                                                Text="{x:Bind domain:Translator.Companion_EventOnline, Mode=OneTime}" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Button
+                                        Grid.Column="3"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        AutomationProperties.AutomationId="CompanionEventMoreActionsButton"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.Companion_EventMoreActions, Mode=OneTime}"
+                                        Style="{ThemeResource SubtleButtonStyle}"
+                                        ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_EventMoreActions, Mode=OneTime}">
+                                        <FontIcon FontSize="14" Glyph="&#xE712;" />
+                                        <Button.Flyout>
+                                            <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                                <MenuFlyoutItem
+                                                    AutomationProperties.AutomationId="CompanionOpenEventMenuItem"
+                                                    Click="OpenEvent_Click"
+                                                    Text="{x:Bind domain:Translator.Companion_OpenEvent, Mode=OneTime}">
+                                                    <MenuFlyoutItem.Icon>
+                                                        <FontIcon Glyph="&#xE787;" />
+                                                    </MenuFlyoutItem.Icon>
+                                                </MenuFlyoutItem>
+                                                <MenuFlyoutItem
+                                                    AutomationProperties.AutomationId="CompanionOpenCalendarMenuItem"
+                                                    Command="{x:Bind ViewModel.OpenCalendarCommand}"
+                                                    Text="{x:Bind domain:Translator.Companion_OpenCalendar, Mode=OneTime}">
+                                                    <MenuFlyoutItem.Icon>
+                                                        <FontIcon Glyph="&#xE8A5;" />
+                                                    </MenuFlyoutItem.Icon>
+                                                </MenuFlyoutItem>
+                                            </MenuFlyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                </Grid>
+                                <TextBlock
+                                    FontSize="16"
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.NextEvent.Title, Mode=OneWay, TargetNullValue=''}"
+                                    TextTrimming="CharacterEllipsis"
+                                    TextWrapping="NoWrap" />
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock
+                                        FontSize="12.5"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Bind ViewModel.NextEventTimeText, Mode=OneWay}" />
+                                    <StackPanel
+                                        Grid.Column="1"
+                                        Orientation="Horizontal"
+                                        Spacing="6"
+                                        Visibility="{x:Bind ViewModel.NextEventCalendarVisibility, Mode=OneWay}">
+                                        <Rectangle
+                                            Width="8"
+                                            Height="8"
+                                            VerticalAlignment="Center"
+                                            Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.NextEventCalendarColorHex), Mode=OneWay}"
+                                            RadiusX="2"
+                                            RadiusY="2" />
+                                        <TextBlock
+                                            FontSize="11.5"
+                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                            Text="{x:Bind ViewModel.NextEventCalendarName, Mode=OneWay}"
+                                            TextTrimming="CharacterEllipsis" />
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock
+                                    FontSize="12.5"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Text="{x:Bind ViewModel.NextEvent.Location, Mode=OneWay, TargetNullValue=''}"
+                                    TextTrimming="CharacterEllipsis"
+                                    Visibility="{x:Bind ViewModel.NextEventLocationVisibility, Mode=OneWay}" />
+                                <Grid Margin="0,5,0,0" ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        FontSize="11.5"
+                                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                        Text="{x:Bind ViewModel.NextEventAttendeesText, Mode=OneWay}"
+                                        Visibility="{x:Bind ViewModel.NextEventAttendeesVisibility, Mode=OneWay}" />
+                                    <Button
+                                        Grid.Column="1"
+                                        AutomationProperties.AutomationId="CompanionEventPrimaryButton"
+                                        Command="{x:Bind ViewModel.OpenPrimaryEventCommand}"
+                                        CommandParameter="{x:Bind ViewModel.NextEvent, Mode=OneWay}"
+                                        Content="{x:Bind ViewModel.NextEventPrimaryActionText, Mode=OneWay}"
+                                        Style="{ThemeResource AccentButtonStyle}" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                        <Button
+                            Margin="0,6,0,0"
+                            Padding="10,6"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="CompanionMoreEventsButton"
+                            Visibility="{x:Bind ViewModel.LaterEventsVisibility, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon
+                                    VerticalAlignment="Center"
+                                    FontSize="12"
+                                    Glyph="&#xE76C;" />
+                                <TextBlock
+                                    FontSize="12.5"
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.LaterEventsText, Mode=OneWay}" />
+                            </StackPanel>
+                            <Button.Flyout>
+                                <Flyout Placement="Bottom">
+                                    <StackPanel Width="320" Spacing="4">
+                                        <TextBlock
+                                            Margin="4,0,0,4"
+                                            FontSize="12"
+                                            FontWeight="SemiBold"
+                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                            Text="{x:Bind domain:Translator.Companion_RestOfToday, Mode=OneTime}" />
+                                        <ItemsControl AutomationProperties.AutomationId="CompanionLaterEventsList" ItemsSource="{x:Bind ViewModel.LaterEvents}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="calendar:CalendarItemViewModel">
+                                                    <Button
+                                                        Margin="0,1"
+                                                        Padding="8"
+                                                        HorizontalAlignment="Stretch"
+                                                        HorizontalContentAlignment="Stretch"
+                                                        AutomationProperties.AutomationId="CompanionLaterEventButton"
+                                                        Click="LaterEvent_Click"
+                                                        CommandParameter="{x:Bind}"
+                                                        Style="{ThemeResource SubtleButtonStyle}">
+                                                        <Grid ColumnSpacing="10">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="58" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock
+                                                                VerticalAlignment="Center"
+                                                                FontSize="12"
+                                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                                Text="{x:Bind DisplayStartTime, Mode=OneWay}"
+                                                                TextAlignment="Right" />
+                                                            <StackPanel Grid.Column="1">
+                                                                <TextBlock
+                                                                    FontWeight="SemiBold"
+                                                                    Text="{x:Bind Title}"
+                                                                    TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock
+                                                                    FontSize="11.5"
+                                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                                    Text="{x:Bind Location}"
+                                                                    TextTrimming="CharacterEllipsis" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
+                    </StackPanel>
+
+                    <Border
+                        Height="1"
+                        Margin="12,2,12,8"
+                        Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                        Visibility="{x:Bind ViewModel.EventMailSeparatorVisibility, Mode=OneWay}" />
+
+                    <StackPanel Padding="12,0,12,6" Visibility="{x:Bind ViewModel.UnreadMailVisibility, Mode=OneWay}">
+                        <Grid Padding="0,0,0,6" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                FontWeight="Bold"
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Text="{x:Bind domain:Translator.Companion_Unread, Mode=OneTime}" />
+                            <Border
+                                Grid.Column="1"
+                                Padding="6,1"
+                                VerticalAlignment="Center"
+                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                CornerRadius="9">
+                                <TextBlock
+                                    FontSize="11"
+                                    FontWeight="Bold"
+                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                    Text="{x:Bind ViewModel.UnreadTotalText, Mode=OneWay}" />
+                            </Border>
+                        </Grid>
+                        <ItemsControl AutomationProperties.AutomationId="CompanionUnreadMailList" ItemsSource="{x:Bind ViewModel.UnreadMail}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="mail:MailItemViewModel">
+                                    <Grid
+                                        Background="Transparent"
+                                        PointerEntered="MailRow_PointerEntered"
+                                        PointerExited="MailRow_PointerExited"
+                                        Tag="{x:Bind}"
+                                        Tapped="MailRow_Tapped">
+                                        <ContentPresenter
+                                            Height="64"
+                                            Content="{x:Bind}"
+                                            ContentTemplate="{StaticResource CompactSingleMailItemTemplate}"
+                                            IsHitTestVisible="False" />
+                                        <StackPanel
+                                            x:Name="HoverActions"
+                                            Margin="0,0,8,0"
+                                            Padding="3"
+                                            HorizontalAlignment="Right"
+                                            VerticalAlignment="Center"
+                                            Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
+                                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Orientation="Horizontal"
+                                            Spacing="2"
+                                            Visibility="Collapsed">
+                                            <Button
+                                                Width="28"
+                                                Height="28"
+                                                Padding="0"
+                                                AutomationProperties.AutomationId="CompanionArchiveMailButton"
+                                                AutomationProperties.Name="{x:Bind domain:Translator.Companion_Archive, Mode=OneTime}"
+                                                Click="ArchiveMail_Click"
+                                                CommandParameter="{x:Bind}"
+                                                Style="{ThemeResource SubtleButtonStyle}"
+                                                ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Archive, Mode=OneTime}">
+                                                <FontIcon FontSize="14" Glyph="&#xE7B8;" />
+                                            </Button>
+                                            <Button
+                                                Width="28"
+                                                Height="28"
+                                                Padding="0"
+                                                AutomationProperties.AutomationId="CompanionMarkReadButton"
+                                                AutomationProperties.Name="{x:Bind domain:Translator.Companion_MarkRead, Mode=OneTime}"
+                                                Click="MarkMailRead_Click"
+                                                CommandParameter="{x:Bind}"
+                                                Style="{ThemeResource SubtleButtonStyle}"
+                                                ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_MarkRead, Mode=OneTime}">
+                                                <FontIcon FontSize="14" Glyph="&#xE8C3;" />
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <Border
+                        Height="1"
+                        Margin="12,2,12,8"
+                        Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                        Visibility="{x:Bind ViewModel.MailTaskSeparatorVisibility, Mode=OneWay}" />
+
+                    <StackPanel Padding="12,0,12,8" Visibility="{x:Bind ViewModel.TasksVisibility, Mode=OneWay}">
+                        <Grid Padding="0,0,0,4" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                FontSize="12"
+                                FontWeight="Bold"
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Text="{x:Bind domain:Translator.Companion_MyDay, Mode=OneTime}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                FontSize="11.5"
+                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                Text="{x:Bind ViewModel.TaskProgressText, Mode=OneWay}" />
+                            <HyperlinkButton
+                                Grid.Column="3"
+                                Padding="4,0"
+                                AutomationProperties.AutomationId="CompanionOpenTasksButton"
+                                Command="{x:Bind ViewModel.OpenTasksCommand}"
+                                Content="{x:Bind domain:Translator.Companion_OpenTasks, Mode=OneTime}" />
+                        </Grid>
+                        <ItemsControl AutomationProperties.AutomationId="CompanionTaskList" ItemsSource="{x:Bind ViewModel.Tasks}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="mail:TaskItemViewModel">
+                                    <CheckBox
+                                        MinHeight="40"
+                                        Margin="0,1"
+                                        AutomationProperties.AutomationId="CompanionTaskCheckBox"
+                                        Click="TaskCompleted_Click"
+                                        CommandParameter="{x:Bind}"
+                                        IsChecked="{x:Bind IsCompleted, Mode=OneWay}">
+                                        <StackPanel Margin="4,5,0,5">
+                                            <TextBlock
+                                                FontWeight="SemiBold"
+                                                Text="{x:Bind Title}"
+                                                TextTrimming="CharacterEllipsis" />
+                                            <TextBlock
+                                                FontSize="11.5"
+                                                FontWeight="SemiBold"
+                                                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                                Text="{x:Bind domain:Translator.Companion_TaskOverdue, Mode=OneTime}"
+                                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsOverdue), Mode=OneWay}" />
+                                            <StackPanel
+                                                Orientation="Horizontal"
+                                                Spacing="4"
+                                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsOverdue), Mode=OneWay}">
+                                                <TextBlock
+                                                    FontSize="11.5"
+                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                    Text="{x:Bind ListName}"
+                                                    TextTrimming="CharacterEllipsis" />
+                                                <TextBlock
+                                                    FontSize="11.5"
+                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                                    Text="{x:Bind DueDisplayText}"
+                                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasDueDate), Mode=OneWay}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </CheckBox>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel
+                Grid.Row="3"
+                Padding="28,22,28,26"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                AutomationProperties.AutomationId="CompanionCaughtUpState"
+                Spacing="2"
+                Visibility="{x:Bind ViewModel.CaughtUpVisibility, Mode=OneWay}">
+                <Viewbox
+                    Width="128"
+                    Height="104"
+                    Margin="0,0,0,14">
+                    <Canvas Width="128" Height="104">
+                        <Path
+                            Data="M26 52h20l6 10h24l6-10h20v28a6 6 0 0 1-6 6H32a6 6 0 0 1-6-6V52z"
+                            Fill="{ThemeResource CompanionSubtleBackgroundBrush}"
+                            Stroke="{ThemeResource TextFillColorTertiaryBrush}"
+                            StrokeLineJoin="Round"
+                            StrokeThickness="2" />
+                        <Path
+                            Data="M26 52 38 30a6 6 0 0 1 5.2-3h41.6A6 6 0 0 1 90 30l12 22"
+                            Stroke="{ThemeResource TextFillColorTertiaryBrush}"
+                            StrokeLineJoin="Round"
+                            StrokeThickness="2" />
+                        <Ellipse
+                            Canvas.Left="49"
+                            Canvas.Top="19"
+                            Width="30"
+                            Height="30"
+                            Fill="{ThemeResource AccentFillColorSecondaryBrush}" />
+                        <Path
+                            Data="M57 34.4l5 5 10-10.4"
+                            Stroke="{ThemeResource AccentFillColorDefaultBrush}"
+                            StrokeEndLineCap="Round"
+                            StrokeLineJoin="Round"
+                            StrokeStartLineCap="Round"
+                            StrokeThickness="3.4" />
+                    </Canvas>
+                </Viewbox>
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontSize="18"
+                    FontWeight="SemiBold"
+                    Text="{x:Bind domain:Translator.Companion_CaughtUpTitle, Mode=OneTime}" />
+                <TextBlock
+                    MaxWidth="260"
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Text="{x:Bind domain:Translator.Companion_CaughtUpDescription, Mode=OneTime}"
+                    TextAlignment="Center"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border
+                Grid.Row="4"
+                Padding="12,10,12,12"
+                Background="{ThemeResource CompanionSubtleBackgroundBrush}"
+                BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0">
+                <toolkit:Segmented
+                    x:Name="AppModeSwitcher"
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="CompanionAppModeSwitcher"
+                    SelectionChanged="AppMode_SelectionChanged">
+                    <toolkit:SegmentedItem
+                        AutomationProperties.AutomationId="CompanionDockMailButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Companion_Mail, Mode=OneTime}"
+                        Content="{x:Bind domain:Translator.Companion_Mail, Mode=OneTime}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Mail, Mode=OneTime}">
+                        <toolkit:SegmentedItem.Icon>
+                            <FontIcon FontSize="16" Glyph="&#xE715;" />
+                        </toolkit:SegmentedItem.Icon>
+                    </toolkit:SegmentedItem>
+                    <toolkit:SegmentedItem
+                        AutomationProperties.AutomationId="CompanionDockCalendarButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Companion_Calendar, Mode=OneTime}"
+                        Content="{x:Bind domain:Translator.Companion_Calendar, Mode=OneTime}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Calendar, Mode=OneTime}">
+                        <toolkit:SegmentedItem.Icon>
+                            <FontIcon FontSize="16" Glyph="&#xE787;" />
+                        </toolkit:SegmentedItem.Icon>
+                    </toolkit:SegmentedItem>
+                    <toolkit:SegmentedItem
+                        AutomationProperties.AutomationId="CompanionDockContactsButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Companion_Contacts, Mode=OneTime}"
+                        Content="{x:Bind domain:Translator.Companion_Contacts, Mode=OneTime}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Contacts, Mode=OneTime}">
+                        <toolkit:SegmentedItem.Icon>
+                            <FontIcon FontSize="16" Glyph="&#xE77B;" />
+                        </toolkit:SegmentedItem.Icon>
+                    </toolkit:SegmentedItem>
+                    <toolkit:SegmentedItem
+                        AutomationProperties.AutomationId="CompanionDockTasksButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Companion_Tasks, Mode=OneTime}"
+                        Content="{x:Bind domain:Translator.Companion_Tasks, Mode=OneTime}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Tasks, Mode=OneTime}">
+                        <toolkit:SegmentedItem.Icon>
+                            <FontIcon FontSize="16" Glyph="&#xE73E;" />
+                        </toolkit:SegmentedItem.Icon>
+                    </toolkit:SegmentedItem>
+                </toolkit:Segmented>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

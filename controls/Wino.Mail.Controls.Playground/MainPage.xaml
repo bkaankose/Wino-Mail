@@ -67,6 +67,11 @@
                 Content="Context flyout"
                 Icon="Bullets"
                 Tag="contextFlyout" />
+            <NavigationViewItem
+                AutomationProperties.AutomationId="HotKeyInputNavigationItem"
+                Content="Hot key input"
+                Icon="Keyboard"
+                Tag="hotKeyInput" />
         </NavigationView.MenuItems>
         <Frame x:Name="ContentFrame" />
     </NavigationView>

@@ -1,7 +1,5 @@
 <Solution>
   <Configurations>
-    <BuildType Name="Debug" />
-    <BuildType Name="Release" />
     <Platform Name="arm64" />
     <Platform Name="x64" />
     <Platform Name="x86" />
@@ -37,17 +35,17 @@
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
+    <Project Path="src/Wino.Core.ML/Wino.Core.ML.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
     <Project Path="src/Wino.Core.ViewModels/Wino.Core.ViewModels.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
     <Project Path="src/Wino.Core/Wino.Core.csproj">
-      <Platform Solution="*|arm64" Project="arm64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
-    <Project Path="src/Wino.Core.ML/Wino.Core.ML.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
@@ -62,14 +60,14 @@
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="src/Wino.NotificationHost.Contracts/Wino.NotificationHost.Contracts.csproj" />
-    <Project Path="src/Wino.NotificationHost/Wino.NotificationHost.csproj">
-      <Platform Solution="*|arm64" Project="ARM64" />
+    <Project Path="src/Wino.Messages/Wino.Messaging.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="src/Wino.Messages/Wino.Messaging.csproj">
-      <Platform Solution="*|arm64" Project="arm64" />
+    <Project Path="src/Wino.NotificationHost.Contracts/Wino.NotificationHost.Contracts.csproj" />
+    <Project Path="src/Wino.NotificationHost/Wino.NotificationHost.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
@@ -114,12 +112,12 @@
     </Project>
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Wino.Core.Tests/Wino.Core.Tests.csproj">
+    <Project Path="tests/Wino.Core.ML.Tests/Wino.Core.ML.Tests.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="tests/Wino.Core.ML.Tests/Wino.Core.ML.Tests.csproj">
+    <Project Path="tests/Wino.Core.Tests/Wino.Core.Tests.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
@@ -134,22 +132,22 @@
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="tests/Wino.Services.AotSmoke/Wino.Services.AotSmoke.csproj">
-      <Platform Solution="*|arm64" Project="arm64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
     <Project Path="tests/Wino.NotificationHost.Tests/Wino.NotificationHost.Tests.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="tests/Wino.SmokeTest.Console/Wino.SmokeTest.Console.csproj">
+    <Project Path="tests/Wino.Services.AotSmoke/Wino.Services.AotSmoke.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
     <Project Path="tests/Wino.SmokeTest.Console.Tests/Wino.SmokeTest.Console.Tests.csproj">
+      <Platform Solution="*|arm64" Project="arm64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="tests/Wino.SmokeTest.Console/Wino.SmokeTest.Console.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />

@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:appControls="using:Wino.Controls"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
@@ -12,24 +13,7 @@
     mc:Ignorable="d">
 
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
-        <controls:SettingsCard
-            AutomationProperties.AutomationId="UnreadBadgeSettingsPageTaskbarTotalCard"
-            Description="{x:Bind domain:Translator.UnreadBadges_TaskbarTotal_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.UnreadBadges_TaskbarTotal_Title, Mode=OneTime}">
-            <controls:SettingsCard.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEA8F;" />
-            </controls:SettingsCard.HeaderIcon>
-            <TextBlock
-                AutomationProperties.AutomationId="UnreadBadgeSettingsPageTaskbarTotalText"
-                FontSize="28"
-                FontWeight="SemiBold"
-                Text="{x:Bind ViewModel.TaskbarUnreadCount, Mode=OneWay}" />
-        </controls:SettingsCard>
-
-        <TextBlock
-            Margin="0,8,0,0"
-            Style="{StaticResource BodyStrongTextBlockStyle}"
-            Text="{x:Bind domain:Translator.UnreadBadges_Accounts_Title, Mode=OneTime}" />
+        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.UnreadBadges_Accounts_Title, Mode=OneTime}" />
         <TextBlock
             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
             Text="{x:Bind domain:Translator.UnreadBadges_Accounts_Description, Mode=OneTime}"
@@ -40,16 +24,19 @@
                 <DataTemplate x:DataType="mailViewModels:TaskbarBadgeAccountViewModel">
                     <controls:SettingsCard
                         Margin="0,0,0,4"
-                        AutomationProperties.AutomationId="UnreadBadgeSettingsPageSettingsCard"
-                        Description="{x:Bind CountSourceDescription}"
-                        Header="{x:Bind AccountName}">
-                        <controls:SettingsCard.HeaderIcon>
-                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE77B;" />
-                        </controls:SettingsCard.HeaderIcon>
+                        HorizontalContentAlignment="Stretch"
+                        AutomationProperties.AutomationId="UnreadBadgeSettingsPageSettingsCard">
+                        <controls:SettingsCard.Header>
+                            <appControls:AccountIdentityRowControl Account="{x:Bind Account}" Description="{x:Bind DescriptionText}" />
+                        </controls:SettingsCard.Header>
                         <StackPanel
                             VerticalAlignment="Center"
                             Orientation="Horizontal"
                             Spacing="12">
+                            <TextBlock
+                                VerticalAlignment="Center"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind CountSourceDescription}" />
                             <TextBlock
                                 VerticalAlignment="Center"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"

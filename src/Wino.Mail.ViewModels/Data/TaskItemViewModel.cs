@@ -154,6 +154,7 @@ public partial class TaskItemViewModel : ObservableObject
             OnPropertyChanged();
             OnPropertyChanged(nameof(IsInMyDay));
             OnPropertyChanged(nameof(MyDayActionText));
+            RefreshDetailSummary();
         }
     }
 
@@ -197,7 +198,20 @@ public partial class TaskItemViewModel : ObservableObject
     public string StepSummaryText
         => Steps.Count == 0
             ? string.Empty
-            : string.Format(Translator.ToDoPage_StepSummary, Steps.Count(step => step.IsCompleted), Steps.Count);
+            : string.Format(Translator.ToDoPage_StepSummary, CompletedStepCount, StepCount);
+
+    public int StepCount => Steps.Count;
+    public int CompletedStepCount => Steps.Count(step => step.IsCompleted);
+
+    /// <summary>
+    /// Status segments for the drawer's pinned header. They repeat what the schedule section holds
+    /// so the task's due state stays readable while a long step list scrolls.
+    /// </summary>
+    public bool HasDetailSummary => HasDueDate || IsInMyDay || ShowSummaryListName;
+
+    public bool ShowSummaryListName => ShowListName && !string.IsNullOrEmpty(ListName);
+    public bool ShowMyDaySummarySeparator => HasDueDate && IsInMyDay;
+    public bool ShowListSummarySeparator => (HasDueDate || IsInMyDay) && ShowSummaryListName;
 
     public string CreatedOnText
         => string.Format(Translator.ToDoPage_CreatedOn, Task.CreatedAtUtc.ToLocalTime().ToString("ddd, MMMM d"));
@@ -210,6 +224,8 @@ public partial class TaskItemViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(StepSummaryText));
         OnPropertyChanged(nameof(HasSteps));
+        OnPropertyChanged(nameof(StepCount));
+        OnPropertyChanged(nameof(CompletedStepCount));
     }
 
     public void RefreshDueDisplay()
@@ -217,5 +233,18 @@ public partial class TaskItemViewModel : ObservableObject
         OnPropertyChanged(nameof(DueDisplayText));
         OnPropertyChanged(nameof(HasDueDate));
         OnPropertyChanged(nameof(IsOverdue));
+        RefreshDetailSummary();
     }
+
+    private void RefreshDetailSummary()
+    {
+        OnPropertyChanged(nameof(HasDetailSummary));
+        OnPropertyChanged(nameof(ShowSummaryListName));
+        OnPropertyChanged(nameof(ShowMyDaySummarySeparator));
+        OnPropertyChanged(nameof(ShowListSummarySeparator));
+    }
+
+    partial void OnListNameChanged(string value) => RefreshDetailSummary();
+
+    partial void OnShowListNameChanged(bool value) => RefreshDetailSummary();
 }

@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.Requests.Contact;
@@ -51,6 +52,7 @@ public sealed class ApplicationLocalContactRequest : IRequestBase
     public IReadOnlyList<Guid> DesiredListIds { get; }
     public IReadOnlyList<Guid> OriginalListIds { get; }
     public int ResynchronizationDelay => 0;
+    public RequestTrace Trace { get; set; }
 
     public object GroupingKey()
         => (Operation, Contact?.Id, List?.Id);

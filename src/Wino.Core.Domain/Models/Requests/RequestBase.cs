@@ -9,6 +9,7 @@ namespace Wino.Core.Domain.Models.Requests;
 
 public abstract record RequestBase<TOperation> where TOperation : Enum
 {
+    public RequestTrace Trace { get; set; }
     public virtual void ApplyUIChanges() { }
     public virtual void RevertUIChanges() { }
     public virtual int ResynchronizationDelay => 0;
@@ -22,6 +23,7 @@ public abstract record MailRequestBase(MailCopy Item) : RequestBase<MailSynchron
 
 public abstract record FolderRequestBase(MailItemFolder Folder, FolderSynchronizerOperation Operation) : IFolderActionRequest
 {
+    public RequestTrace Trace { get; set; }
     public abstract void ApplyUIChanges();
     public abstract void RevertUIChanges();
 

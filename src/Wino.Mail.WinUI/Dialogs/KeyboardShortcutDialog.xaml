@@ -1,10 +1,11 @@
-<ContentDialog
+﻿<ContentDialog
     x:Class="Wino.Dialogs.KeyboardShortcutDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
+    xmlns:hotKey="using:Wino.Mail.Controls.HotKeyInput"
     xmlns:local="using:Wino.Dialogs"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="{x:Bind domain:Translator.KeyboardShortcuts_Add, Mode=OneTime}"
@@ -44,21 +45,21 @@
                     GroupName="ShortcutMode"
                     IsChecked="{x:Bind IsMailModeSelected, Mode=TwoWay}" />
                 <RadioButton
-                    AutomationProperties.AutomationId="KeyboardShortcutModeCalendar"
                     Grid.Column="1"
+                    AutomationProperties.AutomationId="KeyboardShortcutModeCalendar"
                     Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeCalendar, Mode=OneTime}"
                     GroupName="ShortcutMode"
                     IsChecked="{x:Bind IsCalendarModeSelected, Mode=TwoWay}" />
                 <RadioButton
-                    AutomationProperties.AutomationId="KeyboardShortcutModeContacts"
                     Grid.Row="1"
+                    AutomationProperties.AutomationId="KeyboardShortcutModeContacts"
                     Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeContacts, Mode=OneTime}"
                     GroupName="ShortcutMode"
                     IsChecked="{x:Bind IsContactsModeSelected, Mode=TwoWay}" />
                 <RadioButton
-                    AutomationProperties.AutomationId="KeyboardShortcutModeTasks"
                     Grid.Row="1"
                     Grid.Column="1"
+                    AutomationProperties.AutomationId="KeyboardShortcutModeTasks"
                     Content="{x:Bind domain:Translator.KeyboardShortcuts_ModeTasks, Mode=OneTime}"
                     GroupName="ShortcutMode"
                     IsChecked="{x:Bind IsTasksModeSelected, Mode=TwoWay}" />
@@ -72,9 +73,9 @@
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
                 Text="{x:Bind domain:Translator.KeyboardShortcuts_Action, Mode=OneTime}" />
             <ComboBox
-                AutomationProperties.AutomationId="KeyboardShortcutAction"
                 x:Name="ActionComboBox"
                 HorizontalAlignment="Stretch"
+                AutomationProperties.AutomationId="KeyboardShortcutAction"
                 ItemsSource="{x:Bind AvailableActions}"
                 SelectedItem="{x:Bind SelectedAction, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
@@ -92,12 +93,15 @@
                 Margin="0,0,0,4"
                 Style="{ThemeResource BodyStrongTextBlockStyle}"
                 Text="{x:Bind domain:Translator.KeyboardShortcuts_KeyCombination, Mode=OneTime}" />
-            <TextBox
-                AutomationProperties.AutomationId="KeyInputTextBox"
+            <hotKey:WinoHotKeyInput
+                Key="None"
                 x:Name="KeyInputTextBox"
-                IsReadOnly="True"
-                PlaceholderText="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere, Mode=OneTime}"
-                PreviewKeyDown="KeyInputTextBox_PreviewKeyDown" />
+                AutomationProperties.AutomationId="KeyInputTextBox"
+                AutomationProperties.Name="{x:Bind domain:Translator.KeyboardShortcuts_KeyCombination, Mode=OneTime}"
+                HotKeyCommitted="KeyInput_HotKeyCommitted"
+                ListeningPrompt="{x:Bind domain:Translator.CompanionSettings_HotKey_Listening, Mode=OneTime}"
+                Modifiers="None"
+                NormalPrompt="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere, Mode=OneTime}" />
             <TextBlock
                 Margin="0,4,0,0"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"

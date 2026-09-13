@@ -27,6 +27,10 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<Compile Include="..\..\src\Wino.Mail.WinUI\ThirdParty\DesktopFlyouts\CompanionFlyoutPlacementCalculator.cs" Link="Companion\CompanionFlyoutPlacementCalculator.cs" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<ProjectReference Include="..\..\src\Wino.Calendar.ViewModels\Wino.Calendar.ViewModels.csproj" />
 		<ProjectReference Include="..\..\src\Wino.Core\Wino.Core.csproj" />
 		<ProjectReference Include="..\..\src\Wino.Core.ViewModels\Wino.Core.ViewModels.csproj" />
