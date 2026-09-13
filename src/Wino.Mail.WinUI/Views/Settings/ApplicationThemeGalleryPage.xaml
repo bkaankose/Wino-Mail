@@ -154,14 +154,14 @@
                             <MenuFlyout>
                                 <MenuFlyoutItem
                                     AutomationProperties.AutomationId="ApplicationThemeGalleryEditMenuItem"
-                                    Command="{Binding ElementName=Root, Path=ViewModel.EditThemeCommand}"
-                                    CommandParameter="{x:Bind}"
+                                    Click="EditThemeClick"
+                                    Tag="{x:Bind}"
                                     Text="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}"
                                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
                                 <MenuFlyoutItem
                                     AutomationProperties.AutomationId="ApplicationThemeGalleryRemoveMenuItem"
-                                    Command="{Binding ElementName=Root, Path=ViewModel.RemoveThemeCommand}"
-                                    CommandParameter="{x:Bind}"
+                                    Click="RemoveThemeClick"
+                                    Tag="{x:Bind}"
                                     Text="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}"
                                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
                             </MenuFlyout>
@@ -196,9 +196,9 @@
                                 <Button
                                     HorizontalAlignment="Stretch"
                                     AutomationProperties.AutomationId="ApplicationThemeGalleryEditButton"
-                                    Command="{Binding ElementName=Root, Path=ViewModel.EditThemeCommand}"
-                                    CommandParameter="{x:Bind}"
+                                    Click="EditThemeClick"
                                     Content="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}"
+                                    Tag="{x:Bind}"
                                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
                             </StackPanel>
                         </Grid>

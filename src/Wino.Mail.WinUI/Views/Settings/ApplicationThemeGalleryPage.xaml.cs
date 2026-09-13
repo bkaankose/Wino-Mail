@@ -42,4 +42,16 @@ public sealed partial class ApplicationThemeGalleryPage : ApplicationThemeGaller
         if (sender is FrameworkElement { DataContext: AppThemeBase theme } && !theme.IsCustomTheme)
             args.Handled = true;
     }
+
+    private void EditThemeClick(object sender, RoutedEventArgs args)
+    {
+        if (sender is FrameworkElement { Tag: AppThemeBase theme } && ViewModel.EditThemeCommand.CanExecute(theme))
+            ViewModel.EditThemeCommand.Execute(theme);
+    }
+
+    private void RemoveThemeClick(object sender, RoutedEventArgs args)
+    {
+        if (sender is FrameworkElement { Tag: AppThemeBase theme } && ViewModel.RemoveThemeCommand.CanExecute(theme))
+            ViewModel.RemoveThemeCommand.Execute(theme);
+    }
 }
