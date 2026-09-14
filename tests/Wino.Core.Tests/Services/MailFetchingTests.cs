@@ -566,6 +566,62 @@ public class MailFetchingTests : IAsyncLifetime
             $"fetching {TotalMails} threaded mails via batched SQLite queries should complete well under 5 s");
     }
 
+    [Fact]
+    public async Task CountMailsAsync_AppliesUnreadCutoffFolderAndDraftFilters()
+    {
+        var cutoff = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var otherFolder = await CreateFolderAsync(_testAccount, "Archive", "archive-count", SpecialFolderType.Archive);
+        var included = BuildMail(_inboxFolder.Id, cutoff.UtcDateTime.AddMinutes(1));
+        var beforeCutoff = BuildMail(_inboxFolder.Id, cutoff.UtcDateTime.AddMinutes(-1));
+        var read = BuildMail(_inboxFolder.Id, cutoff.UtcDateTime.AddMinutes(2));
+        read.IsRead = true;
+        var draft = BuildMail(_inboxFolder.Id, cutoff.UtcDateTime.AddMinutes(3));
+        draft.IsDraft = true;
+        var wrongFolder = BuildMail(otherFolder.Id, cutoff.UtcDateTime.AddMinutes(4));
+
+        await _databaseService.Connection.InsertAllAsync(
+            new[] { included, beforeCutoff, read, draft, wrongFolder },
+            typeof(MailCopy));
+
+        var options = BuildOptions([_inboxFolder], createThreads: false, deduplicateByServerId: true) with
+        {
+            FilterType = FilterOptionType.Unread,
+            ReceivedAfterUtc = cutoff,
+            ExcludeDrafts = true
+        };
+
+        var count = await _mailService.CountMailsAsync(options);
+
+        count.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CountMailsAsync_DeduplicatesServerIdsWithinAccountButNotAcrossAccounts()
+    {
+        var archiveFolder = await CreateFolderAsync(_testAccount, "Archive", "archive-dedupe", SpecialFolderType.Archive);
+        var secondAccount = await CreateAccountAsync("Second Account", "second-count@test.local");
+        var secondInbox = await CreateFolderAsync(secondAccount, "Inbox", "second-inbox-count", SpecialFolderType.Inbox);
+        const string sharedId = "shared-count-server-id";
+
+        await _databaseService.Connection.InsertAllAsync(
+            new[]
+            {
+                BuildMail(_inboxFolder.Id, DateTime.UtcNow, id: sharedId),
+                BuildMail(archiveFolder.Id, DateTime.UtcNow.AddMinutes(-1), id: sharedId),
+                BuildMail(secondInbox.Id, DateTime.UtcNow.AddMinutes(-2), id: sharedId)
+            },
+            typeof(MailCopy));
+
+        var options = BuildOptions(
+            [_inboxFolder, archiveFolder, secondInbox],
+            createThreads: false,
+            deduplicateByServerId: true);
+
+        var count = await _mailService.CountMailsAsync(options);
+
+        count.Should().Be(2);
+    }
+
     // ── Helpers ────────────────────────────────────────────────────────────────
 
     private static MailCopy BuildMail(

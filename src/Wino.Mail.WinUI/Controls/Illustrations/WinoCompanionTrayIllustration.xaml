@@ -1,0 +1,190 @@
+﻿<UserControl
+    x:Class="Wino.Controls.Illustrations.WinoCompanionTrayIllustration"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    IsHitTestVisible="False"
+    mc:Ignorable="d">
+
+    <!--
+        "Opens from there." The one thing the companion copy cannot say in words is where the flyout
+        comes from, so the drawing is a place, not a product shot: taskbar along the bottom, the Wino
+        tile lit in the tray, and the panel standing above it on the right where Windows actually puts it.
+        
+        Accent marks the subject twice and nowhere else: the tray tile you click, and the event line
+        it puts in front of you. Everything else is container.
+    -->
+    <Viewbox Stretch="Uniform">
+        <Canvas Width="260" Height="168">
+
+            <!--  The flyout, right-aligned over the tray the way Windows opens it  -->
+            <Rectangle
+                Canvas.Left="96"
+                Canvas.Top="12"
+                Width="152"
+                Height="106"
+                Fill="{ThemeResource WinoIllustrationSurfaceBrush}"
+                RadiusX="8"
+                RadiusY="8"
+                Stroke="{ThemeResource WinoIllustrationLineBrush}"
+                StrokeThickness="1.5" />
+
+            <!--  Favourite contacts  -->
+            <Ellipse
+                Canvas.Left="108"
+                Canvas.Top="24"
+                Width="14"
+                Height="14"
+                Fill="{ThemeResource WinoIllustrationLineSoftBrush}" />
+            <Ellipse
+                Canvas.Left="126"
+                Canvas.Top="24"
+                Width="14"
+                Height="14"
+                Fill="{ThemeResource WinoIllustrationLineSoftBrush}" />
+            <Ellipse
+                Canvas.Left="144"
+                Canvas.Top="24"
+                Width="14"
+                Height="14"
+                Fill="{ThemeResource WinoIllustrationLineSoftBrush}" />
+
+            <Rectangle
+                Canvas.Left="108"
+                Canvas.Top="46"
+                Width="128"
+                Height="1"
+                Fill="{ThemeResource WinoIllustrationLineSoftBrush}" />
+
+            <!--  The next event, the one thing the companion puts in front of you  -->
+            <Rectangle
+                Canvas.Left="108"
+                Canvas.Top="54"
+                Width="128"
+                Height="32"
+                RadiusX="6"
+                RadiusY="6"
+                Stroke="{ThemeResource WinoIllustrationAccentBrush}"
+                StrokeThickness="1.5" />
+            <Rectangle
+                Canvas.Left="116"
+                Canvas.Top="61"
+                Width="30"
+                Height="8"
+                Fill="{ThemeResource WinoIllustrationAccentBrush}"
+                RadiusX="4"
+                RadiusY="4" />
+            <Rectangle
+                Canvas.Left="116"
+                Canvas.Top="73"
+                Width="66"
+                Height="5"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2.5"
+                RadiusY="2.5" />
+
+            <!--  Unread mail below it  -->
+            <Rectangle
+                Canvas.Left="108"
+                Canvas.Top="94"
+                Width="104"
+                Height="5"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2.5"
+                RadiusY="2.5" />
+            <Rectangle
+                Canvas.Left="108"
+                Canvas.Top="105"
+                Width="78"
+                Height="5"
+                Fill="{ThemeResource WinoIllustrationLineSoftBrush}"
+                RadiusX="2.5"
+                RadiusY="2.5" />
+
+            <!--  It came from the tile below  -->
+            <Line
+                Canvas.Left="205"
+                Canvas.Top="118"
+                Stroke="{ThemeResource WinoIllustrationLineBrush}"
+                StrokeDashArray="2,3"
+                StrokeDashCap="Round"
+                StrokeThickness="1.5"
+                X1="0"
+                X2="0"
+                Y1="0"
+                Y2="22" />
+
+            <!--  Taskbar  -->
+            <Rectangle
+                Canvas.Left="0"
+                Canvas.Top="140"
+                Width="260"
+                Height="28"
+                Fill="{ThemeResource WinoIllustrationSurfaceBrush}"
+                RadiusX="6"
+                RadiusY="6"
+                Stroke="{ThemeResource WinoIllustrationLineSoftBrush}"
+                StrokeThickness="1.5" />
+
+            <Rectangle
+                Canvas.Left="150"
+                Canvas.Top="150"
+                Width="8"
+                Height="8"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2"
+                RadiusY="2" />
+            <Rectangle
+                Canvas.Left="166"
+                Canvas.Top="150"
+                Width="8"
+                Height="8"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2"
+                RadiusY="2" />
+            <Rectangle
+                Canvas.Left="182"
+                Canvas.Top="150"
+                Width="8"
+                Height="8"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2"
+                RadiusY="2" />
+
+            <!--  The Wino tile you click, lit  -->
+            <Rectangle
+                Canvas.Left="194"
+                Canvas.Top="143"
+                Width="22"
+                Height="22"
+                Fill="{ThemeResource WinoIllustrationAccentBrush}"
+                Opacity="0.2"
+                RadiusX="8"
+                RadiusY="8" />
+            <Rectangle
+                Canvas.Left="197"
+                Canvas.Top="146"
+                Width="16"
+                Height="16"
+                Fill="{ThemeResource WinoIllustrationAccentBrush}"
+                RadiusX="5"
+                RadiusY="5" />
+            <Path
+                Data="M200,150.5 L205,154.5 L210,150.5"
+                Stroke="{ThemeResource WinoIllustrationSurfaceBrush}"
+                StrokeLineJoin="Round"
+                StrokeThickness="1.5" />
+
+            <!--  Clock  -->
+            <Rectangle
+                Canvas.Left="228"
+                Canvas.Top="150"
+                Width="22"
+                Height="8"
+                Fill="{ThemeResource WinoIllustrationLineSoftBrush}"
+                RadiusX="4"
+                RadiusY="4" />
+        </Canvas>
+    </Viewbox>
+</UserControl>

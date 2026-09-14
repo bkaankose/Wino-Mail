@@ -7,7 +7,6 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mail="using:Wino.Mail.ViewModels.Data"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
-    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     x:Name="Root"
     Width="400"
     MinHeight="460"
@@ -614,7 +613,8 @@
                 <Viewbox
                     Width="128"
                     Height="104"
-                    Margin="0,0,0,14">
+                    Margin="0,0,0,14"
+                    Visibility="Collapsed">
                     <Canvas Width="128" Height="104">
                         <Path
                             Data="M26 52h20l6 10h24l6-10h20v28a6 6 0 0 1-6 6H32a6 6 0 0 1-6-6V52z"
@@ -662,48 +662,68 @@
                 Background="{ThemeResource CompanionSubtleBackgroundBrush}"
                 BorderBrush="{ThemeResource CompanionDividerBrush}"
                 BorderThickness="0,1,0,0">
-                <toolkit:Segmented
-                    x:Name="AppModeSwitcher"
+                <Grid
                     HorizontalAlignment="Stretch"
                     AutomationProperties.AutomationId="CompanionAppModeSwitcher"
-                    SelectionChanged="AppMode_SelectionChanged">
-                    <toolkit:SegmentedItem
+                    ColumnSpacing="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Button
+                        HorizontalAlignment="Stretch"
                         AutomationProperties.AutomationId="CompanionDockMailButton"
                         AutomationProperties.Name="{x:Bind domain:Translator.Companion_Mail, Mode=OneTime}"
-                        Content="{x:Bind domain:Translator.Companion_Mail, Mode=OneTime}"
+                        Command="{x:Bind ViewModel.OpenInboxCommand}"
+                        Style="{ThemeResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Mail, Mode=OneTime}">
-                        <toolkit:SegmentedItem.Icon>
-                            <FontIcon FontSize="16" Glyph="&#xE715;" />
-                        </toolkit:SegmentedItem.Icon>
-                    </toolkit:SegmentedItem>
-                    <toolkit:SegmentedItem
+                        <Image
+                            Width="28"
+                            Height="28"
+                            Source="ms-appx:///Assets/AppEntries/Mail.svg" />
+                    </Button>
+                    <Button
+                        Grid.Column="1"
+                        HorizontalAlignment="Stretch"
                         AutomationProperties.AutomationId="CompanionDockCalendarButton"
                         AutomationProperties.Name="{x:Bind domain:Translator.Companion_Calendar, Mode=OneTime}"
-                        Content="{x:Bind domain:Translator.Companion_Calendar, Mode=OneTime}"
+                        Command="{x:Bind ViewModel.OpenCalendarCommand}"
+                        Style="{ThemeResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Calendar, Mode=OneTime}">
-                        <toolkit:SegmentedItem.Icon>
-                            <FontIcon FontSize="16" Glyph="&#xE787;" />
-                        </toolkit:SegmentedItem.Icon>
-                    </toolkit:SegmentedItem>
-                    <toolkit:SegmentedItem
+                        <Image
+                            Width="28"
+                            Height="28"
+                            Source="ms-appx:///Assets/AppEntries/Calendar.svg" />
+                    </Button>
+                    <Button
+                        Grid.Column="2"
+                        HorizontalAlignment="Stretch"
                         AutomationProperties.AutomationId="CompanionDockContactsButton"
                         AutomationProperties.Name="{x:Bind domain:Translator.Companion_Contacts, Mode=OneTime}"
-                        Content="{x:Bind domain:Translator.Companion_Contacts, Mode=OneTime}"
+                        Command="{x:Bind ViewModel.FindAnyContactCommand}"
+                        Style="{ThemeResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Contacts, Mode=OneTime}">
-                        <toolkit:SegmentedItem.Icon>
-                            <FontIcon FontSize="16" Glyph="&#xE77B;" />
-                        </toolkit:SegmentedItem.Icon>
-                    </toolkit:SegmentedItem>
-                    <toolkit:SegmentedItem
+                        <Image
+                            Width="28"
+                            Height="28"
+                            Source="ms-appx:///Assets/AppEntries/People.svg" />
+                    </Button>
+                    <Button
+                        Grid.Column="3"
+                        HorizontalAlignment="Stretch"
                         AutomationProperties.AutomationId="CompanionDockTasksButton"
                         AutomationProperties.Name="{x:Bind domain:Translator.Companion_Tasks, Mode=OneTime}"
-                        Content="{x:Bind domain:Translator.Companion_Tasks, Mode=OneTime}"
+                        Command="{x:Bind ViewModel.OpenTasksCommand}"
+                        Style="{ThemeResource SubtleButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Tasks, Mode=OneTime}">
-                        <toolkit:SegmentedItem.Icon>
-                            <FontIcon FontSize="16" Glyph="&#xE73E;" />
-                        </toolkit:SegmentedItem.Icon>
-                    </toolkit:SegmentedItem>
-                </toolkit:Segmented>
+                        <Image
+                            Width="28"
+                            Height="28"
+                            Source="ms-appx:///Assets/AppEntries/ToDo.svg" />
+                    </Button>
+                </Grid>
             </Border>
         </Grid>
     </Grid>

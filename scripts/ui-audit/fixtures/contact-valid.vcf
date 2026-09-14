@@ -1,0 +1,10 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Activation;WinoAudit-0913;;;
+FN:WinoAudit-0913 Activation
+EMAIL;TYPE=INTERNET:winoaudit@example.invalid
+TEL;TYPE=CELL:+12025550123
+ORG:Synthetic Audit
+NOTE:Reusable synthetic contact fixture.
+END:VCARD
+

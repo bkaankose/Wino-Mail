@@ -8,64 +8,131 @@
     mc:Ignorable="d">
 
     <!--
-        "Letterhead." One sheet squared to the grid, with the accent carried by the header band alone.
-        No envelope and no overlapping silhouettes, so no edge can fall out of alignment with another.
+        "Pick one from the list." The drawing is the app itself: a list column with one row selected in
+        the accent, and the reading pane beside it holding nothing but ghosted placeholder rules. It says
+        what the empty state actually means - the pane is waiting on a selection - where an envelope or a
+        sheet only says that mail exists.
         
-        The canvas is 128x84 rather than the family's 128x128: the drawing only ever filled the top of a
-        square, and the empty quarter below it pushed the caption away from the artwork. Cropping the
-        canvas to the artwork lets the caption sit where the layout puts it. Height is therefore driven
-        by the host's Width alone - do not set an explicit Height on this control.
+        The accent appears once, on the selected row. Everything else is the neutral container, so the
+        drawing follows whatever accent the active app theme installs.
+        
+        The canvas is 128x84 rather than the family's 128x128 so the caption sits close to the artwork.
+        Height is driven by the host's Width alone - do not set an explicit Height on this control.
     -->
     <Viewbox Stretch="Uniform">
         <Canvas Width="128" Height="84">
+            <!--  Ground shadow  -->
             <Ellipse
-                Canvas.Left="32"
-                Canvas.Top="72.5"
-                Width="64"
-                Height="9"
+                Canvas.Left="28"
+                Canvas.Top="74"
+                Width="72"
+                Height="8"
                 Fill="{ThemeResource WinoIllustrationShadowBrush}" />
 
-            <!--  The sheet  -->
+            <!--  Window  -->
             <Rectangle
-                Canvas.Left="26"
+                Canvas.Left="12"
                 Canvas.Top="6"
-                Width="76"
-                Height="62"
+                Width="104"
+                Height="66"
                 Fill="{ThemeResource WinoIllustrationSurfaceBrush}"
-                RadiusX="9"
-                RadiusY="9"
+                RadiusX="8"
+                RadiusY="8" />
+
+            <!--  List column  -->
+            <Path Data="M12,14 C12,9.6 15.6,6 20,6 L48,6 L48,72 L20,72 C15.6,72 12,68.4 12,64 Z" Fill="{ThemeResource WinoIllustrationLineSoftBrush}" />
+
+            <Rectangle
+                Canvas.Left="18"
+                Canvas.Top="14"
+                Width="24"
+                Height="4"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2"
+                RadiusY="2" />
+
+            <!--  The selected row  -->
+            <Rectangle
+                Canvas.Left="18"
+                Canvas.Top="24"
+                Width="24"
+                Height="10"
+                Fill="{ThemeResource WinoIllustrationAccentBrush}"
+                RadiusX="3"
+                RadiusY="3" />
+
+            <Rectangle
+                Canvas.Left="18"
+                Canvas.Top="40"
+                Width="24"
+                Height="4"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2"
+                RadiusY="2" />
+
+            <Rectangle
+                Canvas.Left="18"
+                Canvas.Top="50"
+                Width="24"
+                Height="4"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2"
+                RadiusY="2" />
+
+            <Rectangle
+                Canvas.Left="18"
+                Canvas.Top="60"
+                Width="18"
+                Height="4"
+                Fill="{ThemeResource WinoIllustrationLineBrush}"
+                RadiusX="2"
+                RadiusY="2" />
+
+            <!--  The reading pane, empty  -->
+            <Rectangle
+                Canvas.Left="58"
+                Canvas.Top="24"
+                Width="48"
+                Height="36"
+                Opacity="0.9"
+                RadiusX="6"
+                RadiusY="6"
                 Stroke="{ThemeResource WinoIllustrationLineBrush}"
                 StrokeThickness="1.5" />
 
-            <!--  Header band. The one accent shape. Top corners match the sheet exactly.  -->
-            <Path Data="M26,15 C26,10 30,6 35,6 L93,6 C98,6 102,10 102,15 L102,24 L26,24 Z" Fill="{ThemeResource WinoIllustrationAccentBrush}" />
+            <!--  Ghosted placeholder rules - what would be there once a message is picked  -->
+            <Line
+                Opacity="0.6"
+                Stroke="{ThemeResource WinoIllustrationLineBrush}"
+                StrokeEndLineCap="Round"
+                StrokeStartLineCap="Round"
+                StrokeThickness="3"
+                X1="68"
+                X2="96"
+                Y1="40"
+                Y2="40" />
 
-            <!--  Body copy  -->
+            <Line
+                Opacity="0.6"
+                Stroke="{ThemeResource WinoIllustrationLineBrush}"
+                StrokeEndLineCap="Round"
+                StrokeStartLineCap="Round"
+                StrokeThickness="3"
+                X1="68"
+                X2="86"
+                Y1="48"
+                Y2="48" />
+
+            <!--  The window outline goes on last so the list column cannot paint over it  -->
             <Rectangle
-                Canvas.Left="38"
-                Canvas.Top="36"
-                Width="52"
-                Height="4"
-                Fill="{ThemeResource WinoIllustrationLineBrush}"
-                RadiusX="2"
-                RadiusY="2" />
-            <Rectangle
-                Canvas.Left="38"
-                Canvas.Top="46"
-                Width="44"
-                Height="4"
-                Fill="{ThemeResource WinoIllustrationLineBrush}"
-                RadiusX="2"
-                RadiusY="2" />
-            <Rectangle
-                Canvas.Left="38"
-                Canvas.Top="56"
-                Width="30"
-                Height="4"
-                Fill="{ThemeResource WinoIllustrationAccentBrush}"
-                Opacity="0.2"
-                RadiusX="2"
-                RadiusY="2" />
+                Canvas.Left="12"
+                Canvas.Top="6"
+                Width="104"
+                Height="66"
+                RadiusX="8"
+                RadiusY="8"
+                Stroke="{ThemeResource WinoIllustrationLineBrush}"
+                StrokeThickness="1.5" />
         </Canvas>
     </Viewbox>
 </UserControl>

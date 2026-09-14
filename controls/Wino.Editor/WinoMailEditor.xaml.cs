@@ -685,7 +685,25 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         if (_disposed) return;
         _disposed = true;
         _loadedSource.TrySetException(new ObjectDisposedException(nameof(WinoMailEditor)));
+        Loaded -= WinoMailEditor_Loaded;
+        Unloaded -= WinoMailEditor_Unloaded;
         DisposeBridge();
+
+        if (EditorWebView2 is not null)
+        {
+            EditorWebView2.DragOver -= EditorWebView_DragOver;
+            EditorWebView2.Drop -= EditorWebView_Drop;
+
+            try { EditorWebView2.Close(); }
+            catch (Exception exception) when (
+                exception is InvalidOperationException or ObjectDisposedException)
+            {
+            }
+
+            EditorWebView2 = null;
+        }
+
+        Content = null;
         GC.SuppressFinalize(this);
     }
 }

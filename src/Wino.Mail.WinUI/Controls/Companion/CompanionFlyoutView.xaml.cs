@@ -15,8 +15,6 @@ namespace Wino.Mail.WinUI.Controls.Companion;
 
 public sealed partial class CompanionFlyoutView : UserControl
 {
-    private bool _isResettingAppMode;
-
     internal CompanionFlyoutView(CompanionDashboardViewModel viewModel)
     {
         ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
@@ -112,39 +110,6 @@ public sealed partial class CompanionFlyoutView : UserControl
         => await ExecuteCommandAsync(
             sender,
             static (viewModel, parameter) => viewModel.FindContactCommand.ExecuteAsync((AccountContactViewModel)parameter));
-
-    private async void AppMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_isResettingAppMode)
-            return;
-
-        var selectedIndex = AppModeSwitcher.SelectedIndex;
-        if (selectedIndex < 0)
-            return;
-
-        // The dock launches the app mode instead of switching a persistent selection,
-        // so the segment must not stay selected after the command runs.
-        _isResettingAppMode = true;
-        AppModeSwitcher.SelectedIndex = -1;
-        _isResettingAppMode = false;
-
-        try
-        {
-            var command = selectedIndex switch
-            {
-                1 => ViewModel.OpenCalendarCommand,
-                2 => ViewModel.FindAnyContactCommand,
-                3 => ViewModel.OpenTasksCommand,
-                _ => ViewModel.OpenInboxCommand
-            };
-
-            await command.ExecuteAsync(null);
-        }
-        catch (Exception ex)
-        {
-            ViewModel.ReportActionError(ex);
-        }
-    }
 
     private async Task ExecuteCommandAsync(
         object sender,

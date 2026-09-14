@@ -36,6 +36,11 @@ public interface IFolderService
     Task<int> GetFolderUnreadCountAsync(Guid folderId);
 
     /// <summary>
+    /// Unread count of a single folder for the requested Focused Inbox section.
+    /// </summary>
+    Task<int> GetFolderUnreadCountAsync(Guid folderId, bool isFocused);
+
+    /// <summary>
     /// Unread counts of the folders that feed the account total, honoring the account count source.
     /// </summary>
     Task<List<UnreadBadgeFolderContribution>> GetCountedFolderUnreadCountsAsync(Guid accountId);

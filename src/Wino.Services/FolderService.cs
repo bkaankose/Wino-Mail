@@ -171,6 +171,20 @@ public class FolderService : BaseDatabaseService, IFolderService
         return await GetFolderUnreadCountAsync(folder, account).ConfigureAwait(false);
     }
 
+    public async Task<int> GetFolderUnreadCountAsync(Guid folderId, bool isFocused)
+    {
+        var folder = await GetFolderAsync(folderId).ConfigureAwait(false);
+
+        if (folder == null)
+            return 0;
+
+        return await Connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM MailCopy WHERE FolderId = ? AND IsFocused = ? AND IsRead = ?",
+            folder.Id,
+            isFocused ? 1 : 0,
+            0).ConfigureAwait(false);
+    }
+
     public async Task<List<UnreadBadgeFolderContribution>> GetCountedFolderUnreadCountsAsync(Guid accountId)
     {
         var account = await _accountService.GetAccountAsync(accountId);

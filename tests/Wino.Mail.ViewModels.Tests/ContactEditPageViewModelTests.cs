@@ -442,6 +442,22 @@ public class ContactEditPageViewModelTests
     }
 
     [Fact]
+    public void RemovePhotoLabel_DescribesOutlookLocalHideSemantics()
+    {
+        var viewModel = CreateViewModel();
+
+        viewModel.SelectedDestination = new ContactCreateDestination(
+            Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Outlook, "Outlook", "Contacts", true);
+
+        viewModel.RemovePhotoLabel.Should().Be("Hide picture in Wino");
+
+        viewModel.SelectedDestination = new ContactCreateDestination(
+            Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Gmail, "Gmail", "Contacts", true);
+
+        viewModel.RemovePhotoLabel.Should().Be("Remove Photo");
+    }
+
+    [Fact]
     public async Task SaveWithPhoto_QueuesContactAndPhotoMutationsAsOneBatch()
     {
         byte[] imageBytes = [0x89, 0x50, 0x4E, 0x47];

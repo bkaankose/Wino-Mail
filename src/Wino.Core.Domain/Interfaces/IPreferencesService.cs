@@ -47,6 +47,31 @@ public interface IPreferencesService : INotifyPropertyChanged
     bool IsCompanionEnabled { get; set; }
 
     /// <summary>
+    /// Setting: Which unread messages are shown in the companion flyout.
+    /// </summary>
+    CompanionUnreadMessageBehavior CompanionUnreadMessageBehavior { get; set; }
+
+    /// <summary>
+    /// Setting: Whether calendar events are shown in the companion flyout.
+    /// </summary>
+    bool ShowCalendarInCompanion { get; set; }
+
+    /// <summary>
+    /// Setting: Whether unread messages are shown in the companion flyout.
+    /// </summary>
+    bool ShowUnreadMailInCompanion { get; set; }
+
+    /// <summary>
+    /// Setting: Whether tasks are shown in the companion flyout.
+    /// </summary>
+    bool ShowTasksInCompanion { get; set; }
+
+    /// <summary>
+    /// Setting: Whether favorite contacts are shown in the companion flyout.
+    /// </summary>
+    bool ShowFavoriteContactsInCompanion { get; set; }
+
+    /// <summary>
     /// Setting: Whether the companion flyout can be toggled with a system-wide hot key.
     /// </summary>
     bool IsCompanionHotKeyEnabled { get; set; }
@@ -183,6 +208,11 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// Setting: Show group headers in mail list.
     /// </summary>
     bool IsMailListGroupHeadersEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Show an unread message notice for the Other tab while viewing Focused Inbox.
+    /// </summary>
+    bool IsOtherInboxUnreadNoticeEnabled { get; set; }
 
     /// <summary>
     /// Setting: Set whether 'img' tags in rendered HTMLs should be removed.

@@ -2,15 +2,21 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.Windows.Storage.Pickers;
 using Wino.Mail.Controls.AccountIcon;
+using Wino.Mail.Controls.Playground.Lifetime;
 using Wino.Mail.Controls.Playground.ViewModels;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
-public sealed partial class AccountIconPage : Page
+public sealed partial class AccountIconPage : Page, IDisposable, IPlaygroundLifetimeAware
 {
+    private bool _disposed;
+
     public AccountIconPageViewModel ViewModel { get; } = new();
 
     public WinoAccountIconSource InfoBarAccountIconSource { get; } = new();
+
+    IEnumerable<object> IPlaygroundLifetimeAware.AdditionalLifetimeObjects =>
+        (object[])[InfoBarAccountIconSource];
 
     public AccountIconPage()
     {
@@ -70,7 +76,20 @@ public sealed partial class AccountIconPage : Page
 
     private void PageUnloaded(object sender, RoutedEventArgs args)
     {
+        Dispose();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
         ViewModel.PropertyChanged -= ViewModelPropertyChanged;
+        Bindings.StopTracking();
         InfoBarAccountIconSource.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

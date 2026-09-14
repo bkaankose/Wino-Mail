@@ -32,15 +32,32 @@ public sealed partial class WinoHotKeyInput : Button
 
     public WinoHotKeyInput()
     {
+        DefaultStyleKey = typeof(Button);
         HorizontalAlignment = HorizontalAlignment.Stretch;
         HorizontalContentAlignment = HorizontalAlignment.Left;
-        Click += OnControlClicked;
-
-        RegisterPropertyChangedCallback(KeyProperty, OnDisplayPropertyChanged);
-        RegisterPropertyChangedCallback(ModifiersProperty, OnDisplayPropertyChanged);
-        RegisterPropertyChangedCallback(NormalPromptProperty, OnDisplayPropertyChanged);
-        RegisterPropertyChangedCallback(ListeningPromptProperty, OnDisplayPropertyChanged);
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
         UpdateDisplay();
+    }
+
+    partial void OnKeyChanged(VirtualKey newValue) => UpdateDisplay();
+
+    partial void OnModifiersChanged(VirtualKeyModifiers newValue) => UpdateDisplay();
+
+    partial void OnNormalPromptChanged(string newValue) => UpdateDisplay();
+
+    partial void OnListeningPromptChanged(string newValue) => UpdateDisplay();
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        Click -= OnControlClicked;
+        Click += OnControlClicked;
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        Click -= OnControlClicked;
+        CancelCapture();
     }
 
     protected override void OnKeyDown(KeyRoutedEventArgs e)
@@ -133,8 +150,6 @@ public sealed partial class WinoHotKeyInput : Button
     }
 
     private void OnControlClicked(object sender, RoutedEventArgs e) => BeginCapture();
-
-    private void OnDisplayPropertyChanged(DependencyObject sender, DependencyProperty property) => UpdateDisplay();
 
     private void UpdateDisplay()
     {

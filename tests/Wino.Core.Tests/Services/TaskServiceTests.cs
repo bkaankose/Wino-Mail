@@ -430,6 +430,7 @@ public sealed class TaskServiceTests : IAsyncLifetime
             Title = "Provider title",
             Notes = "Provider notes",
             IsCompleted = true,
+            IsImportant = true,
             Steps =
             [
                 new AccountTaskStep
@@ -447,6 +448,7 @@ public sealed class TaskServiceTests : IAsyncLifetime
         result.Title.Should().Be("Provider title");
         result.Notes.Should().Be("Provider notes");
         result.IsCompleted.Should().BeTrue();
+        result.IsImportant.Should().BeTrue();
         result.Steps.Should().ContainSingle();
         result.Steps[0].Title.Should().Be("Provider step");
         result.Steps[0].IsCompleted.Should().BeTrue();
@@ -625,6 +627,184 @@ public sealed class TaskServiceTests : IAsyncLifetime
         result.Steps[0].Id.Should().Be(pending.Id);
         result.Steps[0].RemoteId.Should().Be("created-step");
         result.Steps[0].PendingMutation.Should().Be(TaskPendingMutation.None);
+    }
+
+    [Fact]
+    public async Task CompleteStepMutationAsync_AbsentRowUsesRequestedOwnership()
+    {
+        var list = await _taskService.UpsertRemoteTaskListAsync(new AccountTaskList
+        {
+            MailAccountId = _imapAccount.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-list",
+            Title = "Tasks"
+        });
+        var parent = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-task",
+            Title = "Task"
+        });
+        var requested = new AccountTaskStep
+        {
+            Id = Guid.NewGuid(),
+            TaskId = parent.Id,
+            MailAccountId = parent.MailAccountId,
+            SourceKind = parent.SourceKind,
+            Title = "Step"
+        };
+
+        await _taskService.CompleteStepMutationAsync(requested.Id, new AccountTaskStep
+        {
+            TaskId = Guid.NewGuid(),
+            MailAccountId = Guid.NewGuid(),
+            SourceKind = TaskSourceKind.Gmail,
+            RemoteId = "remote-step",
+            Title = "Step"
+        }, deleted: false, requestedStep: requested, completedOperation: TaskSynchronizerOperation.CreateStep);
+
+        var result = await _taskService.GetTaskAsync(parent.Id);
+        result.Should().NotBeNull();
+        result!.Steps.Should().ContainSingle();
+        result.Steps[0].Id.Should().Be(requested.Id);
+        result.Steps[0].TaskId.Should().Be(parent.Id);
+        result.Steps[0].MailAccountId.Should().Be(parent.MailAccountId);
+        result.Steps[0].SourceKind.Should().Be(parent.SourceKind);
+    }
+
+    [Fact]
+    public async Task CompleteTaskMutationAsync_LateCreateAcknowledgementPreservesQueuedDelete()
+    {
+        var list = await _taskService.UpsertRemoteTaskListAsync(new AccountTaskList
+        {
+            MailAccountId = _imapAccount.Id,
+            SourceKind = TaskSourceKind.Gmail,
+            RemoteId = "remote-list",
+            Title = "Tasks"
+        });
+        var local = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Gmail,
+            Title = "Delete before create returns"
+        });
+        var createRequest = RequestEntityCloner.Task(local);
+
+        await _taskService.DeleteTaskAsync(local.Id);
+        var deleteRequest = await _taskService.GetTaskAsync(local.Id);
+
+        await _taskService.CompleteTaskMutationAsync(local.Id, new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Gmail,
+            RemoteId = "remote-task",
+            RemoteVersion = "etag-1",
+            Title = local.Title
+        }, deleted: false, requestedTask: createRequest, completedOperation: TaskSynchronizerOperation.CreateTask);
+
+        var pendingDelete = await _taskService.GetTaskAsync(local.Id);
+        pendingDelete.Should().NotBeNull();
+        pendingDelete!.RemoteId.Should().Be("remote-task");
+        pendingDelete.PendingMutation.Should().Be(TaskPendingMutation.Delete);
+
+        await _taskService.CompleteTaskMutationAsync(
+            local.Id,
+            null,
+            deleted: true,
+            requestedTask: deleteRequest,
+            completedOperation: TaskSynchronizerOperation.DeleteTask);
+
+        (await _taskService.GetTaskAsync(local.Id)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task CompleteTaskMutationAsync_OlderUpdateCannotOverwriteNewerPendingEdit()
+    {
+        var list = await _taskService.UpsertRemoteTaskListAsync(new AccountTaskList
+        {
+            MailAccountId = _imapAccount.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-list",
+            Title = "Tasks"
+        });
+        var local = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-task",
+            RemoteVersion = "etag-base",
+            Title = "Original"
+        });
+        local.PendingMutation = TaskPendingMutation.Update;
+        local.Title = "Newest edit";
+        local.ModifiedAtUtc = DateTime.UtcNow;
+        await _database.Connection.UpdateAsync(local);
+
+        var olderRequest = RequestEntityCloner.Task(local);
+        olderRequest.Title = "Older edit";
+        olderRequest.ModifiedAtUtc = local.ModifiedAtUtc.AddTicks(-1);
+
+        await _taskService.CompleteTaskMutationAsync(local.Id, new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-task",
+            RemoteVersion = "etag-after-older",
+            Title = "Older edit"
+        }, deleted: false, requestedTask: olderRequest, completedOperation: TaskSynchronizerOperation.UpdateTask);
+
+        var result = await _taskService.GetTaskAsync(local.Id);
+        result.Should().NotBeNull();
+        result!.Title.Should().Be("Newest edit");
+        result.RemoteVersion.Should().Be("etag-after-older");
+        result.PendingMutation.Should().Be(TaskPendingMutation.Update);
+    }
+
+    [Fact]
+    public async Task CompleteTaskMutationAsync_OlderProviderVersionCannotOverwriteAcknowledgedState()
+    {
+        var list = await _taskService.UpsertRemoteTaskListAsync(new AccountTaskList
+        {
+            MailAccountId = _imapAccount.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-list",
+            Title = "Tasks"
+        });
+        var local = await _taskService.CreateTaskAsync(new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-task",
+            RemoteVersion = "etag-new",
+            Title = "Newest acknowledged state"
+        });
+        local.PendingMutation = TaskPendingMutation.None;
+        await _database.Connection.UpdateAsync(local);
+
+        var olderRequest = RequestEntityCloner.Task(local);
+        olderRequest.RemoteVersion = "etag-old";
+
+        await _taskService.CompleteTaskMutationAsync(local.Id, new AccountTask
+        {
+            MailAccountId = _imapAccount.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Outlook,
+            RemoteId = "remote-task",
+            RemoteVersion = "etag-old-response",
+            Title = "Older acknowledged state"
+        }, deleted: false, requestedTask: olderRequest, completedOperation: TaskSynchronizerOperation.UpdateTask);
+
+        var result = await _taskService.GetTaskAsync(local.Id);
+        result.Should().NotBeNull();
+        result!.Title.Should().Be("Newest acknowledged state");
+        result.RemoteVersion.Should().Be("etag-new");
     }
 
     private Task<AccountTask> CreateAsync(

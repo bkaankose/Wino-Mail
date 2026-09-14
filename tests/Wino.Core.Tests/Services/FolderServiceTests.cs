@@ -41,6 +41,31 @@ public class FolderServiceTests : IAsyncLifetime
     public async Task DisposeAsync() => await _databaseService.DisposeAsync();
 
     [Fact]
+    public async Task GetFolderUnreadCountAsync_WithFocusedFilter_CountsRequestedSection()
+    {
+        var inbox = CreateFolder("Inbox", "inbox", specialFolderType: SpecialFolderType.Inbox);
+        await InsertFoldersAsync(inbox);
+
+        var messages = new MailCopy[]
+        {
+            new MailCopy { UniqueId = Guid.NewGuid(), Id = "focused-unread", FolderId = inbox.Id, IsFocused = true, IsRead = false },
+            new MailCopy { UniqueId = Guid.NewGuid(), Id = "other-unread", FolderId = inbox.Id, IsFocused = false, IsRead = false },
+            new MailCopy { UniqueId = Guid.NewGuid(), Id = "other-read", FolderId = inbox.Id, IsFocused = false, IsRead = true }
+        };
+
+        foreach (var message in messages)
+        {
+            await _databaseService.Connection.InsertAsync(message, typeof(MailCopy));
+        }
+
+        var focusedUnreadCount = await _folderService.GetFolderUnreadCountAsync(inbox.Id, true);
+        var otherUnreadCount = await _folderService.GetFolderUnreadCountAsync(inbox.Id, false);
+
+        focusedUnreadCount.Should().Be(1);
+        otherUnreadCount.Should().Be(1);
+    }
+
+    [Fact]
     public async Task InsertFolderAsync_ForExistingFolder_PreservesSynchronizationState()
     {
         var folderId = Guid.NewGuid();

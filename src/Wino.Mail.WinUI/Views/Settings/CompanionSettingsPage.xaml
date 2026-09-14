@@ -7,10 +7,47 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:hotKey="using:Wino.Mail.Controls.HotKeyInput"
+    xmlns:illustrations="using:Wino.Controls.Illustrations"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <Border
+            Margin="0,0,0,12"
+            Padding="24"
+            AutomationProperties.AutomationId="CompanionSettingsAboutCard"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8">
+            <Grid ColumnSpacing="24">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="2*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel VerticalAlignment="Center" Spacing="8">
+                    <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.CompanionSettings_About_Title, Mode=OneTime}" />
+                    <TextBlock
+                        MaxWidth="520"
+                        HorizontalAlignment="Left"
+                        AutomationProperties.AutomationId="CompanionSettingsAboutDescription"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{ThemeResource BodyTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.CompanionSettings_About_Description, Mode=OneTime}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+
+                <illustrations:WinoCompanionTrayIllustration
+                    Grid.Column="1"
+                    MaxWidth="240"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    AutomationProperties.AutomationId="CompanionSettingsAboutIllustration"
+                    AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_About_IllustrationName, Mode=OneTime}" />
+            </Grid>
+        </Border>
+
         <controls:SettingsCard
             AutomationProperties.AutomationId="CompanionSettingsEnableCard"
             Description="{x:Bind domain:Translator.CompanionSettings_Enable_Description, Mode=OneTime}"
@@ -25,33 +62,100 @@
                 Toggled="CompanionEnabled_Toggled" />
         </controls:SettingsCard>
 
-        <controls:SettingsCard
+        <controls:SettingsExpander
+            x:Name="CompanionContentExpander"
+            AutomationProperties.AutomationId="CompanionSettingsContentExpander"
+            Description="{x:Bind domain:Translator.CompanionSettings_Content_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.CompanionSettings_Content_Title, Mode=OneTime}">
+            <controls:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE8A0;" />
+            </controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard AutomationProperties.AutomationId="CompanionSettingsShowCalendarCard" Header="{x:Bind domain:Translator.CompanionSettings_ShowCalendar_Title, Mode=OneTime}">
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="CompanionSettingsShowCalendarToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_ShowCalendar_Title, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.PreferencesService.ShowCalendarInCompanion, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard AutomationProperties.AutomationId="CompanionSettingsShowUnreadMailCard" Header="{x:Bind domain:Translator.CompanionSettings_ShowUnreadMail_Title, Mode=OneTime}">
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="CompanionSettingsShowUnreadMailToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_ShowUnreadMail_Title, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.PreferencesService.ShowUnreadMailInCompanion, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="CompanionSettingsUnreadBehaviorCard"
+                    Description="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_Title, Mode=OneTime}"
+                    IsEnabled="{x:Bind ViewModel.PreferencesService.ShowUnreadMailInCompanion, Mode=OneWay}">
+                    <RadioButtons x:Name="UnreadBehaviorPanel" AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_Title, Mode=OneTime}">
+                        <RadioButton
+                            x:Name="AfterAppSessionRadioButton"
+                            AutomationProperties.AutomationId="CompanionSettingsUnreadAfterSessionRadioButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_AfterAppSession, Mode=OneTime}"
+                            Checked="AfterAppSessionRadioButton_Checked"
+                            Content="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_AfterAppSession, Mode=OneTime}" />
+                        <RadioButton
+                            x:Name="EverythingRadioButton"
+                            AutomationProperties.AutomationId="CompanionSettingsUnreadEverythingRadioButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_Everything, Mode=OneTime}"
+                            Checked="EverythingRadioButton_Checked"
+                            Content="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_Everything, Mode=OneTime}" />
+                    </RadioButtons>
+                </controls:SettingsCard>
+
+                <controls:SettingsCard AutomationProperties.AutomationId="CompanionSettingsShowTasksCard" Header="{x:Bind domain:Translator.CompanionSettings_ShowTasks_Title, Mode=OneTime}">
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="CompanionSettingsShowTasksToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_ShowTasks_Title, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.PreferencesService.ShowTasksInCompanion, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard AutomationProperties.AutomationId="CompanionSettingsShowFavoriteContactsCard" Header="{x:Bind domain:Translator.CompanionSettings_ShowFavoriteContacts_Title, Mode=OneTime}">
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="CompanionSettingsShowFavoriteContactsToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_ShowFavoriteContacts_Title, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.PreferencesService.ShowFavoriteContactsInCompanion, Mode=TwoWay}" />
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <controls:SettingsExpander
+            x:Name="CompanionHotKeyExpander"
             AutomationProperties.AutomationId="CompanionSettingsHotKeyCard"
             Description="{x:Bind domain:Translator.CompanionSettings_HotKey_Description, Mode=OneTime}"
-            Header="{x:Bind domain:Translator.CompanionSettings_HotKey_Title, Mode=OneTime}">
-            <controls:SettingsCard.HeaderIcon>
+            Header="{x:Bind domain:Translator.CompanionSettings_HotKey_Title, Mode=OneTime}"
+            IsExpanded="True">
+            <controls:SettingsExpander.HeaderIcon>
                 <FontIcon Glyph="&#xE92E;" />
-            </controls:SettingsCard.HeaderIcon>
-            <StackPanel Width="280" Spacing="8">
-                <ToggleSwitch
-                    x:Name="HotKeyEnabledToggle"
-                    AutomationProperties.AutomationId="CompanionSettingsHotKeyToggle"
-                    AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_HotKey_Title, Mode=OneTime}"
-                    Toggled="HotKeyEnabled_Toggled" />
-                <hotKey:WinoHotKeyInput
-                    x:Name="HotKeyInput"
-                    AutomationProperties.AutomationId="CompanionSettingsHotKeyInput"
-                    AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_HotKey_KeyCombination, Mode=OneTime}"
-                    HotKeyCommitted="HotKeyInput_HotKeyCommitted"
-                    ListeningPrompt="{x:Bind domain:Translator.CompanionSettings_HotKey_Listening, Mode=OneTime}"
-                    NormalPrompt="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere, Mode=OneTime}" />
-                <InfoBar
-                    x:Name="HotKeyErrorInfoBar"
-                    AutomationProperties.AutomationId="CompanionSettingsHotKeyError"
-                    IsClosable="False"
-                    IsOpen="False"
-                    Severity="Error" />
-            </StackPanel>
-        </controls:SettingsCard>
+            </controls:SettingsExpander.HeaderIcon>
+            <ToggleSwitch
+                x:Name="HotKeyEnabledToggle"
+                AutomationProperties.AutomationId="CompanionSettingsHotKeyToggle"
+                AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_HotKey_Title, Mode=OneTime}"
+                Toggled="HotKeyEnabled_Toggled" />
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard AutomationProperties.AutomationId="CompanionSettingsHotKeyInputCard" Header="{x:Bind domain:Translator.CompanionSettings_HotKey_KeyCombination, Mode=OneTime}">
+                    <hotKey:WinoHotKeyInput
+                        x:Name="HotKeyInput"
+                        MinWidth="240"
+                        AutomationProperties.AutomationId="CompanionSettingsHotKeyInput"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_HotKey_KeyCombination, Mode=OneTime}"
+                        HotKeyCommitted="HotKeyInput_HotKeyCommitted"
+                        ListeningPrompt="{x:Bind domain:Translator.CompanionSettings_HotKey_Listening, Mode=OneTime}"
+                        NormalPrompt="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere, Mode=OneTime}" />
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <InfoBar
+            x:Name="HotKeyErrorInfoBar"
+            Margin="0,8,0,0"
+            AutomationProperties.AutomationId="CompanionSettingsHotKeyError"
+            IsClosable="False"
+            IsOpen="False"
+            Severity="Error" />
     </StackPanel>
 </abstract:CompanionSettingsPageAbstract>

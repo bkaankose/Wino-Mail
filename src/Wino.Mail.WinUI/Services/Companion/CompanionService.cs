@@ -21,6 +21,7 @@ internal sealed class CompanionService : ICompanionService
     private readonly INativeAppService _nativeAppService;
     private readonly INewThemeService _themeService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
+    private readonly DateTimeOffset _sessionStartedAtUtc;
     private readonly Func<(bool Success, RectInt32 Rect)> _getTrayIconRect;
     private readonly CompanionNavigationCallbacks _navigation;
     private readonly IWinoLogger _logger;
@@ -37,12 +38,14 @@ internal sealed class CompanionService : ICompanionService
         IServiceProvider services,
         DispatcherQueue dispatcher,
         INativeAppService nativeAppService,
+        DateTimeOffset sessionStartedAtUtc,
         Func<(bool Success, RectInt32 Rect)> getTrayIconRect,
         CompanionNavigationCallbacks navigation)
     {
         _services = services;
         _dispatcher = dispatcher;
         _nativeAppService = nativeAppService;
+        _sessionStartedAtUtc = sessionStartedAtUtc;
         _getTrayIconRect = getTrayIconRect;
         _navigation = navigation;
         _logger = services.GetRequiredService<IWinoLogger>();
@@ -192,7 +195,7 @@ internal sealed class CompanionService : ICompanionService
             return;
 
         var actions = new CompanionActionHandler(_services, _navigation);
-        _viewModel = new CompanionDashboardViewModel(_services, actions, _dispatcher);
+        _viewModel = new CompanionDashboardViewModel(_services, actions, _dispatcher, _sessionStartedAtUtc);
         _viewModel.NavigationCompleted += SurfaceHideRequested;
         _view = new CompanionFlyoutView(_viewModel);
         _host = new CompanionFlyoutHost(_view);
@@ -219,9 +222,24 @@ internal sealed class CompanionService : ICompanionService
             return;
 
         if (_dispatcher.HasThreadAccess)
-            DisposeSurface();
+            ApplyTheme(theme);
         else
-            _dispatcher.TryEnqueue(DisposeSurface);
+            _dispatcher.TryEnqueue(() => ApplyTheme(theme));
+    }
+
+    private void ApplyTheme(ApplicationElementTheme theme)
+    {
+        if (_disposed)
+            return;
+
+        try
+        {
+            _host?.ApplyTheme(ResolveCompanionTheme(theme));
+        }
+        catch (Exception ex)
+        {
+            DisableForSession(ex, "Applying the companion theme failed.");
+        }
     }
 
     private ElementTheme ResolveCompanionTheme(ApplicationElementTheme theme)

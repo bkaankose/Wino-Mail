@@ -1630,7 +1630,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public async Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType,
                                                                   MailAccount account = null,
                                                                   bool proposeCopyAuthorizationURL = false,
-                                                                  bool forceInteractive = false)
+                                                                  bool forceInteractive = false,
+                                                                  IReadOnlyCollection<ProviderFeature> requestedFeatures = null)
     {
         EnsureInitialized();
 
@@ -1655,11 +1656,15 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                 // consent prompt so the locally cached Google token cannot keep old scopes.
                 if (forceInteractive)
                 {
-                    tokenInfo = await authenticator.GenerateTokenInformationAsync(account).ConfigureAwait(false);
+                    tokenInfo = await authenticator
+                        .GenerateTokenInformationAsync(account, requestedFeatures)
+                        .ConfigureAwait(false);
                 }
                 else
                 {
-                    tokenInfo = await authenticator.GetTokenInformationAsync(account).ConfigureAwait(false);
+                    tokenInfo = await authenticator
+                        .GetTokenInformationAsync(account, requestedFeatures)
+                        .ConfigureAwait(false);
                 }
                 _logger.Information("Retrieved token for existing account {AccountAddress}", account.Address);
             }
@@ -1667,7 +1672,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             {
                 // Initial authentication request - there is no account to get token for
                 // This will always trigger interactive authentication
-                tokenInfo = await authenticator.GenerateTokenInformationAsync(null);
+                tokenInfo = await authenticator
+                    .GenerateTokenInformationAsync(null, requestedFeatures)
+                    .ConfigureAwait(false);
                 _logger.Information("Generated new token for {ProviderType} authentication", providerType);
             }
 

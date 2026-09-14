@@ -10,7 +10,7 @@ namespace Wino.Mail.ViewModels.Data;
 /// </summary>
 public partial class TaskStepViewModel : ObservableObject
 {
-    private readonly AccountTaskStep _originalStep;
+    private AccountTaskStep _originalStep;
 
     public AccountTaskStep Step { get; private set; }
 
@@ -27,6 +27,7 @@ public partial class TaskStepViewModel : ObservableObject
         System.ArgumentNullException.ThrowIfNull(step);
 
         Step = step;
+        _originalStep = RequestEntityCloner.TaskStep(step);
         OnPropertyChanged(nameof(Step));
         OnPropertyChanged(nameof(Title));
         OnPropertyChanged(nameof(IsCompleted));

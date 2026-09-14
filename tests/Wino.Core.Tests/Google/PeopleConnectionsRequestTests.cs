@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Text.Json;
 using FluentAssertions;
 using global::Google.Apis.PeopleService.v1.Data;
 using Wino.Core.Google;
@@ -52,5 +53,35 @@ public class PeopleConnectionsRequestTests
 
         updateMask.Should().NotContain("photos").And.NotContain("metadata").And.NotContain("fileAses");
         returnMask.Should().Contain("photos").And.Contain("metadata").And.Contain("fileAses");
+    }
+
+    [Fact]
+    public async Task UpdateContactRequest_SerializesTheWritableFreeFormName()
+    {
+        using var httpClient = new HttpClient();
+        using var service = new PeopleServiceService(httpClient);
+        var person = new Person
+        {
+            Names = new Name[]
+            {
+                new()
+                {
+                    UnstructuredName = "Free-form 名前",
+                    GivenName = "Structured",
+                    FamilyName = "Name"
+                }
+            }
+        };
+        var request = service.People.UpdateContact("people/123", person);
+
+        using var message = request.CreateHttpRequestMessage();
+        var json = await message.Content!.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(json);
+        var name = document.RootElement.GetProperty("names")[0];
+
+        name.GetProperty("unstructuredName").GetString().Should().Be("Free-form 名前");
+        name.GetProperty("givenName").GetString().Should().Be("Structured");
+        name.GetProperty("familyName").GetString().Should().Be("Name");
+        name.TryGetProperty("displayName", out _).Should().BeFalse();
     }
 }

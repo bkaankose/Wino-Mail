@@ -7,7 +7,7 @@ using System.Runtime.InteropServices;
 
 namespace Wino.Editor;
 
-public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
+public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, IAsyncDisposable
 {
     private static readonly TimeSpan InitializationTimeout = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan DisposalDelay = TimeSpan.FromSeconds(2);
@@ -17,6 +17,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
         new(TaskCreationOptions.RunContinuationsAsynchronously);
     private TaskCompletionSource<bool> _ready = CreateReadySource();
     private CancellationTokenSource? _disposeDelayCancellation;
+    private Task? _disposalTask;
     private bool _isDarkMode;
     private bool _browserEventsAttached;
     private bool _disposeRequested;
@@ -526,12 +527,21 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
 
         if (RendererWebView2 is not null)
         {
+            RendererWebView2.NavigationCompleted -= RendererWebView2_NavigationCompleted;
+            RendererWebView2.NavigationStarting -= RendererWebView2_NavigationStarting;
+
             try { RendererWebView2.Close(); }
             catch (Exception exception) when (
                 exception is InvalidOperationException or ObjectDisposedException)
             {
             }
+
+            RendererWebView2 = null;
         }
+
+        Loaded -= WinoMailRenderer_Loaded;
+        Unloaded -= WinoMailRenderer_Unloaded;
+        Content = null;
     }
 
     private static TaskCompletionSource<bool> CreateReadySource() =>
@@ -543,8 +553,18 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer
 
         _disposeRequested = true;
         _disposeDelayCancellation = new CancellationTokenSource();
-        _ = DisposeAfterDelayAsync(_disposeDelayCancellation);
+        _disposalTask = DisposeAfterDelayAsync(_disposeDelayCancellation);
         GC.SuppressFinalize(this);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+
+        if (_disposalTask is not null)
+        {
+            await _disposalTask;
+        }
     }
 
     private async Task DisposeAfterDelayAsync(CancellationTokenSource cancellationSource)

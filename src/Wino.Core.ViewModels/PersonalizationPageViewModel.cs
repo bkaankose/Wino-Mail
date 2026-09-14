@@ -93,7 +93,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         }
     }
 
-    // Allow app theme change for system themes.
+    // Themes with both palettes can follow the requested element theme.
     public bool CanSelectElementTheme { get; private set; } = true;
 
     // Backdrop selection properties
@@ -205,7 +205,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         var currentTheme = _newThemeService.CurrentApplicationThemeId is Guid currentThemeId
             ? themes.FirstOrDefault(theme => theme.Id == currentThemeId)
             : themes.FirstOrDefault();
-        CanSelectElementTheme = currentTheme?.AppThemeType is AppThemeType.System or AppThemeType.Custom;
+        CanSelectElementTheme = currentTheme?.Compatibility == ThemeCompatibility.Both;
         OnPropertyChanged(nameof(CanSelectElementTheme));
 
         // Initialize backdrop types

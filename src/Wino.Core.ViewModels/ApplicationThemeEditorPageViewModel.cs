@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -21,6 +23,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
 {
     private readonly INewThemeService _themeService;
     private readonly IDialogServiceBase _dialogService;
+    private readonly IWinoLogger? _logger;
     private ThemeRuntimeState? _originalRuntimeState;
     private Guid? _themeId;
     private byte[]? _wallpaperData;
@@ -32,34 +35,77 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
     private CustomThemePalette _lightPalette = new();
     private CustomThemePalette _darkPalette = new();
 
-    public ObservableCollection<ThemePaletteColorOptionViewModel> AdvancedColorOptions { get; } = [];
-    public ObservableCollection<ThemeWallpaperAlignment> WallpaperAlignments { get; } =
-        new(Enum.GetValues<ThemeWallpaperAlignment>());
+    /// <summary>
+    /// The base surface, edited on its own because every other surface derives from it.
+    /// </summary>
+    public ObservableCollection<ThemePaletteColorOptionViewModel> BaseSurfaceOptions { get; } = [];
+
+    public ObservableCollection<ThemePaletteColorOptionViewModel> SurfaceOptions { get; } = [];
+    public ObservableCollection<ThemePaletteColorOptionViewModel> CalendarOptions { get; } = [];
+    public IReadOnlyList<ThemeBasePreset> BasePresets { get; } = ThemeBasePresets.Create();
 
     [ObservableProperty] public partial string ThemeName { get; set; } = string.Empty;
     [ObservableProperty] public partial string WallpaperPreviewPath { get; set; } = string.Empty;
+    [ObservableProperty] public partial string WallpaperFileName { get; set; } = string.Empty;
     [ObservableProperty] public partial bool UseSystemAccent { get; set; } = true;
     [ObservableProperty] public partial string AccentColorHex { get; set; } = string.Empty;
     [ObservableProperty] public partial ThemeWallpaperFit WallpaperFit { get; set; } = ThemeWallpaperFit.Fill;
     [ObservableProperty] public partial ThemeWallpaperAlignment WallpaperAlignment { get; set; } = ThemeWallpaperAlignment.Center;
     [ObservableProperty] public partial bool IsDarkPalette { get; set; }
-    [ObservableProperty] public partial string BaseSurfaceColor { get; set; } = string.Empty;
-    [ObservableProperty] public partial bool IsBaseSurfaceOverridden { get; set; }
     [ObservableProperty] public partial bool IsDirty { get; set; }
-    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SaveCommand))] public partial bool IsSaving { get; set; }
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(DeleteCommand))] public partial bool IsSaving { get; set; }
+    [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SaveCommand), nameof(DeleteCommand))] public partial bool IsDeleting { get; set; }
     [ObservableProperty] public partial bool IsErrorOpen { get; set; }
     [ObservableProperty] public partial string ErrorMessage { get; set; } = string.Empty;
 
-    public bool IsEditMode => _themeId.HasValue;
-    public bool IsFocalSelectorEnabled => WallpaperFit == ThemeWallpaperFit.Fill;
-    public string PageTitle => IsEditMode ? Translator.ApplicationThemeEditor_EditTitle : Translator.ApplicationThemeEditor_CreateTitle;
-    public int PaletteModeIndex { get => IsDarkPalette ? 1 : 0; set => IsDarkPalette = value == 1; }
-    public int WallpaperFitIndex { get => WallpaperFit == ThemeWallpaperFit.Fill ? 0 : 1; set => WallpaperFit = value == 1 ? ThemeWallpaperFit.Fit : ThemeWallpaperFit.Fill; }
+    /// <summary>
+    /// The resolved palette of the mode being edited. A new instance is published on every
+    /// change so surface previews can rebind without the palette raising notifications itself.
+    /// </summary>
+    [ObservableProperty] public partial CustomThemePalette PreviewPalette { get; set; } = CustomThemePalette.CreateDefaults(false);
 
-    public ApplicationThemeEditorPageViewModel(INewThemeService themeService, IDialogServiceBase dialogService)
+    /// <summary>
+    /// The average color of the wallpaper, supplied by the view. Translucent surfaces are
+    /// measured against it, so contrast is not reported until the view provides one.
+    /// </summary>
+    [ObservableProperty] public partial string WallpaperAverageColor { get; set; } = string.Empty;
+
+    [ObservableProperty] public partial int OverriddenSurfaceCount { get; set; }
+    [ObservableProperty] public partial int OverriddenCalendarCount { get; set; }
+    [ObservableProperty] public partial bool HasLightOverrides { get; set; }
+    [ObservableProperty] public partial bool HasDarkOverrides { get; set; }
+
+    public bool IsEditMode => _themeId.HasValue;
+    public bool HasWallpaper => !string.IsNullOrWhiteSpace(WallpaperPreviewPath);
+    public bool IsFocalSelectorEnabled => WallpaperFit == ThemeWallpaperFit.Fill && HasWallpaper;
+    public string PageTitle => IsEditMode ? Translator.ApplicationThemeEditor_EditTitle : Translator.ApplicationThemeEditor_CreateTitle;
+    // Segmented selection is read only here and pushed into the control by the view.
+    // A two way SelectedIndex binding lets the control write its own load time value
+    // back and silently reset the palette being edited.
+    public int PaletteModeIndex => IsDarkPalette ? 1 : 0;
+
+    public int WallpaperFitIndex => WallpaperFit == ThemeWallpaperFit.Fill ? 0 : 1;
+
+    /// <summary>Applies a palette selection made by the user in the segmented control.</summary>
+    public void SelectPaletteMode(int index) => IsDarkPalette = index == 1;
+
+    /// <summary>Applies a wallpaper fit selection made by the user in the segmented control.</summary>
+    public void SelectWallpaperFit(int index)
+        => WallpaperFit = index == 1 ? ThemeWallpaperFit.Fit : ThemeWallpaperFit.Fill;
+
+    public string CopyPaletteLabel => IsDarkPalette
+        ? Translator.ApplicationThemeEditor_CopyToLight
+        : Translator.ApplicationThemeEditor_CopyToDark;
+
+    public string FocalPointDescription => WallpaperFit == ThemeWallpaperFit.Fill
+        ? Translator.ApplicationThemeEditor_FocalPointDescription
+        : Translator.ApplicationThemeEditor_FocalPointFitDescription;
+
+    public ApplicationThemeEditorPageViewModel(INewThemeService themeService, IDialogServiceBase dialogService, IWinoLogger? logger = null)
     {
         _themeService = themeService;
         _dialogService = dialogService;
+        _logger = logger;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -83,6 +129,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
                 UseSystemAccent = !metadata.HasCustomAccentColor;
                 AccentColorHex = metadata.AccentColorHex;
                 WallpaperPreviewPath = $"ms-appdata:///local/CustomThemes/{themeId}.jpg";
+                WallpaperFileName = metadata.Name;
                 WallpaperFit = metadata.WallpaperFit;
                 WallpaperAlignment = metadata.WallpaperAlignment;
                 _lightPalette = metadata.LightPalette?.Clone() ?? new CustomThemePalette();
@@ -94,6 +141,7 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
                 UseSystemAccent = true;
                 AccentColorHex = string.Empty;
                 WallpaperPreviewPath = string.Empty;
+                WallpaperFileName = string.Empty;
                 WallpaperFit = ThemeWallpaperFit.Fill;
                 WallpaperAlignment = ThemeWallpaperAlignment.Center;
                 _lightPalette = new CustomThemePalette();
@@ -106,9 +154,11 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
             IsErrorOpen = false;
             OnPropertyChanged(nameof(IsEditMode));
             OnPropertyChanged(nameof(PageTitle));
-            OnPropertyChanged(nameof(PaletteModeIndex));
-            OnPropertyChanged(nameof(WallpaperFitIndex));
+            RaisePaletteSelectionChanged();
+            RaiseWallpaperFitSelectionChanged();
+            OnPropertyChanged(nameof(HasWallpaper));
             OnPropertyChanged(nameof(IsFocalSelectorEnabled));
+            OnPropertyChanged(nameof(FocalPointDescription));
         }
         catch (Exception ex)
         {
@@ -118,7 +168,27 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
         finally
         {
             _isInitializing = false;
+            DeleteCommand.NotifyCanExecuteChanged();
         }
+    }
+
+    /// <summary>
+    /// Picks the palette to edit from what the application actually renders. It applies only
+    /// when the theme setting is Default, because an explicit Light or Dark choice already
+    /// says which palette the user is looking at.
+    /// </summary>
+    /// <param name="isDark">True when the shell is currently rendering dark.</param>
+    public void ResolveSystemPaletteMode(bool isDark)
+    {
+        if (_originalRuntimeState?.ElementTheme != ApplicationElementTheme.Default || IsDarkPalette == isDark)
+            return;
+
+        var wasInitializing = _isInitializing;
+        _isInitializing = true;
+
+        IsDarkPalette = isDark;
+
+        _isInitializing = wasInitializing;
     }
 
     [RelayCommand]
@@ -130,18 +200,36 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
         if (file == null)
             return;
 
-        _wallpaperData = file.Data;
+        ApplyWallpaper(file.Data, file.FullFilePath, file.FileName);
+    }
+
+    /// <summary>
+    /// Accepts a wallpaper from any source, including a file dropped on the editor.
+    /// </summary>
+    public void ApplyWallpaper(byte[] data, string fullFilePath, string fileName)
+    {
+        _wallpaperData = data;
         _wallpaperPreviewPrepared = false;
-        WallpaperPreviewPath = new Uri(file.FullFilePath).AbsoluteUri;
+        WallpaperFileName = fileName;
+        WallpaperPreviewPath = new Uri(fullFilePath).AbsoluteUri;
         MarkDirtyAndPreview();
     }
 
+    /// <summary>
+    /// Expands one color, collapsing any other, so a single surface preview is open at a time.
+    /// </summary>
     [RelayCommand]
-    private void ResetBaseSurface()
+    private void ToggleOption(ThemePaletteColorOptionViewModel? option)
     {
-        CurrentPalette.ResetOverride(CustomThemeColorKey.BaseSurface);
-        RebuildPaletteOptions();
-        MarkDirtyAndPreview();
+        if (option == null)
+            return;
+
+        var expand = !option.IsExpanded;
+
+        foreach (var candidate in AllOptions())
+            candidate.IsExpanded = false;
+
+        option.IsExpanded = expand;
     }
 
     [RelayCommand]
@@ -151,8 +239,35 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
             return;
 
         CurrentPalette.ResetOverride(option.Key);
+        RebuildPaletteOptions(option.Key);
+        MarkDirtyAndPreview();
+    }
+
+    [RelayCommand]
+    private void ApplyBasePreset(ThemeBasePreset? preset)
+    {
+        if (preset == null)
+            return;
+
+        _lightPalette.SetOverride(CustomThemeColorKey.BaseSurface, preset.LightColor);
+        _darkPalette.SetOverride(CustomThemeColorKey.BaseSurface, preset.DarkColor);
         RebuildPaletteOptions();
         MarkDirtyAndPreview();
+    }
+
+    /// <summary>
+    /// Copies the palette being edited onto the other mode, so both do not have to be built by hand.
+    /// </summary>
+    [RelayCommand]
+    private void CopyPaletteToOtherMode()
+    {
+        if (IsDarkPalette)
+            _lightPalette = _darkPalette.Clone();
+        else
+            _darkPalette = _lightPalette.Clone();
+
+        UpdateOverrideCounts();
+        MarkDirty();
     }
 
     [RelayCommand]
@@ -173,11 +288,66 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
         WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
     }
 
-    private bool CanSave() => !IsSaving;
+    private bool CanDelete() => IsEditMode && !_isInitializing && !IsSaving && !IsDeleting;
+
+    [RelayCommand(CanExecute = nameof(CanDelete))]
+    private async Task DeleteAsync()
+    {
+        if (!CanDelete() || _themeId is not Guid themeId)
+            return;
+
+        IsDeleting = true;
+        IsErrorOpen = false;
+
+        try
+        {
+            var metadata = await _themeService.GetCustomThemeAsync(themeId)
+                ?? throw new InvalidOperationException(Translator.SettingsCustomTheme_DeleteMissing);
+            var confirmed = await _dialogService.ShowConfirmationDialogAsync(
+                string.Format(Translator.SettingsCustomTheme_DeleteConfirm_Message, metadata.Name),
+                Translator.SettingsCustomTheme_DeleteConfirm_Title,
+                Translator.Buttons_Delete);
+
+            if (!confirmed)
+                return;
+
+            // End the editor preview before deletion so the service can select its
+            // fallback when deleting the active theme, or preserve the other theme.
+            if (_originalRuntimeState != null)
+                await _themeService.RestoreRuntimeStateAsync(_originalRuntimeState);
+
+            if (!await _themeService.DeleteCustomThemeAsync(themeId))
+                throw new InvalidOperationException(Translator.SettingsCustomTheme_DeleteMissing);
+
+            _isNavigationCommitted = true;
+            IsDirty = false;
+            _pendingNavigationResult = NavigationResult.Deleted(themeId);
+            WeakReferenceMessenger.Default.Send(new BackBreadcrumNavigationRequested(Result: TakeNavigationResult()));
+        }
+        catch (Exception ex)
+        {
+            _logger?.CaptureException(ex, "DeleteCustomTheme");
+            ErrorMessage = ex.Message;
+            IsErrorOpen = true;
+        }
+        finally
+        {
+            IsDeleting = false;
+        }
+    }
+
+    private bool CanSave() => !IsSaving && !IsDeleting;
 
     [RelayCommand(CanExecute = nameof(CanSave))]
     private async Task SaveAsync()
     {
+        if (string.IsNullOrWhiteSpace(ThemeName))
+        {
+            ErrorMessage = Translator.ApplicationThemeEditor_NameRequired;
+            IsErrorOpen = true;
+            return;
+        }
+
         IsSaving = true;
         IsErrorOpen = false;
 
@@ -216,6 +386,9 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
 
     public async ValueTask<bool> CanNavigateBackAsync()
     {
+        if (IsDeleting && !_isNavigationCommitted)
+            return false;
+
         if (_isNavigationCommitted)
             return true;
 
@@ -249,67 +422,103 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
     partial void OnUseSystemAccentChanged(bool value) => MarkDirtyAndPreview();
     partial void OnAccentColorHexChanged(string value) => MarkDirtyAndPreview();
     partial void OnWallpaperAlignmentChanged(ThemeWallpaperAlignment value) => MarkDirtyAndPreview();
+    partial void OnWallpaperAverageColorChanged(string value) => UpdateContrastReports();
+
+    partial void OnWallpaperPreviewPathChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasWallpaper));
+        OnPropertyChanged(nameof(IsFocalSelectorEnabled));
+    }
 
     partial void OnWallpaperFitChanged(ThemeWallpaperFit value)
     {
         if (value == ThemeWallpaperFit.Fit)
             WallpaperAlignment = ThemeWallpaperAlignment.Center;
 
-        OnPropertyChanged(nameof(WallpaperFitIndex));
+        RaiseWallpaperFitSelectionChanged();
         OnPropertyChanged(nameof(IsFocalSelectorEnabled));
+        OnPropertyChanged(nameof(FocalPointDescription));
         MarkDirtyAndPreview();
     }
 
     partial void OnIsDarkPaletteChanged(bool value)
     {
-        OnPropertyChanged(nameof(PaletteModeIndex));
+        RaisePaletteSelectionChanged();
+        OnPropertyChanged(nameof(CopyPaletteLabel));
         RebuildPaletteOptions();
 
         if (!_isInitializing)
             _ = PreviewAsync();
     }
 
-    partial void OnBaseSurfaceColorChanged(string value)
-    {
-        if (_isInitializing)
-            return;
+    private void RaisePaletteSelectionChanged() => OnPropertyChanged(nameof(PaletteModeIndex));
 
-        CurrentPalette.SetOverride(CustomThemeColorKey.BaseSurface, value);
-        IsBaseSurfaceOverridden = true;
-        MarkDirtyAndPreview();
-    }
+    private void RaiseWallpaperFitSelectionChanged() => OnPropertyChanged(nameof(WallpaperFitIndex));
 
     private CustomThemePalette CurrentPalette => IsDarkPalette ? _darkPalette : _lightPalette;
 
-    private void RebuildPaletteOptions()
+    private IEnumerable<ThemePaletteColorOptionViewModel> AllOptions()
+        => BaseSurfaceOptions.Concat(SurfaceOptions).Concat(CalendarOptions);
+
+    /// <summary>
+    /// Rebuilds every editable color from the palette of the current mode.
+    /// </summary>
+    /// <param name="keyToKeepExpanded">The color whose preview stays open across the rebuild.</param>
+    private void RebuildPaletteOptions(CustomThemeColorKey? keyToKeepExpanded = null)
     {
         var wasInitializing = _isInitializing;
         _isInitializing = true;
+
+        var expandedKey = keyToKeepExpanded ?? AllOptions().FirstOrDefault(option => option.IsExpanded)?.Key;
+
+        ClearOptions(BaseSurfaceOptions);
+        ClearOptions(SurfaceOptions);
+        ClearOptions(CalendarOptions);
+
         var resolved = CurrentPalette.Resolve(IsDarkPalette);
-        BaseSurfaceColor = resolved.MainCustomThemeColor ?? string.Empty;
-        IsBaseSurfaceOverridden = !string.IsNullOrWhiteSpace(CurrentPalette.MainCustomThemeColor);
-        AdvancedColorOptions.Clear();
-        AddOption(CustomThemeColorKey.MailListHeader, Translator.ApplicationThemeEditor_MailHeader, Translator.ApplicationThemeEditor_GroupMail, resolved.MailListHeaderBackgroundColor);
-        AddOption(CustomThemeColorKey.Workspace, Translator.ApplicationThemeEditor_WorkspaceSurface, Translator.ApplicationThemeEditor_GroupWorkspace, resolved.WinoContentZoneBackgroud);
-        AddOption(CustomThemeColorKey.Navigation, Translator.ApplicationThemeEditor_NavigationSurface, Translator.ApplicationThemeEditor_GroupNavigation, resolved.NavigationViewContentBackground);
-        AddOption(CustomThemeColorKey.ReadingPane, Translator.ApplicationThemeEditor_ReadingSurface, Translator.ApplicationThemeEditor_GroupReading, resolved.ReadingPaneBackgroundColorBrush);
-        AddOption(CustomThemeColorKey.CalendarDefaultHour, Translator.ApplicationThemeEditor_CalendarDefault, Translator.ApplicationThemeEditor_GroupCalendar, resolved.CalendarDefaultHourBackgroundBrush);
-        AddOption(CustomThemeColorKey.CalendarHoverHour, Translator.ApplicationThemeEditor_CalendarHover, Translator.ApplicationThemeEditor_GroupCalendar, resolved.CalendarHoverHourBackgroundBrush);
-        AddOption(CustomThemeColorKey.CalendarWorkHour, Translator.ApplicationThemeEditor_CalendarWork, Translator.ApplicationThemeEditor_GroupCalendar, resolved.CalendarWorkHourBackgroundBrush);
-        AddOption(CustomThemeColorKey.CalendarSelectedHour, Translator.ApplicationThemeEditor_CalendarSelected, Translator.ApplicationThemeEditor_GroupCalendar, resolved.CalendarSelectedHourBackgroundBrush);
+
+        AddOption(BaseSurfaceOptions, CustomThemeColorKey.BaseSurface, resolved.MainCustomThemeColor, expandedKey);
+
+        foreach (var key in CustomThemeColorCatalog.SurfaceKeys)
+            AddOption(SurfaceOptions, key, GetResolvedValue(resolved, key), expandedKey);
+
+        foreach (var key in CustomThemeColorCatalog.CalendarKeys)
+            AddOption(CalendarOptions, key, GetResolvedValue(resolved, key), expandedKey);
+
+        UpdateOverrideCounts();
+        UpdateContrastReports();
+        PreviewPalette = resolved;
+
         _isInitializing = wasInitializing;
     }
 
-    private void AddOption(CustomThemeColorKey key, string label, string group, string? resolvedValue)
+    private static string? GetResolvedValue(CustomThemePalette resolved, CustomThemeColorKey key)
+        => resolved.GetOverride(key);
+
+    private void ClearOptions(ObservableCollection<ThemePaletteColorOptionViewModel> options)
+    {
+        foreach (var option in options)
+            option.PropertyChanged -= PaletteOptionChanged;
+
+        options.Clear();
+    }
+
+    private void AddOption(
+        ObservableCollection<ThemePaletteColorOptionViewModel> options,
+        CustomThemeColorKey key,
+        string? resolvedValue,
+        CustomThemeColorKey? expandedKey)
     {
         var option = new ThemePaletteColorOptionViewModel(
             key,
-            label,
-            group,
             resolvedValue ?? string.Empty,
-            !string.IsNullOrWhiteSpace(CurrentPalette.GetOverride(key)));
+            !string.IsNullOrWhiteSpace(CurrentPalette.GetOverride(key)))
+        {
+            IsExpanded = expandedKey == key
+        };
+
         option.PropertyChanged += PaletteOptionChanged;
-        AdvancedColorOptions.Add(option);
+        options.Add(option);
     }
 
     private void PaletteOptionChanged(object? sender, PropertyChangedEventArgs e)
@@ -319,7 +528,35 @@ public partial class ApplicationThemeEditorPageViewModel : CoreBaseViewModel,
 
         CurrentPalette.SetOverride(option.Key, option.Value);
         option.IsOverridden = true;
+        UpdateOverrideCounts();
+
+        PreviewPalette = CurrentPalette.Resolve(IsDarkPalette);
+        UpdateContrastReports();
         MarkDirtyAndPreview();
+    }
+
+    private void UpdateOverrideCounts()
+    {
+        OverriddenSurfaceCount = CustomThemeColorCatalog.SurfaceKeys.Count(key => !string.IsNullOrWhiteSpace(CurrentPalette.GetOverride(key)));
+        OverriddenCalendarCount = CustomThemeColorCatalog.CalendarKeys.Count(key => !string.IsNullOrWhiteSpace(CurrentPalette.GetOverride(key)));
+        HasLightOverrides = HasAnyOverride(_lightPalette);
+        HasDarkOverrides = HasAnyOverride(_darkPalette);
+    }
+
+    private static bool HasAnyOverride(CustomThemePalette palette)
+        => Enum.GetValues<CustomThemeColorKey>().Any(key => !string.IsNullOrWhiteSpace(palette.GetOverride(key)));
+
+    private void UpdateContrastReports()
+    {
+        var baseSurface = BaseSurfaceOptions.FirstOrDefault()?.Value;
+
+        foreach (var option in AllOptions())
+        {
+            if (!option.CarriesBodyText)
+                continue;
+
+            option.ReportContrast(ThemeContrastCalculator.TryGetBodyTextContrast(option.Value, baseSurface, WallpaperAverageColor));
+        }
     }
 
     private void MarkDirty()

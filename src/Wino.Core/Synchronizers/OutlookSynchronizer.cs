@@ -84,12 +84,18 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     private const string WinoTaskExtensionName = "com.winomail.taskIdentity";
     private const string WinoTaskLocalIdProperty = "localTaskId";
     internal const string MissingContactPhotoPrefix = "outlook:no-photo:";
+    internal const string HiddenContactPhotoPrefix = "outlook:hidden-photo:";
     internal const string DefaultContactFolderKey = "default";
 
     internal static string BuildMissingPhotoKey(string changeKey)
         => changeKey?.StartsWith(MissingContactPhotoPrefix, StringComparison.Ordinal) == true
             ? changeKey
             : $"{MissingContactPhotoPrefix}{changeKey}";
+
+    internal static string BuildHiddenPhotoKey(string changeKey)
+        => changeKey?.StartsWith(HiddenContactPhotoPrefix, StringComparison.Ordinal) == true
+            ? changeKey
+            : $"{HiddenContactPhotoPrefix}{changeKey}";
     public override uint BatchModificationSize => 20;
     public override uint InitialMessageDownloadCountPerFolder => 1000;
     private const uint MaximumAllowedBatchRequestSize = 20;
@@ -304,8 +310,10 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 }
                 case TaskSynchronizerOperation.UpdateList:
                 {
-                    var localList = (request as TaskActionRequest)?.List
-                                    ?? await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                    var requestedList = (request as TaskActionRequest)?.List;
+                    var storedList = await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                    var localList = RequestEntityCloner.TaskList(requestedList ?? storedList);
+                    ApplyStoredTaskListIdentity(localList, storedList);
                     if (localList?.RemoteId is null)
                         throw new InvalidOperationException($"Task list {request.TaskListId} is unavailable for update.");
 
@@ -318,9 +326,11 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 }
                 case TaskSynchronizerOperation.DeleteList:
                 {
-                    var localList = (request as TaskActionRequest)?.List
-                                    ?? (request as TaskActionRequest)?.OriginalList
-                                    ?? await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                    var requestedList = (request as TaskActionRequest)?.List
+                                        ?? (request as TaskActionRequest)?.OriginalList;
+                    var storedList = await _taskService.GetTaskListAsync(request.TaskListId ?? Guid.Empty).ConfigureAwait(false);
+                    var localList = RequestEntityCloner.TaskList(requestedList ?? storedList);
+                    ApplyStoredTaskListIdentity(localList, storedList);
                     if (localList?.RemoteId is null)
                         throw new InvalidOperationException($"Task list {request.TaskListId} is unavailable for deletion.");
                     if (localList.IsOutlookDefaultList)
@@ -491,12 +501,15 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     private async Task ExecuteOutlookTaskMutationAsync(ITaskActionRequest request, CancellationToken cancellationToken)
     {
         var typedRequest = request as TaskActionRequest;
-        var localTask = typedRequest?.Task
-                        ?? typedRequest?.OriginalTask
-                        ?? await _taskService.GetTaskAsync(request.TaskId ?? Guid.Empty).ConfigureAwait(false);
+        var requestedTask = typedRequest?.Task ?? typedRequest?.OriginalTask;
+        var storedTask = await _taskService.GetTaskAsync(request.TaskId ?? Guid.Empty).ConfigureAwait(false);
+        var localTask = RequestEntityCloner.Task(requestedTask ?? storedTask);
 
         if (localTask is null)
             throw new InvalidOperationException($"Task {request.TaskId} is unavailable for {request.Operation}.");
+
+        ApplyStoredTaskIdentity(localTask, storedTask);
+        ApplyStoredStepIdentity(typedRequest?.Step, storedTask);
 
         var list = await _taskService.GetTaskListAsync(localTask.TaskListId).ConfigureAwait(false);
         if (list?.RemoteId is null)
@@ -507,18 +520,20 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             if (localTask.RemoteId is not null)
                 await _outlookTasksClient.DeleteTaskAsync(list.RemoteId, localTask.RemoteId, localTask.RemoteVersion, cancellationToken).ConfigureAwait(false);
 
-            await _outlookChangeProcessor.CommitTaskMutationAsync(localTask.Id, null, true).ConfigureAwait(false);
+            await _outlookChangeProcessor
+                .CommitTaskMutationAsync(localTask.Id, null, true, localTask, request.Operation)
+                .ConfigureAwait(false);
             return;
         }
 
         ApplyRequestedStepMutation(localTask, typedRequest);
 
-        var originalTask = typedRequest?.OriginalTask;
+        var originalTask = storedTask ?? typedRequest?.OriginalTask;
         var isMoving = request.Operation == TaskSynchronizerOperation.UpdateTask &&
                        originalTask is not null &&
                        originalTask.TaskListId != localTask.TaskListId &&
                        !string.IsNullOrWhiteSpace(originalTask.RemoteId);
-        var isCreate = request.Operation == TaskSynchronizerOperation.CreateTask || localTask.RemoteId is null || isMoving;
+        var isCreate = localTask.RemoteId is null || isMoving;
         TodoTask remote;
         if (isCreate)
         {
@@ -556,10 +571,49 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         var mapped = MapRemoteTask(remote, list);
 
         PreserveRequestedTaskState(mapped, localTask);
-        CorrelateRequestedStep(mapped, typedRequest);
+        if (IsStepOperation(request.Operation))
+        {
+            var requestedStep = typedRequest?.Step
+                ?? throw new InvalidOperationException($"Step {request.TaskId} is unavailable for {request.Operation}.");
+            CorrelateRequestedStep(mapped, typedRequest, storedTask);
+            var mappedStep = mapped.Steps.FirstOrDefault(step => step.Id == requestedStep.Id);
+            await _outlookChangeProcessor.CommitTaskStepMutationAsync(
+                    requestedStep.Id,
+                    mappedStep,
+                    request.Operation == TaskSynchronizerOperation.DeleteStep,
+                    requestedStep,
+                    request.Operation)
+                .ConfigureAwait(false);
+            return;
+        }
+
         if (isCreate)
             CorrelateCreatedTaskSteps(mapped, localTask);
-        await _outlookChangeProcessor.CommitTaskMutationAsync(localTask.Id, mapped, false).ConfigureAwait(false);
+        await _outlookChangeProcessor
+            .CommitTaskMutationAsync(localTask.Id, mapped, false, localTask, request.Operation)
+            .ConfigureAwait(false);
+    }
+
+    private static void ApplyStoredTaskIdentity(AccountTask requested, AccountTask stored)
+    {
+        if (requested is null || stored is null)
+            return;
+
+        requested.RemoteId = stored.RemoteId ?? requested.RemoteId;
+        requested.RemoteVersion = stored.RemoteVersion ?? requested.RemoteVersion;
+    }
+
+    private static void ApplyStoredStepIdentity(AccountTaskStep requested, AccountTask storedTask)
+    {
+        if (requested is null || storedTask is null)
+            return;
+
+        var stored = storedTask.Steps.FirstOrDefault(step => step.Id == requested.Id);
+        if (stored is null)
+            return;
+
+        requested.RemoteId = stored.RemoteId ?? requested.RemoteId;
+        requested.RemoteVersion = stored.RemoteVersion ?? requested.RemoteVersion;
     }
 
     private static bool IsStepOperation(TaskSynchronizerOperation operation)
@@ -579,18 +633,21 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         {
             if (request.Operation == TaskSynchronizerOperation.DeleteStep)
             {
-                if (step.RemoteId is not null)
-                {
-                    await _outlookTasksClient
-                        .DeleteChecklistItemAsync(list.RemoteId, localTask.RemoteId, step.RemoteId, cancellationToken)
-                        .ConfigureAwait(false);
-                }
+                if (step.RemoteId is null)
+                    throw new InvalidOperationException($"Step {step.Id} has no provider identity for deletion.");
+
+                await _outlookTasksClient
+                    .DeleteChecklistItemAsync(list.RemoteId, localTask.RemoteId, step.RemoteId, cancellationToken)
+                    .ConfigureAwait(false);
             }
             else
             {
                 var payload = new ChecklistItem { DisplayName = step.Title, IsChecked = step.IsCompleted };
                 if (step.RemoteId is null)
                 {
+                    if (request.Operation != TaskSynchronizerOperation.CreateStep)
+                        throw new InvalidOperationException($"Step {step.Id} has no provider identity for {request.Operation}.");
+
                     var created = await _outlookTasksClient
                         .CreateChecklistItemAsync(list.RemoteId, localTask.RemoteId, payload, cancellationToken)
                         .ConfigureAwait(false);
@@ -614,15 +671,44 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             .ConfigureAwait(false);
     }
 
-    private static void CorrelateRequestedStep(AccountTask mappedTask, TaskActionRequest request)
+    internal static void CorrelateRequestedStep(
+        AccountTask mappedTask,
+        TaskActionRequest request,
+        AccountTask storedTask)
     {
-        if (request?.Step is null || string.IsNullOrWhiteSpace(request.Step.RemoteId))
+        if (request?.Step is null)
             return;
 
-        var mappedStep = mappedTask.Steps.FirstOrDefault(step =>
-            string.Equals(step.RemoteId, request.Step.RemoteId, StringComparison.Ordinal));
-        if (mappedStep is not null)
-            mappedStep.Id = request.Step.Id;
+        if (!string.IsNullOrWhiteSpace(request.Step.RemoteId))
+        {
+            var matched = mappedTask.Steps.FirstOrDefault(step =>
+                string.Equals(step.RemoteId, request.Step.RemoteId, StringComparison.Ordinal));
+            if (matched is not null)
+            {
+                matched.Id = request.Step.Id;
+                return;
+            }
+        }
+
+        if (request.Operation != TaskSynchronizerOperation.CreateStep)
+            return;
+
+        // Graph can acknowledge a checklist POST without returning the created item body.
+        // The authoritative parent refresh still contains it. Correlate only when exactly one
+        // previously unseen provider identity appeared, so unrelated same-title steps remain
+        // distinct and concurrent provider additions are never guessed.
+        var knownRemoteIds = new HashSet<string>(
+            (storedTask?.Steps ?? []).Select(step => step.RemoteId).Where(id => !string.IsNullOrWhiteSpace(id)),
+            StringComparer.Ordinal);
+        var candidates = mappedTask.Steps
+            .Where(step => !string.IsNullOrWhiteSpace(step.RemoteId) && !knownRemoteIds.Contains(step.RemoteId))
+            .ToList();
+        if (candidates.Count != 1)
+            return;
+
+        candidates[0].Id = request.Step.Id;
+        request.Step.RemoteId = candidates[0].RemoteId;
+        request.Step.RemoteVersion = candidates[0].RemoteVersion;
     }
 
     private static void CorrelateCreatedTaskSteps(AccountTask mappedTask, AccountTask requestedTask)
@@ -659,7 +745,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         mapped.RemoteOrder = requested.RemoteOrder;
     }
 
-    private static void PreserveRequestedTaskState(AccountTask mapped, AccountTask requested)
+    internal static void PreserveRequestedTaskState(AccountTask mapped, AccountTask requested)
     {
         mapped.Id = requested.Id;
         mapped.MailAccountId = requested.MailAccountId;
@@ -667,6 +753,22 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         mapped.SourceKind = requested.SourceKind;
         mapped.IsImportant = requested.IsImportant;
         mapped.MyDayDateUtc = requested.MyDayDateUtc;
+
+        foreach (var step in mapped.Steps ?? [])
+        {
+            step.TaskId = requested.Id;
+            step.MailAccountId = requested.MailAccountId;
+            step.SourceKind = requested.SourceKind;
+        }
+    }
+
+    private static void ApplyStoredTaskListIdentity(AccountTaskList requested, AccountTaskList stored)
+    {
+        if (requested is null || stored is null)
+            return;
+
+        requested.RemoteId = stored.RemoteId ?? requested.RemoteId;
+        requested.RemoteVersion = stored.RemoteVersion ?? requested.RemoteVersion;
     }
 
     private async Task<TaskSynchronizationResult> SynchronizeOutlookTasksAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken)
@@ -1167,6 +1269,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
             var existingContacts = await _contactService.GetContactsByAddressBookAsync(book.Id).ConfigureAwait(false);
             await DownloadOutlookContactPhotosAsync(upserts, existingContacts, cancellationToken).ConfigureAwait(false);
+            await ReconcileOutlookContactPhotoSuppressionsAsync(upserts, book.Id).ConfigureAwait(false);
 
             if (isFull)
                 await _contactService.ReplaceAddressBookAsync(book.Id, upserts, deltaLink).ConfigureAwait(false);
@@ -1191,11 +1294,25 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         var existingByRemoteId = existingContacts
             .Where(contact => !string.IsNullOrWhiteSpace(contact.RemoteId))
             .ToDictionary(contact => contact.RemoteId, StringComparer.Ordinal);
-        var pending = contacts
-            .Where(contact => !string.IsNullOrWhiteSpace(contact.RemoteId))
-            .Where(contact => !existingByRemoteId.TryGetValue(contact.RemoteId, out var existing) ||
-                              !TryReuseOutlookContactPhoto(contact, existing))
-            .ToList();
+        var pending = new List<AccountContact>();
+        foreach (var contact in contacts.Where(contact => !string.IsNullOrWhiteSpace(contact.RemoteId)))
+        {
+            if (!existingByRemoteId.TryGetValue(contact.RemoteId, out var existing) ||
+                !TryReuseOutlookContactPhoto(contact, existing))
+            {
+                pending.Add(contact);
+                continue;
+            }
+
+            if (!contact.ContactPictureFileId.HasValue ||
+                !RequiresOutlookContactPhotoRefresh(contact.ContactPictureFileId.Value))
+            {
+                continue;
+            }
+
+            contact.ContactPictureFileId = null;
+            pending.Add(contact);
+        }
 
         await Parallel.ForEachAsync(
             pending.Batch((int)MaximumAllowedBatchRequestSize),
@@ -1248,7 +1365,8 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 continue;
             }
 
-            var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+            var encodedBody = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var bytes = OutlookContactsClient.DecodeBatchPhotoContent(encodedBody);
             if (bytes.Length == 0)
             {
                 contact.RemotePhotoKey = BuildMissingPhotoKey(contact.RemotePhotoKey);
@@ -1263,6 +1381,13 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
     internal static bool TryReuseOutlookContactPhoto(AccountContact incoming, AccountContact existing)
     {
+        if (existing.RemotePhotoKey?.StartsWith(HiddenContactPhotoPrefix, StringComparison.Ordinal) == true)
+        {
+            incoming.ContactPictureFileId = null;
+            incoming.RemotePhotoKey = BuildHiddenPhotoKey(incoming.RemotePhotoKey);
+            return true;
+        }
+
         if (string.Equals(existing.RemotePhotoKey, BuildMissingPhotoKey(incoming.RemotePhotoKey), StringComparison.Ordinal))
         {
             incoming.RemotePhotoKey = existing.RemotePhotoKey;
@@ -1279,10 +1404,115 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         return true;
     }
 
+    private bool RequiresOutlookContactPhotoRefresh(Guid pictureFileId)
+    {
+        var path = _contactPictureFileService.GetContactPicturePath(pictureFileId);
+        if (path is null)
+            return true;
+
+        try
+        {
+            using var stream = File.OpenRead(path);
+            Span<byte> header = stackalloc byte[12];
+            var headerLength = stream.Read(header);
+            if (HasSupportedImageSignature(header[..headerLength]))
+                return false;
+
+            using var cachedContent = new MemoryStream();
+            stream.Position = 0;
+            stream.CopyTo(cachedContent);
+            return IsBase64EncodedImageCache(cachedContent.ToArray());
+        }
+        catch (IOException ex)
+        {
+            _logger.Warning(ex, "Failed to inspect cached Outlook contact photo {PictureFileId}.", pictureFileId);
+            return true;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.Warning(ex, "Failed to inspect cached Outlook contact photo {PictureFileId}.", pictureFileId);
+            return true;
+        }
+    }
+
+    internal static bool IsBase64EncodedImageCache(byte[] cachedBytes)
+    {
+        if (cachedBytes is null || cachedBytes.Length == 0 || HasSupportedImageSignature(cachedBytes))
+            return false;
+
+        try
+        {
+            var encoded = new UTF8Encoding(false, true).GetString(cachedBytes);
+            var decoded = OutlookContactsClient.DecodeBatchPhotoContent(encoded);
+            return HasSupportedImageSignature(decoded);
+        }
+        catch (DecoderFallbackException)
+        {
+            return false;
+        }
+        catch (InvalidDataException)
+        {
+            return false;
+        }
+    }
+
+    private static bool HasSupportedImageSignature(ReadOnlySpan<byte> bytes)
+        => bytes.Length >= 8 && bytes.Slice(0, 8).SequenceEqual(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }) ||
+           bytes.Length >= 3 && bytes[0] == 0xFF && bytes[1] == 0xD8 && bytes[2] == 0xFF ||
+           bytes.Length >= 2 && bytes[0] == 0x42 && bytes[1] == 0x4D ||
+           bytes.Length >= 6 && (bytes.Slice(0, 6).SequenceEqual("GIF87a"u8) || bytes.Slice(0, 6).SequenceEqual("GIF89a"u8)) ||
+           bytes.Length >= 12 && bytes.Slice(0, 4).SequenceEqual("RIFF"u8) && bytes.Slice(8, 4).SequenceEqual("WEBP"u8);
+
     internal static void PreserveOutlookContactPhotoSuppression(AccountContact incoming, AccountContact existing)
     {
-        if (existing.RemotePhotoKey?.StartsWith(MissingContactPhotoPrefix, StringComparison.Ordinal) == true)
-            incoming.RemotePhotoKey = BuildMissingPhotoKey(incoming.RemotePhotoKey);
+        if (existing.RemotePhotoKey?.StartsWith(HiddenContactPhotoPrefix, StringComparison.Ordinal) == true)
+        {
+            incoming.ContactPictureFileId = null;
+            incoming.RemotePhotoKey = BuildHiddenPhotoKey(incoming.RemotePhotoKey);
+        }
+    }
+
+    internal static AccountContact CreateOutlookContactPhotoSuppression(
+        AccountContact requested,
+        AccountContact committed)
+    {
+        var current = committed ?? requested ?? throw new ArgumentNullException(nameof(requested));
+        var suppressed = RequestEntityCloner.Contact(current);
+        suppressed.ContactPictureFileId = null;
+        suppressed.RemotePhotoKey = BuildHiddenPhotoKey(current.RemotePhotoKey);
+        return suppressed;
+    }
+
+    private async Task ReconcileOutlookContactPhotoSuppressionsAsync(
+        IReadOnlyList<AccountContact> incomingContacts,
+        Guid addressBookId)
+    {
+        var currentContacts = await _contactService.GetContactsByAddressBookAsync(addressBookId).ConfigureAwait(false);
+        var currentByRemoteId = currentContacts
+            .Where(contact => !string.IsNullOrWhiteSpace(contact.RemoteId))
+            .ToDictionary(contact => contact.RemoteId, StringComparer.Ordinal);
+        var referencedPictureFileIds = new HashSet<Guid>(currentContacts
+            .Where(contact => contact.ContactPictureFileId.HasValue)
+            .Select(contact => contact.ContactPictureFileId.Value));
+
+        foreach (var incoming in incomingContacts)
+        {
+            if (string.IsNullOrWhiteSpace(incoming.RemoteId) ||
+                !currentByRemoteId.TryGetValue(incoming.RemoteId, out var current) ||
+                current.RemotePhotoKey?.StartsWith(HiddenContactPhotoPrefix, StringComparison.Ordinal) != true)
+            {
+                continue;
+            }
+
+            var downloadedPictureFileId = incoming.ContactPictureFileId;
+            if (current.ContactPictureFileId.HasValue)
+                await _contactService.SuppressContactPictureAsync(current.Id, current.RemotePhotoKey).ConfigureAwait(false);
+
+            PreserveOutlookContactPhotoSuppression(incoming, current);
+
+            if (downloadedPictureFileId.HasValue && !referencedPictureFileIds.Contains(downloadedPictureFileId.Value))
+                await _contactPictureFileService.DeleteContactPictureAsync(downloadedPictureFileId.Value).ConfigureAwait(false);
+        }
     }
 
     private async Task<List<ContactFolder>> DiscoverOutlookContactFoldersAsync(CancellationToken cancellationToken)
@@ -1360,6 +1590,8 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                         PreserveRequestedContactState(mapped, local);
                         PreserveOutlookContactPhotoSuppression(mapped, local);
                         await _outlookChangeProcessor.CommitContactMutationAsync(local.Id, mapped, false).ConfigureAwait(false);
+                        if (mapped.RemotePhotoKey?.StartsWith(HiddenContactPhotoPrefix, StringComparison.Ordinal) == true)
+                            await _contactService.SuppressContactPictureAsync(local.Id, mapped.RemotePhotoKey).ConfigureAwait(false);
                         break;
                     }
                     case ContactSynchronizerOperation.Delete:
@@ -1372,13 +1604,14 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                         await _outlookContactsClient.SetPhotoAsync(local.RemoteId, request.Photo, cancellationToken).ConfigureAwait(false);
                         var photoContact = RequestEntityCloner.Contact(local);
                         photoContact.ContactPictureFileId = await _contactPictureFileService.SaveContactPictureAsync(request.Photo).ConfigureAwait(false);
+                        photoContact.RemotePhotoKey = null;
                         await _outlookChangeProcessor.CommitContactMutationAsync(local.Id, photoContact, false).ConfigureAwait(false);
                         break;
                     case ContactSynchronizerOperation.DeletePhoto:
-                        var noPhotoContact = RequestEntityCloner.Contact(local);
-                        noPhotoContact.ContactPictureFileId = null;
-                        noPhotoContact.RemotePhotoKey = BuildMissingPhotoKey(local.RemotePhotoKey);
+                        var committedContact = await _contactService.GetContactAsync(local.Id).ConfigureAwait(false) ?? local;
+                        var noPhotoContact = CreateOutlookContactPhotoSuppression(local, committedContact);
                         await _outlookChangeProcessor.CommitContactMutationAsync(local.Id, noPhotoContact, false).ConfigureAwait(false);
+                        await _contactService.SuppressContactPictureAsync(local.Id, noPhotoContact.RemotePhotoKey).ConfigureAwait(false);
                         break;
                 }
             }

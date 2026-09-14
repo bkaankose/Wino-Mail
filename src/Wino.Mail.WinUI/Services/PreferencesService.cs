@@ -179,6 +179,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsMailListGroupHeadersEnabled), value);
     }
 
+    public bool IsOtherInboxUnreadNoticeEnabled
+    {
+        get => _configurationService.Get(nameof(IsOtherInboxUnreadNoticeEnabled), true);
+        set => SetPropertyAndSave(nameof(IsOtherInboxUnreadNoticeEnabled), value);
+    }
+
     public bool RenderStyles
     {
         get => _configurationService.Get(nameof(RenderStyles), true);
@@ -646,6 +652,44 @@ public partial class PreferencesService(IConfigurationService configurationServi
     {
         get => _configurationService.Get(nameof(IsCompanionEnabled), true);
         set => SetPropertyAndSave(nameof(IsCompanionEnabled), value);
+    }
+
+    public CompanionUnreadMessageBehavior CompanionUnreadMessageBehavior
+    {
+        get
+        {
+            var value = _configurationService.Get(
+                nameof(CompanionUnreadMessageBehavior),
+                CompanionUnreadMessageBehavior.AfterAppSession);
+            return Enum.IsDefined(value) ? value : CompanionUnreadMessageBehavior.AfterAppSession;
+        }
+        set => SetPropertyAndSave(
+            nameof(CompanionUnreadMessageBehavior),
+            Enum.IsDefined(value) ? value : CompanionUnreadMessageBehavior.AfterAppSession);
+    }
+
+    public bool ShowCalendarInCompanion
+    {
+        get => _configurationService.Get(nameof(ShowCalendarInCompanion), true);
+        set => SetPropertyAndSave(nameof(ShowCalendarInCompanion), value);
+    }
+
+    public bool ShowUnreadMailInCompanion
+    {
+        get => _configurationService.Get(nameof(ShowUnreadMailInCompanion), true);
+        set => SetPropertyAndSave(nameof(ShowUnreadMailInCompanion), value);
+    }
+
+    public bool ShowTasksInCompanion
+    {
+        get => _configurationService.Get(nameof(ShowTasksInCompanion), true);
+        set => SetPropertyAndSave(nameof(ShowTasksInCompanion), value);
+    }
+
+    public bool ShowFavoriteContactsInCompanion
+    {
+        get => _configurationService.Get(nameof(ShowFavoriteContactsInCompanion), true);
+        set => SetPropertyAndSave(nameof(ShowFavoriteContactsInCompanion), value);
     }
 
     public bool IsCompanionHotKeyEnabled

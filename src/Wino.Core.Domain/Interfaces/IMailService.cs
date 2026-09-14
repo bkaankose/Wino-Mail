@@ -28,6 +28,7 @@ public interface IMailService
     Task<List<MailCopy>> GetMailItemsAsync(IEnumerable<string> mailCopyIds);
     Task<MailFetchPage> FetchMailPageAsync(MailListInitializationOptions options, MailFetchCursor cursor = null, CancellationToken cancellationToken = default);
     Task<List<MailCopy>> FetchMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
+    Task<int> CountMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
     Task<List<MailCopy>> FetchPinnedMailsAsync(MailListInitializationOptions options, CancellationToken cancellationToken = default);
     Task HydrateIntelligenceMetadataAsync(IReadOnlyCollection<MailCopy> mailCopies, CancellationToken cancellationToken = default);
 

@@ -48,9 +48,30 @@
             <TextBlock Text="{x:Bind domain:Translator.ApplicationThemeGallery_Loading, Mode=OneTime}" />
         </StackPanel>
 
-        <StackPanel Spacing="6">
-            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind domain:Translator.ApplicationThemeGallery_CurrentTheme, Mode=OneTime}" />
-            <ContentControl Content="{x:Bind ViewModel.CurrentTheme, Mode=OneWay}">
+        <Grid ColumnSpacing="12" RowSpacing="6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock
+                VerticalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind domain:Translator.ApplicationThemeGallery_CurrentTheme, Mode=OneTime}" />
+            <Button
+                x:Name="CreateThemeButton"
+                Grid.Column="1"
+                x:Load="{x:Bind ViewModel.IsCreateThemeVisible, Mode=OneWay}"
+                AutomationProperties.AutomationId="ApplicationThemeGalleryCreateButton"
+                Command="{x:Bind ViewModel.CreateThemeCommand}"
+                Content="{x:Bind domain:Translator.ApplicationThemeGallery_Create, Mode=OneTime}" />
+            <ContentControl
+                Grid.Row="1"
+                Grid.ColumnSpan="2"
+                Content="{x:Bind ViewModel.CurrentTheme, Mode=OneWay}">
                 <ContentControl.ContentTemplate>
                     <DataTemplate x:DataType="themes:AppThemeBase">
                         <Border
@@ -87,52 +108,19 @@
                     </DataTemplate>
                 </ContentControl.ContentTemplate>
             </ContentControl>
-        </StackPanel>
-
-        <Grid ColumnSpacing="12" RowSpacing="8">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <controls:Segmented
-                x:Name="ThemeFilter"
-                Grid.ColumnSpan="2"
-                AutomationProperties.AutomationId="ApplicationThemeGalleryFilter"
-                SelectedIndex="{x:Bind ViewModel.SelectedFilterIndex, Mode=TwoWay}">
-                <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_All, Mode=OneTime}" />
-                <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Dark, Mode=OneTime}" />
-                <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Light, Mode=OneTime}" />
-                <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Both, Mode=OneTime}" />
-                <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Custom, Mode=OneTime}" />
-                <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Online, Mode=OneTime}" />
-            </controls:Segmented>
-            <Button
-                x:Name="CreateThemeButton"
-                Grid.Row="1"
-                HorizontalAlignment="Right"
-                x:Load="{x:Bind ViewModel.IsCreateThemeVisible, Mode=OneWay}"
-                AutomationProperties.AutomationId="ApplicationThemeGalleryCreateButton"
-                Command="{x:Bind ViewModel.CreateThemeCommand}"
-                Content="{x:Bind domain:Translator.ApplicationThemeGallery_Create, Mode=OneTime}" />
-            <VisualStateManager.VisualStateGroups>
-                <VisualStateGroup>
-                    <VisualState x:Name="WideThemeFilterCommands">
-                        <VisualState.StateTriggers>
-                            <AdaptiveTrigger MinWindowWidth="640" />
-                        </VisualState.StateTriggers>
-                        <VisualState.Setters>
-                            <Setter Target="ThemeFilter.(Grid.ColumnSpan)" Value="1" />
-                            <Setter Target="CreateThemeButton.(Grid.Row)" Value="0" />
-                            <Setter Target="CreateThemeButton.(Grid.Column)" Value="1" />
-                        </VisualState.Setters>
-                    </VisualState>
-                </VisualStateGroup>
-            </VisualStateManager.VisualStateGroups>
         </Grid>
+
+        <controls:Segmented
+            x:Name="ThemeFilter"
+            AutomationProperties.AutomationId="ApplicationThemeGalleryFilter"
+            SelectedIndex="{x:Bind ViewModel.SelectedFilterIndex, Mode=TwoWay}">
+            <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_All, Mode=OneTime}" />
+            <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Dark, Mode=OneTime}" />
+            <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Light, Mode=OneTime}" />
+            <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Both, Mode=OneTime}" />
+            <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Custom, Mode=OneTime}" />
+            <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Online, Mode=OneTime}" />
+        </controls:Segmented>
 
         <GridView
             x:Name="ThemeLocalGallery"

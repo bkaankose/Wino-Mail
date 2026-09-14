@@ -4,6 +4,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
 using Xunit;
 
@@ -11,6 +12,31 @@ namespace Wino.Mail.ViewModels.Tests;
 
 public sealed class ProviderSelectionPageViewModelTests
 {
+    [Fact]
+    public void AccountSetupProviders_ExcludePop3()
+    {
+        var providerService = new Mock<IProviderService>();
+        providerService.Setup(service => service.GetAvailableProviders()).Returns(
+        [
+            new ProviderDetail(MailProviderType.Outlook, SpecialImapProvider.None),
+            new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None),
+            new ProviderDetail(MailProviderType.POP3, SpecialImapProvider.None)
+        ]);
+        var themeService = new Mock<INewThemeService>();
+        themeService.Setup(service => service.GetAvailableAccountColors()).Returns([]);
+        var viewModel = new ProviderSelectionPageViewModel(
+            Mock.Of<IAccountService>(),
+            Mock.Of<IDialogServiceBase>(),
+            providerService.Object,
+            themeService.Object,
+            new WelcomeWizardContext());
+
+        viewModel.OnNavigatedTo(NavigationMode.New, ProviderSelectionNavigationContext.CreateForWizard());
+
+        viewModel.Providers.Should().NotContain(provider => provider.Type == MailProviderType.POP3);
+        viewModel.Providers.Should().Contain(provider => provider.Type == MailProviderType.IMAP4);
+    }
+
     [Fact]
     public void ICloudContactSources_IncludeCardDavAndLocal()
     {

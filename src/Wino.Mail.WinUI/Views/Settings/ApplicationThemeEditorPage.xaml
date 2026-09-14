@@ -8,321 +8,710 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:local="using:Wino.Views.Settings"
-    xmlns:release="using:Wino.NotificationHost.Contracts"
+    xmlns:personalization="using:Wino.Core.Domain.Models.Personalization"
+    xmlns:winocontrols="using:Wino.Controls"
     x:Name="Root"
-    Title="{x:Bind ViewModel.PageTitle, Mode=OneWay}">
+    Title="{x:Bind ViewModel.PageTitle, Mode=OneWay}"
+    Loaded="EditorLoaded"
+    Unloaded="EditorUnloaded">
 
-    <Grid
-        x:Name="EditorLayout"
-        ColumnSpacing="24"
-        RowSpacing="24">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition x:Name="EditorPreviewColumn" Width="0" />
-        </Grid.ColumnDefinitions>
+    <abstract:ApplicationThemeEditorPageAbstract.Resources>
+        <!--  One editable color: a row that opens a preview of the surface it paints.  -->
+        <DataTemplate x:Key="ThemeColorOptionTemplate" x:DataType="data:ThemePaletteColorOptionViewModel">
+            <StackPanel>
+                <Button
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="ApplicationThemeEditorColorRow"
+                    AutomationProperties.HelpText="{x:Bind Description}"
+                    AutomationProperties.Name="{x:Bind Label}"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Command="{Binding ElementName=Root, Path=ViewModel.ToggleOptionCommand}"
+                    CommandParameter="{x:Bind}">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-        <StackPanel Spacing="16">
-            <InfoBar
-                AutomationProperties.AutomationId="ApplicationThemeEditorError"
-                IsClosable="True"
-                IsOpen="{x:Bind ViewModel.IsErrorOpen, Mode=OneWay}"
-                Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
-                Severity="Error" />
+                        <Border
+                            Width="28"
+                            Height="28"
+                            Background="{ThemeResource ControlAltFillColorSecondaryBrush}"
+                            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4">
+                            <Border Background="{x:Bind winocontrols:ThemeSurfacePreview.GetBrush(Value), Mode=OneWay}" CornerRadius="3" />
+                        </Border>
 
-            <controls:SettingsCard
-                AutomationProperties.AutomationId="ApplicationThemeEditorNameCard"
-                Description="{x:Bind domain:Translator.ApplicationThemeEditor_NameDescription, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.ApplicationThemeEditor_Name, Mode=OneTime}">
-                <TextBox
-                    Width="220"
-                    AutomationProperties.AutomationId="ApplicationThemeEditorNameTextBox"
-                    Text="{x:Bind ViewModel.ThemeName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-            </controls:SettingsCard>
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Spacing="1">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{x:Bind Label}" />
+                                <Ellipse
+                                    Width="5"
+                                    Height="5"
+                                    VerticalAlignment="Center"
+                                    Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.ApplicationThemeEditor_Customized, Mode=OneTime}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsOverridden), Mode=OneWay}" />
+                            </StackPanel>
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind Description}"
+                                TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
 
-            <controls:SettingsExpander
-                AutomationProperties.AutomationId="ApplicationThemeEditorWallpaperExpander"
-                Description="{x:Bind domain:Translator.ApplicationThemeEditor_WallpaperDescription, Mode=OneTime}"
-                Header="{x:Bind domain:Translator.ApplicationThemeEditor_Wallpaper, Mode=OneTime}"
-                IsExpanded="True">
-                <controls:SettingsExpander.Items>
-                    <controls:SettingsCard AutomationProperties.AutomationId="ApplicationThemeEditorWallpaperImageCard" Header="{x:Bind domain:Translator.ApplicationThemeEditor_WallpaperImage, Mode=OneTime}">
+                        <TextBlock
+                            Grid.Column="2"
+                            VerticalAlignment="Center"
+                            FontFamily="Consolas"
+                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind Value, Mode=OneWay}" />
+
+                        <FontIcon
+                            Grid.Column="3"
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Glyph="&#xE76C;"
+                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsExpanded), Mode=OneWay}" />
+                        <FontIcon
+                            Grid.Column="3"
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Glyph="&#xE70D;"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsExpanded), Mode=OneWay}" />
+                    </Grid>
+                </Button>
+
+                <!--  Only the selected color shows a surface preview, so the page stays cheap to read.  -->
+                <Border
+                    Margin="0,2,0,8"
+                    Padding="14"
+                    Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsExpanded), Mode=OneWay}">
+                    <Grid ColumnSpacing="16" RowSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="248" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <winocontrols:ThemeSurfacePreview
+                            Height="186"
+                            AccentColorHex="{Binding ElementName=Root, Path=PreviewAccentColorHex, Mode=OneWay}"
+                            AutomationProperties.AutomationId="ApplicationThemeEditorSurfacePreview"
+                            AutomationProperties.Name="{x:Bind Label}"
+                            HighlightedKey="{x:Bind Key}"
+                            Palette="{Binding ElementName=Root, Path=ViewModel.PreviewPalette, Mode=OneWay}"
+                            Scene="{x:Bind Scene}"
+                            WallpaperAlignment="{Binding ElementName=Root, Path=ViewModel.WallpaperAlignment, Mode=OneWay}"
+                            WallpaperFit="{Binding ElementName=Root, Path=ViewModel.WallpaperFit, Mode=OneWay}"
+                            WallpaperSource="{Binding ElementName=Root, Path=WallpaperImageSource, Mode=OneWay}" />
+
+                        <StackPanel Grid.Column="1" Spacing="12">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button
+                                    Padding="4"
+                                    AutomationProperties.AutomationId="ApplicationThemeEditorColorPickerButton"
+                                    AutomationProperties.Name="{x:Bind Label}">
+                                    <Button.Flyout>
+                                        <!--
+                                            The picker takes its value when the flyout opens. A bound Color would
+                                            report its own default before the binding applies and dirty the theme.
+                                        -->
+                                        <Flyout Closed="ColorFlyoutClosed" Opened="SurfaceColorFlyoutOpened">
+                                            <ColorPicker
+                                                AutomationProperties.AutomationId="ApplicationThemeEditorColorPicker"
+                                                ColorChanged="SurfaceColorChanged"
+                                                IsAlphaEnabled="True"
+                                                IsColorSliderVisible="True"
+                                                IsHexInputVisible="True"
+                                                IsMoreButtonVisible="False"
+                                                Tag="{x:Bind}" />
+                                        </Flyout>
+                                    </Button.Flyout>
+                                    <Border
+                                        Width="34"
+                                        Height="22"
+                                        Background="{ThemeResource ControlAltFillColorSecondaryBrush}"
+                                        CornerRadius="3">
+                                        <Border Background="{x:Bind winocontrols:ThemeSurfacePreview.GetBrush(Value), Mode=OneWay}" CornerRadius="3" />
+                                    </Border>
+                                </Button>
+
+                                <TextBox
+                                    Width="140"
+                                    AutomationProperties.AutomationId="ApplicationThemeEditorColorTextBox"
+                                    AutomationProperties.Name="{x:Bind Label}"
+                                    PlaceholderText="{x:Bind domain:Translator.ApplicationThemeEditor_HexFormatWithAlpha, Mode=OneTime}"
+                                    Text="{x:Bind Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                                <Button
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="ApplicationThemeEditorResetColorButton"
+                                    Command="{Binding ElementName=Root, Path=ViewModel.ResetColorCommand}"
+                                    CommandParameter="{x:Bind}"
+                                    Content="{x:Bind domain:Translator.ApplicationThemeEditor_ResetToDefault, Mode=OneTime}"
+                                    IsEnabled="{x:Bind IsOverridden, Mode=OneWay}" />
+                            </StackPanel>
+
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind domain:Translator.ApplicationThemeEditor_AlphaHint, Mode=OneTime}" />
+
+                            <!--  Reported only for surfaces that carry readable body text.  -->
+                            <StackPanel
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                Visibility="{x:Bind local:ApplicationThemeEditorPage.GetContrastPassVisibility(HasContrastReport, IsContrastSufficient), Mode=OneWay}">
+                                <FontIcon
+                                    FontSize="14"
+                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                    Glyph="&#xE73E;" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ContrastMessage, Mode=OneWay}" />
+                            </StackPanel>
+
+                            <StackPanel
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                Visibility="{x:Bind local:ApplicationThemeEditorPage.GetContrastWarningVisibility(HasContrastReport, IsContrastSufficient), Mode=OneWay}">
+                                <FontIcon
+                                    FontSize="14"
+                                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                    Glyph="&#xE7BA;" />
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ContrastMessage, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+    </abstract:ApplicationThemeEditorPageAbstract.Resources>
+
+    <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <InfoBar
+            AutomationProperties.AutomationId="ApplicationThemeEditorError"
+            IsClosable="True"
+            IsOpen="{x:Bind ViewModel.IsErrorOpen, Mode=OneWay}"
+            Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}"
+            Severity="Error" />
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="ApplicationThemeEditorNameCard"
+            Description="{x:Bind domain:Translator.ApplicationThemeEditor_NameDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ApplicationThemeEditor_Name, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon Glyph="&#xE8AC;" />
+            </controls:SettingsCard.HeaderIcon>
+            <TextBox
+                Width="260"
+                AutomationProperties.AutomationId="ApplicationThemeEditorNameTextBox"
+                Text="{x:Bind ViewModel.ThemeName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        </controls:SettingsCard>
+
+        <!--  A theme stores two palettes. This says which one every color below belongs to.  -->
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="ApplicationThemeEditorPaletteModeCard"
+            Description="{x:Bind domain:Translator.ApplicationThemeEditor_PaletteHint, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ApplicationThemeEditor_EditingPalette, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon Glyph="&#xE793;" />
+            </controls:SettingsCard.HeaderIcon>
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <controls:Segmented
+                    x:Name="PaletteModeSegmented"
+                    AutomationProperties.AutomationId="ApplicationThemeEditorPaletteMode"
+                    Loaded="PaletteModeSegmentedLoaded"
+                    SelectionChanged="PaletteModeSelectionChanged">
+                    <controls:SegmentedItem AutomationProperties.AutomationId="ApplicationThemeEditorPaletteModeLight">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{x:Bind domain:Translator.ApplicationThemeGallery_Light, Mode=OneTime}" />
+                            <Ellipse
+                                Width="5"
+                                Height="5"
+                                VerticalAlignment="Center"
+                                Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.ApplicationThemeEditor_Customized, Mode=OneTime}"
+                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.HasLightOverrides), Mode=OneWay}" />
+                        </StackPanel>
+                    </controls:SegmentedItem>
+                    <controls:SegmentedItem AutomationProperties.AutomationId="ApplicationThemeEditorPaletteModeDark">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="{x:Bind domain:Translator.ApplicationThemeGallery_Dark, Mode=OneTime}" />
+                            <Ellipse
+                                Width="5"
+                                Height="5"
+                                VerticalAlignment="Center"
+                                Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.ApplicationThemeEditor_Customized, Mode=OneTime}"
+                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.HasDarkOverrides), Mode=OneWay}" />
+                        </StackPanel>
+                    </controls:SegmentedItem>
+                </controls:Segmented>
+                <Button
+                    AutomationProperties.AutomationId="ApplicationThemeEditorCopyPaletteButton"
+                    Command="{x:Bind ViewModel.CopyPaletteToOtherModeCommand}"
+                    Content="{x:Bind ViewModel.CopyPaletteLabel, Mode=OneWay}" />
+            </StackPanel>
+        </controls:SettingsCard>
+
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="ApplicationThemeEditorWallpaperExpander"
+            Description="{x:Bind domain:Translator.ApplicationThemeEditor_WallpaperDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ApplicationThemeEditor_Wallpaper, Mode=OneTime}"
+            IsExpanded="True">
+            <controls:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xEB9F;" />
+            </controls:SettingsExpander.HeaderIcon>
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind ViewModel.WallpaperFileName, Mode=OneWay}"
+                TextTrimming="CharacterEllipsis" />
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    x:Name="WallpaperEmptyCard"
+                    HorizontalContentAlignment="Stretch"
+                    AllowDrop="True"
+                    AutomationProperties.AutomationId="ApplicationThemeEditorWallpaperEmptyCard"
+                    ContentAlignment="Vertical"
+                    DragOver="WallpaperDragOver"
+                    Drop="WallpaperDropped"
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasWallpaper), Mode=OneWay}">
+                    <StackPanel
+                        Padding="0,18"
+                        HorizontalAlignment="Center"
+                        Spacing="8">
+                        <TextBlock
+                            HorizontalAlignment="Center"
+                            Style="{StaticResource BodyStrongTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.ApplicationThemeEditor_WallpaperNone, Mode=OneTime}" />
                         <Button
+                            HorizontalAlignment="Center"
                             AutomationProperties.AutomationId="ApplicationThemeEditorBrowseWallpaperButton"
                             Command="{x:Bind ViewModel.ChooseWallpaperCommand}"
-                            Content="{x:Bind domain:Translator.Buttons_Browse, Mode=OneTime}" />
-                    </controls:SettingsCard>
-                    <controls:SettingsCard AutomationProperties.AutomationId="ApplicationThemeEditorWallpaperFitCard" Header="{x:Bind domain:Translator.ApplicationThemeEditor_WallpaperFit, Mode=OneTime}">
-                        <controls:Segmented AutomationProperties.AutomationId="ApplicationThemeEditorWallpaperFit" SelectedIndex="{x:Bind ViewModel.WallpaperFitIndex, Mode=TwoWay}">
-                            <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeEditor_Fill, Mode=OneTime}" />
-                            <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeEditor_Fit, Mode=OneTime}" />
-                        </controls:Segmented>
-                    </controls:SettingsCard>
-                    <controls:SettingsCard
-                        AutomationProperties.AutomationId="ApplicationThemeEditorFocalPointCard"
-                        Header="{x:Bind domain:Translator.ApplicationThemeEditor_FocalPoint, Mode=OneTime}"
-                        IsEnabled="{x:Bind ViewModel.IsFocalSelectorEnabled, Mode=OneWay}">
-                        <Grid
-                            Width="120"
-                            Height="120"
-                            ColumnSpacing="4"
-                            RowSpacing="4">
-                            <Grid.RowDefinitions>
-                                <RowDefinition />
-                                <RowDefinition />
-                                <RowDefinition />
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition />
-                                <ColumnDefinition />
-                                <ColumnDefinition />
-                            </Grid.ColumnDefinitions>
-                            <Button
-                                Grid.Row="0"
-                                Grid.Column="0"
-                                AutomationProperties.AutomationId="ThemeFocalTopLeft"
-                                AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalTopLeft, Mode=OneTime}"
-                                Click="FocalPointClicked"
-                                Tag="TopLeft" />
-                            <Button
-                                Grid.Row="0"
-                                Grid.Column="1"
-                                AutomationProperties.AutomationId="ThemeFocalTop"
-                                AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalTop, Mode=OneTime}"
-                                Click="FocalPointClicked"
-                                Tag="Top" />
-                            <Button
-                                Grid.Row="0"
-                                Grid.Column="2"
-                                AutomationProperties.AutomationId="ThemeFocalTopRight"
-                                AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalTopRight, Mode=OneTime}"
-                                Click="FocalPointClicked"
-                                Tag="TopRight" />
-                            <Button
-                                Grid.Row="1"
-                                Grid.Column="0"
-                                AutomationProperties.AutomationId="ThemeFocalLeft"
-                                AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalLeft, Mode=OneTime}"
-                                Click="FocalPointClicked"
-                                Tag="Left" />
-                            <Button
-                                Grid.Row="1"
-                                Grid.Column="1"
-                                AutomationProperties.AutomationId="ThemeFocalCenter"
-                                AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalCenter, Mode=OneTime}"
-                                Click="FocalPointClicked"
-                                Tag="Center" />
-                            <Button
-                                Grid.Row="1"
-                                Grid.Column="2"
-                                AutomationProperties.AutomationId="ThemeFocalRight"
-                                AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalRight, Mode=OneTime}"
-                                Click="FocalPointClicked"
-                                Tag="Right" />
-                            <Button
-                                Grid.Row="2"
-                                Grid.Column="0"
-                                AutomationProperties.AutomationId="ThemeFocalBottomLeft"
-                                AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalBottomLeft, Mode=OneTime}"
-                                Click="FocalPointClicked"
-                                Tag="BottomLeft" />
-                            <Button
-                                Grid.Row="2"
-                                Grid.Column="1"
-                                AutomationProperties.AutomationId="ThemeFocalBottom"
-                                AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalBottom, Mode=OneTime}"
-                                Click="FocalPointClicked"
-                                Tag="Bottom" />
-                            <Button
-                                Grid.Row="2"
-                                Grid.Column="2"
-                                AutomationProperties.AutomationId="ThemeFocalBottomRight"
-                                AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalBottomRight, Mode=OneTime}"
-                                Click="FocalPointClicked"
-                                Tag="BottomRight" />
-                        </Grid>
-                    </controls:SettingsCard>
-                </controls:SettingsExpander.Items>
-            </controls:SettingsExpander>
-
-            <controls:SettingsExpander
-                AutomationProperties.AutomationId="ApplicationThemeEditorAccentExpander"
-                Header="{x:Bind domain:Translator.ApplicationThemeEditor_Accent, Mode=OneTime}"
-                IsExpanded="True">
-                <controls:SettingsExpander.Items>
-                    <controls:SettingsCard AutomationProperties.AutomationId="ApplicationThemeEditorSystemAccentCard" Header="{x:Bind domain:Translator.ApplicationThemeEditor_UseSystemAccent, Mode=OneTime}">
-                        <ToggleSwitch AutomationProperties.AutomationId="ApplicationThemeEditorSystemAccentToggle" IsOn="{x:Bind ViewModel.UseSystemAccent, Mode=TwoWay}" />
-                    </controls:SettingsCard>
-                    <controls:SettingsCard
-                        AutomationProperties.AutomationId="ApplicationThemeEditorCustomAccentCard"
-                        Header="{x:Bind domain:Translator.ApplicationThemeEditor_CustomAccent, Mode=OneTime}"
-                        IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.UseSystemAccent), Mode=OneWay}">
-                        <TextBox
-                            Width="130"
-                            AutomationProperties.AutomationId="ApplicationThemeEditorAccentTextBox"
-                            Header="#RRGGBB"
-                            Text="{x:Bind ViewModel.AccentColorHex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                    </controls:SettingsCard>
-                </controls:SettingsExpander.Items>
-            </controls:SettingsExpander>
-
-            <controls:SettingsExpander
-                AutomationProperties.AutomationId="ApplicationThemeEditorPaletteExpander"
-                Header="{x:Bind domain:Translator.ApplicationThemeEditor_Palette, Mode=OneTime}"
-                IsExpanded="True">
-                <controls:SettingsExpander.Items>
-                    <controls:SettingsCard AutomationProperties.AutomationId="ApplicationThemeEditorModeCard" Header="{x:Bind domain:Translator.ApplicationThemeEditor_Mode, Mode=OneTime}">
-                        <controls:Segmented AutomationProperties.AutomationId="ApplicationThemeEditorPaletteMode" SelectedIndex="{x:Bind ViewModel.PaletteModeIndex, Mode=TwoWay}">
-                            <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Light, Mode=OneTime}" />
-                            <controls:SegmentedItem Content="{x:Bind domain:Translator.ApplicationThemeGallery_Dark, Mode=OneTime}" />
-                        </controls:Segmented>
-                    </controls:SettingsCard>
-                    <controls:SettingsCard
-                        AutomationProperties.AutomationId="ApplicationThemeEditorBaseSurfaceCard"
-                        Description="{x:Bind domain:Translator.ApplicationThemeEditor_AlphaHint, Mode=OneTime}"
-                        Header="{x:Bind domain:Translator.ApplicationThemeEditor_BaseSurface, Mode=OneTime}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <TextBox
-                                Width="130"
-                                AutomationProperties.AutomationId="ApplicationThemeEditorBaseSurfaceTextBox"
-                                Text="{x:Bind ViewModel.BaseSurfaceColor, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                            <Button
-                                AutomationProperties.AutomationId="ApplicationThemeEditorResetBaseButton"
-                                Command="{x:Bind ViewModel.ResetBaseSurfaceCommand}"
-                                Content="{x:Bind domain:Translator.Buttons_Reset, Mode=OneTime}" />
-                        </StackPanel>
-                    </controls:SettingsCard>
-                    <controls:SettingsCard AutomationProperties.AutomationId="ApplicationThemeEditorAdvancedColorsCard">
-                        <ItemsControl HorizontalContentAlignment="Stretch" ItemsSource="{x:Bind ViewModel.AdvancedColorOptions}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="data:ThemePaletteColorOptionViewModel">
-                                    <Grid Padding="0,6" ColumnSpacing="16">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <StackPanel VerticalAlignment="Center" Spacing="2">
-                                            <TextBlock Text="{x:Bind Label}" />
-                                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Group}" />
-                                        </StackPanel>
-                                        <StackPanel
-                                            Grid.Column="1"
-                                            Orientation="Horizontal"
-                                            Spacing="8">
-                                            <TextBox
-                                                Width="130"
-                                                AutomationProperties.AutomationId="ApplicationThemeEditorAdvancedColorTextBox"
-                                                Text="{x:Bind Value, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                            <Button
-                                                AutomationProperties.AutomationId="ApplicationThemeEditorResetAdvancedColorButton"
-                                                Command="{Binding ElementName=Root, Path=ViewModel.ResetColorCommand}"
-                                                CommandParameter="{x:Bind}"
-                                                Content="{x:Bind domain:Translator.Buttons_Reset, Mode=OneTime}" />
-                                        </StackPanel>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </controls:SettingsCard>
-                </controls:SettingsExpander.Items>
-            </controls:SettingsExpander>
-
-            <StackPanel
-                HorizontalAlignment="Right"
-                Orientation="Horizontal"
-                Spacing="8">
-                <Button
-                    AutomationProperties.AutomationId="ApplicationThemeEditorCancelButton"
-                    Command="{x:Bind ViewModel.CancelCommand}"
-                    Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}" />
-                <Button
-                    AutomationProperties.AutomationId="ApplicationThemeEditorSaveButton"
-                    Command="{x:Bind ViewModel.SaveCommand}"
-                    Content="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
-                    Style="{StaticResource AccentButtonStyle}" />
-            </StackPanel>
-        </StackPanel>
-
-        <Grid
-            x:Name="PreviewPanel"
-            Grid.Row="1"
-            Grid.Column="0"
-            VerticalAlignment="Top"
-            RowSpacing="12">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="220" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
-            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.ApplicationThemeEditor_Preview, Mode=OneTime}" />
-            <Border
-                Grid.Row="1"
-                Background="{ThemeResource WinoApplicationBackgroundColor}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
-                <Grid Padding="12" ColumnSpacing="8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="64" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="1.2*" />
-                    </Grid.ColumnDefinitions>
-                    <Border Background="{ThemeResource NavigationViewContentBackground}" CornerRadius="4" />
-                    <StackPanel
-                        Grid.Column="1"
-                        Padding="8"
-                        Background="{ThemeResource WinoContentZoneBackgroud}"
-                        Spacing="6">
-                        <Border
-                            Height="22"
-                            Background="{ThemeResource MailListHeaderBackgroundColor}"
-                            CornerRadius="4" />
-                        <Border
-                            Height="34"
-                            Background="{ThemeResource CalendarDefaultHourBackgroundBrush}"
-                            CornerRadius="4" />
-                        <Border
-                            Height="34"
-                            Background="{ThemeResource CalendarWorkHourBackgroundBrush}"
-                            CornerRadius="4" />
-                        <Border
-                            Height="34"
-                            Background="{ThemeResource CalendarSelectedHourBackgroundBrush}"
-                            CornerRadius="4" />
+                            Content="{x:Bind domain:Translator.Buttons_Browse, Mode=OneTime}"
+                            Style="{StaticResource AccentButtonStyle}" />
                     </StackPanel>
-                    <Border
-                        Grid.Column="2"
-                        Background="{ThemeResource ReadingPaneBackgroundColorBrush}"
-                        CornerRadius="4">
-                        <StackPanel Padding="12" Spacing="8">
-                            <TextBlock FontWeight="SemiBold" Text="{x:Bind release:ReleaseIdentity.Current.MailDisplayName, Mode=OneTime}" />
-                            <TextBlock Text="{x:Bind domain:Translator.ApplicationThemeEditor_PreviewBody, Mode=OneTime}" TextWrapping="Wrap" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    x:Name="WallpaperImageCard"
+                    HorizontalContentAlignment="Stretch"
+                    AllowDrop="True"
+                    AutomationProperties.AutomationId="ApplicationThemeEditorWallpaperImageCard"
+                    ContentAlignment="Vertical"
+                    DragOver="WallpaperDragOver"
+                    Drop="WallpaperDropped"
+                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.HasWallpaper), Mode=OneWay}">
+                    <Grid ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="260" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!--  The focal point is chosen on the image itself, not on nine blank buttons.  -->
+                        <Border
+                            Height="162"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6">
+                            <!--  A ContentControl carries IsEnabled, which a Grid does not have.  -->
+                            <ContentControl
+                                x:Name="FocalPointHost"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Stretch"
+                                AutomationProperties.AutomationId="ApplicationThemeEditorFocalPointGrid"
+                                AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalPoint, Mode=OneTime}"
+                                IsEnabled="{x:Bind ViewModel.IsFocalSelectorEnabled, Mode=OneWay}"
+                                IsTabStop="False">
+                                <Grid x:Name="FocalPointGrid">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition />
+                                        <RowDefinition />
+                                        <RowDefinition />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition />
+                                        <ColumnDefinition />
+                                        <ColumnDefinition />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Image
+                                        Grid.RowSpan="3"
+                                        Grid.ColumnSpan="3"
+                                        Source="{x:Bind WallpaperImageSource, Mode=OneWay}"
+                                        Stretch="UniformToFill" />
+
+                                    <Button
+                                        Grid.Row="0"
+                                        Grid.Column="0"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        AutomationProperties.AutomationId="ThemeFocalTopLeft"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalTopLeft, Mode=OneTime}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="FocalPointClicked"
+                                        Tag="TopLeft">
+                                        <Ellipse
+                                            Width="10"
+                                            Height="10"
+                                            Fill="{x:Bind local:ApplicationThemeEditorPage.GetFocalMarkerBrush(ViewModel.WallpaperAlignment, 'TopLeft'), Mode=OneWay}" />
+                                    </Button>
+                                    <Button
+                                        Grid.Row="0"
+                                        Grid.Column="1"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        AutomationProperties.AutomationId="ThemeFocalTop"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalTop, Mode=OneTime}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="FocalPointClicked"
+                                        Tag="Top">
+                                        <Ellipse
+                                            Width="10"
+                                            Height="10"
+                                            Fill="{x:Bind local:ApplicationThemeEditorPage.GetFocalMarkerBrush(ViewModel.WallpaperAlignment, 'Top'), Mode=OneWay}" />
+                                    </Button>
+                                    <Button
+                                        Grid.Row="0"
+                                        Grid.Column="2"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        AutomationProperties.AutomationId="ThemeFocalTopRight"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalTopRight, Mode=OneTime}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="FocalPointClicked"
+                                        Tag="TopRight">
+                                        <Ellipse
+                                            Width="10"
+                                            Height="10"
+                                            Fill="{x:Bind local:ApplicationThemeEditorPage.GetFocalMarkerBrush(ViewModel.WallpaperAlignment, 'TopRight'), Mode=OneWay}" />
+                                    </Button>
+                                    <Button
+                                        Grid.Row="1"
+                                        Grid.Column="0"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        AutomationProperties.AutomationId="ThemeFocalLeft"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalLeft, Mode=OneTime}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="FocalPointClicked"
+                                        Tag="Left">
+                                        <Ellipse
+                                            Width="10"
+                                            Height="10"
+                                            Fill="{x:Bind local:ApplicationThemeEditorPage.GetFocalMarkerBrush(ViewModel.WallpaperAlignment, 'Left'), Mode=OneWay}" />
+                                    </Button>
+                                    <Button
+                                        Grid.Row="1"
+                                        Grid.Column="1"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        AutomationProperties.AutomationId="ThemeFocalCenter"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalCenter, Mode=OneTime}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="FocalPointClicked"
+                                        Tag="Center">
+                                        <Ellipse
+                                            Width="10"
+                                            Height="10"
+                                            Fill="{x:Bind local:ApplicationThemeEditorPage.GetFocalMarkerBrush(ViewModel.WallpaperAlignment, 'Center'), Mode=OneWay}" />
+                                    </Button>
+                                    <Button
+                                        Grid.Row="1"
+                                        Grid.Column="2"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        AutomationProperties.AutomationId="ThemeFocalRight"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalRight, Mode=OneTime}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="FocalPointClicked"
+                                        Tag="Right">
+                                        <Ellipse
+                                            Width="10"
+                                            Height="10"
+                                            Fill="{x:Bind local:ApplicationThemeEditorPage.GetFocalMarkerBrush(ViewModel.WallpaperAlignment, 'Right'), Mode=OneWay}" />
+                                    </Button>
+                                    <Button
+                                        Grid.Row="2"
+                                        Grid.Column="0"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        AutomationProperties.AutomationId="ThemeFocalBottomLeft"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalBottomLeft, Mode=OneTime}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="FocalPointClicked"
+                                        Tag="BottomLeft">
+                                        <Ellipse
+                                            Width="10"
+                                            Height="10"
+                                            Fill="{x:Bind local:ApplicationThemeEditorPage.GetFocalMarkerBrush(ViewModel.WallpaperAlignment, 'BottomLeft'), Mode=OneWay}" />
+                                    </Button>
+                                    <Button
+                                        Grid.Row="2"
+                                        Grid.Column="1"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        AutomationProperties.AutomationId="ThemeFocalBottom"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalBottom, Mode=OneTime}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="FocalPointClicked"
+                                        Tag="Bottom">
+                                        <Ellipse
+                                            Width="10"
+                                            Height="10"
+                                            Fill="{x:Bind local:ApplicationThemeEditorPage.GetFocalMarkerBrush(ViewModel.WallpaperAlignment, 'Bottom'), Mode=OneWay}" />
+                                    </Button>
+                                    <Button
+                                        Grid.Row="2"
+                                        Grid.Column="2"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Stretch"
+                                        AutomationProperties.AutomationId="ThemeFocalBottomRight"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_FocalBottomRight, Mode=OneTime}"
+                                        Background="Transparent"
+                                        BorderThickness="0"
+                                        Click="FocalPointClicked"
+                                        Tag="BottomRight">
+                                        <Ellipse
+                                            Width="10"
+                                            Height="10"
+                                            Fill="{x:Bind local:ApplicationThemeEditorPage.GetFocalMarkerBrush(ViewModel.WallpaperAlignment, 'BottomRight'), Mode=OneWay}" />
+                                    </Button>
+                                </Grid>
+                            </ContentControl>
+                        </Border>
+
+                        <StackPanel
+                            Grid.Column="1"
+                            VerticalAlignment="Center"
+                            Spacing="12">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.ApplicationThemeEditor_WallpaperFit, Mode=OneTime}" />
+                                <controls:Segmented
+                                    x:Name="WallpaperFitSegmented"
+                                    AutomationProperties.AutomationId="ApplicationThemeEditorWallpaperFit"
+                                    Loaded="WallpaperFitSegmentedLoaded"
+                                    SelectionChanged="WallpaperFitSelectionChanged">
+                                    <controls:SegmentedItem AutomationProperties.AutomationId="ApplicationThemeEditorWallpaperFitFill" Content="{x:Bind domain:Translator.ApplicationThemeEditor_Fill, Mode=OneTime}" />
+                                    <controls:SegmentedItem AutomationProperties.AutomationId="ApplicationThemeEditorWallpaperFitFit" Content="{x:Bind domain:Translator.ApplicationThemeEditor_Fit, Mode=OneTime}" />
+                                </controls:Segmented>
+                            </StackPanel>
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.FocalPointDescription, Mode=OneWay}"
+                                TextWrapping="Wrap" />
+                            <Button
+                                HorizontalAlignment="Left"
+                                AutomationProperties.AutomationId="ApplicationThemeEditorReplaceWallpaperButton"
+                                Command="{x:Bind ViewModel.ChooseWallpaperCommand}"
+                                Content="{x:Bind domain:Translator.ApplicationThemeEditor_WallpaperReplace, Mode=OneTime}" />
                         </StackPanel>
-                    </Border>
-                </Grid>
-            </Border>
-            <Image
-                Grid.Row="2"
-                Height="150"
-                Source="{x:Bind local:ApplicationThemeEditorPage.GetWallpaperPreviewSource(ViewModel.WallpaperPreviewPath), Mode=OneWay}"
-                Stretch="UniformToFill" />
-        </Grid>
-        <VisualStateManager.VisualStateGroups>
-            <VisualStateGroup>
-                <VisualState x:Name="WideEditorLayout">
-                    <VisualState.StateTriggers>
-                        <AdaptiveTrigger MinWindowWidth="900" />
-                    </VisualState.StateTriggers>
-                    <VisualState.Setters>
-                        <Setter Target="EditorPreviewColumn.Width" Value="*" />
-                        <Setter Target="PreviewPanel.(Grid.Row)" Value="0" />
-                        <Setter Target="PreviewPanel.(Grid.Column)" Value="1" />
-                    </VisualState.Setters>
-                </VisualState>
-            </VisualStateGroup>
-        </VisualStateManager.VisualStateGroups>
-    </Grid>
+                    </Grid>
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="ApplicationThemeEditorBaseExpander"
+            Description="{x:Bind domain:Translator.ApplicationThemeEditor_BaseAndAccentDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ApplicationThemeEditor_BaseAndAccent, Mode=OneTime}"
+            IsExpanded="True">
+            <controls:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE790;" />
+            </controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="ApplicationThemeEditorPresetsCard"
+                    ContentAlignment="Vertical"
+                    Header="{x:Bind domain:Translator.ApplicationThemeEditor_Presets, Mode=OneTime}">
+                    <ItemsControl AutomationProperties.AutomationId="ApplicationThemeEditorPresets" ItemsSource="{x:Bind ViewModel.BasePresets}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" Spacing="8" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="personalization:ThemeBasePreset">
+                                <Button
+                                    Padding="6"
+                                    AutomationProperties.AutomationId="ApplicationThemeEditorPresetButton"
+                                    AutomationProperties.Name="{x:Bind Name}"
+                                    Command="{Binding ElementName=Root, Path=ViewModel.ApplyBasePresetCommand}"
+                                    CommandParameter="{x:Bind}">
+                                    <StackPanel Spacing="6">
+                                        <Grid
+                                            Width="56"
+                                            Height="28"
+                                            CornerRadius="4">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition />
+                                                <ColumnDefinition />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Background="{x:Bind winocontrols:ThemeSurfacePreview.GetBrush(LightColor)}" />
+                                            <Border Grid.Column="1" Background="{x:Bind winocontrols:ThemeSurfacePreview.GetBrush(DarkColor)}" />
+                                        </Grid>
+                                        <TextBlock
+                                            HorizontalAlignment="Center"
+                                            Style="{StaticResource CaptionTextBlockStyle}"
+                                            Text="{x:Bind Name}" />
+                                    </StackPanel>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="ApplicationThemeEditorBaseSurfaceCard"
+                    ContentAlignment="Vertical">
+                    <ItemsControl
+                        HorizontalContentAlignment="Stretch"
+                        ItemTemplate="{StaticResource ThemeColorOptionTemplate}"
+                        ItemsSource="{x:Bind ViewModel.BaseSurfaceOptions}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard AutomationProperties.AutomationId="ApplicationThemeEditorSystemAccentCard" Header="{x:Bind domain:Translator.ApplicationThemeEditor_UseSystemAccent, Mode=OneTime}">
+                    <ToggleSwitch AutomationProperties.AutomationId="ApplicationThemeEditorSystemAccentToggle" IsOn="{x:Bind ViewModel.UseSystemAccent, Mode=TwoWay}" />
+                </controls:SettingsCard>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="ApplicationThemeEditorCustomAccentCard"
+                    Header="{x:Bind domain:Translator.ApplicationThemeEditor_CustomAccent, Mode=OneTime}"
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.UseSystemAccent), Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button
+                            Padding="4"
+                            AutomationProperties.AutomationId="ApplicationThemeEditorAccentPickerButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.ApplicationThemeEditor_Accent, Mode=OneTime}">
+                            <Button.Flyout>
+                                <Flyout Closed="ColorFlyoutClosed" Opened="AccentColorFlyoutOpened">
+                                    <ColorPicker
+                                        AutomationProperties.AutomationId="ApplicationThemeEditorAccentPicker"
+                                        ColorChanged="AccentColorChanged"
+                                        IsAlphaEnabled="False"
+                                        IsHexInputVisible="True"
+                                        IsMoreButtonVisible="False" />
+                                </Flyout>
+                            </Button.Flyout>
+                            <Border
+                                Width="34"
+                                Height="22"
+                                Background="{x:Bind winocontrols:ThemeSurfacePreview.GetBrush(ViewModel.AccentColorHex), Mode=OneWay}"
+                                CornerRadius="3" />
+                        </Button>
+                        <TextBox
+                            Width="140"
+                            AutomationProperties.AutomationId="ApplicationThemeEditorAccentTextBox"
+                            PlaceholderText="{x:Bind domain:Translator.ApplicationThemeEditor_HexFormat, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.AccentColorHex, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="ApplicationThemeEditorSurfacesExpander"
+            Description="{x:Bind domain:Translator.ApplicationThemeEditor_SurfacesDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ApplicationThemeEditor_Surfaces, Mode=OneTime}">
+            <controls:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE8A9;" />
+            </controls:SettingsExpander.HeaderIcon>
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind local:ApplicationThemeEditorPage.GetCustomizedCountText(ViewModel.OverriddenSurfaceCount), Mode=OneWay}"
+                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.OverriddenSurfaceCount), Mode=OneWay}" />
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="ApplicationThemeEditorSurfacesCard"
+                    ContentAlignment="Vertical">
+                    <ItemsControl
+                        HorizontalContentAlignment="Stretch"
+                        ItemTemplate="{StaticResource ThemeColorOptionTemplate}"
+                        ItemsSource="{x:Bind ViewModel.SurfaceOptions}" />
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="ApplicationThemeEditorCalendarExpander"
+            Description="{x:Bind domain:Translator.ApplicationThemeEditor_CalendarHoursDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.ApplicationThemeEditor_CalendarHours, Mode=OneTime}">
+            <controls:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE787;" />
+            </controls:SettingsExpander.HeaderIcon>
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind local:ApplicationThemeEditorPage.GetCustomizedCountText(ViewModel.OverriddenCalendarCount), Mode=OneWay}"
+                Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.OverriddenCalendarCount), Mode=OneWay}" />
+            <controls:SettingsExpander.Items>
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="ApplicationThemeEditorCalendarCard"
+                    ContentAlignment="Vertical">
+                    <ItemsControl
+                        HorizontalContentAlignment="Stretch"
+                        ItemTemplate="{StaticResource ThemeColorOptionTemplate}"
+                        ItemsSource="{x:Bind ViewModel.CalendarOptions}" />
+                </controls:SettingsCard>
+            </controls:SettingsExpander.Items>
+        </controls:SettingsExpander>
+
+        <StackPanel
+            HorizontalAlignment="Right"
+            Orientation="Horizontal"
+            Spacing="8">
+            <Button
+                AutomationProperties.AutomationId="ApplicationThemeEditorCancelButton"
+                Command="{x:Bind ViewModel.CancelCommand}"
+                Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}" />
+            <Button
+                AutomationProperties.AutomationId="ApplicationThemeEditorDeleteButton"
+                Command="{x:Bind ViewModel.DeleteCommand}"
+                Content="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}"
+                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsEditMode), Mode=OneWay}" />
+            <Button
+                AutomationProperties.AutomationId="ApplicationThemeEditorSaveButton"
+                Command="{x:Bind ViewModel.SaveCommand}"
+                Content="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
+                Style="{StaticResource AccentButtonStyle}" />
+        </StackPanel>
+    </StackPanel>
 </abstract:ApplicationThemeEditorPageAbstract>

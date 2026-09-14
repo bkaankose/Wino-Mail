@@ -79,6 +79,9 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
 
     public byte[] PreviewPhotoBytes => _photoBytes;
     public string PreviewPhotoPath => _previewPhotoPath;
+    public string RemovePhotoLabel => SelectedDestination?.SourceKind == ContactSourceKind.Outlook
+        ? Translator.ContactEditDialog_HidePhotoInWino
+        : Translator.ContactEditDialog_RemovePhoto;
 
     public string PageTitle => IsEditMode ? Translator.ContactEditDialog_Title : Translator.ContactEditDialog_AddTitle;
     public string PreviewDisplayName
@@ -464,7 +467,12 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     partial void OnSurnameChanged(string value) { IsDirty = true; OnPreviewChanged(); }
     partial void OnCompanyNameChanged(string value) { IsDirty = true; OnPreviewChanged(); }
     partial void OnNotesChanged(string value) => IsDirty = true;
-    partial void OnSelectedDestinationChanged(ContactCreateDestination value) { IsDirty = true; OnPreviewChanged(); }
+    partial void OnSelectedDestinationChanged(ContactCreateDestination value)
+    {
+        IsDirty = true;
+        OnPreviewChanged();
+        OnPropertyChanged(nameof(RemovePhotoLabel));
+    }
     partial void OnHonorificPrefixChanged(string value) => IsDirty = true;
     partial void OnMiddleNameChanged(string value) => IsDirty = true;
     partial void OnHonorificSuffixChanged(string value) => IsDirty = true;

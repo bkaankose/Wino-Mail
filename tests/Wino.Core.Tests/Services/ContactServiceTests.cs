@@ -1,5 +1,6 @@
 using FluentAssertions;
 using MimeKit;
+using Moq;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Contacts;
@@ -395,6 +396,29 @@ public class ContactServiceTests : IAsyncLifetime
         var updated = (await _contactService.GetContactsByAddressBookAsync(book.Id)).Single();
         updated.DisplayName.Should().Be("Anna Renamed");
         updated.IsFavorite.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SuppressContactPictureAsync_ClearsTheReferenceAndDeletesOnlyAnUnsharedFile()
+    {
+        var pictureFileId = Guid.NewGuid();
+        var pictureService = new Mock<IContactPictureFileService>();
+        var contactService = new ContactService(_databaseService, pictureService.Object);
+        var first = await CreateLocalContactAsync("First");
+        var second = await CreateLocalContactAsync("Second");
+        await _contactService.SetContactPictureFileIdAsync(first.Id, pictureFileId);
+        await _contactService.SetContactPictureFileIdAsync(second.Id, pictureFileId);
+
+        await contactService.SuppressContactPictureAsync(first.Id, "outlook:hidden-photo:v1");
+
+        (await contactService.GetContactAsync(first.Id)).ContactPictureFileId.Should().BeNull();
+        (await contactService.GetContactAsync(first.Id)).RemotePhotoKey.Should().Be("outlook:hidden-photo:v1");
+        (await contactService.GetContactAsync(second.Id)).ContactPictureFileId.Should().Be(pictureFileId);
+        pictureService.Verify(service => service.DeleteContactPictureAsync(pictureFileId), Times.Never);
+
+        await contactService.SuppressContactPictureAsync(second.Id, "outlook:hidden-photo:v1");
+
+        pictureService.Verify(service => service.DeleteContactPictureAsync(pictureFileId), Times.Once);
     }
 
     [Fact]

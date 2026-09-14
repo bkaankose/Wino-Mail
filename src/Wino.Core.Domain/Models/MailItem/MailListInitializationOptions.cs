@@ -27,5 +27,6 @@ public record MailListInitializationOptions(IReadOnlyList<IMailItemFolder> Folde
     public bool RequireAttachments { get; init; }
     public bool RequireUnread { get; init; }
     public bool RequireFlagged { get; init; }
+    public bool ExcludeDrafts { get; init; }
     public bool IsCategoryView => CategoryIds?.Count > 0;
 }

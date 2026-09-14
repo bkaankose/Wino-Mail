@@ -557,6 +557,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
         await _synchronizationManager.DestroySynchronizerAsync(account.Id);
         await _accountService.DeleteAccountAsync(account);
+        await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
 
         _dialogService.InfoBarMessage(Translator.Info_AccountDeletedTitle, string.Format(Translator.Info_AccountDeletedMessage, account.Name), InfoBarMessageType.Success);
 

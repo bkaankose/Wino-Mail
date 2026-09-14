@@ -19,7 +19,7 @@ namespace Wino.Mail.ViewModels.Data;
 /// </summary>
 public partial class TaskItemViewModel : ObservableObject
 {
-    private readonly AccountTask _originalTask;
+    private AccountTask _originalTask;
 
     public AccountTask Task { get; private set; }
 
@@ -45,6 +45,7 @@ public partial class TaskItemViewModel : ObservableObject
         ArgumentNullException.ThrowIfNull(task);
 
         Task = task;
+        _originalTask = RequestEntityCloner.Task(task);
         Steps.Clear();
 
         foreach (var step in task.Steps ?? [])

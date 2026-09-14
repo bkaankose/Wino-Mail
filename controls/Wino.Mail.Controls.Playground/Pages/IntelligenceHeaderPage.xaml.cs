@@ -6,7 +6,7 @@ using Wino.Mail.Controls.Core.IntelligenceTileBar;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
-public sealed partial class IntelligenceHeaderPage : Page
+public sealed partial class IntelligenceHeaderPage : Page, IDisposable
 {
     private const string SampleSummary =
         "Nordic Supply sent the renewed 12-month framework agreement. Terms are unchanged except a 4% "
@@ -37,6 +37,7 @@ public sealed partial class IntelligenceHeaderPage : Page
     private bool _isSynchronizing;
     private bool _isInitialized;
     private int _messageIndex;
+    private bool _disposed;
 
     public ObservableCollection<IntelligenceHeaderVariantOption> VariantOptions { get; } =
     [
@@ -421,6 +422,22 @@ public sealed partial class IntelligenceHeaderPage : Page
     {
         EventTrace.Insert(0, $"{DateTime.Now:T}  {message}");
         while (EventTrace.Count > 12) EventTrace.RemoveAt(EventTrace.Count - 1);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _hostTimer.Stop();
+        _processingTimer.Stop();
+        _hostTimer.Tick -= OnHostTimerTick;
+        _processingTimer.Tick -= OnProcessingTimerTick;
+        Bindings.StopTracking();
+        GC.SuppressFinalize(this);
     }
 }
 

@@ -345,11 +345,6 @@ public class NewThemeService : INewThemeService
         }, Microsoft.UI.Dispatching.DispatcherQueuePriority.High);
     }
 
-    private void UISettingsColorChanged(UISettings sender, object args)
-    {
-        NotifyThemeUpdate();
-    }
-
     public void UpdateSystemCaptionButtonColors()
     {
         var rootContent = TryGetShellRootContent();

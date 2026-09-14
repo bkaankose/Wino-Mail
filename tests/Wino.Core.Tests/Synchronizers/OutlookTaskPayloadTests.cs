@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using FluentAssertions;
 using Microsoft.Graph.Models;
@@ -35,6 +36,39 @@ public sealed class OutlookTaskPayloadTests
         var extension = payload.Extensions.Should().ContainSingle().Which.Should().BeOfType<OpenTypeExtension>().Subject;
         extension.ExtensionName.Should().Be("com.winomail.taskIdentity");
         extension.AdditionalData["localTaskId"].Should().Be(task.Id.ToString("D"));
+    }
+
+    [Fact]
+    public void PreserveRequestedTaskState_ReparentsMappedChecklistChildren()
+    {
+        var requested = new AccountTask
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = Guid.NewGuid(),
+            SourceKind = TaskSourceKind.Outlook
+        };
+        var mapped = new AccountTask
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = Guid.NewGuid(),
+            SourceKind = TaskSourceKind.Outlook,
+            Steps =
+            [
+                new AccountTaskStep
+                {
+                    TaskId = Guid.NewGuid(),
+                    MailAccountId = Guid.NewGuid(),
+                    SourceKind = TaskSourceKind.Gmail
+                }
+            ]
+        };
+
+        OutlookSynchronizer.PreserveRequestedTaskState(mapped, requested);
+
+        mapped.Steps.Should().ContainSingle();
+        mapped.Steps[0].TaskId.Should().Be(requested.Id);
+        mapped.Steps[0].MailAccountId.Should().Be(requested.MailAccountId);
+        mapped.Steps[0].SourceKind.Should().Be(requested.SourceKind);
     }
 
     private static AccountTask CreateTaskWithStep() => new()

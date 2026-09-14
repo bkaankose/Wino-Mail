@@ -19,7 +19,7 @@ namespace Wino.Mail.Controls.MailListView;
 /// A virtualized, grouped mail list that projects a flat source into thread rows
 /// while keeping selection expressed as stable leaf-mail identities.
 /// </summary>
-public partial class WinoMailListView : ListView
+public partial class WinoMailListView : ListView, IDisposable
 {
     private readonly ObservableCollection<IMailListSourceItem> _selectedItems = [];
     private readonly ObservableCollection<string> _selectedThreadKeys = [];
@@ -43,6 +43,7 @@ public partial class WinoMailListView : ListView
     private IMailListSourceItem? _multiSelectRetainedItem;
     private IMailListCollection? _mailItemsSource;
     private MailListProjectionOptions? _projectionOptions;
+    private bool _disposed;
     public WinoMailListView()
     {
         SelectedMailItems = new ReadOnlyObservableCollection<IMailListSourceItem>(_selectedItems);
@@ -390,7 +391,30 @@ public partial class WinoMailListView : ListView
 
     public virtual void Cleanup()
     {
+        CompositionTarget.Rendering -= OnFirstFrameRendered;
+        _pendingFrameTrace = null;
         DetachProjection();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Cleanup();
+        SelectionChanged -= OnNativeSelectionChanged;
+        ItemClick -= OnItemClick;
+        ContainerContentChanging -= OnContainerContentChanging;
+        _mailItemsSource = null;
+        _contextMenuContainer = null;
+        _pressedRow = null;
+        _multiSelectRetainedItem = null;
+        _selectionRestoreCompletion?.TrySetCanceled();
+        _selectionRestoreCompletion = null;
+        GC.SuppressFinalize(this);
     }
 
     public void SetSelectedItems(IEnumerable<Guid> stableIds)
@@ -436,6 +460,11 @@ public partial class WinoMailListView : ListView
     protected override void OnApplyTemplate()
     {
         base.OnApplyTemplate();
+        if (_disposed)
+        {
+            return;
+        }
+
         _isTemplateApplied = true;
         ApplyTemplates();
         ApplyGroupHeaderTemplate();

@@ -27,13 +27,19 @@ public class AccountDetailsPageViewModelTests
             .ReturnsAsync(true);
         var accountService = new Mock<IAccountService>();
         var synchronizationManager = new Mock<ISynchronizationManager>();
-        var viewModel = CreateViewModel(dialogService.Object, accountService.Object, synchronizationManager.Object);
+        var notificationBuilder = new Mock<INotificationBuilder>();
+        var viewModel = CreateViewModel(
+            dialogService.Object,
+            accountService.Object,
+            synchronizationManager.Object,
+            notificationBuilder.Object);
         viewModel.Account = account;
 
         await viewModel.DeleteAccountCommand.ExecuteAsync(null);
 
         synchronizationManager.Verify(service => service.DestroySynchronizerAsync(account.Id), Times.Once);
         accountService.Verify(service => service.DeleteAccountAsync(account), Times.Once);
+        notificationBuilder.Verify(service => service.UpdateTaskbarIconBadgeAsync(), Times.Once);
     }
 
     [Fact]
@@ -65,7 +71,8 @@ public class AccountDetailsPageViewModelTests
     private static AccountDetailsPageViewModel CreateViewModel(
         IMailDialogService dialogService,
         IAccountService accountService,
-        ISynchronizationManager synchronizationManager)
+        ISynchronizationManager synchronizationManager,
+        INotificationBuilder? notificationBuilder = null)
     {
         var themeService = new Mock<INewThemeService>();
         themeService.Setup(service => service.GetAvailableAccountColors()).Returns([]);
@@ -78,7 +85,7 @@ public class AccountDetailsPageViewModelTests
             Mock.Of<IStatePersistanceService>(),
             themeService.Object,
             Mock.Of<IImapTestService>(),
-            Mock.Of<INotificationBuilder>(),
+            notificationBuilder ?? Mock.Of<INotificationBuilder>(),
             Mock.Of<IApplicationConfiguration>(),
             Mock.Of<IFileService>(),
             Mock.Of<IAccountProfilePictureFileService>(),

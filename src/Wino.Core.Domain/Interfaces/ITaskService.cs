@@ -57,8 +57,18 @@ public interface ITaskService : ITaskQueryService
     Task CompleteListMutationAsync(Guid listId, AccountTaskList remoteList, bool deleted);
     Task CompleteTaskListGroupMutationAsync(Guid groupId, AccountTaskListGroup remoteGroup, bool deleted);
     Task CompleteTaskListPlacementMutationAsync(Guid listId, AccountTaskList remoteList);
-    Task CompleteTaskMutationAsync(Guid taskId, AccountTask remoteTask, bool deleted);
-    Task CompleteStepMutationAsync(Guid stepId, AccountTaskStep remoteStep, bool deleted);
+    Task CompleteTaskMutationAsync(
+        Guid taskId,
+        AccountTask remoteTask,
+        bool deleted,
+        AccountTask requestedTask = null,
+        TaskSynchronizerOperation? completedOperation = null);
+    Task CompleteStepMutationAsync(
+        Guid stepId,
+        AccountTaskStep remoteStep,
+        bool deleted,
+        AccountTaskStep requestedStep = null,
+        TaskSynchronizerOperation? completedOperation = null);
     Task DeleteAccountTasksAsync(Guid accountId);
     Task DeleteTaskListsBySourceAsync(Guid accountId, TaskSourceKind sourceKind);
     Task MarkTaskListsReadOnlyAsync(Guid accountId, TaskSourceKind sourceKind, bool isReadOnly = true);

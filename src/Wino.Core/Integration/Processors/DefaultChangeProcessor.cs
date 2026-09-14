@@ -89,8 +89,18 @@ public interface IDefaultChangeProcessor
 
     Task CommitContactMutationAsync(Guid contactId, AccountContact contact, bool deleted);
     Task CommitTaskListMutationAsync(Guid listId, AccountTaskList list, bool deleted);
-    Task CommitTaskMutationAsync(Guid taskId, AccountTask task, bool deleted);
-    Task CommitTaskStepMutationAsync(Guid stepId, AccountTaskStep step, bool deleted);
+    Task CommitTaskMutationAsync(
+        Guid taskId,
+        AccountTask task,
+        bool deleted,
+        AccountTask requestedTask = null,
+        TaskSynchronizerOperation? completedOperation = null);
+    Task CommitTaskStepMutationAsync(
+        Guid stepId,
+        AccountTaskStep step,
+        bool deleted,
+        AccountTaskStep requestedStep = null,
+        TaskSynchronizerOperation? completedOperation = null);
 }
 
 public interface IGmailChangeProcessor : IDefaultChangeProcessor
@@ -174,13 +184,23 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
         => (_taskService ?? throw new InvalidOperationException("Task persistence is unavailable."))
             .CompleteListMutationAsync(listId, list, deleted);
 
-    public Task CommitTaskMutationAsync(Guid taskId, AccountTask task, bool deleted)
+    public Task CommitTaskMutationAsync(
+        Guid taskId,
+        AccountTask task,
+        bool deleted,
+        AccountTask requestedTask = null,
+        TaskSynchronizerOperation? completedOperation = null)
         => (_taskService ?? throw new InvalidOperationException("Task persistence is unavailable."))
-            .CompleteTaskMutationAsync(taskId, task, deleted);
+            .CompleteTaskMutationAsync(taskId, task, deleted, requestedTask, completedOperation);
 
-    public Task CommitTaskStepMutationAsync(Guid stepId, AccountTaskStep step, bool deleted)
+    public Task CommitTaskStepMutationAsync(
+        Guid stepId,
+        AccountTaskStep step,
+        bool deleted,
+        AccountTaskStep requestedStep = null,
+        TaskSynchronizerOperation? completedOperation = null)
         => (_taskService ?? throw new InvalidOperationException("Task persistence is unavailable."))
-            .CompleteStepMutationAsync(stepId, step, deleted);
+            .CompleteStepMutationAsync(stepId, step, deleted, requestedStep, completedOperation);
 
     public Task<string> UpdateAccountDeltaSynchronizationIdentifierAsync(Guid accountId, string synchronizationDeltaIdentifier)
         => AccountService.UpdateSyncIdentifierRawAsync(accountId, synchronizationDeltaIdentifier);

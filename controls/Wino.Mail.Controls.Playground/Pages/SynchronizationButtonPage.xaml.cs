@@ -1,11 +1,14 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Mail.Controls.Playground.Lifetime;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
-public sealed partial class SynchronizationButtonPage : Page
+public sealed partial class SynchronizationButtonPage : Page, IDisposable, IPlaygroundLifetimeAware
 {
     private bool _isFakeSynchronizationRunning;
+    private CancellationTokenSource? _synchronizationCancellation;
+    private bool _disposed;
 
     public SynchronizationButtonPage()
     {
@@ -49,6 +52,8 @@ public sealed partial class SynchronizationButtonPage : Page
         }
 
         _isFakeSynchronizationRunning = true;
+        var cancellationSource = new CancellationTokenSource();
+        _synchronizationCancellation = cancellationSource;
 
         try
         {
@@ -60,15 +65,42 @@ public sealed partial class SynchronizationButtonPage : Page
                 ProgressSlider.Value = value;
                 ApplyState();
 
-                await Task.Delay(90);
+                await Task.Delay(90, cancellationSource.Token);
             }
 
             SynchronizingToggle.IsOn = false;
             ApplyState();
         }
+        catch (OperationCanceledException) when (cancellationSource.IsCancellationRequested)
+        {
+        }
         finally
         {
+            if (ReferenceEquals(_synchronizationCancellation, cancellationSource))
+            {
+                _synchronizationCancellation = null;
+            }
+
+            cancellationSource.Dispose();
             _isFakeSynchronizationRunning = false;
         }
+    }
+
+    async Task IPlaygroundLifetimeAware.PrepareForLifetimeTestAsync(CancellationToken cancellationToken)
+    {
+        _ = RunFakeSynchronizationAsync();
+        await Task.Delay(120, cancellationToken);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        _synchronizationCancellation?.Cancel();
+        GC.SuppressFinalize(this);
     }
 }

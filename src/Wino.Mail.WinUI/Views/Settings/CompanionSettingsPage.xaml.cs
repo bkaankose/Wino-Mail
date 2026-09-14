@@ -19,8 +19,13 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
     {
         InitializeComponent();
         HotKeyEnabledToggle.IsOn = ViewModel.PreferencesService.IsCompanionHotKeyEnabled;
+        AfterAppSessionRadioButton.IsChecked = ViewModel.PreferencesService.CompanionUnreadMessageBehavior
+            == CompanionUnreadMessageBehavior.AfterAppSession;
+        EverythingRadioButton.IsChecked = ViewModel.PreferencesService.CompanionUnreadMessageBehavior
+            == CompanionUnreadMessageBehavior.Everything;
         RestoreHotKeyInput();
         UpdateHotKeyAvailability();
+        UpdatePersonalizationAvailability();
 
         if (HotKeyEnabledToggle.IsOn && !TryConfigure(true, GetStoredGesture()))
         {
@@ -38,8 +43,23 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
 
     private void CompanionEnabled_Toggled(object sender, RoutedEventArgs e)
     {
-        if (sender is ToggleSwitch { IsLoaded: true })
-            UpdateHotKeyAvailability();
+        if (sender is ToggleSwitch { IsLoaded: true } toggle)
+        {
+            UpdateHotKeyAvailability(toggle.IsOn);
+            UpdatePersonalizationAvailability(toggle.IsOn);
+        }
+    }
+
+    private void AfterAppSessionRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { IsLoaded: true })
+            ViewModel.PreferencesService.CompanionUnreadMessageBehavior = CompanionUnreadMessageBehavior.AfterAppSession;
+    }
+
+    private void EverythingRadioButton_Checked(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioButton { IsLoaded: true })
+            ViewModel.PreferencesService.CompanionUnreadMessageBehavior = CompanionUnreadMessageBehavior.Everything;
     }
 
     private void HotKeyEnabled_Toggled(object sender, RoutedEventArgs e)
@@ -103,10 +123,17 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
         HotKeyInput.Modifiers = ToVirtualModifiers(gesture.Modifiers);
     }
 
-    private void UpdateHotKeyAvailability()
+    private void UpdateHotKeyAvailability(bool? isCompanionEnabled = null)
     {
-        HotKeyEnabledToggle.IsEnabled = ViewModel.PreferencesService.IsCompanionEnabled;
-        HotKeyInput.IsEnabled = ViewModel.PreferencesService.IsCompanionEnabled && HotKeyEnabledToggle.IsOn;
+        var isEnabled = isCompanionEnabled ?? ViewModel.PreferencesService.IsCompanionEnabled;
+        HotKeyEnabledToggle.IsEnabled = isEnabled;
+        HotKeyInput.IsEnabled = isEnabled && HotKeyEnabledToggle.IsOn;
+    }
+
+    private void UpdatePersonalizationAvailability(bool? isCompanionEnabled = null)
+    {
+        var isEnabled = isCompanionEnabled ?? ViewModel.PreferencesService.IsCompanionEnabled;
+        CompanionContentExpander.IsEnabled = isEnabled;
     }
 
     private static ModifierKeys ToDomainModifiers(VirtualKeyModifiers modifiers)

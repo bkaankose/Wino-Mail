@@ -997,13 +997,19 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         }
     }
 
-    public async Task CompleteTaskMutationAsync(Guid taskId, AccountTask remoteTask, bool deleted)
+    public async Task CompleteTaskMutationAsync(
+        Guid taskId,
+        AccountTask remoteTask,
+        bool deleted,
+        AccountTask requestedTask = null,
+        TaskSynchronizerOperation? completedOperation = null)
     {
         var local = await GetTaskAsync(taskId).ConfigureAwait(false);
+        var isCurrentMutation = IsCurrentMutation(local, requestedTask, completedOperation);
 
         if (deleted)
         {
-            if (local is not null)
+            if (local is not null && isCurrentMutation)
             {
                 await Connection.Table<AccountTaskStep>().DeleteAsync(step => step.TaskId == taskId).ConfigureAwait(false);
                 await Connection.ExecuteAsync("DELETE FROM TaskCard WHERE Id = ?", local.Id).ConfigureAwait(false);
@@ -1022,10 +1028,19 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             local = await FindTaskByRemoteIdAsync(remoteTask).ConfigureAwait(false);
             if (local is not null)
             {
-                await CompleteTaskMutationOnExistingAsync(local, remoteTask).ConfigureAwait(false);
+                isCurrentMutation = IsCurrentMutation(local, requestedTask, completedOperation);
+                var attachRemoteIdentity = isCurrentMutation || ShouldAttachAcknowledgedIdentity(
+                    local.RemoteId,
+                    local.RemoteVersion,
+                    requestedTask?.RemoteId,
+                    requestedTask?.RemoteVersion);
+                await CompleteTaskMutationOnExistingAsync(local, remoteTask, isCurrentMutation, attachRemoteIdentity).ConfigureAwait(false);
                 return;
             }
 
+            // Provider task deletes retain a local tombstone until their acknowledgement.
+            // A missing row here is therefore the normal optimistic-create path. Local-source
+            // tasks can be physically deleted, but they never receive a provider acknowledgement.
             remoteTask.Id = taskId;
             remoteTask.PendingMutation = TaskPendingMutation.None;
             remoteTask.CreatedAtUtc = remoteTask.CreatedAtUtc == default ? DateTime.UtcNow : remoteTask.CreatedAtUtc;
@@ -1047,7 +1062,23 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             return;
         }
 
-        await CompleteTaskMutationOnExistingAsync(local, remoteTask).ConfigureAwait(false);
+        if (!isCurrentMutation &&
+            remoteTask is not null &&
+            completedOperation == TaskSynchronizerOperation.CreateTask &&
+            local.PendingMutation == TaskPendingMutation.Create)
+        {
+            // The create succeeded, but the local row was edited again while it was in flight.
+            // Keep the newer fields and turn the remaining work into an update now that the
+            // provider identity is known.
+            local.PendingMutation = TaskPendingMutation.Update;
+        }
+
+        var shouldAttachRemoteIdentity = isCurrentMutation || ShouldAttachAcknowledgedIdentity(
+            local.RemoteId,
+            local.RemoteVersion,
+            requestedTask?.RemoteId,
+            requestedTask?.RemoteVersion);
+        await CompleteTaskMutationOnExistingAsync(local, remoteTask, isCurrentMutation, shouldAttachRemoteIdentity).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -1067,13 +1098,20 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             .ConfigureAwait(false);
     }
 
-    private async Task CompleteTaskMutationOnExistingAsync(AccountTask local, AccountTask remoteTask)
+    private async Task CompleteTaskMutationOnExistingAsync(
+        AccountTask local,
+        AccountTask remoteTask,
+        bool applyRemoteState,
+        bool attachRemoteIdentity)
     {
         var storedSteps = local.Steps?.ToList() ?? [];
 
-        local.RemoteId = remoteTask?.RemoteId ?? local.RemoteId;
-        local.RemoteVersion = remoteTask?.RemoteVersion ?? local.RemoteVersion;
-        if (remoteTask is not null)
+        if (attachRemoteIdentity)
+        {
+            local.RemoteId = remoteTask?.RemoteId ?? local.RemoteId;
+            local.RemoteVersion = remoteTask?.RemoteVersion ?? local.RemoteVersion;
+        }
+        if (remoteTask is not null && applyRemoteState)
         {
             // A provider-side move creates the task in another list and removes the source
             // copy. Keep the existing local identity, but adopt the authoritative parent.
@@ -1088,13 +1126,10 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             // Synchronizers copy this local-only value from the requested snapshot onto the
             // mutation result. Commit it here so My Day survives the provider round trip.
             local.MyDayDateUtc = NormalizeDate(remoteTask.MyDayDateUtc);
-
-            // Only Graph carries importance. Adopting a Google response would clear a local star.
-            // Full provider reconciliation preserves both local-only fields separately.
-            if (local.SourceKind == TaskSourceKind.Outlook)
-                local.IsImportant = remoteTask.IsImportant;
+            local.IsImportant = remoteTask.IsImportant;
         }
-        local.PendingMutation = TaskPendingMutation.None;
+        if (applyRemoteState)
+            local.PendingMutation = TaskPendingMutation.None;
 
         // The row now owns this remote id. Any other row that claimed it came from a
         // reconciliation that raced this mutation, and only one of them may survive.
@@ -1116,7 +1151,7 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             }
 
             transaction.Update(local, typeof(AccountTask));
-            if (remoteTask is null)
+            if (remoteTask is null || !applyRemoteState)
                 return;
 
             var matchedStepIds = new HashSet<Guid>();
@@ -1170,13 +1205,19 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
         }).ConfigureAwait(false);
     }
 
-    public async Task CompleteStepMutationAsync(Guid stepId, AccountTaskStep remoteStep, bool deleted)
+    public async Task CompleteStepMutationAsync(
+        Guid stepId,
+        AccountTaskStep remoteStep,
+        bool deleted,
+        AccountTaskStep requestedStep = null,
+        TaskSynchronizerOperation? completedOperation = null)
     {
         var local = await Connection.Table<AccountTaskStep>().FirstOrDefaultAsync(step => step.Id == stepId).ConfigureAwait(false);
+        var isCurrentMutation = IsCurrentMutation(local, requestedStep, completedOperation);
 
         if (deleted)
         {
-            if (local is not null)
+            if (local is not null && isCurrentMutation)
                 await Connection.ExecuteAsync("DELETE FROM TaskStep WHERE Id = ?", local.Id).ConfigureAwait(false);
             return;
         }
@@ -1187,6 +1228,12 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
                 throw new InvalidOperationException("A successful task-step mutation requires a step snapshot.");
 
             remoteStep.Id = stepId;
+            if (requestedStep is not null)
+            {
+                remoteStep.TaskId = requestedStep.TaskId;
+                remoteStep.MailAccountId = requestedStep.MailAccountId;
+                remoteStep.SourceKind = requestedStep.SourceKind;
+            }
             remoteStep.PendingMutation = TaskPendingMutation.None;
             remoteStep.CreatedAtUtc = remoteStep.CreatedAtUtc == default ? DateTime.UtcNow : remoteStep.CreatedAtUtc;
             remoteStep.ModifiedAtUtc = DateTime.UtcNow;
@@ -1195,17 +1242,117 @@ public sealed class TaskService : BaseDatabaseService, ITaskService
             return;
         }
 
-        local.RemoteId = remoteStep?.RemoteId ?? local.RemoteId;
-        local.RemoteVersion = remoteStep?.RemoteVersion ?? local.RemoteVersion;
-        if (remoteStep is not null)
+        if (!isCurrentMutation &&
+            remoteStep is not null &&
+            completedOperation == TaskSynchronizerOperation.CreateStep &&
+            local.PendingMutation == TaskPendingMutation.Create)
+        {
+            local.PendingMutation = TaskPendingMutation.Update;
+        }
+
+        var attachRemoteIdentity = isCurrentMutation || ShouldAttachAcknowledgedIdentity(
+            local.RemoteId,
+            local.RemoteVersion,
+            requestedStep?.RemoteId,
+            requestedStep?.RemoteVersion);
+        if (attachRemoteIdentity)
+        {
+            local.RemoteId = remoteStep?.RemoteId ?? local.RemoteId;
+            local.RemoteVersion = remoteStep?.RemoteVersion ?? local.RemoteVersion;
+        }
+        if (remoteStep is not null && isCurrentMutation)
         {
             local.Title = remoteStep.Title ?? local.Title;
             local.IsCompleted = remoteStep.IsCompleted;
             local.Order = remoteStep.Order;
         }
-        local.PendingMutation = TaskPendingMutation.None;
+        if (isCurrentMutation)
+            local.PendingMutation = TaskPendingMutation.None;
         await Connection.UpdateAsync(local, typeof(AccountTaskStep)).ConfigureAwait(false);
     }
+
+    private static bool IsCurrentMutation(
+        AccountTask local,
+        AccountTask requested,
+        TaskSynchronizerOperation? completedOperation)
+    {
+        if (local is null || completedOperation is null)
+            return true;
+
+        if (local.PendingMutation == TaskPendingMutation.None)
+            return IsSameProviderVersion(local.RemoteId, local.RemoteVersion, requested?.RemoteId, requested?.RemoteVersion);
+
+        var expected = GetPendingMutation(completedOperation.Value);
+        if (local.PendingMutation != expected)
+            return false;
+
+        if (expected == TaskPendingMutation.Delete)
+            return true;
+
+        return requested is null || local.ModifiedAtUtc <= requested.ModifiedAtUtc;
+    }
+
+    private static bool IsCurrentMutation(
+        AccountTaskStep local,
+        AccountTaskStep requested,
+        TaskSynchronizerOperation? completedOperation)
+    {
+        if (local is null || completedOperation is null)
+            return true;
+
+        if (local.PendingMutation == TaskPendingMutation.None)
+            return IsSameProviderVersion(local.RemoteId, local.RemoteVersion, requested?.RemoteId, requested?.RemoteVersion);
+
+        var expected = GetPendingMutation(completedOperation.Value);
+        if (local.PendingMutation != expected)
+            return false;
+
+        if (expected == TaskPendingMutation.Delete)
+            return true;
+
+        return requested is null || local.ModifiedAtUtc <= requested.ModifiedAtUtc;
+    }
+
+    private static bool IsSameProviderVersion(
+        string localRemoteId,
+        string localRemoteVersion,
+        string requestedRemoteId,
+        string requestedRemoteVersion)
+    {
+        if (string.IsNullOrWhiteSpace(localRemoteId) || string.IsNullOrWhiteSpace(requestedRemoteId))
+            return true;
+
+        if (!string.Equals(localRemoteId, requestedRemoteId, StringComparison.Ordinal))
+            return false;
+
+        return string.IsNullOrWhiteSpace(localRemoteVersion) ||
+               string.IsNullOrWhiteSpace(requestedRemoteVersion) ||
+               string.Equals(localRemoteVersion, requestedRemoteVersion, StringComparison.Ordinal);
+    }
+
+    private static bool ShouldAttachAcknowledgedIdentity(
+        string localRemoteId,
+        string localRemoteVersion,
+        string requestedRemoteId,
+        string requestedRemoteVersion)
+    {
+        if (string.IsNullOrWhiteSpace(localRemoteId))
+            return true;
+
+        if (!string.Equals(localRemoteId, requestedRemoteId, StringComparison.Ordinal))
+            return false;
+
+        return string.IsNullOrWhiteSpace(localRemoteVersion) ||
+               string.Equals(localRemoteVersion, requestedRemoteVersion, StringComparison.Ordinal);
+    }
+
+    private static TaskPendingMutation GetPendingMutation(TaskSynchronizerOperation operation)
+        => operation switch
+        {
+            TaskSynchronizerOperation.CreateTask or TaskSynchronizerOperation.CreateStep => TaskPendingMutation.Create,
+            TaskSynchronizerOperation.DeleteTask or TaskSynchronizerOperation.DeleteStep => TaskPendingMutation.Delete,
+            _ => TaskPendingMutation.Update
+        };
 
     public async Task DeleteAccountTasksAsync(Guid accountId)
     {

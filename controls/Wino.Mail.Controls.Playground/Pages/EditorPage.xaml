@@ -1,4 +1,4 @@
-<Page
+﻿<Page
     x:Class="Wino.Mail.Controls.Playground.Pages.EditorPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -10,12 +10,13 @@
         </Grid.RowDefinitions>
         <StackPanel Spacing="3">
             <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="HTML editor and renderer" />
-            <TextBlock
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Text="Exercise the production compose editor and deterministic offline mail-rendering scenarios." />
+            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Exercise the production compose editor and deterministic offline mail-rendering scenarios." />
         </StackPanel>
 
-        <TabView Grid.Row="1" AutomationProperties.AutomationId="EditorPlaygroundTabView">
+        <TabView
+            x:Name="EditorPlaygroundTabView"
+            Grid.Row="1"
+            AutomationProperties.AutomationId="EditorPlaygroundTabView">
             <TabViewItem AutomationProperties.AutomationId="ComposeEditorTab" Header="Compose">
                 <Grid ColumnSpacing="20">
                     <Grid.ColumnDefinitions>
@@ -31,17 +32,26 @@
                             CornerRadius="10">
                             <StackPanel Spacing="12">
                                 <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="Message details" />
-                                <TextBox AutomationProperties.AutomationId="ComposeToTextBox" Header="To" Text="design-review@contoso.com" />
-                                <TextBox AutomationProperties.AutomationId="ComposeCcTextBox" Header="Cc" PlaceholderText="Add recipients" />
-                                <TextBox AutomationProperties.AutomationId="ComposeSubjectTextBox" Header="Subject" Text="Design review follow-up" />
+                                <TextBox
+                                    AutomationProperties.AutomationId="ComposeToTextBox"
+                                    Header="To"
+                                    Text="design-review@contoso.com" />
+                                <TextBox
+                                    AutomationProperties.AutomationId="ComposeCcTextBox"
+                                    Header="Cc"
+                                    PlaceholderText="Add recipients" />
+                                <TextBox
+                                    AutomationProperties.AutomationId="ComposeSubjectTextBox"
+                                    Header="Subject"
+                                    Text="Design review follow-up" />
                             </StackPanel>
                         </Border>
                         <InfoBar
+                            Title="Try the editor"
                             IsClosable="False"
                             IsOpen="True"
                             Message="Use the toolbar, or press Ctrl+Enter to exercise allowlisted application shortcut forwarding."
-                            Severity="Informational"
-                            Title="Try the editor" />
+                            Severity="Informational" />
                         <TextBlock
                             x:Name="ApplicationShortcutStatus"
                             AutomationProperties.AutomationId="EditorApplicationShortcutStatus"
@@ -49,6 +59,7 @@
                             TextWrapping="Wrap" />
                     </StackPanel>
                     <Border
+                        x:Name="ComposeEditorHost"
                         Grid.Column="1"
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
@@ -83,12 +94,35 @@
                             Content="Readability"
                             GroupName="RendererMode"
                             Tag="Readability" />
-                        <TextBlock Margin="0,8,0,0" Style="{ThemeResource SubtitleTextBlockStyle}" Text="Scenario" />
-                        <Button AutomationProperties.AutomationId="RendererArticleScenarioButton" Click="RenderScenario_Click" Content="Article" Tag="Article" />
-                        <Button AutomationProperties.AutomationId="RendererFallbackScenarioButton" Click="RenderScenario_Click" Content="Short fallback" Tag="Fallback" />
-                        <Button AutomationProperties.AutomationId="RendererNewsletterScenarioButton" Click="RenderScenario_Click" Content="Cluttered newsletter" Tag="Newsletter" />
-                        <Button AutomationProperties.AutomationId="RendererImageScenarioButton" Click="RenderScenario_Click" Content="Relevant image" Tag="Image" />
-                        <Button AutomationProperties.AutomationId="RendererHostileScenarioButton" Click="RenderScenario_Click" Content="Hostile HTML" Tag="Hostile" />
+                        <TextBlock
+                            Margin="0,8,0,0"
+                            Style="{ThemeResource SubtitleTextBlockStyle}"
+                            Text="Scenario" />
+                        <Button
+                            AutomationProperties.AutomationId="RendererArticleScenarioButton"
+                            Click="RenderScenario_Click"
+                            Content="Article"
+                            Tag="Article" />
+                        <Button
+                            AutomationProperties.AutomationId="RendererFallbackScenarioButton"
+                            Click="RenderScenario_Click"
+                            Content="Short fallback"
+                            Tag="Fallback" />
+                        <Button
+                            AutomationProperties.AutomationId="RendererNewsletterScenarioButton"
+                            Click="RenderScenario_Click"
+                            Content="Cluttered newsletter"
+                            Tag="Newsletter" />
+                        <Button
+                            AutomationProperties.AutomationId="RendererImageScenarioButton"
+                            Click="RenderScenario_Click"
+                            Content="Relevant image"
+                            Tag="Image" />
+                        <Button
+                            AutomationProperties.AutomationId="RendererHostileScenarioButton"
+                            Click="RenderScenario_Click"
+                            Content="Hostile HTML"
+                            Tag="Hostile" />
                         <TextBlock
                             x:Name="RendererScenarioStatus"
                             AutomationProperties.AutomationId="RendererScenarioStatus"
@@ -96,6 +130,7 @@
                             TextWrapping="Wrap" />
                     </StackPanel>
                     <Border
+                        x:Name="MailRendererHost"
                         Grid.Column="1"
                         Background="{ThemeResource LayerFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"

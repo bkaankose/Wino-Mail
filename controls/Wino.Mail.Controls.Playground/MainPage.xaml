@@ -73,6 +73,58 @@
                 Icon="Keyboard"
                 Tag="hotKeyInput" />
         </NavigationView.MenuItems>
-        <Frame x:Name="ContentFrame" />
+        <Grid RowSpacing="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Frame
+                x:Name="ContentFrame"
+                AutomationProperties.AutomationId="PlaygroundContentFrame"
+                CacheSize="1" />
+
+            <InfoBar
+                x:Name="LifetimeStatusInfoBar"
+                Title="Control lifetime verification"
+                Grid.Row="1"
+                Margin="12,0,12,12"
+                AutomationProperties.AutomationId="LifetimeStatusInfoBar"
+                IsClosable="False"
+                IsOpen="True"
+                Severity="Informational">
+                <StackPanel Spacing="8">
+                    <TextBlock
+                        x:Name="LifetimeStatusText"
+                        AutomationProperties.AutomationId="LifetimeStatusText"
+                        Text="Navigate to another page to verify that the current page is released."
+                        TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button
+                            x:Name="RunMemorySweepButton"
+                            AutomationProperties.AutomationId="RunMemorySweepButton"
+                            Click="RunMemorySweepClicked"
+                            Content="Run memory sweep" />
+                        <Button
+                            x:Name="CancelMemorySweepButton"
+                            AutomationProperties.AutomationId="CancelMemorySweepButton"
+                            Click="CancelMemorySweepClicked"
+                            Content="Cancel"
+                            IsEnabled="False" />
+                        <TextBlock
+                            x:Name="FrameStateText"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="LifetimeFrameStateText" />
+                    </StackPanel>
+                    <Expander Header="Lifetime trace">
+                        <ListView
+                            x:Name="LifetimeTraceList"
+                            MaxHeight="140"
+                            AutomationProperties.AutomationId="LifetimeTraceList"
+                            ItemsSource="{x:Bind LifetimeTrace, Mode=OneWay}" />
+                    </Expander>
+                </StackPanel>
+            </InfoBar>
+        </Grid>
     </NavigationView>
 </Page>

@@ -256,12 +256,22 @@ public class MailService : BaseDatabaseService, IMailService
         bool unpinnedOnly = false,
         MailFetchCursor cursor = null,
         int? takeOverride = null,
-        bool includeExistingUniqueIds = true)
+        bool includeExistingUniqueIds = true,
+        bool countOnly = false)
     {
         var sql = new StringBuilder();
-        sql.Append(options.IsCategoryView
-            ? "SELECT DISTINCT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id INNER JOIN MailCategoryAssignment ON MailCopy.UniqueId = MailCategoryAssignment.MailCopyUniqueId"
-            : "SELECT MailCopy.* FROM MailCopy");
+        if (countOnly)
+        {
+            sql.Append("SELECT COUNT(*) FROM (SELECT 1 FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id");
+            if (options.IsCategoryView)
+                sql.Append(" INNER JOIN MailCategoryAssignment ON MailCopy.UniqueId = MailCategoryAssignment.MailCopyUniqueId");
+        }
+        else
+        {
+            sql.Append(options.IsCategoryView
+                ? "SELECT DISTINCT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id INNER JOIN MailCategoryAssignment ON MailCopy.UniqueId = MailCategoryAssignment.MailCopyUniqueId"
+                : "SELECT MailCopy.* FROM MailCopy");
+        }
 
         var whereClauses = new List<string>();
         var parameters = new List<object>();
@@ -336,6 +346,7 @@ public class MailService : BaseDatabaseService, IMailService
         if (options.RequireAttachments) whereClauses.Add("MailCopy.HasAttachments = 1");
         if (options.RequireUnread) whereClauses.Add("MailCopy.IsRead = 0");
         if (options.RequireFlagged) whereClauses.Add("MailCopy.IsFlagged = 1");
+        if (options.ExcludeDrafts) whereClauses.Add("MailCopy.IsDraft = 0");
 
         // Exclude existing items
         if (includeExistingUniqueIds && (options.ExistingUniqueIds?.Any() ?? false))
@@ -375,6 +386,15 @@ public class MailService : BaseDatabaseService, IMailService
         {
             sql.Append(" WHERE ");
             sql.Append(string.Join(" AND ", whereClauses));
+        }
+
+        if (countOnly)
+        {
+            sql.Append(options.DeduplicateByServerId
+                ? " GROUP BY MailItemFolder.MailAccountId, CASE WHEN TRIM(COALESCE(MailCopy.Id, '')) = '' THEN MailCopy.UniqueId ELSE MailCopy.Id END)"
+                : " GROUP BY MailCopy.UniqueId)");
+
+            return (sql.ToString(), parameters.ToArray());
         }
 
         // Sorting
@@ -446,6 +466,7 @@ public class MailService : BaseDatabaseService, IMailService
         if (options.RequireAttachments) query = query.Where(m => m.HasAttachments);
         if (options.RequireUnread) query = query.Where(m => !m.IsRead);
         if (options.RequireFlagged) query = query.Where(m => m.IsFlagged);
+        if (options.ExcludeDrafts) query = query.Where(m => !m.IsDraft);
 
         if (options.ExistingUniqueIds?.Any() ?? false)
         {
@@ -579,6 +600,25 @@ public class MailService : BaseDatabaseService, IMailService
         MailListInitializationOptions options,
         CancellationToken cancellationToken = default)
         => [.. (await FetchMailPageAsync(options, cancellationToken: cancellationToken).ConfigureAwait(false)).Items];
+
+    public async Task<int> CountMailsAsync(
+        MailListInitializationOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.Folders == null || options.Folders.Count == 0)
+            return 0;
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (options.PreFetchMailCopies != null && !options.IsCategoryView)
+            return ApplyOptionsToPreFetchedMails(options).Count;
+
+        var (query, parameters) = BuildMailFetchQuery(options, countOnly: true);
+        var count = await Connection.ExecuteScalarAsync<int>(query, parameters).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+
+        return count;
+    }
 
     public async Task<List<MailCopy>> FetchPinnedMailsAsync(
         MailListInitializationOptions options,

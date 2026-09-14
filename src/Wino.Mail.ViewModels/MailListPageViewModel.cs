@@ -51,6 +51,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     IRecipient<ThumbnailAdded>,
     IRecipient<MailOperationRequested>,
     IRecipient<UndoableMailActionPackChanged>,
+    IRecipient<RefreshUnreadCountsMessage>,
     IRecipient<IntelligenceMetadataChanged>,
     IRecipient<IntelligenceVisibilityChanged>,
     IRecipient<LanguageChanged>
@@ -82,6 +83,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private long mailLoadGeneration;
     private long folderChangeGeneration;
     private int mailNavigationRequestVersion;
+    private int otherInboxUnreadRequestVersion;
     private bool isLoadingMore;
     private MailFetchCursor nextMailCursor;
     private FolderPivotViewModel lastRequestedPivot;
@@ -128,6 +130,24 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     ];
 
     private FolderPivotViewModel _selectedFolderPivot;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsOtherInboxUnreadNoticeVisible))]
+    [NotifyPropertyChangedFor(nameof(OtherInboxUnreadNoticeText))]
+    public partial int OtherInboxUnreadCount { get; set; }
+
+    public bool IsOtherInboxUnreadNoticeVisible =>
+        PreferencesService.IsOtherInboxUnreadNoticeEnabled &&
+        OtherInboxUnreadCount > 0 &&
+        ActiveFolder?.SpecialFolderType == SpecialFolderType.Inbox &&
+        PivotFolders.Any(pivot => pivot.IsFocused == false) &&
+        SelectedFolderPivot?.IsFocused == true;
+
+    public string OtherInboxUnreadNoticeText => string.Format(
+        OtherInboxUnreadCount == 1
+            ? Translator.OtherInboxUnreadNotice_Singular
+            : Translator.OtherInboxUnreadNotice_Plural,
+        OtherInboxUnreadCount);
 
     [ObservableProperty]
     public partial bool IsMultiSelectionModeEnabled { get; set; }
@@ -322,8 +342,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     partial void OnActiveFolderChanged(IBaseFolderMenuItem value)
     {
+        Interlocked.Increment(ref otherInboxUnreadRequestVersion);
+        OtherInboxUnreadCount = 0;
         UpdateAccountNicknamePositionForItems();
         SetupTopBarActions();
+        OnPropertyChanged(nameof(IsOtherInboxUnreadNoticeVisible));
     }
 
     private MailItemViewModel CreateMailItemViewModel(MailCopy mailCopy)
@@ -505,7 +528,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             if (_selectedFolderPivot != null)
                 _selectedFolderPivot.SelectedItemCount = 0;
 
-            SetProperty(ref _selectedFolderPivot, value);
+            if (SetProperty(ref _selectedFolderPivot, value))
+            {
+                OnPropertyChanged(nameof(IsOtherInboxUnreadNoticeVisible));
+            }
         }
     }
 
@@ -697,6 +723,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             return;
         }
 
+        if (propertyName == nameof(IPreferencesService.IsOtherInboxUnreadNoticeEnabled))
+        {
+            await RefreshOtherInboxUnreadCountAsync();
+            return;
+        }
+
         if (propertyName == nameof(IPreferencesService.AccountNicknamePosition))
         {
             UpdateAccountNicknamePositionForItems();
@@ -813,6 +845,34 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         });
 
         return applied;
+    }
+
+    private async Task RefreshOtherInboxUnreadCountAsync()
+    {
+        var requestVersion = Interlocked.Increment(ref otherInboxUnreadRequestVersion);
+        var inboxFolder = ActiveFolder?.SpecialFolderType == SpecialFolderType.Inbox &&
+                          PivotFolders.Any(pivot => pivot.IsFocused == false)
+            ? ActiveFolder.HandlingFolders.OfType<MailItemFolder>().FirstOrDefault()
+            : null;
+
+        try
+        {
+            var unreadCount = PreferencesService.IsOtherInboxUnreadNoticeEnabled && inboxFolder != null
+                ? await _folderService.GetFolderUnreadCountAsync(inboxFolder.Id, false).ConfigureAwait(false)
+                : 0;
+
+            await ExecuteUIThread(() =>
+            {
+                if (requestVersion == Volatile.Read(ref otherInboxUnreadRequestVersion))
+                {
+                    OtherInboxUnreadCount = unreadCount;
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to refresh the Other inbox unread notice.");
+        }
     }
 
     #region Commands
@@ -961,6 +1021,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         lastRequestedPivot = pivot;
         await InitializeFolderAsync();
+        await RefreshOtherInboxUnreadCountAsync();
     }
 
     [RelayCommand]
@@ -3043,6 +3104,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 return;
             }
 
+            await RefreshOtherInboxUnreadCountAsync();
+
             var loaded = await InitializeFolderAsync();
             if (changeGeneration != Volatile.Read(ref folderChangeGeneration))
             {
@@ -3117,6 +3180,18 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             }
         });
     }
+
+    public async void Receive(RefreshUnreadCountsMessage message)
+    {
+        if (ActiveFolder?.HandlingFolders.Any(folder => folder.MailAccountId == message.AccountId) != true)
+            return;
+
+        await RefreshOtherInboxUnreadCountAsync();
+    }
+
+    [RelayCommand]
+    private async Task OpenOtherInboxAsync()
+        => await SelectFocusedPivotForMailAsync(false);
 
     async void IRecipient<MailItemNavigationRequested>.Receive(MailItemNavigationRequested message)
     {
@@ -3342,6 +3417,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         await ExecuteUIThread(() =>
         {
+            OnPropertyChanged(nameof(OtherInboxUnreadNoticeText));
+
             foreach (var mailItem in MailCollection.Items)
             {
                 mailItem.RefreshIntelligenceTiles();
@@ -3362,6 +3439,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Register<ThumbnailAdded>(this);
         Messenger.Register<MailOperationRequested>(this);
         Messenger.Register<UndoableMailActionPackChanged>(this);
+        Messenger.Register<RefreshUnreadCountsMessage>(this);
         Messenger.Register<IntelligenceMetadataChanged>(this);
         Messenger.Register<IntelligenceVisibilityChanged>(this);
         Messenger.Register<LanguageChanged>(this);
@@ -3380,6 +3458,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         Messenger.Unregister<ThumbnailAdded>(this);
         Messenger.Unregister<MailOperationRequested>(this);
         Messenger.Unregister<UndoableMailActionPackChanged>(this);
+        Messenger.Unregister<RefreshUnreadCountsMessage>(this);
         Messenger.Unregister<IntelligenceMetadataChanged>(this);
         Messenger.Unregister<IntelligenceVisibilityChanged>(this);
         Messenger.Unregister<LanguageChanged>(this);

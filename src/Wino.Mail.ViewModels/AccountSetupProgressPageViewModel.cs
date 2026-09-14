@@ -255,7 +255,10 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     WizardContext.SelectedProvider.Type,
                     _createdAccount,
                     _createdAccount.ProviderType == MailProviderType.Gmail,
-                    forceInteractive: true);
+                    forceInteractive: true,
+                    requestedFeatures: _createdAccount.IsMailAccessGranted
+                        ? (ProviderFeature[])[ProviderFeature.MailFilters]
+                        : null);
 
                 _createdAccount.AuthenticationAddress = authTokenInfo.AuthenticationAddress;
                 _createdAccount.Address = authTokenInfo.AccountAddress;
@@ -263,7 +266,10 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
 
                 // Step: Save to DB
                 SetStepInProgress(Translator.AccountSetup_Step_SavingAccount, SetupOperationSaveAccount);
-                await _accountService.CreateAccountAsync(_createdAccount, null);
+                await _accountService.CreateAccountAsync(
+                    _createdAccount,
+                    null,
+                    enableMailFilters: _createdAccount.IsMailAccessGranted);
                 _dbWritten = true;
                 SetCurrentStepSucceeded();
 

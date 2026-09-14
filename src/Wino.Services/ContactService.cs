@@ -236,12 +236,37 @@ public class ContactService : BaseDatabaseService, IContactService
     public Task SetContactPictureFileIdAsync(Guid contactId, Guid? pictureFileId)
         => Connection.ExecuteAsync("UPDATE ContactCard SET ContactPictureFileId = ?, ModifiedAtUtc = ? WHERE Id = ?", pictureFileId, DateTime.UtcNow, contactId);
 
-    public Task SuppressContactPictureAsync(Guid contactId, string remotePhotoKey)
-        => Connection.ExecuteAsync(
+    public async Task SuppressContactPictureAsync(Guid contactId, string remotePhotoKey)
+    {
+        var contact = await Connection.Table<AccountContact>()
+            .FirstOrDefaultAsync(item => item.Id == contactId)
+            .ConfigureAwait(false);
+        var pictureFileId = contact?.ContactPictureFileId;
+
+        await Connection.ExecuteAsync(
             "UPDATE ContactCard SET ContactPictureFileId = NULL, RemotePhotoKey = ?, ModifiedAtUtc = ? WHERE Id = ?",
             remotePhotoKey,
             DateTime.UtcNow,
-            contactId);
+            contactId).ConfigureAwait(false);
+
+        if (!pictureFileId.HasValue || _pictureFileService is null)
+            return;
+
+        var referenceCount = await Connection.Table<AccountContact>()
+            .CountAsync(item => item.ContactPictureFileId == pictureFileId.Value)
+            .ConfigureAwait(false);
+        if (referenceCount == 0)
+        {
+            try
+            {
+                await _pictureFileService.DeleteContactPictureAsync(pictureFileId.Value).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to delete suppressed contact picture {PictureId}.", pictureFileId.Value);
+            }
+        }
+    }
 
     public async Task CompleteMutationAsync(Guid localContactId, AccountContact serverContact, bool deleted)
     {

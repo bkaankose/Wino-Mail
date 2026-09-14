@@ -44,6 +44,7 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
     private readonly ICompanionActionHandler _actions;
     private readonly IMessenger _messenger;
     private readonly DispatcherQueue _dispatcher;
+    private readonly DateTimeOffset _sessionStartedAtUtc;
     private readonly SemaphoreSlim _refreshGate = new(1, 1);
     private CancellationTokenSource? _visibilityCancellation;
     private CancellationTokenSource? _debounceCancellation;
@@ -51,15 +52,21 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
     private long _generation;
     private bool _recipientsRegistered;
     private bool _disposed;
+    private bool _showCalendar;
+    private bool _showUnreadMail;
+    private bool _showTasks;
+    private bool _showFavoriteContacts;
 
     internal CompanionDashboardViewModel(
         IServiceProvider services,
         ICompanionActionHandler actions,
-        DispatcherQueue dispatcher)
+        DispatcherQueue dispatcher,
+        DateTimeOffset sessionStartedAtUtc)
     {
         _services = services;
         _actions = actions;
         _dispatcher = dispatcher;
+        _sessionStartedAtUtc = sessionStartedAtUtc;
         _messenger = services.GetRequiredService<IMessenger>();
     }
 
@@ -114,14 +121,15 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
     public bool HasUnreadMail => UnreadMail.Count > 0;
     public bool HasTasks => Tasks.Count > 0;
     public bool HasFavorites => Favorites.Count > 0;
-    public bool IsAllCaughtUp => !HasEvent && !HasUnreadMail && !HasTasks;
+    public bool HasPersonalizedContent => _showCalendar || _showUnreadMail || _showTasks || _showFavoriteContacts;
+    public bool IsAllCaughtUp => HasPersonalizedContent && !HasEvent && !HasUnreadMail && !HasTasks;
     public Visibility EventVisibility => ToVisibility(HasEvent);
     public Visibility LaterEventsVisibility => ToVisibility(HasLaterEvents);
     public Visibility UnreadMailVisibility => ToVisibility(HasUnreadMail);
     public Visibility TasksVisibility => ToVisibility(HasTasks);
     public Visibility FavoritesVisibility => ToVisibility(HasFavorites);
     public Visibility CaughtUpVisibility => ToVisibility(IsAllCaughtUp);
-    public Visibility ContentVisibility => ToVisibility(!IsAllCaughtUp);
+    public Visibility ContentVisibility => ToVisibility(HasEvent || HasUnreadMail || HasTasks);
     public Visibility EventMailSeparatorVisibility => ToVisibility(HasEvent && (HasUnreadMail || HasTasks));
     public Visibility MailTaskSeparatorVisibility => ToVisibility(HasUnreadMail && HasTasks);
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorText);
@@ -234,13 +242,21 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
                 return;
             }
 
-            var folders = await LoadCountedFoldersAsync(cancellationToken);
-            var badgeSnapshot = await _services.GetRequiredService<IUnreadBadgeService>().GetSnapshotAsync();
-            var unreadTotal = badgeSnapshot.Accounts.Sum(static account => account.UnreadCount);
-            var mail = await LoadMailAsync(folders, cancellationToken);
-            var tasks = await LoadTasksAsync(cancellationToken);
-            var contacts = await LoadContactsAsync(folders, cancellationToken);
-            var events = await LoadEventsAsync(accounts, cancellationToken);
+            var preferences = _services.GetRequiredService<IPreferencesService>();
+            _showCalendar = preferences.ShowCalendarInCompanion;
+            _showUnreadMail = preferences.ShowUnreadMailInCompanion;
+            _showTasks = preferences.ShowTasksInCompanion;
+            _showFavoriteContacts = preferences.ShowFavoriteContactsInCompanion;
+
+            var folders = _showUnreadMail || _showFavoriteContacts
+                ? await LoadCountedFoldersAsync(cancellationToken)
+                : [];
+            var (mail, unreadTotal) = _showUnreadMail
+                ? await LoadMailAsync(folders, preferences, cancellationToken)
+                : ([], 0);
+            var tasks = _showTasks ? await LoadTasksAsync(cancellationToken) : [];
+            var contacts = _showFavoriteContacts ? await LoadContactsAsync(folders, cancellationToken) : [];
+            var events = _showCalendar ? await LoadEventsAsync(accounts, cancellationToken) : [];
             var loadedAt = DateTimeOffset.Now;
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -282,15 +298,15 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
             .GetFoldersByIdsAsync(ids, cancellationToken);
     }
 
-    private async Task<List<MailItemViewModel>> LoadMailAsync(
+    private async Task<(List<MailItemViewModel> Mail, int Count)> LoadMailAsync(
         IReadOnlyList<MailItemFolder> folders,
+        IPreferencesService preferences,
         CancellationToken cancellationToken)
     {
         if (folders.Count == 0)
-            return [];
+            return ([], 0);
 
         IReadOnlyList<IMailItemFolder> sources = folders.Cast<IMailItemFolder>().ToArray();
-        var preferences = _services.GetRequiredService<IPreferencesService>();
         var options = new MailListInitializationOptions(
             sources,
             FilterOptionType.Unread,
@@ -299,15 +315,23 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
             IsFocusedOnly: null,
             SearchQuery: null,
             DeduplicateByServerId: true,
-            Take: MaximumMail);
-        var mails = await _services.GetRequiredService<IMailService>()
-            .FetchMailsAsync(options, cancellationToken);
+            Take: MaximumMail)
+        {
+            ExcludeDrafts = true,
+            ReceivedAfterUtc = preferences.CompanionUnreadMessageBehavior == CompanionUnreadMessageBehavior.AfterAppSession
+                ? _sessionStartedAtUtc
+                : null
+        };
+        var mailService = _services.GetRequiredService<IMailService>();
+        var mails = await mailService.FetchMailsAsync(options, cancellationToken);
+        var count = await mailService.CountMailsAsync(options, cancellationToken);
 
-        return mails
-            .Where(static mail => !mail.IsDraft)
+        var viewModels = mails
             .Take(MaximumMail)
             .Select(mail => new MailItemViewModel(mail, preferences.AccountNicknamePosition))
             .ToList();
+
+        return (viewModels, count);
     }
 
     private async Task<List<TaskItemViewModel>> LoadTasksAsync(CancellationToken cancellationToken)
@@ -464,6 +488,7 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
         OnPropertyChanged(nameof(HasTasks));
         OnPropertyChanged(nameof(HasFavorites));
         OnPropertyChanged(nameof(IsAllCaughtUp));
+        OnPropertyChanged(nameof(HasPersonalizedContent));
         OnPropertyChanged(nameof(LaterEventsVisibility));
         OnPropertyChanged(nameof(UnreadMailVisibility));
         OnPropertyChanged(nameof(TasksVisibility));

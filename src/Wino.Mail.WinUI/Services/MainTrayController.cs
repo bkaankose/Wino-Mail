@@ -24,6 +24,7 @@ internal sealed class MainTrayController
 
     public MainTrayController(DispatcherQueue dispatcher, IServiceProvider services,
         INativeAppService nativeAppService,
+        DateTimeOffset sessionStartedAtUtc,
         CompanionNavigationCallbacks navigation,
         Func<Task> openMail, Func<Task> openCalendar, Func<Task> exit)
     {
@@ -42,6 +43,7 @@ internal sealed class MainTrayController
             services,
             dispatcher,
             nativeAppService,
+            sessionStartedAtUtc,
             () => _icon.TryGetIconRect(out var rect) ? (true, rect) : (false, default),
             navigation);
         _companion.SessionDisabled += CompanionSessionDisabled;

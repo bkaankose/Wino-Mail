@@ -63,7 +63,7 @@ namespace Wino.Mail.Controls.SearchBar;
 /// <summary>
 /// Provides search suggestions, recent searches, semantic-search state, and mail filters.
 /// </summary>
-public sealed partial class WinoSearchBar : Control
+public sealed partial class WinoSearchBar : Control, IDisposable
 {
     private const string PartLayoutRootName = "PART_LayoutRoot";
     private const string PartFieldBorderName = "PART_FieldBorder";
@@ -142,6 +142,7 @@ public sealed partial class WinoSearchBar : Control
     private readonly UISettings _uiSettings = new();
     private WeakHistoryCollectionChangedSubscription? _historySubscription;
     private bool _isSynchronizingOptions;
+    private bool _disposed;
     private string _pendingSenderQuery = string.Empty;
 
     private FrameworkElement? _layoutRoot;
@@ -382,6 +383,11 @@ public sealed partial class WinoSearchBar : Control
     {
         DetachTemplateHandlers();
         base.OnApplyTemplate();
+        if (_disposed)
+        {
+            return;
+        }
+
         _layoutRoot = GetTemplateChild(PartLayoutRootName) as FrameworkElement;
         _fieldBorder = GetTemplateChild(PartFieldBorderName) as Border;
         _autoSuggestBox = GetTemplateChild(PartAutoSuggestBoxName) as AutoSuggestBox;
@@ -417,6 +423,55 @@ public sealed partial class WinoSearchBar : Control
         UpdateClearButtonText();
         UpdateCompactLayout();
         UpdateVisualStates(useTransitions: false);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        DetachTemplateHandlers();
+        _historySubscription?.Dispose();
+        _historySubscription = null;
+
+        if (_searchPopup is not null)
+        {
+            _searchPopup.IsOpen = false;
+            _searchPopup.Child = null;
+        }
+
+        if (_historyList is not null)
+        {
+            _historyList.ItemsSource = null;
+        }
+
+        if (_autoSuggestBox is not null)
+        {
+            _autoSuggestBox.ItemsSource = null;
+        }
+
+        if (_senderSuggestBox is not null)
+        {
+            _senderSuggestBox.ItemsSource = null;
+        }
+
+        SearchSubmitted = null;
+        SearchTextChanged = null;
+        ClearSearchHistoryRequested = null;
+        SearchOptionsChanged = null;
+        SenderSuggestionsRequested = null;
+        SearchHistoryItemsSource = null;
+        ItemsSource = null;
+        SenderSuggestions = null;
+        ScopeOptionsSource = null;
+        ReachOptionsSource = null;
+        DateOptionsSource = null;
+        Template = null;
+
+        GC.SuppressFinalize(this);
     }
 
     private void AttachTemplateHandlers()

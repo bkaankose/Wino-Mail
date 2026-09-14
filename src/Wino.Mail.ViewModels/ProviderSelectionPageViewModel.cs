@@ -271,7 +271,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
             WizardContext.Reset();
         }
 
-        Providers = _providerService.GetAvailableProviders();
+        Providers = _providerService.GetAvailableProviders()
+            .Where(provider => provider.Type != MailProviderType.POP3)
+            .ToList();
         AvailableColors = _themeService.GetAvailableAccountColors()
             .Select(hex => new AppColorViewModel(hex))
             .ToList();

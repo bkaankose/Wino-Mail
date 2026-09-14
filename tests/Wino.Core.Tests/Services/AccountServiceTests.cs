@@ -209,6 +209,48 @@ public class AccountServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CreateAccountAsync_NewOAuthAccountWithMailFiltersEnabled_PersistsActiveFeature()
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Gmail",
+            Address = "gmail@test.local",
+            ProviderType = MailProviderType.Gmail,
+            IsMailAccessGranted = true
+        };
+
+        await _accountService.CreateAccountAsync(account, null, enableMailFilters: true);
+
+        var feature = await _databaseService.Connection.Table<AccountProviderFeature>()
+            .FirstAsync(item => item.MailAccountId == account.Id && item.Feature == ProviderFeature.MailFilters);
+
+        feature.AuthorizationState.Should().Be(ProviderFeatureAuthorizationState.Active);
+        feature.EnabledAtUtc.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        feature.LastAuthorizedAtUtc.Should().Be(feature.EnabledAtUtc);
+    }
+
+    [Fact]
+    public async Task CreateAccountAsync_ExistingAccountImport_DoesNotEnableMailFiltersByDefault()
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Imported Gmail",
+            Address = "imported-gmail@test.local",
+            ProviderType = MailProviderType.Gmail,
+            IsMailAccessGranted = true
+        };
+
+        await _accountService.CreateAccountAsync(account, null);
+
+        var featureCount = await _databaseService.Connection.Table<AccountProviderFeature>()
+            .CountAsync(item => item.MailAccountId == account.Id && item.Feature == ProviderFeature.MailFilters);
+
+        featureCount.Should().Be(0);
+    }
+
+    [Fact]
     public async Task CreateAccountAsync_ImapLocalOnly_AssignsDistinctCalendarColorsAcrossAccounts()
     {
         var firstAccountId = Guid.NewGuid();

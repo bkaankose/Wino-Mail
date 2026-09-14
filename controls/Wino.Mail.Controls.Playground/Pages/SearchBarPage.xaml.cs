@@ -5,8 +5,9 @@ using Wino.Mail.Controls.Core.SearchBar;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
-public sealed partial class SearchBarPage : Page
+public sealed partial class SearchBarPage : Page, IDisposable
 {
+    private bool _disposed;
     private readonly Dictionary<SearchBarMode, ObservableCollection<string>> _historyByMode = new()
     {
         [SearchBarMode.Mail] =
@@ -225,6 +226,32 @@ public sealed partial class SearchBarPage : Page
     {
         EventTrace.Insert(0, $"{DateTime.Now:T}  {message}");
         while (EventTrace.Count > 12) EventTrace.RemoveAt(EventTrace.Count - 1);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        SearchBar.SearchSubmitted -= SearchBarSubmitted;
+        SearchBar.SearchTextChanged -= SearchBarTextChanged;
+        SearchBar.ClearSearchHistoryRequested -= SearchBarClearHistoryRequested;
+        SearchBar.SearchOptionsChanged -= SearchBarOptionsChanged;
+        SearchBar.SenderSuggestionsRequested -= SearchBarSenderSuggestionsRequested;
+        ModeComboBox.SelectionChanged -= ModeComboBoxSelectionChanged;
+        SemanticAvailabilityToggle.Toggled -= SemanticAvailabilityToggled;
+        SemanticBusyToggle.Toggled -= SemanticBusyToggled;
+        SemanticEnabledToggle.Toggled -= SemanticEnabledToggled;
+        CompactLayoutToggle.Toggled -= CompactLayoutToggled;
+        Bindings.StopTracking();
+        SearchBar.Dispose();
+        ResultsList.ItemsSource = null;
+        ModeComboBox.ItemsSource = null;
+        Content = null;
+        GC.SuppressFinalize(this);
     }
 }
 

@@ -68,6 +68,24 @@ public class OutlookContactsClientTests
         values.Should().Contain("IdType=\"ImmutableId\"");
     }
 
+    [Theory]
+    [InlineData("iVBORw0KGgo=", "89504E470D0A1A0A")]
+    [InlineData("-_8", "FBFF")]
+    public void DecodeBatchPhotoContent_DecodesDocumentedBase64UrlBody(string encodedBody, string expectedHex)
+    {
+        var result = OutlookContactsClient.DecodeBatchPhotoContent(encodedBody);
+
+        Convert.ToHexString(result).Should().Be(expectedHex);
+    }
+
+    [Fact]
+    public void DecodeBatchPhotoContent_RejectsMalformedTransportBody()
+    {
+        var act = () => OutlookContactsClient.DecodeBatchPhotoContent("not-an-image!");
+
+        act.Should().Throw<InvalidDataException>();
+    }
+
     private static (OutlookContactsClient Client, Func<RequestInformation> Request) CreateClient()
     {
         RequestInformation capturedRequest = null;

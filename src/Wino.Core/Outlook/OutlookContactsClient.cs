@@ -75,6 +75,34 @@ public sealed class OutlookContactsClient
         return photoBytes.ToArray();
     }
 
+    /// <summary>
+    /// Decodes the base64url string used for binary bodies inside a Microsoft Graph JSON batch response.
+    /// Direct photo responses are raw streams and do not pass through this method.
+    /// </summary>
+    internal static byte[] DecodeBatchPhotoContent(string encodedContent)
+    {
+        if (string.IsNullOrWhiteSpace(encodedContent))
+            return [];
+
+        var normalized = encodedContent.Trim().Replace('-', '+').Replace('_', '/');
+        normalized = (normalized.Length % 4) switch
+        {
+            0 => normalized,
+            2 => normalized + "==",
+            3 => normalized + "=",
+            _ => throw new InvalidDataException("The Microsoft Graph batch photo body is not valid base64url content.")
+        };
+
+        try
+        {
+            return Convert.FromBase64String(normalized);
+        }
+        catch (FormatException ex)
+        {
+            throw new InvalidDataException("The Microsoft Graph batch photo body is not valid base64url content.", ex);
+        }
+    }
+
     private async Task<T> SendCollectionAsync<T>(string url, ParsableFactory<T> factory, CancellationToken cancellationToken, bool preferPageSize = false) where T : IParsable
     {
         var request = CreateRequest(url, Method.GET);

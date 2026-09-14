@@ -13,6 +13,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
 using Wino.Mail.ViewModels;
+using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Xunit;
@@ -246,6 +247,35 @@ public sealed class ToDoPageViewModelTests
                 request.Step.RemoteId == "remote-step" &&
                 request.Step.Title == "After" &&
                 request.OriginalStep.Title == "Before");
+    }
+
+    [Fact]
+    public void AppliedTaskAndStepSnapshots_BecomeTheBaselineForTheNextEdit()
+    {
+        var accountId = Guid.NewGuid();
+        var listId = Guid.NewGuid();
+        var task = CreateTask(accountId, listId, "Initial task");
+        var step = new AccountTaskStep
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = accountId,
+            TaskId = task.Id,
+            Title = "Initial step"
+        };
+        var taskItem = new TaskItemViewModel(task, "List");
+        var stepItem = new TaskStepViewModel(step);
+        var appliedTask = RequestEntityCloner.Task(task);
+        appliedTask.Title = "Saved task";
+        var appliedStep = RequestEntityCloner.TaskStep(step);
+        appliedStep.Title = "Saved step";
+
+        taskItem.ApplySnapshot(appliedTask);
+        stepItem.ApplySnapshot(appliedStep);
+        taskItem.Title = "Next task edit";
+        stepItem.Title = "Next step edit";
+
+        taskItem.CreateOriginalSnapshot().Title.Should().Be("Saved task");
+        stepItem.CreateOriginalSnapshot().Title.Should().Be("Saved step");
     }
 
     [Fact]
@@ -956,6 +986,7 @@ public sealed class ToDoPageViewModelTests
         var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object);
         await viewModel.ReloadCommand.ExecuteAsync(null);
         viewModel.SelectedList = list;
+        viewModel.SelectedCompletionScope = TaskCompletionScope.All;
         await WaitUntilAsync(() => VisibleTaskTitles(viewModel).Count() == 2);
 
         viewModel.SetSelectedTasks(viewModel.TaskGroups.SelectMany(group => group));
@@ -965,6 +996,82 @@ public sealed class ToDoPageViewModelTests
         viewModel.SelectedTask.Should().BeNull();
         requests.OfType<TaskActionRequest>().Should().HaveCount(2)
             .And.OnlyContain(request => request.Operation == TaskSynchronizerOperation.UpdateTask && request.Task.IsCompleted);
+        delegator.Verify(service => service.ExecuteAsync(
+            account.Id,
+            It.Is<IEnumerable<IRequestBase>>(queued => queued.Count() == 2)), Times.Once);
+    }
+
+    [Fact]
+    public async Task MultipleSelection_MaterializesEveryImportanceSnapshotBeforeDispatch()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var tasks = new[]
+        {
+            CreateTask(account.Id, list.Id, "First"),
+            CreateTask(account.Id, list.Id, "Second")
+        };
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, list.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync(tasks.ToList());
+        var requests = new List<TaskActionRequest>();
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, queued) => requests.AddRange(queued.OfType<TaskActionRequest>()))
+            .Returns(Task.CompletedTask);
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = list;
+        await WaitUntilAsync(() => VisibleTaskTitles(viewModel).Count() == 2);
+
+        viewModel.SetSelectedTasks(viewModel.TaskGroups.SelectMany(group => group));
+        await viewModel.MarkSelectedTasksImportantCommand.ExecuteAsync(null);
+
+        requests.Should().HaveCount(2)
+            .And.OnlyContain(request => request.Task.IsImportant && !request.OriginalTask.IsImportant);
+        delegator.Verify(service => service.ExecuteAsync(
+            account.Id,
+            It.Is<IEnumerable<IRequestBase>>(queued => queued.Count() == 2)), Times.Once);
+    }
+
+    [Fact]
+    public async Task MultipleSelection_MaterializesEveryReopenSnapshotBeforeDispatch()
+    {
+        var account = CreateAccount(MailProviderType.Outlook, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Outlook, isDefault: true);
+        var tasks = new[]
+        {
+            CreateTask(account.Id, list.Id, "First"),
+            CreateTask(account.Id, list.Id, "Second")
+        };
+        foreach (var task in tasks)
+        {
+            task.IsCompleted = true;
+            task.CompletedAtUtc = DateTime.UtcNow;
+        }
+
+        var taskService = CreateTaskService([list]);
+        taskService.Setup(service => service.GetTasksAsync(null, list.Id, TaskViewKind.All, It.IsAny<string>(), It.IsAny<TaskSortKind>()))
+            .ReturnsAsync(tasks.ToList());
+        var requests = new List<TaskActionRequest>();
+        var delegator = new Mock<IWinoRequestDelegator>();
+        delegator.Setup(service => service.ExecuteAsync(account.Id, It.IsAny<IEnumerable<IRequestBase>>()))
+            .Callback<Guid, IEnumerable<IRequestBase>>((_, queued) => requests.AddRange(queued.OfType<TaskActionRequest>()))
+            .Returns(Task.CompletedTask);
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+        viewModel.SelectedList = list;
+        viewModel.SelectedCompletionScope = TaskCompletionScope.All;
+        await WaitUntilAsync(() => VisibleTaskTitles(viewModel).Count() == 2);
+
+        viewModel.SetSelectedTasks(viewModel.TaskGroups.SelectMany(group => group));
+        await viewModel.ReopenSelectedTasksCommand.ExecuteAsync(null);
+
+        requests.Should().HaveCount(2)
+            .And.OnlyContain(request => !request.Task.IsCompleted && request.Task.CompletedAtUtc is null && request.OriginalTask.IsCompleted);
+        delegator.Verify(service => service.ExecuteAsync(
+            account.Id,
+            It.Is<IEnumerable<IRequestBase>>(queued => queued.Count() == 2)), Times.Once);
     }
 
     [Fact]

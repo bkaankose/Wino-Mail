@@ -1,4 +1,4 @@
-<abstract:PersonalizationPageAbstract
+﻿<abstract:PersonalizationPageAbstract
     x:Class="Wino.Views.Settings.PersonalizationPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -16,9 +16,14 @@
             Description="{x:Bind domain:Translator.SettingsAccentColor_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsAccentColor_Title, Mode=OneTime}"
             IsExpanded="True">
-            <controls:SettingsExpander.HeaderIcon><FontIcon Glyph="&#xE790;" /></controls:SettingsExpander.HeaderIcon>
+            <controls:SettingsExpander.HeaderIcon>
+                <FontIcon Glyph="&#xE790;" />
+            </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
-                <controls:SettingsCard AutomationProperties.AutomationId="PersonalizationAccentCard" HorizontalContentAlignment="Stretch" ContentAlignment="Vertical">
+                <controls:SettingsCard
+                    HorizontalContentAlignment="Stretch"
+                    AutomationProperties.AutomationId="PersonalizationAccentCard"
+                    ContentAlignment="Vertical">
                     <StackPanel Spacing="8">
                         <GridView
                             AutomationProperties.AutomationId="PersonalizationAccentGrid"
@@ -26,7 +31,11 @@
                             SelectedItem="{x:Bind ViewModel.SelectedAppColor, Mode=TwoWay}">
                             <GridView.ItemTemplate>
                                 <DataTemplate x:DataType="data:AppColorViewModel">
-                                    <Border Width="40" Height="40" Background="{x:Bind Hex}" CornerRadius="4" />
+                                    <Border
+                                        Width="40"
+                                        Height="40"
+                                        Background="{x:Bind Hex}"
+                                        CornerRadius="4" />
                                 </DataTemplate>
                             </GridView.ItemTemplate>
                         </GridView>
@@ -43,14 +52,18 @@
             AutomationProperties.AutomationId="PersonalizationElementThemeCard"
             Description="{x:Bind domain:Translator.SettingsElementTheme_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsElementTheme_Title, Mode=OneTime}">
-            <controls:SettingsCard.HeaderIcon><FontIcon Glyph="&#xE793;" /></controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon Glyph="&#xE793;" />
+            </controls:SettingsCard.HeaderIcon>
             <ComboBox
                 AutomationProperties.AutomationId="PersonalizationElementThemeComboBox"
                 IsEnabled="{x:Bind ViewModel.CanSelectElementTheme, Mode=OneWay}"
                 ItemsSource="{x:Bind ViewModel.ElementThemes}"
                 SelectedItem="{x:Bind ViewModel.SelectedElementTheme, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="personalization:ElementThemeContainer"><TextBlock Text="{x:Bind Title}" /></DataTemplate>
+                    <DataTemplate x:DataType="personalization:ElementThemeContainer">
+                        <TextBlock Text="{x:Bind Title}" />
+                    </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
         </controls:SettingsCard>
@@ -68,7 +81,9 @@
             Description="{x:Bind domain:Translator.ApplicationThemeGallery_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.ApplicationThemeGallery_Title, Mode=OneTime}"
             IsClickEnabled="True">
-            <controls:SettingsCard.HeaderIcon><FontIcon Glyph="&#xE771;" /></controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon Glyph="&#xE771;" />
+            </controls:SettingsCard.HeaderIcon>
         </controls:SettingsCard>
 
         <controls:SettingsCard
@@ -76,14 +91,18 @@
             Description="{x:Bind domain:Translator.SettingsWindowBackdrop_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsWindowBackdrop_Title, Mode=OneTime}"
             IsEnabled="{x:Bind ViewModel.CanSelectElementTheme, Mode=OneWay}">
-            <controls:SettingsCard.HeaderIcon><FontIcon Glyph="&#xE790;" /></controls:SettingsCard.HeaderIcon>
+            <controls:SettingsCard.HeaderIcon>
+                <FontIcon Glyph="&#xE790;" />
+            </controls:SettingsCard.HeaderIcon>
             <ComboBox
                 Width="160"
                 AutomationProperties.AutomationId="PersonalizationBackdropComboBox"
                 ItemsSource="{x:Bind ViewModel.AvailableBackdropTypes, Mode=OneWay}"
                 SelectedItem="{x:Bind ViewModel.SelectedBackdropType, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
-                    <DataTemplate x:DataType="personalization:BackdropTypeWrapper"><TextBlock Text="{x:Bind DisplayName}" /></DataTemplate>
+                    <DataTemplate x:DataType="personalization:BackdropTypeWrapper">
+                        <TextBlock Text="{x:Bind DisplayName}" />
+                    </DataTemplate>
                 </ComboBox.ItemTemplate>
             </ComboBox>
         </controls:SettingsCard>
@@ -92,6 +111,9 @@
             AutomationProperties.AutomationId="PersonalizationCompactAccountMenuCard"
             Description="{x:Bind domain:Translator.SettingsCompactAccountMenuItem_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsCompactAccountMenuItem_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <SymbolIcon Symbol="List" />
+            </controls:SettingsCard.HeaderIcon>
             <ToggleSwitch AutomationProperties.AutomationId="PersonalizationCompactAccountMenuToggle" IsOn="{x:Bind ViewModel.PreferencesService.IsCompactAccountMenuItemEnabled, Mode=TwoWay}" />
         </controls:SettingsCard>
 
@@ -99,6 +121,9 @@
             AutomationProperties.AutomationId="PersonalizationHideWinoAccountButtonCard"
             Description="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <SymbolIcon Symbol="Contact" />
+            </controls:SettingsCard.HeaderIcon>
             <ToggleSwitch AutomationProperties.AutomationId="PersonalizationHideWinoAccountButtonToggle" IsOn="{x:Bind ViewModel.PreferencesService.IsWinoAccountButtonHidden, Mode=TwoWay}" />
         </controls:SettingsCard>
     </StackPanel>

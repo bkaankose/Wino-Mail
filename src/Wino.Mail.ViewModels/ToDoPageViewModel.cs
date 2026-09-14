@@ -1491,25 +1491,23 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         if (item is null || item.IsReadOnly)
             return;
 
-        var steps = item.Steps.Select(step => step.Step).ToList();
         var desiredTask = RequestEntityCloner.Task(item.Task);
         var originalTask = item.CreateOriginalSnapshot();
+        if (string.Equals(desiredTask.Title, originalTask.Title, StringComparison.Ordinal) &&
+            string.Equals(desiredTask.Notes, originalTask.Notes, StringComparison.Ordinal) &&
+            desiredTask.DueDate == originalTask.DueDate &&
+            desiredTask.IsCompleted == originalTask.IsCompleted &&
+            desiredTask.IsImportant == originalTask.IsImportant &&
+            desiredTask.MyDayDateUtc == originalTask.MyDayDateUtc)
+        {
+            return;
+        }
 
         await QueueMutationAsync(new TaskActionRequest(
             desiredTask.MailAccountId,
             TaskSynchronizerOperation.UpdateTask,
             Task: desiredTask,
             OriginalTask: originalTask)).ConfigureAwait(false);
-
-        foreach (var step in steps)
-        {
-            await QueueMutationAsync(new TaskActionRequest(
-                step.MailAccountId,
-                TaskSynchronizerOperation.UpdateStep,
-                Task: desiredTask,
-                Step: step,
-                OriginalStep: item.Steps.First(candidate => candidate.Step.Id == step.Id).CreateOriginalSnapshot())).ConfigureAwait(false);
-        }
     }
 
     [RelayCommand]
@@ -1544,41 +1542,49 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private async Task SetSelectedTasksCompletionAsync(bool isCompleted)
     {
-        var selected = SelectedTasks.Where(item => !item.IsReadOnly && item.IsCompleted != isCompleted).ToList();
-        foreach (var item in selected)
-        {
-            var original = RequestEntityCloner.Task(item.Task);
-            var desired = RequestEntityCloner.Task(item.Task);
-            desired.IsCompleted = isCompleted;
-            desired.CompletedAtUtc = isCompleted ? DateTime.UtcNow : null;
+        var requests = SelectedTasks
+            .Where(item => !item.IsReadOnly && item.IsCompleted != isCompleted)
+            .Select(item =>
+            {
+                var original = RequestEntityCloner.Task(item.Task);
+                var desired = RequestEntityCloner.Task(item.Task);
+                desired.IsCompleted = isCompleted;
+                desired.CompletedAtUtc = isCompleted ? DateTime.UtcNow : null;
 
-            await QueueMutationAsync(new TaskActionRequest(
-                desired.MailAccountId,
-                TaskSynchronizerOperation.UpdateTask,
-                Task: desired,
-                OriginalTask: original)).ConfigureAwait(false);
-        }
+                return new TaskActionRequest(
+                    desired.MailAccountId,
+                    TaskSynchronizerOperation.UpdateTask,
+                    Task: desired,
+                    OriginalTask: original);
+            })
+            .ToList();
 
-        if (isCompleted && selected.Count > 0 && _preferencesService?.IsTaskCompletionSoundEnabled == true)
+        await QueueMutationsAsync(requests).ConfigureAwait(false);
+
+        if (isCompleted && requests.Count > 0 && _preferencesService?.IsTaskCompletionSoundEnabled == true)
             _completionSoundPlayer?.Play();
     }
 
     [RelayCommand]
     private async Task MarkSelectedTasksImportantAsync()
     {
-        var selected = SelectedTasks.Where(item => !item.IsReadOnly && !item.IsImportant).ToList();
-        foreach (var item in selected)
-        {
-            var original = RequestEntityCloner.Task(item.Task);
-            var desired = RequestEntityCloner.Task(item.Task);
-            desired.IsImportant = true;
+        var requests = SelectedTasks
+            .Where(item => !item.IsReadOnly && !item.IsImportant)
+            .Select(item =>
+            {
+                var original = RequestEntityCloner.Task(item.Task);
+                var desired = RequestEntityCloner.Task(item.Task);
+                desired.IsImportant = true;
 
-            await QueueMutationAsync(new TaskActionRequest(
-                desired.MailAccountId,
-                TaskSynchronizerOperation.UpdateTask,
-                Task: desired,
-                OriginalTask: original)).ConfigureAwait(false);
-        }
+                return new TaskActionRequest(
+                    desired.MailAccountId,
+                    TaskSynchronizerOperation.UpdateTask,
+                    Task: desired,
+                    OriginalTask: original);
+            })
+            .ToList();
+
+        await QueueMutationsAsync(requests).ConfigureAwait(false);
     }
 
     [RelayCommand]
@@ -2258,6 +2264,12 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private async Task QueueMutationAsync(TaskActionRequest request)
         => await _requestDelegator.ExecuteAsync(request.MailAccountId, (IRequestBase[])[request]).ConfigureAwait(false);
+
+    private async Task QueueMutationsAsync(IReadOnlyList<TaskActionRequest> requests)
+    {
+        foreach (var accountRequests in requests.GroupBy(request => request.MailAccountId))
+            await _requestDelegator.ExecuteAsync(accountRequests.Key, accountRequests.Cast<IRequestBase>().ToArray()).ConfigureAwait(false);
+    }
 
     private static TaskSourceKind ResolveTaskSource(MailAccount account)
         => account.TaskIntegrationSource == AccountIntegrationSource.Provider && account.IsTaskAccessGranted

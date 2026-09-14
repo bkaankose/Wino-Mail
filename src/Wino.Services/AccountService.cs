@@ -888,7 +888,8 @@ public class AccountService : BaseDatabaseService, IAccountService
     public async Task CreateAccountAsync(
         MailAccount account,
         CustomServerInformation? customServerInformation,
-        bool shouldAppendMessagesToSentFolder = true)
+        bool shouldAppendMessagesToSentFolder = true,
+        bool enableMailFilters = false)
     {
         Guard.IsNotNull(account);
 
@@ -918,6 +919,22 @@ public class AccountService : BaseDatabaseService, IAccountService
         }
 
         await Connection.InsertAsync(account, typeof(MailAccount));
+
+        if (enableMailFilters &&
+            account.IsMailAccessGranted &&
+            account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
+        {
+            var authorizedAt = DateTime.UtcNow;
+            await Connection.InsertAsync(new AccountProviderFeature
+            {
+                Id = Guid.NewGuid(),
+                MailAccountId = account.Id,
+                Feature = ProviderFeature.MailFilters,
+                AuthorizationState = ProviderFeatureAuthorizationState.Active,
+                EnabledAtUtc = authorizedAt,
+                LastAuthorizedAtUtc = authorizedAt
+            }, typeof(AccountProviderFeature)).ConfigureAwait(false);
+        }
 
         if (account.IsTaskAccessEnabled && !account.IsTaskAccessGranted)
         {

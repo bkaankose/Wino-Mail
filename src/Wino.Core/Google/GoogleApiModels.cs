@@ -506,6 +506,7 @@ namespace Google.Apis.PeopleService.v1.Data
     public sealed class Name
     {
         public string DisplayName { get; set; }
+        public string UnstructuredName { get; set; }
         public string HonorificPrefix { get; set; }
         public string GivenName { get; set; }
         public string MiddleName { get; set; }

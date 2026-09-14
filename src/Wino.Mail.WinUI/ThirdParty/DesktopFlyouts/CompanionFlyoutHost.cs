@@ -115,6 +115,20 @@ internal sealed partial class CompanionFlyoutHost : IDisposable
     internal void ApplyTheme(ElementTheme theme)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+
+        // Application themes replace a merged resource dictionary without necessarily
+        // changing the light/dark theme. Re-enter the requested theme so ThemeResource
+        // references in this XAML island resolve against the new dictionary in place.
+        if (_surface.RequestedTheme == theme)
+        {
+            var refreshTheme = theme == ElementTheme.Dark
+                ? ElementTheme.Light
+                : ElementTheme.Dark;
+
+            _surface.RequestedTheme = refreshTheme;
+            _content.RequestedTheme = refreshTheme;
+        }
+
         _surface.RequestedTheme = theme;
         _content.RequestedTheme = theme;
     }

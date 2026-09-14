@@ -1,4 +1,4 @@
-<abstract:ContactEditPageAbstract
+﻿<abstract:ContactEditPageAbstract
     x:Class="Wino.Views.Settings.ContactEditPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -97,7 +97,7 @@
                             <MenuFlyoutItem
                                 AutomationProperties.AutomationId="ContactEditorRemovePhoto"
                                 Command="{x:Bind ViewModel.RemovePhotoCommand}"
-                                Text="{x:Bind domain:Translator.ContactEditDialog_RemovePhoto, Mode=OneTime}">
+                                Text="{x:Bind ViewModel.RemovePhotoLabel, Mode=OneWay}">
                                 <MenuFlyoutItem.Icon>
                                     <FontIcon Glyph="&#xE74D;" />
                                 </MenuFlyoutItem.Icon>

@@ -927,6 +927,7 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <!--  Select All Checkbox  -->
@@ -1045,6 +1046,19 @@
                                 Content="Enable" />
                         </InfoBar.ActionButton>
                     </InfoBar>
+
+                    <HyperlinkButton
+                        x:Name="OtherInboxUnreadNoticeLink"
+                        Grid.Row="2"
+                        Grid.ColumnSpan="3"
+                        Margin="4,2,4,0"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        x:Load="{x:Bind ViewModel.IsOtherInboxUnreadNoticeVisible, Mode=OneWay}"
+                        AutomationProperties.AutomationId="OtherInboxUnreadNoticeLink"
+                        Command="{x:Bind ViewModel.OpenOtherInboxCommand}">
+                        <TextBlock Text="{x:Bind ViewModel.OtherInboxUnreadNoticeText, Mode=OneWay}" TextWrapping="Wrap" />
+                    </HyperlinkButton>
                 </Grid>
 
                 <!--  No items createria  -->

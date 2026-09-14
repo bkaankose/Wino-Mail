@@ -82,7 +82,8 @@ public interface IAccountService
     Task CreateAccountAsync(
         MailAccount account,
         CustomServerInformation? customServerInformation,
-        bool shouldAppendMessagesToSentFolder = true);
+        bool shouldAppendMessagesToSentFolder = true,
+        bool enableMailFilters = false);
 
     /// <summary>
     /// Fixed authentication errors for account by forcing interactive login.

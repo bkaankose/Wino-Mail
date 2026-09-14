@@ -91,6 +91,7 @@ public partial class App : WinoApplication,
     private readonly AppNotificationHandler _notificationHandler;
     private readonly AppActivationHandler _activationHandler;
     private readonly DispatcherQueue? _applicationDispatcherQueue;
+    private readonly DateTimeOffset _sessionStartedAtUtc = DateTimeOffset.UtcNow;
     private MainTrayController? _companionIntegration;
     private Window? _backgroundLifetimeWindow;
     private Microsoft.UI.Xaml.LaunchActivatedEventArgs? _pendingMigrationLaunchArgs;
@@ -304,6 +305,7 @@ public partial class App : WinoApplication,
             dispatcher,
             Services,
             Services.GetRequiredService<INativeAppService>(),
+            _sessionStartedAtUtc,
             navigation,
             ActivatePreferredWindowAsync,
             () => ActivateShellFromTrayAsync(WinoApplicationMode.Calendar),

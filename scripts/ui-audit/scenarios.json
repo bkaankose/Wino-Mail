@@ -1,0 +1,1009 @@
+{
+  "schemaVersion": 1,
+  "baselineRun": "20260913-213623",
+  "execution": "agent-guided",
+  "scenarios": [
+    {
+      "id": "PRE-001",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Debug project-mode build: 0 warnings/errors. Deployed and launched PID 55688 HWND 9440708; package identity matched. Automation-ID audit passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-LIST-CREATE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Created isolated list; sidebar item appeared.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-TASK-CREATE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-RENAME-DETAIL",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-NOTES",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-STEP-CREATE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-STEP-EDIT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-STEP-TOGGLE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-IMPORTANCE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Correction: prior failure was helper parameter collision. Detail action set importance (Remove importance observed); context action removed it.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-DUE-TODAY",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-MYDAY",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-IMPORTANCE-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-DUE-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-LIST-RENAME-HEADER",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Focused-input retest passed; prior result was test artifact.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-LIST-RENAME-OVERFLOW",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-LIST-RENAME-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-STEP-PERSISTENCE",
+      "baselineOutcome": "FAIL",
+      "baselineEvidence": "{\n  \"found\": false,\n  \"waitedMs\": 1753,\n  \"timedOut\": true\n}",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-GROUP-CREATE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-GROUP-RENAME",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-GROUP-DELETE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PERSONAL-COMPLETION",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-CREATE-TASK",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-EDIT-TASK",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-STEP-CRUD",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Focused-input retest passed create/rename/reopen/complete/reopen/delete after confirmation.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-IMPORTANCE-MYDAY-DUE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-LIST-RENAME-HEADER",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Focused-input retest passed and retained new title. Earlier un-focused automated attempt is inconclusive, not confirmed application bug.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-GROUP-CREATE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-CREATE-TASK",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-EDIT-TASK",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-STEP-CRUD",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Focused create/rename/reopen/delete retests passed immediate assertions; later step persistence is not proven.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-IMPORTANCE-MYDAY-DUE",
+      "baselineOutcome": "FAIL",
+      "baselineEvidence": "{\n  \"found\": false,\n  \"waitedMs\": 3203,\n  \"timedOut\": true\n}",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-LIST-RENAME-HEADER",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-GROUP-CREATE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-CREATE-TASK",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-EDIT-TASK",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-STEP-CRUD",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Slow focused create/rename/reopen and confirmed-delete retests passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-IMPORTANCE-MYDAY-DUE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-STEP-SLOW-CREATE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-LIST-RENAME",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-GROUP-CREATE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-STEP-SLOW-RENAME",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-STEP-SLOW-REOPEN",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-GROUP-RENAME-CHILDLIST",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Renamed group and created nested list; sidebar assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-STEP-DELETE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Correction: confirmation dialog was pending, not an app failure. Cancel preserved step; confirmed delete removed it.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-GROUP-UNGROUP",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Ungroup removed group and preserved nested audit list.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-STEP-DELETE-CONFIRM",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-PERSONAL-CREATE-PHOTO",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Created synthetic contact in Personal; saved detail displays supplied photo, name, email, company/job and notes. Search suggestion opened contact.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-PERSONAL-EDIT-REOPEN",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-PERSONAL-FAVORITE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Detail star then Favorites filter contains renamed audit contact.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-LIST-CREATE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Created list and verified sidebar item.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-WORK-CREATE-EDIT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Created Work contact, edited name/phone/emails/website/notes and added to test list; name and phone verified after reopen.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-LIST-MEMBERSHIP",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Work audit contact appears in isolated list after editor membership toggle.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-WORK-FAVORITE-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-WORK-EDIT-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Context edit opened correct audit contact.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-LIST-RENAME",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-Gmail-RENAME-PERSISTENCE",
+      "baselineOutcome": "FAIL",
+      "baselineEvidence": "Focused isolated display-name retest still reopened original name; confirms failure beyond first fast test.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-iCloud-CREATE-EDIT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "iCloud contact created, renamed and reopened with new name.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-ICS-WARM-PEOPLE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-WEBCAL-WARM",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Correction: webcal is a Calendar-mode route, not an event-file import. Existing window switched to Wino Calendar. No subscription/import UI observed.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-VCF-WARM",
+      "baselineOutcome": "UNSUPPORTED",
+      "baselineEvidence": "Targeted Windows file activation returned false; manifest lacks VCF registration despite contact import handler.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-ICS-CALENDAR",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Superseded by final Warm ValidIcs matrix pass with destination selection and title assertion.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-ICS-MALFORMED",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Correction with retained launcher: visible Could not import file warning; no event editor created, app remains usable.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-WEBCALS-WARM",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Secure calendar URI accepted; Calendar remains usable in existing HWND; payload subscription not implemented/verified.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-ICS-BACKGROUND",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-ICS-COLD",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Correction: retained launcher cold start opened PID 26644 HWND 18222026; after calendar selection, correct imported event title verified.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-WEBCAL-COLD",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "No Wino process before URI activation; new PID 5380 HWND 6688188 opened Calendar.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-ICS-CALLER-LIFETIME",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Correction: calendar destination picker required selection. Selected Personal calendar; editor title and local 12:00\u201312:30 for 10:00Z verified; location next.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-DAV-REGISTRATION",
+      "baselineOutcome": "UNSUPPORTED",
+      "baselineEvidence": "Targeted carddav and caldav URI activation both returned false.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-EMPTY-CALENDAR-URI",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Empty webcal: and webcals: accepted; Calendar stays usable. No subscription or validation UI implemented/observed.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-VTODO",
+      "baselineOutcome": "UNSUPPORTED",
+      "baselineEvidence": "VTODO-only ICS receives no valid calendar event warning; importer currently maps VEVENT only.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-RESTART-PERSISTENCE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-STEP-FOCUSED",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-STEP-COMPLETE-REOPEN",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-STEP-DELETE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-LIST-RENAME-FOCUSED",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-RESTART-PERSISTENCE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-STEP-FOCUSED",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-STEP-DELETE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-DUE-RETEST",
+      "baselineOutcome": "FAIL",
+      "baselineEvidence": "{\n  \"found\": false,\n  \"waitedMs\": 3003,\n  \"timedOut\": true\n}",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-RESTART-PERSISTENCE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Corrected expected notes: Audit notes 0913. Task title and notes persisted after restart.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-STEP-FOCUSED",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-CREATE-BUTTON",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-DELETE-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-LIST-RENAME-OVERFLOW",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-LIST-RENAME-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-CREATE-BUTTON",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-DELETE-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-LIST-RENAME-OVERFLOW",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-LIST-RENAME-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-CREATE-BUTTON",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-DELETE-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-LIST-RENAME-OVERFLOW",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-LIST-RENAME-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-CREATE-BUTTON",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-DELETE-CONTEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-GROUP-CRUD",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-GROUP-CRUD",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-GROUP-CRUD",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-GROUP-CRUD",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-MOVE-TASK",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-DUE-REMOVE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Due tomorrow disappeared and Add due date text present after removal.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-MYDAY-REMOVE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Detail toggled back to Add to My Day.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-FILTER-TEXT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-SORT-ALPHA",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Two audit task rows ordered A then Renamed after alphabetical sorting.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-BULK-COMPLETE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-BULK-REOPEN",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Retest after waiting for selection panel succeeded; both active task rows present.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-BULK-IMPORTANCE-FILTER",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Both selected tasks marked important and visible under important filter.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-BULK-DELETE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Confirmed deletion of both selected audit tasks; list empty.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-BULK-COMPLETE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-BULK-REOPEN",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Two selected audit tasks reopened and present in active filter after explicit row selection.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-BULK-IMPORTANCE",
+      "baselineOutcome": "FAIL",
+      "baselineEvidence": "{\n  \"found\": false,\n  \"waitedMs\": 3213,\n  \"timedOut\": true\n}",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-BULK-COMPLETE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Manual three-audit-row retest showed all three completed; clean-count bulk scenario blocked by duplicates.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-BULK-REOPEN",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Reopened three audit rows, including duplicate. First completion toggle asserted off; duplicate separately documented.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-BULK-IMPORTANCE",
+      "baselineOutcome": "BLOCKED",
+      "baselineEvidence": "Expected-two guard encountered duplicate task identities; no clean independent outcome.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-DUPLICATE",
+      "baselineOutcome": "FAIL",
+      "baselineEvidence": "Audit list contains two Work-Renamed rows plus Bulk, although main Work task was created once. Both duplicate rows captured in UI tree/screenshot. Bulk expected-two guard safely stopped mutations.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-BULK-COMPLETE",
+      "baselineOutcome": "BLOCKED",
+      "baselineEvidence": "Expected-two guard encountered eight audit rows; BUG-005 prevents clean-count bulk test.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-BULK-REOPEN",
+      "baselineOutcome": "BLOCKED",
+      "baselineEvidence": "Expected-two guard encountered eight audit rows; BUG-005 prevents clean-count bulk test.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-BULK-IMPORTANCE",
+      "baselineOutcome": "BLOCKED",
+      "baselineEvidence": "Expected-two guard encountered eight audit rows; BUG-005 prevents clean-count bulk test.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-DUPLICATES",
+      "baselineOutcome": "FAIL",
+      "baselineEvidence": "Eight audit rows observed: Bulk, deleted DeleteMe, five Renamed, original Task. Main task created once; updates/deletion do not reconcile after sync. Bulk expected-two guard blocked further mutation.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-ACTIVE-FILTER",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-PERSONAL-PHOTO-PERSISTENCE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Supplied picture survived app restart.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-PERSONAL-PHOTO-REMOVE",
+      "baselineOutcome": "FAIL",
+      "baselineEvidence": "Remove photo shows initials before Save, but photo returns after Save and reopen, twice. Before/after screenshots confirm.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-OPTIONAL-FIELD-ADD-REMOVE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Added/edited/removed IM address and child relation; fields disappeared after removal.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-CARDDAV-CREATE-BOOK",
+      "baselineOutcome": "UNSUPPORTED",
+      "baselineEvidence": "Configured DAV server explicitly disallowed collection creation; no audit address book persisted.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-LIST-REMOVE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Audit contact removed from isolated local list.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-Work-FAVORITE-ROUNDTRIP",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-Work-DELETE-CANCEL-CONFIRM",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-Personal-FAVORITE-ROUNDTRIP",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-Personal-DELETE-CANCEL-CONFIRM",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-Gmail-FAVORITE-ROUNDTRIP",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-Gmail-DELETE-CANCEL-CONFIRM",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-iCloud-FAVORITE-ROUNDTRIP",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-iCloud-DELETE-CANCEL-CONFIRM",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-LIST-DELETE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-CUSTOM-DATE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Selected September 17 through custom picker; detail shows Due Thursday (2026-09-17).",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-PRINT-PLACEHOLDER",
+      "baselineOutcome": "UNSUPPORTED",
+      "baselineEvidence": "Source PrintList only shows an informational placeholder; no printing implementation. Exact toast assertion was not matched.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-EMAIL-PLACEHOLDER",
+      "baselineOutcome": "UNSUPPORTED",
+      "baselineEvidence": "Source EmailList only shows an informational placeholder; no compose/send implementation.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-CREATE-CALENDAR-DRAFT",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Personal-LIST-DELETE-WinoAudit-0913-Personal-R",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-LIST-DELETE-WinoAudit-0913-Work-R",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Work-GROUP-CLEANUP",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-LIST-DELETE-WinoAudit-0913-Gmail-R",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-Gmail-GROUP-CLEANUP",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-LIST-DELETE-WinoAudit-0913-iCloud-R",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "TD-iCloud-LIST-DELETE-WinoAudit-0913-iCloud-ChildList",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "CLEANUP-LOCAL",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "After UI deletion and synchronization, read-only audit-prefix query finds zero tasks, lists, groups, contacts, contact lists, address books or steps.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Warm-MalformedIcs",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Malformed event rejected with visible validation message; Calendar HWND 116458780 usable.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Warm-ValidIcs",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Restored Calendar HWND 116458780; selected destination; correct imported title asserted; discarded draft.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Warm-Webcal",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "URI routes to one Calendar window HWND 116458780; subscription/download is unsupported, not claimed verified.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Warm-Webcals",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "URI routes to one Calendar window HWND 116458780; subscription/download is unsupported, not claimed verified.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-OtherMode-MalformedIcs",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Malformed event rejected with visible validation message; Calendar HWND 116458780 usable.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-OtherMode-ValidIcs",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Restored Calendar HWND 116458780; selected destination; correct imported title asserted; discarded draft.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-OtherMode-Webcal",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "URI routes to one Calendar window HWND 116458780; subscription/download is unsupported, not claimed verified.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-OtherMode-Webcals",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "URI routes to one Calendar window HWND 116458780; subscription/download is unsupported, not claimed verified.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Background-ValidIcs",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Restored Calendar HWND 231408346; selected destination; correct imported title asserted; discarded draft.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Background-MalformedIcs",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Malformed event rejected with visible validation message; Calendar HWND 210898358 usable.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Background-Webcal",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "URI routes to one Calendar window HWND 178851424; subscription/download is unsupported, not claimed verified.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Background-Webcals",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "URI routes to one Calendar window HWND 121965782; subscription/download is unsupported, not claimed verified.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Cold-ValidIcs",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Restored Calendar HWND 33950566; selected destination; correct imported title asserted; discarded draft.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Cold-MalformedIcs",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Malformed event rejected with visible validation message; Calendar HWND 34802100 usable.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Cold-Webcal",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "URI routes to one Calendar window HWND 132581054; subscription/download is unsupported, not claimed verified.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-MATRIX-Cold-Webcals",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "URI routes to one Calendar window HWND 1050162; subscription/download is unsupported, not claimed verified.",
+      "status": "not-run"
+    },
+    {
+      "id": "ACT-ENCODED-URI",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "Encoded path/query accepted and one usable Calendar window retained; subscription unsupported.",
+      "status": "not-run"
+    },
+    {
+      "id": "CLEANUP-RESTART",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "After repeated cold starts, read-only prefix query finds zero audit tasks, steps, task lists/groups, contacts, contact lists or address books.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-EDITOR-EMAIL-PHONE-REMOVE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-DIRTY-CANCEL",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    },
+    {
+      "id": "PEOPLE-CONTEXT-DELETE",
+      "baselineOutcome": "PASS",
+      "baselineEvidence": "All scripted assertions passed.",
+      "status": "not-run"
+    }
+  ]
+}

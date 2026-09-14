@@ -18,8 +18,47 @@ namespace Wino.Core.Tests;
 
 public sealed class ApplicationThemeTests
 {
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    public async Task EditorDelete_RequiresConfirmationAndReportsFailure(bool confirmed, bool deleted)
+    {
+        var id = Guid.NewGuid();
+        var state = new ThemeRuntimeState(id, id, "#112233", ApplicationElementTheme.Light);
+        var service = new Mock<INewThemeService>();
+        service.Setup(candidate => candidate.CaptureRuntimeState()).Returns(state);
+        service.Setup(candidate => candidate.GetCustomThemeAsync(id))
+            .ReturnsAsync(new CustomThemeMetadata { Id = id, Name = "Saved theme" });
+        service.Setup(candidate => candidate.RestoreRuntimeStateAsync(state)).Returns(Task.CompletedTask);
+        service.Setup(candidate => candidate.DeleteCustomThemeAsync(id)).ReturnsAsync(deleted);
+        var dialog = new Mock<IDialogServiceBase>();
+        dialog.Setup(candidate => candidate.ShowConfirmationDialogAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>())).ReturnsAsync(confirmed);
+        var viewModel = new Wino.Core.ViewModels.ApplicationThemeEditorPageViewModel(service.Object, dialog.Object);
+        viewModel.OnNavigatedTo(NavigationMode.New, new CustomThemeEditorNavigationParameter(id));
+        viewModel.ThemeName = "Unsaved name";
+
+        await viewModel.DeleteCommand.ExecuteAsync(null);
+
+        service.Verify(candidate => candidate.DeleteCustomThemeAsync(id), confirmed ? Times.Once() : Times.Never());
+        service.Verify(candidate => candidate.RestoreRuntimeStateAsync(state), confirmed ? Times.Once() : Times.Never());
+        viewModel.IsErrorOpen.Should().Be(confirmed && !deleted);
+        viewModel.IsDirty.Should().Be(!(confirmed && deleted));
+        viewModel.IsDeleting.Should().BeFalse();
+    }
+
     [Fact]
-    public void GalleryFilter_AlwaysIncludesCurrentAndAppliesCompatibility()
+    public void EditorDelete_IsUnavailableForNewThemes()
+    {
+        var viewModel = new Wino.Core.ViewModels.ApplicationThemeEditorPageViewModel(
+            Mock.Of<INewThemeService>(), Mock.Of<IDialogServiceBase>());
+
+        viewModel.DeleteCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public void GalleryFilter_CurrentThemeMustMatchSelectedFilter()
     {
         var current = Theme(AppThemeType.System, ThemeCompatibility.Both);
         var light = Theme(AppThemeType.PreDefined, ThemeCompatibility.Light);
@@ -31,13 +70,13 @@ public sealed class ApplicationThemeTests
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.All)
             .Should().BeEquivalentTo(new[] { current, light, dark, both, custom });
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Light)
-            .Should().BeEquivalentTo(new[] { current, light, both });
+            .Should().BeEquivalentTo(new[] { light });
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Dark)
-            .Should().BeEquivalentTo(new[] { current, dark, both });
+            .Should().BeEquivalentTo(new[] { dark });
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Both)
             .Should().BeEquivalentTo(new[] { current, both });
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Custom)
-            .Should().BeEquivalentTo(new[] { current, custom });
+            .Should().BeEquivalentTo(new[] { custom });
         ThemeGalleryFilterPolicy.Apply(themes, current.Id, ThemeGalleryFilter.Online)
             .Should().BeEmpty();
     }

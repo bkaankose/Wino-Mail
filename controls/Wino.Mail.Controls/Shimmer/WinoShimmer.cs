@@ -19,7 +19,7 @@ namespace Wino.Mail.Controls.Shimmer;
 /// one visual and no layout passes. Hosts size it like any other block and give it the corner radius
 /// of the element it stands in for.
 /// </remarks>
-public sealed partial class WinoShimmer : Control
+public sealed partial class WinoShimmer : Control, IDisposable
 {
     private const string ShimmerRootPartName = "PART_ShimmerRoot";
     private const string SweepAnimationName = "Offset.X";
@@ -36,6 +36,11 @@ public sealed partial class WinoShimmer : Control
     private CompositionColorGradientStop? _baseEndStop;
     private bool _isSweeping;
     private float _sweepWidth;
+    private readonly long _isActiveCallbackToken;
+    private readonly long _durationCallbackToken;
+    private readonly long _highlightCallbackToken;
+    private readonly long _backgroundCallbackToken;
+    private bool _disposed;
 
     /// <summary>Gets or sets a value indicating whether the highlight sweep runs.</summary>
     [GeneratedDependencyProperty(DefaultValue = true)]
@@ -59,10 +64,10 @@ public sealed partial class WinoShimmer : Control
     {
         DefaultStyleKey = typeof(WinoShimmer);
 
-        RegisterPropertyChangedCallback(IsActiveProperty, OnSweepPropertyChanged);
-        RegisterPropertyChangedCallback(SweepDurationMillisecondsProperty, OnSweepPropertyChanged);
-        RegisterPropertyChangedCallback(HighlightBrushProperty, OnColorPropertyChanged);
-        RegisterPropertyChangedCallback(BackgroundProperty, OnColorPropertyChanged);
+        _isActiveCallbackToken = RegisterPropertyChangedCallback(IsActiveProperty, OnSweepPropertyChanged);
+        _durationCallbackToken = RegisterPropertyChangedCallback(SweepDurationMillisecondsProperty, OnSweepPropertyChanged);
+        _highlightCallbackToken = RegisterPropertyChangedCallback(HighlightBrushProperty, OnColorPropertyChanged);
+        _backgroundCallbackToken = RegisterPropertyChangedCallback(BackgroundProperty, OnColorPropertyChanged);
 
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -73,9 +78,13 @@ public sealed partial class WinoShimmer : Control
     protected override void OnApplyTemplate()
     {
         StopSweep();
-        DetachSweepVisual();
+        ReleaseSweepResources();
 
         base.OnApplyTemplate();
+        if (_disposed)
+        {
+            return;
+        }
 
         _shimmerRoot = GetTemplateChild(ShimmerRootPartName) as Border;
 
@@ -103,7 +112,7 @@ public sealed partial class WinoShimmer : Control
 
     private void UpdateSweep()
     {
-        if (_shimmerRoot is null) return;
+        if (_disposed || _shimmerRoot is null) return;
 
         if (!CanSweep)
         {
@@ -214,7 +223,7 @@ public sealed partial class WinoShimmer : Control
         _isSweeping = false;
     }
 
-    private void DetachSweepVisual()
+    private void ReleaseSweepResources()
     {
         if (_shimmerRoot is not null)
         {
@@ -227,12 +236,41 @@ public sealed partial class WinoShimmer : Control
             _rootVisual = null;
         }
 
+        _sweepVisual?.Dispose();
+        _sweepBrush?.Dispose();
+        _baseStartStop?.Dispose();
+        _highlightStop?.Dispose();
+        _baseEndStop?.Dispose();
+        _clipGeometry?.Dispose();
+
         _clipGeometry = null;
         _sweepVisual = null;
         _sweepBrush = null;
         _baseStartStop = null;
         _highlightStop = null;
         _baseEndStop = null;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Loaded -= OnLoaded;
+        Unloaded -= OnUnloaded;
+        SizeChanged -= OnSizeChanged;
+        ActualThemeChanged -= OnActualThemeChanged;
+        UnregisterPropertyChangedCallback(IsActiveProperty, _isActiveCallbackToken);
+        UnregisterPropertyChangedCallback(SweepDurationMillisecondsProperty, _durationCallbackToken);
+        UnregisterPropertyChangedCallback(HighlightBrushProperty, _highlightCallbackToken);
+        UnregisterPropertyChangedCallback(BackgroundProperty, _backgroundCallbackToken);
+        StopSweep();
+        ReleaseSweepResources();
+        _shimmerRoot = null;
+        GC.SuppressFinalize(this);
     }
 
     private Color ResolveColor(Brush? brush) => brush is SolidColorBrush solidColorBrush

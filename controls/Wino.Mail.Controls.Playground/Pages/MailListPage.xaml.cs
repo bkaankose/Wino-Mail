@@ -11,8 +11,10 @@ using Wino.Mail.Controls.Playground.ViewModels;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
-public sealed partial class MailListPage : Page
+public sealed partial class MailListPage : Page, IDisposable
 {
+    private bool _disposed;
+
     public MailListPageViewModel ViewModel { get; } = new();
 
     public ObservableCollection<string> SelectedRows { get; } = [];
@@ -124,5 +126,19 @@ public sealed partial class MailListPage : Page
     private void MultiSelectUnchecked(object sender, RoutedEventArgs e)
     {
         MailList.SelectionMode = ListViewSelectionMode.Extended;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        ViewModel.Items.CollectionChanged -= ItemsCollectionChanged;
+        Bindings.StopTracking();
+        MailList.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

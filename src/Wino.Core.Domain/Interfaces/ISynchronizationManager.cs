@@ -151,5 +151,6 @@ public interface ISynchronizationManager
     Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType,
                                                      MailAccount account = null,
                                                      bool proposeCopyAuthorizationURL = false,
-                                                     bool forceInteractive = false);
+                                                     bool forceInteractive = false,
+                                                     IReadOnlyCollection<ProviderFeature> requestedFeatures = null);
 }

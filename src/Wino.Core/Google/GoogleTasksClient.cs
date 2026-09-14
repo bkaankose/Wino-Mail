@@ -98,7 +98,23 @@ public sealed class GoogleTasksClient
     }
 
     public Task<GoogleTask> UpdateTaskAsync(string listId, string taskId, GoogleTask task, string etag, CancellationToken cancellationToken = default)
-        => SendAsync(HttpMethod.Put, $"{Endpoint}/lists/{Uri.EscapeDataString(listId)}/tasks/{Uri.EscapeDataString(taskId)}", task, etag, GoogleTasksJsonContext.Default.GoogleTask, cancellationToken);
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(listId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(taskId);
+        ArgumentNullException.ThrowIfNull(task);
+
+        // tasks.update accepts a complete Task resource. Google validates the resource identity
+        // in the JSON body even though the same id is present in the request URI.
+        task.Id = taskId;
+
+        return SendAsync(
+            HttpMethod.Put,
+            $"{Endpoint}/lists/{Uri.EscapeDataString(listId)}/tasks/{Uri.EscapeDataString(taskId)}",
+            task,
+            etag,
+            GoogleTasksJsonContext.Default.GoogleTask,
+            cancellationToken);
+    }
 
     public Task<GoogleTask> GetTaskAsync(string listId, string taskId, CancellationToken cancellationToken = default)
         => GetAsync($"{Endpoint}/lists/{Uri.EscapeDataString(listId)}/tasks/{Uri.EscapeDataString(taskId)}", GoogleTasksJsonContext.Default.GoogleTask, cancellationToken);

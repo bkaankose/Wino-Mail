@@ -2,10 +2,11 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System.Collections.Generic;
 using Wino.Editor;
+using Wino.Mail.Controls.Playground.Lifetime;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
-public sealed partial class EditorPage : Page
+public sealed partial class EditorPage : Page, IDisposable, IPlaygroundLifetimeAware
 {
     private const string ArticleHtml = """
         <nav>Issue archive · Account · Preferences · Unsubscribe</nav>
@@ -56,6 +57,12 @@ public sealed partial class EditorPage : Page
     private bool _rendererLoaded;
     private HtmlMailRenderMode _renderMode;
     private string _scenario = "Article";
+    private Task _composeLoadedTask = Task.CompletedTask;
+    private Task _rendererLoadedTask = Task.CompletedTask;
+    private bool _disposed;
+
+    IEnumerable<object> IPlaygroundLifetimeAware.AdditionalLifetimeObjects =>
+        (object[])[ComposeEditor, MailRenderer];
 
     public EditorPage()
     {
@@ -63,7 +70,12 @@ public sealed partial class EditorPage : Page
         ComposeEditor.ApplicationShortcutRequested += ComposeEditor_ApplicationShortcutRequested;
     }
 
-    private async void ComposeEditor_Loaded(object sender, RoutedEventArgs e)
+    private void ComposeEditor_Loaded(object sender, RoutedEventArgs e)
+    {
+        _composeLoadedTask = InitializeComposeEditorAsync();
+    }
+
+    private async Task InitializeComposeEditorAsync()
     {
         await ComposeEditor.SetHtmlAsync("<p>Hi team,</p><p>Here is the latest design review summary. Please add comments before Friday.</p><p>Thanks,<br/>Avery</p>");
         await ComposeEditor.SetApplicationShortcutsAsync(
@@ -73,7 +85,12 @@ public sealed partial class EditorPage : Page
             });
     }
 
-    private async void MailRenderer_Loaded(object sender, RoutedEventArgs e)
+    private void MailRenderer_Loaded(object sender, RoutedEventArgs e)
+    {
+        _rendererLoadedTask = InitializeMailRendererAsync();
+    }
+
+    private async Task InitializeMailRendererAsync()
     {
         _rendererLoaded = true;
         await RenderSelectedScenarioAsync();
@@ -109,4 +126,62 @@ public sealed partial class EditorPage : Page
 
     private void ComposeEditor_ApplicationShortcutRequested(object? sender, EditorApplicationShortcutGesture e)
         => ApplicationShortcutStatus.Text = $"Application shortcut forwarded: Ctrl+{e.Key}";
+
+    async Task IPlaygroundLifetimeAware.PrepareForLifetimeTestAsync(CancellationToken cancellationToken)
+    {
+        EditorPlaygroundTabView.SelectedIndex = 0;
+        await WaitUntilLoadedAsync(ComposeEditor, cancellationToken);
+        await _composeLoadedTask.WaitAsync(cancellationToken);
+
+        EditorPlaygroundTabView.SelectedIndex = 1;
+        await WaitUntilLoadedAsync(MailRenderer, cancellationToken);
+        await _rendererLoadedTask.WaitAsync(cancellationToken);
+    }
+
+    private static async Task WaitUntilLoadedAsync(FrameworkElement element, CancellationToken cancellationToken)
+    {
+        if (element.IsLoaded)
+        {
+            return;
+        }
+
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        void Loaded(object sender, RoutedEventArgs args) => completion.TrySetResult();
+
+        element.Loaded += Loaded;
+        try
+        {
+            if (!element.IsLoaded)
+            {
+                await completion.Task.WaitAsync(cancellationToken);
+            }
+        }
+        finally
+        {
+            element.Loaded -= Loaded;
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        ComposeEditor.ApplicationShortcutRequested -= ComposeEditor_ApplicationShortcutRequested;
+        ComposeEditor.Loaded -= ComposeEditor_Loaded;
+        MailRenderer.Loaded -= MailRenderer_Loaded;
+        ComposeEditor.Dispose();
+        MailRenderer.Dispose();
+        ComposeEditorHost.Child = null;
+        MailRendererHost.Child = null;
+        EditorPlaygroundTabView.TabItems.Clear();
+        _composeLoadedTask = Task.CompletedTask;
+        _rendererLoadedTask = Task.CompletedTask;
+        Content = null;
+        GC.SuppressFinalize(this);
+    }
 }

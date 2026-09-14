@@ -20,7 +20,7 @@ public enum WinoIntelligenceProgressAnimation
 /// <summary>
 /// Displays a compact, looping composition visual for Wino Intelligence operations.
 /// </summary>
-public sealed partial class WinoIntelligenceProgressRing : Control
+public sealed partial class WinoIntelligenceProgressRing : Control, IDisposable
 {
     private readonly UISettings _uiSettings = new();
     private AnimatedVisualPlayer? _dotsPlayer;
@@ -29,6 +29,10 @@ public sealed partial class WinoIntelligenceProgressRing : Control
     private AnimatedVisualPlayer? _summarizePlayer;
     private AnimatedVisualPlayer? _rewritePlayer;
     private int _playVersion;
+    private readonly long _animationCallbackToken;
+    private readonly long _isActiveCallbackToken;
+    private readonly long _foregroundCallbackToken;
+    private bool _disposed;
 
     [GeneratedDependencyProperty(DefaultValue = WinoIntelligenceProgressAnimation.Dots)]
     public partial WinoIntelligenceProgressAnimation Animation { get; set; }
@@ -39,15 +43,21 @@ public sealed partial class WinoIntelligenceProgressRing : Control
     public WinoIntelligenceProgressRing()
     {
         DefaultStyleKey = typeof(WinoIntelligenceProgressRing);
-        RegisterPropertyChangedCallback(AnimationProperty, OnPresentationPropertyChanged);
-        RegisterPropertyChangedCallback(IsActiveProperty, OnPresentationPropertyChanged);
-        RegisterPropertyChangedCallback(ForegroundProperty, OnForegroundChanged);
+        _animationCallbackToken = RegisterPropertyChangedCallback(AnimationProperty, OnPresentationPropertyChanged);
+        _isActiveCallbackToken = RegisterPropertyChangedCallback(IsActiveProperty, OnPresentationPropertyChanged);
+        _foregroundCallbackToken = RegisterPropertyChangedCallback(ForegroundProperty, OnForegroundChanged);
+        Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
     }
 
     protected override void OnApplyTemplate()
     {
         StopAnimation();
         base.OnApplyTemplate();
+        if (_disposed)
+        {
+            return;
+        }
 
         _dotsPlayer = GetTemplateChild("DotsPlayer") as AnimatedVisualPlayer;
         _cubesPlayer = GetTemplateChild("CubesPlayer") as AnimatedVisualPlayer;
@@ -112,6 +122,11 @@ public sealed partial class WinoIntelligenceProgressRing : Control
 
     private void UpdatePresentation()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
         var selectedPlayer = GetSelectedPlayer();
         if (selectedPlayer is null)
         {
@@ -167,6 +182,48 @@ public sealed partial class WinoIntelligenceProgressRing : Control
         {
             player?.Stop();
         }
+    }
+
+    private void OnLoaded(object sender, RoutedEventArgs args)
+    {
+        UpdateSources();
+        UpdatePresentation();
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs args)
+    {
+        StopAnimation();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Loaded -= OnLoaded;
+        Unloaded -= OnUnloaded;
+        UnregisterPropertyChangedCallback(AnimationProperty, _animationCallbackToken);
+        UnregisterPropertyChangedCallback(IsActiveProperty, _isActiveCallbackToken);
+        UnregisterPropertyChangedCallback(ForegroundProperty, _foregroundCallbackToken);
+        StopAnimation();
+
+        foreach (var player in Players)
+        {
+            if (player is not null)
+            {
+                player.Source = null;
+            }
+        }
+
+        _dotsPlayer = null;
+        _cubesPlayer = null;
+        _translatePlayer = null;
+        _summarizePlayer = null;
+        _rewritePlayer = null;
+        GC.SuppressFinalize(this);
     }
 
     private Color ResolveForegroundColor() =>
