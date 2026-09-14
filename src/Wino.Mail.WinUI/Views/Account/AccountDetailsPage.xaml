@@ -559,15 +559,6 @@
                     </controls:SettingsExpander.HeaderIcon>
                     <controls:SettingsExpander.Items>
                         <controls:SettingsCard
-                            AutomationProperties.AutomationId="AccountDetailsPageSettingsCard14"
-                            Description="{x:Bind domain:Translator.SettingsNotifications_Description}"
-                            Header="{x:Bind domain:Translator.SettingsNotifications_Title}">
-                            <controls:SettingsCard.HeaderIcon>
-                                <PathIcon Data="F1 M 0 0 L 20 0 L 20 16.25 L 13.75 16.25 L 10 20 L 6.25 16.25 L 0 16.25 Z M 16.25 7.5 L 3.75 7.5 L 3.75 8.75 L 16.25 8.75 Z M 16.25 3.75 L 3.75 3.75 L 3.75 5 L 16.25 5 Z M 11.25 11.25 L 3.75 11.25 L 3.75 12.5 L 11.25 12.5 Z " />
-                            </controls:SettingsCard.HeaderIcon>
-                            <ToggleSwitch AutomationProperties.AutomationId="AccountDetailsPageToggleSwitch" IsOn="{x:Bind ViewModel.AreNotificationsEnabled, Mode=TwoWay}" />
-                        </controls:SettingsCard>
-                        <controls:SettingsCard
                             AutomationProperties.AutomationId="AccountDetailsPageSettingsCard15"
                             Command="{x:Bind ViewModel.ConfigureUnreadBadgesCommand}"
                             Description="{x:Bind domain:Translator.SettingsUnreadBadges_Card_Description}"

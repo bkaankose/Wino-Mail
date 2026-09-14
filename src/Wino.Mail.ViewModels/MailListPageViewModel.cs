@@ -16,6 +16,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Folders;
@@ -1585,15 +1586,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         if (addedMail == null || ActiveFolder == null || addedMail.AssignedFolder == null)
             return false;
 
-        // 1) If threading is enabled and we already have the same conversation in view, include it.
         if (ShouldIncludeByThread(addedMail))
             return true;
 
-        // 2) Include items that belong to the active folder or category.
         if (MatchesActiveFolderOrCategory(addedMail))
             return true;
 
-        // 3) Draft-specific visibility: include drafts while viewing Drafts.
+        // Draft-specific visibility: include drafts while viewing Drafts.
         if (addedMail.IsDraft && IsActiveDraftFolder())
             return true;
 
@@ -1693,6 +1692,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
     private bool ShouldIncludeLiveMail(MailCopy mail)
     {
+        // Filters select conversations; replies already belonging to them stay visible.
+        if (ShouldIncludeByThread(mail))
+            return true;
+
         if (!ShouldIncludeAddedMailInCurrentList(mail) ||
             ShouldPreventItemAdd(mail) ||
             ShouldExcludeAddedMailByFocusedPivot(mail))
@@ -1708,10 +1711,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                IsMailMatchingLocalSearch(mail);
     }
 
-    private bool ThreadHasActiveSeed(string threadId) =>
-        !string.IsNullOrWhiteSpace(threadId) &&
+    private bool ThreadHasActiveSeed(MailItemViewModel anchor) =>
+        !string.IsNullOrWhiteSpace(anchor.ThreadKey) &&
         ((IEnumerable<MailItemViewModel>)MailCollection.Items).Any(item =>
-            string.Equals(item.ThreadId, threadId, StringComparison.Ordinal) &&
+            string.Equals(item.ThreadKey, anchor.ThreadKey, StringComparison.Ordinal) &&
             MatchesActiveListSeed(item.MailCopy));
 
     [RelayCommand]
@@ -1730,7 +1733,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     /// <returns>True if the ThreadId exists in the collection, false otherwise.</returns>
     private bool ThreadIdExistsInCollection(MailCopy mailItem)
     {
-        return MailCollection.ContainsThreadId(mailItem.ThreadId);
+        return MailCollection.ContainsThreadId(Wino.Core.Domain.Extensions.MailConversationIdentity.ThreadKey(mailItem));
     }
 
     protected override async void OnMailAdded(MailCopy addedMail, EntityUpdateSource source)
@@ -1795,7 +1798,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             }
 
             // AddAsync already handles UI threading internally, no need to wrap it
-            await MailCollection.AddAsync(addedMail);
+            await MailCollection.AddLiveAsync(addedMail, source, MatchesActiveListSeed);
 
             if (source == EntityUpdateSource.ClientUpdated)
             {
@@ -1849,7 +1852,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 if (!ShouldSuppressDraftAdd(updatedMail) &&
                     ShouldIncludeLiveMail(updatedMail))
                 {
-                    await MailCollection.AddAsync(updatedMail);
+                    await MailCollection.AddLiveAsync(updatedMail, source, MatchesActiveListSeed);
                     await ExecuteUIThread(NotifyItemFoundState);
                 }
 
@@ -1862,16 +1865,23 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             if (listedItem == null)
                 return;
 
+            if (!ShouldIncludeAddedMailInCurrentList(listedItem.MailCopy))
+            {
+                await MailCollection.RemoveAsync(listedItem.MailCopy);
+                await ExecuteUIThread(NotifyItemFoundState);
+                return;
+            }
+
             var shouldRetainAfterFilterMutation =
                 ShouldRetainAfterActiveFilterMutation(listedItem.MailCopy, changedProperties);
             if (!shouldRetainAfterFilterMutation &&
                 PreferencesService.IsThreadingEnabled &&
                 !string.IsNullOrWhiteSpace(listedItem.ThreadId))
             {
-                if (!ThreadHasActiveSeed(listedItem.ThreadId))
+                if (!ThreadHasActiveSeed(listedItem))
                 {
                     var threadIds = ((IEnumerable<MailItemViewModel>)MailCollection.Items)
-                        .Where(item => string.Equals(item.ThreadId, listedItem.ThreadId, StringComparison.Ordinal))
+                        .Where(item => string.Equals(item.ThreadKey, listedItem.ThreadKey, StringComparison.Ordinal))
                         .Select(item => item.UniqueId)
                         .ToArray();
                     await MailCollection.RemoveRangeByIdAsync(threadIds);
@@ -1924,10 +1934,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 if (PreferencesService.IsThreadingEnabled &&
                     !string.IsNullOrWhiteSpace(listedItem.ThreadId))
                 {
-                    if (!ThreadHasActiveSeed(listedItem.ThreadId))
+                    if (!ThreadHasActiveSeed(listedItem))
                     {
                         var threadIds = ((IEnumerable<MailItemViewModel>)MailCollection.Items)
-                            .Where(item => string.Equals(item.ThreadId, listedItem.ThreadId, StringComparison.Ordinal))
+                            .Where(item => string.Equals(item.ThreadKey, listedItem.ThreadKey, StringComparison.Ordinal))
                             .Select(item => item.UniqueId)
                             .ToArray();
                         await MailCollection.RemoveRangeByIdAsync(threadIds);
@@ -2039,7 +2049,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             var additions = targetMails
                 .Where(mail => !MailCollection.ContainsMailUniqueId(mail.UniqueId))
                 .Where(ShouldIncludeLiveMail)
-                .Select(CreateMailItemViewModel)
                 .ToList();
 
             if (listedMails.Count > 0)
@@ -2052,7 +2061,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             if (additions.Count > 0)
             {
-                await MailCollection.AddRangeAsync(additions, clearIdCache: false);
+                await MailCollection.AddLiveRangeAsync(additions, source, MatchesActiveListSeed);
             }
 
             await ExecuteUIThread(() =>
@@ -2086,6 +2095,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
         foreach (var item in candidates)
         {
+            if (!ShouldIncludeAddedMailInCurrentList(item.MailCopy))
+            {
+                idsToRemove.Add(item.UniqueId);
+                continue;
+            }
+
             var changedProperties = getChangedProperties?.Invoke(item) ?? MailCopyChangeFlags.None;
             if (ShouldRetainAfterActiveFilterMutation(item.MailCopy, changedProperties))
                 continue;
@@ -2096,10 +2111,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             if (PreferencesService.IsThreadingEnabled &&
                 !string.IsNullOrWhiteSpace(item.ThreadId))
             {
-                if (!ThreadHasActiveSeed(item.ThreadId))
+                if (!ThreadHasActiveSeed(item))
                 {
                     idsToRemove.UnionWith(((IEnumerable<MailItemViewModel>)MailCollection.Items)
-                        .Where(threadItem => string.Equals(threadItem.ThreadId, item.ThreadId, StringComparison.Ordinal))
+                        .Where(threadItem => string.Equals(threadItem.ThreadKey, item.ThreadKey, StringComparison.Ordinal))
                         .Select(threadItem => threadItem.UniqueId));
                 }
             }
@@ -2113,6 +2128,20 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         {
             await MailCollection.RemoveRangeByIdAsync(idsToRemove);
         }
+    }
+
+    private async Task<List<MailCopy>> GetSurvivingLabelCopiesAsync(IEnumerable<MailCopy> removedMails)
+    {
+        var removed = removedMails.Where(mail => mail.AssignedAccount?.ProviderType == MailProviderType.Gmail).ToArray();
+        var ids = removed.Select(mail => mail.Id).Where(id => !string.IsNullOrWhiteSpace(id)).Distinct().ToArray();
+        if (ids.Length == 0)
+            return new List<MailCopy>();
+
+        var keys = removed.Select(MailConversationIdentity.MessageKey).ToHashSet();
+        var removedIds = removed.Select(mail => mail.UniqueId).ToHashSet();
+        var candidates = await _mailService.GetMailItemsAsync(ids).ConfigureAwait(false);
+        return candidates.Where(mail => !removedIds.Contains(mail.UniqueId) &&
+            keys.Contains(MailConversationIdentity.MessageKey(mail))).ToList();
     }
 
     protected override async void OnMailRemoved(MailCopy removedMail, EntityUpdateSource source)
@@ -2132,11 +2161,18 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // same MailCopy instance can be updated before this message is handled.
             bool removedItemExistsInCurrentList = MailCollection.ContainsMailUniqueId(removedMail.UniqueId);
 
-            bool isDeletedByGmailUnreadFolderAction = ActiveFolder?.SpecialFolderType == SpecialFolderType.Unread &&
-                                                      gmailUnreadFolderMarkedAsReadUniqueIds.Contains(removedMail.UniqueId);
+            gmailUnreadFolderMarkedAsReadUniqueIds.Remove(removedMail.UniqueId);
 
-            if (removedItemExistsInCurrentList && !isDeletedByGmailUnreadFolderAction)
+            if (removedItemExistsInCurrentList)
             {
+                var survivors = await GetSurvivingLabelCopiesAsync(new[] { removedMail });
+                if (survivors.Count > 0)
+                {
+                    await MailCollection.RemoveLiveRangeAsync(new[] { removedMail }, survivors, MatchesActiveListSeed);
+                    await ExecuteUIThread(NotifyItemFoundState);
+                    return;
+                }
+
                 MailItemViewModel nextItem = null;
                 bool isDeletedMailSelected = false;
 
@@ -2160,11 +2196,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 // removed selection token and publishes the resulting empty snapshot.
 
                 await ExecuteUIThread(() => { NotifyItemFoundState(); });
-            }
-            else if (isDeletedByGmailUnreadFolderAction)
-            {
-                // Remove the entry from the set so we can listen to actual deletes next time.
-                gmailUnreadFolderMarkedAsReadUniqueIds.Remove(removedMail.UniqueId);
             }
         }
         catch (Exception ex)
@@ -2204,7 +2235,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             if (existingMails.Count == 0)
                 return;
 
-            await MailCollection.RemoveRangeAsync(existingMails);
+            var survivors = await GetSurvivingLabelCopiesAsync(targetMails);
+            await MailCollection.RemoveLiveRangeAsync(existingMails, survivors, MatchesActiveListSeed);
 
             await ExecuteUIThread(() =>
             {
@@ -2259,7 +2291,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             if (mailsToAdd.Count == 0)
                 return;
 
-            await MailCollection.AddRangeAsync(mailsToAdd.Select(CreateMailItemViewModel), false);
+            await MailCollection.AddLiveRangeAsync(mailsToAdd, source, MatchesActiveListSeed);
 
             await ExecuteUIThread(() =>
             {

@@ -29,6 +29,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoTelemetrySink, SentryWinoTelemetrySink>();
         services.AddSingleton<IWinoLogger, WinoLogger>();
         services.AddSingleton<IWinoTelemetryService, WinoTelemetryService>();
+        services.AddSingleton<INotificationPolicyService, NotificationPolicyService>();
         services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
         services.AddSingleton<IShareActivationService, ShareActivationService>();
         services.AddSingleton<IMimeFileService, MimeFileService>();

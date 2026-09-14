@@ -3,6 +3,7 @@ using MimeKit;
 using Moq;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;

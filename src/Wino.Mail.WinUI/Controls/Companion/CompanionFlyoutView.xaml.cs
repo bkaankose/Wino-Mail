@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.System;
 using Wino.Calendar.ViewModels.Data;
+using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Services.Companion;
 
@@ -32,6 +33,47 @@ public sealed partial class CompanionFlyoutView : UserControl
 
         e.Handled = true;
         HideRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    private async void SnoozeSplitButton_IsCheckedChanged(ToggleSplitButton sender, ToggleSplitButtonIsCheckedChangedEventArgs args)
+    {
+        // The event also fires when the binding pushes state in, so only act on a real divergence.
+        // Without this the preference change would loop straight back into another write.
+        if (sender.IsChecked == ViewModel.SnoozeNotifications)
+            return;
+
+        try
+        {
+            if (sender.IsChecked)
+            {
+                // Pressing the button itself is the open-ended choice: hold everything until the
+                // user turns it back on. Timed durations come from the dropdown.
+                await ViewModel.StartNotificationSnoozeCommand.ExecuteAsync(NotificationSnoozePreset.UntilTurnedBackOn);
+            }
+            else
+            {
+                await ViewModel.ResumeNotificationsCommand.ExecuteAsync(null);
+            }
+        }
+        catch (Exception ex)
+        {
+            ViewModel.ReportActionError(ex);
+        }
+    }
+
+    private async void SnoozePreset_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (sender is FrameworkElement { Tag: string tag } && Enum.TryParse<NotificationSnoozePreset>(tag, out var preset))
+            {
+                await ViewModel.StartNotificationSnoozeCommand.ExecuteAsync(preset);
+            }
+        }
+        catch (Exception ex)
+        {
+            ViewModel.ReportActionError(ex);
+        }
     }
 
     private async void Retry_Click(object sender, RoutedEventArgs e)

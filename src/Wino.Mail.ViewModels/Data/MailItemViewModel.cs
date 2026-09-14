@@ -113,7 +113,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public Guid StableId => UniqueId;
 
-    public string? ThreadKey => ThreadId;
+    public string? ThreadKey => Wino.Core.Domain.Extensions.MailConversationIdentity.ThreadKey(MailCopy);
 
     public DateTimeOffset DateSortKey => new(CreationDate);
 
@@ -669,7 +669,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
         if ((changedFlags & MailCopyChangeFlags.Importance) != 0)
             Queue(nameof(Importance));
 
-        if ((changedFlags & MailCopyChangeFlags.ThreadId) != 0)
+        if ((changedFlags & (MailCopyChangeFlags.ThreadId | MailCopyChangeFlags.AssignedAccount | MailCopyChangeFlags.AssignedFolder)) != 0)
         {
             Queue(nameof(ThreadId));
             Queue(nameof(ThreadKey));

@@ -109,9 +109,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public partial bool IsFocusedInboxEnabled { get; set; }
 
     [ObservableProperty]
-    public partial bool AreNotificationsEnabled { get; set; }
-
-    [ObservableProperty]
     public partial bool IsSignatureEnabled { get; set; }
 
     [ObservableProperty]
@@ -847,7 +844,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             SelectedCapabilityOption = ResolveCapabilityOption(Account.IsMailAccessGranted, Account.IsCalendarAccessGranted);
 
             IsFocusedInboxEnabled = Account.Preferences.IsFocusedInboxEnabled.GetValueOrDefault();
-            AreNotificationsEnabled = Account.Preferences.IsNotificationsEnabled;
             IsSignatureEnabled = Account.Preferences.IsSignatureEnabled;
 
             IsAppendMessageSettingVisible = Account.ProviderType == MailProviderType.IMAP4;
@@ -1036,10 +1032,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                 Account.Preferences.IsFocusedInboxEnabled = IsFocusedInboxEnabled;
                 await _accountService.UpdateAccountAsync(Account);
                 await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
-                break;
-            case nameof(AreNotificationsEnabled):
-                Account.Preferences.IsNotificationsEnabled = AreNotificationsEnabled;
-                await _accountService.UpdateAccountAsync(Account);
                 break;
             case nameof(IsAppendMessageSettinEnabled):
                 Account.Preferences.ShouldAppendMessagesToSentFolder = IsAppendMessageSettinEnabled;

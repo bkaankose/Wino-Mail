@@ -10,7 +10,7 @@ namespace Wino.Core.Synchronizers.Errors.Outlook;
 
 /// <summary>
 /// Handles 410 Gone errors for Outlook synchronization, which indicates that delta tokens have expired.
-/// When this occurs, all local mail cache should be deleted and initial synchronization should be reset.
+/// Reset only the expired collection. Its next full enumeration reconciles the existing cache.
 /// </summary>
 public class DeltaTokenExpiredHandler : ISynchronizerErrorHandler
 {
@@ -32,27 +32,22 @@ public class DeltaTokenExpiredHandler : ISynchronizerErrorHandler
 
     public async Task<bool> HandleAsync(SynchronizerErrorContext error)
     {
-        _logger.Warning("Delta token has expired for account {AccountName} ({AccountId}). Deleting all local mail cache and resetting synchronization.", 
+        _logger.Warning("Delta token has expired for account {AccountName} ({AccountId}). Resetting the affected synchronization cursor.",
             error.Account.Name, error.Account.Id);
 
         try
         {
-            // Delete all local mail cache for the account
-            await _outlookChangeProcessor.DeleteUserMailCacheAsync(error.Account.Id).ConfigureAwait(false);
-
-            // Reset the account's delta synchronization identifier
-            await _outlookChangeProcessor.UpdateAccountDeltaSynchronizationIdentifierAsync(error.Account.Id, string.Empty).ConfigureAwait(false);
-
-            // Get all folders for the account and reset their delta tokens
-            var folders = await _outlookChangeProcessor.GetLocalFoldersAsync(error.Account.Id).ConfigureAwait(false);
-            
-            foreach (var folder in folders)
+            if (error.FolderId.HasValue)
             {
-                // Reset folder delta token to force full re-sync (last 30 days)
-                await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, string.Empty).ConfigureAwait(false);
+                await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(error.FolderId.Value, string.Empty).ConfigureAwait(false);
+            }
+            else
+            {
+                error.Account.SynchronizationDeltaIdentifier = await _outlookChangeProcessor
+                    .UpdateAccountDeltaSynchronizationIdentifierAsync(error.Account.Id, string.Empty).ConfigureAwait(false);
             }
 
-            _logger.Information("Successfully reset synchronization state for account {AccountName} ({AccountId}). Next sync will download last 30 days.", 
+            _logger.Information("Successfully reset synchronization state for account {AccountName} ({AccountId}). Cached mail was preserved.",
                 error.Account.Name, error.Account.Id);
 
             return true;

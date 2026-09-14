@@ -39,6 +39,16 @@ public partial class PreferencesService(IConfigurationService configurationServi
         OnPropertyChanged(propertyName);
     }
 
+    /// <summary>
+    /// Reads an enum preference, falling back when the stored value is not a member. Stored values
+    /// survive renames and reorderings badly, so never trust them blindly.
+    /// </summary>
+    private TEnum GetDefinedEnum<TEnum>(string propertyName, TEnum fallback) where TEnum : struct, Enum
+        => GetDefinedValue(_configurationService.Get(propertyName, fallback), fallback);
+
+    private static TEnum GetDefinedValue<TEnum>(TEnum value, TEnum fallback) where TEnum : struct, Enum
+        => Enum.IsDefined(value) ? value : fallback;
+
     public MailRenderingOptions GetRenderingOptions()
         => new MailRenderingOptions()
         {
@@ -710,10 +720,100 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(CompanionHotKeyModifiers), value);
     }
 
-    public bool SnoozeNotifications
+    public NotificationSnoozePreset NotificationSnoozePreset
     {
-        get => _configurationService.Get(nameof(SnoozeNotifications), false);
-        set => SetPropertyAndSave(nameof(SnoozeNotifications), value);
+        get => GetDefinedEnum(nameof(NotificationSnoozePreset), NotificationSnoozePreset.None);
+        set => SetPropertyAndSave(nameof(NotificationSnoozePreset), GetDefinedValue(value, NotificationSnoozePreset.None));
+    }
+
+    public long NotificationSnoozeUntilUtcTicks
+    {
+        get => _configurationService.Get(nameof(NotificationSnoozeUntilUtcTicks), 0L);
+        set => SetPropertyAndSave(nameof(NotificationSnoozeUntilUtcTicks), Math.Max(0, value));
+    }
+
+    public NotificationSnoozePreset LastUsedSnoozePreset
+    {
+        get => GetDefinedEnum(nameof(LastUsedSnoozePreset), NotificationSnoozePreset.OneHour);
+        set => SetPropertyAndSave(nameof(LastUsedSnoozePreset), GetDefinedValue(value, NotificationSnoozePreset.OneHour));
+    }
+
+    public bool AreQuietHoursEnabled
+    {
+        get => _configurationService.Get(nameof(AreQuietHoursEnabled), false);
+        set => SetPropertyAndSave(nameof(AreQuietHoursEnabled), value);
+    }
+
+    public TimeSpan QuietHoursStart
+    {
+        get => _configurationService.Get(nameof(QuietHoursStart), new TimeSpan(18, 30, 0));
+        set => SetPropertyAndSave(nameof(QuietHoursStart), value);
+    }
+
+    public TimeSpan QuietHoursEnd
+    {
+        get => _configurationService.Get(nameof(QuietHoursEnd), new TimeSpan(8, 0, 0));
+        set => SetPropertyAndSave(nameof(QuietHoursEnd), value);
+    }
+
+    public QuietHoursDays QuietHoursDays
+    {
+        get => _configurationService.Get(nameof(QuietHoursDays), QuietHoursDays.Weekdays);
+        set => SetPropertyAndSave(nameof(QuietHoursDays), value);
+    }
+
+    public bool SnoozeWhilePresenting
+    {
+        get => _configurationService.Get(nameof(SnoozeWhilePresenting), false);
+        set => SetPropertyAndSave(nameof(SnoozeWhilePresenting), value);
+    }
+
+    public bool AreNewMailNotificationsEnabled
+    {
+        get => _configurationService.Get(nameof(AreNewMailNotificationsEnabled), true);
+        set => SetPropertyAndSave(nameof(AreNewMailNotificationsEnabled), value);
+    }
+
+    public MailNotificationScope MailNotificationScope
+    {
+        get => GetDefinedEnum(nameof(MailNotificationScope), MailNotificationScope.InboxOnly);
+        set => SetPropertyAndSave(nameof(MailNotificationScope), GetDefinedValue(value, MailNotificationScope.InboxOnly));
+    }
+
+    public MailNotificationContent MailNotificationContent
+    {
+        get => GetDefinedEnum(nameof(MailNotificationContent), MailNotificationContent.SenderSubjectPreview);
+        set => SetPropertyAndSave(nameof(MailNotificationContent), GetDefinedValue(value, MailNotificationContent.SenderSubjectPreview));
+    }
+
+    public bool AreCalendarRemindersEnabled
+    {
+        get => _configurationService.Get(nameof(AreCalendarRemindersEnabled), true);
+        set => SetPropertyAndSave(nameof(AreCalendarRemindersEnabled), value);
+    }
+
+    public bool AreTaskRemindersEnabled
+    {
+        get => _configurationService.Get(nameof(AreTaskRemindersEnabled), true);
+        set => SetPropertyAndSave(nameof(AreTaskRemindersEnabled), value);
+    }
+
+    public TaskReminderTiming TaskReminderTiming
+    {
+        get => GetDefinedEnum(nameof(TaskReminderTiming), TaskReminderTiming.AtDueTime);
+        set => SetPropertyAndSave(nameof(TaskReminderTiming), GetDefinedValue(value, TaskReminderTiming.AtDueTime));
+    }
+
+    public int TaskReminderSnoozeMinutes
+    {
+        get => _configurationService.Get(nameof(TaskReminderSnoozeMinutes), 60);
+        set => SetPropertyAndSave(nameof(TaskReminderSnoozeMinutes), Math.Max(1, value));
+    }
+
+    public NotificationSoundEvent TaskNotificationSoundEvent
+    {
+        get => GetDefinedEnum(nameof(TaskNotificationSoundEvent), NotificationSoundEvent.Default);
+        set => SetPropertyAndSave(nameof(TaskNotificationSoundEvent), GetDefinedValue(value, NotificationSoundEvent.Default));
     }
 
     public AppCloseBehavior AppCloseBehavior

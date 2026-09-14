@@ -102,7 +102,19 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SnoozeGlyph))]
     [NotifyPropertyChangedFor(nameof(SnoozeActionText))]
+    [NotifyPropertyChangedFor(nameof(SnoozeInfoText))]
+    [NotifyPropertyChangedFor(nameof(SnoozeInfoVisibility))]
     public partial bool SnoozeNotifications { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SnoozeInfoText))]
+    [NotifyPropertyChangedFor(nameof(CustomSnoozeText))]
+    [NotifyPropertyChangedFor(nameof(CustomSnoozeVisibility))]
+    public partial DateTimeOffset? SnoozedUntil { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CustomSnoozeVisibility))]
+    public partial bool IsCustomSnoozeActive { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasError))]
@@ -143,6 +155,36 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
     public string SnoozeActionText => SnoozeNotifications
         ? Translator.Companion_ResumeNotifications
         : Translator.Companion_SnoozeNotifications;
+
+    /// <summary>
+    /// Text for the strip under the header. The snooze button is icon only, so this is where the
+    /// user actually learns notifications are held, and until when.
+    /// </summary>
+    public string SnoozeInfoText
+    {
+        get
+        {
+            if (!SnoozeNotifications)
+                return string.Empty;
+
+            return SnoozedUntil is { } until
+                ? string.Format(Translator.NotificationSettings_State_SnoozedUntilFormat, until.ToString("t"))
+                : Translator.Companion_NotificationsSnoozed;
+        }
+    }
+
+    public Visibility SnoozeInfoVisibility => ToVisibility(SnoozeNotifications);
+
+    /// <summary>
+    /// The dropdown carries fixed presets only, so a custom snooze picked in Settings would otherwise
+    /// be invisible here. This transient entry shows it, and goes away once it ends or is replaced.
+    /// </summary>
+    public string CustomSnoozeText => SnoozedUntil is { } until
+        ? string.Format(Translator.NotificationSnooze_CustomUntilFormat, until.ToString("t"))
+        : string.Empty;
+
+    public Visibility CustomSnoozeVisibility => ToVisibility(IsCustomSnoozeActive && SnoozedUntil is not null);
+
     public string NextEventTimeText => NextEvent is null
         ? string.Empty
         : string.Format(
@@ -450,7 +492,7 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
         NextEvent = events.FirstOrDefault();
         Replace(LaterEvents, events.Skip(1));
         UnreadTotal = unreadTotal;
-        SnoozeNotifications = _services.GetRequiredService<IPreferencesService>().SnoozeNotifications;
+        RefreshSnoozeState();
         GreetingText = loadedAt.Hour switch
         {
             < 12 => Translator.Companion_GreetingMorning,
@@ -535,6 +577,10 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
         _messenger.Register<CompanionDashboardViewModel, CalendarItemDeleted>(this, static (recipient, _) => recipient.ScheduleRefresh());
         _messenger.Register<CompanionDashboardViewModel, TaskSynchronizationCompleted>(this, static (recipient, _) => recipient.ScheduleRefresh());
         _messenger.Register<CompanionDashboardViewModel, ContactSynchronizationCompleted>(this, static (recipient, _) => recipient.ScheduleRefresh());
+
+        // The snooze can also be changed from the settings page, or cleared by expiry, so follow
+        // the preference rather than only re-reading it on the next content refresh.
+        _services.GetRequiredService<IPreferencesService>().PreferenceChanged += OnPreferenceChanged;
     }
 
     private void UnregisterRecipients()
@@ -544,6 +590,19 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
 
         _recipientsRegistered = false;
         _messenger.UnregisterAll(this);
+        _services.GetRequiredService<IPreferencesService>().PreferenceChanged -= OnPreferenceChanged;
+    }
+
+    private void OnPreferenceChanged(object sender, string propertyName)
+    {
+        if (propertyName is not (nameof(IPreferencesService.NotificationSnoozePreset)
+            or nameof(IPreferencesService.NotificationSnoozeUntilUtcTicks)))
+        {
+            return;
+        }
+
+        // The write can come from a background sync thread, so hop before touching bound state.
+        _ = RunOnUIAsync(RefreshSnoozeState);
     }
 
     private void ScheduleRefresh()
@@ -637,18 +696,56 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
     [RelayCommand]
     private Task OpenSettingsAsync() => ExecuteNavigationAsync(_actions.OpenSettingsAsync);
 
-    [RelayCommand]
-    private async Task ToggleNotificationsAsync()
+    /// <summary>
+    /// Re-reads snooze state from the policy service, which also clears an elapsed snooze.
+    /// </summary>
+    public void RefreshSnoozeState()
     {
-        var previous = SnoozeNotifications;
-        SnoozeNotifications = !previous;
+        var state = _services.GetRequiredService<INotificationPolicyService>().GetSnoozeState(DateTimeOffset.Now);
+
+        SnoozeNotifications = state.IsSnoozed;
+        SnoozedUntil = state.Until;
+        IsCustomSnoozeActive = state.IsSnoozed && state.Preset == NotificationSnoozePreset.Custom;
+    }
+
+    [RelayCommand]
+    private async Task StartNotificationSnoozeAsync(NotificationSnoozePreset preset)
+    {
+        var previousSnoozed = SnoozeNotifications;
+        var previousUntil = SnoozedUntil;
+
+        SnoozeNotifications = true;
+
         try
         {
-            await _actions.SetNotificationsPausedAsync(SnoozeNotifications, CurrentToken);
+            await _actions.StartNotificationSnoozeAsync(preset, CurrentToken);
+            RefreshSnoozeState();
         }
         catch (Exception ex)
         {
-            SnoozeNotifications = previous;
+            SnoozeNotifications = previousSnoozed;
+            SnoozedUntil = previousUntil;
+            ErrorText = ex.Message;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ResumeNotificationsAsync()
+    {
+        var previousSnoozed = SnoozeNotifications;
+        var previousUntil = SnoozedUntil;
+
+        SnoozeNotifications = false;
+
+        try
+        {
+            await _actions.ResumeNotificationsAsync(CurrentToken);
+            RefreshSnoozeState();
+        }
+        catch (Exception ex)
+        {
+            SnoozeNotifications = previousSnoozed;
+            SnoozedUntil = previousUntil;
             ErrorText = ex.Message;
         }
     }

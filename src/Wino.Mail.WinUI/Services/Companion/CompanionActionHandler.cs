@@ -67,10 +67,17 @@ internal sealed class CompanionActionHandler(
 
     public Task OpenSettingsAsync(CancellationToken cancellationToken) => navigation.OpenSettings(cancellationToken);
 
-    public Task SetNotificationsPausedAsync(bool isPaused, CancellationToken cancellationToken)
+    public Task StartNotificationSnoozeAsync(NotificationSnoozePreset preset, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        services.GetRequiredService<IPreferencesService>().SnoozeNotifications = isPaused;
+        services.GetRequiredService<INotificationPolicyService>().StartSnooze(preset, customUntilLocal: null, DateTimeOffset.Now);
+        return Task.CompletedTask;
+    }
+
+    public Task ResumeNotificationsAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        services.GetRequiredService<INotificationPolicyService>().EndSnooze();
         return Task.CompletedTask;
     }
 

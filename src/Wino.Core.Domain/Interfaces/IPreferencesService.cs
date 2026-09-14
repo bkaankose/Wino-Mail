@@ -87,11 +87,90 @@ public interface IPreferencesService : INotifyPropertyChanged
     ModifierKeys CompanionHotKeyModifiers { get; set; }
 
     /// <summary>
-    /// Setting: Whether notifications are suppressed. Persisted rather than held in memory so the
-    /// choice survives a restart, and so the companion flyout and the shell agree on it without
-    /// either of them owning the state.
+    /// Setting: The snooze currently in effect, or <see cref="NotificationSnoozePreset.None"/> when
+    /// notifications are delivering. Persisted rather than held in memory so the choice survives a
+    /// restart, and so the companion flyout and the shell agree on it without either owning the state.
     /// </summary>
-    bool SnoozeNotifications { get; set; }
+    NotificationSnoozePreset NotificationSnoozePreset { get; set; }
+
+    /// <summary>
+    /// Setting: When the current snooze ends, in UTC ticks. Zero means the snooze runs until it is
+    /// turned back on. Stored as ticks because the configuration layer round-trips values through
+    /// <see cref="System.Convert.ChangeType(object, System.Type)"/>, which cannot handle
+    /// <see cref="System.DateTimeOffset"/> and is culture-sensitive for <see cref="System.DateTime"/>.
+    /// </summary>
+    long NotificationSnoozeUntilUtcTicks { get; set; }
+
+    /// <summary>
+    /// Setting: The last snooze duration the user chose. Seeds the snooze when it is turned on
+    /// without picking a duration first.
+    /// </summary>
+    NotificationSnoozePreset LastUsedSnoozePreset { get; set; }
+
+    /// <summary>
+    /// Setting: Whether notifications are held on a daily schedule.
+    /// </summary>
+    bool AreQuietHoursEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Time of day quiet hours begin.
+    /// </summary>
+    TimeSpan QuietHoursStart { get; set; }
+
+    /// <summary>
+    /// Setting: Time of day quiet hours end. Earlier than the start time means the window spans midnight.
+    /// </summary>
+    TimeSpan QuietHoursEnd { get; set; }
+
+    /// <summary>
+    /// Setting: Days the quiet hours schedule runs on.
+    /// </summary>
+    QuietHoursDays QuietHoursDays { get; set; }
+
+    /// <summary>
+    /// Setting: Whether notifications are held while a full-screen app or a screen share is active.
+    /// </summary>
+    bool SnoozeWhilePresenting { get; set; }
+
+    /// <summary>
+    /// Setting: Whether new mail raises a notification at all.
+    /// </summary>
+    bool AreNewMailNotificationsEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Which folders raise a notification when new mail arrives.
+    /// </summary>
+    MailNotificationScope MailNotificationScope { get; set; }
+
+    /// <summary>
+    /// Setting: How much of a message is shown on its notification.
+    /// </summary>
+    MailNotificationContent MailNotificationContent { get; set; }
+
+    /// <summary>
+    /// Setting: Whether calendar events raise reminder notifications.
+    /// </summary>
+    bool AreCalendarRemindersEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: Whether tasks raise reminder notifications.
+    /// </summary>
+    bool AreTaskRemindersEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: When a task reminder is raised relative to its due time.
+    /// </summary>
+    TaskReminderTiming TaskReminderTiming { get; set; }
+
+    /// <summary>
+    /// Setting: Default snooze duration in minutes for task reminder notifications.
+    /// </summary>
+    int TaskReminderSnoozeMinutes { get; set; }
+
+    /// <summary>
+    /// Setting: System sound played for task reminder notifications.
+    /// </summary>
+    NotificationSoundEvent TaskNotificationSoundEvent { get; set; }
 
     /// <summary>
     /// Setting: What Wino should do when the shell window is closed.

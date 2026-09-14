@@ -712,9 +712,11 @@ public class MailService : BaseDatabaseService, IMailService
         if (mails.Count == 0)
             return [];
 
+        var seedCopyIds = mails.Select(mail => mail.UniqueId).ToHashSet();
+
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (options.CreateThreads && !options.IsCategoryView)
+        if (options.CreateThreads)
         {
             var threadIds = mails
                 .Where(mail => !string.IsNullOrWhiteSpace(mail.ThreadId))
@@ -725,10 +727,9 @@ public class MailService : BaseDatabaseService, IMailService
             if (threadIds.Count > 0)
             {
                 var seedMailIds = mails
-                    .Where(mail => !string.IsNullOrWhiteSpace(mail.Id))
-                    .Select(mail => mail.Id)
+                    .Select(mail => mail.UniqueId)
                     .ToHashSet();
-                var threadMails = await GetMailsByThreadIdsAsync(threadIds, seedMailIds).ConfigureAwait(false);
+                var threadMails = await GetMailsByThreadIdsAsync(seedMailIds).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
 
                 mails = mails
@@ -770,6 +771,15 @@ public class MailService : BaseDatabaseService, IMailService
         cancellationToken.ThrowIfCancellationRequested();
         AssignPropertiesFromCaches(mails, folderCache, accountCache, contactCache);
         mails.RemoveAll(mail => mail.AssignedAccount == null || mail.AssignedFolder == null);
+
+        var activeFolderIds = options.Folders.Select(folder => folder.Id).ToHashSet();
+        mails = mails.GroupBy(MailConversationIdentity.MessageKey)
+            .Select(group => group.OrderByDescending(mail => seedCopyIds.Contains(mail.UniqueId))
+                .ThenByDescending(mail => activeFolderIds.Contains(mail.FolderId))
+                .ThenBy(MailConversationIdentity.CopyRank)
+                .ThenBy(mail => mail.UniqueId)
+                .First())
+            .ToList();
         await _sentMailReceiptService.PopulateReceiptStatesAsync(mails).ConfigureAwait(false);
         await HydrateIntelligenceMetadataAsync(mails, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
@@ -976,28 +986,22 @@ public class MailService : BaseDatabaseService, IMailService
         return hydratedMails.FirstOrDefault();
     }
 
-    private async Task<List<MailCopy>> GetMailsByThreadIdsAsync(List<string> threadIds, HashSet<string> excludeMailIds)
+    private async Task<List<MailCopy>> GetMailsByThreadIdsAsync(HashSet<Guid> seedIds)
     {
-        if (threadIds?.Count == 0)
+        if (seedIds.Count == 0)
             return [];
 
-        var threadPlaceholders = string.Join(",", threadIds.Select(_ => "?"));
-        var parameters = new List<object>();
-        parameters.AddRange(threadIds.Cast<object>());
-
-        string sql;
-        if (excludeMailIds.Count > 0)
-        {
-            var excludePlaceholders = string.Join(",", excludeMailIds.Select(_ => "?"));
-            sql = $"SELECT MailCopy.* FROM MailCopy WHERE ThreadId IN ({threadPlaceholders}) AND Id NOT IN ({excludePlaceholders})";
-            parameters.AddRange(excludeMailIds.Cast<object>());
-        }
-        else
-        {
-            sql = $"SELECT MailCopy.* FROM MailCopy WHERE ThreadId IN ({threadPlaceholders})";
-        }
-
-        return await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false);
+        var placeholders = string.Join(",", seedIds.Select(_ => "?"));
+        var sql = $"""
+            SELECT DISTINCT mail.* FROM MailCopy mail
+            INNER JOIN MailItemFolder folder ON folder.Id = mail.FolderId
+            INNER JOIN MailCopy seed ON seed.ThreadId = mail.ThreadId
+            INNER JOIN MailItemFolder seedFolder ON seedFolder.Id = seed.FolderId
+            WHERE seed.UniqueId IN ({placeholders})
+              AND seed.ThreadId IS NOT NULL AND seed.ThreadId <> ''
+              AND seedFolder.MailAccountId = folder.MailAccountId
+            """;
+        return await Connection.QueryAsync<MailCopy>(sql, seedIds.Cast<object>().ToArray()).ConfigureAwait(false);
     }
 
     private static AccountContact CreateUnknownContact(string fromName, string fromAddress)
@@ -1524,8 +1528,6 @@ public class MailService : BaseDatabaseService, IMailService
             return;
         }
 
-        _logger.Debug("Updating {MailCopyCount} mail copies with Id {MailCopyId}", mailCopies.Count, mailCopyId);
-
         var pendingUpdates = new List<(MailCopy MailCopy, MailCopyChangeFlags ChangedProperties)>();
 
         foreach (var mailCopy in mailCopies)
@@ -1536,12 +1538,12 @@ public class MailService : BaseDatabaseService, IMailService
             {
                 pendingUpdates.Add((mailCopy, changedProperties));
             }
-            else
-            {
-                _logger.Debug("Skipped updating mail because it is already in the desired state.");
-            }
         }
 
+        if (pendingUpdates.Count == 0)
+            return;
+
+        _logger.Debug("Updating {MailCopyCount} changed mail copies with Id {MailCopyId}", pendingUpdates.Count, mailCopyId);
         await PersistMailCopyUpdatesAsync(pendingUpdates).ConfigureAwait(false);
     }
 
@@ -1964,6 +1966,9 @@ public class MailService : BaseDatabaseService, IMailService
             if (existingCopyItem != null)
             {
                 mailCopy.UniqueId = existingCopyItem.UniqueId;
+                if (mimeMessage == null)
+                    mailCopy.FileId = existingCopyItem.FileId;
+
                 pendingUpdates.Add((mailCopy, existingCopyItem, package, mimeMessage));
             }
             else
@@ -2086,6 +2091,8 @@ public class MailService : BaseDatabaseService, IMailService
         if (existingCopyItem != null)
         {
             mailCopy.UniqueId = existingCopyItem.UniqueId;
+            if (mimeMessage == null)
+                mailCopy.FileId = existingCopyItem.FileId;
 
             await UpdateMailAsync(
                 mailCopy,

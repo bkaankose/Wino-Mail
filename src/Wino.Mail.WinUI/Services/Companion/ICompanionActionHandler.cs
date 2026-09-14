@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Calendar.ViewModels.Data;
+using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.WinUI.Services.Companion;
@@ -19,7 +20,8 @@ internal interface ICompanionActionHandler
     Task NewMailAsync(CancellationToken cancellationToken);
     Task NewEventAsync(CancellationToken cancellationToken);
     Task OpenSettingsAsync(CancellationToken cancellationToken);
-    Task SetNotificationsPausedAsync(bool isPaused, CancellationToken cancellationToken);
+    Task StartNotificationSnoozeAsync(NotificationSnoozePreset preset, CancellationToken cancellationToken);
+    Task ResumeNotificationsAsync(CancellationToken cancellationToken);
     Task SetMailReadAsync(MailItemViewModel mail, bool isRead, CancellationToken cancellationToken);
     Task ArchiveMailAsync(MailItemViewModel mail, CancellationToken cancellationToken);
     Task SetTaskCompletedAsync(TaskItemViewModel task, bool isCompleted, CancellationToken cancellationToken);

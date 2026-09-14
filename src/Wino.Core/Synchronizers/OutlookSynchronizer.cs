@@ -1984,15 +1984,21 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             }, cancellationToken).ConfigureAwait(false);
 
             var totalProcessed = 0;
+            var existingMails = await _outlookChangeProcessor.GetMailsByFolderIdAsync(folder.Id).ConfigureAwait(false);
+            var remoteIds = new HashSet<string>(StringComparer.Ordinal);
 
             // Use PageIterator to process all messages
             var messageIterator = PageIterator<Message, DeltaGetResponse>.CreatePageIterator(_graphClient, messageCollectionPage, async (message) =>
             {
+                await _handleItemRetrievalSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
                 try
                 {
-                    await _handleItemRetrievalSemaphore.WaitAsync();
-
-                    if (!IsResourceDeleted(message.AdditionalData) && !IsNotRealMessageType(message))
+                    if (IsResourceDeleted(message.AdditionalData))
+                    {
+                        remoteIds.Remove(message.Id);
+                        await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, message.Id, folder.RemoteFolderId).ConfigureAwait(false);
+                    }
+                    else if (!IsNotRealMessageType(message))
                     {
                         // Check if this is an EventMessage and fetch it separately if needed (only if calendar access granted)
                         if (Account.IsCalendarAccessGranted && message is EventMessage)
@@ -2004,69 +2010,67 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                             }
                         }
 
-                        // Check if message already exists
-                        bool mailExists = await _outlookChangeProcessor.IsMailExistsInFolderAsync(message.Id, folder.Id).ConfigureAwait(false);
+                        remoteIds.Add(message.Id);
 
-                        if (!mailExists)
+                        // Upsert existing messages as well so recovery repairs stale metadata.
+                        // For drafts and calendar invitations, download MIME during initial sync like delta sync.
+                        var itemType = Account.IsCalendarAccessGranted ? message.GetMailItemType() : MailItemType.Mail;
+                        if (ShouldDownloadMimeForMessage(message, folder, itemType))
                         {
-                            // For drafts and calendar invitations, download MIME during initial sync like delta sync.
-                            var itemType = Account.IsCalendarAccessGranted ? message.GetMailItemType() : MailItemType.Mail;
-                            if (ShouldDownloadMimeForMessage(message, folder, itemType))
-                            {
-                                var draftPackages = await CreateNewMailPackagesAsync(message, folder, cancellationToken).ConfigureAwait(false);
+                            var draftPackages = await CreateNewMailPackagesAsync(message, folder, cancellationToken).ConfigureAwait(false);
 
-                                if (draftPackages != null)
-                                {
-                                    foreach (var package in draftPackages)
-                                    {
-                                        bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
-                                        if (isInserted)
-                                        {
-                                            downloadedMessageIds.Add(package.Copy.Id);
-                                            totalProcessed++;
-                                        }
-                                    }
-                                }
-                            }
-                            else
+                            if (draftPackages != null)
                             {
-                                // Create MailCopy from metadata
-                                var mailCopy = await CreateMailCopyFromMessageAsync(message, folder).ConfigureAwait(false);
-
-                                if (mailCopy != null)
+                                foreach (var package in draftPackages)
                                 {
-                                    // Create package without MIME
-                                    var contacts = ExtractContactsFromOutlookMessage(message);
-                                    var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId, contacts, message.Categories);
                                     bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
-
                                     if (isInserted)
                                     {
-                                        downloadedMessageIds.Add(mailCopy.Id);
+                                        downloadedMessageIds.Add(package.Copy.Id);
                                         totalProcessed++;
                                     }
                                 }
                             }
-
-                            // Update progress periodically
-                            if (totalProcessed > 0 && totalProcessed % 50 == 0)
-                            {
-                                var statusMessage = string.Format(Translator.Sync_DownloadedMessages, totalProcessed, folder.FolderName);
-                                UpdateSyncProgress(0, 0, statusMessage);
-                            }
                         }
                         else
                         {
-                            _logger.Debug("Mail {MailId} already exists in folder {FolderName}, skipping", message.Id, folder.FolderName);
+                            // Create MailCopy from metadata
+                            var mailCopy = await CreateMailCopyFromMessageAsync(message, folder).ConfigureAwait(false);
+
+                            if (mailCopy != null)
+                            {
+                                // Create package without MIME
+                                var contacts = ExtractContactsFromOutlookMessage(message);
+                                var package = new NewMailItemPackage(mailCopy, null, folder.RemoteFolderId, contacts, message.Categories);
+                                bool isInserted = await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+
+                                if (isInserted)
+                                {
+                                    downloadedMessageIds.Add(mailCopy.Id);
+                                    totalProcessed++;
+                                }
+                            }
+                        }
+
+                        // Update progress periodically
+                        if (totalProcessed > 0 && totalProcessed % 50 == 0)
+                        {
+                            var statusMessage = string.Format(Translator.Sync_DownloadedMessages, totalProcessed, folder.FolderName);
+                            UpdateSyncProgress(0, 0, statusMessage);
                         }
                     }
 
                     return true; // Continue processing
                 }
+                catch (ApiException ex) when (ex.ResponseStatusCode == 404)
+                {
+                    await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, message.Id, folder.RemoteFolderId).ConfigureAwait(false);
+                    return true;
+                }
                 catch (Exception ex)
                 {
                     _logger.Error(ex, "Failed to process message {MessageId} during initial sync for folder {FolderName}", message.Id, folder.FolderName);
-                    return true; // Continue despite error
+                    throw;
                 }
                 finally
                 {
@@ -2075,6 +2079,12 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             });
 
             await messageIterator.IterateAsync(cancellationToken).ConfigureAwait(false);
+
+            await ReconcileFolderMembershipAsync(folder, existingMails, remoteIds, cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrEmpty(messageIterator.Deltalink))
+                throw new InvalidOperationException("Outlook returned no final folder delta link.");
 
             // The Graph deltaLink is opaque and includes the state/query options needed for the next round.
             if (!string.IsNullOrEmpty(messageIterator.Deltalink))
@@ -2099,7 +2109,10 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 Account = Account,
                 ErrorCode = (int?)apiException.ResponseStatusCode,
                 ErrorMessage = $"API error during initial sync: {apiException.Message}",
-                Exception = apiException
+                Exception = apiException,
+                FolderId = folder.Id,
+                FolderName = folder.FolderName,
+                OperationType = "FolderSync"
             };
 
             var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
@@ -2545,6 +2558,32 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         }
     }
 
+    private async Task ReconcileFolderMembershipAsync(MailItemFolder folder, List<MailCopy> existingMails,
+        HashSet<string> remoteIds, CancellationToken cancellationToken)
+    {
+        foreach (var existing in existingMails.Where(mail => !mail.IsLocalDraft && !remoteIds.Contains(mail.Id)))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Message current;
+            try
+            {
+                current = await _graphClient.Me.Messages[existing.Id].GetAsync(config =>
+                    config.QueryParameters.Select = ["id", "parentFolderId"], cancellationToken).ConfigureAwait(false);
+            }
+            catch (ApiException ex) when (ex.ResponseStatusCode == 404)
+            {
+                await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, existing.Id, folder.RemoteFolderId).ConfigureAwait(false);
+                continue;
+            }
+
+            if (string.IsNullOrEmpty(current?.ParentFolderId))
+                throw new InvalidOperationException($"Outlook returned no parent folder for message {existing.Id}.");
+
+            if (current.ParentFolderId != folder.RemoteFolderId)
+                await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, existing.Id, folder.RemoteFolderId).ConfigureAwait(false);
+        }
+    }
+
     private async Task ProcessDeltaChangesAsync(MailItemFolder folder, List<string> downloadedMessageIds, CancellationToken cancellationToken = default)
     {
         // Only process delta changes if we have a delta token (not initial sync)
@@ -2563,26 +2602,34 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             var messageIterator = PageIterator<Message, DeltaGetResponse>
                 .CreatePageIterator(_graphClient, messageCollectionPage, async (item) =>
                 {
+                    await _handleItemRetrievalSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
                     try
                     {
-                        await _handleItemRetrievalSemaphore.WaitAsync();
                         return await HandleItemRetrievedAsync(item, folder, downloadedMessageIds, cancellationToken);
+                    }
+                    catch (ApiException ex) when (ex.ResponseStatusCode == 404)
+                    {
+                        await _outlookChangeProcessor.DeleteAssignmentAsync(Account.Id, item.Id, folder.RemoteFolderId).ConfigureAwait(false);
+                        return true;
                     }
                     catch (Exception ex)
                     {
                         _logger.Error(ex, "Error occurred while handling delta item {Id} for folder {FolderName}", item.Id, folder.FolderName);
+                        throw;
                     }
                     finally
                     {
                         _handleItemRetrievalSemaphore.Release();
                     }
-
-                    return true;
                 });
 
             await messageIterator.IterateAsync(cancellationToken).ConfigureAwait(false);
 
             // Store the opaque deltaLink for the next sync round.
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.IsNullOrEmpty(messageIterator.Deltalink))
+                throw new InvalidOperationException("Outlook returned no final folder delta link.");
+
             if (!string.IsNullOrEmpty(messageIterator.Deltalink))
             {
                 await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(folder.Id, messageIterator.Deltalink).ConfigureAwait(false);
@@ -2597,17 +2644,29 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             {
                 Account = Account,
                 ErrorCode = (int?)apiException.ResponseStatusCode,
-                ErrorMessage = $"API error during legacy delta sync: {apiException.Message}",
-                Exception = apiException
+                ErrorMessage = $"API error during delta sync: {apiException.Message}",
+                Exception = apiException,
+                FolderId = folder.Id,
+                FolderName = folder.FolderName,
+                OperationType = "FolderSync"
             };
 
             var handled = await _errorHandlingFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+
+            if (handled && apiException.ResponseStatusCode == 410)
+            {
+                folder.DeltaToken = string.Empty;
+                await DownloadMailsForInitialSyncAsync(folder, downloadedMessageIds, cancellationToken).ConfigureAwait(false);
+                return;
+            }
 
             if (!handled)
             {
                 // No handler could process this error, log and re-throw
                 _logger.Error(apiException, "Unhandled API error during legacy delta sync for folder {FolderName}. Error: {ErrorCode}", folder.FolderName, apiException.ResponseStatusCode);
             }
+
+            throw;
         }
     }
 
@@ -2649,12 +2708,13 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
             _logger.Debug("Fetched EventMessage {MessageId} with type {ODataType}", messageId, odataType);
 
-            return eventMessage as EventMessage;
+            return eventMessage as EventMessage
+                ?? throw new InvalidOperationException($"Outlook returned no event message for {messageId}.");
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "Failed to fetch EventMessage {MessageId}", messageId);
-            return null;
+            throw;
         }
     }
 
@@ -2712,7 +2772,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     /// <param name="item">Retrieved message.</param>
     /// <returns>Whether the item is non-Message type or not.</returns>
     private bool IsNotRealMessageType(Message item)
-        => item.From?.EmailAddress == null;
+        => item.From?.EmailAddress == null && item.IsDraft != true;
 
     private async Task<bool> HandleItemRetrievedAsync(Message item, MailItemFolder folder, IList<string> downloadedMessageIds, CancellationToken cancellationToken = default)
     {
@@ -2741,6 +2801,23 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
             if (isMailExists)
             {
+                if (item.IsDraft == true)
+                {
+                    // Draft content is mutable; the normal state-only update is insufficient.
+                    item = await _graphClient.Me.Messages[item.Id].GetAsync(config =>
+                        config.QueryParameters.Select = outlookMessageSelectParameters, cancellationToken).ConfigureAwait(false)
+                        ?? throw new InvalidOperationException("Outlook returned no draft message.");
+                    await EnsureDeltaMailCategoriesAvailableAsync(item.Categories, cancellationToken).ConfigureAwait(false);
+                    var packages = await CreateNewMailPackagesAsync(item, folder, cancellationToken).ConfigureAwait(false);
+                    if (packages != null)
+                    {
+                        foreach (var package in packages)
+                            await _outlookChangeProcessor.CreateMailAsync(Account.Id, package).ConfigureAwait(false);
+                    }
+
+                    return true;
+                }
+
                 // Some of the properties of the item are updated.
                 _logger.Debug("Processing delta update for existing mail {MessageId} in folder {FolderName}", item.Id, folder.FolderName);
 
@@ -2825,13 +2902,47 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
         var specialFolderInfo = await GetSpecialFolderIdsAsync(cancellationToken).ConfigureAwait(false);
         var graphFolders = await GetDeltaFoldersAsync(cancellationToken).ConfigureAwait(false);
+        var existingFolders = string.IsNullOrEmpty(Account.SynchronizationDeltaIdentifier)
+            ? await _outlookChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false)
+            : new List<MailItemFolder>();
+        var remoteFolderIds = new HashSet<string>(StringComparer.Ordinal);
 
         var iterator = PageIterator<MailFolder, Microsoft.Graph.Me.MailFolders.Delta.DeltaGetResponse>
             .CreatePageIterator(_graphClient, graphFolders, (folder) =>
-                HandleFolderRetrievedAsync(folder, specialFolderInfo, cancellationToken));
+            {
+                remoteFolderIds.Add(folder.Id);
+                return HandleFolderRetrievedAsync(folder, specialFolderInfo, cancellationToken);
+            });
 
-        await iterator.IterateAsync();
+        try
+        {
+            await iterator.IterateAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (ApiException ex) when (ex.ResponseStatusCode == 410)
+        {
+            // Expiration can also occur on a continuation page. Retry from a full listing next round.
+            Account.SynchronizationDeltaIdentifier = await _outlookChangeProcessor
+                .UpdateAccountDeltaSynchronizationIdentifierAsync(Account.Id, string.Empty).ConfigureAwait(false);
+            throw;
+        }
 
+        if (string.IsNullOrEmpty(iterator.Deltalink))
+            throw new InvalidOperationException("Outlook returned no final folder-list delta link.");
+
+        foreach (var existing in existingFolders.Where(folder => !remoteFolderIds.Contains(folder.RemoteFolderId)))
+        {
+            try
+            {
+                await _graphClient.Me.MailFolders[existing.RemoteFolderId].GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+            }
+            catch (ApiException ex) when (ex.ResponseStatusCode == 404)
+            {
+                await _outlookChangeProcessor.DeleteFolderAsync(Account.Id, existing.RemoteFolderId).ConfigureAwait(false);
+                _isFolderStructureChanged = true;
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
         await UpdateDeltaSynchronizationIdentifierAsync(iterator.Deltalink).ConfigureAwait(false);
 
         if (_isFolderStructureChanged)
@@ -4271,8 +4382,15 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         var mimeMessage = await DownloadMimeMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
         var mailCopy = await CreateMailCopyFromMessageAsync(message, assignedFolder).ConfigureAwait(false);
 
-        // If draft mapping was successful, mailCopy will be null
-        if (mailCopy == null) return null;
+        // Draft mapping can resolve an existing local copy. Save through the draft-protected path.
+        if (mailCopy == null)
+        {
+            var copies = await _outlookChangeProcessor.GetMailCopiesAsync([message.Id]).ConfigureAwait(false);
+            foreach (var copy in copies.Where(copy => copy.FolderId == assignedFolder.Id))
+                await _outlookChangeProcessor.SaveMimeFileAsync(copy.FileId, mimeMessage, Account.Id, message.Id).ConfigureAwait(false);
+
+            return null;
+        }
 
         await TryMapCalendarInvitationAsync(mailCopy, mimeMessage, cancellationToken).ConfigureAwait(false);
 

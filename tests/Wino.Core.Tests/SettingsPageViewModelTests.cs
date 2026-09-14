@@ -54,10 +54,33 @@ public class SettingsPageViewModelTests
 
         calendarGroup.SubMenuItems.Select(item => item.PageType).Should().Equal(
             WinoPage.CalendarPreferenceSettingsPage,
-            WinoPage.CalendarRenderingSettingsPage,
-            WinoPage.CalendarNotificationSettingsPage);
+            WinoPage.CalendarRenderingSettingsPage);
         calendarGroup.SubMenuItems[1].HasIconPathData.Should().BeTrue();
         calendarGroup.SubMenuItems[1].IconPathData.Should().StartWith("F1 M 15.078125 1.25");
+    }
+
+    [Fact]
+    public void SettingsMenu_NotificationsLivesInGeneralAndNotInMailOrCalendar()
+    {
+        var service = EntitlementService(Entitlement(WinoIntelligenceEntitlementState.Active));
+        var provider = new SettingsMenuProvider(Mock.Of<INavigationService>(), service.Object)
+        {
+            Dispatcher = new ImmediateDispatcher(),
+        };
+
+        var groups = provider.ShellMenu.Items.OfType<SettingsShellGroupMenuItem>().ToList();
+
+        // Notifications used to exist once under Mail and once under Calendar. Both are now one
+        // General entry, so a regression would show up as a page appearing in more than one place.
+        provider.ShellMenu.Items
+            .OfType<SettingsShellPageMenuItem>()
+            .Concat(groups.SelectMany(group => group.SubMenuItems))
+            .Count(item => item.PageType == WinoPage.NotificationSettingsPage)
+            .Should().Be(1);
+
+        groups.Single(group => group.Title == Translator.SettingsOptions_MailSection)
+            .SubMenuItems.Select(item => item.PageType)
+            .Should().NotContain(WinoPage.NotificationSettingsPage);
     }
 
     [Fact]

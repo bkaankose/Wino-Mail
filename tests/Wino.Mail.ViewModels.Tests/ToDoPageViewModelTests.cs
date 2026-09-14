@@ -1068,7 +1068,7 @@ public sealed class ToDoPageViewModelTests
         await viewModel.ReopenSelectedTasksCommand.ExecuteAsync(null);
 
         requests.Should().HaveCount(2)
-            .And.OnlyContain(request => !request.Task.IsCompleted && request.Task.CompletedAtUtc is null && request.OriginalTask.IsCompleted);
+            .And.OnlyContain(request => !request.Task.IsCompleted && request.Task.CompletedAtUtc == null && request.OriginalTask.IsCompleted);
         delegator.Verify(service => service.ExecuteAsync(
             account.Id,
             It.Is<IEnumerable<IRequestBase>>(queued => queued.Count() == 2)), Times.Once);

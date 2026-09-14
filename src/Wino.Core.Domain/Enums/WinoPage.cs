@@ -1,4 +1,4 @@
-﻿namespace Wino.Core.Domain.Enums;
+namespace Wino.Core.Domain.Enums;
 
 /// <summary>
 /// All registered views.
@@ -24,7 +24,6 @@ public enum WinoPage
     ApplicationThemeGalleryPage,
     ApplicationThemeEditorPage,
     MessageListPage,
-    MailNotificationSettingsPage,
     UnreadBadgeSettingsPage,
     AccountUnreadBadgePage,
     MailListPage,
@@ -42,7 +41,6 @@ public enum WinoPage
     CalendarPage,
     CalendarSettingsPage,
     CalendarRenderingSettingsPage,
-    CalendarNotificationSettingsPage,
     CalendarPreferenceSettingsPage,
     CalendarAccountSettingsPage,
     ContactsPreferenceSettingsPage,
@@ -63,5 +61,6 @@ public enum WinoPage
     TestPage,
     WinoIntelligenceManagementPage,
     IntelligenceCoveragePage,
-    CompanionSettingsPage
+    CompanionSettingsPage,
+    NotificationSettingsPage
 }

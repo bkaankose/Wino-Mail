@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
@@ -49,6 +50,200 @@ public sealed class MailListStoreTests
         ((IEnumerable<MailItemViewModel>)store.Items).Should().ContainSingle();
         store.Find(original.UniqueId).Subject.Should().Be("Updated");
         collectionChanges.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AddLiveRangeAsync_DeduplicatesLabelCopiesOfSameServerMessage()
+    {
+        var store = CreateStore();
+        var account = CreateGmailAccount();
+        var inboxFolderId = Guid.NewGuid();
+        var inboxCopy = CreateMailCopy("gmail-thread");
+        inboxCopy.AssignedAccount = account;
+        inboxCopy.FolderId = inboxFolderId;
+        inboxCopy.IsRead = true;
+        await store.AddAsync(inboxCopy);
+
+        var categoryCopy = CreateLabelCopy(inboxCopy, account, Guid.NewGuid());
+        var unreadCopy = CreateLabelCopy(inboxCopy, account, Guid.NewGuid());
+        unreadCopy.IsRead = false;
+
+        await store.AddLiveRangeAsync(
+            [categoryCopy, unreadCopy],
+            EntityUpdateSource.Server,
+            mail => mail.FolderId == inboxFolderId);
+
+        ((IEnumerable<MailItemViewModel>)store.Items).Should().ContainSingle()
+            .Which.UniqueId.Should().Be(inboxCopy.UniqueId);
+        store.Find(inboxCopy.UniqueId).IsRead.Should().BeFalse();
+        using var projection = new MailListProjection(store.Items);
+        projection.Rows.Should().ContainSingle()
+            .Which.Kind.Should().Be(MailListRowKind.Single);
+    }
+
+    [Fact]
+    public async Task AddLiveRangeAsync_DeduplicatesFlagLabelCopiesForEveryThreadMessage()
+    {
+        var store = CreateStore();
+        var account = CreateGmailAccount();
+        var inboxFolderId = Guid.NewGuid();
+        var starredFolderId = Guid.NewGuid();
+        var first = CreateMailCopy("gmail-thread");
+        first.AssignedAccount = account;
+        first.FolderId = inboxFolderId;
+        var second = CreateMailCopy("gmail-thread");
+        second.AssignedAccount = account;
+        second.FolderId = inboxFolderId;
+        await store.AddRangeAsync(
+        [
+            new MailItemViewModel(first),
+            new MailItemViewModel(second),
+        ], clearIdCache: true);
+
+        var firstStarredCopy = CreateLabelCopy(first, account, starredFolderId);
+        firstStarredCopy.IsFlagged = true;
+        var secondStarredCopy = CreateLabelCopy(second, account, starredFolderId);
+        secondStarredCopy.IsFlagged = true;
+
+        await store.AddLiveRangeAsync(
+            [firstStarredCopy, secondStarredCopy],
+            EntityUpdateSource.Server,
+            mail => mail.FolderId == inboxFolderId);
+
+        ((IEnumerable<MailItemViewModel>)store.Items).Should().HaveCount(2)
+            .And.OnlyContain(item => item.IsFlagged);
+        using var projection = new MailListProjection(store.Items);
+        projection.Rows.Should().ContainSingle(row => row.IsThreadHead);
+        projection.Threads.Should().ContainSingle()
+            .Which.Count.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ResetAndAppend_KeepSameGmailMessageIdentityAsLiveUpdates()
+    {
+        var store = CreateStore();
+        var account = CreateGmailAccount();
+        var first = CreateMailCopy("thread");
+        first.AssignedAccount = account;
+        var labelCopy = CreateLabelCopy(first, account, Guid.NewGuid());
+        await store.ResetAsync(new[] { new MailItemViewModel(first), new MailItemViewModel(labelCopy) });
+        store.Count.Should().Be(1);
+
+        await store.AddRangeAsync(new[] { new MailItemViewModel(first) }, clearIdCache: false);
+        store.Count.Should().Be(1);
+
+        await store.AddLiveAsync(labelCopy, EntityUpdateSource.Server, static _ => true);
+        store.Count.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RemoveLiveRangeAsync_LabelRemovalKeepsMessageUntilLastCopyIsDeleted()
+    {
+        var store = CreateStore();
+        var account = CreateGmailAccount();
+        var unread = CreateMailCopy("conversation");
+        unread.AssignedAccount = account;
+        var sent = CreateLabelCopy(unread, account, Guid.NewGuid());
+        var reply = CreateMailCopy("conversation");
+        reply.AssignedAccount = account;
+        await store.ResetAsync(new[] { new MailItemViewModel(unread), new MailItemViewModel(reply) });
+
+        await store.RemoveLiveRangeAsync(new[] { unread }, new[] { sent }, static _ => true);
+
+        store.Count.Should().Be(2);
+        store.Find(sent.UniqueId).Should().NotBeNull();
+        using var projection = new MailListProjection(store.Items);
+        projection.Threads.Should().ContainSingle().Which.Count.Should().Be(2);
+
+        await store.AddLiveAsync(unread, EntityUpdateSource.Server, static _ => true);
+        store.Count.Should().Be(2);
+        await store.RemoveLiveRangeAsync(new[] { sent, unread }, Array.Empty<MailCopy>(), static _ => true);
+        store.Count.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Projection_DoesNotMergeConversationsAcrossAccounts()
+    {
+        var store = CreateStore();
+        var first = CreateMailCopy("same-thread");
+        first.AssignedAccount = CreateGmailAccount();
+        var second = CreateMailCopy("same-thread");
+        second.AssignedAccount = CreateGmailAccount();
+        await store.ResetAsync(new[] { new MailItemViewModel(first), new MailItemViewModel(second) });
+
+        using var projection = new MailListProjection(store.Items);
+        projection.Rows.Should().HaveCount(2).And.OnlyContain(row => row.Kind == MailListRowKind.Single);
+    }
+
+    [Fact]
+    public async Task AddLiveAsync_KeepsDifferentMessagesInSameThread()
+    {
+        var store = CreateStore();
+        var account = CreateGmailAccount();
+        var first = CreateMailCopy("gmail-thread");
+        first.AssignedAccount = account;
+        var second = CreateMailCopy("gmail-thread");
+        second.AssignedAccount = account;
+        await store.AddAsync(first);
+
+        await store.AddLiveAsync(second, EntityUpdateSource.Server, static _ => true);
+
+        ((IEnumerable<MailItemViewModel>)store.Items).Should().HaveCount(2);
+        using var projection = new MailListProjection(store.Items);
+        projection.Rows.Should().ContainSingle(row => row.IsThreadHead);
+    }
+
+    [Fact]
+    public async Task AddLiveAsync_ReplacesOffFolderCopyWithActiveFolderCopy()
+    {
+        var store = CreateStore();
+        var account = CreateGmailAccount();
+        var inboxFolderId = Guid.NewGuid();
+        var categoryCopy = CreateMailCopy("gmail-thread");
+        categoryCopy.AssignedAccount = account;
+        var inboxCopy = CreateLabelCopy(categoryCopy, account, inboxFolderId);
+        await store.AddAsync(categoryCopy);
+
+        await store.AddLiveAsync(
+            inboxCopy,
+            EntityUpdateSource.Server,
+            mail => mail.FolderId == inboxFolderId);
+
+        ((IEnumerable<MailItemViewModel>)store.Items).Should().ContainSingle()
+            .Which.UniqueId.Should().Be(inboxCopy.UniqueId);
+    }
+
+    [Fact]
+    public async Task AddLiveAsync_DoesNotDeduplicateSameServerIdAcrossAccounts()
+    {
+        var store = CreateStore();
+        var first = CreateMailCopy("gmail-thread");
+        first.AssignedAccount = CreateGmailAccount();
+        var second = CreateLabelCopy(first, CreateGmailAccount(), Guid.NewGuid());
+        await store.AddAsync(first);
+
+        await store.AddLiveAsync(second, EntityUpdateSource.Server, static _ => true);
+
+        ((IEnumerable<MailItemViewModel>)store.Items).Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task AddLiveAsync_DoesNotDeduplicateFolderScopedImapIds()
+    {
+        var store = CreateStore();
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            ProviderType = MailProviderType.IMAP4,
+        };
+        var first = CreateMailCopy("imap-thread");
+        first.AssignedAccount = account;
+        var second = CreateLabelCopy(first, account, Guid.NewGuid());
+        await store.AddAsync(first);
+
+        await store.AddLiveAsync(second, EntityUpdateSource.Server, static _ => true);
+
+        ((IEnumerable<MailItemViewModel>)store.Items).Should().HaveCount(2);
     }
 
     [Fact]
@@ -331,6 +526,21 @@ public sealed class MailListStoreTests
         SenderContact = source.SenderContact,
         AssignedAccount = source.AssignedAccount,
         AssignedFolder = source.AssignedFolder,
+    };
+
+    private static MailCopy CreateLabelCopy(MailCopy source, MailAccount account, Guid folderId)
+    {
+        var copy = CloneMailCopy(source);
+        copy.UniqueId = Guid.NewGuid();
+        copy.FolderId = folderId;
+        copy.AssignedAccount = account;
+        return copy;
+    }
+
+    private static MailAccount CreateGmailAccount() => new()
+    {
+        Id = Guid.NewGuid(),
+        ProviderType = MailProviderType.Gmail,
     };
 
     private sealed class ImmediateDispatcher : IDispatcher

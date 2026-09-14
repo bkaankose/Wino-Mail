@@ -9,6 +9,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Translations;
 using Wino.Core.ViewModels;
+using Wino.Core.ViewModels.Data;
 
 namespace Wino.Calendar.ViewModels;
 
@@ -56,74 +57,38 @@ public abstract class CalendarSettingsSectionViewModelBase : CalendarBaseViewMod
     {
         ReminderOptions.Clear();
 
-        var predefinedMinutes = CalendarService.GetPredefinedReminderMinutes();
-        ReminderOptions.Add(Translator.CalendarReminder_None);
-
-        foreach (var minutes in predefinedMinutes)
+        foreach (var option in CalendarReminderOptionFactory.GetReminderOptions(CalendarService))
         {
-            var displayText = minutes switch
-            {
-                >= 60 => string.Format(minutes / 60 == 1
-                    ? Translator.CalendarReminder_HourOption
-                    : Translator.CalendarReminder_HoursOption, minutes / 60),
-                _ => string.Format(minutes == 1
-                    ? Translator.CalendarReminder_MinuteOption
-                    : Translator.CalendarReminder_MinutesOption, minutes)
-            };
-
-            ReminderOptions.Add(displayText);
+            ReminderOptions.Add(option);
         }
     }
 
     protected int GetSelectedReminderIndex()
-    {
-        if (PreferencesService.DefaultReminderDurationInSeconds == 0)
-            return 0;
-
-        var minutes = (int)(PreferencesService.DefaultReminderDurationInSeconds / 60);
-        var predefinedMinutes = CalendarService.GetPredefinedReminderMinutes();
-        var index = Array.IndexOf(predefinedMinutes, minutes);
-        return index >= 0 ? index + 1 : 0;
-    }
+        => CalendarReminderOptionFactory.GetSelectedReminderIndex(CalendarService, PreferencesService.DefaultReminderDurationInSeconds);
 
     protected void SaveReminderIndex(int selectedDefaultReminderIndex)
-    {
-        if (selectedDefaultReminderIndex == 0)
-        {
-            PreferencesService.DefaultReminderDurationInSeconds = 0;
-            return;
-        }
-
-        var predefinedMinutes = CalendarService.GetPredefinedReminderMinutes();
-        var minutes = predefinedMinutes[selectedDefaultReminderIndex - 1];
-        PreferencesService.DefaultReminderDurationInSeconds = minutes * 60;
-    }
+        => PreferencesService.DefaultReminderDurationInSeconds =
+            CalendarReminderOptionFactory.GetReminderDurationInSeconds(CalendarService, selectedDefaultReminderIndex);
 
     protected void LoadSnoozeOptions()
     {
         SnoozeOptions.Clear();
 
-        foreach (var snoozeMinutes in CalendarReminderSnoozeOptions.GetSupportedSnoozeMinutes())
+        foreach (var option in CalendarReminderOptionFactory.GetSnoozeOptions())
         {
-            SnoozeOptions.Add(string.Format(Translator.CalendarReminder_SnoozeMinutesOption, snoozeMinutes));
+            SnoozeOptions.Add(option);
         }
     }
 
     protected int GetSelectedSnoozeIndex()
-    {
-        var supportedSnoozeMinutes = CalendarReminderSnoozeOptions.GetSupportedSnoozeMinutes().ToArray();
-        var selectedIndex = Array.IndexOf(supportedSnoozeMinutes, PreferencesService.DefaultSnoozeDurationInMinutes);
-        return selectedIndex >= 0 ? selectedIndex : 0;
-    }
+        => CalendarReminderOptionFactory.GetSelectedSnoozeIndex(PreferencesService.DefaultSnoozeDurationInMinutes);
 
     protected void SaveSnoozeIndex(int selectedDefaultSnoozeIndex)
     {
-        var supportedSnoozeMinutes = CalendarReminderSnoozeOptions.GetSupportedSnoozeMinutes();
-        if (supportedSnoozeMinutes.Count == 0)
-            return;
-
-        var selectedIndex = Math.Clamp(selectedDefaultSnoozeIndex, 0, supportedSnoozeMinutes.Count - 1);
-        PreferencesService.DefaultSnoozeDurationInMinutes = supportedSnoozeMinutes[selectedIndex];
+        if (CalendarReminderOptionFactory.GetSnoozeMinutes(selectedDefaultSnoozeIndex) is { } minutes)
+        {
+            PreferencesService.DefaultSnoozeDurationInMinutes = minutes;
+        }
     }
 
     protected void LoadNewEventBehaviorOptions()

@@ -67,6 +67,7 @@ public interface IDefaultChangeProcessor
         List<Reminder> reminders,
         string remoteEventId);
     Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds);
+    Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId);
     Task CreateMailRawAsync(MailAccount account, MailItemFolder mailItemFolder, NewMailItemPackage package);
     Task ApplyMailStateUpdatesAsync(IEnumerable<MailCopyStateUpdate> updates);
     Task CreateAssignmentsAsync(Guid accountId, IEnumerable<MailFolderAssignmentUpdate> assignments);
@@ -271,6 +272,9 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds)
         => MailService.AreMailsExistsAsync(mailCopyIds);
+
+    public Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId)
+        => MailService.GetMailsByFolderIdAsync(folderId);
 
     public Task<List<MailCopy>> GetMailCopiesAsync(IEnumerable<string> mailCopyIds)
         => MailService.GetMailItemsAsync(mailCopyIds);

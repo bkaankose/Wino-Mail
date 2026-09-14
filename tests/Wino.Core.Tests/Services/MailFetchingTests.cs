@@ -73,6 +73,93 @@ public class MailFetchingTests : IAsyncLifetime
 
     // ── Correctness: threading ON ──────────────────────────────────────────────
 
+    [Theory]
+    [InlineData(SpecialFolderType.Inbox)]
+    [InlineData(SpecialFolderType.Sent)]
+    [InlineData(SpecialFolderType.Archive)]
+    [InlineData(SpecialFolderType.Other)]
+    [InlineData(SpecialFolderType.Unread)]
+    public async Task FetchMailsAsync_AnyFolderLoadsWholeConversationOnce(SpecialFolderType startingFolder)
+    {
+        _testAccount.ProviderType = MailProviderType.Gmail;
+        await _databaseService.Connection.UpdateAsync(_testAccount);
+        var label = new MailItemFolder
+        {
+            Id = Guid.NewGuid(), MailAccountId = _testAccount.Id,
+            FolderName = "Unread", RemoteFolderId = "UNREAD",
+            SpecialFolderType = SpecialFolderType.Unread,
+        };
+        await _databaseService.Connection.InsertAsync(label);
+        var folders = new[] { _inboxFolder, label }.ToList();
+        foreach (var type in new[] { SpecialFolderType.Sent, SpecialFolderType.Archive, SpecialFolderType.Other })
+        {
+            var folder = new MailItemFolder
+            {
+                Id = Guid.NewGuid(), MailAccountId = _testAccount.Id,
+                FolderName = type.ToString(), RemoteFolderId = type.ToString(), SpecialFolderType = type,
+            };
+            folders.Add(folder);
+            await _databaseService.Connection.InsertAsync(folder);
+        }
+        var now = DateTime.UtcNow;
+        var seed = BuildMail(_inboxFolder.Id, now, "conversation", id: "first");
+        var sibling = BuildMail(folders.Single(folder => folder.SpecialFolderType == SpecialFolderType.Sent).Id,
+            now.AddMinutes(-1), "conversation", id: "second");
+        var labelCopy = BuildMail(label.Id, now.AddMinutes(-1), "conversation", id: "second");
+        var archived = BuildMail(folders.Single(folder => folder.SpecialFolderType == SpecialFolderType.Archive).Id,
+            now.AddMinutes(-2), "conversation", id: "third");
+        var customCopy = BuildMail(folders.Single(folder => folder.SpecialFolderType == SpecialFolderType.Other).Id,
+            now, "conversation", id: "first");
+        await _databaseService.Connection.InsertAllAsync(new[] { seed, sibling, labelCopy, archived, customCopy });
+
+        var options = BuildOptions([folders.Single(folder => folder.SpecialFolderType == startingFolder)], take: 1);
+        var before = await _mailService.FetchMailsAsync(options);
+        before.Select(mail => mail.Id).Should().BeEquivalentTo(new[] { "first", "second", "third" });
+
+        await _databaseService.Connection.DeleteAsync(labelCopy);
+        var after = await _mailService.FetchMailsAsync(options);
+        if (startingFolder == SpecialFolderType.Unread)
+            after.Should().BeEmpty("the folder no longer selects any conversation");
+        else
+            after.Select(mail => mail.Id).Should().BeEquivalentTo(before.Select(mail => mail.Id));
+    }
+
+    [Fact]
+    public async Task FetchMailsAsync_ThreadExpansionPreservesFolderScopedServerIds()
+    {
+        var now = DateTime.UtcNow;
+        var otherFolder = new MailItemFolder
+        {
+            Id = Guid.NewGuid(), MailAccountId = _testAccount.Id,
+            FolderName = "Inbox", RemoteFolderId = "INBOX",
+        };
+        await _databaseService.Connection.InsertAsync(otherFolder);
+        var seed = BuildMail(_inboxFolder.Id, now, "conversation", id: "1");
+        var sibling = BuildMail(otherFolder.Id, now.AddMinutes(-1), "conversation", id: "1");
+        await _databaseService.Connection.InsertAllAsync(new[] { seed, sibling });
+
+        var result = await _mailService.FetchMailsAsync(BuildOptions([_inboxFolder, otherFolder], take: 1));
+
+        result.Select(mail => mail.UniqueId).Should().BeEquivalentTo(new[] { seed.UniqueId, sibling.UniqueId });
+    }
+
+    [Fact]
+    public async Task FetchMailsAsync_DoesNotExpandSameThreadIdFromAnotherAccount()
+    {
+        var otherAccount = await CreateAccountAsync("Other", "other@test.local");
+        var otherFolder = new MailItemFolder
+        {
+            Id = Guid.NewGuid(), MailAccountId = otherAccount.Id, FolderName = "Inbox", RemoteFolderId = "INBOX",
+        };
+        await _databaseService.Connection.InsertAsync(otherFolder);
+        var seed = BuildMail(_inboxFolder.Id, DateTime.UtcNow, "same-thread");
+        var foreign = BuildMail(otherFolder.Id, DateTime.UtcNow, "same-thread");
+        await _databaseService.Connection.InsertAllAsync(new[] { seed, foreign });
+
+        var result = await _mailService.FetchMailsAsync(BuildOptions([_inboxFolder]));
+        result.Should().ContainSingle().Which.UniqueId.Should().Be(seed.UniqueId);
+    }
+
     /// <summary>
     /// Verifies that thread siblings which fall outside the initial SQL page are
     /// fetched by the expansion step, so every thread is always fully represented.

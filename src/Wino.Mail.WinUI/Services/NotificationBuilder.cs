@@ -19,6 +19,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Badges;
+using Wino.Core.Domain.Models.Notifications;
 using Wino.Helpers;
 using Wino.Mail.WinUI.Activation;
 using Wino.Messaging.UI;
@@ -53,6 +54,7 @@ public class NotificationBuilder : INotificationBuilder
     private readonly IAccountProfilePictureFileService _accountProfilePictureFileService;
     private readonly IContactPictureFileService _contactPictureFileService;
     private readonly INotificationHostClient _notificationHostClient;
+    private readonly INotificationPolicyService _notificationPolicyService;
 
     public NotificationBuilder(IAccountService accountService,
                                IFolderService folderService,
@@ -62,7 +64,8 @@ public class NotificationBuilder : INotificationBuilder
                                IPreferencesService preferencesService,
                                IAccountProfilePictureFileService accountProfilePictureFileService,
                                IContactPictureFileService contactPictureFileService,
-                               INotificationHostClient notificationHostClient)
+                               INotificationHostClient notificationHostClient,
+                               INotificationPolicyService notificationPolicyService)
     {
         _accountService = accountService;
         _folderService = folderService;
@@ -73,6 +76,7 @@ public class NotificationBuilder : INotificationBuilder
         _accountProfilePictureFileService = accountProfilePictureFileService;
         _contactPictureFileService = contactPictureFileService;
         _notificationHostClient = notificationHostClient;
+        _notificationPolicyService = notificationPolicyService;
 
         WeakReferenceMessenger.Default.Register<MailReadStatusChanged>(this, (r, msg) =>
         {
@@ -98,7 +102,7 @@ public class NotificationBuilder : INotificationBuilder
     {
         try
         {
-            var inboxMailItems = new List<MailCopy>();
+            var inboxMailItems = new List<(MailCopy MailItem, MailAccountPreferences? Preferences)>();
             var accounts = await _accountService.GetAccountsAsync();
 
             foreach (var item in downloadedMailItems)
@@ -106,7 +110,8 @@ public class NotificationBuilder : INotificationBuilder
                 var mailItem = await _mailService.GetSingleMailItemAsync(item.UniqueId);
                 if (ShouldCreateMailNotification(mailItem, accounts))
                 {
-                    inboxMailItems.Add(mailItem);
+                    var account = accounts.FirstOrDefault(account => account.Id == mailItem.AssignedFolder.MailAccountId);
+                    inboxMailItems.Add((mailItem, account?.Preferences));
                 }
             }
 
@@ -127,9 +132,9 @@ public class NotificationBuilder : INotificationBuilder
             }
             else
             {
-                foreach (var mailItem in inboxMailItems)
+                foreach (var (mailItem, accountPreferences) in inboxMailItems)
                 {
-                    await CreateSingleNotificationAsync(mailItem);
+                    await CreateSingleNotificationAsync(mailItem, accountPreferences);
                 }
             }
 
@@ -287,7 +292,7 @@ public class NotificationBuilder : INotificationBuilder
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail));
         builder.AddButton(CreateDismissButton());
 
-        QueueShowNotification(NotificationHostApplication.Mail, builder);
+        QueueShowNotification(NotificationHostApplication.Mail, builder, kindOverride: NotificationKind.Other);
     }
 
     public void CreateWebView2RuntimeMissingNotification()
@@ -298,14 +303,17 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
         builder.AddButton(CreateDismissButton());
 
-        QueueShowNotification(NotificationHostApplication.Mail, builder);
+        QueueShowNotification(NotificationHostApplication.Mail, builder, kindOverride: NotificationKind.Other);
     }
 
-    public Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
+    public async Task CreateCalendarReminderNotificationAsync(CalendarItem calendarItem, long reminderDurationInSeconds)
     {
         if (calendarItem == null)
-            return Task.CompletedTask;
+            return;
 
+        // Resolved so the account's own calendar-reminder switch and quiet hours stance apply,
+        // not just the app-wide default.
+        var accountPreferences = await GetCalendarAccountPreferencesAsync(calendarItem).ConfigureAwait(false);
         var builder = CreateBuilder(AppNotificationScenario.Reminder);
         var localStart = calendarItem.GetLocalStartDate();
         var reminderContext = GetCalendarReminderContext(localStart, DateTime.Now);
@@ -367,7 +375,18 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddButton(CreateDismissButton());
 
         var tag = $"calendar-reminder-{calendarItem.Id:N}-{reminderDurationInSeconds}";
-        return ShowNotificationAsync(NotificationHostApplication.Calendar, builder, tag);
+
+        await ShowNotificationAsync(NotificationHostApplication.Calendar, builder, tag, accountPreferences).ConfigureAwait(false);
+    }
+
+    private async Task<MailAccountPreferences?> GetCalendarAccountPreferencesAsync(CalendarItem calendarItem)
+    {
+        if (calendarItem.AssignedCalendar?.AccountId is not { } accountId)
+            return null;
+
+        var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+
+        return account?.Preferences;
     }
 
     public Task CreateTestCalendarReminderNotificationAsync(CalendarItem calendarItem)
@@ -434,8 +453,9 @@ public class NotificationBuilder : INotificationBuilder
         return ShowNotificationAsync(NotificationHostApplication.Tasks, builder, $"task-test-{task.Id:N}");
     }
 
-    private async Task CreateSingleNotificationAsync(MailCopy mailItem)
+    private async Task CreateSingleNotificationAsync(MailCopy mailItem, MailAccountPreferences? accountPreferences = null)
     {
+        var settings = NotificationSettingsResolver.ResolveMail(_preferencesService, accountPreferences);
         var builder = CreateBuilder();
 
         var senderPictureUri = GetContactPictureUri(mailItem);
@@ -449,9 +469,9 @@ public class NotificationBuilder : INotificationBuilder
             builder.SetAppLogoOverride(senderPictureUri, AppNotificationImageCrop.Circle);
 
         builder.SetTimeStamp(mailItem.CreationDate.ToLocalTime());
-        builder.AddText(mailItem.FromName);
-        builder.AddText(mailItem.Subject);
-        builder.AddText(mailItem.PreviewText);
+
+        AddMailNotificationText(builder, mailItem, settings.Content);
+
         builder.AddArgument(Constants.ToastMailUniqueIdKey, mailItem.UniqueId.ToString());
         builder.AddArgument(Constants.ToastActionKey, MailOperation.Navigate.ToString());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
@@ -460,16 +480,62 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddButton(CreateMailNotificationActionButton(firstAction, mailItem.UniqueId));
         builder.AddButton(CreateMailNotificationActionButton(secondAction, mailItem.UniqueId));
         builder.AddButton(CreateDismissButton());
-        builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.MailNotificationSoundEvent);
+        builder.SetAudioEvent((AppNotificationSoundEvent)settings.Sound);
 
-        await ShowNotificationAsync(NotificationHostApplication.Mail, builder, mailItem.UniqueId.ToString());
+        await ShowNotificationAsync(NotificationHostApplication.Mail, builder, mailItem.UniqueId.ToString(), accountPreferences);
     }
 
-    private static bool ShouldCreateMailNotification(MailCopy mailItem, IReadOnlyCollection<MailAccount> accounts)
+    /// <summary>
+    /// Writes as much of the message onto the toast as the account's content setting allows, so a
+    /// shared machine can show that mail arrived without showing who it is from or what it says.
+    /// </summary>
+    private static void AddMailNotificationText(AppNotificationBuilder builder, MailCopy mailItem, MailNotificationContent content)
+    {
+        if (content == MailNotificationContent.Nothing)
+        {
+            builder.AddText(Translator.Notifications_MultipleNotificationsTitle);
+            return;
+        }
+
+        builder.AddText(mailItem.FromName);
+
+        if (content == MailNotificationContent.SenderOnly)
+            return;
+
+        builder.AddText(mailItem.Subject);
+
+        if (content == MailNotificationContent.SenderSubjectPreview)
+        {
+            builder.AddText(mailItem.PreviewText);
+        }
+    }
+
+    private bool ShouldCreateMailNotification(MailCopy mailItem, IReadOnlyCollection<MailAccount> accounts)
     {
         var account = accounts.FirstOrDefault(account => account.Id == mailItem.AssignedFolder.MailAccountId);
+        var settings = NotificationSettingsResolver.ResolveMail(_preferencesService, account?.Preferences);
 
-        return account?.Preferences?.IsNotificationsEnabled == true;
+        return settings.IsEnabled && IsWithinNotificationScope(mailItem, settings.Scope);
+    }
+
+    /// <summary>
+    /// Applies the folder scope. Note this narrows previous behaviour: every downloaded message used
+    /// to raise a notification regardless of the folder it landed in.
+    /// </summary>
+    private static bool IsWithinNotificationScope(MailCopy mailItem, MailNotificationScope scope)
+    {
+        if (scope == MailNotificationScope.AllFolders)
+            return true;
+
+        var isInbox = mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox;
+
+        return scope switch
+        {
+            MailNotificationScope.InboxOnly => isInbox,
+            MailNotificationScope.FocusedInboxOnly => isInbox && mailItem.IsFocused,
+            MailNotificationScope.InboxAndCustomFolders => isInbox || mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Other,
+            _ => true
+        };
     }
 
     private void UpdateBadge(string applicationId, int? badgeCount)
@@ -576,12 +642,21 @@ public class NotificationBuilder : INotificationBuilder
     private static AppNotificationBuilder CreateBuilder(AppNotificationScenario scenario = AppNotificationScenario.Default)
         => new AppNotificationBuilder().SetScenario(scenario);
 
+    /// <summary>
+    /// The single gate every notification passes through. Snooze, quiet hours, the per-type switches
+    /// and the per-account overrides are all resolved here so no caller can bypass one of them.
+    /// Suppressed notifications are dropped rather than queued.
+    /// </summary>
     private async Task ShowNotificationAsync(
         NotificationHostApplication application,
         AppNotificationBuilder builder,
-        string? tag = null)
+        string? tag = null,
+        MailAccountPreferences? accountPreferences = null,
+        NotificationKind? kindOverride = null)
     {
-        if (_preferencesService.SnoozeNotifications)
+        var decision = _notificationPolicyService.Evaluate(kindOverride ?? ToNotificationKind(application), accountPreferences, DateTimeOffset.Now);
+
+        if (!decision.ShouldDeliver)
             return;
 
         var notification = builder.BuildNotification();
@@ -597,14 +672,25 @@ public class NotificationBuilder : INotificationBuilder
     private void QueueShowNotification(
         NotificationHostApplication application,
         AppNotificationBuilder builder,
-        string? tag = null)
+        string? tag = null,
+        MailAccountPreferences? accountPreferences = null,
+        NotificationKind? kindOverride = null)
     {
-        _ = ShowNotificationAsync(application, builder, tag).ContinueWith(
+        _ = ShowNotificationAsync(application, builder, tag, accountPreferences, kindOverride).ContinueWith(
             task => Log.Error(task.Exception, "Failed to dispatch {Application} notification.", application),
             CancellationToken.None,
             TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
     }
+
+    private static NotificationKind ToNotificationKind(NotificationHostApplication application)
+        => application switch
+        {
+            NotificationHostApplication.Mail => NotificationKind.Mail,
+            NotificationHostApplication.Calendar => NotificationKind.CalendarReminder,
+            NotificationHostApplication.Tasks => NotificationKind.TaskReminder,
+            _ => NotificationKind.Other
+        };
 
     private Uri? GetContactPictureUri(MailCopy mailItem)
         => mailItem.SenderContact?.ContactPictureFileId is { } fileId

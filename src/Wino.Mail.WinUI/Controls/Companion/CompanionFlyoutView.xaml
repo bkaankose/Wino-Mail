@@ -117,6 +117,10 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <StackPanel VerticalAlignment="Center">
                     <TextBlock
                         FontSize="17"
@@ -129,18 +133,58 @@
                         Text="{x:Bind ViewModel.DateText, Mode=OneWay}"
                         TextTrimming="CharacterEllipsis" />
                 </StackPanel>
-                <Button
+                <ToggleSplitButton
                     Grid.Column="1"
-                    Width="34"
                     Height="34"
-                    Padding="0"
                     AutomationProperties.AutomationId="CompanionSnoozeNotificationsButton"
                     AutomationProperties.Name="{x:Bind ViewModel.SnoozeActionText, Mode=OneWay}"
-                    Command="{x:Bind ViewModel.ToggleNotificationsCommand}"
-                    Style="{ThemeResource SubtleButtonStyle}"
+                    IsChecked="{x:Bind ViewModel.SnoozeNotifications, Mode=OneWay}"
+                    IsCheckedChanged="SnoozeSplitButton_IsCheckedChanged"
                     ToolTipService.ToolTip="{x:Bind ViewModel.SnoozeActionText, Mode=OneWay}">
                     <FontIcon FontSize="16" Glyph="{x:Bind ViewModel.SnoozeGlyph, Mode=OneWay}" />
-                </Button>
+                    <ToggleSplitButton.Flyout>
+                        <MenuFlyout Placement="Bottom">
+                            <!--  Only shown while a custom snooze set in Settings is running.  -->
+                            <ToggleMenuFlyoutItem
+                                x:Name="CustomSnoozeItem"
+                                AutomationProperties.AutomationId="CompanionSnoozeCustomItem"
+                                IsChecked="True"
+                                IsHitTestVisible="False"
+                                Text="{x:Bind ViewModel.CustomSnoozeText, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.CustomSnoozeVisibility, Mode=OneWay}" />
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="CompanionSnoozeThirtyMinutes"
+                                Click="SnoozePreset_Click"
+                                Tag="ThirtyMinutes"
+                                Text="{x:Bind domain:Translator.NotificationSnooze_ThirtyMinutes, Mode=OneTime}" />
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="CompanionSnoozeOneHour"
+                                Click="SnoozePreset_Click"
+                                Tag="OneHour"
+                                Text="{x:Bind domain:Translator.NotificationSnooze_OneHour, Mode=OneTime}" />
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="CompanionSnoozeTwoHours"
+                                Click="SnoozePreset_Click"
+                                Tag="TwoHours"
+                                Text="{x:Bind domain:Translator.NotificationSnooze_TwoHours, Mode=OneTime}" />
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="CompanionSnoozeRestOfDay"
+                                Click="SnoozePreset_Click"
+                                Tag="RestOfDay"
+                                Text="{x:Bind domain:Translator.NotificationSnooze_RestOfDay, Mode=OneTime}" />
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="CompanionSnoozeTomorrowMorning"
+                                Click="SnoozePreset_Click"
+                                Tag="UntilTomorrowMorning"
+                                Text="{x:Bind domain:Translator.NotificationSnooze_UntilTomorrowMorning, Mode=OneTime}" />
+                            <MenuFlyoutItem
+                                AutomationProperties.AutomationId="CompanionSnoozeUntilTurnedBackOn"
+                                Click="SnoozePreset_Click"
+                                Tag="UntilTurnedBackOn"
+                                Text="{x:Bind domain:Translator.NotificationSnooze_UntilTurnedBackOn, Mode=OneTime}" />
+                        </MenuFlyout>
+                    </ToggleSplitButton.Flyout>
+                </ToggleSplitButton>
                 <Button
                     Grid.Column="2"
                     Width="34"
@@ -153,6 +197,34 @@
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Settings, Mode=OneTime}">
                     <FontIcon FontSize="16" Glyph="&#xE713;" />
                 </Button>
+
+                <!--
+                    The snooze button is icon only, so this strip is what actually tells the user
+                    notifications are being held, and until when.
+                -->
+                <Border
+                    Grid.Row="1"
+                    Grid.ColumnSpan="3"
+                    Margin="0,10,4,0"
+                    Padding="10,6"
+                    AutomationProperties.AutomationId="CompanionSnoozeInfoBar"
+                    Background="{ThemeResource CompanionSubtleBackgroundBrush}"
+                    CornerRadius="4"
+                    Visibility="{x:Bind ViewModel.SnoozeInfoVisibility, Mode=OneWay}">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <FontIcon
+                            VerticalAlignment="Center"
+                            FontSize="13"
+                            Foreground="{ThemeResource CompanionSecondaryTextBrush}"
+                            Glyph="&#xE7ED;" />
+                        <TextBlock
+                            VerticalAlignment="Center"
+                            FontSize="12"
+                            Foreground="{ThemeResource CompanionSecondaryTextBrush}"
+                            Text="{x:Bind ViewModel.SnoozeInfoText, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Border>
             </Grid>
 
             <ItemsControl

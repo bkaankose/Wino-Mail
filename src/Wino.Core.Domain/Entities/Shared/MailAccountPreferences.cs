@@ -38,6 +38,50 @@ public partial class MailAccountPreferences
     public bool IsNotificationsEnabled { get; set; }
 
     /// <summary>
+    /// Gets or sets whether this account overrides the app-wide notification defaults.
+    /// While false, every field below is ignored and the defaults apply. Stored as an explicit flag
+    /// rather than nullable overrides so switching back to the defaults keeps the account's choices.
+    /// </summary>
+    public bool HasCustomNotificationSettings { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether new mail in this account raises a notification.
+    /// Only read when <see cref="HasCustomNotificationSettings"/> is true.
+    /// </summary>
+    public bool IsNewMailNotificationEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets which folders of this account raise a notification.
+    /// Only read when <see cref="HasCustomNotificationSettings"/> is true.
+    /// </summary>
+    public MailNotificationScope NotificationScope { get; set; } = MailNotificationScope.InboxOnly;
+
+    /// <summary>
+    /// Gets or sets how much of a message is shown on this account's notifications.
+    /// Only read when <see cref="HasCustomNotificationSettings"/> is true.
+    /// </summary>
+    public MailNotificationContent NotificationContent { get; set; } = MailNotificationContent.SenderSubjectPreview;
+
+    /// <summary>
+    /// Gets or sets the sound played for this account's notifications.
+    /// Only read when <see cref="HasCustomNotificationSettings"/> is true.
+    /// </summary>
+    public NotificationSoundEvent AccountNotificationSoundEvent { get; set; } = NotificationSoundEvent.Mail;
+
+    /// <summary>
+    /// Gets or sets whether calendars in this account raise reminder notifications.
+    /// Only read when <see cref="HasCustomNotificationSettings"/> is true.
+    /// </summary>
+    public bool AreCalendarRemindersEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether this account respects the app-wide quiet hours schedule.
+    /// Read whether or not the account overrides the other defaults, because it is a decision about
+    /// the account itself rather than about how its notifications look.
+    /// </summary>
+    public AccountQuietHoursStance QuietHoursStance { get; set; } = AccountQuietHoursStance.Follow;
+
+    /// <summary>
     /// Gets or sets whether the account has Focused inbox support.
     /// Null if the account provider type doesn't support Focused inbox.
     /// </summary>

@@ -66,6 +66,33 @@ public class MailCopyPersistenceTests : IAsyncLifetime
 
     public async Task DisposeAsync() => await _databaseService.DisposeAsync();
 
+    [Theory]
+    [InlineData(MailProviderType.Gmail)]
+    [InlineData(MailProviderType.Outlook)]
+    public async Task Metadata_refresh_preserves_cached_mime_identity(MailProviderType provider)
+    {
+        _account.ProviderType = provider;
+        await _databaseService.Connection.UpdateAsync(_account, typeof(MailAccount));
+        var original = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(), Id = "remote", FolderId = _inboxFolder.Id,
+            FileId = Guid.NewGuid(), Subject = "Before", IsPinned = true
+        };
+        await _databaseService.Connection.InsertAsync(original, typeof(MailCopy));
+        var refreshed = new MailCopy { Id = original.Id, FileId = Guid.NewGuid(), Subject = "After" };
+        var package = new NewMailItemPackage(refreshed, null, _inboxFolder.RemoteFolderId);
+
+        if (provider == MailProviderType.Gmail)
+            await _mailService.CreateMailsAsync(_account.Id, new List<NewMailItemPackage> { package });
+        else
+            await _mailService.CreateMailAsync(_account.Id, package);
+
+        var stored = await _databaseService.Connection.FindAsync<MailCopy>(original.UniqueId);
+        stored.FileId.Should().Be(original.FileId);
+        stored.Subject.Should().Be("After");
+        stored.IsPinned.Should().BeTrue();
+    }
+
     [Fact]
     public async Task DelayedDraftStateUpdate_PreservesLatestSavedContent()
     {

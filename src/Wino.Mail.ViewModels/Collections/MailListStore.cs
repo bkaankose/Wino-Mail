@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Mail.Controls.Core;
@@ -96,6 +97,42 @@ public sealed class MailListStore
         }));
 
     /// <summary>
+    /// Adds mail received through live synchronization without representing the same
+    /// server message more than once when providers expose one message through multiple folders.
+    /// </summary>
+    public Task AddLiveAsync(
+        MailCopy addedItem,
+        EntityUpdateSource source,
+        Func<MailCopy, bool> isPreferred) =>
+        AddLiveRangeAsync(
+            addedItem is null ? Array.Empty<MailCopy>() : (MailCopy[])[addedItem],
+            source,
+            isPreferred);
+
+    public Task AddLiveRangeAsync(
+        IEnumerable<MailCopy> addedItems,
+        EntityUpdateSource source,
+        Func<MailCopy, bool> isPreferred)
+    {
+        var incoming = addedItems?
+            .Where(static item => item is not null)
+            .GroupBy(static item => item.UniqueId)
+            .Select(static group => group.Last())
+            .ToArray() ?? [];
+
+        return RunSerializedAsync(() => ExecuteUIThread(() =>
+        {
+            using (Items.DeferRefresh())
+            {
+                foreach (var mailCopy in incoming)
+                {
+                    MergeLiveMail(mailCopy, source, isPreferred);
+                }
+            }
+        }));
+    }
+
+    /// <summary>
     /// Replaces the whole list with a new page in a single UI-thread pass. Used by folder,
     /// filter, sorting and search loads so a switch costs one dispatcher hop and one
     /// collection reset instead of a clear followed by a refill.
@@ -149,6 +186,12 @@ public sealed class MailListStore
                     var additions = new List<MailItemViewModel>(incoming.Length);
                     foreach (var item in incoming)
                     {
+                        if (item.MailCopy.AssignedAccount?.ProviderType == MailProviderType.Gmail)
+                        {
+                            MergeLiveMail(item.MailCopy, EntityUpdateSource.Server, null);
+                            continue;
+                        }
+
                         if (Items.TryGetItem(item.UniqueId, out MailItemViewModel existing))
                         {
                             existing.UpdateFrom(item.MailCopy);
@@ -172,7 +215,95 @@ public sealed class MailListStore
             .Where(static item => item is not null)
             .GroupBy(static item => item.UniqueId)
             .Select(static group => group.Last())
+            .GroupBy(static item => MailConversationIdentity.MessageKey(item.MailCopy))
+            .Select(static group => group.OrderBy(item => MailConversationIdentity.CopyRank(item.MailCopy))
+                .ThenBy(item => item.UniqueId).First())
             .ToArray() ?? [];
+
+    private void MergeLiveMail(
+        MailCopy incoming,
+        EntityUpdateSource source,
+        Func<MailCopy, bool> isPreferred)
+    {
+        var logicalMatches = ((IEnumerable<MailItemViewModel>)Items)
+            .Where(existing => HasSameLogicalIdentity(existing.MailCopy, incoming))
+            .ToArray();
+
+        if (logicalMatches.Length == 0)
+        {
+            if (Items.TryGetItem(incoming.UniqueId, out MailItemViewModel existing))
+            {
+                existing.UpdateFrom(incoming);
+                existing.IsBusy = source == EntityUpdateSource.ClientUpdated;
+                return;
+            }
+
+            var added = MailItemFactory(incoming);
+            added.IsBusy = source == EntityUpdateSource.ClientUpdated;
+            Items.TryAdd(added);
+            return;
+        }
+
+        var preferredExisting = isPreferred is null
+            ? null
+            : logicalMatches.FirstOrDefault(item => isPreferred(item.MailCopy));
+        var shouldUseIncoming = preferredExisting is null &&
+            (isPreferred?.Invoke(incoming) == true ||
+             logicalMatches.All(item => MailConversationIdentity.CopyRank(incoming) < MailConversationIdentity.CopyRank(item.MailCopy)));
+
+        if (shouldUseIncoming)
+        {
+            Items.RemoveRangeById(logicalMatches.Select(static item => item.UniqueId));
+
+            var added = MailItemFactory(incoming);
+            added.IsBusy = source == EntityUpdateSource.ClientUpdated;
+            Items.TryAdd(added);
+            return;
+        }
+
+        var retained = preferredExisting ??
+            logicalMatches.FirstOrDefault(item => item.UniqueId == incoming.UniqueId) ??
+            logicalMatches[0];
+        if (retained.UniqueId == incoming.UniqueId)
+        {
+            retained.UpdateFrom(incoming);
+        }
+        else
+        {
+            retained.ApplyStateChanges(incoming.IsRead, incoming.IsFlagged);
+            retained.IsPinned = incoming.IsPinned;
+            retained.IsFocused = incoming.IsFocused;
+        }
+
+        retained.IsBusy = source == EntityUpdateSource.ClientUpdated;
+
+        Items.RemoveRangeById(logicalMatches
+            .Where(item => item.UniqueId != retained.UniqueId)
+            .Select(static item => item.UniqueId));
+    }
+
+    private static bool HasSameLogicalIdentity(MailCopy left, MailCopy right)
+    {
+        if (left is null || right is null ||
+            string.IsNullOrWhiteSpace(left.Id) ||
+            string.IsNullOrWhiteSpace(right.Id) ||
+            !string.Equals(left.Id, right.Id, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var leftProvider = left.AssignedAccount?.ProviderType;
+        var rightProvider = right.AssignedAccount?.ProviderType;
+        if (leftProvider != MailProviderType.Gmail || rightProvider != MailProviderType.Gmail)
+        {
+            return false;
+        }
+
+        var leftAccountId = left.AssignedAccount?.Id ?? left.AssignedFolder?.MailAccountId ?? Guid.Empty;
+        var rightAccountId = right.AssignedAccount?.Id ?? right.AssignedFolder?.MailAccountId ?? Guid.Empty;
+
+        return leftAccountId != Guid.Empty && leftAccountId == rightAccountId;
+    }
 
     public Task UpdateThumbnailsForAddressAsync(string address)
     {
@@ -300,6 +431,37 @@ public sealed class MailListStore
             Log.Warning(ex, "Failed to find the next item to select.");
             return null;
         }
+    }
+
+    public Task RemoveLiveRangeAsync(
+        IEnumerable<MailCopy> removedItems,
+        IEnumerable<MailCopy> survivingCopies,
+        Func<MailCopy, bool> isPreferred)
+    {
+        var removed = removedItems.ToArray();
+        var removedIds = removed.Select(mail => mail.UniqueId).ToHashSet();
+        var survivors = survivingCopies.Where(mail => !removedIds.Contains(mail.UniqueId)).ToArray();
+
+        return RunSerializedAsync(() => ExecuteUIThread(() =>
+        {
+            using (Items.DeferRefresh())
+            {
+                foreach (var mail in removed)
+                {
+                    if (!Items.ContainsId(mail.UniqueId))
+                        continue;
+
+                    var replacement = survivors.Where(candidate => HasSameLogicalIdentity(mail, candidate))
+                        .OrderByDescending(candidate => isPreferred?.Invoke(candidate) == true)
+                        .ThenBy(MailConversationIdentity.CopyRank)
+                        .ThenBy(candidate => candidate.UniqueId)
+                        .FirstOrDefault();
+                    Items.RemoveRangeById(new[] { mail.UniqueId });
+                    if (replacement != null)
+                        MergeLiveMail(replacement, EntityUpdateSource.Server, isPreferred);
+                }
+            }
+        }));
     }
 
     public Task RemoveAsync(MailCopy removeItem) =>

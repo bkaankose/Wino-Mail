@@ -1,7 +1,7 @@
 using FluentAssertions;
 using Google.Apis.PeopleService.v1.Data;
 using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Synchronizers;
+using Wino.Core.Synchronizers.Mail;
 using Xunit;
 
 namespace Wino.Core.Tests.Synchronizers;
