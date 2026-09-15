@@ -1,6 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Serilog.Core;
 using Wino.Authentication;
+using Wino.Authentication.Exchange;
+using Wino.Authentication.Oidc;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Integration;
@@ -54,6 +56,14 @@ public static class CoreContainerSetup
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
+
+        // Exchange: one token cache per process; the WinUI head swaps the interactive sign-in for a WebView2 host.
+        services.AddSingleton<ExchangeTokenCache>();
+        services.AddTransient<IOidcTokenClient, OidcTokenClient>();
+        services.AddTransient<IInteractiveOidcAuthenticator, InteractiveOidcAuthenticator>();
+        services.AddTransient<ExchangeNtlmAuthenticator>();
+        services.AddTransient<ExchangeOAuthAuthenticator>();
+        services.AddTransient<IExchangeAuthenticator, ExchangeAuthenticator>();
 
         services.AddTransient<UnifiedImapSynchronizer>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();

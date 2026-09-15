@@ -13,6 +13,7 @@
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="Exchange.WebServices.NETCore" />
 		<PackageReference Include="Microsoft.Identity.Client" />
 		<PackageReference Include="Microsoft.Identity.Client.Broker" />
 		<PackageReference Include="Microsoft.Identity.Client.Extensions.Msal" />
