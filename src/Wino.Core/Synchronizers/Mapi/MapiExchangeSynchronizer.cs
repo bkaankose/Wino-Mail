@@ -1,4 +1,4 @@
-#nullable enable
+#nullable enable annotations
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -47,7 +47,7 @@ namespace Wino.Core.Synchronizers.Mapi;
 /// </summary>
 public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
 {
-    private static readonly ILogger Logger = Log.ForContext<MapiExchangeSynchronizer>();
+    private static new readonly ILogger Logger = Log.ForContext<MapiExchangeSynchronizer>();
 
     private const string MailCopyIdPrefix = "mapi:";
     private const string UserAgent = "WinoMail/MAPI";
@@ -824,6 +824,41 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
                 }
             }
         }, request, request);
+    }
+
+    /// <summary>
+    /// A later save of a server draft: the new MIME is written as a fresh message beside the old one,
+    /// the old one is deleted for good (a draft moved to Deleted Items would come back as an empty row),
+    /// and the new "mapi:" id is handed back so the local row follows it.
+    /// </summary>
+    public override async Task<DraftUpdateIdentity> UpdateDraftAsync(DraftUpdateSnapshot snapshot, MailCopy draft, CancellationToken cancellationToken = default)
+    {
+        var folders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var draftsFolderId = RequireFolderId(folders.FirstOrDefault(f => f.Id == draft.FolderId));
+        var previousMessageId = TryParseMailCopyId(draft.Id, out var parsed) ? parsed : (ulong?)null;
+
+        using var mime = snapshot.OpenMime();
+        var outgoing = MapiOutgoingMessageMapper.FromMime(mime);
+
+        await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+        var session = lease.Session;
+
+        var messageId = await MapiMessageComposer.CreateAsync(session, draftsFolderId, outgoing, cancellationToken, Diagnostics).ConfigureAwait(false);
+
+        if (previousMessageId is { } previous)
+        {
+            try
+            {
+                await MapiMessageOperations.DeleteAsync(session, draftsFolderId, [previous], cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Logger.Debug(ex, "Could not delete the superseded server draft {DraftId}.", draft.Id);
+            }
+        }
+
+        var id = ToMailCopyId(messageId);
+        return new DraftUpdateIdentity(id, id, draft.ThreadId);
     }
 
     // ------------------------------------------------------------------------------------------------

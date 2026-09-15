@@ -891,6 +891,46 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     protected override Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)
         => _exchangeChangeProcessor.MarkDraftSyncFailedAsync(mailUniqueId, error);
 
+    /// <summary>
+    /// A later save of a server draft. EWS accepts MimeContent only on creation, so the draft is
+    /// replaced: the new MIME is saved beside the old item, the old one is removed, and the new id is
+    /// handed back so the local row follows it (the draft update coordinator dedupes by id and folder).
+    /// </summary>
+    public override async Task<DraftUpdateIdentity> UpdateDraftAsync(DraftUpdateSnapshot snapshot, MailCopy draft, CancellationToken cancellationToken = default)
+    {
+        var draftsFolderId = draft.AssignedFolder?.RemoteFolderId
+            ?? throw new InvalidOperationException("The draft has no remote folder to be saved into.");
+
+        var service = await CreateServiceAsync().ConfigureAwait(false);
+
+        using var mime = snapshot.OpenMime();
+        using var stream = new MemoryStream();
+        await mime.WriteToAsync(stream, cancellationToken).ConfigureAwait(false);
+
+        var replacement = new EmailMessage(service)
+        {
+            MimeContent = new Microsoft.Exchange.WebServices.Data.MimeContent("UTF-8", stream.ToArray())
+        };
+
+        await replacement.Save(new FolderId(draftsFolderId)).ConfigureAwait(false);
+
+        try
+        {
+            await service.DeleteItems(
+                [new ItemId(draft.Id)],
+                DeleteMode.HardDelete,
+                SendCancellationsMode.SendToNone,
+                AffectedTaskOccurrence.AllOccurrences).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            // The old draft is superseded either way; the next Drafts sync removes a leftover.
+            _logger.Debug(ex, "Could not delete the superseded server draft {DraftId}.", draft.Id);
+        }
+
+        return new DraftUpdateIdentity(replacement.Id.UniqueId, replacement.Id.UniqueId, draft.ThreadId);
+    }
+
     #endregion
 
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<EwsRequest>> batchedRequests, CancellationToken cancellationToken = default)

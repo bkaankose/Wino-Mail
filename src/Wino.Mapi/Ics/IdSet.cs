@@ -56,11 +56,11 @@ public static class IdSet
         }
 
         var ids = new List<ulong>(longTermStyle.Count);
+        Span<byte> wire = stackalloc byte[8];
         foreach (var entry in longTermStyle)
         {
             // Wire order of a message id: ReplicaId (2, little-endian) then GlobalCounter (6). The
             // ulong form used everywhere else is the little-endian read of those 8 bytes.
-            Span<byte> wire = stackalloc byte[8];
             wire[0] = entry[0];
             wire[1] = entry[1];
             entry.AsSpan(16, 6).CopyTo(wire[2..]);
