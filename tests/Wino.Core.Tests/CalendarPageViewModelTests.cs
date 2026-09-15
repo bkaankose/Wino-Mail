@@ -368,6 +368,34 @@ public class CalendarPageViewModelTests
     }
 
     [Fact]
+    public async Task JoinOnlineCommand_LaunchesDirectJoinLinkBeforeHtmlLink()
+    {
+        var settings = CreateSettings();
+        var preferencesService = CreatePreferencesService(settings);
+        var calendarService = new Mock<ICalendarService>();
+        var nativeAppService = new Mock<INativeAppService>();
+        var account = CreateAccount();
+        var calendar = CreateCalendar(account, "Calendar");
+        var calendarState = new FakeAccountCalendarStateService([new AccountCalendarViewModel(account, calendar)]);
+        var item = CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 9, 0, 0), "Online");
+        item.DirectJoinLink = "https://meet.google.com/abc-defg-hij";
+        item.HtmlLink = "https://calendar.example/events/1";
+        var viewModel = CreateViewModel(
+            calendarService.Object,
+            preferencesService.Object,
+            new DateOnly(2026, 3, 20),
+            calendarState,
+            nativeAppService: nativeAppService.Object);
+
+        viewModel.DisplayDetailsCalendarItemViewModel = new CalendarItemViewModel(item);
+        await viewModel.JoinOnlineCommand.ExecuteAsync(null);
+
+        nativeAppService.Verify(
+            service => service.LaunchUriAsync(new Uri(item.DirectJoinLink)),
+            Times.Once);
+    }
+
+    [Fact]
     public void QuickEventInputChanges_RaiseCanSaveQuickEventForDialogSaveButton()
     {
         var settings = CreateSettings();

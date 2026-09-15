@@ -126,6 +126,67 @@ public sealed class CalendarReminderOwnershipTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task OutlookRefresh_PersistsStructuredOnlineMeetingJoinUrl()
+    {
+        var remoteEvent = new Event
+        {
+            Id = "remote-online-event",
+            Subject = "Teams meeting",
+            Start = new DateTimeTimeZone { DateTime = "2026-07-28T10:00:00", TimeZone = "UTC" },
+            End = new DateTimeTimeZone { DateTime = "2026-07-28T11:00:00", TimeZone = "UTC" },
+            Type = EventType.SingleInstance,
+            WebLink = "https://outlook.office.com/calendar/item/1",
+            OnlineMeeting = new OnlineMeetingInfo
+            {
+                JoinUrl = "https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc%40thread.v2/0"
+            }
+        };
+
+        await CreateProcessor().ManageCalendarEventAsync(remoteEvent, _calendar, _account);
+
+        var stored = await _calendarService.GetCalendarItemAsync(_calendar.Id, remoteEvent.Id);
+        stored.DirectJoinLink.Should().Be(remoteEvent.OnlineMeeting.JoinUrl);
+        stored.HtmlLink.Should().Be(remoteEvent.WebLink);
+    }
+
+    [Fact]
+    public async Task GmailRefresh_PersistsConferenceVideoEntryPoint()
+    {
+        var remoteEvent = new global::Google.Apis.Calendar.v3.Data.Event
+        {
+            Id = "google-online-event",
+            Summary = "Meet call",
+            Start = new global::Google.Apis.Calendar.v3.Data.EventDateTime { DateTimeDateTimeOffset = new DateTimeOffset(2026, 7, 28, 10, 0, 0, TimeSpan.Zero), TimeZone = "UTC" },
+            End = new global::Google.Apis.Calendar.v3.Data.EventDateTime { DateTimeDateTimeOffset = new DateTimeOffset(2026, 7, 28, 11, 0, 0, TimeSpan.Zero), TimeZone = "UTC" },
+            ConferenceData = new global::Google.Apis.Calendar.v3.Data.ConferenceData
+            {
+                EntryPoints =
+                [
+                    new global::Google.Apis.Calendar.v3.Data.EntryPoint
+                    {
+                        EntryPointType = "video",
+                        Uri = "https://meet.google.com/abc-defg-hij"
+                    }
+                ]
+            },
+            HtmlLink = "https://calendar.google.com/calendar/event?eid=1"
+        };
+        var processor = new GmailChangeProcessor(
+            _databaseService,
+            Mock.Of<IFolderService>(),
+            Mock.Of<IMailService>(),
+            _calendarService,
+            Mock.Of<IAccountService>(),
+            Mock.Of<IMimeFileService>());
+
+        await processor.ManageCalendarEventAsync(remoteEvent, _calendar, _account);
+
+        var stored = await _calendarService.GetCalendarItemAsync(_calendar.Id, remoteEvent.Id);
+        stored.DirectJoinLink.Should().Be("https://meet.google.com/abc-defg-hij");
+        stored.HtmlLink.Should().Be(remoteEvent.HtmlLink);
+    }
+
+    [Fact]
     public async Task PersistCreatedCalendarEventAsync_SavesEveryLocalReminderAfterRemoteCreate()
     {
         var item = new CalendarItem

@@ -10,6 +10,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Misc;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Migration;
 
 namespace Wino.Services;
@@ -28,6 +29,7 @@ public class DatabaseService : IDatabaseService
     private bool _isInitialized = false;
     private bool _cardDavCreationCapabilityMigrationRequired;
     private bool _countedFolderSeedRequired;
+    private bool _calendarDirectJoinLinkBackfillRequired;
     private readonly IApplicationConfiguration _folderConfiguration;
     private readonly string _databaseName;
 
@@ -70,6 +72,9 @@ public class DatabaseService : IDatabaseService
         var preCreateFolderColumns = await Connection.GetTableInfoAsync(nameof(MailItemFolder)).ConfigureAwait(false);
         _countedFolderSeedRequired = preCreateFolderColumns.Count > 0 &&
             !preCreateFolderColumns.Any(column => column.Name == nameof(MailItemFolder.IsCountedInAccountTotal));
+        var preCreateCalendarItemColumns = await Connection.GetTableInfoAsync(nameof(CalendarItem)).ConfigureAwait(false);
+        _calendarDirectJoinLinkBackfillRequired = preCreateCalendarItemColumns.Count > 0 &&
+            !preCreateCalendarItemColumns.Any(column => column.Name == nameof(CalendarItem.DirectJoinLink));
         await CreateTablesAsync();
         await Connection.ExecuteAsync($"PRAGMA user_version = {CurrentSchemaVersion};").ConfigureAwait(false);
         await EnsureLifecycleMetadataAsync(databaseAlreadyExists).ConfigureAwait(false);
@@ -624,6 +629,32 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
         }
 
         var calendarItemColumns = await Connection.GetTableInfoAsync(nameof(CalendarItem)).ConfigureAwait(false);
+
+        if (!calendarItemColumns.Any(c => c.Name == nameof(CalendarItem.DirectJoinLink)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CalendarItem)} ADD COLUMN {nameof(CalendarItem.DirectJoinLink)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (_calendarDirectJoinLinkBackfillRequired)
+        {
+            var calendarItems = await Connection.Table<CalendarItem>().ToListAsync().ConfigureAwait(false);
+            await Connection.RunInTransactionAsync(connection =>
+            {
+                foreach (var calendarItem in calendarItems)
+                {
+                    var directJoinLink = CalendarJoinLinkResolver.ResolveDirectJoinLink(null, calendarItem.Description);
+                    if (!string.IsNullOrWhiteSpace(directJoinLink))
+                    {
+                        connection.Execute(
+                            $"UPDATE {nameof(CalendarItem)} SET {nameof(CalendarItem.DirectJoinLink)} = ? WHERE {nameof(CalendarItem.Id)} = ?",
+                            directJoinLink,
+                            calendarItem.Id);
+                    }
+                }
+            }).ConfigureAwait(false);
+        }
 
         if (!calendarItemColumns.Any(c => c.Name == nameof(CalendarItem.SnoozedUntil)))
         {

@@ -140,6 +140,7 @@ public class TranslationService : ITranslationService
             "sk" => AppLanguage.Slovak,
             "tr" => AppLanguage.Turkish,
             "uk" => AppLanguage.Ukrainian,
+            "vi" => AppLanguage.Vietnamese,
             "zh" => AppLanguage.Chinese,
             _ => AppLanguage.None
         };
@@ -176,7 +177,8 @@ public class TranslationService : ITranslationService
             new AppLanguageModel(AppLanguage.Japanese, "Japanese", "ja-JP"),
             new AppLanguageModel(AppLanguage.Lithuanian, "Lithuanian", "lt-LT"),
             new AppLanguageModel(AppLanguage.Slovak, "Slovak", "sk-SK"),
-            new AppLanguageModel(AppLanguage.Ukrainian, "Ukrainian", "uk-UA")
+            new AppLanguageModel(AppLanguage.Ukrainian, "Ukrainian", "uk-UA"),
+            new AppLanguageModel(AppLanguage.Vietnamese, "Vietnamese", "vi-VN")
         ];
     }
 }

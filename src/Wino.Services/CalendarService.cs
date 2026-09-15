@@ -139,6 +139,9 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(calendarItem.DirectJoinLink))
+                calendarItem.DirectJoinLink = CalendarJoinLinkResolver.ResolveDirectJoinLink(null, calendarItem.Description);
+
             await Connection.RunInTransactionAsync((conn) =>
             {
                 conn.Insert(calendarItem, typeof(CalendarItem));
@@ -161,6 +164,9 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(calendarItem.DirectJoinLink))
+                calendarItem.DirectJoinLink = CalendarJoinLinkResolver.ResolveDirectJoinLink(null, calendarItem.Description);
+
             await Connection.RunInTransactionAsync((conn) =>
             {
                 conn.Update(calendarItem, typeof(CalendarItem));

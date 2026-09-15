@@ -72,6 +72,7 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
         savingItem.ShowAs = calendarEvent.ShowAs;
         savingItem.IsHidden = calendarEvent.IsHidden;
         savingItem.HtmlLink = string.Empty;
+        savingItem.DirectJoinLink = CalendarJoinLinkResolver.ResolveDirectJoinLink(null, savingItem.Description);
         savingItem.IsLocked = false;
         savingItem.OrganizerDisplayName = !string.IsNullOrWhiteSpace(calendarEvent.OrganizerDisplayName)
             ? calendarEvent.OrganizerDisplayName

@@ -110,7 +110,7 @@ public static class CalendarXamlHelpers
     }
 
     public static bool HasOnlineMeetingLink(CalendarItemViewModel calendarItemViewModel)
-        => calendarItemViewModel != null && !string.IsNullOrEmpty(calendarItemViewModel.CalendarItem?.HtmlLink);
+        => CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItemViewModel?.CalendarItem, out _);
 
     public static string GetAttendeeStatusText(AttendeeStatus status)
     {

@@ -19,6 +19,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Badges;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Notifications;
 using Wino.Helpers;
 using Wino.Mail.WinUI.Activation;
@@ -363,7 +364,7 @@ public class NotificationBuilder : INotificationBuilder
             .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
 
-        if (Uri.TryCreate(calendarItem.HtmlLink, UriKind.Absolute, out _))
+        if (CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _))
         {
             builder.AddButton(new AppNotificationButton(Translator.CalendarEventDetails_JoinOnline)
                 .SetIcon(GetNotificationIconUri("calendar-join"))

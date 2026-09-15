@@ -36,7 +36,7 @@ public class CalendarContextMenuItemService : ICalendarContextMenuItemService
                 new CalendarContextMenuAction(CalendarContextMenuActionType.Open, CalendarEventTargetType.Series)));
         }
 
-        if (!string.IsNullOrWhiteSpace(calendarItem.HtmlLink))
+        if (CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _))
         {
             items.Add(new CalendarContextMenuItem(
                 new CalendarContextMenuAction(CalendarContextMenuActionType.JoinOnline)));

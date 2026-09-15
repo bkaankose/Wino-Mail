@@ -565,10 +565,10 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     [RelayCommand]
     private Task JoinOnlineAsync()
     {
-        if (CurrentEvent == null || string.IsNullOrEmpty(CurrentEvent.CalendarItem.HtmlLink))
+        if (!CalendarJoinLinkResolver.TryGetEffectiveJoinUri(CurrentEvent?.CalendarItem, out var joinUri))
             return Task.CompletedTask;
 
-        return _nativeAppService.LaunchUriAsync(new Uri(CurrentEvent.CalendarItem.HtmlLink));
+        return _nativeAppService.LaunchUriAsync(joinUri);
     }
 
     [RelayCommand]

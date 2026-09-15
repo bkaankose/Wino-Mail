@@ -195,8 +195,9 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     public event EventHandler DetailsShowCalendarItemChanged;
 
-    public bool CanJoinOnline => DisplayDetailsCalendarItemViewModel != null &&
-                                 !string.IsNullOrEmpty(DisplayDetailsCalendarItemViewModel.CalendarItem.HtmlLink);
+    public bool CanJoinOnline => CalendarJoinLinkResolver.TryGetEffectiveJoinUri(
+        DisplayDetailsCalendarItemViewModel?.CalendarItem,
+        out _);
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEventDetailsVisible))]
@@ -353,10 +354,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [RelayCommand(CanExecute = nameof(CanJoinOnline))]
     private async Task JoinOnlineAsync()
     {
-        if (DisplayDetailsCalendarItemViewModel == null || string.IsNullOrEmpty(DisplayDetailsCalendarItemViewModel.CalendarItem.HtmlLink))
+        if (!CalendarJoinLinkResolver.TryGetEffectiveJoinUri(DisplayDetailsCalendarItemViewModel?.CalendarItem, out var joinUri))
             return;
 
-        await _nativeAppService.LaunchUriAsync(new Uri(DisplayDetailsCalendarItemViewModel.CalendarItem.HtmlLink));
+        await _nativeAppService.LaunchUriAsync(joinUri);
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -1157,6 +1158,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             IsHidden = calendarItem.IsHidden,
             CustomEventColorHex = calendarItem.CustomEventColorHex,
             HtmlLink = calendarItem.HtmlLink,
+            DirectJoinLink = calendarItem.DirectJoinLink,
             SnoozedUntil = calendarItem.SnoozedUntil,
             Status = calendarItem.Status,
             Visibility = calendarItem.Visibility,
@@ -1355,12 +1357,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
 
     private Task JoinOnlineAsync(CalendarItemViewModel calendarItemViewModel)
     {
-        var htmlLink = calendarItemViewModel?.CalendarItem?.HtmlLink;
-
-        if (string.IsNullOrWhiteSpace(htmlLink))
+        if (!CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItemViewModel?.CalendarItem, out var joinUri))
             return Task.CompletedTask;
 
-        return _nativeAppService.LaunchUriAsync(new Uri(htmlLink));
+        return _nativeAppService.LaunchUriAsync(joinUri);
     }
 
     private async Task DeleteCalendarItemAsync(CalendarItemViewModel calendarItemViewModel, CalendarEventTargetType targetType)

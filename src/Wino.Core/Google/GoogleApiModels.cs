@@ -378,6 +378,10 @@ namespace Google.Apis.Calendar.v3.Data
 
         public string HtmlLink { get; set; }
 
+        public string HangoutLink { get; set; }
+
+        public ConferenceData ConferenceData { get; set; }
+
         public string ICalUID { get; set; }
 
         public string Id { get; set; }
@@ -414,6 +418,18 @@ namespace Google.Apis.Calendar.v3.Data
 
             public bool? UseDefault { get; set; }
         }
+    }
+
+    public sealed class ConferenceData
+    {
+        public IList<EntryPoint> EntryPoints { get; set; }
+    }
+
+    public sealed class EntryPoint
+    {
+        public string EntryPointType { get; set; }
+
+        public string Uri { get; set; }
     }
 
     public sealed class EventAttachment

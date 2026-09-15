@@ -2,6 +2,7 @@ using FluentAssertions;
 using Moq;
 using SQLite;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -12,6 +13,47 @@ namespace Wino.Core.Tests.Services;
 
 public sealed class DatabaseMigrationTests
 {
+    [Fact]
+    public async Task InitializeAsync_AddsAndBackfillsCalendarDirectJoinLink()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"wino-calendar-join-schema-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var databasePath = Path.Combine(directory, DatabaseService.CurrentDatabaseName);
+        DatabaseService databaseService = null;
+        var eventId = Guid.NewGuid();
+
+        try
+        {
+            var legacyConnection = new SQLiteAsyncConnection(databasePath);
+            await legacyConnection.CreateTableAsync<CalendarItem>();
+            await legacyConnection.ExecuteAsync($"ALTER TABLE {nameof(CalendarItem)} DROP COLUMN {nameof(CalendarItem.DirectJoinLink)}");
+            await legacyConnection.ExecuteAsync(
+                $"INSERT INTO {nameof(CalendarItem)} ({nameof(CalendarItem.Id)}, {nameof(CalendarItem.Description)}) VALUES (?, ?)",
+                eventId,
+                "Join at https://meet.google.com/abc-defg-hij");
+            await MarkCompleted210Async(legacyConnection);
+            await legacyConnection.CloseAsync();
+
+            var configuration = new Mock<IApplicationConfiguration>();
+            configuration.SetupProperty(item => item.ApplicationDataFolderPath, directory);
+            databaseService = new DatabaseService(configuration.Object);
+
+            await databaseService.InitializeAsync();
+
+            (await databaseService.Connection.GetTableInfoAsync(nameof(CalendarItem)))
+                .Should().Contain(column => column.Name == nameof(CalendarItem.DirectJoinLink));
+            var migrated = await databaseService.Connection.FindAsync<CalendarItem>(eventId);
+            migrated.DirectJoinLink.Should().Be("https://meet.google.com/abc-defg-hij");
+        }
+        finally
+        {
+            if (databaseService?.Connection != null)
+                await databaseService.Connection.CloseAsync();
+            if (Directory.Exists(directory))
+                Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task InitializeAsync_AddsPop3IdentityAndDeletionPersistence()
     {

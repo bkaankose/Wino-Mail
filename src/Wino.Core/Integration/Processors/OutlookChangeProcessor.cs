@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Extensions;
 using Wino.Services;
@@ -130,6 +131,9 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         }
 
         savingItem.HtmlLink = calendarEvent.WebLink;
+        savingItem.DirectJoinLink = CalendarJoinLinkResolver.ResolveDirectJoinLink(
+            calendarEvent.OnlineMeeting?.JoinUrl,
+            savingItem.Description);
         savingItem.CalendarId = assignedCalendar.Id;
         savingItem.OrganizerEmail = calendarEvent.Organizer?.EmailAddress?.Address;
         savingItem.OrganizerDisplayName = calendarEvent.Organizer?.EmailAddress?.Name;

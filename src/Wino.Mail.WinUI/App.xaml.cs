@@ -1210,8 +1210,7 @@ public partial class App : WinoApplication,
         var nativeAppService = Services.GetRequiredService<INativeAppService>();
 
         var calendarItem = await calendarService.GetCalendarItemAsync(calendarItemId);
-        if (calendarItem == null ||
-            !Uri.TryCreate(calendarItem.HtmlLink, UriKind.Absolute, out var joinUri))
+        if (!CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out var joinUri))
         {
             return;
         }
