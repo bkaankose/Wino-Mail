@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>All in one suite</title>
+  <defs>
+    <linearGradient id="su-tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0081E6"/>
+      <stop offset="1" stop-color="#004AB0"/>
+    </linearGradient>
+    <linearGradient id="su-paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#F1F5FB"/>
+    </linearGradient>
+    <linearGradient id="su-acc" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#00C4FF"/>
+      <stop offset="1" stop-color="#0090F7"/>
+    </linearGradient>
+  </defs>
+
+  <!--  Mail tile  -->
+  <g>
+    <rect x="6" y="6" width="56" height="56" rx="16" fill="url(#su-tile)"/>
+    <rect x="18" y="23" width="32" height="22" rx="5" fill="url(#su-paper)"/>
+    <path d="M18 29 L34 40 L50 29 L50 28 A5 5 0 0 0 45 23 L23 23 A5 5 0 0 0 18 28 Z" fill="url(#su-acc)"/>
+  </g>
+
+  <!--  Calendar tile  -->
+  <g>
+    <rect x="66" y="6" width="56" height="56" rx="16" fill="url(#su-tile)"/>
+    <rect x="77" y="20" width="34" height="32" rx="6" fill="url(#su-paper)"/>
+    <path d="M77 26 A6 6 0 0 1 83 20 L105 20 A6 6 0 0 1 111 26 L111 29 L77 29 Z" fill="url(#su-acc)"/>
+    <rect x="82" y="34" width="7" height="6" rx="2" fill="#CFE1FB"/>
+    <rect x="92" y="34" width="7" height="6" rx="2" fill="#CFE1FB"/>
+    <rect x="102" y="34" width="7" height="6" rx="2" fill="#CFE1FB"/>
+    <rect x="82" y="43" width="7" height="6" rx="2" fill="#CFE1FB"/>
+    <rect x="92" y="43" width="7" height="6" rx="2" fill="url(#su-acc)"/>
+    <rect x="102" y="43" width="7" height="6" rx="2" fill="#CFE1FB"/>
+  </g>
+
+  <!--  Contacts tile  -->
+  <g>
+    <rect x="6" y="66" width="56" height="56" rx="16" fill="url(#su-tile)"/>
+    <circle cx="34" cy="86" r="9" fill="url(#su-paper)"/>
+    <path d="M34 98 c-11 0 -18 7.5 -19.4 16.4 a3 3 0 0 0 3 3.6 h32.8 a3 3 0 0 0 3 -3.6 C52 105.5 45 98 34 98 Z" fill="url(#su-paper)"/>
+    <circle cx="51" cy="82" r="6.5" fill="url(#su-acc)"/>
+  </g>
+
+  <!--  To Do tile  -->
+  <g>
+    <rect x="66" y="66" width="56" height="56" rx="16" fill="url(#su-tile)"/>
+    <rect x="78" y="78" width="32" height="32" rx="8" fill="url(#su-paper)"/>
+    <path d="M85 94.5 L91.5 101 L103 88" fill="none" stroke="url(#su-acc)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

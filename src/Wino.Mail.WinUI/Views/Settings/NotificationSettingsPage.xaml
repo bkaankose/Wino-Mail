@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:appControls="using:Wino.Controls"
+    xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
@@ -69,38 +70,7 @@
                                 <TextBlock Text="{x:Bind ViewModel.SelectedSnoozePresetText, Mode=OneWay}" />
                             </StackPanel>
                             <ToggleSplitButton.Flyout>
-                                <MenuFlyout Placement="Bottom">
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="NotificationSettingsSnoozePresetThirtyMinutes"
-                                        Click="SnoozePreset_Click"
-                                        Tag="ThirtyMinutes"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_ThirtyMinutes, Mode=OneTime}" />
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="NotificationSettingsSnoozePresetOneHour"
-                                        Click="SnoozePreset_Click"
-                                        Tag="OneHour"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_OneHour, Mode=OneTime}" />
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="NotificationSettingsSnoozePresetTwoHours"
-                                        Click="SnoozePreset_Click"
-                                        Tag="TwoHours"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_TwoHours, Mode=OneTime}" />
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="NotificationSettingsSnoozePresetRestOfDay"
-                                        Click="SnoozePreset_Click"
-                                        Tag="RestOfDay"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_RestOfDay, Mode=OneTime}" />
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="NotificationSettingsSnoozePresetUntilTomorrowMorning"
-                                        Click="SnoozePreset_Click"
-                                        Tag="UntilTomorrowMorning"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_UntilTomorrowMorning, Mode=OneTime}" />
-                                    <MenuFlyoutItem
-                                        AutomationProperties.AutomationId="NotificationSettingsSnoozePresetUntilTurnedBackOn"
-                                        Click="SnoozePreset_Click"
-                                        Tag="UntilTurnedBackOn"
-                                        Text="{x:Bind domain:Translator.NotificationSnooze_UntilTurnedBackOn, Mode=OneTime}" />
-                                </MenuFlyout>
+                                <contextFlyout:WinoContextFlyout ItemsSource="{x:Bind SnoozeItems, Mode=OneTime}" Placement="Bottom" />
                             </ToggleSplitButton.Flyout>
                         </ToggleSplitButton>
                     </StackPanel>

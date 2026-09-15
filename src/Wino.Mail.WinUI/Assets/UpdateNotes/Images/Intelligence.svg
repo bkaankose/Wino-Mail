@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Wino Intelligence</title>
+  <defs>
+    <linearGradient id="wi-spark" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#075FCC"/>
+      <stop offset="0.42" stop-color="#58BFFF"/>
+      <stop offset="0.66" stop-color="#7C5CFC"/>
+      <stop offset="1" stop-color="#1685EA"/>
+    </linearGradient>
+    <linearGradient id="wi-card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E6EDFB"/>
+    </linearGradient>
+    <linearGradient id="wi-band" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#58BFFF"/>
+      <stop offset="1" stop-color="#7C5CFC"/>
+    </linearGradient>
+  </defs>
+
+  <!--  Summarised message card  -->
+  <rect x="12" y="18" width="94" height="72" rx="14" fill="url(#wi-card)"/>
+  <path d="M12 32 A14 14 0 0 1 26 18 L92 18 A14 14 0 0 1 106 32 L106 35 L12 35 Z" fill="url(#wi-band)"/>
+  <rect x="25" y="47" width="56" height="7" rx="3.5" fill="#7C5CFC" opacity="0.4"/>
+  <rect x="25" y="61" width="66" height="6" rx="3" fill="#1685EA" opacity="0.3"/>
+  <rect x="25" y="73" width="44" height="6" rx="3" fill="#1685EA" opacity="0.22"/>
+
+  <!--  Brand sparkle  -->
+  <g transform="translate(92 90) scale(4.1) translate(-10.75 -10.5)">
+    <path fill="url(#wi-spark)" stroke="#FFFFFF" stroke-width="1.1" stroke-linejoin="round" d="M8.5,1.5 L10.2,6.8 15.5,8.5 10.2,10.2 8.5,15.5 6.8,10.2 1.5,8.5 6.8,6.8 Z M15.5,10.5 L16.6,13.9 20,15 16.6,16.1 15.5,19.5 14.4,16.1 11,15 14.4,13.9 Z"/>
+  </g>
+</svg>

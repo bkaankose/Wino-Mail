@@ -7,6 +7,18 @@ Set variables through Windows **Environment Variables**, under the developer's u
 Restart the terminal and its parent application after changes. Existing processes keep their previous environment.
 Secret values belong in the environment, never in this document or a script.
 
+## Store local-update signing
+
+Store builds use a local test certificate to sign the installable `.msixbundle`.
+The Partner Center `.msixupload` does not use this certificate.
+
+| Optional key | Default or value | Purpose and source |
+| --- | --- | --- |
+| `WINO_STORE_TEST_CERTIFICATE_THUMBPRINT` | Newest valid matching certificate | Certificate in `Cert:\CurrentUser\My`. Its subject must match the Store manifest publisher. |
+
+The command-line `-StoreTestCertificateThumbprint` value overrides this environment variable.
+The thumbprint is not a secret.
+
 ## Beta and stable sideload releases
 
 These seven variables are required when Beta or stable sideload is selected. Store-only releases need none of them.

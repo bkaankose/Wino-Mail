@@ -13,7 +13,8 @@ param(
     [switch]$Beta,
     [switch]$Sideload,
     [ValidateSet('x86', 'x64', 'ARM64')][string[]]$Architectures = @('x64'),
-    [string]$BetaAssetsPath
+    [string]$BetaAssetsPath,
+    [string]$StoreTestCertificateThumbprint
 )
 
 Set-StrictMode -Version Latest
@@ -133,7 +134,7 @@ function Get-ReleaseTools {
 
     $sdkRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits/10/bin'
     $required = @('makeappx.exe', 'makepri.exe')
-    if ($Selection.Beta -or $Selection.Sideload) { $required += 'signtool.exe' }
+    if ($Selection.Store -or $Selection.Beta -or $Selection.Sideload) { $required += 'signtool.exe' }
     $sdk = Get-ChildItem -LiteralPath $sdkRoot -Directory | Where-Object { $_.Name -match '^10\.0\.\d+\.\d+$' } |
         Sort-Object { [version]$_.Name } -Descending | Where-Object {
             $directory = $_.FullName
@@ -144,8 +145,47 @@ function Get-ReleaseTools {
         # Use the repository-pinned SDK's MSBuild. VS 2022's SDK resolver cannot load .NET 10.
         MSBuild = $dotnet; MakeAppx = Join-Path $sdk.FullName 'x64/makeappx.exe'
         MakePri = Join-Path $sdk.FullName 'x64/makepri.exe'
-        SignTool = if ($Selection.Beta -or $Selection.Sideload) { Join-Path $sdk.FullName 'x64/signtool.exe' } else { $null }
+        SignTool = if ($Selection.Store -or $Selection.Beta -or $Selection.Sideload) { Join-Path $sdk.FullName 'x64/signtool.exe' } else { $null }
     }
+}
+
+function Get-StoreSigningCertificate {
+    param([object]$Plan, [string]$Thumbprint)
+
+    if ([string]::IsNullOrWhiteSpace($Thumbprint)) {
+        $Thumbprint = [Environment]::GetEnvironmentVariable('WINO_STORE_TEST_CERTIFICATE_THUMBPRINT')
+    }
+
+    $now = Get-Date
+    if (-not [string]::IsNullOrWhiteSpace($Thumbprint)) {
+        $normalized = $Thumbprint.Replace(' ', '').ToUpperInvariant()
+        if ($normalized -notmatch '^[0-9A-F]{40}$') {
+            throw 'The Store test certificate thumbprint must contain exactly 40 hexadecimal characters.'
+        }
+        $certificates = @(Get-Item -LiteralPath "Cert:\CurrentUser\My\$normalized" -ErrorAction SilentlyContinue)
+    }
+    else {
+        $certificates = @(Get-ChildItem Cert:\CurrentUser\My | Where-Object {
+            $_.Subject -ceq $Plan.StorePublisher -and $_.HasPrivateKey -and
+            $_.NotBefore -le $now -and $_.NotAfter -gt $now -and
+            @($_.EnhancedKeyUsageList | Where-Object { $_.ObjectId -eq '1.3.6.1.5.5.7.3.3' }).Count -gt 0
+        } | Sort-Object NotBefore -Descending)
+    }
+
+    if ($certificates.Count -eq 0) {
+        throw "No Store test signing certificate was found in Cert:\CurrentUser\My for publisher '$($Plan.StorePublisher)'. Create or import one, or set WINO_STORE_TEST_CERTIFICATE_THUMBPRINT."
+    }
+
+    $certificate = $certificates[0]
+    if ($certificate.Subject -cne $Plan.StorePublisher) { throw 'The Store test certificate subject does not match the Store manifest publisher.' }
+    if (-not $certificate.HasPrivateKey) { throw 'The Store test certificate does not have an accessible private key.' }
+    if ($certificate.NotBefore -gt $now -or $certificate.NotAfter -le $now) { throw 'The Store test certificate is not currently valid.' }
+    if (@($certificate.EnhancedKeyUsageList | Where-Object { $_.ObjectId -eq '1.3.6.1.5.5.7.3.3' }).Count -eq 0) {
+        throw 'The Store test certificate is not valid for code signing.'
+    }
+
+    Write-Host "Store test signing certificate: $($certificate.Thumbprint) (expires $($certificate.NotAfter.ToString('u')))"
+    return $certificate
 }
 
 function Get-ReleaseSigningConfiguration {
@@ -543,8 +583,23 @@ function Assert-PackagedReleaseProfile {
     }
 }
 
+function Sign-StoreReleaseBundle {
+    param([string]$Bundle, [string]$CertificatePath, [object]$Certificate, [object]$Tools, [string]$LogPath)
+
+    Invoke-ReleaseTool $Tools.SignTool @('sign', '/fd', 'SHA256', '/sha1', $Certificate.Thumbprint, $Bundle) $LogPath
+    $signature = Get-AuthenticodeSignature -LiteralPath $Bundle
+    if ($null -eq $signature.SignerCertificate -or $signature.SignerCertificate.Thumbprint -cne $Certificate.Thumbprint) {
+        throw 'The locally installable Store bundle signature does not match the selected certificate.'
+    }
+
+    $exported = Export-Certificate -Cert $Certificate -FilePath $CertificatePath -Type CERT -Force
+    if ($null -eq $exported -or -not (Test-Path -LiteralPath $CertificatePath -PathType Leaf)) {
+        throw 'The Store test signing certificate could not be exported.'
+    }
+}
+
 function Get-StoreReleaseArtifact {
-    param([object]$Plan, [string]$Staging)
+    param([object]$Plan, [string]$Staging, [object]$Tools, [object]$StoreCertificate)
 
     $uploads = @(Get-ChildItem -LiteralPath (Join-Path $Staging 'sdk') -Filter '*.msixupload' -File -Recurse)
     if ($uploads.Count -ne 1) { throw "Expected one Store upload file. Found $($uploads.Count)." }
@@ -561,7 +616,10 @@ function Get-StoreReleaseArtifact {
     $folder = Join-Path $Staging "ready/WinoMail_Store_$($Plan.Version)"
     $null = New-Item -ItemType Directory -Path $folder -Force
     Copy-Item -LiteralPath $uploads[0].FullName -Destination (Join-Path $folder "WinoMail_Store_$($Plan.Version).msixupload")
-    Copy-Item -LiteralPath $bundlePath -Destination (Join-Path $folder "WinoMail_Store_$($Plan.Version).msixbundle")
+    $installableBundle = Join-Path $folder "WinoMail_Store_$($Plan.Version).msixbundle"
+    $certificatePath = Join-Path $folder 'WinoMail_Store_TestCertificate.cer'
+    Copy-Item -LiteralPath $bundlePath -Destination $installableBundle
+    Sign-StoreReleaseBundle $installableBundle $certificatePath $StoreCertificate $Tools (Join-Path $Staging 'logs/sign-store-test.log')
     return $hashes
 }
 
@@ -744,7 +802,7 @@ function Remove-ReleaseStaging {
 }
 
 function Invoke-ReleaseBuild {
-    param([object]$Plan, [object]$Tools, [object]$Signing)
+    param([object]$Plan, [object]$Tools, [object]$Signing, [object]$StoreCertificate)
 
     $null = New-Item -ItemType Directory -Path $Plan.OutputRoot -Force
     $lock = $null
@@ -763,8 +821,8 @@ function Invoke-ReleaseBuild {
         Invoke-ReleaseTool $Tools.MSBuild (Get-ReleaseBuildArguments $Plan $staging) (Join-Path $staging 'logs/build.log')
         $storeHashes = $null
         if ($Plan.Selection.Store) {
-            $stage = 'Store verification'
-            $storeHashes = Get-StoreReleaseArtifact $Plan $staging
+            $stage = 'Store verification and local test signing'
+            $storeHashes = Get-StoreReleaseArtifact $Plan $staging $Tools $StoreCertificate
         }
         foreach ($channel in $Plan.SideloadChannels) {
             $profile = Get-ReleaseProfile $Plan $channel.Name
@@ -823,8 +881,9 @@ function Invoke-InteractiveRelease {
     Write-Host "Version: $($plan.Version) | Store: $($selection.Store) | Beta: $($selection.Beta) | Stable sideload: $($selection.Sideload) | Architectures: $($selection.Architectures -join ', ')"
     $plan.Destinations | ForEach-Object { Write-Host "Output: $_" }
     $tools = Get-ReleaseTools $selection
+    $storeCertificate = if ($selection.Store) { Get-StoreSigningCertificate $plan $StoreTestCertificateThumbprint } else { $null }
     $signing = if ($selection.Beta -or $selection.Sideload) { Get-ReleaseSigningConfiguration -IncludeBeta:$selection.Beta -IncludeSideload:$selection.Sideload } else { $null }
-    Invoke-ReleaseBuild $plan $tools $signing
+    Invoke-ReleaseBuild $plan $tools $signing $storeCertificate
     if (-not $NonInteractive) {
         try { Invoke-Item -LiteralPath $plan.OutputRoot } catch { Write-Warning 'Packages are ready, but Explorer could not open the output folder.' }
     }

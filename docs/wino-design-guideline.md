@@ -162,7 +162,7 @@ The selected backdrop is decorative. The content layer, selected state, focus vi
 
 ### Searchable context commands
 
-- Use `WinoContextFlyout` when a contextual command set is long enough to benefit from filtering.
+- Use `WinoContextFlyout` for application context menus instead of `MenuFlyout`. Also use it for contextual command flyouts that present actions for an item or page. Selector flyouts can keep their purpose-built controls when they require live radio, toggle, or editor state. The companion snooze flyout is the sole contextual exception because it is a compact, transient tray surface.
 - Define the menu as `Wino.Mail.Controls.Core.ContextFlyout` entries and pass them through `ItemsSource` and `HeaderItemsSource`. Never declare menu content with XAML menu types: the control renders and filters a definition, it never builds one.
 - Describe an entry icon as a glyph from the packaged Wino icon font, with an optional colour hex for entries that carry their own colour, such as mail categories.
 - Keep optional root search first. Collapse it when disabled; entering a submenu enables and focuses search for that subtree.

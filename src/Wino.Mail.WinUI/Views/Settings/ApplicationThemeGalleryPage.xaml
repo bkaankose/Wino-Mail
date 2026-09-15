@@ -136,24 +136,7 @@
                         Width="175"
                         AutomationProperties.Name="{x:Bind ThemeName}"
                         ContextRequested="ThemeCardContextRequested"
-                        CornerRadius="6"
-                        Loaded="ThemeCardLoaded">
-                        <Border.ContextFlyout>
-                            <MenuFlyout>
-                                <MenuFlyoutItem
-                                    AutomationProperties.AutomationId="ApplicationThemeGalleryEditMenuItem"
-                                    Click="EditThemeClick"
-                                    Tag="{x:Bind}"
-                                    Text="{x:Bind domain:Translator.Buttons_Edit, Mode=OneTime}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
-                                <MenuFlyoutItem
-                                    AutomationProperties.AutomationId="ApplicationThemeGalleryRemoveMenuItem"
-                                    Click="RemoveThemeClick"
-                                    Tag="{x:Bind}"
-                                    Text="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}"
-                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsCustomTheme), Mode=OneTime}" />
-                            </MenuFlyout>
-                        </Border.ContextFlyout>
+                        CornerRadius="6">
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="125" />

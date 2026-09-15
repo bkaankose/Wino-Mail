@@ -133,7 +133,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         // is the whole control in compact mode, so the wide layout's width floor must then disappear.
         TitleBarSearchBox.MinWidth = isCompact ? 0 : 280;
         TitleBarSearchBox.MaxWidth = isCompact ? 48 : 520;
-        TitleBarSearchBox.HorizontalAlignment = isCompact ? HorizontalAlignment.Center : HorizontalAlignment.Stretch;
+        TitleBarSearchBox.HorizontalAlignment = isCompact ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
     }
 
     private void ConfigureTitleBar()

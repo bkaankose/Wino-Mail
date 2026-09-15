@@ -1,20 +1,21 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Mail.Controls.ContextFlyout;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.WinUI.Controls;
 
-public partial class ContactCardMenuFlyout : WinoMenuFlyout
+public partial class ContactCardMenuFlyout : WinoContextFlyout
 {
     private int _showRequestVersion;
 #if DEBUG
@@ -61,11 +62,11 @@ public partial class ContactCardMenuFlyout : WinoMenuFlyout
         AccountContactViewModel contact,
         IReadOnlyList<ContactList> assignableLists)
     {
-        Items.Clear();
+        var items = new List<ContextFlyoutMenuEntry>();
 
         if (contact.CanEdit)
         {
-            Items.Add(CreateCommandItem(
+            items.Add(CreateCommandItem(
                 Translator.ContactAction_Edit,
                 "\uE70F",
                 "ContactCardContextEdit",
@@ -73,7 +74,7 @@ public partial class ContactCardMenuFlyout : WinoMenuFlyout
                 contact));
         }
 
-        Items.Add(CreateCommandItem(
+        items.Add(CreateCommandItem(
             contact.FavoriteActionText,
             "\uE734",
             "ContactCardContextFavorite",
@@ -82,7 +83,7 @@ public partial class ContactCardMenuFlyout : WinoMenuFlyout
 
         if (contact.CanSendMail)
         {
-            Items.Add(CreateCommandItem(
+            items.Add(CreateCommandItem(
                 Translator.ContactAction_SendMail,
                 "\uE715",
                 "ContactCardContextSendMail",
@@ -92,71 +93,71 @@ public partial class ContactCardMenuFlyout : WinoMenuFlyout
 
         if (assignableLists.Count > 0)
         {
-            var assignSubItem = new MenuFlyoutSubItem
-            {
-                Text = Translator.ContactAction_AddToList,
-                Icon = CreateIcon("\uE8FD")
-            };
-            AutomationProperties.SetAutomationId(assignSubItem, "ContactCardContextAssignToList");
-
+            var assignItems = new List<ContextFlyoutMenuEntry>();
             foreach (var list in assignableLists)
             {
-                var listItem = new MenuFlyoutItem
+                assignItems.Add(new ContextFlyoutCommandEntry
                 {
                     Text = list.Name,
-                    Tag = list
-                };
-                AutomationProperties.SetAutomationId(listItem, $"ContactCardContextAssignList_{list.Id:N}");
-                listItem.Click += async (_, _) => await viewModel.AssignContactsToListAsync(list, new[] { contact.Id });
-                assignSubItem.Items.Add(listItem);
+                    Command = new AsyncRelayCommand(() => viewModel.AssignContactsToListAsync(list, (System.Guid[])[contact.Id])),
+                    AutomationId = $"ContactCardContextAssignList_{list.Id:N}"
+                });
             }
 
-            Items.Add(assignSubItem);
+            items.Add(new ContextFlyoutSubMenuEntry
+            {
+                Text = Translator.ContactAction_AddToList,
+                Icon = CreateIcon("\uE8FD"),
+                Items = assignItems,
+                AutomationId = "ContactCardContextAssignToList"
+            });
         }
 
 #if DEBUG
-        Items.Add(new MenuFlyoutSeparator());
-        var testNotificationItem = new MenuFlyoutItem
+        items.Add(ContextFlyoutSeparatorEntry.Instance);
+        items.Add(new ContextFlyoutCommandEntry
         {
             Text = Translator.Buttons_TestNotification,
-            Icon = CreateIcon("\uE7ED")
-        };
-        AutomationProperties.SetAutomationId(testNotificationItem, "ContactCardContextTestNotification");
-        testNotificationItem.Click += async (_, _) =>
-            await _notificationBuilder.CreateTestPeopleNotificationAsync(contact.SourceContact);
-        Items.Add(testNotificationItem);
+            Icon = CreateIcon("\uE7ED"),
+            Command = new AsyncRelayCommand(() => _notificationBuilder.CreateTestPeopleNotificationAsync(contact.SourceContact)),
+            AutomationId = "ContactCardContextTestNotification"
+        });
 #endif
 
         if (contact.CanDelete)
         {
-            Items.Add(new MenuFlyoutSeparator());
-            Items.Add(CreateCommandItem(
+            items.Add(ContextFlyoutSeparatorEntry.Instance);
+            items.Add(CreateCommandItem(
                 Translator.ContactAction_Delete,
                 "\uE74D",
                 "ContactCardContextDelete",
                 viewModel.DeleteContactCommand,
-                contact));
+                contact,
+                isDestructive: true,
+                shortcut: new ContextFlyoutShortcut("Delete", "Delete")));
         }
+
+        ItemsSource = items;
     }
 
-    private static MenuFlyoutItem CreateCommandItem(
+    private static ContextFlyoutCommandEntry CreateCommandItem(
         string text,
         string glyph,
         string automationId,
         System.Windows.Input.ICommand command,
-        object commandParameter)
-    {
-        var item = new MenuFlyoutItem
+        object commandParameter,
+        bool isDestructive = false,
+        ContextFlyoutShortcut? shortcut = null)
+        => new()
         {
             Text = text,
             Icon = CreateIcon(glyph),
             Command = command,
-            CommandParameter = commandParameter
+            CommandParameter = commandParameter,
+            IsDestructive = isDestructive,
+            Shortcut = shortcut,
+            AutomationId = automationId
         };
-        AutomationProperties.SetAutomationId(item, automationId);
-        return item;
-    }
 
-    private static FontIcon CreateIcon(string glyph)
-        => new() { Glyph = glyph, FontSize = 16 };
+    private static ContextFlyoutIcon CreateIcon(string glyph) => new(glyph);
 }

@@ -4,9 +4,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
@@ -21,6 +21,8 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
+using Wino.Helpers;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
 using Wino.MenuFlyouts;
@@ -143,6 +145,209 @@ public sealed partial class ShellMenuTemplates
 
     #region Context menus
 
+    private void AccountContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: IAccountNavigationMenuItem account } target)
+            return;
+
+        var items = new List<ContextFlyoutMenuEntry>
+        {
+            CreateContextCommand(
+                Translator.AccountContextMenu_ManageAccountSettings,
+                "\uE77B",
+                "AccountContextManageSettings",
+                new RelayCommand(() => OpenAccountSettings(account)))
+        };
+
+        if (account.SupportsAccountSynchronization)
+        {
+            items.Add(CreateContextCommand(
+                Translator.Buttons_Sync,
+                "\uE895",
+                "AccountContextSynchronize",
+                new AsyncRelayCommand(account.SynchronizeAccountAsync)));
+        }
+
+        if (account is AccountMenuItem mailAccount && account.SupportsMailAccountActions)
+        {
+            items.Add(CreateContextCommand(
+                Translator.AccountContextMenu_CreateFolder,
+                "\uE8F4",
+                "AccountContextCreateFolder",
+                new AsyncRelayCommand(() => MailClient.CreateRootFolderAsync(mailAccount))));
+        }
+
+        WinoContextFlyoutHelper.Show(target, args, items);
+    }
+
+    private void ContactListContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: ContactFilterViewModel contactList } target)
+            return;
+
+        if (!contactList.CanRenameOrDelete)
+        {
+            args.Handled = true;
+            return;
+        }
+
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            CreateContextCommand(
+                Translator.ContactList_Rename,
+                "\uE8AC",
+                "ContactsPaneRenameList",
+                contactList.RenameListCommand),
+            CreateContextCommand(
+                Translator.ContactsPage_Delete,
+                "\uE74D",
+                "ContactsPaneDeleteList",
+                contactList.DeleteListCommand,
+                isDestructive: true,
+                shortcut: new ContextFlyoutShortcut("Delete", "Delete"))
+        ]);
+    }
+
+    private void TaskGroupContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: AccountTaskListGroupMenuItem group } target)
+            return;
+
+        var items = new List<ContextFlyoutMenuEntry>();
+        if (group.NewListRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_NewList,
+                "\uE710",
+                "ToDoGroupNewList",
+                new AsyncRelayCommand(() => group.NewListRequested(group))));
+        }
+
+        if (group.IsEditable && group.RenameRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_RenameGroup,
+                "\uE8AC",
+                "ToDoGroupRename",
+                new AsyncRelayCommand(() => group.RenameRequested(group))));
+        }
+
+        if (group.CanUngroup && group.UngroupRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_UngroupLists,
+                "\uE8F1",
+                "ToDoGroupUngroupLists",
+                new AsyncRelayCommand(() => group.UngroupRequested(group))));
+        }
+
+        if (group.CanDelete && group.DeleteRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_DeleteGroup,
+                "\uE74D",
+                "ToDoGroupDelete",
+                new AsyncRelayCommand(() => group.DeleteRequested(group)),
+                isDestructive: true,
+                shortcut: new ContextFlyoutShortcut("Delete", "Delete")));
+        }
+
+        WinoContextFlyoutHelper.Show(target, args, items);
+    }
+
+    private void TaskListContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: AccountTaskListMenuItem list } target)
+            return;
+
+        var items = new List<ContextFlyoutMenuEntry>();
+        if (list.RenameRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_RenameList,
+                "\uE8AC",
+                "ToDoListRename",
+                new AsyncRelayCommand(() => list.RenameRequested(list))));
+        }
+
+        if (list.IsGrouped && list.RemoveFromGroupRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_RemoveFromGroup,
+                "\uE8F1",
+                "ToDoListRemoveFromGroup",
+                new AsyncRelayCommand(() => list.RemoveFromGroupRequested(list))));
+        }
+
+        if (list.CanMoveToGroup && list.MoveToGroupRequested is not null)
+        {
+            var destinations = list.AvailableGroups
+                .Where(group => group.Id != list.Parameter.GroupId)
+                .Select(group => (ContextFlyoutMenuEntry)CreateContextCommand(
+                    group.Title,
+                    "\uE8B7",
+                    $"ToDoMoveToGroup_{group.Id:N}",
+                    new AsyncRelayCommand(() => list.MoveToGroupRequested(list, group.Id))))
+                .ToArray();
+
+            if (destinations.Length > 0)
+            {
+                items.Add(new ContextFlyoutSubMenuEntry
+                {
+                    Text = Translator.ToDoPage_MoveToGroup,
+                    Icon = new ContextFlyoutIcon("\uE8DE"),
+                    Items = destinations,
+                    AutomationId = "ToDoListMoveToGroup"
+                });
+            }
+        }
+
+        if (list.CanDelete && list.DeleteRequested is not null)
+        {
+            items.Add(ContextFlyoutSeparatorEntry.Instance);
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_DeleteList,
+                "\uE74D",
+                "ToDoListDelete",
+                new AsyncRelayCommand(() => list.DeleteRequested(list)),
+                isDestructive: true,
+                shortcut: new ContextFlyoutShortcut("Delete", "Delete")));
+        }
+
+        WinoContextFlyoutHelper.Show(target, args, items);
+    }
+
+    private static ContextFlyoutCommandEntry CreateContextCommand(
+        string text,
+        string glyph,
+        string automationId,
+        System.Windows.Input.ICommand command,
+        bool isDestructive = false,
+        ContextFlyoutShortcut? shortcut = null)
+        => new()
+        {
+            Text = text,
+            Icon = new ContextFlyoutIcon(glyph),
+            Command = command,
+            IsEnabled = command.CanExecute(null),
+            IsDestructive = isDestructive,
+            Shortcut = shortcut,
+            AutomationId = automationId
+        };
+
+    private static void OpenAccountSettings(IAccountNavigationMenuItem accountMenuItem)
+    {
+        NavigationService.ChangeApplicationMode(
+            WinoApplicationMode.Settings,
+            new ShellModeActivationContext
+            {
+                Parameter = new SettingsPageActivationContext(
+                    WinoPage.ManageAccountsPage,
+                    new AccountDetailsNavigationContext(accountMenuItem.Account.Id, accountMenuItem.AccountDetailsTab)),
+                SuppressStartupFlows = true
+            });
+    }
+
     private async void MenuItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         if (sender is not WinoNavigationViewItem menuItem ||
@@ -175,36 +380,6 @@ public sealed partial class ShellMenuTemplates
         }
     }
 
-    private void ManageAccountSettingsMenuItemClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { DataContext: IAccountNavigationMenuItem accountMenuItem })
-            return;
-
-        NavigationService.ChangeApplicationMode(
-            WinoApplicationMode.Settings,
-            new ShellModeActivationContext
-            {
-                Parameter = new SettingsPageActivationContext(
-                    WinoPage.ManageAccountsPage,
-                    new AccountDetailsNavigationContext(accountMenuItem.Account.Id, accountMenuItem.AccountDetailsTab)),
-                SuppressStartupFlows = true
-            });
-    }
-
-    private async void SynchronizeAccountMenuItemClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: IAccountNavigationMenuItem accountMenuItem })
-            await accountMenuItem.SynchronizeAccountAsync();
-    }
-
-    private async void CreateFolderMenuItemClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: AccountMenuItem accountMenuItem })
-        {
-            await MailClient.CreateRootFolderAsync(accountMenuItem);
-        }
-    }
-
     private async void AttentionIconClicked(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { DataContext: AccountMenuItem accountMenuItem })
@@ -228,83 +403,6 @@ public sealed partial class ShellMenuTemplates
     {
         if (MenuItem<NewTaskListMenuItem>(sender) is { NewGroupRequested: not null } item)
             await item.NewGroupRequested();
-    }
-
-    private async void GroupNewList_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListGroupMenuItem>(sender) is { NewListRequested: not null } item)
-            await item.NewListRequested(item);
-    }
-
-    private async void GroupRename_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListGroupMenuItem>(sender) is { RenameRequested: not null } item)
-            await item.RenameRequested(item);
-    }
-
-    private async void GroupUngroup_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListGroupMenuItem>(sender) is { UngroupRequested: not null } item)
-            await item.UngroupRequested(item);
-    }
-
-    private async void GroupDelete_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListGroupMenuItem>(sender) is { DeleteRequested: not null } item)
-            await item.DeleteRequested(item);
-    }
-
-    private async void ListRename_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListMenuItem>(sender) is { RenameRequested: not null } item)
-            await item.RenameRequested(item);
-    }
-
-    private async void ListRemoveFromGroup_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListMenuItem>(sender) is { RemoveFromGroupRequested: not null } item)
-            await item.RemoveFromGroupRequested(item);
-    }
-
-    private async void ListDelete_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListMenuItem>(sender) is { DeleteRequested: not null } item)
-            await item.DeleteRequested(item);
-    }
-
-    private void ListFlyout_Opening(object sender, object e)
-    {
-        if (sender is not MenuFlyout flyout ||
-            flyout.Items.OfType<MenuFlyoutItemBase>().Select(candidate => (candidate as FrameworkElement)?.Tag).OfType<AccountTaskListMenuItem>().FirstOrDefault() is not { } item)
-            return;
-
-        var remove = flyout.Items.OfType<MenuFlyoutItem>().FirstOrDefault(candidate =>
-            AutomationProperties.GetAutomationId(candidate) == "ToDoListRemoveFromGroup");
-        if (remove is not null)
-            remove.Visibility = item.IsGrouped ? Visibility.Visible : Visibility.Collapsed;
-
-        var move = flyout.Items.OfType<MenuFlyoutSubItem>().FirstOrDefault();
-        if (move is null)
-            return;
-
-        move.Visibility = item.CanMoveToGroup ? Visibility.Visible : Visibility.Collapsed;
-        move.Items.Clear();
-        foreach (var group in item.AvailableGroups.Where(group => group.Id != item.Parameter.GroupId))
-        {
-            var destination = new MenuFlyoutItem
-            {
-                Text = group.Title,
-                Icon = new FontIcon { Glyph = "\uE8B7" }
-            };
-            AutomationProperties.SetAutomationId(destination, $"ToDoMoveToGroup_{group.Id:N}");
-            destination.Click += async (_, _) =>
-            {
-                if (item.MoveToGroupRequested is not null)
-                    await item.MoveToGroupRequested(item, group.Id);
-            };
-            move.Items.Add(destination);
-        }
-        move.IsEnabled = move.Items.Count > 0;
     }
 
     private void ShellItem_DragStarting(UIElement sender, DragStartingEventArgs args)

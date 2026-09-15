@@ -86,32 +86,11 @@
                     Height="50"
                     Margin="0"
                     Background="Transparent"
-                    ColumnSpacing="3">
+                    ColumnSpacing="3"
+                    ContextRequested="AttachmentContextRequested">
                     <ToolTipService.ToolTip>
                         <ToolTip Content="{x:Bind FileName}" />
                     </ToolTipService.ToolTip>
-                    <Grid.ContextFlyout>
-                        <coreControls:WinoMenuFlyout Placement="Right">
-                            <MenuFlyoutItem
-                                AutomationProperties.AutomationId="MailRenderingPageMenuFlyoutItem"
-                                Click="OpenAttachment_Click"
-                                CommandParameter="{x:Bind}"
-                                Text="{x:Bind domain:Translator.Buttons_Open}">
-                                <MenuFlyoutItem.Icon>
-                                    <PathIcon Data="{StaticResource OpenFilePathIcon}" />
-                                </MenuFlyoutItem.Icon>
-                            </MenuFlyoutItem>
-                            <MenuFlyoutItem
-                                AutomationProperties.AutomationId="MailRenderingPageMenuFlyoutItem2"
-                                Click="SaveAttachment_Click"
-                                CommandParameter="{x:Bind}"
-                                Text="{x:Bind domain:Translator.Buttons_Save}">
-                                <MenuFlyoutItem.Icon>
-                                    <PathIcon Data="{StaticResource SaveAttachmentPathIcon}" />
-                                </MenuFlyoutItem.Icon>
-                            </MenuFlyoutItem>
-                        </coreControls:WinoMenuFlyout>
-                    </Grid.ContextFlyout>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="40" />
                         <ColumnDefinition Width="*" />

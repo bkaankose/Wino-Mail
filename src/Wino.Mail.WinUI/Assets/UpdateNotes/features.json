@@ -1,5 +1,26 @@
 [
     {
+        "title": "# All in one suite",
+        "description": "Mail, Calendar, Contacts and To Do in a single native Windows app. Connect Microsoft Outlook (Office 365), Gmail, any standard IMAP/SMTP server, and remote CalDAV calendars — all from one place.",
+        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Suite.svg",
+        "imageWidth": 128,
+        "imageHeight": 128
+    },
+    {
+        "title": "# Wino Intelligence",
+        "description": "Summaries, smart replies and natural language search. Run it locally on your device or connect your own cloud model — you decide what leaves your machine.",
+        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Intelligence.svg",
+        "imageWidth": 128,
+        "imageHeight": 128
+    },
+    {
+        "title": "# Faster and More Secure",
+        "description": "A natively compiled core brings quicker start-up, lower memory use and snappier folder switching. Sign and encrypt your mail with S/MIME personal certificates.",
+        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Performance.svg",
+        "imageWidth": 128,
+        "imageHeight": 128
+    },
+    {
         "title": "# Outlook, Gmail & IMAP/SMTP",
         "description": "Connect all your email accounts in one place. Wino supports Microsoft Outlook (Office 365), Gmail, and any standard IMAP/SMTP server — giving you a unified inbox experience.",
         "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Mail.svg",
@@ -7,30 +28,9 @@
         "imageHeight": 128
     },
     {
-        "title": "# Calendar with CalDAV Support",
-        "description": "Manage your schedule alongside your emails. Create local calendars or connect to remote CalDAV-compatible servers. View, create, and respond to events and invitations.",
-        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Calendar.svg",
-        "imageWidth": 128,
-        "imageHeight": 128
-    },
-    {
-        "title": "# S/MIME Signing & Encryption",
-        "description": "Keep your communications secure. Sign and encrypt emails with personal certificates to ensure your messages are authentic and private.",
-        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Security.svg",
-        "imageWidth": 128,
-        "imageHeight": 128
-    },
-    {
         "title": "# Conversation Threading",
         "description": "Follow discussions with ease. Emails are grouped by conversation thread so you never lose context in long email chains.",
         "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Thread.svg",
-        "imageWidth": 128,
-        "imageHeight": 128
-    },
-    {
-        "title": "# Actionable Notifications",
-        "description": "Stay productive without switching apps. Mark as read, delete, or archive emails directly from Windows toast notifications.",
-        "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Notification.svg",
         "imageWidth": 128,
         "imageHeight": 128
     },

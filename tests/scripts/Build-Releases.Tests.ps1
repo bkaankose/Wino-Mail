@@ -49,7 +49,7 @@ function New-FixturePlan([bool]$Store, [bool]$Beta, [string[]]$Architectures = @
 }
 
 try {
-    Test-Case 'Store output retains the upload and its exact verified bundle' {
+    Test-Case 'Store output retains the upload and signs its verified local bundle' {
         $plan = New-FixturePlan $true $false
         $staging = Join-Path $plan.OutputRoot ('.staging/' + [guid]::NewGuid().ToString('N'))
         $contents = Join-Path $staging 'upload-contents'
@@ -68,12 +68,22 @@ try {
             $script:StoreBundleVerified = $true
             return @{}
         }
-        $null = Get-StoreReleaseArtifact $plan $staging
+        $script:StoreBundleSigned = $false
+        function Sign-StoreReleaseBundle {
+            param($Bundle, $CertificatePath, $Certificate, $Tools, $LogPath)
+            Add-Content -LiteralPath $Bundle -Value 'signed fixture'
+            'public certificate fixture' | Set-Content -LiteralPath $CertificatePath
+            $script:StoreBundleSigned = $true
+        }
+        $certificate = [pscustomobject]@{ Thumbprint = '0123456789ABCDEF0123456789ABCDEF01234567' }
+        $null = Get-StoreReleaseArtifact $plan $staging ([pscustomobject]@{ SignTool = 'signtool' }) $certificate
         Complete-ReleaseOutputs $plan $staging
         $folder = $plan.Destinations[0]
         Assert-True $script:StoreBundleVerified 'Store bundle verification was skipped.'
-        Assert-True ((Get-FileHash -LiteralPath (Join-Path $folder "WinoMail_Store_$($plan.Version).msixbundle")).Hash -eq (Get-FileHash -LiteralPath $originalBundle).Hash) 'Final Store bundle differs from upload contents.'
+        Assert-True $script:StoreBundleSigned 'Store bundle signing was skipped.'
+        Assert-True ((Get-FileHash -LiteralPath (Join-Path $folder "WinoMail_Store_$($plan.Version).msixbundle")).Hash -ne (Get-FileHash -LiteralPath $originalBundle).Hash) 'Locally installable Store bundle was not signed.'
         Assert-True ((Get-FileHash -LiteralPath (Join-Path $folder "WinoMail_Store_$($plan.Version).msixupload")).Hash -eq (Get-FileHash -LiteralPath $upload).Hash) 'Store upload was changed.'
+        Assert-True (Test-Path -LiteralPath (Join-Path $folder 'WinoMail_Store_TestCertificate.cer')) 'Store test certificate was not exported.'
     }
     Test-Case 'Profiles isolate all notification hosts and retain stable identities' {
         $plan = New-FixturePlan $true $true -Sideload $true
@@ -184,15 +194,24 @@ try {
         }
         finally { $env:WINO_BETA_RELEASE_AZURE_CLIENT_SECRET = $oldSecret }
     }
-    Test-Case 'Store-only does not ask for signing configuration' {
+    Test-Case 'Store-only selects a local test certificate without Azure signing configuration' {
         $plan = New-FixturePlan $true $false
         function Read-ReleaseSelection { return $plan.Selection }
         function New-ReleasePlan { param($Selection); return $plan }
         function Get-ReleaseTools { param($Selection); return @{} }
+        function Get-StoreSigningCertificate { param($Plan, $Thumbprint); return [pscustomobject]@{ Thumbprint = 'fixture' } }
         function Get-ReleaseSigningConfiguration { throw 'Store must not require signing.' }
-        function Invoke-ReleaseBuild { param($Plan, $Tools, $Signing); Assert-True ($null -eq $Signing) 'Unexpected credentials.' }
+        function Invoke-ReleaseBuild {
+            param($Plan, $Tools, $Signing, $StoreCertificate)
+            Assert-True ($null -eq $Signing) 'Unexpected Azure credentials.'
+            Assert-True ($StoreCertificate.Thumbprint -eq 'fixture') 'Store test certificate was not selected.'
+        }
         function Invoke-Item { param($LiteralPath) }
         Invoke-InteractiveRelease
+    }
+    Test-Case 'Store test certificate thumbprints reject unsafe input' {
+        $plan = New-FixturePlan $true $false
+        Assert-Throws { Get-StoreSigningCertificate $plan '../not-a-thumbprint' } '40 hexadecimal'
     }
     Test-Case 'Incomplete beta credentials fail before compilation' {
         $oldTenant = $env:WINO_BETA_RELEASE_AZURE_TENANT_ID

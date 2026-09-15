@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.WinUI.Controls;
 using EmailValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -29,6 +30,8 @@ using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Editor;
+using Wino.Helpers;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
@@ -355,13 +358,26 @@ public sealed partial class ComposePage : ComposePageAbstract,
         WeakReferenceMessenger.Default.Send(new DisposeRenderingFrameRequested());
     }
 
-    private void CopyContactAddress_Click(object sender, RoutedEventArgs e)
+    private void ContactTokenContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if (sender is not MenuFlyoutItem { CommandParameter: string address } || string.IsNullOrWhiteSpace(address))
-        {
+        if (sender is not FrameworkElement { DataContext: IContactDisplayItem contact } target || string.IsNullOrWhiteSpace(contact.Address))
             return;
-        }
 
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Buttons_Copy,
+                Icon = new ContextFlyoutIcon("\uE8C8"),
+                Command = new RelayCommand(() => CopyContactAddress(contact.Address)),
+                Shortcut = new ContextFlyoutShortcut("Ctrl+C", "C", Control: true),
+                AutomationId = "ComposeContactCopyAddress"
+            }
+        ]);
+    }
+
+    private static void CopyContactAddress(string address)
+    {
         var package = new DataPackage();
         package.SetText(address);
         Clipboard.SetContent(package);
@@ -615,12 +631,31 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
     }
 
-    private void OpenAttachment_Click(object sender, RoutedEventArgs e)
+    private void AttachmentContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
-        {
-            ViewModel.OpenAttachmentCommand.Execute(attachment);
-        }
+        if (sender is not FrameworkElement { DataContext: MailAttachmentViewModel attachment } target)
+            return;
+
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Buttons_Open,
+                Icon = new ContextFlyoutIcon("\uE8E5"),
+                Command = ViewModel.OpenAttachmentCommand,
+                CommandParameter = attachment,
+                AutomationId = "ComposeAttachmentOpen"
+            },
+            new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Buttons_Save,
+                Icon = new ContextFlyoutIcon("\uE74E"),
+                Command = ViewModel.SaveAttachmentCommand,
+                CommandParameter = attachment,
+                Shortcut = new ContextFlyoutShortcut("Ctrl+S", "S", Control: true),
+                AutomationId = "ComposeAttachmentSave"
+            }
+        ]);
     }
 
     private void AttachmentClicked(object sender, ItemClickEventArgs e)
@@ -628,14 +663,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
         if (e.ClickedItem is MailAttachmentViewModel attachment)
         {
             ViewModel.OpenAttachmentCommand.Execute(attachment);
-        }
-    }
-
-    private void SaveAttachment_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
-        {
-            ViewModel.SaveAttachmentCommand.Execute(attachment);
         }
     }
 

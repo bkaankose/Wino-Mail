@@ -4,6 +4,8 @@ using Microsoft.UI.Xaml.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Personalization;
+using Wino.Helpers;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
@@ -31,27 +33,43 @@ public sealed partial class ApplicationThemeGalleryPage : ApplicationThemeGaller
             ViewModel.ApplyThemeCommand.Execute(theme);
     }
 
-    private void ThemeCardLoaded(object sender, RoutedEventArgs args)
-    {
-        if (sender is FrameworkElement { DataContext: AppThemeBase theme } element && !theme.IsCustomTheme)
-            element.ContextFlyout = null;
-    }
-
     private void ThemeCardContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if (sender is FrameworkElement { DataContext: AppThemeBase theme } && !theme.IsCustomTheme)
+        if (sender is not FrameworkElement { DataContext: AppThemeBase theme } target)
+            return;
+
+        if (!theme.IsCustomTheme)
+        {
             args.Handled = true;
+            return;
+        }
+
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Buttons_Edit,
+                Icon = new ContextFlyoutIcon("\uE70F"),
+                Command = ViewModel.EditThemeCommand,
+                CommandParameter = theme,
+                AutomationId = "ApplicationThemeGalleryEdit"
+            },
+            new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Buttons_Delete,
+                Icon = new ContextFlyoutIcon("\uE74D"),
+                Command = ViewModel.RemoveThemeCommand,
+                CommandParameter = theme,
+                IsDestructive = true,
+                Shortcut = new ContextFlyoutShortcut("Delete", "Delete"),
+                AutomationId = "ApplicationThemeGalleryDelete"
+            }
+        ]);
     }
 
     private void EditThemeClick(object sender, RoutedEventArgs args)
     {
         if (sender is FrameworkElement { Tag: AppThemeBase theme } && ViewModel.EditThemeCommand.CanExecute(theme))
             ViewModel.EditThemeCommand.Execute(theme);
-    }
-
-    private void RemoveThemeClick(object sender, RoutedEventArgs args)
-    {
-        if (sender is FrameworkElement { Tag: AppThemeBase theme } && ViewModel.RemoveThemeCommand.CanExecute(theme))
-            ViewModel.RemoveThemeCommand.Execute(theme);
     }
 }
