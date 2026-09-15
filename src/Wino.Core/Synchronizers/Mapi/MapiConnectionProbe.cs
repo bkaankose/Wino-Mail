@@ -76,7 +76,7 @@ public sealed class MapiConnectionProbe(IExchangeAuthenticator exchangeAuthentic
                 true,
                 "Logon",
                 "Connected and logged on.",
-                session.DisplayName,
+                session.DisplayName ?? account.Address,
                 authMode,
                 Redact(endpoint.MailStoreUrl),
                 endpoint.LegacyDn,
