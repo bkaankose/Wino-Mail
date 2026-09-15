@@ -49,6 +49,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     private readonly IAccountCapabilityService _accountCapabilityService;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IWinoIntelligenceEntitlementService? _entitlementService;
+    private readonly IMapiConnectionProbe? _mapiConnectionProbe;
     private bool isLoaded = false;
 
     [ObservableProperty]
@@ -87,6 +88,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsImapServer))]
+    [NotifyPropertyChangedFor(nameof(IsExchangeServer))]
     public partial CustomServerInformation ServerInformation { get; set; }
 
     [ObservableProperty]
@@ -151,7 +153,9 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public partial bool IsApplyingCapabilities { get; set; }
 
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
-    public bool IsImapServer => ServerInformation != null;
+    // IMAP/SMTP and POP3 only: Exchange has its own settings page and no protocol conversation to capture.
+    public bool IsImapServer => ServerInformation != null && Account?.ProviderType != MailProviderType.Exchange;
+    public bool IsExchangeServer => Account?.ProviderType == MailProviderType.Exchange;
     public bool HasMailAccess => Account?.IsMailAccessGranted == true;
     public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;
     public bool HasContactAccess => Account?.IsContactAccessGranted == true;
@@ -238,7 +242,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IWinoLogger winoLogger,
         IAccountCapabilityService accountCapabilityService,
         ISynchronizationManager synchronizationManager,
-        IWinoIntelligenceEntitlementService? entitlementService = null)
+        IWinoIntelligenceEntitlementService? entitlementService = null,
+        IMapiConnectionProbe? mapiConnectionProbe = null)
     {
         _dialogService = dialogService;
         _accountService = accountService;
@@ -256,6 +261,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         _accountCapabilityService = accountCapabilityService;
         _synchronizationManager = synchronizationManager;
         _entitlementService = entitlementService;
+        _mapiConnectionProbe = mapiConnectionProbe;
         CanAccessWinoIntelligence = entitlementService?.Current.CanAccessSurfaces == true;
 
         var colorHexList = _themeService.GetAvailableAccountColors();
@@ -327,6 +333,39 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     {
         var entitlement = await _entitlementService!.GetAsync().ConfigureAwait(false);
         await ExecuteUIThread(() => CanAccessWinoIntelligence = entitlement.CanAccessSurfaces);
+    }
+
+    [ObservableProperty]
+    public partial bool IsMapiProbeRunning { get; set; }
+
+    [RelayCommand]
+    private void EditExchangeServerSettings()
+        => Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.SettingsEditAccountDetails_ExchangeServerSettings_Title,
+            WinoPage.ExchangeSettingsPage,
+            Account.Id));
+
+    /// <summary>Read-only MAPI/HTTP probe with the account's stored credentials; nothing about the account changes.</summary>
+    [RelayCommand]
+    private async Task TestMapiConnectionAsync()
+    {
+        if (Account == null || IsMapiProbeRunning || _mapiConnectionProbe == null)
+            return;
+
+        IsMapiProbeRunning = true;
+        try
+        {
+            var result = await _mapiConnectionProbe.ProbeAsync(Account);
+
+            await _dialogService.ShowMessageAsync(
+                result.Succeeded ? MapiProbeMessages.Success(result) : MapiProbeMessages.Failure(result),
+                Translator.SettingsEditAccountDetails_MapiProbe_ResultTitle,
+                result.Succeeded ? WinoCustomMessageDialogIcon.Information : WinoCustomMessageDialogIcon.Warning);
+        }
+        finally
+        {
+            IsMapiProbeRunning = false;
+        }
     }
 
     [RelayCommand]

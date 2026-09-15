@@ -42,6 +42,7 @@ public static class MailAccountIconInfoFactory
         _ => providerType switch
         {
             MailProviderType.Outlook => AccountIconProvider.Microsoft,
+            MailProviderType.Exchange => AccountIconProvider.Microsoft,
             MailProviderType.Gmail => AccountIconProvider.Google,
             MailProviderType.IMAP4 => AccountIconProvider.Imap,
             MailProviderType.POP3 => AccountIconProvider.Imap,

@@ -36,7 +36,9 @@ using Wino.Core.ViewModels;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
+using Wino.Authentication.Oidc;
 using Wino.Mail.WinUI.Activation;
+using Wino.Mail.WinUI.Authentication;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
@@ -597,6 +599,8 @@ public partial class App : WinoApplication,
         services.AddSingleton<ISearchHistoryService, SearchHistoryService>();
         services.AddSingleton<ReleaseLocalAccountDataCleanupService>();
         services.AddTransient<IProviderService, ProviderService>();
+        // Exchange modern auth signs in through an embedded WebView2 instead of the system browser.
+        services.AddTransient<IInteractiveOidcAuthenticator, WebView2InteractiveOidcAuthenticator>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
         services.AddSingleton<IDateContextProvider, SystemDateContextProvider>();
@@ -635,6 +639,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(IdlePageViewModel));
 
         services.AddTransient(typeof(ImapCalDavSettingsPageViewModel));
+        services.AddTransient(typeof(ExchangeSettingsPageViewModel));
         services.AddTransient(typeof(AccountDetailsPageViewModel));
         services.AddTransient(typeof(WinoIntelligenceManagementPageViewModel));
         services.AddTransient(typeof(IntelligenceCoveragePageViewModel));

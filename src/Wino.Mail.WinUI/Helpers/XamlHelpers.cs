@@ -797,6 +797,7 @@ public static class XamlHelpers
             return providerType switch
             {
                 MailProviderType.Outlook => WinoIconGlyph.Microsoft,
+                MailProviderType.Exchange => WinoIconGlyph.Microsoft,
                 MailProviderType.Gmail => WinoIconGlyph.Google,
                 MailProviderType.IMAP4 => WinoIconGlyph.IMAP,
                 _ => WinoIconGlyph.None,

@@ -95,11 +95,13 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     #region Capability tiles
 
     public bool IsMailProviderModeAvailable => true;
-    public bool IsCalendarProviderModeAvailable => !IsPop3;
-    public bool IsContactProviderModeAvailable => !IsPop3;
+    // Exchange calendar and contacts arrive with their synchronizer surfaces; until then the account
+    // runs the local backends for them, the way POP3 does.
+    public bool IsCalendarProviderModeAvailable => !IsPop3 && !IsExchange;
+    public bool IsContactProviderModeAvailable => !IsPop3 && !IsExchange;
     public bool IsTaskProviderModeAvailable => IsOAuthProvider;
 
-    public string MailProviderModeLabel => IsOAuthProvider
+    public string MailProviderModeLabel => IsOAuthProvider || IsExchange
         ? SelectedProviderName
         : IsPop3 ? Translator.ProviderSelection_ModePop3 : Translator.ProviderSelection_ModeImap;
 
@@ -232,6 +234,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public bool IsOAuthProvider => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
     public bool IsImapFamily => SelectedProvider?.Type == MailProviderType.IMAP4;
     public bool IsPop3 => SelectedProvider?.Type == MailProviderType.POP3;
+    public bool IsExchange => SelectedProvider?.Type == MailProviderType.Exchange;
     public bool IsDavContactChoiceAvailable => IsImapFamily;
     public bool IsFixedLocalTaskSource => IsImapFamily;
     public string DavContactAvailabilityMessage => Translator.ProviderSelection_CardDavSetupGuidance;
@@ -319,6 +322,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(IsOAuthProvider));
         OnPropertyChanged(nameof(IsImapFamily));
         OnPropertyChanged(nameof(IsPop3));
+        OnPropertyChanged(nameof(IsExchange));
         OnPropertyChanged(nameof(IsDavContactChoiceAvailable));
         OnPropertyChanged(nameof(IsFixedLocalTaskSource));
         OnPropertyChanged(nameof(DavContactAvailabilityMessage));
@@ -491,7 +495,15 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                 ? ImapCalendarSupportMode.LocalOnly
                 : ImapCalendarSupportMode.CalDav;
 
-        if (WizardContext.IsGenericCustomMail)
+        if (WizardContext.IsExchange)
+        {
+            // The Exchange settings page collects the server URL, the sign-in method and the transport,
+            // then continues to the progress page itself.
+            Messenger.Send(new BreadcrumbNavigationRequested(
+                SelectedProvider.Name,
+                WinoPage.ExchangeSettingsPage));
+        }
+        else if (WizardContext.IsGenericCustomMail)
         {
             var context = _hostMode == ProviderSelectionHostMode.SettingsAddAccount
                 ? ImapCalDavSettingsNavigationContext.CreateForAddAccountMode(
@@ -567,6 +579,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
         if (SelectedProvider.SpecialImapProvider != SpecialImapProvider.None)
             return Translator.ProviderSelection_CapabilityProviderDescription_SpecialImap;
+
+        if (SelectedProvider.Type == MailProviderType.Exchange)
+            return Translator.ProviderSelection_CapabilityProviderDescription_Exchange;
 
         return Translator.ProviderSelection_CapabilityProviderDescription_CustomServer;
     }

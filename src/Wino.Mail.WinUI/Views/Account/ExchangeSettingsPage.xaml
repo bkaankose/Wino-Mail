@@ -1,0 +1,162 @@
+﻿<abstract:ExchangeSettingsPageAbstract
+    x:Class="Wino.Views.ExchangeSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <ScrollViewer>
+        <StackPanel
+            MaxWidth="520"
+            Padding="24"
+            HorizontalAlignment="Center"
+            Spacing="12">
+
+            <TextBlock Style="{ThemeResource SubtitleTextBlockStyle}" Text="{x:Bind domain:Translator.ExchangeSettingsPage_Title, Mode=OneTime}" />
+
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Text="{x:Bind domain:Translator.ExchangeSettingsPage_Description, Mode=OneTime}"
+                TextWrapping="Wrap" />
+
+            <TextBox
+                AutomationProperties.AutomationId="ExchangeSettingsPageDisplayNameTextBox"
+                Header="{x:Bind domain:Translator.ExchangeSettingsPage_DisplayNameHeader, Mode=OneTime}"
+                Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBox
+                AutomationProperties.AutomationId="ExchangeSettingsPageEmailAddressTextBox"
+                Header="{x:Bind domain:Translator.ExchangeSettingsPage_EmailAddressHeader, Mode=OneTime}"
+                Text="{x:Bind ViewModel.EmailAddress, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+            <TextBox
+                AutomationProperties.AutomationId="ExchangeSettingsPageUsernameTextBox"
+                Header="{x:Bind domain:Translator.ExchangeSettingsPage_UsernameHeader, Mode=OneTime}"
+                PlaceholderText="{x:Bind ViewModel.EmailAddress, Mode=OneWay}"
+                Text="{x:Bind ViewModel.Username, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                Visibility="{x:Bind ViewModel.IsPasswordAuth, Mode=OneWay}" />
+
+            <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay}">
+
+                <TextBox
+                    AutomationProperties.AutomationId="ExchangeSettingsPageEwsUrlTextBox"
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_EwsUrlHeader, Mode=OneTime}"
+                    PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_EwsUrlPlaceholder, Mode=OneTime}"
+                    Text="{x:Bind ViewModel.EwsUrl, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="ExchangeSettingsPageAuthMethodComboBox"
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_AuthMethodHeader, Mode=OneTime}"
+                    SelectedIndex="{x:Bind ViewModel.AuthMethodIndex, Mode=TwoWay}">
+                    <ComboBoxItem Content="{x:Bind domain:Translator.ExchangeSettingsPage_AuthMethodPassword, Mode=OneTime}" />
+                    <ComboBoxItem Content="{x:Bind domain:Translator.ExchangeSettingsPage_AuthMethodModern, Mode=OneTime}" />
+                </ComboBox>
+
+                <!--  Transport: MAPI/HTTP needs Exchange 2013 SP1 or newer; EWS is the fallback. Order matches the ExchangeTransport enum.  -->
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="ExchangeSettingsPageTransportComboBox"
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_TransportHeader, Mode=OneTime}"
+                    SelectedIndex="{x:Bind ViewModel.TransportIndex, Mode=TwoWay}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.ExchangeSettingsPage_TransportTooltip, Mode=OneTime}">
+                    <ComboBoxItem Content="{x:Bind domain:Translator.ExchangeSettingsPage_TransportAutomatic, Mode=OneTime}" />
+                    <ComboBoxItem Content="{x:Bind domain:Translator.ExchangeSettingsPage_TransportMapi, Mode=OneTime}" />
+                    <ComboBoxItem Content="{x:Bind domain:Translator.ExchangeSettingsPage_TransportEws, Mode=OneTime}" />
+                </ComboBox>
+
+                <PasswordBox
+                    x:Name="ExchangePasswordBox"
+                    AutomationProperties.AutomationId="ExchangeSettingsPagePasswordBox"
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_PasswordHeader, Mode=OneTime}"
+                    PasswordChanged="PasswordChanged"
+                    Visibility="{x:Bind ViewModel.IsPasswordAuth, Mode=OneWay}" />
+
+                <Expander
+                    HorizontalAlignment="Stretch"
+                    HorizontalContentAlignment="Stretch"
+                    Header="{x:Bind domain:Translator.ExchangeSettingsPage_AdvancedSettings, Mode=OneTime}"
+                    IsExpanded="{x:Bind ViewModel.IsAdvancedExpanded, Mode=TwoWay}"
+                    Visibility="{x:Bind ViewModel.UseModernAuth, Mode=OneWay}">
+                    <StackPanel Spacing="12">
+                        <TextBox
+                            AutomationProperties.AutomationId="ExchangeSettingsPageAuthorityTextBox"
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_AuthorityUrlHeader, Mode=OneTime}"
+                            PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_AuthorityUrlPlaceholder, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.OAuthAuthority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox
+                            AutomationProperties.AutomationId="ExchangeSettingsPageClientIdTextBox"
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_ClientIdHeader, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.OAuthClientId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox
+                            AutomationProperties.AutomationId="ExchangeSettingsPageResourceTextBox"
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_ResourceHeader, Mode=OneTime}"
+                            PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_ResourcePlaceholder, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.OAuthResource, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox
+                            AutomationProperties.AutomationId="ExchangeSettingsPageRedirectUriTextBox"
+                            Header="{x:Bind domain:Translator.ExchangeSettingsPage_RedirectUriHeader, Mode=OneTime}"
+                            PlaceholderText="{x:Bind domain:Translator.ExchangeSettingsPage_RedirectUriPlaceholder, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.OAuthRedirectUri, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                IsTextSelectionEnabled="True"
+                Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                TextWrapping="Wrap"
+                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ViewModel.StatusMessage), Mode=OneWay}" />
+
+            <TextBlock
+                Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                IsTextSelectionEnabled="True"
+                Text="{x:Bind ViewModel.ValidationMessage, Mode=OneWay}"
+                TextWrapping="Wrap"
+                Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ViewModel.ValidationMessage), Mode=OneWay}" />
+
+            <StackPanel
+                HorizontalAlignment="Right"
+                Orientation="Horizontal"
+                Spacing="12">
+                <ProgressRing
+                    Width="20"
+                    Height="20"
+                    VerticalAlignment="Center"
+                    IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
+                <Button
+                    AutomationProperties.AutomationId="ExchangeSettingsPageCancelButton"
+                    Command="{x:Bind ViewModel.CancelCommand}"
+                    Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsEditMode, Mode=OneWay}" />
+                <Button
+                    AutomationProperties.AutomationId="ExchangeSettingsPageDiscoverButton"
+                    Command="{x:Bind ViewModel.DiscoverEwsUrlCommand}"
+                    Content="{x:Bind domain:Translator.ExchangeSettingsPage_DiscoverButton, Mode=OneTime}"
+                    IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.ExchangeSettingsPage_DiscoverTooltip, Mode=OneTime}" />
+                <!--  The native MAPI/HTTP probe, with the credentials this form would save.  -->
+                <Button
+                    AutomationProperties.AutomationId="ExchangeSettingsPageButtonMapiProbe"
+                    Command="{x:Bind ViewModel.TestMapiConnectionCommand}"
+                    Content="{x:Bind domain:Translator.ExchangeSettingsPage_MapiTestButton, Mode=OneTime}"
+                    IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.ExchangeSettingsPage_MapiTestTooltip, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay}" />
+                <Button
+                    AutomationProperties.AutomationId="ExchangeSettingsPageSaveButton"
+                    Command="{x:Bind ViewModel.SaveCommand}"
+                    Content="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}"
+                    IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
+                    Style="{ThemeResource AccentButtonStyle}"
+                    Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay}" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</abstract:ExchangeSettingsPageAbstract>

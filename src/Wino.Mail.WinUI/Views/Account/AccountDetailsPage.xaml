@@ -290,6 +290,47 @@
                         Style="{ThemeResource AccentButtonStyle}" />
                 </controls:SettingsCard>
 
+                <!--  Exchange only: server URL, sign-in method and connection method.  -->
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCardExchange"
+                    Description="{x:Bind domain:Translator.SettingsEditAccountDetails_ExchangeServerSettings_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsEditAccountDetails_ExchangeServerSettings_Title, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsExchangeServer, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE968;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button
+                        Width="160"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.AutomationId="AccountDetailsPageButtonExchange"
+                        Command="{x:Bind ViewModel.EditExchangeServerSettingsCommand}"
+                        Content="{x:Bind domain:Translator.SettingsEditAccountDetails_ExchangeServerSettings_Action, Mode=OneTime}"
+                        Style="{ThemeResource AccentButtonStyle}" />
+                </controls:SettingsCard>
+
+                <!--  Exchange only: the native MAPI/HTTP probe. Read-only.  -->
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCardMapiProbe"
+                    Description="{x:Bind domain:Translator.SettingsEditAccountDetails_MapiProbe_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsEditAccountDetails_MapiProbe_Title, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsExchangeServer, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE9D9;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <ProgressRing
+                            Width="20"
+                            Height="20"
+                            IsActive="{x:Bind ViewModel.IsMapiProbeRunning, Mode=OneWay}"
+                            Visibility="{x:Bind ViewModel.IsMapiProbeRunning, Mode=OneWay}" />
+                        <Button
+                            Width="160"
+                            AutomationProperties.AutomationId="AccountDetailsPageButtonMapiProbe"
+                            Command="{x:Bind ViewModel.TestMapiConnectionCommand}"
+                            Content="{x:Bind domain:Translator.SettingsEditAccountDetails_MapiProbe_Action, Mode=OneTime}" />
+                    </StackPanel>
+                </controls:SettingsCard>
+
                 <controls:SettingsCard
                     AutomationProperties.AutomationId="AccountDetailsProtocolLogEnabledCard"
                     Description="{x:Bind domain:Translator.ProtocolLog_EnableDescription, Mode=OneTime}"
