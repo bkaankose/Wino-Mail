@@ -496,6 +496,13 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.MapiFolderId)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailItemFolder)} ADD COLUMN {nameof(MailItemFolder.MapiFolderId)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
         if (!folderColumns.Any(c => c.Name == nameof(MailItemFolder.IsJumpListEnabled)))
         {
             await Connection
@@ -550,6 +557,63 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
         {
             await Connection
                 .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.CalendarSupportMode)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        // Exchange accounts: OAuth settings and the MAPI/HTTP or EWS transport choice. Existing custom-server rows are password auth.
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.UseOAuthAuthentication)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.UseOAuthAuthentication)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthAuthority)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthAuthority)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthClientId)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthClientId)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthResource)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthResource)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthRedirectUri)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthRedirectUri)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.OAuthRefreshToken)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.OAuthRefreshToken)} TEXT NULL")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.ExchangeTransport)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.ExchangeTransport)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
+        if (!customServerColumns.Any(c => c.Name == nameof(CustomServerInformation.DetectedExchangeTransport)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(CustomServerInformation)} ADD COLUMN {nameof(CustomServerInformation.DetectedExchangeTransport)} INTEGER NOT NULL DEFAULT 0")
                 .ConfigureAwait(false);
         }
 

@@ -1074,6 +1074,9 @@ public class FolderService : BaseDatabaseService, IFolderService
     public Task<MailItemFolder> GetFolderAsync(Guid accountId, string remoteFolderId)
         => Connection.Table<MailItemFolder>().FirstOrDefaultAsync(a => a.MailAccountId == accountId && a.RemoteFolderId == remoteFolderId);
 
+    public Task<MailItemFolder> GetFolderByMapiIdAsync(Guid accountId, string mapiFolderId)
+        => Connection.Table<MailItemFolder>().FirstOrDefaultAsync(a => a.MailAccountId == accountId && a.MapiFolderId == mapiFolderId);
+
     public async Task DeleteFolderAsync(Guid accountId, string remoteFolderId)
     {
         var folder = await GetFolderAsync(accountId, remoteFolderId);

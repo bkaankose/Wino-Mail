@@ -25,6 +25,9 @@ public interface IFolderService
     Task<List<IMailItemFolder>> GetFolderStructureForDisplayAsync(Guid accountId);
     Task<MailItemFolder> GetFolderAsync(Guid folderId);
     Task<MailItemFolder> GetFolderAsync(Guid accountId, string remoteFolderId);
+
+    /// <summary>Finds a folder of an Exchange account by its MAPI folder id (16 hex digits).</summary>
+    Task<MailItemFolder> GetFolderByMapiIdAsync(Guid accountId, string mapiFolderId);
     Task<List<MailItemFolder>> GetFoldersAsync(Guid accountId);
     Task<List<MailItemFolder>> GetFoldersByIdsAsync(IReadOnlyCollection<Guid> folderIds, CancellationToken cancellationToken = default);
     Task<MailItemFolder> GetSpecialFolderByAccountIdAsync(Guid accountId, SpecialFolderType type);
