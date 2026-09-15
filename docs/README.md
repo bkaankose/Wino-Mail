@@ -6,6 +6,9 @@ Commands use paths relative to the repository root unless stated otherwise.
 | Document | Purpose |
 | --- | --- |
 | [Repository guidance](../AGENTS.md) | Project structure, development commands, implementation rules, and verification requirements. |
+| [Development commands](harness/development.md) | Build diagnostics, Debug deployment, and runtime verification. |
+| [Implementation rules](harness/implementation-rules.md) | Wino C#, XAML, localization, storage, and architecture conventions. |
+| [Agent workflow review](harness/agent-workflow-review.md) | Prompt examples, instruction audit, and remaining development bottlenecks. |
 | [Local script environment](local-script-environment.md) | Environment variables and prerequisites for release signing and translation maintenance. |
 | [Local release packages](releases.md) | Build and distribute Store, Beta, and stable sideload artifacts. |
 | [Wino design guideline](wino-design-guideline.md) | Interface layout, controls, themes, accessibility, and interaction conventions. |

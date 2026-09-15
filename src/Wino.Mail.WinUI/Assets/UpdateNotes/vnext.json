@@ -9,7 +9,7 @@
         },
         {
             "title": "Wino Intelligence",
-            "description": "Summaries, smart replies and search that understands what you mean. Run it locally on your device or connect your own cloud model — you decide what leaves your machine.",
+            "description": "Summaries, smart replies and search that understands what you mean. Available with monthly subscription.",
             "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Intelligence.svg",
             "imageWidth": 128,
             "imageHeight": 128
@@ -18,6 +18,13 @@
             "title": "Faster and more secure",
             "description": "A rebuilt, natively compiled core brings quicker start-up, lower memory use and snappier folder switching. S/MIME signing and encryption keep your mail private.",
             "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Performance.svg",
+            "imageWidth": 128,
+            "imageHeight": 128
+        },
+        {
+            "title": "Wino Companion",
+            "description": "A small flyout that opens from the Wino icon in the Windows system tray, or from a global keyboard shortcut. Your next events, unread messages, My Day tasks and favorite contacts — without opening the main window.",
+            "imageUrl": "ms-appx:///Assets/UpdateNotes/Images/Companion.svg",
             "imageWidth": 128,
             "imageHeight": 128
         }

@@ -13,7 +13,6 @@ $ErrorActionPreference = "Stop"
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
 $projectPath = Join-Path $repositoryRoot "src\Wino.Mail.WinUI\Wino.Mail.WinUI.csproj"
-$manifestPath = Join-Path $repositoryRoot "src\Wino.Mail.WinUI\Package.appxmanifest"
 $testsPath = Join-Path $PSScriptRoot "Tests"
 $runTimestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $artifactsPath = Join-Path $repositoryRoot "artifacts\ui-tests\$runTimestamp"
@@ -22,6 +21,7 @@ $exitCode = 0
 $sourceCommit = (& git -C $repositoryRoot rev-parse HEAD).Trim()
 $sourceIsDirty = @(& git -C $repositoryRoot status --porcelain).Count -gt 0
 $startedAt = Get-Date
+. (Join-Path $repositoryRoot 'scripts/Wino.Debug.ps1')
 
 function Write-Section {
     param([Parameter(Mandatory)][string]$Message)
@@ -46,20 +46,7 @@ function Get-WinAppVersion {
 }
 
 function Confirm-PackageIdentity {
-    $manifest = [xml](Get-Content -Raw $manifestPath)
-    $identity = $manifest.Package.Identity
-    $installedPackage = Get-AppxPackage -Name $identity.Name | Select-Object -First 1
-
-    if ($null -eq $installedPackage) {
-        Write-Host "No existing package registration was found. WinApp will register the checked-in Debug identity."
-        return
-    }
-
-    if ($installedPackage.Publisher -ne $identity.Publisher) {
-        throw "Installed package publisher '$($installedPackage.Publisher)' does not match manifest publisher '$($identity.Publisher)'."
-    }
-
-    Write-Host "Package identity verified: $($installedPackage.PackageFamilyName)"
+    Assert-WinoDebugReady -ProjectPath $projectPath -WinAppVersion $winAppVersion.ToString() | Out-Null
 }
 
 function Start-WinoDebugApp {

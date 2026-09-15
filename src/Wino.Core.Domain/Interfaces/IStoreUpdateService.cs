@@ -6,7 +6,7 @@ public interface IStoreUpdateService
 {
     bool HasAvailableUpdate { get; }
 
-    Task<bool> RefreshAvailabilityAsync(bool showNotification = false);
+    Task<bool> RefreshAvailabilityAsync();
 
     Task<bool> StartUpdateAsync();
 }

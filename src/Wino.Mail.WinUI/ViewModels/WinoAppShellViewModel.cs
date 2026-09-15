@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 
 using System;
 using System.Collections.Generic;
@@ -27,6 +27,9 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
     private readonly IServiceProvider _serviceProvider;
     private readonly IStoreUpdateService _storeUpdateService;
     private readonly IMailDialogService _dialogService;
+    private readonly IWinoLogger _logger;
+    private bool _isCheckingStoreUpdate;
+    private bool _hasShownStoreUpdatePrompt;
 
     private WinoApplicationMode _currentMode;
     private ShellMenu? _currentMenu;
@@ -39,7 +42,8 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
                                  IStatePersistanceService statePersistenceService,
                                  INavigationService navigationService,
                                  IStoreUpdateService storeUpdateService,
-                                 IMailDialogService dialogService)
+                                 IMailDialogService dialogService,
+                                 IWinoLogger logger)
     {
         _serviceProvider = serviceProvider;
         PreferencesService = preferencesService;
@@ -47,6 +51,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
         NavigationService = navigationService;
         _storeUpdateService = storeUpdateService;
         _dialogService = dialogService;
+        _logger = logger;
 
         StatePersistenceService.StatePropertyChanged += StatePersistenceServiceChanged;
     }
@@ -257,25 +262,46 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
 
     private async Task ShowStoreUpdateDialogIfNeededAsync()
     {
-        if (!PreferencesService.IsStoreUpdateNotificationsEnabled)
+        if (_isShutdown || _isCheckingStoreUpdate || _hasShownStoreUpdatePrompt ||
+            !PreferencesService.IsStoreUpdateNotificationsEnabled)
             return;
 
-        var hasAvailableUpdate = await _storeUpdateService.RefreshAvailabilityAsync();
+        _isCheckingStoreUpdate = true;
 
-        if (!hasAvailableUpdate || !PreferencesService.IsStoreUpdateNotificationsEnabled)
-            return;
-
-        var shouldUpdate = await _dialogService.ShowWinoCustomMessageDialogAsync(
-            Translator.Notifications_StoreUpdateAvailableTitle,
-            Translator.Notifications_StoreUpdateAvailableMessage,
-            Translator.Buttons_Update,
-            WinoCustomMessageDialogIcon.Information,
-            Translator.Buttons_NotNow,
-            Constants.StoreUpdateNotificationSuppressionKey);
-
-        if (shouldUpdate)
+        try
         {
-            await _storeUpdateService.StartUpdateAsync();
+            var hasAvailableUpdate = await _storeUpdateService.RefreshAvailabilityAsync();
+
+            if (_isShutdown || !hasAvailableUpdate || !PreferencesService.IsStoreUpdateNotificationsEnabled)
+                return;
+
+            await ExecuteUIThreadAsync(async () =>
+            {
+                if (_isShutdown || !PreferencesService.IsStoreUpdateNotificationsEnabled)
+                    return;
+
+                _hasShownStoreUpdatePrompt = true;
+                var shouldUpdate = await _dialogService.ShowWinoCustomMessageDialogAsync(
+                    Translator.Notifications_StoreUpdateAvailableTitle,
+                    Translator.Notifications_StoreUpdateAvailableMessage,
+                    Translator.Buttons_Update,
+                    WinoCustomMessageDialogIcon.Information,
+                    Translator.Buttons_NotNow,
+                    Constants.StoreUpdateNotificationSuppressionKey);
+
+                if (shouldUpdate && !_isShutdown)
+                {
+                    await _storeUpdateService.StartUpdateAsync();
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.CaptureException(ex, nameof(ShowStoreUpdateDialogIfNeededAsync));
+        }
+        finally
+        {
+            _isCheckingStoreUpdate = false;
         }
     }
 }

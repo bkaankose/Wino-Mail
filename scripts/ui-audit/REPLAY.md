@@ -2,6 +2,9 @@
 
 This is an **agent-guided regression replay**, not a validated unattended test suite. It preserves the completed audit's scenario IDs and flow, corrects known automation errors, and requires new assertions on every run. Do not copy baseline outcomes into new results.
 
+For the smaller scripted task/contact persistence and activation-routing suite, use [REGRESSION.md](REGRESSION.md).
+That suite has its own finite scenario selection and does not claim the full baseline sequence or coverage.
+
 ## Start a repeat run
 
 From repository root in PowerShell 7:

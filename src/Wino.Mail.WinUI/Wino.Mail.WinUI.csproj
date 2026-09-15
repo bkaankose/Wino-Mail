@@ -133,6 +133,7 @@
     <None Remove="Assets\UpdateNotes\Images\Suite.svg" />
     <None Remove="Assets\UpdateNotes\Images\Intelligence.svg" />
     <None Remove="Assets\UpdateNotes\Images\Performance.svg" />
+    <None Remove="Assets\UpdateNotes\Images\Companion.svg" />
     <None Remove="Assets\UpdateNotes\Images\Thread.svg" />
     <None Remove="Assets\UpdateNotes\Images\Mail.svg" />
     <None Remove="Assets\UpdateNotes\Images\Customize.svg" />
@@ -230,6 +231,7 @@
     <Content Include="Assets\UpdateNotes\Images\Suite.svg" />
     <Content Include="Assets\UpdateNotes\Images\Intelligence.svg" />
     <Content Include="Assets\UpdateNotes\Images\Performance.svg" />
+    <Content Include="Assets\UpdateNotes\Images\Companion.svg" />
     <Content Include="Assets\UpdateNotes\Images\Thread.svg" />
     <Content Include="Assets\UpdateNotes\Images\Mail.svg" />
     <Content Include="Assets\UpdateNotes\Images\Customize.svg" />
