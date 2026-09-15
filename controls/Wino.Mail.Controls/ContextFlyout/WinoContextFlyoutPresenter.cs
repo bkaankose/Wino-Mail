@@ -42,6 +42,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     private bool _isBackButtonVisible;
     private bool _isUpdatingSearch;
     private bool _isOpen;
+    private bool _areHandlersRegistered;
     private int _focusRequestVersion;
 
     internal WinoContextFlyoutPresenter(WinoContextFlyout owner)
@@ -73,8 +74,6 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         if (_searchBox is not null)
         {
             _searchBox.PlaceholderText = _owner.SearchPlaceholderText;
-            _searchBox.TextChanged += SearchBoxTextChanged;
-            _searchBox.KeyDown += SearchBoxKeyDown;
         }
 
         if (_backButton is not null)
@@ -83,33 +82,35 @@ public sealed partial class WinoContextFlyoutPresenter : Control
             _hideBackButtonStoryboard = _backButton.Resources[HideBackButtonStoryboardKey] as Storyboard;
             SetBackButtonStoryboardTargets(_showBackButtonStoryboard, _backButton);
             SetBackButtonStoryboardTargets(_hideBackButtonStoryboard, _backButton);
-            _backButton.Click += BackButtonClick;
             UpdateBackButton(useTransitions: false);
-        }
-
-        if (_headerItems is not null)
-        {
-            _headerItems.ElementPrepared += HeaderItemsElementPrepared;
-            _headerItems.ElementClearing += HeaderItemsElementClearing;
         }
 
         if (_itemsList is not null)
         {
             _itemsList.ItemsSource = _visibleItems;
-            _itemsList.ItemClick += ItemsListItemClick;
-            _itemsList.KeyDown += ItemsListKeyDown;
-            _itemsList.ContainerContentChanging += ItemsListContainerContentChanging;
         }
 
         if (_emptyText is not null)
         {
             _emptyText.Text = _owner.NoResultsText;
         }
+
+        if (_isOpen)
+        {
+            RegisterHandlers();
+        }
     }
 
     internal void PrepareForOpen()
     {
         _isOpen = true;
+        RegisterHandlers();
+
+        if (_itemsList is not null)
+        {
+            _itemsList.ItemsSource = _visibleItems;
+        }
+
         _navigationStack.Clear();
         ShowPage(_owner.RootItems, animateBackButton: false);
     }
@@ -143,15 +144,6 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         {
             _itemsList.ItemsSource = null;
         }
-
-        _searchRow = null;
-        _searchBox = null;
-        _backButton = null;
-        _headerItems = null;
-        _showBackButtonStoryboard = null;
-        _hideBackButtonStoryboard = null;
-        _itemsList = null;
-        _emptyText = null;
     }
 
     private void SearchBoxTextChanged(object sender, TextChangedEventArgs e)
@@ -434,6 +426,11 @@ public sealed partial class WinoContextFlyoutPresenter : Control
 
     private void UnregisterHandlers()
     {
+        if (!_areHandlersRegistered)
+        {
+            return;
+        }
+
         if (_searchBox is not null)
         {
             _searchBox.TextChanged -= SearchBoxTextChanged;
@@ -457,6 +454,42 @@ public sealed partial class WinoContextFlyoutPresenter : Control
             _itemsList.KeyDown -= ItemsListKeyDown;
             _itemsList.ContainerContentChanging -= ItemsListContainerContentChanging;
         }
+
+        _areHandlersRegistered = false;
+    }
+
+    private void RegisterHandlers()
+    {
+        if (_areHandlersRegistered)
+        {
+            return;
+        }
+
+        if (_searchBox is not null)
+        {
+            _searchBox.TextChanged += SearchBoxTextChanged;
+            _searchBox.KeyDown += SearchBoxKeyDown;
+        }
+
+        if (_backButton is not null)
+        {
+            _backButton.Click += BackButtonClick;
+        }
+
+        if (_headerItems is not null)
+        {
+            _headerItems.ElementPrepared += HeaderItemsElementPrepared;
+            _headerItems.ElementClearing += HeaderItemsElementClearing;
+        }
+
+        if (_itemsList is not null)
+        {
+            _itemsList.ItemClick += ItemsListItemClick;
+            _itemsList.KeyDown += ItemsListKeyDown;
+            _itemsList.ContainerContentChanging += ItemsListContainerContentChanging;
+        }
+
+        _areHandlersRegistered = true;
     }
 
     private void UnregisterHeaderItemHandlers()

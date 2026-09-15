@@ -20,11 +20,11 @@ public partial class WinoContextFlyout : FlyoutBase
 {
     private readonly PointerEventHandler _presenterPointerPressedHandler = OnPresenterPointerPressed;
     private WinoContextFlyoutPresenter? _presenter;
-    private bool _areLifecycleHandlersRegistered;
 
     public WinoContextFlyout()
     {
-        RegisterLifecycleHandlers();
+        Opened += OnOpened;
+        Closed += OnClosed;
     }
 
     /// <summary>
@@ -56,9 +56,7 @@ public partial class WinoContextFlyout : FlyoutBase
 
     protected override Control CreatePresenter()
     {
-        RegisterLifecycleHandlers();
         _presenter = new WinoContextFlyoutPresenter(this);
-        _presenter.AddHandler(UIElement.PointerPressedEvent, _presenterPointerPressedHandler, true);
         return _presenter;
     }
 
@@ -69,7 +67,18 @@ public partial class WinoContextFlyout : FlyoutBase
 
     internal void Close() => Hide();
 
-    private void OnOpened(object? sender, object e) => _presenter?.PrepareForOpen();
+    private void OnOpened(object? sender, object e)
+    {
+        if (_presenter is null)
+        {
+            return;
+        }
+
+        // FlyoutBase can reuse the same presenter. Reattach transient input handling for each open.
+        _presenter.RemoveHandler(UIElement.PointerPressedEvent, _presenterPointerPressedHandler);
+        _presenter.AddHandler(UIElement.PointerPressedEvent, _presenterPointerPressedHandler, true);
+        _presenter.PrepareForOpen();
+    }
 
     private void OnClosed(object? sender, object e)
     {
@@ -77,24 +86,7 @@ public partial class WinoContextFlyout : FlyoutBase
         {
             _presenter.PrepareForClose();
             _presenter.RemoveHandler(UIElement.PointerPressedEvent, _presenterPointerPressedHandler);
-            _presenter = null;
         }
-
-        Opened -= OnOpened;
-        Closed -= OnClosed;
-        _areLifecycleHandlersRegistered = false;
-    }
-
-    private void RegisterLifecycleHandlers()
-    {
-        if (_areLifecycleHandlersRegistered)
-        {
-            return;
-        }
-
-        Opened += OnOpened;
-        Closed += OnClosed;
-        _areLifecycleHandlersRegistered = true;
     }
 
     private static void OnPresenterPointerPressed(object sender, PointerRoutedEventArgs e)
