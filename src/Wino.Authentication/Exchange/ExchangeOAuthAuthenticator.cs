@@ -15,13 +15,15 @@ public sealed class ExchangeOAuthAuthenticator
     private static readonly TimeSpan ExpirySkew = TimeSpan.FromMinutes(5);
 
     private readonly IOidcTokenClient _oidcTokenClient;
-    private readonly IAccountService _accountService;
+    // Resolved lazily: AccountService depends on IAuthenticationProvider, which hands out this
+    // authenticator, so taking IAccountService in the constructor would close a dependency cycle.
+    private readonly IServiceProvider _serviceProvider;
     private readonly ExchangeTokenCache _tokenCache;
 
-    public ExchangeOAuthAuthenticator(IOidcTokenClient oidcTokenClient, IAccountService accountService, ExchangeTokenCache tokenCache)
+    public ExchangeOAuthAuthenticator(IOidcTokenClient oidcTokenClient, IServiceProvider serviceProvider, ExchangeTokenCache tokenCache)
     {
         _oidcTokenClient = oidcTokenClient;
-        _accountService = accountService;
+        _serviceProvider = serviceProvider;
         _tokenCache = tokenCache;
     }
 
@@ -90,8 +92,10 @@ public sealed class ExchangeOAuthAuthenticator
             {
                 server.OAuthRefreshToken = refreshed.RefreshToken;
 
-                if (server.AccountId != Guid.Empty)
-                    await _accountService.UpdateAccountCustomServerInformationAsync(server).ConfigureAwait(false);
+                if (server.AccountId != Guid.Empty && _serviceProvider.GetService(typeof(IAccountService)) is IAccountService accountService)
+                {
+                    await accountService.UpdateAccountCustomServerInformationAsync(server).ConfigureAwait(false);
+                }
             }
 
             return refreshed.AccessToken;
