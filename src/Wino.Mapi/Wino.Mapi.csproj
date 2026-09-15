@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<!--
+	  Native MAPI/HTTP protocol layer (MS-OXCMAPIHTTP transport, MS-OXCROPS remote operations,
+	  MS-OXCDATA structures, plus the ICS, rules, calendar and NSPI codecs built on them). Deliberately
+	  dependency-free: it is a codec plus an HTTP client, unit-tested against captured wire vectors.
+	  Nothing in here knows about accounts, databases or the UI; the Exchange synchronizer in Wino.Core
+	  is what binds it to an account.
+	-->
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<Platforms>x86;x64;arm64</Platforms>
+		<RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+		<IsTrimmable>true</IsTrimmable>
+		<EnableTrimAnalyzer>true</EnableTrimAnalyzer>
+		<IsAotCompatible>true</IsAotCompatible>
+	</PropertyGroup>
+</Project>
