@@ -154,7 +154,7 @@ public sealed partial class ShellMenuTemplates
         {
             CreateContextCommand(
                 Translator.AccountContextMenu_ManageAccountSettings,
-                "\uE77B",
+                WinoIconGlyph.ManageAccounts,
                 "AccountContextManageSettings",
                 new RelayCommand(() => OpenAccountSettings(account)))
         };
@@ -163,7 +163,7 @@ public sealed partial class ShellMenuTemplates
         {
             items.Add(CreateContextCommand(
                 Translator.Buttons_Sync,
-                "\uE895",
+                WinoIconGlyph.Sync,
                 "AccountContextSynchronize",
                 new AsyncRelayCommand(account.SynchronizeAccountAsync)));
         }
@@ -172,7 +172,7 @@ public sealed partial class ShellMenuTemplates
         {
             items.Add(CreateContextCommand(
                 Translator.AccountContextMenu_CreateFolder,
-                "\uE8F4",
+                WinoIconGlyph.CreateFolder,
                 "AccountContextCreateFolder",
                 new AsyncRelayCommand(() => MailClient.CreateRootFolderAsync(mailAccount))));
         }
@@ -195,12 +195,12 @@ public sealed partial class ShellMenuTemplates
         [
             CreateContextCommand(
                 Translator.ContactList_Rename,
-                "\uE8AC",
+                WinoIconGlyph.Rename,
                 "ContactsPaneRenameList",
                 contactList.RenameListCommand),
             CreateContextCommand(
                 Translator.ContactsPage_Delete,
-                "\uE74D",
+                WinoIconGlyph.Delete,
                 "ContactsPaneDeleteList",
                 contactList.DeleteListCommand,
                 isDestructive: true,
@@ -218,7 +218,7 @@ public sealed partial class ShellMenuTemplates
         {
             items.Add(CreateContextCommand(
                 Translator.ToDoPage_NewList,
-                "\uE710",
+                WinoIconGlyph.New,
                 "ToDoGroupNewList",
                 new AsyncRelayCommand(() => group.NewListRequested(group))));
         }
@@ -227,7 +227,7 @@ public sealed partial class ShellMenuTemplates
         {
             items.Add(CreateContextCommand(
                 Translator.ToDoPage_RenameGroup,
-                "\uE8AC",
+                WinoIconGlyph.Rename,
                 "ToDoGroupRename",
                 new AsyncRelayCommand(() => group.RenameRequested(group))));
         }
@@ -236,7 +236,7 @@ public sealed partial class ShellMenuTemplates
         {
             items.Add(CreateContextCommand(
                 Translator.ToDoPage_UngroupLists,
-                "\uE8F1",
+                WinoIconGlyph.Move,
                 "ToDoGroupUngroupLists",
                 new AsyncRelayCommand(() => group.UngroupRequested(group))));
         }
@@ -245,7 +245,7 @@ public sealed partial class ShellMenuTemplates
         {
             items.Add(CreateContextCommand(
                 Translator.ToDoPage_DeleteGroup,
-                "\uE74D",
+                WinoIconGlyph.Delete,
                 "ToDoGroupDelete",
                 new AsyncRelayCommand(() => group.DeleteRequested(group)),
                 isDestructive: true,
@@ -265,7 +265,7 @@ public sealed partial class ShellMenuTemplates
         {
             items.Add(CreateContextCommand(
                 Translator.ToDoPage_RenameList,
-                "\uE8AC",
+                WinoIconGlyph.Rename,
                 "ToDoListRename",
                 new AsyncRelayCommand(() => list.RenameRequested(list))));
         }
@@ -274,7 +274,7 @@ public sealed partial class ShellMenuTemplates
         {
             items.Add(CreateContextCommand(
                 Translator.ToDoPage_RemoveFromGroup,
-                "\uE8F1",
+                WinoIconGlyph.Move,
                 "ToDoListRemoveFromGroup",
                 new AsyncRelayCommand(() => list.RemoveFromGroupRequested(list))));
         }
@@ -285,7 +285,7 @@ public sealed partial class ShellMenuTemplates
                 .Where(group => group.Id != list.Parameter.GroupId)
                 .Select(group => (ContextFlyoutMenuEntry)CreateContextCommand(
                     group.Title,
-                    "\uE8B7",
+                    WinoIconGlyph.Folder,
                     $"ToDoMoveToGroup_{group.Id:N}",
                     new AsyncRelayCommand(() => list.MoveToGroupRequested(list, group.Id))))
                 .ToArray();
@@ -295,7 +295,7 @@ public sealed partial class ShellMenuTemplates
                 items.Add(new ContextFlyoutSubMenuEntry
                 {
                     Text = Translator.ToDoPage_MoveToGroup,
-                    Icon = new ContextFlyoutIcon("\uE8DE"),
+                    Icon = CreateContextIcon(WinoIconGlyph.Move),
                     Items = destinations,
                     AutomationId = "ToDoListMoveToGroup"
                 });
@@ -307,7 +307,7 @@ public sealed partial class ShellMenuTemplates
             items.Add(ContextFlyoutSeparatorEntry.Instance);
             items.Add(CreateContextCommand(
                 Translator.ToDoPage_DeleteList,
-                "\uE74D",
+                WinoIconGlyph.Delete,
                 "ToDoListDelete",
                 new AsyncRelayCommand(() => list.DeleteRequested(list)),
                 isDestructive: true,
@@ -319,7 +319,7 @@ public sealed partial class ShellMenuTemplates
 
     private static ContextFlyoutCommandEntry CreateContextCommand(
         string text,
-        string glyph,
+        WinoIconGlyph icon,
         string automationId,
         System.Windows.Input.ICommand command,
         bool isDestructive = false,
@@ -327,13 +327,18 @@ public sealed partial class ShellMenuTemplates
         => new()
         {
             Text = text,
-            Icon = new ContextFlyoutIcon(glyph),
+            Icon = CreateContextIcon(icon),
             Command = command,
             IsEnabled = command.CanExecute(null),
             IsDestructive = isDestructive,
             Shortcut = shortcut,
             AutomationId = automationId
         };
+
+    private static ContextFlyoutIcon? CreateContextIcon(WinoIconGlyph icon)
+        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
+            ? new ContextFlyoutIcon(glyph)
+            : null;
 
     private static void OpenAccountSettings(IAccountNavigationMenuItem accountMenuItem)
     {
@@ -365,11 +370,7 @@ public sealed partial class ShellMenuTemplates
         var actions = mailClient.GetFolderContextMenuActions(baseFolderMenuItem);
         var flyout = new FolderOperationFlyout(actions, completionSource);
 
-        flyout.ShowAt(menuItem, new FlyoutShowOptions
-        {
-            ShowMode = FlyoutShowMode.Standard,
-            Position = new Point(position.X + 30, position.Y - 20)
-        });
+        flyout.ShowAt(menuItem, WinoContextFlyoutHelper.CreatePointerAlignedOptions(position));
 
         var operation = await completionSource.Task;
         flyout.Dispose();

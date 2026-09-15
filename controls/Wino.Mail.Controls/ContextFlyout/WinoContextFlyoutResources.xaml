@@ -5,7 +5,7 @@
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:local="using:Wino.Mail.Controls.ContextFlyout">
 
-    <DataTemplate x:Key="ItemTemplate" x:DataType="local:ContextFlyoutRow">
+    <DataTemplate x:Key="WinoContextFlyoutItemTemplate" x:DataType="local:ContextFlyoutRow">
         <Grid
             MinHeight="36"
             Padding="8,0,12,0"
@@ -48,7 +48,7 @@
         </Grid>
     </DataTemplate>
 
-    <DataTemplate x:Key="DestructiveItemTemplate" x:DataType="local:ContextFlyoutRow">
+    <DataTemplate x:Key="WinoContextFlyoutDestructiveItemTemplate" x:DataType="local:ContextFlyoutRow">
         <Grid
             MinHeight="36"
             Padding="8,0,12,0"
@@ -93,7 +93,7 @@
         </Grid>
     </DataTemplate>
 
-    <DataTemplate x:Key="ToggleItemTemplate" x:DataType="local:ContextFlyoutRow">
+    <DataTemplate x:Key="WinoContextFlyoutToggleItemTemplate" x:DataType="local:ContextFlyoutRow">
         <Grid
             MinHeight="36"
             Padding="8,0,12,0"
@@ -147,7 +147,7 @@
         </Grid>
     </DataTemplate>
 
-    <DataTemplate x:Key="RadioItemTemplate" x:DataType="local:ContextFlyoutRow">
+    <DataTemplate x:Key="WinoContextFlyoutRadioItemTemplate" x:DataType="local:ContextFlyoutRow">
         <Grid
             MinHeight="36"
             Padding="8,0,12,0"
@@ -201,7 +201,7 @@
         </Grid>
     </DataTemplate>
 
-    <DataTemplate x:Key="SubItemTemplate" x:DataType="local:ContextFlyoutRow">
+    <DataTemplate x:Key="WinoContextFlyoutSubItemTemplate" x:DataType="local:ContextFlyoutRow">
         <Grid
             MinHeight="36"
             Padding="8,0,12,0"
@@ -243,7 +243,7 @@
         </Grid>
     </DataTemplate>
 
-    <DataTemplate x:Key="SeparatorTemplate">
+    <DataTemplate x:Key="WinoContextFlyoutSeparatorTemplate">
         <Rectangle
             Height="1"
             Margin="0,3"
@@ -251,7 +251,7 @@
             IsHitTestVisible="False" />
     </DataTemplate>
 
-    <DataTemplate x:Key="HeaderItemTemplate" x:DataType="local:ContextFlyoutHeaderRow">
+    <DataTemplate x:Key="WinoContextFlyoutHeaderItemTemplate" x:DataType="local:ContextFlyoutHeaderRow">
         <AppBarButton
             MinWidth="0"
             HorizontalAlignment="Stretch"
@@ -269,12 +269,12 @@
     </DataTemplate>
 
     <local:WinoContextFlyoutTemplateSelector
-        x:Key="TemplateSelector"
-        DestructiveItemTemplate="{StaticResource DestructiveItemTemplate}"
-        ItemTemplate="{StaticResource ItemTemplate}"
-        RadioItemTemplate="{StaticResource RadioItemTemplate}"
-        SeparatorTemplate="{StaticResource SeparatorTemplate}"
-        SubItemTemplate="{StaticResource SubItemTemplate}"
-        ToggleItemTemplate="{StaticResource ToggleItemTemplate}" />
+        x:Key="WinoContextFlyoutTemplateSelector"
+        DestructiveItemTemplate="{StaticResource WinoContextFlyoutDestructiveItemTemplate}"
+        ItemTemplate="{StaticResource WinoContextFlyoutItemTemplate}"
+        RadioItemTemplate="{StaticResource WinoContextFlyoutRadioItemTemplate}"
+        SeparatorTemplate="{StaticResource WinoContextFlyoutSeparatorTemplate}"
+        SubItemTemplate="{StaticResource WinoContextFlyoutSubItemTemplate}"
+        ToggleItemTemplate="{StaticResource WinoContextFlyoutToggleItemTemplate}" />
 
 </ResourceDictionary>

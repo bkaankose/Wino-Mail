@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -8,7 +6,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.ViewModels.Data;
 using Wino.Helpers;
-using Wino.Mail.Controls.Core.ContextFlyout;
+using Wino.Mail.Controls.ContextFlyout;
 using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
@@ -23,20 +21,8 @@ public sealed partial class NotificationSettingsPage : NotificationSettingsPageA
 
     private readonly DispatcherQueueTimer _snoozeRefreshTimer;
 
-    public IReadOnlyList<ContextFlyoutMenuEntry> SnoozeItems { get; }
-
     public NotificationSettingsPage()
     {
-        SnoozeItems = (ContextFlyoutMenuEntry[])
-        [
-            CreateSnoozeItem(NotificationSnoozePreset.ThirtyMinutes, Translator.NotificationSnooze_ThirtyMinutes),
-            CreateSnoozeItem(NotificationSnoozePreset.OneHour, Translator.NotificationSnooze_OneHour),
-            CreateSnoozeItem(NotificationSnoozePreset.TwoHours, Translator.NotificationSnooze_TwoHours),
-            CreateSnoozeItem(NotificationSnoozePreset.RestOfDay, Translator.NotificationSnooze_RestOfDay),
-            CreateSnoozeItem(NotificationSnoozePreset.UntilTomorrowMorning, Translator.NotificationSnooze_UntilTomorrowMorning),
-            CreateSnoozeItem(NotificationSnoozePreset.UntilTurnedBackOn, Translator.NotificationSnooze_UntilTurnedBackOn)
-        ];
-
         InitializeComponent();
 
         _snoozeRefreshTimer = DispatcherQueue.CreateTimer();
@@ -66,13 +52,14 @@ public sealed partial class NotificationSettingsPage : NotificationSettingsPageA
         }
     }
 
-    private ContextFlyoutCommandEntry CreateSnoozeItem(NotificationSnoozePreset preset, string text)
-        => new()
+    private void SnoozePreset_Click(object? sender, EventArgs e)
+    {
+        if (sender is WinoContextFlyoutItem { CommandParameter: string value } &&
+            Enum.TryParse<NotificationSnoozePreset>(value, out var preset))
         {
-            Text = text,
-            Command = new RelayCommand(() => ViewModel.StartSnoozeCommand.Execute(preset)),
-            AutomationId = $"NotificationSettingsSnoozePreset{preset}"
-        };
+            ViewModel.StartSnoozeCommand.Execute(preset);
+        }
+    }
 
     private void PlayMailNotificationSoundButton_Click(object sender, RoutedEventArgs e)
         => NotificationSoundPlayer.Play(ViewModel.SelectedMailSoundEvent);

@@ -1,8 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
@@ -12,7 +10,6 @@ using Windows.System;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Services.Companion;
 
@@ -23,31 +20,14 @@ public sealed partial class CompanionFlyoutView : UserControl
     internal CompanionFlyoutView(CompanionDashboardViewModel viewModel)
     {
         ViewModel = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
-        EventFlyoutItems = (ContextFlyoutMenuEntry[])
-        [
-            new ContextFlyoutCommandEntry
-            {
-                Text = Translator.Companion_OpenEvent,
-                Icon = new ContextFlyoutIcon("\uE787"),
-                Command = new AsyncRelayCommand(OpenEventAsync),
-                AutomationId = "CompanionOpenEvent"
-            },
-            new ContextFlyoutCommandEntry
-            {
-                Text = Translator.Companion_OpenCalendar,
-                Icon = new ContextFlyoutIcon("\uE8A5"),
-                Command = ViewModel.OpenCalendarCommand,
-                AutomationId = "CompanionOpenCalendar"
-            }
-        ];
         InitializeComponent();
     }
 
     public CompanionDashboardViewModel ViewModel { get; }
 
-    public IReadOnlyList<ContextFlyoutMenuEntry> EventFlyoutItems { get; }
-
     internal event EventHandler? HideRequested;
+
+    private async void OpenEvent_Click(object? sender, EventArgs e) => await OpenEventAsync();
 
     private void Root_KeyDown(object sender, KeyRoutedEventArgs e)
     {

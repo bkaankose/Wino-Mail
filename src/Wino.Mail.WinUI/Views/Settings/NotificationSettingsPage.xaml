@@ -70,7 +70,38 @@
                                 <TextBlock Text="{x:Bind ViewModel.SelectedSnoozePresetText, Mode=OneWay}" />
                             </StackPanel>
                             <ToggleSplitButton.Flyout>
-                                <contextFlyout:WinoContextFlyout ItemsSource="{x:Bind SnoozeItems, Mode=OneTime}" Placement="Bottom" />
+                                <contextFlyout:WinoContextFlyout Placement="Bottom">
+                                    <contextFlyout:WinoContextFlyoutItem
+                                        AutomationId="NotificationSettingsSnoozePresetThirtyMinutes"
+                                        Click="SnoozePreset_Click"
+                                        CommandParameter="ThirtyMinutes"
+                                        Text="{x:Bind domain:Translator.NotificationSnooze_ThirtyMinutes, Mode=OneTime}" />
+                                    <contextFlyout:WinoContextFlyoutItem
+                                        AutomationId="NotificationSettingsSnoozePresetOneHour"
+                                        Click="SnoozePreset_Click"
+                                        CommandParameter="OneHour"
+                                        Text="{x:Bind domain:Translator.NotificationSnooze_OneHour, Mode=OneTime}" />
+                                    <contextFlyout:WinoContextFlyoutItem
+                                        AutomationId="NotificationSettingsSnoozePresetTwoHours"
+                                        Click="SnoozePreset_Click"
+                                        CommandParameter="TwoHours"
+                                        Text="{x:Bind domain:Translator.NotificationSnooze_TwoHours, Mode=OneTime}" />
+                                    <contextFlyout:WinoContextFlyoutItem
+                                        AutomationId="NotificationSettingsSnoozePresetRestOfDay"
+                                        Click="SnoozePreset_Click"
+                                        CommandParameter="RestOfDay"
+                                        Text="{x:Bind domain:Translator.NotificationSnooze_RestOfDay, Mode=OneTime}" />
+                                    <contextFlyout:WinoContextFlyoutItem
+                                        AutomationId="NotificationSettingsSnoozePresetUntilTomorrowMorning"
+                                        Click="SnoozePreset_Click"
+                                        CommandParameter="UntilTomorrowMorning"
+                                        Text="{x:Bind domain:Translator.NotificationSnooze_UntilTomorrowMorning, Mode=OneTime}" />
+                                    <contextFlyout:WinoContextFlyoutItem
+                                        AutomationId="NotificationSettingsSnoozePresetUntilTurnedBackOn"
+                                        Click="SnoozePreset_Click"
+                                        CommandParameter="UntilTurnedBackOn"
+                                        Text="{x:Bind domain:Translator.NotificationSnooze_UntilTurnedBackOn, Mode=OneTime}" />
+                                </contextFlyout:WinoContextFlyout>
                             </ToggleSplitButton.Flyout>
                         </ToggleSplitButton>
                     </StackPanel>

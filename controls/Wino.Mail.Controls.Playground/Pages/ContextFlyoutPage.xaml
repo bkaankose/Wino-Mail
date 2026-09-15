@@ -12,7 +12,7 @@
             <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Context flyout" />
             <TextBlock
                 MaxWidth="640"
-                Text="Right-click the card or use the button. Menus are plain .NET definitions built in code-behind. The card opts into root search and header commands; the button enables search only after entering a submenu."
+                Text="Right-click the card or use the button. Menus can use bound .NET definitions or declarative XAML items. The card opts into root search and header commands; the button demonstrates nested XAML items."
                 TextWrapping="Wrap" />
 
             <Border
@@ -32,9 +32,47 @@
                 <TextBlock Text="Right-click this card" />
             </Border>
 
-            <Button AutomationProperties.AutomationId="BoundContextFlyoutButton" Content="Bound items">
+            <Button AutomationProperties.AutomationId="DeclarativeContextFlyoutButton" Content="Declarative XAML items">
                 <Button.Flyout>
-                    <contextFlyout:WinoContextFlyout x:Name="BoundContextFlyout" ItemsSource="{x:Bind BoundItems, Mode=OneTime}" />
+                    <contextFlyout:WinoContextFlyout x:Name="DeclarativeContextFlyout">
+                        <contextFlyout:WinoContextFlyoutItem
+                            AutomationId="DeclarativeReplyItem"
+                            Command="{x:Bind SampleCommand}"
+                            CommandParameter="Reply from XAML"
+                            IconGlyph="&#xF176;"
+                            ShortcutControl="True"
+                            ShortcutKey="R"
+                            ShortcutText="Ctrl+R"
+                            Text="Reply" />
+                        <contextFlyout:WinoContextFlyoutSubItem
+                            AutomationId="DeclarativeMoveSubItem"
+                            IconGlyph="&#xE7B8;"
+                            SearchKeywords="folder destination"
+                            Text="Move to">
+                            <contextFlyout:WinoContextFlyoutItem
+                                AutomationId="DeclarativeMoveArchiveItem"
+                                Command="{x:Bind SampleCommand}"
+                                CommandParameter="Move to Archive"
+                                IconGlyph="&#xE643;"
+                                Text="Archive" />
+                            <contextFlyout:WinoContextFlyoutItem
+                                AutomationId="DeclarativeMoveProjectsItem"
+                                Command="{x:Bind SampleCommand}"
+                                CommandParameter="Move to Projects"
+                                IconGlyph="&#xE643;"
+                                Text="Projects" />
+                        </contextFlyout:WinoContextFlyoutSubItem>
+                        <contextFlyout:WinoContextFlyoutSeparator />
+                        <contextFlyout:WinoContextFlyoutItem
+                            AutomationId="DeclarativeDeleteItem"
+                            Command="{x:Bind SampleCommand}"
+                            CommandParameter="Delete from XAML"
+                            IconGlyph="&#xEEA6;"
+                            IsDestructive="True"
+                            ShortcutKey="Delete"
+                            ShortcutText="Delete"
+                            Text="Delete" />
+                    </contextFlyout:WinoContextFlyout>
                 </Button.Flyout>
             </Button>
 

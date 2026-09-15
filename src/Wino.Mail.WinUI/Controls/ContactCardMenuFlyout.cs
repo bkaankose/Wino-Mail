@@ -8,6 +8,7 @@ using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Helpers;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels;
@@ -42,17 +43,13 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
 
         if (position is Point targetPosition)
         {
-            ShowAt(target, new FlyoutShowOptions
-            {
-                Position = targetPosition,
-                Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft
-            });
+            ShowAt(target, WinoContextFlyoutHelper.CreatePointerAlignedOptions(targetPosition));
         }
         else
         {
             ShowAt(target, new FlyoutShowOptions
             {
-                Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft
+                Placement = FlyoutPlacementMode.RightEdgeAlignedTop
             });
         }
     }
@@ -68,7 +65,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
         {
             items.Add(CreateCommandItem(
                 Translator.ContactAction_Edit,
-                "\uE70F",
+                WinoIconGlyph.Rename,
                 "ContactCardContextEdit",
                 viewModel.EditContactCommand,
                 contact));
@@ -76,7 +73,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
 
         items.Add(CreateCommandItem(
             contact.FavoriteActionText,
-            "\uE734",
+            WinoIconGlyph.Star,
             "ContactCardContextFavorite",
             viewModel.ToggleFavoriteCommand,
             contact));
@@ -85,7 +82,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
         {
             items.Add(CreateCommandItem(
                 Translator.ContactAction_SendMail,
-                "\uE715",
+                WinoIconGlyph.Send,
                 "ContactCardContextSendMail",
                 viewModel.ComposeToContactCommand,
                 contact));
@@ -107,7 +104,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
             items.Add(new ContextFlyoutSubMenuEntry
             {
                 Text = Translator.ContactAction_AddToList,
-                Icon = CreateIcon("\uE8FD"),
+                Icon = CreateIcon(WinoIconGlyph.People),
                 Items = assignItems,
                 AutomationId = "ContactCardContextAssignToList"
             });
@@ -118,7 +115,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
         items.Add(new ContextFlyoutCommandEntry
         {
             Text = Translator.Buttons_TestNotification,
-            Icon = CreateIcon("\uE7ED"),
+            Icon = CreateIcon(WinoIconGlyph.Reminder),
             Command = new AsyncRelayCommand(() => _notificationBuilder.CreateTestPeopleNotificationAsync(contact.SourceContact)),
             AutomationId = "ContactCardContextTestNotification"
         });
@@ -129,7 +126,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
             items.Add(ContextFlyoutSeparatorEntry.Instance);
             items.Add(CreateCommandItem(
                 Translator.ContactAction_Delete,
-                "\uE74D",
+                WinoIconGlyph.Delete,
                 "ContactCardContextDelete",
                 viewModel.DeleteContactCommand,
                 contact,
@@ -142,7 +139,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
 
     private static ContextFlyoutCommandEntry CreateCommandItem(
         string text,
-        string glyph,
+        WinoIconGlyph icon,
         string automationId,
         System.Windows.Input.ICommand command,
         object commandParameter,
@@ -151,7 +148,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
         => new()
         {
             Text = text,
-            Icon = CreateIcon(glyph),
+            Icon = CreateIcon(icon),
             Command = command,
             CommandParameter = commandParameter,
             IsDestructive = isDestructive,
@@ -159,5 +156,8 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
             AutomationId = automationId
         };
 
-    private static ContextFlyoutIcon CreateIcon(string glyph) => new(glyph);
+    private static ContextFlyoutIcon? CreateIcon(WinoIconGlyph icon)
+        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
+            ? new ContextFlyoutIcon(glyph)
+            : null;
 }

@@ -20,6 +20,7 @@ using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Views.Abstract;
@@ -187,19 +188,19 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
 
         var items = new List<ContextFlyoutMenuEntry>
         {
-            CreateTaskCommand(task.MyDayActionText, "\uE706", "ToDoTaskMyDay", ViewModel.ToggleMyDayCommand, task),
-            CreateTaskCommand(task.ImportanceActionText, "\uE734", "ToDoTaskImportance", ViewModel.ToggleImportanceCommand, task),
-            CreateTaskCommand(task.CompletionActionText, "\uE73E", "ToDoTaskCompletion", ViewModel.ToggleTaskCommand, task),
+            CreateTaskCommand(task.MyDayActionText, WinoIconGlyph.CalendarToday, "ToDoTaskMyDay", ViewModel.ToggleMyDayCommand, task),
+            CreateTaskCommand(task.ImportanceActionText, WinoIconGlyph.Star, "ToDoTaskImportance", ViewModel.ToggleImportanceCommand, task),
+            CreateTaskCommand(task.CompletionActionText, WinoIconGlyph.MarkRead, "ToDoTaskCompletion", ViewModel.ToggleTaskCommand, task),
             ContextFlyoutSeparatorEntry.Instance,
-            CreateTaskCommand(Translator.ToDoPage_DueToday, "\uE787", "ToDoTaskDueToday", new AsyncRelayCommand(() => ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date)), isEnabled: task.IsEditable),
-            CreateTaskCommand(Translator.ToDoPage_DueTomorrow, "\uE787", "ToDoTaskDueTomorrow", new AsyncRelayCommand(() => ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date.AddDays(1))), isEnabled: task.IsEditable),
-            CreateTaskCommand(Translator.ToDoPage_DuePresetPickDate, "\uE787", "ToDoTaskPickDueDate", new AsyncRelayCommand(() => PickTaskDueDateAsync(task)), isEnabled: task.IsEditable),
+            CreateTaskCommand(Translator.ToDoPage_DueToday, WinoIconGlyph.CalendarToday, "ToDoTaskDueToday", new AsyncRelayCommand(() => ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date)), isEnabled: task.IsEditable),
+            CreateTaskCommand(Translator.ToDoPage_DueTomorrow, WinoIconGlyph.Calendar, "ToDoTaskDueTomorrow", new AsyncRelayCommand(() => ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date.AddDays(1))), isEnabled: task.IsEditable),
+            CreateTaskCommand(Translator.ToDoPage_DuePresetPickDate, WinoIconGlyph.Calendar, "ToDoTaskPickDueDate", new AsyncRelayCommand(() => PickTaskDueDateAsync(task)), isEnabled: task.IsEditable),
             ContextFlyoutSeparatorEntry.Instance,
-            CreateTaskCommand(Translator.ToDoPage_MoveTaskTo, "\uE8DE", "ToDoTaskMove", new RelayCommand(() => ShowMoveTaskFlyout(task)), isEnabled: task.IsEditable),
+            CreateTaskCommand(Translator.ToDoPage_MoveTaskTo, WinoIconGlyph.Move, "ToDoTaskMove", new RelayCommand(() => ShowMoveTaskFlyout(task)), isEnabled: task.IsEditable),
             ContextFlyoutSeparatorEntry.Instance,
             CreateTaskCommand(
                 Translator.ToDoPage_DeleteTask,
-                "\uE74D",
+                WinoIconGlyph.Delete,
                 "ToDoTaskDelete",
                 ViewModel.DeleteTaskCommand,
                 task,
@@ -211,7 +212,7 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         items.Add(ContextFlyoutSeparatorEntry.Instance);
         items.Add(CreateTaskCommand(
             Translator.Buttons_TestNotification,
-            "\uE7ED",
+            WinoIconGlyph.Reminder,
             "ToDoTaskTestNotification",
             new AsyncRelayCommand(() => _notificationBuilder.CreateTestTaskReminderNotificationAsync(task.Task))));
 #endif
@@ -221,7 +222,7 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
 
     private static ContextFlyoutCommandEntry CreateTaskCommand(
         string text,
-        string glyph,
+        WinoIconGlyph icon,
         string automationId,
         System.Windows.Input.ICommand command,
         object? commandParameter = null,
@@ -231,7 +232,7 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         => new()
         {
             Text = text,
-            Icon = new ContextFlyoutIcon(glyph),
+            Icon = CreateContextIcon(icon),
             Command = command,
             CommandParameter = commandParameter,
             IsEnabled = isEnabled && command.CanExecute(commandParameter),
@@ -239,6 +240,11 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
             Shortcut = shortcut,
             AutomationId = automationId
         };
+
+    private static ContextFlyoutIcon? CreateContextIcon(WinoIconGlyph icon)
+        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
+            ? new ContextFlyoutIcon(glyph)
+            : null;
 
     private async Task PickTaskDueDateAsync(TaskItemViewModel task)
     {

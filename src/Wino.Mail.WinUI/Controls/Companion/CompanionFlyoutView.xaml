@@ -360,7 +360,18 @@
                                         ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_EventMoreActions, Mode=OneTime}">
                                         <FontIcon FontSize="14" Glyph="&#xE712;" />
                                         <Button.Flyout>
-                                            <contextFlyout:WinoContextFlyout ItemsSource="{x:Bind EventFlyoutItems, Mode=OneTime}" Placement="BottomEdgeAlignedRight" />
+                                            <contextFlyout:WinoContextFlyout Placement="BottomEdgeAlignedRight">
+                                                <contextFlyout:WinoContextFlyoutItem
+                                                    AutomationId="CompanionOpenEvent"
+                                                    Click="OpenEvent_Click"
+                                                    IconGlyph="&#xE8A7;"
+                                                    Text="{x:Bind domain:Translator.Companion_OpenEvent, Mode=OneTime}" />
+                                                <contextFlyout:WinoContextFlyoutItem
+                                                    AutomationId="CompanionOpenCalendar"
+                                                    Command="{x:Bind ViewModel.OpenCalendarCommand}"
+                                                    IconGlyph="&#xE912;"
+                                                    Text="{x:Bind domain:Translator.Companion_OpenCalendar, Mode=OneTime}" />
+                                            </contextFlyout:WinoContextFlyout>
                                         </Button.Flyout>
                                     </Button>
                                 </Grid>

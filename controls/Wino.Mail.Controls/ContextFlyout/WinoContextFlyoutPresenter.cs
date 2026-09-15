@@ -27,8 +27,6 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     private readonly ObservableCollection<ContextFlyoutRow> _visibleItems = [];
     private readonly Dictionary<KeyboardAccelerator, ContextFlyoutRow> _acceleratorItems = [];
     private readonly Stack<IReadOnlyList<ContextFlyoutMenuEntry>> _navigationStack = [];
-    private readonly DataTemplateSelector _itemTemplateSelector;
-    private readonly DataTemplate _headerItemTemplate;
     private IReadOnlyList<ContextFlyoutMenuEntry> _currentItems = [];
     private IReadOnlyList<ContextFlyoutRow> _currentRows = [];
     private IReadOnlyList<ContextFlyoutSearchCandidate> _searchCandidates = [];
@@ -50,17 +48,13 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     {
         _owner = owner;
         DefaultStyleKey = typeof(WinoContextFlyoutPresenter);
-
-        var itemResources = new WinoContextFlyoutResources();
-        Resources.MergedDictionaries.Add(itemResources);
-        _itemTemplateSelector = itemResources.TemplateSelector;
-        _headerItemTemplate = itemResources.HeaderItemTemplate;
     }
 
     public ObservableCollection<ContextFlyoutRow> VisibleItems => _visibleItems;
 
     protected override void OnApplyTemplate()
     {
+        UnregisterHeaderItemHandlers();
         UnregisterHandlers();
         base.OnApplyTemplate();
 
@@ -95,7 +89,6 @@ public sealed partial class WinoContextFlyoutPresenter : Control
 
         if (_headerItems is not null)
         {
-            _headerItems.ItemTemplate = _headerItemTemplate;
             _headerItems.ElementPrepared += HeaderItemsElementPrepared;
             _headerItems.ElementClearing += HeaderItemsElementClearing;
         }
@@ -103,7 +96,6 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         if (_itemsList is not null)
         {
             _itemsList.ItemsSource = _visibleItems;
-            _itemsList.ItemTemplateSelector = _itemTemplateSelector;
             _itemsList.ItemClick += ItemsListItemClick;
             _itemsList.KeyDown += ItemsListKeyDown;
             _itemsList.ContainerContentChanging += ItemsListContainerContentChanging;
@@ -126,12 +118,15 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     {
         _isOpen = false;
         _focusRequestVersion++;
+        UnregisterKeyboardAccelerators();
+        UnregisterHeaderItemHandlers();
+        UnregisterHandlers();
+
         _navigationStack.Clear();
         _currentItems = [];
         _currentRows = [];
         _searchCandidates = [];
         _visibleItems.Clear();
-        UnregisterKeyboardAccelerators();
         ClearHeaderItems();
 
         _isUpdatingSearch = true;
@@ -143,6 +138,20 @@ public sealed partial class WinoContextFlyoutPresenter : Control
 
         _showBackButtonStoryboard?.Stop();
         _hideBackButtonStoryboard?.Stop();
+
+        if (_itemsList is not null)
+        {
+            _itemsList.ItemsSource = null;
+        }
+
+        _searchRow = null;
+        _searchBox = null;
+        _backButton = null;
+        _headerItems = null;
+        _showBackButtonStoryboard = null;
+        _hideBackButtonStoryboard = null;
+        _itemsList = null;
+        _emptyText = null;
     }
 
     private void SearchBoxTextChanged(object sender, TextChangedEventArgs e)
@@ -447,6 +456,22 @@ public sealed partial class WinoContextFlyoutPresenter : Control
             _itemsList.ItemClick -= ItemsListItemClick;
             _itemsList.KeyDown -= ItemsListKeyDown;
             _itemsList.ContainerContentChanging -= ItemsListContainerContentChanging;
+        }
+    }
+
+    private void UnregisterHeaderItemHandlers()
+    {
+        if (_headerItems is null)
+        {
+            return;
+        }
+
+        for (var index = 0; index < _headerRows.Count; index++)
+        {
+            if (_headerItems.TryGetElement(index) is ButtonBase button)
+            {
+                button.Click -= HeaderItemClick;
+            }
         }
     }
 

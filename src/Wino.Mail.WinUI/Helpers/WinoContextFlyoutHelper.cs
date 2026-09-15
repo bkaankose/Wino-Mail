@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Windows.Foundation;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.ContextFlyout;
 
@@ -13,16 +14,30 @@ internal static class WinoContextFlyoutHelper
         FrameworkElement target,
         ContextRequestedEventArgs args,
         IReadOnlyList<ContextFlyoutMenuEntry> items,
-        FlyoutPlacementMode placement = FlyoutPlacementMode.Auto)
+        FlyoutPlacementMode placement = FlyoutPlacementMode.BottomEdgeAlignedLeft)
     {
         args.Handled = true;
 
-        var options = new FlyoutShowOptions { Placement = placement };
+        FlyoutShowOptions options;
         if (args.TryGetPosition(target, out var position))
         {
-            options.Position = position;
+            options = CreatePointerAlignedOptions(position, placement);
+        }
+        else
+        {
+            options = new FlyoutShowOptions { Placement = FlyoutPlacementMode.RightEdgeAlignedTop };
         }
 
         new WinoContextFlyout { ItemsSource = items }.ShowAt(target, options);
     }
+
+    public static FlyoutShowOptions CreatePointerAlignedOptions(
+        Point position,
+        FlyoutPlacementMode placement = FlyoutPlacementMode.BottomEdgeAlignedLeft)
+        => new()
+        {
+            ShowMode = FlyoutShowMode.Standard,
+            Placement = placement,
+            Position = position
+        };
 }

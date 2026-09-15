@@ -13,6 +13,7 @@
     xmlns:winoPrimitives="using:Wino.Mail.Controls.Primitives">
 
     <ResourceDictionary.MergedDictionaries>
+        <contextFlyout:WinoContextFlyoutResources />
         <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls/Themes/WinoIntelligenceBranding.xaml" />
         <ResourceDictionary Source="ms-appx:///Wino.Mail.Controls/IntelligenceProgressRing/WinoIntelligenceProgressRing.xaml" />
     </ResourceDictionary.MergedDictionaries>
@@ -1840,9 +1841,7 @@
             <Setter.Value>
                 <ControlTemplate TargetType="contextFlyout:WinoContextFlyoutPresenter">
                     <Border
-                        Width="250"
-                        MinWidth="250"
-                        MaxWidth="250"
+                        MaxWidth="300"
                         Padding="4"
                         Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
@@ -1857,6 +1856,7 @@
                             <Grid
                                 x:Name="PART_SearchRow"
                                 Margin="0,0,0,4"
+                                ColumnSpacing="4"
                                 Visibility="Collapsed">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -1946,6 +1946,7 @@
                                 Margin="0,0,0,4"
                                 HorizontalAlignment="Stretch"
                                 AutomationProperties.AutomationId="WinoContextFlyoutHeaderItems"
+                                ItemTemplate="{StaticResource WinoContextFlyoutHeaderItemTemplate}"
                                 Visibility="Collapsed">
                                 <ItemsRepeater.Layout>
                                     <UniformGridLayout
@@ -1961,6 +1962,7 @@
                                     Padding="0"
                                     AutomationProperties.AutomationId="WinoContextFlyoutItemsList"
                                     IsItemClickEnabled="True"
+                                    ItemTemplateSelector="{StaticResource WinoContextFlyoutTemplateSelector}"
                                     SelectionMode="None">
                                     <ListView.ItemContainerStyle>
                                         <!--  Rows are commands, not a selection. The container adds no height; each item template owns its own metrics.  -->
