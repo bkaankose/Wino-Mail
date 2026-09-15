@@ -901,6 +901,11 @@
         setTypography,
         setPasteAsHtml(value) { pasteAsHtml = Boolean(value); },
         setSpellCheck(value) { spellCheck = Boolean(value); editor.spellcheck = spellCheck; sendState(); },
+        setSpellCheckLanguage(value) {
+            const languageCode = String(value || "").trim();
+            document.documentElement.lang = languageCode;
+            editor.lang = languageCode;
+        },
         setApplicationShortcuts,
         setParagraphStyle,
         setLineHeight(value) { return applyStyle("lineHeight", value || "normal"); },

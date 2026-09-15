@@ -123,6 +123,13 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         await _bridge!.SetTypographyAsync(fontFamily, fontSize);
     }
 
+    public async Task ConfigureSpellCheckAsync(bool isEnabled, string languageCode)
+    {
+        await InitializeAsync();
+        await _bridge!.SetSpellCheckLanguageAsync(languageCode);
+        await _bridge.SetSpellCheckAsync(isEnabled);
+    }
+
     public async Task SetApplicationShortcutsAsync(IReadOnlyList<EditorApplicationShortcutGesture> shortcuts)
     {
         await InitializeAsync();
@@ -390,6 +397,7 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
             case EditorCommandKind.ToggleTheme: IsEditorDarkMode = command.Value is true; break;
             case EditorCommandKind.ToggleBuiltInToolbar: IsEditorWebViewEditor = command.Value is true; break;
             case EditorCommandKind.ToggleSpellCheck: await _bridge!.SetSpellCheckAsync(command.Value is true); break;
+            case EditorCommandKind.SetSpellCheckLanguage: await _bridge!.SetSpellCheckLanguageAsync(command.Value?.ToString() ?? string.Empty); break;
         }
     }
 

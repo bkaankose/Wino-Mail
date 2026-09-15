@@ -410,6 +410,16 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     int ComposerFontSize { get; set; }
 
+    /// <summary>
+    /// Setting: Whether spellchecking is enabled in the mail composer.
+    /// </summary>
+    bool IsComposerSpellCheckEnabled { get; set; }
+
+    /// <summary>
+    /// Setting: BCP-47 language code used by the composer spellchecker.
+    /// </summary>
+    string ComposerSpellCheckLanguageCode { get; set; }
+
 
 
     /// <summary>

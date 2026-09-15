@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Translations;
 
 namespace Wino.Mail.ViewModels;
 
@@ -10,6 +11,7 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
 
     public IPreferencesService PreferencesService { get; set; }
     public List<string> AvailableFonts => _fontService.GetFonts();
+    public List<AppLanguageModel> AvailableSpellCheckLanguages { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedRecipients]
@@ -27,18 +29,25 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
     [NotifyPropertyChangedRecipients]
     public partial int CurrentComposerFontSize { get; set; }
 
+    [ObservableProperty]
+    public partial AppLanguageModel? CurrentSpellCheckLanguage { get; set; }
+
     public ReadComposePanePageViewModel(IMailDialogService dialogService,
                                     IFontService fontService,
-                                    IPreferencesService preferencesService) 
+                                    IPreferencesService preferencesService,
+                                    ITranslationService translationService)
     {
         _fontService = fontService;
         PreferencesService = preferencesService;
+        AvailableSpellCheckLanguages = translationService.GetAvailableLanguages();
 
         CurrentReaderFont = preferencesService.ReaderFont;
         CurrentReaderFontSize = preferencesService.ReaderFontSize;
 
         CurrentComposerFont = preferencesService.ComposerFont;
         CurrentComposerFontSize = preferencesService.ComposerFontSize;
+        CurrentSpellCheckLanguage = AvailableSpellCheckLanguages.Find(language =>
+            string.Equals(language.Code, preferencesService.ComposerSpellCheckLanguageCode, System.StringComparison.OrdinalIgnoreCase));
     }
 
     partial void OnCurrentReaderFontChanged(string value)
@@ -70,6 +79,14 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
         if (PreferencesService.ComposerFontSize != value)
         {
             PreferencesService.ComposerFontSize = value;
+        }
+    }
+
+    partial void OnCurrentSpellCheckLanguageChanged(AppLanguageModel? value)
+    {
+        if (value != null && PreferencesService.ComposerSpellCheckLanguageCode != value.Code)
+        {
+            PreferencesService.ComposerSpellCheckLanguageCode = value.Code;
         }
     }
 }

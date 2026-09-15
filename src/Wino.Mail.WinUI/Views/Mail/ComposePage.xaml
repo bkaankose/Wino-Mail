@@ -192,7 +192,11 @@
                 </Grid.RowDefinitions>
 
                 <!--  Format  -->
-                <controls1:EditorTabbedCommandBarControl CommandTarget="{x:Bind WebViewEditor}">
+                <controls1:EditorTabbedCommandBarControl
+                    x:Name="EditorCommandBar"
+                    CommandTarget="{x:Bind WebViewEditor}"
+                    SpellCheckEnabledChanged="EditorCommandBar_SpellCheckEnabledChanged"
+                    SpellCheckLanguageChanged="EditorCommandBar_SpellCheckLanguageChanged">
                     <controls1:EditorTabbedCommandBarControl.PaneCustomContent>
                         <toolkit:TabbedCommandBarItem
                             CommandAlignment="Right"

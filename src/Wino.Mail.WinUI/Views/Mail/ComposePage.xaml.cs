@@ -31,6 +31,7 @@ using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Editor;
 using Wino.Helpers;
+using Wino.Mail.Controls;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
@@ -58,6 +59,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private bool _shouldApplyInitialFocus;
     private bool _isNavigatingFrom;
     private int _isExecutingEditorShortcut;
+    private bool _isSpellCheckEnabled;
+    private string _spellCheckLanguageCode = string.Empty;
     private CancellationTokenSource? _editorLifecycleCancellationSource;
     private readonly Dictionary<TokenizingTextBox, List<IContactDisplayItem>> _recipientSuggestions = [];
 
@@ -73,6 +76,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private readonly List<IDisposable> _disposables = [];
     private readonly IKeyboardShortcutService _keyboardShortcutService = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
     private readonly IWinoLogger _logger = WinoApplication.Current.Services.GetRequiredService<IWinoLogger>();
+    private readonly ITranslationService _translationService = WinoApplication.Current.Services.GetRequiredService<ITranslationService>();
 
     public ComposePage()
     {
@@ -314,6 +318,12 @@ public sealed partial class ComposePage : ComposePageAbstract,
         _shouldApplyInitialFocus = ConsumeInitialFocusRequest(e.Parameter as MailItemViewModel);
         _isInitialFocusHandled = false;
 
+        _isSpellCheckEnabled = ViewModel.PreferencesService.IsComposerSpellCheckEnabled;
+        _spellCheckLanguageCode = ViewModel.PreferencesService.ComposerSpellCheckLanguageCode;
+        EditorCommandBar.ConfigureSpellCheckLanguages(
+            _translationService.GetAvailableLanguages(),
+            _spellCheckLanguageCode);
+
         var webView = GetWebView();
 
         if (webView != null)
@@ -374,6 +384,18 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 AutomationId = "ComposeContactCopyAddress"
             }
         ]);
+    }
+
+    private void EditorCommandBar_SpellCheckEnabledChanged(object? sender, SpellCheckEnabledChangedEventArgs e)
+    {
+        _isSpellCheckEnabled = e.IsEnabled;
+        ViewModel.PreferencesService.IsComposerSpellCheckEnabled = e.IsEnabled;
+    }
+
+    private void EditorCommandBar_SpellCheckLanguageChanged(object? sender, SpellCheckLanguageChangedEventArgs e)
+    {
+        _spellCheckLanguageCode = e.LanguageCode;
+        ViewModel.PreferencesService.ComposerSpellCheckLanguageCode = e.LanguageCode;
     }
 
     private static void CopyContactAddress(string address)
@@ -778,6 +800,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
         try
         {
+            await WebViewEditor.ConfigureSpellCheckAsync(
+                _isSpellCheckEnabled,
+                _spellCheckLanguageCode);
+
             await WebViewEditor.SetDefaultTypographyAsync(
                 ViewModel.PreferencesService.ComposerFont,
                 ViewModel.PreferencesService.ComposerFontSize);

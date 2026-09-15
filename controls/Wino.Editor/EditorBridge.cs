@@ -130,6 +130,9 @@ internal sealed partial class EditorBridge : IDisposable
     public Task SetSpellCheckAsync(bool enabled) =>
         ExecuteScriptAsync($"window.WinoEditor.setSpellCheck({enabled.ToString().ToLowerInvariant()})");
 
+    public Task SetSpellCheckLanguageAsync(string languageCode) =>
+        ExecuteFunctionWithStringAsync("setSpellCheckLanguage", languageCode);
+
     public Task SetParagraphStyleAsync(string tag) => ExecuteFunctionWithStringAsync("setParagraphStyle", tag);
     public Task SetLineHeightAsync(string value) => ExecuteFunctionWithStringAsync("setLineHeight", value);
     public Task InsertEmojiAsync(string value) => ExecuteFunctionWithStringAsync("insertEmoji", value);

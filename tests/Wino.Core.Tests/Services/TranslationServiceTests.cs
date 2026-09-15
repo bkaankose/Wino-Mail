@@ -57,4 +57,17 @@ public class TranslationServiceTests
 
         new CultureInfo(hebrew.Code).TextInfo.IsRightToLeft.Should().BeTrue();
     }
+
+    [Fact]
+    public void IsSupportedLanguageCode_MatchesEveryAvailableLanguageAndRejectsUnknownCodes()
+    {
+        var service = new TranslationService(null, null);
+
+        service.GetAvailableLanguages()
+            .Should()
+            .OnlyContain(language => TranslationService.IsSupportedLanguageCode(language.Code));
+        TranslationService.IsSupportedLanguageCode("EN-us").Should().BeTrue();
+        TranslationService.IsSupportedLanguageCode("xx-XX").Should().BeFalse();
+        TranslationService.IsSupportedLanguageCode(null).Should().BeFalse();
+    }
 }
