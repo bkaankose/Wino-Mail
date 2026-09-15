@@ -14,6 +14,8 @@ using Wino.Core.Synchronizers.Errors.Imap;
 using Wino.Core.Synchronizers.Errors.Outlook;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.CardDav;
+using Wino.Core.Synchronizers.Exchange.Streaming;
+using Wino.Core.Synchronizers.Mapi;
 
 namespace Wino.Core;
 
@@ -54,6 +56,10 @@ public static class CoreContainerSetup
         services.AddTransient<ISmtpTransport, MailKitSmtpTransport>();
         services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
+        services.AddTransient<IExchangeAutoDiscoveryService, ExchangeAutoDiscoveryService>();
+        services.AddTransient<IExchangeAuthCapabilityProbe, ExchangeAuthCapabilityProbe>();
+        services.AddTransient<IMapiConnectionProbe, MapiConnectionProbe>();
+        services.AddSingleton<IExchangeStreamingNotificationService, ExchangeStreamingNotificationService>();
         services.AddTransient<IFontService, FontService>();
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();

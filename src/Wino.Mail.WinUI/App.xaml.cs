@@ -73,6 +73,7 @@ public partial class App : WinoApplication,
     private const int InboxSyncsPerFullSync = 20;
     private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
     private ISynchronizationManager? _synchronizationManager;
+    private IExchangeStreamingNotificationService? _exchangeStreamingService;
     private IPreferencesService? _preferencesService;
     private IAccountService? _accountService;
     private bool _windowManagerConfigured;
@@ -537,6 +538,8 @@ public partial class App : WinoApplication,
         if (_isExiting) return;
         _isExiting = true;
 
+        _ = _exchangeStreamingService?.StopAsync();
+
         try
         {
             var updates = Services.GetService<IDraftUpdateCoordinator>();
@@ -737,6 +740,7 @@ public partial class App : WinoApplication,
             _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
             _preferencesService = Services.GetRequiredService<IPreferencesService>();
             _accountService = Services.GetRequiredService<IAccountService>();
+            _exchangeStreamingService = Services.GetRequiredService<IExchangeStreamingNotificationService>();
 
             var entitlementService = Services.GetRequiredService<IWinoIntelligenceEntitlementService>();
             await entitlementService.GetAsync();
@@ -754,6 +758,10 @@ public partial class App : WinoApplication,
             }
 
             _ = Services.GetRequiredService<AccountProfilePictureBackfillService>().RunAsync();
+
+            // Exchange push (MAPI/HTTP notifications or EWS streaming). Fire-and-forget; the listeners
+            // reconnect on their own and the periodic poll stays as the backstop.
+            _ = _exchangeStreamingService.StartAsync();
 
             _activationInfrastructureInitialized = true;
         }
@@ -1872,6 +1880,9 @@ public partial class App : WinoApplication,
     public void Receive(AccountCreatedMessage message)
     {
         _hasConfiguredAccounts = true;
+
+        // Begin push notifications for a newly added Exchange account (no-op for other providers).
+        _ = _exchangeStreamingService?.StartForAccountAsync(message.Account);
         _ = _companionIntegration?.SetReadinessAsync(CompanionReadinessState.Ready);
         EnsurePreferenceChangedSubscription();
         QueueJumpListOptionsUpdateOnUiThread();
@@ -2017,6 +2028,7 @@ public partial class App : WinoApplication,
 
     public void Receive(AccountRemovedMessage message)
     {
+        _ = _exchangeStreamingService?.StopForAccountAsync(message.Account.Id);
         QueueJumpListOptionsUpdateOnUiThread();
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
