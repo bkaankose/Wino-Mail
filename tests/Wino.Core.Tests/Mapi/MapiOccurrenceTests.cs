@@ -32,6 +32,29 @@ public class MapiOccurrenceTests
     }
 
     [Fact]
+    public void RestoringAnOccurrence_DropsItsExceptionAndBothListEntries()
+    {
+        var series = Weekly();
+        var moved = new RecurrenceException(
+            new DateTime(2026, 9, 22, 9, 0, 0), new DateTime(2026, 9, 23, 14, 0, 0), new DateTime(2026, 9, 23, 15, 0, 0),
+            null, null, null, null);
+        var changed = RecurrenceEncoder.WithException(series, moved);
+
+        var restored = RecurrenceEncoder.WithoutException(changed, new DateTime(2026, 9, 22, 9, 0, 0));
+
+        restored.Exceptions.Should().BeEmpty();
+        restored.ModifiedInstanceDates.Should().BeEmpty();
+        restored.DeletedInstanceDates.Should().BeEmpty("the slot the exception vacated is occupied by the pattern again");
+        AppointmentRecurrence.Parse(RecurrenceEncoder.Encode(restored)).Exceptions.Should().BeEmpty();
+
+        // Other exceptions and deletions are untouched.
+        var other = RecurrenceEncoder.WithDeletedOccurrence(changed, new DateTime(2026, 9, 29, 9, 0, 0));
+        var partial = RecurrenceEncoder.WithoutException(other, new DateTime(2026, 9, 22, 9, 0, 0));
+        partial.DeletedInstanceDates.Should().Equal(new DateTime(2026, 9, 29));
+        partial.Exceptions.Should().BeEmpty();
+    }
+
+    [Fact]
     public void Exception_IsListedAsModifiedAndDeleted_AndRoundTripsWithOverrides()
     {
         var series = Weekly();

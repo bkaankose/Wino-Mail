@@ -114,10 +114,16 @@ public static class MapiOccurrenceOperations
             if (await RemoveExceptionAttachmentAsync(session, handles, tags, originalStartUtc, originalWall, cancellationToken, diagnostics).ConfigureAwait(false) > 0)
                 await SaveMasterAsync(session, handles, cancellationToken).ConfigureAwait(false);
 
+            // The blob is committed before the attachment: the store checks a new exception attachment
+            // against the saved pattern, and an exception whose saved times differ from the attachment
+            // is refused as corrupt data.
             await WriteRecurrenceAsync(session, handles, tags, updated, cancellationToken).ConfigureAwait(false);
-            if (!restoresInstance)
-                await WriteExceptionAttachmentAsync(session, handles, tags, change, originalStartUtc, startWall, endWall, cancellationToken).ConfigureAwait(false);
             await SaveMasterAsync(session, handles, cancellationToken).ConfigureAwait(false);
+            if (!restoresInstance)
+            {
+                await WriteExceptionAttachmentAsync(session, handles, tags, change, originalStartUtc, startWall, endWall, cancellationToken).ConfigureAwait(false);
+                await SaveMasterAsync(session, handles, cancellationToken).ConfigureAwait(false);
+            }
         }
         finally
         {
