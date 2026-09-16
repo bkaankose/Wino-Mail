@@ -39,9 +39,11 @@ namespace Wino.Core.Synchronizers.Mapi;
 
 /// <summary>
 /// The Exchange synchronizer over native MAPI/HTTP. It derives from the EWS synchronizer and replaces
-/// every mail surface: folder hierarchy, message list, message read incl. attachments, read/flag/move/
-/// delete/junk, drafts and native send, and incremental sync over ICS. Servers that do not advertise
-/// MAPI/HTTP are recorded on the account and the next synchronizer build lands on the EWS class.
+/// every surface: folder hierarchy, message list, message read incl. attachments, read/flag/move/
+/// delete/junk, drafts and native send, incremental mail sync over ICS, and the calendar (series
+/// expanded client-side, meetings and responses), contacts and tasks folders with native writes.
+/// Servers that do not advertise MAPI/HTTP are recorded on the account and the next synchronizer
+/// build lands on the EWS class.
 ///
 /// Identity: a MailCopy.Id is the MAPI message id, "mapi:" + 16 hex digits. A message id is unique
 /// within a mailbox database and survives moves between folders of the same mailbox, which is what the

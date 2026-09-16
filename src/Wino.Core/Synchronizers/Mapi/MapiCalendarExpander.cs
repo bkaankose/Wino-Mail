@@ -74,7 +74,7 @@ internal static class MapiCalendarExpander
 
         try
         {
-            master.RecurrenceRules.Add(new RecurrencePattern(recurrence.ToRRule()));
+            master.RecurrenceRule = new RecurrencePattern(recurrence.ToRRule());
         }
         catch (Exception ex)
         {
