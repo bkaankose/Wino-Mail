@@ -953,11 +953,20 @@ public class FolderService : BaseDatabaseService, IFolderService
     public async Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(IEnumerable<string> mailCopyIds)
     {
         var mailCopyIdList = mailCopyIds.ToList();
-        var placeholders = string.Join(",", mailCopyIdList.Select(_ => "?"));
-        var query = $"SELECT DISTINCT MailCopy.Id as MailCopyId, MailItemFolder.Id as FolderId, MailItemFolder.RemoteFolderId as RemoteFolderId FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id IN ({placeholders})";
-        var parameters = mailCopyIdList.Cast<object>().ToArray();
-        
-        return await Connection.QueryAsync<MailFolderPairMetadata>(query, parameters);
+        if (mailCopyIdList.Count == 0)
+            return [];
+
+        var metadatas = new List<MailFolderPairMetadata>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(mailCopyIdList))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var query = $"SELECT DISTINCT MailCopy.Id as MailCopyId, MailItemFolder.Id as FolderId, MailItemFolder.RemoteFolderId as RemoteFolderId FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id IN ({placeholders})";
+
+            metadatas.AddRange(await Connection.QueryAsync<MailFolderPairMetadata>(query, idChunk.Cast<object>().ToArray()));
+        }
+
+        return metadatas;
     }
 
     public Task<List<MailFolderPairMetadata>> GetMailFolderPairMetadatasAsync(string mailCopyId)

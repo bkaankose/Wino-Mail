@@ -15,6 +15,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Serilog;
+using WinRT;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -43,6 +44,9 @@ using Wino.Views.Abstract;
 
 namespace Wino.Views.Mail;
 
+[GeneratedBindableCustomProperty(
+    new string[] { nameof(ViewModel) },
+    new Type[] { })]
 public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IPopoutClient,
     IReentryTarget,

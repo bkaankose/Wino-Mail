@@ -194,9 +194,14 @@ public class MailService : BaseDatabaseService, IMailService
             return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         var folderPlaceholders = string.Join(",", folderIds.Select(static _ => "?"));
-        var addressPlaceholders = string.Join(",", normalizedAddresses.Select(static _ => "?"));
-        var parameters = folderIds.Cast<object>().Concat(normalizedAddresses.Cast<object>()).ToArray();
-        var rows = await Connection.QueryAsync<UnreadSenderCountRow>(
+        var folderParameters = folderIds.Cast<object>().ToArray();
+        var senderCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var addressChunk in SqliteVariableLimit.Batch(normalizedAddresses, fixedParameters: folderParameters.Length))
+        {
+            var addressPlaceholders = string.Join(",", addressChunk.Select(static _ => "?"));
+            var parameters = folderParameters.Concat(addressChunk.Cast<object>()).ToArray();
+            var rows = await Connection.QueryAsync<UnreadSenderCountRow>(
             $"""
              SELECT NormalizedAddress, COUNT(*) AS UnreadCount
              FROM
@@ -220,11 +225,16 @@ public class MailService : BaseDatabaseService, IMailService
              """,
             parameters).ConfigureAwait(false);
 
+            foreach (var row in rows)
+            {
+                senderCounts[row.NormalizedAddress] = senderCounts.TryGetValue(row.NormalizedAddress, out var count)
+                    ? count + row.UnreadCount
+                    : row.UnreadCount;
+            }
+        }
+
         cancellationToken.ThrowIfCancellationRequested();
-        return rows.ToDictionary(
-            static row => row.NormalizedAddress,
-            static row => row.UnreadCount,
-            StringComparer.OrdinalIgnoreCase);
+        return senderCounts;
     }
 
     private sealed class UnreadSenderCountRow
@@ -991,7 +1001,11 @@ public class MailService : BaseDatabaseService, IMailService
         if (seedIds.Count == 0)
             return [];
 
-        var placeholders = string.Join(",", seedIds.Select(_ => "?"));
+        var threadMails = new List<MailCopy>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(seedIds))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
         var sql = $"""
             SELECT DISTINCT mail.* FROM MailCopy mail
             INNER JOIN MailItemFolder folder ON folder.Id = mail.FolderId
@@ -1001,7 +1015,10 @@ public class MailService : BaseDatabaseService, IMailService
               AND seed.ThreadId IS NOT NULL AND seed.ThreadId <> ''
               AND seedFolder.MailAccountId = folder.MailAccountId
             """;
-        return await Connection.QueryAsync<MailCopy>(sql, seedIds.Cast<object>().ToArray()).ConfigureAwait(false);
+            threadMails.AddRange(await Connection.QueryAsync<MailCopy>(sql, idChunk.Cast<object>().ToArray()).ConfigureAwait(false));
+        }
+
+        return threadMails.DistinctBy(static mail => mail.UniqueId).ToList();
     }
 
     private static AccountContact CreateUnknownContact(string fromName, string fromAddress)
@@ -1577,10 +1594,15 @@ public class MailService : BaseDatabaseService, IMailService
         if (distinctUniqueIds.Count == 0)
             return;
 
-        var placeholders = string.Join(",", distinctUniqueIds.Select(_ => "?"));
-        var mailCopies = await Connection
-            .QueryAsync<MailCopy>($"SELECT * FROM MailCopy WHERE UniqueId IN ({placeholders})", distinctUniqueIds.Cast<object>().ToArray())
-            .ConfigureAwait(false);
+        var mailCopies = new List<MailCopy>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(distinctUniqueIds))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            mailCopies.AddRange(await Connection
+                .QueryAsync<MailCopy>($"SELECT * FROM MailCopy WHERE UniqueId IN ({placeholders})", idChunk.Cast<object>().ToArray())
+                .ConfigureAwait(false));
+        }
 
         if (mailCopies.Count == 0)
         {
@@ -2670,15 +2692,20 @@ WHERE MailItemFolder.MailAccountId = ?
 
     public async Task<List<MailCopy>> GetDownloadedUnreadMailsAsync(Guid accountId, IEnumerable<string> downloadedMailCopyIds)
     {
-        var placeholders = string.Join(",", downloadedMailCopyIds.Select(_ => "?"));
-        var sql = $"SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id IN ({placeholders}) AND MailCopy.IsRead = ? AND MailItemFolder.MailAccountId = ? AND MailItemFolder.SpecialFolderType = ?";
-        var parameters = new List<object>();
-        parameters.AddRange(downloadedMailCopyIds.Cast<object>());
-        parameters.Add(false);
-        parameters.Add(accountId);
-        parameters.Add((int)SpecialFolderType.Inbox);
+        var mailCopies = new List<MailCopy>();
 
-        var mailCopies = await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false);
+        foreach (var idChunk in SqliteVariableLimit.Batch(downloadedMailCopyIds, fixedParameters: 3))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql = $"SELECT MailCopy.* FROM MailCopy INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id WHERE MailCopy.Id IN ({placeholders}) AND MailCopy.IsRead = ? AND MailItemFolder.MailAccountId = ? AND MailItemFolder.SpecialFolderType = ?";
+            var parameters = new List<object>();
+            parameters.AddRange(idChunk.Cast<object>());
+            parameters.Add(false);
+            parameters.Add(accountId);
+            parameters.Add((int)SpecialFolderType.Inbox);
+
+            mailCopies.AddRange(await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false));
+        }
         return await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false);
     }
 
@@ -2711,16 +2738,21 @@ SELECT EXISTS(
         if (uidList.Count == 0)
             return [];
 
-        var localMailIds = uidList.Select(a => MailkitClientExtensions.CreateUid(folderId, a)).ToArray();
-        var uidPlaceholders = string.Join(",", uidList.Select(_ => "?"));
-        var idPlaceholders = string.Join(",", localMailIds.Select(_ => "?"));
-        var sql = $"SELECT * FROM MailCopy WHERE FolderId = ? AND (ImapUid IN ({uidPlaceholders}) OR Id IN ({idPlaceholders}))";
+        var mailCopies = new List<MailCopy>();
 
-        var parameters = new List<object> { folderId };
-        parameters.AddRange(uidList.Cast<object>());
-        parameters.AddRange(localMailIds.Cast<object>());
+        foreach (var uidChunk in SqliteVariableLimit.Batch(uidList, parametersPerItem: 2, fixedParameters: 1))
+        {
+            var chunkLocalMailIds = uidChunk.Select(a => MailkitClientExtensions.CreateUid(folderId, a)).ToArray();
+            var uidPlaceholders = string.Join(",", uidChunk.Select(_ => "?"));
+            var idPlaceholders = string.Join(",", chunkLocalMailIds.Select(_ => "?"));
+            var sql = $"SELECT * FROM MailCopy WHERE FolderId = ? AND (ImapUid IN ({uidPlaceholders}) OR Id IN ({idPlaceholders}))";
 
-        var mailCopies = await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false);
+            var parameters = new List<object> { folderId };
+            parameters.AddRange(uidChunk.Cast<object>());
+            parameters.AddRange(chunkLocalMailIds.Cast<object>());
+
+            mailCopies.AddRange(await Connection.QueryAsync<MailCopy>(sql, parameters.ToArray()).ConfigureAwait(false));
+        }
         return await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false);
     }
 
@@ -2831,21 +2863,38 @@ SELECT EXISTS(
     {
         if (!mailCopyIds.Any()) return [];
 
-        var placeholders = string.Join(",", mailCopyIds.Select(_ => "?"));
-        var sql = $"SELECT MailCopy.* FROM MailCopy WHERE MailCopy.Id IN ({placeholders})";
+        var mailCopies = new List<MailCopy>();
 
-        var mailCopies = await Connection.QueryAsync<MailCopy>(sql, mailCopyIds.Cast<object>().ToArray());
-        if (mailCopies?.Count == 0) return [];
+        foreach (var idChunk in SqliteVariableLimit.Batch(mailCopyIds))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql = $"SELECT MailCopy.* FROM MailCopy WHERE MailCopy.Id IN ({placeholders})";
+
+            mailCopies.AddRange(await Connection.QueryAsync<MailCopy>(sql, idChunk.Cast<object>().ToArray()));
+        }
+
+        if (mailCopies.Count == 0) return [];
 
         return await HydrateMailCopiesAsync(mailCopies).ConfigureAwait(false);
     }
 
     public async Task<List<string>> AreMailsExistsAsync(IEnumerable<string> mailCopyIds)
     {
-        var placeholders = string.Join(",", mailCopyIds.Select(_ => "?"));
-        var sql = $"SELECT Id FROM MailCopy WHERE Id IN ({placeholders})";
+        var idList = mailCopyIds?.ToList() ?? [];
+        if (idList.Count == 0)
+            return [];
 
-        return await Connection.QueryScalarsAsync<string>(sql, mailCopyIds.Cast<object>().ToArray());
+        var existingIds = new List<string>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(idList))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql = $"SELECT Id FROM MailCopy WHERE Id IN ({placeholders})";
+
+            existingIds.AddRange(await Connection.QueryScalarsAsync<string>(sql, idChunk.Cast<object>().ToArray()));
+        }
+
+        return existingIds;
     }
 
     public async Task<List<MailCopy>> GetMailCopiesBeforeDateAsync(Guid accountId, DateTime cutoffDateUtc)
