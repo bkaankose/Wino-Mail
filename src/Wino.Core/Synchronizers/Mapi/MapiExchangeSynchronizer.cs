@@ -21,6 +21,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Requests;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
@@ -63,8 +64,11 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
     public MapiExchangeSynchronizer(MailAccount account,
                                     IExchangeAuthenticator exchangeAuthenticator,
                                     IExchangeChangeProcessor exchangeChangeProcessor,
-                                    IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory)
-        : base(account, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory)
+                                    IExchangeSynchronizerErrorHandlerFactory errorHandlerFactory,
+                                    IContactService? contactService = null,
+                                    IContactPictureFileService? contactPictureFileService = null,
+                                    ITaskService? taskService = null)
+        : base(account, exchangeAuthenticator, exchangeChangeProcessor, errorHandlerFactory, contactService, contactPictureFileService, taskService)
     {
     }
 
@@ -1127,6 +1131,127 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
 
         if (structureChanged)
             WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // Contacts: the Contacts folder's contents table replaces the EWS FindItems sweep, and the three
+    // contact writes go native. Rows land in the same address book the EWS path fills; RemoteId is the
+    // "mapi:" message id and the book is keyed by the "mapi:" folder id.
+    // ------------------------------------------------------------------------------------------------
+
+    private ulong? _contactsFolderId;
+    private MapiContactTags? _contactTags;
+
+    private async Task<(ulong FolderId, MapiContactTags Tags)?> ResolveContactsAsync(MapiSession session, CancellationToken cancellationToken)
+    {
+        _contactsFolderId ??= await MapiContactOperations.FindContactsFolderIdAsync(session, session.Logon!.InboxFolderId, cancellationToken).ConfigureAwait(false);
+        if (_contactsFolderId is not { } folderId)
+        {
+            Logger.Information("MAPI contacts {Account}: the mailbox has no Contacts folder pointer; nothing to sync.", Account.Address);
+            return null;
+        }
+
+        _contactTags ??= await MapiContactOperations.ResolveTagsAsync(session, cancellationToken).ConfigureAwait(false);
+        return (folderId, _contactTags);
+    }
+
+    /// <summary>The contacts folder for a write, which cannot proceed without one.</summary>
+    private async Task<(ulong FolderId, MapiContactTags Tags)> RequireContactsAsync(MapiSession session, CancellationToken cancellationToken)
+        => await ResolveContactsAsync(session, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The mailbox has no Contacts folder.");
+
+    protected override async Task<ContactSynchronizationResult> SynchronizeProviderContactsAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken)
+    {
+        await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+        var session = lease.Session;
+        if (await ResolveContactsAsync(session, cancellationToken).ConfigureAwait(false) is not { } resolved)
+            return ContactSynchronizationResult.Empty;
+
+        var book = await GetOrCreateContactsBookAsync(ToMailCopyId(resolved.FolderId)).ConfigureAwait(false);
+        var rows = await MapiContactOperations.ReadContactsAsync(session, resolved.FolderId, resolved.Tags, cancellationToken, Diagnostics).ConfigureAwait(false);
+
+        var upserts = new List<AccountContact>();
+        var photos = new List<(AccountContact, Func<Task<byte[]>>)>();
+        foreach (var row in rows.Where(r => r.IsContact))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var contact = MapiContactMapper.ToAccountContact(row, ToMailCopyId(row.MessageId), Account.Id, book.Id);
+            upserts.Add(contact);
+
+            if (row.HasAttachments)
+            {
+                var folderId = resolved.FolderId;
+                var messageId = row.MessageId;
+                photos.Add((contact, () => MapiContactOperations.ReadContactPhotoAsync(session, folderId, messageId, cancellationToken)!));
+            }
+        }
+
+        // Photos are read on the session this pass holds, so they are fetched before the lease ends.
+        await DownloadContactPhotosAsync(photos, book, cancellationToken).ConfigureAwait(false);
+        await ContactService.ReplaceAddressBookAsync(book.Id, upserts, null).ConfigureAwait(false);
+
+        Logger.Information("MAPI contacts {Account}: {Rows} rows, {Upserted} contacts.", Account.Address, rows.Count, upserts.Count);
+        return ContactSynchronizationResult.Completed(upserts.Count, upserts.Count, 0);
+    }
+
+    protected override async Task ExecuteProviderContactRequestsAsync(IReadOnlyList<IContactActionRequest> requests, CancellationToken cancellationToken)
+    {
+        await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+        var session = lease.Session;
+
+        foreach (var request in requests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var local = await ResolveRequestedContactAsync(request).ConfigureAwait(false);
+
+            switch (request.Operation)
+            {
+                case ContactSynchronizerOperation.Create:
+                {
+                    var resolved = await RequireContactsAsync(session, cancellationToken).ConfigureAwait(false);
+                    var id = await MapiContactOperations.CreateContactAsync(session, resolved.FolderId, resolved.Tags, MapiContactMapper.ToWrite(local), cancellationToken).ConfigureAwait(false);
+                    Logger.Information("MAPI contacts {Account}: created 0x{Id:X16}.", Account.Address, id);
+
+                    var mapped = RequestEntityCloner.Contact(local);
+                    mapped.RemoteId = ToMailCopyId(id);
+                    mapped.SourceKind = ContactSourceKind.Exchange;
+                    await ExchangeChangeProcessor.CommitContactMutationAsync(local.Id, mapped, false).ConfigureAwait(false);
+                    break;
+                }
+                case ContactSynchronizerOperation.Update:
+                {
+                    if (!TryParseMailCopyId(local.RemoteId, out var messageId))
+                        throw new InvalidOperationException($"Contact '{local.DisplayName}' was synced by a different transport (id '{local.RemoteId}'); it is not addressable over MAPI until the next sync.");
+
+                    var resolved = await RequireContactsAsync(session, cancellationToken).ConfigureAwait(false);
+                    await MapiContactOperations.UpdateContactAsync(session, resolved.FolderId, messageId, resolved.Tags, MapiContactMapper.ToWrite(local), cancellationToken).ConfigureAwait(false);
+                    await ExchangeChangeProcessor.CommitContactMutationAsync(local.Id, RequestEntityCloner.Contact(local), false).ConfigureAwait(false);
+                    break;
+                }
+                case ContactSynchronizerOperation.Delete:
+                {
+                    if (TryParseMailCopyId(local?.RemoteId, out var messageId))
+                    {
+                        var resolved = await RequireContactsAsync(session, cancellationToken).ConfigureAwait(false);
+                        try
+                        {
+                            await MapiMessageOperations.MoveAsync(session, resolved.FolderId, session.Logon!.DeletedItemsFolderId, [messageId], cancellationToken: cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (MapiRopException ex) when (ex.ReturnValue == MapiRopException.NotFound)
+                        {
+                            Logger.Warning("MAPI contact {RemoteId} already absent on delete; treating as done.", local!.RemoteId);
+                        }
+                    }
+
+                    if (local is not null)
+                        await ExchangeChangeProcessor.CommitContactMutationAsync(local.Id, null, true).ConfigureAwait(false);
+                    break;
+                }
+                default:
+                    throw UnsupportedContactOperation(request.Operation);
+            }
+        }
     }
 
     // ------------------------------------------------------------------------------------------------

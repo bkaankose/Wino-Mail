@@ -160,9 +160,9 @@ public class SynchronizerFactory : ISynchronizerFactory
                 // synchronizer build lands here on the EWS branch.
                 var exchangeAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Exchange) as IExchangeAuthenticator;
                 if (mailAccount.ServerInformation?.EffectiveExchangeTransport == Domain.Enums.ExchangeTransport.Ews)
-                    return new ExchangeSynchronizer(mailAccount, exchangeAuthenticator, _exchangeChangeProcessor, _exchangeSynchronizerErrorHandlerFactory);
+                    return new ExchangeSynchronizer(mailAccount, exchangeAuthenticator, _exchangeChangeProcessor, _exchangeSynchronizerErrorHandlerFactory, _contactService, _contactPictureFileService, _taskService);
 
-                return new Synchronizers.Mapi.MapiExchangeSynchronizer(mailAccount, exchangeAuthenticator, _exchangeChangeProcessor, _exchangeSynchronizerErrorHandlerFactory);
+                return new Synchronizers.Mapi.MapiExchangeSynchronizer(mailAccount, exchangeAuthenticator, _exchangeChangeProcessor, _exchangeSynchronizerErrorHandlerFactory, _contactService, _contactPictureFileService, _taskService);
             case Domain.Enums.MailProviderType.POP3:
                 return new Pop3Synchronizer(
                     mailAccount,

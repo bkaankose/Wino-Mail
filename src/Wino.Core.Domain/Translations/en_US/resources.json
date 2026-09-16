@@ -3454,5 +3454,8 @@
     "SettingsEditAccountDetails_MapiProbe_Running": "Testing the MAPI over HTTP connection...",
     "SettingsEditAccountDetails_MapiProbe_ResultTitle": "MAPI over HTTP connection",
     "SettingsEditAccountDetails_MapiProbe_Success": "Connected and logged on as {0} via {1}.\n\nEndpoint: {2}\nMailbox: {3}\nFolders returned by logon: {4}\nRound trip: {5} ms",
-    "SettingsEditAccountDetails_MapiProbe_Failure": "The MAPI over HTTP path did not work.\n\nStage: {0}\n{1}"
+    "SettingsEditAccountDetails_MapiProbe_Failure": "The MAPI over HTTP path did not work.\n\nStage: {0}\n{1}",
+    "Synchronizer_ExchangeContactPhotoUnsupported": "Contact photos cannot be changed on an Exchange server from Wino yet.",
+    "Synchronizer_ExchangeAddressBooksUnsupported": "Exchange accounts synchronize their default Contacts folder; address books cannot be added, renamed or removed from Wino.",
+    "Synchronizer_ExchangeTaskListsUnsupported": "Exchange accounts synchronize their default Tasks folder; task lists, groups and steps are not available for them."
 }
