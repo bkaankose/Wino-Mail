@@ -14,6 +14,7 @@
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="DnsClient" />
 		<PackageReference Include="Exchange.WebServices.NETCore" />
 		<PackageReference Include="HtmlAgilityPack" />
 		<PackageReference Include="HtmlKit" />
@@ -29,6 +30,7 @@
 		<PackageReference Include="NodaTime" />
 		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="SkiaSharp" />
+		<PackageReference Include="System.DirectoryServices.Protocols" />
 		<PackageReference Include="Wino.Mail.AI.Abstractions" />
 		<PackageReference Include="Wino.Mail.AI.ContentProcessing" />
 	</ItemGroup>
