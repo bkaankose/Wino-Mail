@@ -103,7 +103,15 @@ public sealed class ModeSynchronizerFactory :
         };
 
     private static bool IsProviderAccount(MailAccount account)
-        => account.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
+        => account.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.Exchange;
+
+    // Exchange serves one Contacts folder and one Tasks folder from this client: no address books, task
+    // lists, groups or checklist steps are written back, so the adapters do not offer them.
+    private static bool ManagesContactCollections(MailAccount account)
+        => account.ContactIntegrationSource != AccountIntegrationSource.Provider || account.ProviderType != MailProviderType.Exchange;
+
+    private static bool ManagesTaskCollections(MailAccount account)
+        => account.TaskIntegrationSource != AccountIntegrationSource.Provider || account.ProviderType != MailProviderType.Exchange;
 
     private abstract class AdapterBase(MailAccount account, IWinoSynchronizerBase synchronizer, bool isAvailable, string unavailableReason)
         : IModeSynchronizer
@@ -167,7 +175,7 @@ public sealed class ModeSynchronizerFactory :
     private sealed class ContactAdapter(MailAccount account, IWinoSynchronizerBase synchronizer, bool available, string reason)
         : AdapterBase(account, synchronizer, available, reason), IContactSynchronizer
     {
-        public ContactSynchronizerCapabilities Capabilities { get; } = new(available, available, available);
+        public ContactSynchronizerCapabilities Capabilities { get; } = new(available, available, available && ManagesContactCollections(account));
 
         public Task<ContactSynchronizationResult> SynchronizeAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
@@ -185,7 +193,7 @@ public sealed class ModeSynchronizerFactory :
     private sealed class TaskAdapter(MailAccount account, IWinoSynchronizerBase synchronizer, bool available, string reason)
         : AdapterBase(account, synchronizer, available, reason), ITaskSynchronizer
     {
-        public TaskSynchronizerCapabilities Capabilities { get; } = new(available, available, available, available);
+        public TaskSynchronizerCapabilities Capabilities { get; } = new(available, available, available && ManagesTaskCollections(account), available && ManagesTaskCollections(account));
 
         public Task<TaskSynchronizationResult> SynchronizeAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
         {

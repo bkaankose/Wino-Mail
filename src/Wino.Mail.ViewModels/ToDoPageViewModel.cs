@@ -2277,6 +2277,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             {
                 MailProviderType.Gmail => TaskSourceKind.Gmail,
                 MailProviderType.Outlook => TaskSourceKind.Outlook,
+                MailProviderType.Exchange => TaskSourceKind.Exchange,
                 _ => TaskSourceKind.Local
             }
             : TaskSourceKind.Local;

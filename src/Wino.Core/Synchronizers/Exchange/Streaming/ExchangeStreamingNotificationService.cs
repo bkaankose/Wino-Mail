@@ -31,11 +31,13 @@ public sealed class ExchangeStreamingNotificationService : IExchangeStreamingNot
         IAccountService accountService,
         IExchangeAuthenticator authenticator,
         IFolderService folderService,
-        ICalendarService calendarService)
+        ICalendarService calendarService,
+        IContactService contactService = null,
+        ITaskService taskService = null)
     {
         _accountService = accountService;
         _authenticator = authenticator;
-        _router = new StreamingEventRouter(folderService, calendarService);
+        _router = new StreamingEventRouter(folderService, calendarService, contactService, taskService);
     }
 
     public async Task StartAsync()
@@ -85,6 +87,12 @@ public sealed class ExchangeStreamingNotificationService : IExchangeStreamingNot
 
             foreach (var calendarSync in result.CalendarSyncs)
                 WeakReferenceMessenger.Default.Send(calendarSync);
+
+            foreach (var contactSync in result.ContactSyncs)
+                WeakReferenceMessenger.Default.Send(contactSync);
+
+            foreach (var taskSync in result.TaskSyncs)
+                WeakReferenceMessenger.Default.Send(taskSync);
         }
         catch (Exception ex)
         {

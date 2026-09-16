@@ -10,8 +10,8 @@ using Xunit;
 namespace Wino.Mail.ViewModels.Tests;
 
 /// <summary>
-/// Exchange in the account wizard: mail runs on the server, while calendar and contacts stay on the
-/// local backends until their Exchange surfaces are ported.
+/// Exchange in the account wizard: mail, calendar, contacts and tasks all run on the server, the way
+/// they do for the OAuth providers, with the local backends available as the alternative.
 /// </summary>
 public sealed class ExchangeProviderSelectionTests
 {
@@ -39,17 +39,37 @@ public sealed class ExchangeProviderSelectionTests
     }
 
     [Fact]
-    public void Exchange_CoercesCalendarContactsAndTasksToLocal()
+    public void Exchange_OffersProviderCalendarContactsAndTasks()
     {
         var viewModel = CreateViewModel();
 
-        viewModel.IsCalendarProviderModeAvailable.Should().BeFalse();
-        viewModel.IsContactProviderModeAvailable.Should().BeFalse();
-        viewModel.IsTaskProviderModeAvailable.Should().BeFalse();
+        viewModel.IsServerProvider.Should().BeTrue();
+        viewModel.IsCalendarProviderModeAvailable.Should().BeTrue();
+        viewModel.IsContactProviderModeAvailable.Should().BeTrue();
+        viewModel.IsTaskProviderModeAvailable.Should().BeTrue();
         viewModel.MailMode.Should().Be(AccountCapabilityMode.Provider);
-        viewModel.CalendarMode.Should().Be(AccountCapabilityMode.Local);
-        viewModel.ContactMode.Should().Be(AccountCapabilityMode.Local);
-        viewModel.TaskMode.Should().Be(AccountCapabilityMode.Local);
+        viewModel.CalendarMode.Should().Be(AccountCapabilityMode.Provider);
+        viewModel.ContactMode.Should().Be(AccountCapabilityMode.Provider);
+        viewModel.TaskMode.Should().Be(AccountCapabilityMode.Provider);
+        viewModel.CalendarProviderModeLabel.Should().Be(Translator.ProviderDetail_Exchange_Title);
+        viewModel.ContactProviderModeLabel.Should().Be(Translator.ProviderDetail_Exchange_Title);
+        viewModel.TaskProviderModeLabel.Should().Be(Translator.ProviderDetail_Exchange_Title);
+        viewModel.CalendarSourceOptions.Should().ContainSingle(o => o == Translator.ProviderSelection_SourceProviderCalendar);
+        viewModel.TaskSourceOptions.Should().Contain(Translator.ProviderSelection_SourceProviderTasks);
+    }
+
+    [Fact]
+    public void Exchange_LocalChoicesStayAvailable()
+    {
+        var viewModel = CreateViewModel();
+
+        viewModel.CalendarMode = AccountCapabilityMode.Local;
+        viewModel.ContactMode = AccountCapabilityMode.Local;
+        viewModel.TaskMode = AccountCapabilityMode.Local;
+
+        viewModel.IsCalendarChoiceLocal.Should().BeTrue();
+        viewModel.IsContactChoiceLocal.Should().BeTrue();
+        viewModel.IsTaskChoiceLocal.Should().BeTrue();
     }
 
     [Fact]

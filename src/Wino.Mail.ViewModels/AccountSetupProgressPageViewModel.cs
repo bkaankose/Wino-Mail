@@ -240,7 +240,7 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                     WizardContext.ContactIntegrationSource != AccountIntegrationSource.Local,
                 ContactIntegrationSource = WizardContext.ContactIntegrationSource,
                 IsTaskAccessEnabled = WizardContext.IsTaskAccessEnabled,
-                IsTaskAccessGranted = WizardContext.IsOAuthProvider &&
+                IsTaskAccessGranted = (WizardContext.IsOAuthProvider || WizardContext.IsExchange) &&
                     WizardContext.IsTaskAccessEnabled &&
                     WizardContext.TaskIntegrationSource == AccountIntegrationSource.Provider,
                 TaskIntegrationSource = WizardContext.TaskIntegrationSource

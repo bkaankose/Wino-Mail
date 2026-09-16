@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
@@ -19,12 +20,17 @@ internal readonly record struct StreamingChange(string RemoteFolderId, bool IsFo
 /// <summary>The sync requests a batch of streaming changes should trigger.</summary>
 internal sealed record StreamingRouteResult(
     IReadOnlyList<NewMailSynchronizationRequested> MailSyncs,
-    IReadOnlyList<NewCalendarSynchronizationRequested> CalendarSyncs)
+    IReadOnlyList<NewCalendarSynchronizationRequested> CalendarSyncs,
+    IReadOnlyList<NewContactSynchronizationRequested> ContactSyncs,
+    IReadOnlyList<NewTaskSynchronizationRequested> TaskSyncs)
 {
-    public static readonly StreamingRouteResult Empty =
-        new(Array.Empty<NewMailSynchronizationRequested>(), Array.Empty<NewCalendarSynchronizationRequested>());
+    public static readonly StreamingRouteResult Empty = new(
+        Array.Empty<NewMailSynchronizationRequested>(),
+        Array.Empty<NewCalendarSynchronizationRequested>(),
+        Array.Empty<NewContactSynchronizationRequested>(),
+        Array.Empty<NewTaskSynchronizationRequested>());
 
-    public bool IsEmpty => MailSyncs.Count == 0 && CalendarSyncs.Count == 0;
+    public bool IsEmpty => MailSyncs.Count == 0 && CalendarSyncs.Count == 0 && ContactSyncs.Count == 0 && TaskSyncs.Count == 0;
 }
 
 /// <summary>
@@ -33,20 +39,28 @@ internal sealed record StreamingRouteResult(
 /// <item>any folder-hierarchy event: one <c>FoldersOnly</c> mail sync (reconciles the tree);</item>
 /// <item>mail item events: one <c>CustomFolders</c> sync over the affected folders only;</item>
 /// <item>calendar item events: one <c>SingleCalendar</c> calendar sync over the affected calendars;</item>
-/// <item>events in folders that are not synced locally (contacts, tasks, a brand-new folder): a
-/// <c>FoldersOnly</c> sync so the tree picks the folder up.</item>
+/// <item>contacts and tasks folder events: one <c>Full</c> contact sync or task sync;</item>
+/// <item>events in folders that are not synced locally (a brand-new folder, or contacts and tasks
+/// while those run locally): a <c>FoldersOnly</c> sync so the tree picks the folder up.</item>
 /// </list>
-/// Pure aside from the folder/calendar lookups, so it is unit-testable with mocked services.
+/// Pure aside from the folder, calendar, address-book and task-list lookups, so it is unit-testable
+/// with mocked services.
 /// </summary>
 internal sealed class StreamingEventRouter
 {
+    private const string MapiIdPrefix = "mapi:";
+
     private readonly IFolderService _folderService;
     private readonly ICalendarService _calendarService;
+    private readonly IContactService _contactService;
+    private readonly ITaskService _taskService;
 
-    public StreamingEventRouter(IFolderService folderService, ICalendarService calendarService)
+    public StreamingEventRouter(IFolderService folderService, ICalendarService calendarService, IContactService contactService = null, ITaskService taskService = null)
     {
         _folderService = folderService;
         _calendarService = calendarService;
+        _contactService = contactService;
+        _taskService = taskService;
     }
 
     public async Task<StreamingRouteResult> RouteAsync(Guid accountId, IReadOnlyCollection<StreamingChange> changes)
@@ -71,9 +85,45 @@ internal sealed class StreamingEventRouter
 
         var mailFolderIds = new List<Guid>();
         var calendarIds = new List<Guid>();
-        var auxiliaryChanged = false; // contacts / tasks / not-yet-synced folder
+        var contactsChanged = false;
+        var tasksChanged = false;
+        var auxiliaryChanged = false; // a folder not (yet) in the local tree
 
         List<AccountCalendar> calendars = null;
+        List<ContactAddressBook> addressBooks = null;
+        List<AccountTaskList> taskLists = null;
+
+        async Task ClassifyAsync(string remoteKey, StringComparison comparison)
+        {
+            calendars ??= await _calendarService.GetAccountCalendarsAsync(accountId).ConfigureAwait(false);
+            if (calendars?.Any(c => string.Equals(c.RemoteCalendarId, remoteKey, comparison)) == true)
+            {
+                calendarIds.AddRange(calendars.Where(c => string.Equals(c.RemoteCalendarId, remoteKey, comparison)).Select(c => c.Id));
+                return;
+            }
+
+            if (_contactService != null)
+            {
+                addressBooks ??= await _contactService.GetAddressBooksAsync(accountId).ConfigureAwait(false);
+                if (addressBooks?.Any(b => b.SourceKind == ContactSourceKind.Exchange && string.Equals(b.RemoteId, remoteKey, comparison)) == true)
+                {
+                    contactsChanged = true;
+                    return;
+                }
+            }
+
+            if (_taskService != null)
+            {
+                taskLists ??= await _taskService.GetTaskListsAsync(accountId).ConfigureAwait(false);
+                if (taskLists?.Any(l => l.SourceKind == TaskSourceKind.Exchange && string.Equals(l.RemoteId, remoteKey, comparison)) == true)
+                {
+                    tasksChanged = true;
+                    return;
+                }
+            }
+
+            auxiliaryChanged = true;
+        }
 
         foreach (var remoteId in itemFolderRemoteIds)
         {
@@ -84,15 +134,7 @@ internal sealed class StreamingEventRouter
                 continue;
             }
 
-            calendars ??= await _calendarService.GetAccountCalendarsAsync(accountId).ConfigureAwait(false);
-            var calendar = calendars?.FirstOrDefault(c => string.Equals(c.RemoteCalendarId, remoteId, StringComparison.Ordinal));
-            if (calendar != null)
-            {
-                calendarIds.Add(calendar.Id);
-                continue;
-            }
-
-            auxiliaryChanged = true;
+            await ClassifyAsync(remoteId, StringComparison.Ordinal).ConfigureAwait(false);
         }
 
         foreach (var mapiId in itemFolderMapiIds)
@@ -104,16 +146,8 @@ internal sealed class StreamingEventRouter
                 continue;
             }
 
-            // Calendars on the MAPI transport are keyed "mapi:" + folder id.
-            calendars ??= await _calendarService.GetAccountCalendarsAsync(accountId).ConfigureAwait(false);
-            var calendar = calendars?.FirstOrDefault(c => string.Equals(c.RemoteCalendarId, "mapi:" + mapiId, StringComparison.OrdinalIgnoreCase));
-            if (calendar != null)
-            {
-                calendarIds.Add(calendar.Id);
-                continue;
-            }
-
-            auxiliaryChanged = true;          // a folder not (yet) in the local tree: contacts/tasks or brand new
+            // Calendars, address books and task lists on the MAPI transport are keyed "mapi:" + folder id.
+            await ClassifyAsync(MapiIdPrefix + mapiId, StringComparison.OrdinalIgnoreCase).ConfigureAwait(false);
         }
 
         var mailSyncs = new List<NewMailSynchronizationRequested>();
@@ -141,10 +175,24 @@ internal sealed class StreamingEventRouter
                 {
                     AccountId = accountId,
                     Type = CalendarSynchronizationType.SingleCalendar,
-                    SynchronizationCalendarIds = calendarIds
+                    SynchronizationCalendarIds = calendarIds.Distinct().ToList()
                 })
             };
 
-        return new StreamingRouteResult(mailSyncs, calendarSyncs);
+        var contactSyncs = !contactsChanged
+            ? (IReadOnlyList<NewContactSynchronizationRequested>)Array.Empty<NewContactSynchronizationRequested>()
+            : new List<NewContactSynchronizationRequested>
+            {
+                new(new ContactSynchronizationOptions { AccountId = accountId, Type = ContactSynchronizationType.Full })
+            };
+
+        var taskSyncs = !tasksChanged
+            ? (IReadOnlyList<NewTaskSynchronizationRequested>)Array.Empty<NewTaskSynchronizationRequested>()
+            : new List<NewTaskSynchronizationRequested>
+            {
+                new(new TaskSynchronizationOptions { AccountId = accountId, Type = TaskSynchronizationType.Full })
+            };
+
+        return new StreamingRouteResult(mailSyncs, calendarSyncs, contactSyncs, taskSyncs);
     }
 }

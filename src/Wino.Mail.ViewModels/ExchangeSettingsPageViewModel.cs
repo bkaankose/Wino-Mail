@@ -283,14 +283,15 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             return;
         }
 
-        // The account's calendar, contacts and tasks run on the local backends until the Exchange
-        // surfaces for them are ported, so provider access is not granted for them here.
+        // The calendar is served by the Exchange synchronizer when the wizard chose the provider source;
+        // contacts and tasks take their grants from the wizard context when the account is created.
         _wizardContext.ImapCalDavSetupResult = new ImapCalDavSetupResult
         {
             DisplayName = DisplayName.Trim(),
             EmailAddress = EmailAddress.Trim(),
             IsMailAccessGranted = _wizardContext.IsMailAccessEnabled,
-            IsCalendarAccessGranted = false,
+            IsCalendarAccessGranted = _wizardContext.IsCalendarAccessEnabled &&
+                _wizardContext.CalendarIntegrationSource == AccountIntegrationSource.Provider,
             ShouldAppendMessagesToSentFolder = false,
             ServerInformation = serverInformation
         };
