@@ -6,6 +6,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Mapi;
 
 namespace Wino.Core.Synchronizers.Errors.Exchange;
 
@@ -22,14 +23,16 @@ public class ExchangeAuthenticationFailedHandler : ISynchronizerErrorHandler
 
     public bool CanHandle(SynchronizerErrorContext error)
     {
-        if (error.ErrorCode == 401 || error.Exception is ExchangeInteractiveSignInRequiredException)
+        if (error.ErrorCode == 401 || error.Exception is ExchangeInteractiveSignInRequiredException || error.Exception is MapiTransportException { IsUnauthorized: true })
             return true;
 
         var message = error.ErrorMessage ?? error.Exception?.Message;
         if (string.IsNullOrEmpty(message))
             return false;
 
-        return message.Contains("401", StringComparison.OrdinalIgnoreCase)
+        // "401" must stand alone: a MAPI return value such as 0x8004011B contains those digits, and
+        // treating a corrupt-data ROP failure as a credential failure locked the account out of sync.
+        return System.Text.RegularExpressions.Regex.IsMatch(message, @"(?<![0-9A-Fa-fx])401(?![0-9A-Fa-f])")
             || message.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase)
             || message.Contains("credentials", StringComparison.OrdinalIgnoreCase)
             || message.Contains("authentication", StringComparison.OrdinalIgnoreCase);

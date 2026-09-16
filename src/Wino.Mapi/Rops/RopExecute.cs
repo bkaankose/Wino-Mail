@@ -150,7 +150,10 @@ public static class RopExecute
         var returnValue = reader.UInt32();
         if (returnValue != 0)
         {
-            throw new MapiRopException(name, returnValue);
+            // A failed ROP normally ends here, but the server sometimes appends more (a partial
+            // response, or diagnostics); keep it on the exception so a failure can be read later.
+            var trailing = reader.Remaining > 0 ? HexDump.Render(reader.Bytes(reader.Remaining).Span, 1536) : null;
+            throw new MapiRopException(name, returnValue, trailing);
         }
     }
 }

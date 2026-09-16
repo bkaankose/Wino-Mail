@@ -93,6 +93,7 @@ public static class MapiOccurrenceOperations
             BusyStatus: change.BusyStatus == (master.BusyStatus ?? 2) ? null : change.BusyStatus,
             AllDay: change.AllDay == master.AllDay ? null : change.AllDay);
         var updated = RecurrenceEncoder.WithException(master.Recurrence, exception);
+        diagnostics?.Invoke($"series 0x{masterId:X16}: zone {master.Zone.Id}, original {originalStartUtc:u} (wall {originalWall:s}), new {change.StartUtc:u}..{change.EndUtc:u} (wall {startWall:s}..{endWall:s}), blob exceptions {master.Recurrence.Exceptions.Count} -> {updated.Exceptions.Count}, deleted {updated.DeletedInstanceDates.Count}");
 
         var handles = await OpenMasterAsync(session, folderId, masterId, cancellationToken).ConfigureAwait(false);
         try

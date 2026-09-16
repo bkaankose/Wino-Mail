@@ -73,11 +73,14 @@ public sealed class MapiRpcException(uint errorCode)
 }
 
 /// <summary>A ROP ran and reported failure through its ReturnValue (MS-OXCDATA 2.4).</summary>
-public sealed class MapiRopException(string ropName, uint returnValue)
-    : MapiException($"{ropName} failed, ReturnValue 0x{returnValue:X8} ({Describe(returnValue)}).")
+public sealed class MapiRopException(string ropName, uint returnValue, string? trailingResponse = null)
+    : MapiException($"{ropName} failed, ReturnValue 0x{returnValue:X8} ({Describe(returnValue)})." + (trailingResponse is null ? string.Empty : " Trailing response bytes:\n" + trailingResponse))
 {
     public string RopName { get; } = ropName;
     public uint ReturnValue { get; } = returnValue;
+
+    /// <summary>Whatever followed the return value in the failed ROP's response, as a hex dump; null when nothing did.</summary>
+    public string? TrailingResponse { get; } = trailingResponse;
 
     public const uint NotFound = 0x8004010F;
     public const uint AccessDenied = 0x80070005;
@@ -92,6 +95,10 @@ public sealed class MapiRopException(string ropName, uint returnValue)
         NotSupported => "MAPI_E_NO_SUPPORT",
         0x80040111 => "MAPI_E_LOGON_FAILED",
         0x80040115 => "MAPI_E_NETWORK_ERROR",
+        0x80040117 => "MAPI_E_TOO_COMPLEX",
+        0x8004011B => "MAPI_E_CORRUPT_DATA",
+        0x80040109 => "MAPI_E_OBJECT_CHANGED",
+        0x8004010A => "MAPI_E_OBJECT_DELETED",
         _ => "unknown",
     };
 }
