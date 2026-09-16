@@ -1705,6 +1705,8 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
 
         return MapiBundle(async session =>
         {
+            Diagnostics($"update {item.RemoteEventId}: StartDate {item.StartDate:s} ({item.StartDate.Kind}), zone {item.StartTimeZone ?? "-"}, duration {item.DurationInSeconds}s, all-day {item.IsAllDayEvent}");
+
             if (TryParseOccurrenceId(item.AssignedCalendar, item, out var seriesFolderId, out var masterId, out var originalStartUtc))
             {
                 var seriesTags = await ResolveCalendarTagsAsync(session, CancellationToken.None).ConfigureAwait(false);

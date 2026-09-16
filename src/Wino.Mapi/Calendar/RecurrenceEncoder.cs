@@ -142,6 +142,19 @@ public static class RecurrenceEncoder
     }
 
     /// <summary>
+    /// The series with one occurrence put back as the pattern generates it: no exception, and its
+    /// date on neither the modified nor the deleted list.
+    /// </summary>
+    public static AppointmentRecurrence WithoutException(AppointmentRecurrence r, DateTime originalStartWallClock)
+    {
+        var date = originalStartWallClock.Date;
+        var deleted = r.DeletedInstanceDates.Where(d => d != date).OrderBy(d => d).ToList();
+        var modified = r.ModifiedInstanceDates.Where(d => d != date).OrderBy(d => d).ToList();
+        var exceptions = r.Exceptions.Where(e => e.OriginalStart.Date != date).OrderBy(e => e.OriginalStart).ToList();
+        return r with { DeletedInstanceDates = deleted, ModifiedInstanceDates = modified, Exceptions = exceptions };
+    }
+
+    /// <summary>
     /// The series with one occurrence changed: the exception replaces any earlier one for the same
     /// original date, the date is listed as modified and (per 2.2.1.44.1) as deleted too, since the
     /// original slot is vacated and the exception re-occupies it.

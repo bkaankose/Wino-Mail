@@ -20,12 +20,12 @@ public static class MapiOccurrenceOperations
     private const int InlineBlobLimit = 4 * 1024;
 
     /// <summary>What the master holds that an occurrence edit needs: the pattern, the zone, and the series defaults to diff against.</summary>
-    public sealed record MasterState(AppointmentRecurrence Recurrence, TimeZoneInfo Zone, string? Subject, string? Location, uint? BusyStatus, bool AllDay);
+    public sealed record MasterState(AppointmentRecurrence Recurrence, TimeZoneInfo Zone, string? Subject, string? Location, uint? BusyStatus, bool AllDay, TimeSpan Duration);
 
     public static async Task<MasterState> ReadMasterAsync(MapiSession session, ulong folderId, ulong masterId, MapiCalendarTags tags, CancellationToken cancellationToken = default)
     {
         var zoneTag = tags.TimeZoneDefinitionRecur != 0 ? tags.TimeZoneDefinitionRecur : tags.TimeZoneDefinitionStart;
-        uint[] props = [tags.AppointmentRecur, zoneTag, PropertyTags.Subject, tags.Location, tags.BusyStatus, tags.AllDay, tags.TimeZoneDefinitionStart];
+        uint[] props = [tags.AppointmentRecur, zoneTag, PropertyTags.Subject, tags.Location, tags.BusyStatus, tags.AllDay, tags.TimeZoneDefinitionStart, tags.StartWhole, tags.EndWhole];
 
         var handles = MapiSession.MergeHandles([session.LogonHandle], [], Slots);
         var (rops, returned) = await session.ExecuteAsync(RopMessage.BuildOpenMessage(folderId, masterId, 0, 1), handles, cancellationToken).ConfigureAwait(false);
@@ -47,7 +47,8 @@ public static class MapiOccurrenceOperations
             throw new MapiFormatException("The series master carries no recurrence pattern.");
 
         var keyName = MapiCalendarOperations.TimeZoneKeyName(v[1].AsBinary) ?? MapiCalendarOperations.TimeZoneKeyName(v[6].AsBinary);
-        return new MasterState(AppointmentRecurrence.Parse(blob), TimeZoneDefinition.Resolve(keyName), v[2].AsString, v[3].AsString, v[4].AsUInt32, v[5].AsBoolean ?? false);
+        var duration = v[7].AsDateTime is { } start && v[8].AsDateTime is { } end && end > start ? end - start : TimeSpan.Zero;
+        return new MasterState(AppointmentRecurrence.Parse(blob), TimeZoneDefinition.Resolve(keyName), v[2].AsString, v[3].AsString, v[4].AsUInt32, v[5].AsBoolean ?? false, duration);
     }
 
     /// <summary>Removes one occurrence: its date goes on the deleted list and any exception attachment for it is dropped.</summary>
@@ -61,7 +62,9 @@ public static class MapiOccurrenceOperations
         var handles = await OpenMasterAsync(session, folderId, masterId, cancellationToken).ConfigureAwait(false);
         try
         {
-            await RemoveExceptionAttachmentAsync(session, handles, originalStartUtc, cancellationToken).ConfigureAwait(false);
+            if (await RemoveExceptionAttachmentAsync(session, handles, tags, originalStartUtc, originalWall, cancellationToken, diagnostics).ConfigureAwait(false) > 0)
+                await SaveMasterAsync(session, handles, cancellationToken).ConfigureAwait(false);
+
             await WriteRecurrenceAsync(session, handles, tags, updated, cancellationToken).ConfigureAwait(false);
             await SaveMasterAsync(session, handles, cancellationToken).ConfigureAwait(false);
         }
@@ -92,15 +95,28 @@ public static class MapiOccurrenceOperations
             Location: string.Equals(change.Location ?? string.Empty, master.Location ?? string.Empty, StringComparison.Ordinal) ? null : change.Location ?? string.Empty,
             BusyStatus: change.BusyStatus == (master.BusyStatus ?? 2) ? null : change.BusyStatus,
             AllDay: change.AllDay == master.AllDay ? null : change.AllDay);
-        var updated = RecurrenceEncoder.WithException(master.Recurrence, exception);
-        diagnostics?.Invoke($"series 0x{masterId:X16}: zone {master.Zone.Id}, original {originalStartUtc:u} (wall {originalWall:s}), new {change.StartUtc:u}..{change.EndUtc:u} (wall {startWall:s}..{endWall:s}), blob exceptions {master.Recurrence.Exceptions.Count} -> {updated.Exceptions.Count}, deleted {updated.DeletedInstanceDates.Count}");
+        // An occurrence put back exactly where the pattern generates it, with nothing else changed, is
+        // no longer an exception: the store refuses an exception identical to the instance it replaces
+        // (MAPI_E_CORRUPT_DATA), so the exception and its attachment are removed instead.
+        var restoresInstance = startWall == originalWall
+            && (master.Duration == TimeSpan.Zero || endWall - startWall == master.Duration)
+            && exception.Subject is null && exception.Location is null && exception.BusyStatus is null && exception.AllDay is null;
+        var updated = restoresInstance
+            ? RecurrenceEncoder.WithoutException(master.Recurrence, originalWall)
+            : RecurrenceEncoder.WithException(master.Recurrence, exception);
+        diagnostics?.Invoke($"series 0x{masterId:X16}: zone {master.Zone.Id}, original {originalStartUtc:u} (wall {originalWall:s}), new {change.StartUtc:u}..{change.EndUtc:u} (wall {startWall:s}..{endWall:s}), blob exceptions {master.Recurrence.Exceptions.Count} -> {updated.Exceptions.Count}, deleted {updated.DeletedInstanceDates.Count}{(restoresInstance ? ", restoring the instance" : string.Empty)}");
 
         var handles = await OpenMasterAsync(session, folderId, masterId, cancellationToken).ConfigureAwait(false);
         try
         {
-            await RemoveExceptionAttachmentAsync(session, handles, originalStartUtc, cancellationToken).ConfigureAwait(false);
+            // Commit the removal on its own: the store validates a new exception attachment against the
+            // saved ones, and a deleted-but-unsaved attachment for the same instance still counts.
+            if (await RemoveExceptionAttachmentAsync(session, handles, tags, originalStartUtc, originalWall, cancellationToken, diagnostics).ConfigureAwait(false) > 0)
+                await SaveMasterAsync(session, handles, cancellationToken).ConfigureAwait(false);
+
             await WriteRecurrenceAsync(session, handles, tags, updated, cancellationToken).ConfigureAwait(false);
-            await WriteExceptionAttachmentAsync(session, handles, tags, change, originalStartUtc, startWall, endWall, cancellationToken).ConfigureAwait(false);
+            if (!restoresInstance)
+                await WriteExceptionAttachmentAsync(session, handles, tags, change, originalStartUtc, startWall, endWall, cancellationToken).ConfigureAwait(false);
             await SaveMasterAsync(session, handles, cancellationToken).ConfigureAwait(false);
         }
         finally
@@ -108,7 +124,9 @@ public static class MapiOccurrenceOperations
             await session.ReleaseAsync(handles[1], cancellationToken).ConfigureAwait(false);
         }
 
-        diagnostics?.Invoke($"series 0x{masterId:X16}: occurrence {originalStartUtc:u} moved to {change.StartUtc:u} ({updated.Exceptions.Count} exceptions)");
+        diagnostics?.Invoke(restoresInstance
+            ? $"series 0x{masterId:X16}: occurrence {originalStartUtc:u} restored to the pattern ({updated.Exceptions.Count} exceptions)"
+            : $"series 0x{masterId:X16}: occurrence {originalStartUtc:u} moved to {change.StartUtc:u} ({updated.Exceptions.Count} exceptions)");
     }
 
     /// <summary>The attachment properties of an exception (MS-OXOCAL 2.2.10.1): hidden embedded message flagged afException, keyed by the original start.</summary>
@@ -176,14 +194,22 @@ public static class MapiOccurrenceOperations
     }
 
     /// <summary>Drops the exception attachment whose PidTagExceptionReplaceTime is this occurrence's original start, if there is one.</summary>
-    private static async Task RemoveExceptionAttachmentAsync(MapiSession session, uint[] handles, DateTime originalStartUtc, CancellationToken cancellationToken)
+    /// <returns>How many exception attachments were removed.</returns>
+    private static async Task<int> RemoveExceptionAttachmentAsync(MapiSession session, uint[] handles, MapiCalendarTags tags, DateTime originalStartUtc, DateTime originalStartWall,
+        CancellationToken cancellationToken, Action<string>? diagnostics = null)
     {
-        uint[] columns = [PropertyTags.AttachNumber, PropertyTags.ExceptionReplaceTime];
+        // The attachment carries PidTagExceptionReplaceTime when this client wrote it; exceptions
+        // written by Outlook or OWA may only key the embedded message (PidLidExceptionReplaceTime),
+        // and some writers store the wall clock rather than UTC. Match on the attachment first, and
+        // open the embedded message of any other exception attachment to read its key. A missed match
+        // leaves two exceptions for one instance, which the store rejects as corrupt data.
+        uint[] columns = [PropertyTags.AttachNumber, PropertyTags.ExceptionReplaceTime, PropertyTags.AttachmentFlags, PropertyTags.AttachMethod];
         var (rops, returned) = await session.ExecuteAsync(RopMessageOps.BuildGetAttachmentTable(1, 2), handles, cancellationToken).ConfigureAwait(false);
         RopMessageOps.ParseGetAttachmentTable(new RopReader(rops));
         var tableHandles = MapiSession.MergeHandles(handles, returned, Slots);
 
         var toDelete = new List<uint>();
+        var toInspect = new List<uint>();
         try
         {
             (rops, _) = await session.ExecuteAsync(RopFolder.BuildSetColumns(2, columns), tableHandles, cancellationToken).ConfigureAwait(false);
@@ -191,8 +217,17 @@ public static class MapiOccurrenceOperations
             (rops, _) = await session.ExecuteAsync(RopFolder.BuildQueryRows(2, 200), tableHandles, cancellationToken).ConfigureAwait(false);
             foreach (var row in RopFolder.ParseQueryRows(new RopReader(rops), columns))
             {
-                if (row[0].AsUInt32 is { } number && row[1].Value is DateTime replace && Math.Abs((replace - originalStartUtc).TotalMinutes) < 1)
+                if (row[0].AsUInt32 is not { } number)
+                    continue;
+
+                var replace = row[1].Value as DateTime?;
+                var isException = (row[2].AsUInt32 & 0x2) != 0 || row[3].AsUInt32 == 5;
+                diagnostics?.Invoke($"attachment {number}: ExceptionReplaceTime {(replace is { } r ? r.ToString("u") : "-")}, flags 0x{row[2].AsUInt32 ?? 0:X}, method {row[3].AsUInt32 ?? 0}");
+
+                if (replace is { } known && IsSameInstant(known, originalStartUtc, originalStartWall))
                     toDelete.Add(number);
+                else if (isException)
+                    toInspect.Add(number);
             }
         }
         finally
@@ -200,10 +235,61 @@ public static class MapiOccurrenceOperations
             await session.ReleaseAsync(tableHandles[2], cancellationToken).ConfigureAwait(false);
         }
 
+        foreach (var number in toInspect)
+        {
+            if (await ReadEmbeddedReplaceTimeAsync(session, handles, tags, number, cancellationToken).ConfigureAwait(false) is { } embedded)
+            {
+                diagnostics?.Invoke($"attachment {number}: embedded PidLidExceptionReplaceTime {embedded:u}");
+                if (IsSameInstant(embedded, originalStartUtc, originalStartWall))
+                    toDelete.Add(number);
+            }
+        }
+
         foreach (var number in toDelete)
         {
             (rops, _) = await session.ExecuteAsync(RopMessageWrite.BuildDeleteAttachment(1, number), handles, cancellationToken).ConfigureAwait(false);
             RopMessageWrite.ParseDeleteAttachment(new RopReader(rops));
+            diagnostics?.Invoke($"attachment {number}: removed (exception for {originalStartUtc:u})");
+        }
+
+        return toDelete.Count;
+    }
+
+    private static bool IsSameInstant(DateTime candidate, DateTime originalStartUtc, DateTime originalStartWall)
+        => Math.Abs((candidate - originalStartUtc).TotalMinutes) < 1 || Math.Abs((candidate - originalStartWall).TotalMinutes) < 1;
+
+    /// <summary>The exception key on the embedded message of an exception attachment, or null when it has none.</summary>
+    private static async Task<DateTime?> ReadEmbeddedReplaceTimeAsync(MapiSession session, uint[] handles, MapiCalendarTags tags, uint attachmentNumber, CancellationToken cancellationToken)
+    {
+        if (tags.ExceptionReplaceTime == 0)
+            return null;
+
+        var (rops, returned) = await session.ExecuteAsync(RopMessageOps.BuildOpenAttachment(1, 3, attachmentNumber), handles, cancellationToken).ConfigureAwait(false);
+        RopMessageOps.ParseOpenAttachment(new RopReader(rops));
+        var attachmentHandles = MapiSession.MergeHandles(handles, returned, Slots);
+        try
+        {
+            (rops, returned) = await session.ExecuteAsync(RopMessageWrite.BuildOpenEmbeddedMessage(3, 4, create: false), attachmentHandles, cancellationToken).ConfigureAwait(false);
+            RopMessageWrite.ParseOpenEmbeddedMessage(new RopReader(rops));
+            var embeddedHandles = MapiSession.MergeHandles(attachmentHandles, returned, Slots);
+            try
+            {
+                uint[] props = [tags.ExceptionReplaceTime];
+                (rops, _) = await session.ExecuteAsync(RopProperties.BuildGetPropertiesSpecific(4, props), embeddedHandles, cancellationToken).ConfigureAwait(false);
+                return RopProperties.ParseGetPropertiesSpecific(new RopReader(rops), props)[0].Value as DateTime?;
+            }
+            finally
+            {
+                await session.ReleaseAsync(embeddedHandles[4], cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (MapiRopException)
+        {
+            return null;
+        }
+        finally
+        {
+            await session.ReleaseAsync(attachmentHandles[3], cancellationToken).ConfigureAwait(false);
         }
     }
 

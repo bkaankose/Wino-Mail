@@ -29,6 +29,7 @@ public readonly struct PropertyValue
     public uint? AsUInt32 => Value is uint v ? v : null;
     public bool? AsBoolean => Value is bool v ? v : null;
     public byte[]? AsBinary => Value as byte[];
+    public DateTime? AsDateTime => Value is DateTime v ? v : null;
 
     public override string ToString() => Error is { } e ? $"<error 0x{e:X8}>" : Value?.ToString() ?? "<absent>";
 }
