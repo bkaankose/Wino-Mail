@@ -3448,5 +3448,21 @@
     "SettingsEditAccountDetails_ExchangeServerSettings_Action": "Open settings",
     "Synchronizer_ExchangeContactPhotoUnsupported": "Contact photos cannot be changed on an Exchange server from Wino yet.",
     "Synchronizer_ExchangeAddressBooksUnsupported": "Exchange accounts synchronize their default Contacts folder; address books cannot be added, renamed or removed from Wino.",
-    "Synchronizer_ExchangeTaskListsUnsupported": "Exchange accounts synchronize their default Tasks folder; task lists, groups and steps are not available for them."
+    "Synchronizer_ExchangeTaskListsUnsupported": "Exchange accounts synchronize their default Tasks folder; task lists, groups and steps are not available for them.",
+    "Reader_Invitation_When": "When",
+    "Reader_Invitation_Location": "Location",
+    "Reader_Invitation_Organizer": "Organizer",
+    "Reader_Invitation_Required": "Required",
+    "Reader_Invitation_Optional": "Optional",
+    "Reader_Invitation_PleaseRespond": "Please respond.",
+    "Reader_Invitation_YouAccepted": "You accepted this meeting.",
+    "Reader_Invitation_YouTentative": "You tentatively accepted this meeting.",
+    "Reader_Invitation_YouDeclined": "You declined this meeting.",
+    "Reader_Invitation_Cancelled": "This meeting has been cancelled.",
+    "Reader_Invitation_NotSynced": "The meeting has not reached your calendar yet. Try again in a moment.",
+    "Reader_Invitation_ResponseAccepted": "{0} accepted this meeting.",
+    "Reader_Invitation_ResponseTentative": "{0} tentatively accepted this meeting.",
+    "Reader_Invitation_ResponseDeclined": "{0} declined this meeting.",
+    "Reader_Invitation_ResponseReceived": "{0} responded to this meeting.",
+    "Reader_Invitation_ResponseFailed": "The response could not be sent"
 }
