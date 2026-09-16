@@ -10,6 +10,7 @@ using Microsoft.Exchange.WebServices.Data;
 using Serilog;
 using Wino.Authentication.Exchange;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -17,13 +18,16 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
+using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.Exchange;
 using Wino.Mapi;
+using Wino.Mapi.Calendar;
 using Wino.Mapi.Rops;
 using Wino.Mapi.Transport;
 using Wino.Messaging.Server;
@@ -1296,6 +1300,285 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
                 await ExchangeChangeProcessor.UpdateAccountCalendarAsync(existing).ConfigureAwait(false);
             }
         }
+    }
+
+    // ---- Calendar writes ---------------------------------------------------------------------------
+
+    /// <summary>
+    /// An occurrence row's id is "mapi:{master}:{originalStartUtc}" (see MapiCalendarExpander); a
+    /// single appointment's is just "mapi:{mid}". Returns the master id and the original start when
+    /// the item is an occurrence.
+    /// </summary>
+    private static bool TryParseOccurrenceId(IAccountCalendar? calendar, CalendarItem item, out ulong folderId, out ulong masterId, out DateTime originalStartUtc)
+    {
+        folderId = 0; masterId = 0; originalStartUtc = default;
+        if (!TryParseMailCopyId(calendar?.RemoteCalendarId, out folderId))
+            return false;
+
+        var remoteId = item.RemoteEventId?.GetProviderRemoteEventId() ?? string.Empty;
+        var parts = remoteId.Split(':');
+        if (parts.Length != 3 || !TryParseMailCopyId(parts[0] + ":" + parts[1], out masterId))
+            return false;
+
+        return DateTime.TryParseExact(parts[2], "yyyyMMdd'T'HHmmss'Z'", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal, out originalStartUtc);
+    }
+
+    private static (ulong FolderId, ulong MessageId) RequireAppointmentIds(IAccountCalendar? calendar, CalendarItem item)
+    {
+        if (!TryParseMailCopyId(calendar?.RemoteCalendarId, out var folderId))
+            throw new InvalidOperationException("The calendar is not addressable over MAPI until the next calendar sync.");
+
+        var remoteId = item.RemoteEventId?.GetProviderRemoteEventId() ?? string.Empty;
+        if (remoteId.Count(c => c == ':') > 1)
+            throw new NotSupportedException("Changing one occurrence of a repeating series is not supported over MAPI yet; edit it in Outlook on the web.");
+        if (!TryParseMailCopyId(remoteId, out var messageId))
+            throw new InvalidOperationException("The event is not addressable over MAPI until the next calendar sync.");
+
+        return (folderId, messageId);
+    }
+
+    private MapiCalendarOperations.AppointmentWrite ToAppointmentWrite(CalendarItem item, List<Reminder>? reminders, string? clientTrackingId, List<CalendarEventAttendee>? attendees = null)
+    {
+        var startUtc = item.StartDate;
+        if (!string.IsNullOrEmpty(item.StartTimeZone))
+        {
+            try { startUtc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(item.StartDate, DateTimeKind.Unspecified), TimeZoneInfo.FindSystemTimeZoneById(item.StartTimeZone)); }
+            catch { startUtc = DateTime.SpecifyKind(item.StartDate, DateTimeKind.Utc); }
+        }
+        else
+        {
+            startUtc = DateTime.SpecifyKind(item.StartDate, DateTimeKind.Utc);
+        }
+
+        var write = new MapiCalendarOperations.AppointmentWrite
+        {
+            OrganizerName = Account.SenderName ?? Account.Name ?? Account.Address,
+            OrganizerAddress = Account.Address,
+            TimeZoneId = item.StartTimeZone,
+            RecurrenceRule = RecurrenceRuleOf(item),
+            Subject = item.Title,
+            Body = item.Description,
+            Location = item.Location,
+            StartUtc = startUtc,
+            EndUtc = startUtc.AddSeconds(item.DurationInSeconds),
+            AllDay = item.IsAllDayEvent,
+            BusyStatus = item.ShowAs switch
+            {
+                CalendarItemShowAs.Free => 0u,
+                CalendarItemShowAs.Tentative => 1u,
+                CalendarItemShowAs.OutOfOffice => 3u,
+                CalendarItemShowAs.WorkingElsewhere => 4u,
+                _ => 2u
+            },
+            Sensitivity = item.Visibility switch
+            {
+                CalendarItemVisibility.Private => 2u,
+                CalendarItemVisibility.Confidential => 3u,
+                _ => 0u
+            },
+            ReminderMinutes = reminders?.FirstOrDefault() is { } reminder ? (int)(reminder.DurationInSeconds / 60) : null,
+            ClientTrackingId = clientTrackingId
+        };
+
+        foreach (var attendee in attendees ?? [])
+        {
+            if (attendee.IsOrganizer || string.IsNullOrWhiteSpace(attendee.Email)) continue;
+            if (string.Equals(attendee.Email, Account.Address, StringComparison.OrdinalIgnoreCase)) continue;
+            write.Attendees.Add(new MapiCalendarOperations.MeetingAttendee(attendee.Name, attendee.Email.Trim(), attendee.IsOptionalAttendee));
+        }
+
+        return write;
+    }
+
+    /// <summary>The RRULE line of the item's recurrence text (lines separated by the app's separator), or null.</summary>
+    private static string? RecurrenceRuleOf(CalendarItem item)
+        => item.Recurrence?
+            .Split(Constants.CalendarEventRecurrenceRuleSeperator, StringSplitOptions.RemoveEmptyEntries)
+            .Select(l => l.Trim())
+            .FirstOrDefault(l => l.StartsWith("RRULE:", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// After one occurrence of a meeting the account organizes was changed or removed, the attendees
+    /// get the matching instance-level request or cancellation (MS-OXOCAL 3.1.4.4.3 / 3.1.4.6). Best
+    /// effort: the local change stands if the send fails.
+    /// </summary>
+    private async Task NotifyOccurrenceChangeAsync(MapiSession session, ulong folderId, ulong masterId, MapiCalendarTags tags, DateTime originalStartUtc,
+        MapiCalendarOperations.AppointmentWrite change, CalendarItem item, bool cancel)
+    {
+        if (!OrganizesItem(item))
+            return;
+
+        try
+        {
+            var master = await MapiCalendarOperations.ReadMeetingIdentityAsync(session, folderId, masterId, tags, CancellationToken.None, Diagnostics).ConfigureAwait(false);
+            var attendees = (master.Attendees ?? []).Where(r => !r.IsOrganizer && !string.IsNullOrEmpty(r.SmtpAddress) && !string.Equals(r.SmtpAddress, Account.Address, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (attendees.Count == 0 || !GlobalObjectId.IsWellFormed(master.GlobalObjectId))
+                return;
+
+            var zone = Wino.Mapi.Calendar.TimeZoneDefinition.Resolve(change.TimeZoneId);
+            var originalWall = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(originalStartUtc, DateTimeKind.Utc), zone);
+            var now = DateTime.UtcNow;
+            var message = cancel
+                ? MapiCalendarOperations.BuildOccurrenceCancellation(tags, master, originalStartUtc, originalWall, master.Sequence, now)
+                : MapiCalendarOperations.BuildOccurrenceRequest(tags, master, change, originalStartUtc, originalWall, master.Sequence, now);
+            var logon = session.Logon!;
+            await MapiMessageComposer.SendAsync(session, logon.OutboxFolderId, logon.SentItemsFolderId, message, CancellationToken.None, Diagnostics).ConfigureAwait(false);
+            Logger.Information("MAPI calendar {Account}: {Kind} for occurrence {Start:u} of 0x{Id:X16} sent to {Attendees} attendees.", Account.Address, cancel ? "cancellation" : "update", originalStartUtc, masterId, attendees.Count);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.Warning(ex, "MAPI calendar {Account}: attendees were not told about the occurrence change of 0x{Id:X16}.", Account.Address, masterId);
+        }
+    }
+
+    /// <summary>The account organizes the item when it carries no organizer or names this account as one.</summary>
+    private bool OrganizesItem(CalendarItem item)
+        => string.IsNullOrEmpty(item?.OrganizerEmail) || string.Equals(item.OrganizerEmail, Account.Address, StringComparison.OrdinalIgnoreCase);
+
+    public override List<IRequestBundle<EwsRequest>> CreateCalendarEvent(CreateCalendarEventRequest request)
+    {
+        var item = request.PreparedItem;
+        var reminders = request.ComposeResult?.SelectedReminders;
+        var calendar = request.AssignedCalendar;
+        var hasAttendees = request.ComposeResult?.Attendees is { Count: > 0 };
+
+        return MapiBundle(async session =>
+        {
+            if (!TryParseMailCopyId(calendar?.RemoteCalendarId, out var folderId))
+                throw new InvalidOperationException("The calendar is not addressable over MAPI until the next calendar sync.");
+
+            var tags = await ResolveCalendarTagsAsync(session, CancellationToken.None).ConfigureAwait(false);
+            var write = ToAppointmentWrite(item, reminders, item.Id.ToString("N"), hasAttendees ? request.ComposeResult!.Attendees : null);
+            var logon = session.Logon!;
+            var id = write.IsMeeting
+                ? await MapiCalendarOperations.CreateMeetingAsync(session, folderId, logon.OutboxFolderId, logon.SentItemsFolderId, tags, write, CancellationToken.None, Diagnostics).ConfigureAwait(false)
+                : await MapiCalendarOperations.CreateAppointmentAsync(session, folderId, tags, write).ConfigureAwait(false);
+            Logger.Information("MAPI calendar {Account}: created 0x{Id:X16} ({Kind}, {Attendees} attendees, recurring={Recurring}).", Account.Address, id, write.IsMeeting ? "meeting" : "appointment", write.Attendees.Count, write.IsRecurring);
+
+            // Stamp the new id on the local row right away so the optimistic item is adopted rather than
+            // duplicated by the resync (a series master reconciles by its "mapi:" prefix).
+            await ExchangeChangeProcessor.PersistCreatedCalendarEventAsync(
+                item,
+                request.PreparedEvent.Attendees,
+                request.PreparedEvent.Reminders,
+                ToMailCopyId(id).WithClientTrackingId(item.Id)).ConfigureAwait(false);
+        }, request, request);
+    }
+
+    public override List<IRequestBundle<EwsRequest>> UpdateCalendarEvent(UpdateCalendarEventRequest request)
+    {
+        var item = request.Item;
+        var hasAttendees = request.Attendees is { Count: > 0 };
+
+        return MapiBundle(async session =>
+        {
+            if (TryParseOccurrenceId(item.AssignedCalendar, item, out var seriesFolderId, out var masterId, out var originalStartUtc))
+            {
+                var seriesTags = await ResolveCalendarTagsAsync(session, CancellationToken.None).ConfigureAwait(false);
+                var change = ToAppointmentWrite(item, null, null);
+                await MapiOccurrenceOperations.ModifyOccurrenceAsync(session, seriesFolderId, masterId, seriesTags, originalStartUtc, change, CancellationToken.None, Diagnostics).ConfigureAwait(false);
+                await NotifyOccurrenceChangeAsync(session, seriesFolderId, masterId, seriesTags, originalStartUtc, change, item, cancel: false).ConfigureAwait(false);
+                return;
+            }
+
+            var (folderId, messageId) = RequireAppointmentIds(item.AssignedCalendar, item);
+            var tags = await ResolveCalendarTagsAsync(session, CancellationToken.None).ConfigureAwait(false);
+            var write = ToAppointmentWrite(item, null, null, hasAttendees ? request.Attendees : null);
+
+            // Editing a series rewrites its pattern; the deleted and changed occurrences it already has
+            // survive when the pattern itself did not change, as Outlook keeps them.
+            if (write.IsRecurring)
+            {
+                try
+                {
+                    write.ExistingRecurrence = (await MapiOccurrenceOperations.ReadMasterAsync(session, folderId, messageId, tags, CancellationToken.None).ConfigureAwait(false)).Recurrence;
+                }
+                catch (MapiException ex)
+                {
+                    Logger.Debug(ex, "MAPI calendar {Account}: existing pattern of 0x{Id:X16} not read; exceptions will not be carried over.", Account.Address, messageId);
+                }
+            }
+
+            // Only the organizer re-sends the request; an attendee editing their copy just saves it.
+            if (write.IsMeeting && OrganizesItem(item))
+            {
+                var logon = session.Logon!;
+                await MapiCalendarOperations.UpdateMeetingAsync(session, folderId, messageId, logon.OutboxFolderId, logon.SentItemsFolderId, tags, write, CancellationToken.None, Diagnostics).ConfigureAwait(false);
+                Logger.Information("MAPI calendar {Account}: meeting 0x{Id:X16} updated and re-sent to {Attendees} attendees.", Account.Address, messageId, write.Attendees.Count);
+            }
+            else
+            {
+                await MapiCalendarOperations.UpdateAppointmentAsync(session, folderId, messageId, tags, write).ConfigureAwait(false);
+            }
+        }, request, request);
+    }
+
+    public override List<IRequestBundle<EwsRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request)
+        => UpdateCalendarEvent(request);
+
+    public override List<IRequestBundle<EwsRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
+    {
+        var item = request.Item;
+
+        return MapiBundle(async session =>
+        {
+            if (TryParseOccurrenceId(item.AssignedCalendar, item, out var seriesFolderId, out var masterId, out var originalStartUtc))
+            {
+                var seriesTags = await ResolveCalendarTagsAsync(session, CancellationToken.None).ConfigureAwait(false);
+                await MapiOccurrenceOperations.DeleteOccurrenceAsync(session, seriesFolderId, masterId, seriesTags, originalStartUtc, CancellationToken.None, Diagnostics).ConfigureAwait(false);
+                Logger.Information("MAPI calendar {Account}: occurrence {Start:u} of 0x{Id:X16} deleted.", Account.Address, originalStartUtc, masterId);
+                await NotifyOccurrenceChangeAsync(session, seriesFolderId, masterId, seriesTags, originalStartUtc, ToAppointmentWrite(item, null, null), item, cancel: true).ConfigureAwait(false);
+                return;
+            }
+
+            var (folderId, messageId) = RequireAppointmentIds(item.AssignedCalendar, item);
+            var logon = session.Logon!;
+
+            // A meeting the account organizes is cancelled (attendees told) rather than silently removed.
+            if (OrganizesItem(item))
+            {
+                var tags = await ResolveCalendarTagsAsync(session, CancellationToken.None).ConfigureAwait(false);
+                var cancelled = await MapiCalendarOperations.CancelMeetingAsync(session, folderId, messageId, logon.OutboxFolderId, logon.SentItemsFolderId, logon.DeletedItemsFolderId,
+                    tags, Account.Address, CancellationToken.None, Diagnostics).ConfigureAwait(false);
+                if (cancelled)
+                    Logger.Information("MAPI calendar {Account}: meeting 0x{Id:X16} cancelled.", Account.Address, messageId);
+                return;
+            }
+
+            await MapiMessageOperations.MoveAsync(session, folderId, logon.DeletedItemsFolderId, [messageId]).ConfigureAwait(false);
+        }, request, request);
+    }
+
+    public override List<IRequestBundle<EwsRequest>> AcceptEvent(AcceptEventRequest request)
+        => RespondToMeeting(request, MapiCalendarOperations.MeetingResponse.Accept, request.Item, request.ResponseMessage);
+
+    public override List<IRequestBundle<EwsRequest>> TentativeEvent(TentativeEventRequest request)
+        => RespondToMeeting(request, MapiCalendarOperations.MeetingResponse.Tentative, request.Item, request.ResponseMessage);
+
+    public override List<IRequestBundle<EwsRequest>> DeclineEvent(DeclineEventRequest request)
+        => RespondToMeeting(request, MapiCalendarOperations.MeetingResponse.Decline, request.Item, request.ResponseMessage);
+
+    // A response to one occurrence of a series is sent for the series (the master's id is the part
+    // before the occurrence suffix); per-occurrence responses are a later refinement.
+    private List<IRequestBundle<EwsRequest>> RespondToMeeting(CalendarRequestBase request, MapiCalendarOperations.MeetingResponse response, CalendarItem item, string? comment)
+    {
+        return MapiBundle(async session =>
+        {
+            if (!TryParseMailCopyId(item.AssignedCalendar?.RemoteCalendarId, out var folderId))
+                throw new InvalidOperationException("The calendar is not addressable over MAPI until the next calendar sync.");
+
+            var remoteId = item.RemoteEventId?.GetProviderRemoteEventId() ?? string.Empty;
+            var masterId = remoteId.Count(c => c == ':') > 1 ? remoteId.Substring(0, remoteId.IndexOf(':', remoteId.IndexOf(':') + 1)) : remoteId;
+            if (!TryParseMailCopyId(masterId, out var messageId))
+                throw new InvalidOperationException("The event is not addressable over MAPI until the next calendar sync.");
+
+            var tags = await ResolveCalendarTagsAsync(session, CancellationToken.None).ConfigureAwait(false);
+            var logon = session.Logon!;
+            await MapiCalendarOperations.RespondToMeetingAsync(session, folderId, messageId, logon.OutboxFolderId, logon.SentItemsFolderId, logon.DeletedItemsFolderId,
+                tags, response, comment, Account.SenderName ?? Account.Name ?? Account.Address, CancellationToken.None, Diagnostics).ConfigureAwait(false);
+            Logger.Information("MAPI calendar {Account}: {Response} sent for 0x{Id:X16}.", Account.Address, response, messageId);
+        }, request, request);
     }
 
     public override async Task KillSynchronizerAsync()
