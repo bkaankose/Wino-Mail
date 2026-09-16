@@ -341,8 +341,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
             await SynchronizeCalendarsAsync(service, cancellationToken).ConfigureAwait(false);
 
-            if (options?.Type == CalendarSynchronizationType.CalendarMetadata)
-                return CalendarSynchronizationResult.Empty;
+            // The periodic loop only asks for calendar metadata; Exchange has no server-side change feed
+            // for events outside push, and the window read is cheap on a kept session, so every pass
+            // refreshes events as well. Otherwise events would arrive only on a manual sync.
 
             var windowStartUtc = DateTime.UtcNow.AddMonths(-CalendarWindowPastMonths);
             var windowEndUtc = DateTime.UtcNow.AddMonths(CalendarWindowFutureMonths);
