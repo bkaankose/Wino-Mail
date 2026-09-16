@@ -17,6 +17,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
@@ -613,6 +614,9 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
                     var tags = await ResolveCalendarTagsAsync(session, cancellationToken).ConfigureAwait(false);
                     var meeting = await MapiCalendarOperations.ReadMeetingIdentityAsync(session, folderId, messageId, tags, cancellationToken, Diagnostics).ConfigureAwait(false);
                     calendarPart = MapiCalendarOperations.BuildICalendar(meeting, method, DateTime.UtcNow);
+
+                    if (method == "REQUEST")
+                        await TryMapCalendarInvitationAsync(session, tags, mailItem, InvitationDetails.Parse(calendarPart).Uid, cancellationToken).ConfigureAwait(false);
                 }
                 catch (MapiException ex)
                 {
@@ -623,6 +627,95 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
 
         var mime = MapiMimeAssembler.Build(mailItem, content, displayTo, calendarPart, method);
         await ExchangeChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mime, Account.Id).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Links a meeting request to the calendar item it created, in the shape the Outlook synchronizer
+    /// writes: the appointment whose clean global object id forms the request's UID is looked up in each
+    /// synced calendar, persisted locally when the calendar sync has not reached it yet, and the mapping
+    /// row the reader's invitation card resolves is written. Failures are logged; the mail itself is
+    /// saved regardless.
+    /// </summary>
+    private async Task TryMapCalendarInvitationAsync(MapiSession session, MapiCalendarTags tags, MailCopy mailCopy, string? invitationUid, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(invitationUid))
+            return;
+
+        var calendars = await ExchangeChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        if (calendars == null || calendars.Count == 0)
+            return;
+
+        foreach (var calendar in calendars)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!TryParseMailCopyId(calendar.RemoteCalendarId, out var calendarFolderId))
+                continue;
+
+            try
+            {
+                var rows = await MapiCalendarOperations.ReadAppointmentsAsync(session, calendarFolderId, tags, cancellationToken, Diagnostics).ConfigureAwait(false);
+                var row = rows.FirstOrDefault(r => r.IsAppointment
+                                                   && r.CleanGlobalObjectId is { Length: > 0 } goid
+                                                   && string.Equals(Convert.ToHexString(goid), invitationUid, StringComparison.OrdinalIgnoreCase));
+                if (row == null)
+                    continue;
+
+                var remoteEventId = ToMailCopyId(row.MessageId);
+                var localCalendarItem = await ExchangeChangeProcessor.GetCalendarItemAsync(calendar.Id, remoteEventId).ConfigureAwait(false);
+
+                // Not synced yet: persist the appointment the way the calendar sync does, so the card can
+                // respond without waiting for the next calendar pass.
+                if (localCalendarItem == null)
+                {
+                    if (row.IsMeeting)
+                    {
+                        try
+                        {
+                            row.Attendees = await MapiCalendarOperations.ReadAttendeesAsync(session, calendarFolderId, row.MessageId, cancellationToken, Diagnostics).ConfigureAwait(false);
+                        }
+                        catch (MapiException ex)
+                        {
+                            Logger.Debug(ex, "MAPI calendar {Account}: attendees of 0x{Id:X16} not read.", Account.Address, row.MessageId);
+                        }
+                    }
+
+                    if (MapiCalendarExpander.Master(row) is { } master)
+                        await ExchangeChangeProcessor.ManageCalendarEventAsync(master, calendar, Account).ConfigureAwait(false);
+
+                    var windowStartUtc = DateTime.UtcNow.AddMonths(-CalendarWindowPastMonths);
+                    var windowEndUtc = DateTime.UtcNow.AddMonths(CalendarWindowFutureMonths);
+                    foreach (var occurrence in MapiCalendarExpander.Expand(row, windowStartUtc, windowEndUtc, Diagnostics))
+                        await ExchangeChangeProcessor.ManageCalendarEventAsync(occurrence, calendar, Account).ConfigureAwait(false);
+
+                    localCalendarItem = await ExchangeChangeProcessor.GetCalendarItemAsync(calendar.Id, remoteEventId).ConfigureAwait(false);
+                }
+
+                if (localCalendarItem == null)
+                    return;
+
+                await ExchangeChangeProcessor.UpsertMailInvitationCalendarMappingAsync(new MailInvitationCalendarMapping
+                {
+                    Id = Guid.NewGuid(),
+                    AccountId = Account.Id,
+                    MailCopyId = mailCopy.Id,
+                    InvitationUid = invitationUid,
+                    CalendarId = calendar.Id,
+                    CalendarItemId = localCalendarItem.Id,
+                    CalendarRemoteEventId = remoteEventId
+                }).ConfigureAwait(false);
+
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warning(ex, "MAPI {Account}: invitation mail {MailCopyId} not mapped to calendar {CalendarId}.", Account.Address, mailCopy.Id, calendar.Id);
+            }
+        }
     }
 
     // ------------------------------------------------------------------------------------------------

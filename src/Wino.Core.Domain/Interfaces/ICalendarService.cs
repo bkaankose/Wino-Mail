@@ -46,6 +46,15 @@ public interface ICalendarService
     /// <param name="targetDetails">Target details.</param>
     Task<CalendarItem> GetCalendarItemTargetAsync(CalendarItemTarget targetDetails);
     Task<CalendarItem> GetCalendarItemAsync(Guid id);
+
+    /// <summary>
+    /// The calendar item a meeting message refers to, with its calendar loaded, or null when the meeting
+    /// has not reached a local calendar. Resolved through the invitation mapping the synchronizers write
+    /// for the mail, then any mapping of another mail with the same iCalendar UID (an update or a
+    /// cancellation shares it with the original request), then a title and start match across the
+    /// account's calendars.
+    /// </summary>
+    Task<CalendarItem> GetInvitationCalendarItemAsync(Guid accountId, string mailCopyId, InvitationDetails invitation);
     Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId);
     Task<List<CalendarEventAttendee>> ManageEventAttendeesAsync(Guid calendarItemId, List<CalendarEventAttendee> allAttendees);
     Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);

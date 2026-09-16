@@ -22,6 +22,7 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Tasks;
+using Wino.Core.Extensions;
 using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests;
@@ -104,6 +105,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         EmailMessageSchema.From,
         EmailMessageSchema.IsRead,
         ItemSchema.Flag,
+        ItemSchema.ItemClass,
         EmailMessageSchema.InternetMessageId);
 
     protected async Task<ExchangeService> CreateServiceAsync(TimeZoneInfo timeZone = null)
@@ -1897,7 +1899,26 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             // Items synced from the Drafts folder must carry IsDraft so selecting one opens the composer
             // (not the read view) and the compose/send flow treats it as an editable draft.
             IsDraft = assignedFolder?.SpecialFolderType == SpecialFolderType.Draft,
+            ItemType = MapItemType(SafeGet(() => item.ItemClass)),
         };
+    }
+
+    /// <summary>The mail item type a message class maps to (MS-OXOCAL meeting classes); plain mail otherwise.</summary>
+    private static MailItemType MapItemType(string itemClass)
+    {
+        if (string.IsNullOrEmpty(itemClass))
+            return MailItemType.Mail;
+
+        if (itemClass.StartsWith("IPM.Schedule.Meeting.Request", StringComparison.OrdinalIgnoreCase))
+            return MailItemType.CalendarInvitation;
+
+        if (itemClass.StartsWith("IPM.Schedule.Meeting.Canceled", StringComparison.OrdinalIgnoreCase))
+            return MailItemType.CalendarCancellation;
+
+        if (itemClass.StartsWith("IPM.Schedule.Meeting.Resp", StringComparison.OrdinalIgnoreCase))
+            return MailItemType.CalendarResponse;
+
+        return MailItemType.Mail;
     }
 
     protected static MailImportance MapImportance(Importance importance) => importance switch
@@ -1918,6 +1939,84 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         var mimeMessage = await MimeMessage.LoadAsync(stream, cancellationToken).ConfigureAwait(false);
 
         await _exchangeChangeProcessor.SaveMimeFileAsync(mailItem.FileId, mimeMessage, Account.Id).ConfigureAwait(false);
+
+        await TryMapCalendarInvitationAsync(service, mailItem, mimeMessage, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Links a meeting request to the calendar item it created, in the shape the Outlook synchronizer
+    /// writes: the appointment is found by iCalendar UID in each synced calendar, persisted locally when
+    /// the calendar sync has not reached it yet, and the mapping row the reader's invitation card
+    /// resolves is written. Failures are logged; the mail itself is already saved.
+    /// </summary>
+    private async Task TryMapCalendarInvitationAsync(ExchangeService service, MailCopy mailCopy, MimeMessage mimeMessage, CancellationToken cancellationToken)
+    {
+        var invitation = InvitationDetails.Parse(mimeMessage.GetCalendarContent());
+        if (!invitation.IsRequest || string.IsNullOrWhiteSpace(invitation.Uid))
+            return;
+
+        var calendars = await _exchangeChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+        if (calendars == null || calendars.Count == 0)
+            return;
+
+        foreach (var calendar in calendars)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (string.IsNullOrWhiteSpace(calendar.RemoteCalendarId))
+                continue;
+
+            try
+            {
+                var view = new ItemView(1) { PropertySet = new PropertySet(BasePropertySet.IdOnly, AppointmentSchema.AppointmentType) };
+                var filter = new SearchFilter.IsEqualTo(AppointmentSchema.ICalUid, invitation.Uid);
+                var results = await service.FindItems(new FolderId(calendar.RemoteCalendarId), filter, view).ConfigureAwait(false);
+
+                var match = results.Items.OfType<Appointment>().FirstOrDefault();
+                if (match == null)
+                    continue;
+
+                // The calendar stores occurrences (CalendarView expands a series server-side), so a series
+                // request maps to its first occurrence rather than the master the store never keeps.
+                var appointmentId = match.Id;
+                if (SafeGet(() => (AppointmentType?)match.AppointmentType) == AppointmentType.RecurringMaster)
+                {
+                    var master = await Appointment.Bind(service, match.Id, new PropertySet(BasePropertySet.IdOnly, AppointmentSchema.FirstOccurrence)).ConfigureAwait(false);
+                    appointmentId = SafeGet(() => master.FirstOccurrence?.ItemId);
+
+                    if (appointmentId == null)
+                        continue;
+                }
+
+                var appointment = await Appointment.Bind(service, appointmentId, EventPropertySet).ConfigureAwait(false);
+                await _exchangeChangeProcessor.ManageCalendarEventAsync(MapToSyncedEvent(appointment), calendar, Account).ConfigureAwait(false);
+
+                var localCalendarItem = await _exchangeChangeProcessor.GetCalendarItemAsync(calendar.Id, appointment.Id.UniqueId).ConfigureAwait(false);
+                if (localCalendarItem == null)
+                    return;
+
+                await _exchangeChangeProcessor.UpsertMailInvitationCalendarMappingAsync(new MailInvitationCalendarMapping
+                {
+                    Id = Guid.NewGuid(),
+                    AccountId = Account.Id,
+                    MailCopyId = mailCopy.Id,
+                    InvitationUid = invitation.Uid,
+                    CalendarId = calendar.Id,
+                    CalendarItemId = localCalendarItem.Id,
+                    CalendarRemoteEventId = appointment.Id.UniqueId
+                }).ConfigureAwait(false);
+
+                return;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to map Exchange calendar invitation mail {MailCopyId} for calendar {CalendarId}", mailCopy.Id, calendar.Id);
+            }
+        }
     }
 
     #region Mail & Folder Operations
