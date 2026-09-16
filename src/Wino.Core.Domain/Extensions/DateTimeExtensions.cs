@@ -58,11 +58,13 @@ public static class DateTimeExtensions
     /// <summary>
     /// Converts local datetime into target timezone.
     /// If timezone lookup fails, returns original value.
+    /// Without a target zone the value is stored as UTC, the inverse of
+    /// <see cref="ToLocalTimeFromTimeZone"/>, which reads a zone-less value as UTC.
     /// </summary>
     public static DateTime ToTimeZoneFromLocal(this DateTime localDateTime, string targetTimeZoneId)
     {
         if (string.IsNullOrWhiteSpace(targetTimeZoneId))
-            return localDateTime;
+            return DateTime.SpecifyKind(localDateTime, DateTimeKind.Local).ToUniversalTime();
 
         try
         {

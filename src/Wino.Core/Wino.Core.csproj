@@ -17,6 +17,7 @@
 		<PackageReference Include="DnsClient" />
 		<PackageReference Include="Exchange.WebServices.NETCore" />
 		<PackageReference Include="HtmlAgilityPack" />
+		<PackageReference Include="Ical.Net" />
 		<PackageReference Include="HtmlKit" />
 		<PackageReference Include="MailKit" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />

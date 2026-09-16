@@ -29,6 +29,14 @@ public interface ICalendarService
     /// <returns>List of calendar items that fall within the requested period.</returns>
     Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period);
 
+    /// <summary>
+    /// The series masters stored for a calendar: rows that carry a recurrence rule and have no parent.
+    /// Masters sit outside any date-range query, so a provider that expands series itself uses this to
+    /// reconcile deletions of whole series.
+    /// </summary>
+    /// <param name="accountCalendarId">The calendar to list masters for.</param>
+    Task<List<CalendarItem>> GetRecurringMastersAsync(Guid accountCalendarId);
+
     Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId);
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
 

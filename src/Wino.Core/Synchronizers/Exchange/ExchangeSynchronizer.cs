@@ -9,11 +9,15 @@ using Microsoft.Exchange.WebServices.Data;
 using MimeKit;
 using Serilog;
 using Wino.Authentication.Exchange;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Helpers;
@@ -31,8 +35,8 @@ namespace Wino.Core.Synchronizers.Exchange;
 /// Synchronizes on-premises Exchange accounts over Exchange Web Services. This is the fallback
 /// transport for servers that do not offer MAPI/HTTP (before Exchange 2013 SP1, or with the
 /// protocol disabled) and for accounts the user pins to EWS; the MAPI synchronizer derives from
-/// it and replaces every surface. Mail only for now: calendar, contacts and tasks report no
-/// provider support until their surfaces are ported.
+/// it and replaces every surface: mail, calendar (CalendarView expands series server-side, occurrences
+/// are stored flat), contacts and tasks.
 /// </summary>
 public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointment, AccountContact>
 {
@@ -278,12 +282,298 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         return MailSynchronizationResult.Completed(downloaded);
     }
 
+    #region Calendar
+
+    protected const int CalendarWindowPastMonths = 3;
+    protected const int CalendarWindowFutureMonths = 12;
+
     /// <summary>
-    /// Calendar synchronization is not available for Exchange accounts yet; the account's calendar
-    /// runs on the local backend until the EWS and MAPI calendar surfaces are ported.
+    /// The account calendars that take part in this pass: every enabled one, or only the ones a
+    /// <c>SingleCalendar</c> request names (a push notification for one calendar folder).
     /// </summary>
-    protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
-        => Task.FromResult(CalendarSynchronizationResult.Empty);
+    protected async Task<List<AccountCalendar>> GetCalendarsToSynchronizeAsync(CalendarSynchronizationOptions options)
+    {
+        var calendars = (await _exchangeChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false))
+            .Where(c => c.IsSynchronizationEnabled)
+            .ToList();
+
+        if (options?.Type == CalendarSynchronizationType.SingleCalendar && options.SynchronizationCalendarIds is { Count: > 0 } ids)
+            calendars = calendars.Where(c => ids.Contains(c.Id)).ToList();
+
+        return calendars;
+    }
+
+    protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+    {
+        if (Account.CalendarIntegrationSource == AccountIntegrationSource.Local)
+            return CalendarSynchronizationResult.Empty;
+
+        if (Account.CalendarIntegrationSource != AccountIntegrationSource.Provider || !Account.IsCalendarAccessGranted)
+            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
+
+        try
+        {
+            var service = await CreateServiceAsync(TimeZoneInfo.Utc).ConfigureAwait(false);
+
+            await SynchronizeCalendarsAsync(service, cancellationToken).ConfigureAwait(false);
+
+            if (options?.Type == CalendarSynchronizationType.CalendarMetadata)
+                return CalendarSynchronizationResult.Empty;
+
+            var windowStartUtc = DateTime.UtcNow.AddMonths(-CalendarWindowPastMonths);
+            var windowEndUtc = DateTime.UtcNow.AddMonths(CalendarWindowFutureMonths);
+
+            foreach (var calendar in await GetCalendarsToSynchronizeAsync(options).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await SynchronizeCalendarEventsForCalendarAsync(service, calendar, windowStartUtc, windowEndUtc, cancellationToken).ConfigureAwait(false);
+            }
+
+            return CalendarSynchronizationResult.Empty;
+        }
+        catch (OperationCanceledException)
+        {
+            return CalendarSynchronizationResult.Canceled;
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "EWS calendar synchronization failed for {Address}.", Account.Address);
+            return CalendarSynchronizationResult.Failed(ex);
+        }
+    }
+
+    private async Task SynchronizeCalendarsAsync(ExchangeService service, CancellationToken cancellationToken)
+    {
+        var properties = new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName, FolderSchema.FolderClass);
+
+        var defaultCalendar = await CalendarFolder.Bind(service, WellKnownFolderName.Calendar, properties).ConfigureAwait(false);
+
+        var view = new FolderView(1000) { Traversal = FolderTraversal.Deep, PropertySet = properties };
+        var appointmentFolders = await service
+            .FindFolders(WellKnownFolderName.MsgFolderRoot, new SearchFilter.IsEqualTo(FolderSchema.FolderClass, "IPF.Appointment"), view)
+            .ConfigureAwait(false);
+
+        var remoteFolders = new Dictionary<string, Folder> { [defaultCalendar.Id.UniqueId] = defaultCalendar };
+        foreach (var folder in appointmentFolders.Folders)
+            remoteFolders[folder.Id.UniqueId] = folder;
+
+        var localCalendars = await _exchangeChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+
+        foreach (var local in localCalendars)
+        {
+            if (!remoteFolders.ContainsKey(local.RemoteCalendarId))
+                await _exchangeChangeProcessor.DeleteAccountCalendarAsync(local).ConfigureAwait(false);
+        }
+
+        foreach (var (remoteId, folder) in remoteFolders)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var isPrimary = remoteId == defaultCalendar.Id.UniqueId;
+            var name = string.IsNullOrWhiteSpace(folder.DisplayName) ? "Calendar" : folder.DisplayName;
+
+            var existing = localCalendars.FirstOrDefault(c => c.RemoteCalendarId == remoteId);
+            if (existing == null)
+            {
+                await _exchangeChangeProcessor.InsertAccountCalendarAsync(BuildAccountCalendar(remoteId, name, isPrimary)).ConfigureAwait(false);
+            }
+            else if (existing.Name != name || existing.IsPrimary != isPrimary)
+            {
+                existing.Name = name;
+                existing.IsPrimary = isPrimary;
+                await _exchangeChangeProcessor.UpdateAccountCalendarAsync(existing).ConfigureAwait(false);
+            }
+        }
+    }
+
+    protected AccountCalendar BuildAccountCalendar(string remoteCalendarId, string name, bool isPrimary)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            AccountId = Account.Id,
+            RemoteCalendarId = remoteCalendarId,
+            Name = name,
+            IsPrimary = isPrimary,
+            IsSynchronizationEnabled = true,
+            IsReadOnly = false,
+            DefaultShowAs = CalendarItemShowAs.Busy,
+            TextColorHex = "#FFFFFF",
+            BackgroundColorHex = string.IsNullOrWhiteSpace(Account.AccountColorHex) ? "#2564CF" : Account.AccountColorHex,
+            TimeZone = TimeZoneInfo.Local.Id
+        };
+
+    private static readonly PropertySet EventPropertySet = new(
+        BasePropertySet.IdOnly,
+        ItemSchema.Subject, ItemSchema.Body, ItemSchema.Sensitivity,
+        ItemSchema.DateTimeCreated, ItemSchema.LastModifiedTime,
+        AppointmentSchema.Start, AppointmentSchema.End, AppointmentSchema.Location,
+        AppointmentSchema.Organizer, AppointmentSchema.LegacyFreeBusyStatus,
+        AppointmentSchema.IsReminderSet, AppointmentSchema.ReminderMinutesBeforeStart,
+        AppointmentSchema.RequiredAttendees, AppointmentSchema.OptionalAttendees,
+        AppointmentSchema.MyResponseType, AppointmentSchema.IsAllDayEvent,
+        AppointmentSchema.StartTimeZone, AppointmentSchema.EndTimeZone,
+        ExchangeCalendarSchema.WinoClientTrackingId)
+    { RequestedBodyType = BodyType.HTML };
+
+    private async Task SynchronizeCalendarEventsForCalendarAsync(ExchangeService service, AccountCalendar calendar, DateTime windowStartUtc, DateTime windowEndUtc, CancellationToken cancellationToken)
+    {
+        var calendarFolder = await CalendarFolder
+            .Bind(service, new FolderId(calendar.RemoteCalendarId), new PropertySet(BasePropertySet.IdOnly))
+            .ConfigureAwait(false);
+
+        var seenRemoteIds = new HashSet<string>();
+
+        // Skip deletion reconciliation if any chunk hits the server result cap.
+        var windowComplete = true;
+
+        var chunkStartUtc = windowStartUtc;
+        while (chunkStartUtc < windowEndUtc)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var chunkEndUtc = chunkStartUtc.AddMonths(3);
+            if (chunkEndUtc > windowEndUtc)
+                chunkEndUtc = windowEndUtc;
+
+            var view = new CalendarView(chunkStartUtc, chunkEndUtc, 1000) { PropertySet = new PropertySet(BasePropertySet.IdOnly) };
+            var results = await calendarFolder.FindAppointments(view).ConfigureAwait(false);
+            var appointments = results.Items;
+
+            if (appointments.Count > 0)
+            {
+                await service.LoadPropertiesForItems(appointments, EventPropertySet).ConfigureAwait(false);
+
+                foreach (var appointment in appointments)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    seenRemoteIds.Add(appointment.Id.UniqueId);
+                    await _exchangeChangeProcessor.ManageCalendarEventAsync(MapToSyncedEvent(appointment), calendar, Account).ConfigureAwait(false);
+                }
+            }
+
+            if (results.MoreAvailable)
+            {
+                windowComplete = false;
+                _logger.Warning("Calendar window chunk for {Calendar} hit the result cap; skipping deletion reconciliation this pass to avoid removing valid events.", calendar.Name);
+            }
+
+            chunkStartUtc = chunkEndUtc;
+        }
+
+        if (!windowComplete)
+            return;
+
+        var localEvents = await _exchangeChangeProcessor.GetCalendarItemsInRangeAsync(calendar, windowStartUtc, windowEndUtc).ConfigureAwait(false);
+        foreach (var local in localEvents)
+        {
+            if (!string.IsNullOrEmpty(local.RemoteEventId) &&
+                !seenRemoteIds.Contains(local.RemoteEventId.GetProviderRemoteEventId()))
+            {
+                await _exchangeChangeProcessor.DeleteCalendarItemAsync(local.Id).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>An EWS appointment (one occurrence; CalendarView expands series server-side) in the neutral shape.</summary>
+    private static SyncedCalendarEvent MapToSyncedEvent(Appointment appointment)
+    {
+        Guid? clientTrackingId = null;
+        if (appointment.TryGetProperty(ExchangeCalendarSchema.WinoClientTrackingId, out string trackingValue) &&
+            Guid.TryParseExact(trackingValue, "N", out var parsedTrackingId))
+        {
+            clientTrackingId = parsedTrackingId;
+        }
+
+        var startUtc = DateTime.SpecifyKind(appointment.Start, DateTimeKind.Utc);
+        var endUtc = DateTime.SpecifyKind(appointment.End, DateTimeKind.Utc);
+
+        string ianaTimeZone = null;
+        try
+        {
+            if (appointment.StartTimeZone != null && TimeZoneInfo.TryConvertWindowsIdToIanaId(appointment.StartTimeZone.Id, out var iana))
+                ianaTimeZone = iana;
+        }
+        catch
+        {
+        }
+
+        return new SyncedCalendarEvent
+        {
+            RemoteId = appointment.Id.UniqueId.WithClientTrackingId(clientTrackingId),
+            Title = appointment.Subject,
+            Description = SafeGet(() => appointment.Body?.Text),
+            Location = appointment.Location,
+            StartUtc = startUtc,
+            EndUtc = endUtc,
+            TimeZoneIana = ianaTimeZone,
+            IsAllDay = SafeGet(() => (bool?)appointment.IsAllDayEvent) ?? false,
+            OrganizerEmail = appointment.Organizer?.Address,
+            OrganizerName = appointment.Organizer?.Name,
+            CreatedAt = appointment.DateTimeCreated,
+            UpdatedAt = appointment.LastModifiedTime,
+            Visibility = appointment.Sensitivity switch
+            {
+                Sensitivity.Personal or Sensitivity.Private => CalendarItemVisibility.Private,
+                Sensitivity.Confidential => CalendarItemVisibility.Confidential,
+                _ => CalendarItemVisibility.Public
+            },
+            ShowAs = appointment.LegacyFreeBusyStatus switch
+            {
+                LegacyFreeBusyStatus.Free => CalendarItemShowAs.Free,
+                LegacyFreeBusyStatus.Tentative => CalendarItemShowAs.Tentative,
+                LegacyFreeBusyStatus.OOF => CalendarItemShowAs.OutOfOffice,
+                LegacyFreeBusyStatus.WorkingElsewhere => CalendarItemShowAs.WorkingElsewhere,
+                _ => CalendarItemShowAs.Busy
+            },
+            MyResponse = appointment.MyResponseType switch
+            {
+                MeetingResponseType.Tentative => CalendarItemStatus.Tentative,
+                MeetingResponseType.Accept => CalendarItemStatus.Accepted,
+                MeetingResponseType.Organizer => CalendarItemStatus.Accepted,
+                MeetingResponseType.Decline => CalendarItemStatus.Cancelled,
+                MeetingResponseType.NoResponseReceived => CalendarItemStatus.NotResponded,
+                _ => CalendarItemStatus.Accepted
+            },
+            Attendees = BuildAttendees(appointment),
+            ReminderMinutesBeforeStart = appointment.IsReminderSet ? appointment.ReminderMinutesBeforeStart : null
+        };
+    }
+
+    private static List<SyncedCalendarAttendee> BuildAttendees(Appointment appointment)
+    {
+        var attendees = new List<SyncedCalendarAttendee>();
+        AddAttendees(attendees, SafeGet(() => appointment.RequiredAttendees), isOptional: false);
+        AddAttendees(attendees, SafeGet(() => appointment.OptionalAttendees), isOptional: true);
+        return attendees.Count == 0 ? null : attendees;
+    }
+
+    private static void AddAttendees(List<SyncedCalendarAttendee> target, AttendeeCollection source, bool isOptional)
+    {
+        if (source == null)
+            return;
+
+        foreach (var attendee in source)
+        {
+            if (string.IsNullOrEmpty(attendee.Address))
+                continue;
+
+            target.Add(new SyncedCalendarAttendee
+            {
+                Name = attendee.Name,
+                Email = attendee.Address,
+                IsOptional = isOptional,
+                Status = attendee.ResponseType switch
+                {
+                    MeetingResponseType.Accept => AttendeeStatus.Accepted,
+                    MeetingResponseType.Tentative => AttendeeStatus.Tentative,
+                    MeetingResponseType.Decline => AttendeeStatus.Declined,
+                    _ => AttendeeStatus.NeedsAction
+                }
+            });
+        }
+    }
+
+    #endregion
 
     /// <summary>
     /// Reconciles the remote mail folder hierarchy into local MailItemFolders:

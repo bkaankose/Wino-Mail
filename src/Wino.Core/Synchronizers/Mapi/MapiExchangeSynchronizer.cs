@@ -9,10 +9,12 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Exchange.WebServices.Data;
 using Serilog;
 using Wino.Authentication.Exchange;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
@@ -1121,6 +1123,179 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
 
         if (structureChanged)
             WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // Calendar: the Calendar folder(s) read over MAPI, series expanded client-side (an EWS CalendarView
+    // expanded them server-side), occurrences stored flat as before. Calendars are keyed "mapi:" +
+    // folder id; the MAPI folder id doubles as the push-notification key.
+    // ------------------------------------------------------------------------------------------------
+
+    protected override async Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(CalendarSynchronizationOptions options, CancellationToken cancellationToken = default)
+    {
+        if (Account.CalendarIntegrationSource == AccountIntegrationSource.Local)
+            return CalendarSynchronizationResult.Empty;
+
+        if (Account.CalendarIntegrationSource != AccountIntegrationSource.Provider || !Account.IsCalendarAccessGranted)
+            return CalendarSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_CalendarUnavailable));
+
+        try
+        {
+            await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+            var session = lease.Session;
+            await SynchronizeMapiCalendarsAsync(session, cancellationToken).ConfigureAwait(false);
+
+            if (options?.Type == CalendarSynchronizationType.CalendarMetadata)
+                return CalendarSynchronizationResult.Empty;
+
+            var tags = await ResolveCalendarTagsAsync(session, cancellationToken).ConfigureAwait(false);
+            var windowStartUtc = DateTime.UtcNow.AddMonths(-CalendarWindowPastMonths);
+            var windowEndUtc = DateTime.UtcNow.AddMonths(CalendarWindowFutureMonths);
+
+            foreach (var calendar in await GetCalendarsToSynchronizeAsync(options).ConfigureAwait(false))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!TryParseMailCopyId(calendar.RemoteCalendarId, out var folderId))
+                    continue;
+
+                var rows = await MapiCalendarOperations.ReadAppointmentsAsync(session, folderId, tags, cancellationToken, Diagnostics).ConfigureAwait(false);
+
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+                var occurrences = 0;
+                foreach (var row in rows.Where(r => r.IsAppointment))
+                {
+                    if (row.IsMeeting)
+                    {
+                        try
+                        {
+                            row.Attendees = await MapiCalendarOperations.ReadAttendeesAsync(session, folderId, row.MessageId, cancellationToken, Diagnostics).ConfigureAwait(false);
+                        }
+                        catch (MapiException ex)
+                        {
+                            Logger.Debug(ex, "MAPI calendar {Account}: attendees of 0x{Id:X16} not read.", Account.Address, row.MessageId);
+                        }
+                    }
+
+                    // The master row goes first so its occurrences can link to it.
+                    if (MapiCalendarExpander.Master(row) is { } master)
+                    {
+                        seen.Add(master.RemoteId.GetProviderRemoteEventId());
+                        await ExchangeChangeProcessor.ManageCalendarEventAsync(master, calendar, Account).ConfigureAwait(false);
+                    }
+
+                    foreach (var occurrence in MapiCalendarExpander.Expand(row, windowStartUtc, windowEndUtc, Diagnostics))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        seen.Add(occurrence.RemoteId.GetProviderRemoteEventId());
+                        await ExchangeChangeProcessor.ManageCalendarEventAsync(occurrence, calendar, Account).ConfigureAwait(false);
+                        occurrences++;
+                    }
+                }
+
+                var removed = 0;
+                var localEvents = await ExchangeChangeProcessor.GetCalendarItemsInRangeAsync(calendar, windowStartUtc, windowEndUtc).ConfigureAwait(false);
+                foreach (var local in localEvents)
+                {
+                    if (!string.IsNullOrEmpty(local.RemoteEventId) && !seen.Contains(local.RemoteEventId.GetProviderRemoteEventId()))
+                    {
+                        await ExchangeChangeProcessor.DeleteCalendarItemAsync(local.Id).ConfigureAwait(false);
+                        removed++;
+                    }
+                }
+
+                // Masters are outside the range query; a series gone from the server takes its occurrences with it.
+                foreach (var master in await ExchangeChangeProcessor.GetRecurringMastersAsync(calendar).ConfigureAwait(false))
+                {
+                    if (!string.IsNullOrEmpty(master.RemoteEventId) && !seen.Contains(master.RemoteEventId.GetProviderRemoteEventId()))
+                    {
+                        await ExchangeChangeProcessor.DeleteCalendarItemAsync(master.Id).ConfigureAwait(false);
+                        removed++;
+                    }
+                }
+
+                Logger.Information("MAPI calendar {Account}/{Calendar}: {Rows} rows, {Occurrences} occurrences in window, {Removed} removed.", Account.Address, calendar.Name, rows.Count, occurrences, removed);
+            }
+
+            return CalendarSynchronizationResult.Empty;
+        }
+        catch (OperationCanceledException)
+        {
+            return CalendarSynchronizationResult.Canceled;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error(ex, "MAPI calendar synchronization failed for {Address}.", Account.Address);
+            return CalendarSynchronizationResult.Failed(ex);
+        }
+    }
+
+    /// <summary>
+    /// Calendars are the IPF.Appointment folders of the mailbox, keyed by "mapi:" folder id. Rows that
+    /// still carry an EWS id from before the transport flipped are re-keyed in place (the primary to the
+    /// default calendar, others by name) so colours and sync preferences survive the switch.
+    /// </summary>
+    private async Task SynchronizeMapiCalendarsAsync(MapiSession session, CancellationToken cancellationToken)
+    {
+        var logon = session.Logon!;
+        var defaultFolderId = await MapiCalendarOperations.FindCalendarFolderIdAsync(session, logon.InboxFolderId, cancellationToken).ConfigureAwait(false);
+        var hierarchy = await MapiFolderOperations.ReadHierarchyAsync(session, logon.IpmSubtreeFolderId, cancellationToken).ConfigureAwait(false);
+
+        var remote = new Dictionary<ulong, string>();
+        foreach (var folder in hierarchy.Where(f => string.Equals(f.ContainerClass, PropertyTags.CalendarContainerClass, StringComparison.OrdinalIgnoreCase)))
+            remote[folder.FolderId] = string.IsNullOrWhiteSpace(folder.DisplayName) ? "Calendar" : folder.DisplayName;
+        if (defaultFolderId is { } primary && !remote.ContainsKey(primary))
+            remote[primary] = "Calendar";
+
+        var local = await ExchangeChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+
+        // One-time re-key of EWS-addressed rows.
+        foreach (var calendar in local.Where(c => !TryParseMailCopyId(c.RemoteCalendarId, out _)).ToList())
+        {
+            ulong? target = null;
+            if (calendar.IsPrimary && defaultFolderId is { } primaryId)
+            {
+                target = primaryId;
+            }
+            else
+            {
+                // Otherwise by name, ignoring folders another local row has already claimed.
+                var byName = remote.FirstOrDefault(r => string.Equals(r.Value, calendar.Name, StringComparison.OrdinalIgnoreCase)
+                                                        && !local.Any(l => l.RemoteCalendarId == ToMailCopyId(r.Key))).Key;
+                if (byName != 0)
+                    target = byName;
+            }
+
+            if (target is { } folderId)
+            {
+                Logger.Information("MAPI calendar {Account}: re-keying '{Name}' from EWS id to 0x{Folder:X16}.", Account.Address, calendar.Name, folderId);
+                calendar.RemoteCalendarId = ToMailCopyId(folderId);
+                await ExchangeChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
+            }
+        }
+
+        foreach (var calendar in local)
+        {
+            if (!TryParseMailCopyId(calendar.RemoteCalendarId, out var folderId) || !remote.ContainsKey(folderId))
+                await ExchangeChangeProcessor.DeleteAccountCalendarAsync(calendar).ConfigureAwait(false);
+        }
+
+        foreach (var (folderId, name) in remote)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var remoteId = ToMailCopyId(folderId);
+            var isPrimary = folderId == defaultFolderId;
+            var existing = local.FirstOrDefault(c => c.RemoteCalendarId == remoteId);
+            if (existing == null)
+            {
+                await ExchangeChangeProcessor.InsertAccountCalendarAsync(BuildAccountCalendar(remoteId, name, isPrimary)).ConfigureAwait(false);
+            }
+            else if (existing.Name != name || existing.IsPrimary != isPrimary)
+            {
+                existing.Name = name;
+                existing.IsPrimary = isPrimary;
+                await ExchangeChangeProcessor.UpdateAccountCalendarAsync(existing).ConfigureAwait(false);
+            }
+        }
     }
 
     public override async Task KillSynchronizerAsync()

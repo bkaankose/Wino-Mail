@@ -223,6 +223,11 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     /// <param name="calendar">The calendar to retrieve events from.</param>
     /// <param name="period">The time period to query events for.</param>
     /// <returns>List of calendar items that fall within the requested period.</returns>
+    public Task<List<CalendarItem>> GetRecurringMastersAsync(Guid accountCalendarId)
+        => Connection.Table<CalendarItem>()
+            .Where(c => c.CalendarId == accountCalendarId && c.Recurrence != null && c.Recurrence != "" && c.RecurringCalendarItemId == null)
+            .ToListAsync();
+
     public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period)
     {
         // Fetch all non-hidden events for this calendar
