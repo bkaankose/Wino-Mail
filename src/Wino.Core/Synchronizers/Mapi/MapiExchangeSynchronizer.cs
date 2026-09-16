@@ -1255,6 +1255,110 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
     }
 
     // ------------------------------------------------------------------------------------------------
+    // Tasks: the Tasks folder's contents table replaces the EWS FindItems sweep; the three task writes
+    // go native. RemoteId becomes the "mapi:" message id; a create stamps it back so the next pull
+    // reconciles in place.
+    // ------------------------------------------------------------------------------------------------
+
+    private ulong? _tasksFolderId;
+    private MapiTaskTags? _taskTags;
+
+    private async Task<(ulong FolderId, MapiTaskTags Tags)?> ResolveTasksAsync(MapiSession session, CancellationToken cancellationToken)
+    {
+        _tasksFolderId ??= await MapiTaskOperations.FindTasksFolderIdAsync(session, session.Logon!.InboxFolderId, cancellationToken).ConfigureAwait(false);
+        if (_tasksFolderId is not { } folderId)
+        {
+            Logger.Information("MAPI tasks {Account}: the mailbox has no Tasks folder pointer; nothing to sync.", Account.Address);
+            return null;
+        }
+
+        _taskTags ??= await MapiTaskOperations.ResolveTagsAsync(session, cancellationToken).ConfigureAwait(false);
+        return (folderId, _taskTags);
+    }
+
+    /// <summary>The tasks folder for a write, which cannot proceed without one.</summary>
+    private async Task<(ulong FolderId, MapiTaskTags Tags)> RequireTasksAsync(MapiSession session, CancellationToken cancellationToken)
+        => await ResolveTasksAsync(session, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("The mailbox has no Tasks folder.");
+
+    protected override async Task<TaskSynchronizationResult> SynchronizeProviderTasksAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken)
+    {
+        await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+        var session = lease.Session;
+        if (await ResolveTasksAsync(session, cancellationToken).ConfigureAwait(false) is not { } resolved)
+            return TaskSynchronizationResult.Empty;
+
+        var list = await EnsureTaskListAsync(ToMailCopyId(resolved.FolderId), "Tasks").ConfigureAwait(false);
+        var rows = await MapiTaskOperations.ReadTasksAsync(session, resolved.FolderId, resolved.Tags, cancellationToken, Diagnostics).ConfigureAwait(false);
+
+        var tasks = rows.Where(r => r.IsTask)
+            .Select(row => MapiTaskMapper.ToAccountTask(row, ToMailCopyId(row.MessageId), list))
+            .ToList();
+
+        var result = await ApplyTaskSnapshotAsync(list, tasks).ConfigureAwait(false);
+
+        Logger.Information("MAPI tasks {Account}: {Rows} rows, {Tasks} tasks, {Removed} removed.", Account.Address, rows.Count, tasks.Count, result.DeletedCount);
+        return result;
+    }
+
+    protected override async Task ExecuteProviderTaskRequestsAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken)
+    {
+        await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+        var session = lease.Session;
+
+        foreach (var request in requests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (await TryCompleteLocalTaskRequestAsync(request).ConfigureAwait(false))
+            {
+                MarkTaskRequestProcessed(request);
+                continue;
+            }
+
+            var (localTask, _) = await ResolveRequestedTaskAsync(request).ConfigureAwait(false);
+            var resolved = await RequireTasksAsync(session, cancellationToken).ConfigureAwait(false);
+
+            if (request.Operation == TaskSynchronizerOperation.DeleteTask)
+            {
+                if (TryParseMailCopyId(localTask.RemoteId, out var deletedId))
+                {
+                    try
+                    {
+                        await MapiMessageOperations.MoveAsync(session, resolved.FolderId, session.Logon!.DeletedItemsFolderId, [deletedId], cancellationToken: cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (MapiRopException ex) when (ex.ReturnValue == MapiRopException.NotFound)
+                    {
+                        Logger.Warning("MAPI task {RemoteId} already absent on delete; treating as done.", localTask.RemoteId);
+                    }
+                }
+
+                await ExchangeChangeProcessor.CommitTaskMutationAsync(localTask.Id, null, true, localTask, request.Operation).ConfigureAwait(false);
+                MarkTaskRequestProcessed(request);
+                continue;
+            }
+
+            ulong messageId;
+            if (TryParseMailCopyId(localTask.RemoteId, out messageId))
+            {
+                await MapiTaskOperations.UpdateTaskAsync(session, resolved.FolderId, messageId, resolved.Tags, MapiTaskMapper.ToWrite(localTask), cancellationToken).ConfigureAwait(false);
+            }
+            else if (!string.IsNullOrWhiteSpace(localTask.RemoteId))
+            {
+                throw new InvalidOperationException($"Task '{localTask.Title}' was synced by a different transport (id '{localTask.RemoteId}'); it is not addressable over MAPI until the next sync.");
+            }
+            else
+            {
+                messageId = await MapiTaskOperations.CreateTaskAsync(session, resolved.FolderId, resolved.Tags, MapiTaskMapper.ToWrite(localTask), cancellationToken).ConfigureAwait(false);
+                Logger.Information("MAPI tasks {Account}: created 0x{Id:X16}.", Account.Address, messageId);
+            }
+
+            await CommitTaskAsync(request, localTask, ToMailCopyId(messageId), null).ConfigureAwait(false);
+            MarkTaskRequestProcessed(request);
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------------
     // Calendar: the Calendar folder(s) read over MAPI, series expanded client-side (an EWS CalendarView
     // expanded them server-side), occurrences stored flat as before. Calendars are keyed "mapi:" +
     // folder id; the MAPI folder id doubles as the push-notification key.

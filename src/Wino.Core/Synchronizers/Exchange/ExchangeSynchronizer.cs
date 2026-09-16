@@ -21,6 +21,7 @@ using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Synchronization;
+using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Helpers;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests;
@@ -29,9 +30,12 @@ using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Contact;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Core.Requests.Tasks;
 using Wino.Messaging.UI;
-// EWS defines its own Task item type; alias bare `Task` to the TPL Task.
+// EWS defines its own Task item type; alias bare `Task` to the TPL Task and expose the EWS one as EwsTask.
 using Task = System.Threading.Tasks.Task;
+using EwsTask = Microsoft.Exchange.WebServices.Data.Task;
+using EwsTaskStatus = Microsoft.Exchange.WebServices.Data.TaskStatus;
 
 namespace Wino.Core.Synchronizers.Exchange;
 
@@ -1171,6 +1175,325 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
                 photoAttachment.Load();
                 return photoAttachment.Content;
             });
+        };
+    }
+
+    #endregion
+
+    #region Tasks
+
+    // The mailbox's default Tasks folder is the account's one provider task list. Exchange tasks have
+    // no checklist, and task folders are not managed from this client.
+
+    protected override Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken = default)
+    {
+        if (Account.TaskIntegrationSource == AccountIntegrationSource.Local)
+            return _localTaskSynchronizer.SynchronizeAsync(options, cancellationToken);
+
+        if (Account.TaskIntegrationSource != AccountIntegrationSource.Provider || !Account.IsTaskAccessGranted || _taskService is null)
+            return Task.FromResult(TaskSynchronizationResult.Failed(new InvalidOperationException(Translator.Synchronizer_TasksUnavailable)));
+
+        return SynchronizeProviderTasksAsync(options, cancellationToken);
+    }
+
+    protected override Task ExecuteTaskRequestsInternalAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken = default)
+    {
+        if (Account.TaskIntegrationSource == AccountIntegrationSource.Local || requests.All(IsLocalTaskRequest))
+            return _localTaskSynchronizer.ExecuteRequestsAsync(requests, cancellationToken);
+
+        if (Account.TaskIntegrationSource != AccountIntegrationSource.Provider || !Account.IsTaskAccessGranted || _taskService is null)
+            throw new InvalidOperationException(Translator.Synchronizer_TasksUnavailable);
+
+        return ExecuteProviderTaskRequestsAsync(requests, cancellationToken);
+    }
+
+    private static bool IsLocalTaskRequest(ITaskActionRequest request)
+        => request is TaskActionRequest taskRequest &&
+           (taskRequest.List?.SourceKind ??
+            taskRequest.Task?.SourceKind ??
+            taskRequest.Step?.SourceKind ??
+            taskRequest.Group?.SourceKind) == TaskSourceKind.Local;
+
+    protected override bool ShouldReconcileTaskRequests(IReadOnlyList<ITaskActionRequest> requests)
+        => !requests.All(IsLocalTaskRequest);
+
+    /// <summary>The account's Exchange task list for the given folder, replacing any list keyed by an older folder id.</summary>
+    protected async Task<AccountTaskList> EnsureTaskListAsync(string remoteFolderId, string title)
+    {
+        await _taskService.ApplyTaskTopologyDeltaAsync(new TaskTopologyDelta
+        {
+            MailAccountId = Account.Id,
+            SourceKind = TaskSourceKind.Exchange,
+            Lists =
+            [
+                new AccountTaskList
+                {
+                    MailAccountId = Account.Id,
+                    SourceKind = TaskSourceKind.Exchange,
+                    RemoteId = remoteFolderId,
+                    Title = string.IsNullOrWhiteSpace(title) ? "Tasks" : title,
+                    IsDefault = true,
+                    IsReadOnly = false
+                }
+            ],
+            ReconcileLists = true
+        }).ConfigureAwait(false);
+
+        return (await _taskService.GetTaskListsAsync(Account.Id).ConfigureAwait(false))
+            .FirstOrDefault(list => list.SourceKind == TaskSourceKind.Exchange && string.Equals(list.RemoteId, remoteFolderId, StringComparison.Ordinal))
+            ?? throw new InvalidOperationException("The Exchange task list could not be stored.");
+    }
+
+    /// <summary>
+    /// Replaces the list's rows with the server's, keeping the stored identity of rows already known by
+    /// remote id so a reconciliation racing a create does not double the task.
+    /// </summary>
+    protected async Task<TaskSynchronizationResult> ApplyTaskSnapshotAsync(AccountTaskList list, List<AccountTask> tasks)
+    {
+        var current = await _taskService.GetTasksAsync(listId: list.Id).ConfigureAwait(false);
+        var currentByRemoteId = current.Where(task => !string.IsNullOrWhiteSpace(task.RemoteId))
+            .GroupBy(task => task.RemoteId, StringComparer.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+
+        foreach (var task in tasks)
+        {
+            if (task.RemoteId is not null && currentByRemoteId.TryGetValue(task.RemoteId, out var existing))
+                task.Id = existing.Id;
+        }
+
+        var deleted = current.Count(task => task.PendingMutation == TaskPendingMutation.None &&
+                                            task.RemoteId is not null &&
+                                            !tasks.Any(t => string.Equals(t.RemoteId, task.RemoteId, StringComparison.Ordinal)));
+
+        await _taskService.ApplyTaskHierarchyDeltaAsync(new TaskHierarchyDelta
+        {
+            TaskListId = list.Id,
+            Tasks = tasks,
+            AuthoritativeStepParentRemoteIds = tasks.Select(task => task.RemoteId).Where(id => id is not null).ToList(),
+            IsFullSnapshot = true,
+            WatermarkUtc = DateTime.UtcNow
+        }).ConfigureAwait(false);
+
+        return TaskSynchronizationResult.Completed(tasks.Count, tasks.Count, deleted);
+    }
+
+    /// <summary>The task a request acts on, with the stored server identity applied over the request's snapshot.</summary>
+    protected async Task<(AccountTask Task, AccountTaskList List)> ResolveRequestedTaskAsync(ITaskActionRequest request)
+    {
+        var typedRequest = request as TaskActionRequest;
+        var requestedTask = typedRequest?.Task ?? typedRequest?.OriginalTask;
+        var storedTask = await _taskService.GetTaskAsync(request.TaskId ?? Guid.Empty).ConfigureAwait(false);
+        var localTask = RequestEntityCloner.Task(requestedTask ?? storedTask)
+            ?? throw new InvalidOperationException($"Task {request.TaskId} is unavailable for {request.Operation}.");
+
+        if (storedTask is not null)
+        {
+            localTask.RemoteId = storedTask.RemoteId ?? localTask.RemoteId;
+            localTask.RemoteVersion = storedTask.RemoteVersion ?? localTask.RemoteVersion;
+        }
+
+        var list = await _taskService.GetTaskListAsync(localTask.TaskListId).ConfigureAwait(false);
+        if (list?.RemoteId is null)
+            throw new InvalidOperationException($"Task list {localTask.TaskListId} is unavailable for {request.Operation}.");
+
+        return (localTask, list);
+    }
+
+    /// <summary>Commits a task write: the local snapshot under its server identity, as the Gmail and Outlook paths do.</summary>
+    protected async Task CommitTaskAsync(ITaskActionRequest request, AccountTask localTask, string remoteId, string remoteVersion)
+    {
+        var mapped = RequestEntityCloner.Task(localTask);
+        mapped.RemoteId = remoteId;
+        mapped.RemoteVersion = remoteVersion;
+        mapped.SourceKind = TaskSourceKind.Exchange;
+        mapped.PendingMutation = TaskPendingMutation.None;
+        mapped.Steps = [];
+
+        await _exchangeChangeProcessor.CommitTaskMutationAsync(localTask.Id, mapped, false, localTask, request.Operation).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Lists, groups and steps have no Exchange counterpart this client writes. Group and placement
+    /// edits are local bookkeeping and complete locally, as the Gmail path does; the rest is refused.
+    /// </summary>
+    protected async Task<bool> TryCompleteLocalTaskRequestAsync(ITaskActionRequest request)
+    {
+        var typedRequest = request as TaskActionRequest;
+        switch (request.Operation)
+        {
+            case TaskSynchronizerOperation.CreateGroup:
+            case TaskSynchronizerOperation.UpdateGroup:
+                await _taskService.CompleteTaskListGroupMutationAsync(typedRequest.Group.Id, typedRequest.Group, false).ConfigureAwait(false);
+                return true;
+            case TaskSynchronizerOperation.DeleteGroup:
+                await _taskService.CompleteTaskListGroupMutationAsync(typedRequest.Group.Id, null, true).ConfigureAwait(false);
+                return true;
+            case TaskSynchronizerOperation.UpdateListPlacement:
+                await _taskService.CompleteTaskListPlacementMutationAsync(typedRequest.List.Id, typedRequest.List).ConfigureAwait(false);
+                return true;
+            case TaskSynchronizerOperation.CreateTask:
+            case TaskSynchronizerOperation.UpdateTask:
+            case TaskSynchronizerOperation.DeleteTask:
+                return false;
+            default:
+                throw new NotSupportedException(Translator.Synchronizer_ExchangeTaskListsUnsupported);
+        }
+    }
+
+    private static readonly PropertySet TaskPropertySet = new(
+        BasePropertySet.IdOnly,
+        TaskSchema.Subject,
+        TaskSchema.Body,
+        TaskSchema.DueDate,
+        TaskSchema.Importance,
+        TaskSchema.IsComplete,
+        TaskSchema.CompleteDate)
+    {
+        RequestedBodyType = BodyType.Text
+    };
+
+    /// <summary>
+    /// One-way pull of the account's default Exchange Tasks folder into the task list. Mirrors the
+    /// contacts pull: page items, batch-load properties, then replace the list's rows by remote id.
+    /// </summary>
+    protected virtual async Task<TaskSynchronizationResult> SynchronizeProviderTasksAsync(TaskSynchronizationOptions options, CancellationToken cancellationToken)
+    {
+        var service = await CreateServiceAsync().ConfigureAwait(false);
+        var tasksFolder = await TasksFolder
+            .Bind(service, WellKnownFolderName.Tasks, new PropertySet(BasePropertySet.IdOnly, FolderSchema.DisplayName))
+            .ConfigureAwait(false);
+
+        _logger.Information("Exchange tasks sync starting for {Account}.", Account.Name);
+
+        var list = await EnsureTaskListAsync(tasksFolder.Id.UniqueId, SafeGet(() => tasksFolder.DisplayName)).ConfigureAwait(false);
+        var tasks = new List<AccountTask>();
+
+        var view = new ItemView(ContactDownloadPageSize);
+        FindItemsResults<Item> results;
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            results = await service.FindItems(tasksFolder.Id, view).ConfigureAwait(false);
+
+            var page = results.Items.OfType<EwsTask>().ToList();
+            if (page.Count > 0)
+            {
+                await service.LoadPropertiesForItems(page, TaskPropertySet).ConfigureAwait(false);
+
+                foreach (var task in page)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    tasks.Add(MapToAccountTask(task, list));
+                }
+            }
+
+            view.Offset += results.Items.Count;
+        }
+        while (results.MoreAvailable);
+
+        var result = await ApplyTaskSnapshotAsync(list, tasks).ConfigureAwait(false);
+
+        _logger.Information("Exchange tasks sync for {Account}: {Count} server tasks, {Removed} removed.", Account.Name, tasks.Count, result.DeletedCount);
+
+        return result;
+    }
+
+    protected virtual async Task ExecuteProviderTaskRequestsAsync(IReadOnlyList<ITaskActionRequest> requests, CancellationToken cancellationToken)
+    {
+        var service = await CreateServiceAsync().ConfigureAwait(false);
+
+        foreach (var request in requests)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (await TryCompleteLocalTaskRequestAsync(request).ConfigureAwait(false))
+            {
+                MarkTaskRequestProcessed(request);
+                continue;
+            }
+
+            var (localTask, _) = await ResolveRequestedTaskAsync(request).ConfigureAwait(false);
+
+            if (request.Operation == TaskSynchronizerOperation.DeleteTask)
+            {
+                if (!string.IsNullOrWhiteSpace(localTask.RemoteId))
+                {
+                    try
+                    {
+                        var task = await EwsTask.Bind(service, new ItemId(localTask.RemoteId), new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
+                        await task.Delete(DeleteMode.MoveToDeletedItems).ConfigureAwait(false);
+                    }
+                    catch (ServiceResponseException ex) when (ex.ErrorCode == ServiceError.ErrorItemNotFound)
+                    {
+                        // Already gone on the server: a delete of a missing item is a no-op success.
+                        _logger.Warning("Exchange task {RemoteTaskId} already absent on delete; treating as done.", localTask.RemoteId);
+                    }
+                }
+
+                await _exchangeChangeProcessor.CommitTaskMutationAsync(localTask.Id, null, true, localTask, request.Operation).ConfigureAwait(false);
+                MarkTaskRequestProcessed(request);
+                continue;
+            }
+
+            EwsTask ewsTask;
+            if (string.IsNullOrWhiteSpace(localTask.RemoteId))
+            {
+                ewsTask = new EwsTask(service);
+                ApplyTaskProperties(ewsTask, localTask);
+                await ewsTask.Save(WellKnownFolderName.Tasks).ConfigureAwait(false);
+            }
+            else
+            {
+                ewsTask = await EwsTask.Bind(service, new ItemId(localTask.RemoteId)).ConfigureAwait(false);
+                ApplyTaskProperties(ewsTask, localTask);
+                await ewsTask.Update(ConflictResolutionMode.AutoResolve).ConfigureAwait(false);
+            }
+
+            // Tasks have no natural key; the commit stamps the server id onto the local row so the next
+            // pull reconciles it in place instead of creating a duplicate.
+            await CommitTaskAsync(request, localTask, ewsTask.Id.UniqueId, ewsTask.Id.ChangeKey).ConfigureAwait(false);
+            MarkTaskRequestProcessed(request);
+        }
+    }
+
+    // Maps the local task's editable fields onto a bound EWS Task (inverse of MapToAccountTask).
+    private static void ApplyTaskProperties(EwsTask task, AccountTask item)
+    {
+        task.Subject = item.Title ?? string.Empty;
+        task.Body = new MessageBody(BodyType.Text, item.Notes ?? string.Empty);
+
+        // EWS Task start/due are non-nullable; only set them when the local task has a due date.
+        if (item.DueDate is DateTime due)
+        {
+            task.StartDate = due;
+            task.DueDate = due;
+        }
+
+        task.Importance = item.IsImportant ? Importance.High : Importance.Normal;
+        task.Status = item.IsCompleted ? EwsTaskStatus.Completed : EwsTaskStatus.NotStarted;
+    }
+
+    private AccountTask MapToAccountTask(EwsTask task, AccountTaskList list)
+    {
+        // The TryGetProperty type argument must be the nullable DateTime; a bare DateTime throws.
+        var completed = SafeGet(() => (bool?)task.IsComplete) ?? false;
+
+        return new AccountTask
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = Account.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Exchange,
+            RemoteId = task.Id.UniqueId,
+            RemoteVersion = task.Id.ChangeKey,
+            Title = SafeGet(() => task.Subject) ?? string.Empty,
+            Notes = SafeGet(() => task.Body?.Text),
+            DueDate = task.TryGetProperty(TaskSchema.DueDate, out DateTime? dueDate) ? dueDate?.Date : null,
+            IsImportant = SafeGet(() => (Importance?)task.Importance) == Importance.High,
+            IsCompleted = completed,
+            CompletedAtUtc = completed && task.TryGetProperty(TaskSchema.CompleteDate, out DateTime? completeDate) ? completeDate : null,
+            PendingMutation = TaskPendingMutation.None
         };
     }
 
