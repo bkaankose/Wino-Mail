@@ -141,14 +141,6 @@
                     Content="{x:Bind domain:Translator.ExchangeSettingsPage_DiscoverButton, Mode=OneTime}"
                     IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.ExchangeSettingsPage_DiscoverTooltip, Mode=OneTime}" />
-                <!--  The native MAPI/HTTP probe, with the credentials this form would save.  -->
-                <Button
-                    AutomationProperties.AutomationId="ExchangeSettingsPageButtonMapiProbe"
-                    Command="{x:Bind ViewModel.TestMapiConnectionCommand}"
-                    Content="{x:Bind domain:Translator.ExchangeSettingsPage_MapiTestButton, Mode=OneTime}"
-                    IsEnabled="{x:Bind ViewModel.IsIdle, Mode=OneWay}"
-                    ToolTipService.ToolTip="{x:Bind domain:Translator.ExchangeSettingsPage_MapiTestTooltip, Mode=OneTime}"
-                    Visibility="{x:Bind ViewModel.IsDiscovered, Mode=OneWay}" />
                 <Button
                     AutomationProperties.AutomationId="ExchangeSettingsPageSaveButton"
                     Command="{x:Bind ViewModel.SaveCommand}"

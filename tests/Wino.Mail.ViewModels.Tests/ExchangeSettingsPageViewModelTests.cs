@@ -2,7 +2,6 @@ using FluentAssertions;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.ViewModels.Data;
 using Xunit;
 
@@ -18,9 +17,6 @@ public sealed class ExchangeSettingsPageViewModelTests
     /// <summary>No server in a unit test: transport detection stays undecided, as it does offline.</summary>
     private sealed class UndecidedProbe : IMapiConnectionProbe
     {
-        public Task<MapiProbeResult> ProbeAsync(MailAccount account, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException();
-
         public Task<ExchangeTransport> DetectTransportAsync(MailAccount account, CancellationToken cancellationToken = default)
             => Task.FromResult(ExchangeTransport.Automatic);
     }

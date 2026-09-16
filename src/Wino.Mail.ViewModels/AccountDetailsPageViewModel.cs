@@ -49,7 +49,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     private readonly IAccountCapabilityService _accountCapabilityService;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IWinoIntelligenceEntitlementService? _entitlementService;
-    private readonly IMapiConnectionProbe? _mapiConnectionProbe;
     private bool isLoaded = false;
 
     [ObservableProperty]
@@ -242,8 +241,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IWinoLogger winoLogger,
         IAccountCapabilityService accountCapabilityService,
         ISynchronizationManager synchronizationManager,
-        IWinoIntelligenceEntitlementService? entitlementService = null,
-        IMapiConnectionProbe? mapiConnectionProbe = null)
+        IWinoIntelligenceEntitlementService? entitlementService = null)
     {
         _dialogService = dialogService;
         _accountService = accountService;
@@ -261,7 +259,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         _accountCapabilityService = accountCapabilityService;
         _synchronizationManager = synchronizationManager;
         _entitlementService = entitlementService;
-        _mapiConnectionProbe = mapiConnectionProbe;
         CanAccessWinoIntelligence = entitlementService?.Current.CanAccessSurfaces == true;
 
         var colorHexList = _themeService.GetAvailableAccountColors();
@@ -335,38 +332,12 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         await ExecuteUIThread(() => CanAccessWinoIntelligence = entitlement.CanAccessSurfaces);
     }
 
-    [ObservableProperty]
-    public partial bool IsMapiProbeRunning { get; set; }
-
     [RelayCommand]
     private void EditExchangeServerSettings()
         => Messenger.Send(new BreadcrumbNavigationRequested(
             Translator.SettingsEditAccountDetails_ExchangeServerSettings_Title,
             WinoPage.ExchangeSettingsPage,
             Account.Id));
-
-    /// <summary>Read-only MAPI/HTTP probe with the account's stored credentials; nothing about the account changes.</summary>
-    [RelayCommand]
-    private async Task TestMapiConnectionAsync()
-    {
-        if (Account == null || IsMapiProbeRunning || _mapiConnectionProbe == null)
-            return;
-
-        IsMapiProbeRunning = true;
-        try
-        {
-            var result = await _mapiConnectionProbe.ProbeAsync(Account);
-
-            await _dialogService.ShowMessageAsync(
-                result.Succeeded ? MapiProbeMessages.Success(result) : MapiProbeMessages.Failure(result),
-                Translator.SettingsEditAccountDetails_MapiProbe_ResultTitle,
-                result.Succeeded ? WinoCustomMessageDialogIcon.Information : WinoCustomMessageDialogIcon.Warning);
-        }
-        finally
-        {
-            IsMapiProbeRunning = false;
-        }
-    }
 
     [RelayCommand]
     private void EditImapCalDavSettings()

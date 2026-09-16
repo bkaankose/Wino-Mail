@@ -32,9 +32,9 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
     private Guid? _editingAccountId;
 
-    // Server information produced by an interactive OAuth sign-in during "Test MAPI", kept so Save reuses
-    // it instead of prompting again. The probe's token refresh rotates the refresh token onto this same
-    // object, so reusing it is also what keeps the newest token. Dropped when the inputs change.
+    // Server information produced by an interactive OAuth sign-in, kept so a repeated Save reuses it
+    // instead of prompting again. A token refresh rotates the refresh token onto this same object, so
+    // reusing it is also what keeps the newest token. Dropped when the inputs change.
     private CustomServerInformation _preparedModernAuthServerInformation;
     private string _preparedModernAuthKey;
     private CancellationTokenSource _signInCancellationTokenSource;
@@ -303,7 +303,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
 
     /// <summary>
     /// Builds the server information the form describes, signing in interactively for modern auth
-    /// (once: a result prepared by the MAPI test is reused while the inputs are unchanged).
+    /// (once: a result from an earlier Save is reused while the inputs are unchanged).
     /// </summary>
     private async Task<CustomServerInformation> BuildServerInformationAsync()
     {
@@ -349,48 +349,6 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             : ImapCalendarSupportMode.Disabled;
 
     /// <summary>
-    /// Proves the native MAPI/HTTP path with exactly the credentials this form would save, before the
-    /// account exists. Read-only against the server; the account is not created.
-    /// </summary>
-    [RelayCommand]
-    private async Task TestMapiConnectionAsync()
-    {
-        ValidationMessage = string.Empty;
-
-        if (string.IsNullOrWhiteSpace(EmailAddress) || !IsHttpsUrl(EwsUrl))
-        {
-            ValidationMessage = Translator.ExchangeSettingsPage_Validation_RequiredFields;
-            return;
-        }
-
-        var serverInformation = await BuildServerInformationAsync();
-        if (serverInformation == null)
-            return;
-
-        IsBusy = true;
-        StatusMessage = Translator.SettingsEditAccountDetails_MapiProbe_Running;
-
-        try
-        {
-            var result = await _mapiConnectionProbe.ProbeAsync(CreateTransientAccount(serverInformation, Guid.NewGuid()));
-
-            if (result.Succeeded)
-            {
-                StatusMessage = MapiProbeMessages.Success(result);
-            }
-            else
-            {
-                StatusMessage = string.Empty;
-                ValidationMessage = MapiProbeMessages.Failure(result);
-            }
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    /// <summary>
     /// With the connection method on Automatic, asks Autodiscover whether the mailbox offers MAPI/HTTP
     /// and records the answer on the server information about to be saved. Unreachable Autodiscover
     /// leaves it undecided: the MAPI path tries first and records a fallback itself.
@@ -424,7 +382,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     }
 
     /// <summary>
-    /// The account the probe and the transport detection run against: it is never saved. The
+    /// The account the transport detection runs against: it is never saved. The
     /// authenticators only read its server information and use the id as a token cache key.
     /// </summary>
     private MailAccount CreateTransientAccount(CustomServerInformation serverInformation, Guid id) => new()
