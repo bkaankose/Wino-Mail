@@ -182,6 +182,17 @@ try {
             Assert-True (@($arguments | Where-Object { $_ -match 'RuntimeIdentifier=|ReleaseSideload|Restore=true' }).Count -eq 0) 'Build overrides inner runtime or restores twice.'
         }
     }
+    Test-Case 'Restore and build isolate intermediates for each release run' {
+        $plan = New-FixturePlan $false $true
+        $staging = Join-Path $script:TestRoot 'isolated-run'
+        foreach ($arguments in @(
+            (Get-ReleaseBuildArguments $plan $staging -Restore),
+            (Get-ReleaseBuildArguments $plan $staging)
+        )) {
+            Assert-True ($arguments -contains "-p:ArtifactsPath=$(Join-Path $staging 'build')") 'Build intermediates can collide with another run.'
+            Assert-True ($arguments -contains "-p:NotificationHostPublishRoot=$(Join-Path $staging 'notification-hosts')\") 'Notification host outputs are not isolated.'
+        }
+    }
     Test-Case 'Process arguments are literal and Azure credentials never reach build tools' {
         $oldSecret = $env:WINO_BETA_RELEASE_AZURE_CLIENT_SECRET
         try {
@@ -371,6 +382,13 @@ try {
             function Copy-ReleaseDependencies { param($SdkOutput, $Destination) }
             function Sign-SideloadRelease { param($Bundle, $Plan, $Tools, $Signing, $Staging, $Channel); $script:SignCalls++; $Channel | Set-Content -LiteralPath $Bundle }
             function New-SideloadAppInstaller { param($Bundle, $Plan, $Distribution) }
+            function Copy-ReleaseSymbols {
+                param($Plan, $Staging)
+                $destination = Join-Path (Join-Path $Plan.OutputRoot $Plan.Version) 'Symbols'
+                $null = New-Item -ItemType Directory -Path $destination -Force
+                'symbols fixture' | Set-Content -LiteralPath (Join-Path $destination 'Wino.Core.pdb')
+                return $destination
+            }
             Invoke-ReleaseBuild $plan ([pscustomobject]@{ MSBuild = 'dotnet'; MakeAppx = 'makeappx' }) @{ Distributions = @{ Beta = @{}; Sideload = @{} } }
             Assert-True (@($script:Commands | Where-Object { $_ -match '-t:Build' }).Count -eq 1) 'Compilation repeated.'
             Assert-True (@($script:Commands | Where-Object { $_ -match '-t:Restore' }).Count -eq 1) 'Restore repeated.'
@@ -381,7 +399,8 @@ try {
             $expectedSigns = $plan.SideloadChannels.Count
             Assert-True ($script:SignCalls -eq $expectedSigns) 'Signing repeated or was skipped.'
             Assert-True ($script:PackageCalls -eq ($expectedSigns * $architectures.Count)) 'Sideload architecture packaging repeated.'
-            Assert-True (@(Get-ChildItem -LiteralPath $plan.OutputRoot -Directory).Count -eq $plan.Destinations.Count) 'Unselected channel folder exists.'
+            $outputFolders = @(Get-ChildItem -LiteralPath $plan.OutputRoot -Directory | Where-Object Name -ne $plan.Version)
+            Assert-True ($outputFolders.Count -eq $plan.Destinations.Count) 'Unselected channel folder exists.'
             if ($plan.Selection.Sideload) {
                 $stableBundle = Join-Path $plan.OutputRoot 'WinoMail_SideloadRelease_2.53.0/WinoMail_SideloadRelease_2.53.0.msixbundle'
                 Assert-True (Test-Path -LiteralPath $stableBundle) 'Wrong stable output name.'

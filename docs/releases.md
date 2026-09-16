@@ -31,6 +31,7 @@ The version must have four numeric components, a nonzero major component, and a 
 For example, `2.0.55.0` is valid.
 
 The script compiles Release once for each selected architecture. All three channels use the same compiled binaries.
+Each invocation keeps its build intermediates inside that run's staging directory, so a Visual Studio build or another release run cannot lock its XAML compiler outputs.
 Sideload packaging replaces the identity, runtime profile, notification IDs, and resource index without compilation.
 Beta packaging also replaces display names and artwork. Theme and accent preferences do not change.
 The script creates and signs a separate bundle for each sideload distribution.
@@ -151,6 +152,21 @@ WinoMail_Store_2.0.55.0/
   WinoMail_Store_2.0.55.0.msixbundle
   WinoMail_Store_TestCertificate.cer
 ```
+
+The build also retains the exact symbols from the compilation under
+`<version>/Symbols/`. Symbol upload is intentionally opt-in: an interactive
+build asks whether to upload them after packaging. Declining does not delete
+the symbols. Upload them later with:
+
+```powershell
+pwsh -NoProfile -File .\scripts\upload-sentry-symbols.ps1 `
+  -Version 2.1.1.0 `
+  -SymbolsPath .\src\Wino.Mail.WinUI\AppPackages\2.1.1.0\Symbols
+```
+
+The upload script uses the `SENTRY_AUTH_TOKEN` environment variable and the
+`bkaankose/winomail` Sentry project. It uploads the symbols for one exact
+build once, regardless of how many signed packages were produced.
 
 Only selected channels appear. Both sideload bundles have a verified, timestamped signature.
 Stable sideload folder and bundle names use three version components. Package manifests and App Installer versions retain all four components.

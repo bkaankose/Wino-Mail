@@ -324,7 +324,15 @@ function Get-ReleaseBuildArguments {
     param([object]$Plan, [string]$Staging, [switch]$Restore)
 
     $platform = if ($Plan.Selection.Architectures.Count -eq 1) { $Plan.Selection.Architectures[0] } else { 'x64' }
-    $arguments = @('msbuild', $Plan.Project, '-nologo', '-m', '-nr:false', '-verbosity:normal', '-p:Configuration=Release', "-p:Platform=$platform")
+    # Keep XAML intermediates private to this run. Concurrent Visual Studio or release builds otherwise
+    # share obj\...\intermediatexaml and can lock the pass-1 assembly while this build writes it.
+    $buildArtifacts = Join-Path $Staging 'build'
+    $notificationHosts = Join-Path $Staging 'notification-hosts'
+    $arguments = @(
+        'msbuild', $Plan.Project, '-nologo', '-m', '-nr:false', '-verbosity:normal',
+        '-p:Configuration=Release', "-p:Platform=$platform", "-p:ArtifactsPath=$buildArtifacts",
+        "-p:NotificationHostPublishRoot=$notificationHosts\"
+    )
     if ($Plan.Selection.Architectures.Count -eq 1) { $arguments += "-p:RuntimeIdentifiers=win-$($platform.ToLowerInvariant())" }
     if ($Restore) {
         return $arguments + @('-t:Restore', "-p:RestoreConfigFile=$(Join-Path $Plan.RepositoryRoot 'nuget.config')")
@@ -778,6 +786,29 @@ function Complete-ReleaseOutputs {
     }
 }
 
+function Copy-ReleaseSymbols {
+    param([object]$Plan, [string]$Staging)
+
+    $source = Resolve-ReleaseChildPath $Staging 'exports'
+    if (-not (Test-Path -LiteralPath $source -PathType Container)) {
+        throw "The release symbol export directory is missing: $source"
+    }
+
+    $versionRoot = Join-Path $Plan.OutputRoot $Plan.Version
+    $destination = Join-Path $versionRoot 'Symbols'
+    if (Test-Path -LiteralPath $destination) {
+        throw "The release symbol destination already exists: $destination"
+    }
+
+    $null = New-Item -ItemType Directory -Path $versionRoot -Force
+    Copy-Item -LiteralPath $source -Destination $destination -Recurse
+    $symbolFiles = @(Get-ChildItem -LiteralPath $destination -Recurse -File -Include '*.pdb', '*.appxsym')
+    if ($symbolFiles.Count -eq 0) {
+        throw "The release export contains no PDB or appxsym files: $destination"
+    }
+    return $destination
+}
+
 function Remove-ReleaseStaging {
     param([object]$Plan, [string]$Staging)
 
@@ -856,11 +887,13 @@ function Invoke-ReleaseBuild {
         if ((Get-FileHash -LiteralPath $Plan.ManifestPath -Algorithm SHA256).Hash -cne $Plan.ManifestHash) {
             throw 'The source manifest changed during the build. The outputs remain in staging.'
         }
+        $symbolsPath = Copy-ReleaseSymbols $Plan $staging
         Complete-ReleaseOutputs $Plan $staging
         $stage = 'staging cleanup (release outputs are finalized)'
         Remove-ReleaseStaging $Plan $staging
         Write-Host 'Release packages are ready:' -ForegroundColor Green
         $Plan.Destinations | ForEach-Object { Write-Host $_ }
+        return $symbolsPath
     }
     catch {
         throw "Release failed during '$stage'. Staging: $staging`n$($_.Exception.Message)"
@@ -883,7 +916,13 @@ function Invoke-InteractiveRelease {
     $tools = Get-ReleaseTools $selection
     $storeCertificate = if ($selection.Store) { Get-StoreSigningCertificate $plan $StoreTestCertificateThumbprint } else { $null }
     $signing = if ($selection.Beta -or $selection.Sideload) { Get-ReleaseSigningConfiguration -IncludeBeta:$selection.Beta -IncludeSideload:$selection.Sideload } else { $null }
-    Invoke-ReleaseBuild $plan $tools $signing $storeCertificate
+    $symbolsPath = Invoke-ReleaseBuild $plan $tools $signing $storeCertificate
+    if (-not $NonInteractive -and -not [string]::IsNullOrWhiteSpace([string]$symbolsPath)) {
+        $upload = Read-ReleaseChoice "Upload symbols for $($plan.Version) now? (yes/no)" @{ yes = $true; y = $true; no = $false; n = $false }
+        if ($upload) {
+            & (Join-Path $PSScriptRoot 'upload-sentry-symbols.ps1') -Version $plan.Version -SymbolsPath $symbolsPath
+        }
+    }
     if (-not $NonInteractive) {
         try { Invoke-Item -LiteralPath $plan.OutputRoot } catch { Write-Warning 'Packages are ready, but Explorer could not open the output folder.' }
     }
