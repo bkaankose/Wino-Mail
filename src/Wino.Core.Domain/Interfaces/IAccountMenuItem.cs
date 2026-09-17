@@ -22,6 +22,12 @@ public interface IAccountNavigationMenuItem : IMenuItem, INotifyPropertyChanged
     double SynchronizationProgressValue { get; }
     bool IsAttentionRequired { get; }
     bool SupportsMailAccountActions { get; }
+
+    /// <summary>
+    /// Whether the account context menu offers the Exchange-only entries: inbox rules and the
+    /// public folder and online archive visibility switches.
+    /// </summary>
+    bool SupportsExchangeAccountActions => false;
     AccountDetailsTab AccountDetailsTab { get; }
     bool SupportsAccountSynchronization { get; }
 

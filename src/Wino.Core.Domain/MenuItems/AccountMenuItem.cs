@@ -43,6 +43,7 @@ public partial class AccountMenuItem : MenuItemBase<MailAccount, MenuItemBase<IM
 
     public bool IsAttentionRequired => AttentionReason != AccountAttentionReason.None;
     public bool SupportsMailAccountActions => true;
+    public bool SupportsExchangeAccountActions => Parameter?.ProviderType == MailProviderType.Exchange;
     public AccountDetailsTab AccountDetailsTab => global::Wino.Core.Domain.Models.Navigation.AccountDetailsTab.General;
     public bool SupportsAccountSynchronization => false;
     public bool SelectsOnInvoked => false;

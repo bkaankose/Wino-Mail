@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -25,6 +26,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.WinUI.Styles.ShellMenu;
 
@@ -195,6 +197,52 @@ public sealed partial class ShellMenuTemplates
     {
         if (sender is FrameworkElement { DataContext: IAccountNavigationMenuItem accountMenuItem })
             await accountMenuItem.SynchronizeAccountAsync();
+    }
+
+    // Exchange only. The two switches are app-wide (the same values as on the account details page);
+    // the flyout reads them each time it opens, and a change rebuilds the account's folder list.
+
+    private void AccountContextFlyoutOpening(object? sender, object e)
+    {
+        if (sender is not MenuFlyout flyout ||
+            WinoApplication.Current.Services.GetService<IPublicFolderFavoriteService>() is not { } remoteFolders)
+        {
+            return;
+        }
+
+        foreach (var toggle in flyout.Items.OfType<ToggleMenuFlyoutItem>())
+        {
+            toggle.IsChecked = toggle.Tag switch
+            {
+                "PublicFolders" => remoteFolders.ArePublicFoldersVisible,
+                "OnlineArchive" => remoteFolders.AreOnlineArchivesVisible,
+                _ => toggle.IsChecked
+            };
+        }
+    }
+
+    private async void InboxRulesMenuItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: IAccountNavigationMenuItem { Account: { } account } })
+            await WinoApplication.Current.Services.GetRequiredService<IMailDialogService>().ShowInboxRulesManagerAsync(account);
+    }
+
+    private void ShowPublicFoldersMenuItemClicked(object sender, RoutedEventArgs e)
+        => ApplyRemoteFolderVisibility(sender, (service, visible) => service.ArePublicFoldersVisible = visible);
+
+    private void ShowOnlineArchiveMenuItemClicked(object sender, RoutedEventArgs e)
+        => ApplyRemoteFolderVisibility(sender, (service, visible) => service.AreOnlineArchivesVisible = visible);
+
+    private static void ApplyRemoteFolderVisibility(object sender, Action<IPublicFolderFavoriteService, bool> apply)
+    {
+        if (sender is not ToggleMenuFlyoutItem { DataContext: IAccountNavigationMenuItem { Account: { } account } } toggle ||
+            WinoApplication.Current.Services.GetService<IPublicFolderFavoriteService>() is not { } remoteFolders)
+        {
+            return;
+        }
+
+        apply(remoteFolders, toggle.IsChecked);
+        WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(account.Id));
     }
 
     private async void CreateFolderMenuItemClicked(object sender, RoutedEventArgs e)

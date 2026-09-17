@@ -67,7 +67,7 @@
             SelectsOnInvoked="{x:Bind SelectsOnInvoked, Mode=OneTime}"
             Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
             <controls:AccountNavigationItem.ContextFlyout>
-                <coreControls:WinoMenuFlyout>
+                <coreControls:WinoMenuFlyout Opening="AccountContextFlyoutOpening">
                     <MenuFlyoutItem
                         AutomationProperties.AutomationId="AccountContextManageSettingsMenuItem"
                         Click="ManageAccountSettingsMenuItemClicked"
@@ -98,6 +98,31 @@
                             <coreControls:WinoFontIcon Icon="CreateFolder" />
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
+                    <MenuFlyoutSeparator AutomationProperties.AutomationId="AccountContextExchangeSeparator" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
+                    <MenuFlyoutItem
+                        AutomationProperties.AutomationId="AccountContextInboxRulesMenuItem"
+                        Click="InboxRulesMenuItemClicked"
+                        DataContext="{x:Bind}"
+                        Text="{x:Bind domain:Translator.Rules_Title, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}">
+                        <MenuFlyoutItem.Icon>
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE71C;" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                    <ToggleMenuFlyoutItem
+                        AutomationProperties.AutomationId="AccountContextShowPublicFoldersMenuItem"
+                        Click="ShowPublicFoldersMenuItemClicked"
+                        DataContext="{x:Bind}"
+                        Tag="PublicFolders"
+                        Text="{x:Bind domain:Translator.AccountDetailsPage_ShowPublicFolders_Title, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
+                    <ToggleMenuFlyoutItem
+                        AutomationProperties.AutomationId="AccountContextShowOnlineArchiveMenuItem"
+                        Click="ShowOnlineArchiveMenuItemClicked"
+                        DataContext="{x:Bind}"
+                        Tag="OnlineArchive"
+                        Text="{x:Bind domain:Translator.AccountDetailsPage_ShowOnlineArchive_Title, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
                 </coreControls:WinoMenuFlyout>
             </controls:AccountNavigationItem.ContextFlyout>
             <muxc:NavigationViewItem.Icon>
@@ -176,7 +201,7 @@
             SelectsOnInvoked="{x:Bind SelectsOnInvoked, Mode=OneTime}"
             Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
             <controls:AccountNavigationItem.ContextFlyout>
-                <coreControls:WinoMenuFlyout>
+                <coreControls:WinoMenuFlyout Opening="AccountContextFlyoutOpening">
                     <MenuFlyoutItem
                         AutomationProperties.AutomationId="AccountContextManageSettingsMenuItem"
                         Click="ManageAccountSettingsMenuItemClicked"
@@ -195,6 +220,27 @@
                         DataContext="{x:Bind}"
                         Text="{x:Bind domain:Translator.AccountContextMenu_CreateFolder, Mode=OneTime}"
                         Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsMailAccountActions), Mode=OneWay}" />
+                    <MenuFlyoutSeparator AutomationProperties.AutomationId="CompactAccountContextExchangeSeparator" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
+                    <MenuFlyoutItem
+                        AutomationProperties.AutomationId="CompactAccountContextInboxRulesMenuItem"
+                        Click="InboxRulesMenuItemClicked"
+                        DataContext="{x:Bind}"
+                        Text="{x:Bind domain:Translator.Rules_Title, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
+                    <ToggleMenuFlyoutItem
+                        AutomationProperties.AutomationId="CompactAccountContextShowPublicFoldersMenuItem"
+                        Click="ShowPublicFoldersMenuItemClicked"
+                        DataContext="{x:Bind}"
+                        Tag="PublicFolders"
+                        Text="{x:Bind domain:Translator.AccountDetailsPage_ShowPublicFolders_Title, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
+                    <ToggleMenuFlyoutItem
+                        AutomationProperties.AutomationId="CompactAccountContextShowOnlineArchiveMenuItem"
+                        Click="ShowOnlineArchiveMenuItemClicked"
+                        DataContext="{x:Bind}"
+                        Tag="OnlineArchive"
+                        Text="{x:Bind domain:Translator.AccountDetailsPage_ShowOnlineArchive_Title, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
                 </coreControls:WinoMenuFlyout>
             </controls:AccountNavigationItem.ContextFlyout>
             <muxc:NavigationViewItem.Icon>
