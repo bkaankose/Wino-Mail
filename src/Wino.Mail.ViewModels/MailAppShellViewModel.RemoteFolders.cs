@@ -24,6 +24,7 @@ public partial class MailAppShellViewModel
     private readonly IPublicFolderFavoriteService _publicFolderFavoriteService;
 
     private readonly HashSet<Guid> _loadingRemoteFolderIds = new();
+    private readonly HashSet<Guid> _expandedRemoteFolderIds = new();
 
     /// <summary>Subscribes every remote node in a freshly built folder list (the roots and pinned entries).</summary>
     private void AttachRemoteFolderHandlers(IEnumerable<IMenuItem> folders)
@@ -55,6 +56,108 @@ public partial class MailAppShellViewModel
         {
             node.IsPinned = _publicFolderFavoriteService.IsFavorite(node.ParentAccount.Id, node.RemoteFolder.RemoteFolderId);
         }
+
+        RestoreRemoteFolderExpansion(node);
+    }
+
+    /// <summary>
+    /// Children load on the change to expanded, and a rebuilt folder list (returning to Mail from another
+    /// mode, a pin, a folder sync) never produces that change for a node the user had open: the nodes are
+    /// new and collapsed while the navigation view keeps drawing them open, so they would sit on their
+    /// "Loading" row until collapsed and expanded again. The ids of the open nodes are therefore kept
+    /// here (they are deterministic), and a rebuilt node found in the set is expanded and loaded at once.
+    /// </summary>
+    private void RestoreRemoteFolderExpansion(RemoteFolderMenuItem node)
+    {
+        if (node.IsPlaceholder)
+            return;
+
+        node.PropertyChanged -= RemoteFolderPropertyChanged;
+        node.PropertyChanged += RemoteFolderPropertyChanged;
+
+        bool wasExpanded;
+        lock (_expandedRemoteFolderIds)
+        {
+            wasExpanded = _expandedRemoteFolderIds.Contains(node.RemoteFolder.Id);
+        }
+
+        if (node.AreChildrenLoaded || !(wasExpanded || node.IsExpanded))
+            return;
+
+        Log.Debug("Restoring the expanded remote folder {FolderName}.", node.RemoteFolder.FolderName);
+
+        if (node.IsExpanded)
+        {
+            _ = LoadRemoteFolderChildrenAsync(node);
+        }
+        else
+        {
+            // Raises ChildrenRequested, which is subscribed by now.
+            node.IsExpanded = true;
+        }
+    }
+
+    private void RemoteFolderPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(RemoteFolderMenuItem.IsExpanded) || sender is not RemoteFolderMenuItem node)
+            return;
+
+        if (node.IsExpanded)
+        {
+            lock (_expandedRemoteFolderIds)
+            {
+                _expandedRemoteFolderIds.Add(node.RemoteFolder.Id);
+            }
+
+            return;
+        }
+
+        _ = ForgetCollapsedRemoteFolderAsync(node);
+    }
+
+    /// <summary>
+    /// Only a collapse by the user forgets a node. Clearing the folder area also collapses every item just
+    /// before removing it, so the decision waits until that has played out: a node that is no longer in
+    /// the menu was torn down, not collapsed.
+    /// </summary>
+    private async Task ForgetCollapsedRemoteFolderAsync(RemoteFolderMenuItem node)
+    {
+        await Task.Delay(300).ConfigureAwait(false);
+
+        await ExecuteUIThread(() =>
+        {
+            if (node.IsExpanded || !IsInMenu(MenuItems, node))
+                return;
+
+            lock (_expandedRemoteFolderIds)
+            {
+                _expandedRemoteFolderIds.Remove(node.RemoteFolder.Id);
+            }
+        });
+    }
+
+    private static bool IsInMenu(IEnumerable<IMenuItem> items, IMenuItem target)
+    {
+        if (items == null)
+            return false;
+
+        foreach (var item in items.ToList())
+        {
+            if (ReferenceEquals(item, target))
+                return true;
+
+            IEnumerable<IMenuItem> children = item switch
+            {
+                IBaseFolderMenuItem folder => folder.SubMenuItems,
+                AccountMenuItem account => account.SubMenuItems,
+                _ => null
+            };
+
+            if (IsInMenu(children, target))
+                return true;
+        }
+
+        return false;
     }
 
     private async void RemoteFolderChildrenRequested(object sender, EventArgs e)
