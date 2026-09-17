@@ -825,14 +825,46 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             _ => throw new InvalidOperationException(Translator.Synchronizer_ContactsUnavailable)
         };
 
-    /// <summary>The account's Exchange address book, created on first use and re-pointed if the folder id changed.</summary>
+    /// <summary>
+    /// The account's Exchange address book, created on first use. The account has one, the mailbox's
+    /// Contacts folder, so a book stored under another id is the same folder as the other transport
+    /// addressed it: it is re-pointed in place rather than dropped and imported again.
+    /// </summary>
     protected async Task<ContactAddressBook> GetOrCreateContactsBookAsync(string remoteFolderId)
     {
-        var books = await _contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false);
-        foreach (var stale in books.Where(b => b.SourceKind == ContactSourceKind.Exchange && !string.Equals(b.RemoteId, remoteFolderId, StringComparison.Ordinal)))
+        var books = (await _contactService.GetAddressBooksAsync(Account.Id).ConfigureAwait(false))
+            .Where(b => b.SourceKind == ContactSourceKind.Exchange)
+            .ToList();
+        var current = books.FirstOrDefault(b => string.Equals(b.RemoteId, remoteFolderId, StringComparison.Ordinal));
+
+        if (current is null && books.OrderByDescending(b => b.IsDefault).FirstOrDefault() is { } carried)
+        {
+            _logger.Information("Exchange contacts {Account}: re-keying the address book from {Old} to {New}.", Account.Name, carried.RemoteId, remoteFolderId);
+            await _contactService.RekeyAddressBookAsync(carried.Id, remoteFolderId, new Dictionary<Guid, string>()).ConfigureAwait(false);
+            current = carried;
+        }
+
+        foreach (var stale in books.Where(b => b.Id != current?.Id))
             await _contactService.DeleteAddressBookAsync(stale.Id).ConfigureAwait(false);
 
         return await _contactService.GetOrCreateProviderAddressBookAsync(Account.Id, ContactSourceKind.Exchange, remoteFolderId, Account.Name, true).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Before a snapshot replaces the book's rows: contacts the other transport stored are matched to
+    /// the incoming ones and take their remote ids, so the rebuild (which keeps rows by remote id)
+    /// preserves their favourites, list memberships and local identity across a transport change.
+    /// </summary>
+    protected async Task RekeyContactsFromOtherTransportAsync(ContactAddressBook book, IReadOnlyList<AccountContact> incoming)
+    {
+        var stored = await _contactService.GetContactsByAddressBookAsync(book.Id).ConfigureAwait(false);
+        var matches = ExchangeTransportRekey.MatchContacts(stored, incoming);
+
+        if (matches.Count == 0)
+            return;
+
+        _logger.Information("Exchange contacts {Account}: re-keying {Count} contacts stored by the other transport.", Account.Name, matches.Count);
+        await _contactService.RekeyAddressBookAsync(book.Id, book.RemoteId, matches).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -925,6 +957,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         }
         while (results.MoreAvailable);
 
+        await RekeyContactsFromOtherTransportAsync(book, upserts).ConfigureAwait(false);
         await DownloadContactPhotosAsync(photos, book, cancellationToken).ConfigureAwait(false);
         await _contactService.ReplaceAddressBookAsync(book.Id, upserts, null).ConfigureAwait(false);
 
@@ -1233,6 +1266,20 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     /// <summary>The account's Exchange task list for the given folder, replacing any list keyed by an older folder id.</summary>
     protected async Task<AccountTaskList> EnsureTaskListAsync(string remoteFolderId, string title)
     {
+        // The account has one Exchange list, the mailbox's Tasks folder. A list stored under another
+        // id is that folder as the other transport addressed it: re-point it so the reconciliation
+        // below keeps the row (colour, group, placement, "last used" preference) instead of replacing it.
+        var exchangeLists = (await _taskService.GetTaskListsAsync(Account.Id).ConfigureAwait(false))
+            .Where(list => list.SourceKind == TaskSourceKind.Exchange)
+            .ToList();
+
+        if (!exchangeLists.Any(list => string.Equals(list.RemoteId, remoteFolderId, StringComparison.Ordinal)) &&
+            exchangeLists.OrderByDescending(list => list.IsDefault).FirstOrDefault() is { } carried)
+        {
+            _logger.Information("Exchange tasks {Account}: re-keying the task list from {Old} to {New}.", Account.Name, carried.RemoteId, remoteFolderId);
+            await _taskService.RekeyTaskListAsync(carried.Id, remoteFolderId, new Dictionary<Guid, string>()).ConfigureAwait(false);
+        }
+
         await _taskService.ApplyTaskTopologyDeltaAsync(new TaskTopologyDelta
         {
             MailAccountId = Account.Id,
@@ -1264,6 +1311,22 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     protected async Task<TaskSynchronizationResult> ApplyTaskSnapshotAsync(AccountTaskList list, List<AccountTask> tasks)
     {
         var current = await _taskService.GetTasksAsync(listId: list.Id).ConfigureAwait(false);
+
+        // Tasks the other transport stored take the incoming ids, so the snapshot below keeps their
+        // rows (and with them the My Day date) instead of importing them again after a transport change.
+        var rekeyed = ExchangeTransportRekey.MatchTasks(current, tasks);
+        if (rekeyed.Count > 0)
+        {
+            _logger.Information("Exchange tasks {Account}: re-keying {Count} tasks stored by the other transport.", Account.Name, rekeyed.Count);
+            await _taskService.RekeyTaskListAsync(list.Id, list.RemoteId, rekeyed).ConfigureAwait(false);
+
+            foreach (var task in current)
+            {
+                if (rekeyed.TryGetValue(task.Id, out var remoteId))
+                    task.RemoteId = remoteId;
+            }
+        }
+
         var currentByRemoteId = current.Where(task => !string.IsNullOrWhiteSpace(task.RemoteId))
             .GroupBy(task => task.RemoteId, StringComparer.Ordinal)
             .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);

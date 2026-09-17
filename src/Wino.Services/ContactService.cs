@@ -313,6 +313,22 @@ public class ContactService : BaseDatabaseService, IContactService
             await DeletePicturesAsync([local]).ConfigureAwait(false);
     }
 
+    public Task RekeyAddressBookAsync(Guid addressBookId, string remoteId, IReadOnlyDictionary<Guid, string> contactRemoteIds)
+        => Connection.RunInTransactionAsync(transaction =>
+        {
+            // The delta token belongs to the old id scheme; the next pull is a full one.
+            transaction.Execute("UPDATE ContactAddressBook SET RemoteId = ?, DeltaToken = NULL WHERE Id = ?", remoteId, addressBookId);
+
+            foreach (var (contactId, contactRemoteId) in contactRemoteIds ?? new Dictionary<Guid, string>())
+            {
+                transaction.Execute(
+                    "UPDATE ContactCard SET RemoteId = ?, RemoteVersion = NULL WHERE Id = ? AND AddressBookId = ?",
+                    contactRemoteId,
+                    contactId,
+                    addressBookId);
+            }
+        });
+
     public async Task ReplaceAddressBookAsync(Guid addressBookId, IReadOnlyList<AccountContact> contacts, string deltaToken)
     {
         var existing = await Connection.Table<AccountContact>().Where(contact => contact.AddressBookId == addressBookId).ToListAsync().ConfigureAwait(false);
