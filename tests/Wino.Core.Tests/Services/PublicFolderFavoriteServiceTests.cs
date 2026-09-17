@@ -107,6 +107,22 @@ public class PublicFolderFavoriteServiceTests
     }
 
     [Fact]
+    public void CalendarTick_DefaultsToOnAndPersistsWithThePin()
+    {
+        _configuration.Set("PublicFolderFavorites", "[{\"AccountId\":\"" + _accountId + "\",\"FolderId\":\"old\",\"Kind\":\"Calendar\",\"Name\":\"Pinned before ticks existed\"}]");
+        _service.AddFavorite(PublicFolderFavorite.Create(_accountId, "cal", PublicFolderKind.Calendar, "Company"));
+
+        _service.GetFavorites().Should().OnlyContain(favorite => favorite.IsChecked);
+
+        _service.SetFavoriteChecked(_accountId, "cal", false);
+        _service.SetFavoriteChecked(_accountId, "missing", false);
+
+        var reread = new PublicFolderFavoriteService(_configuration).GetFavorites();
+        reread.Single(favorite => favorite.FolderId == "cal").IsChecked.Should().BeFalse();
+        reread.Single(favorite => favorite.FolderId == "old").IsChecked.Should().BeTrue();
+    }
+
+    [Fact]
     public void DisplayName_IsNotPersisted()
     {
         _service.AddFavorite(PublicFolderFavorite.Create(_accountId, "c1", PublicFolderKind.Contacts, "Staff"));

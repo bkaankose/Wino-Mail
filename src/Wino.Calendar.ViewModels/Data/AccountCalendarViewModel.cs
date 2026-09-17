@@ -90,6 +90,8 @@ public partial class AccountCalendarViewModel : ObservableObject, IAccountCalend
         get => AccountCalendar.DefaultShowAs;
         set => SetProperty(AccountCalendar.DefaultShowAs, value, AccountCalendar, (u, s) => u.DefaultShowAs = s);
     }
+    public bool IsPublicFolder => AccountCalendar.IsPublicFolder;
+
     public Guid Id { get => ((IAccountCalendar)AccountCalendar).Id; set => ((IAccountCalendar)AccountCalendar).Id = value; }
     public MailAccount MailAccount
     {

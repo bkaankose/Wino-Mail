@@ -25,6 +25,9 @@ public sealed class PublicFolderFavorite
     /// <summary>Overlay colour for a calendar favourite (unused for the other kinds).</summary>
     public string ColorHex { get; set; }
 
+    /// <summary>Whether a calendar favourite is ticked in the Calendar pane (unused for the other kinds).</summary>
+    public bool IsChecked { get; set; } = true;
+
     /// <summary>The name the favourite is listed under: the folder name marked as public.</summary>
     [JsonIgnore]
     public string DisplayName => string.IsNullOrWhiteSpace(Name)

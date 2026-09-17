@@ -77,6 +77,18 @@ public class PublicFolderFavoriteService : IPublicFolderFavoriteService
         }
     }
 
+    public void SetFavoriteChecked(Guid accountId, string folderId, bool isChecked)
+    {
+        var list = GetFavorites().ToList();
+        var favorite = list.FirstOrDefault(f => f.AccountId == accountId && string.Equals(f.FolderId, folderId, StringComparison.Ordinal));
+
+        if (favorite == null || favorite.IsChecked == isChecked)
+            return;
+
+        favorite.IsChecked = isChecked;
+        Save(list);
+    }
+
     public bool ArePublicFoldersVisible
     {
         get => _configurationService.Get(PublicFoldersVisibleKey, false);

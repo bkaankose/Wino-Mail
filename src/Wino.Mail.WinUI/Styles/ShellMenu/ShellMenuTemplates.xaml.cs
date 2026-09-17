@@ -13,6 +13,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
+using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -44,6 +45,33 @@ public sealed partial class ShellMenuTemplates
 
     private void UngroupedCalendarCheckBoxTapped(object sender, TappedRoutedEventArgs e)
         => e.Handled = true;
+
+    // Exchange only. Calendar rows carry a context menu whose single entry unpins a public calendar, so
+    // for every other calendar the request is swallowed and no menu opens.
+
+    private static AccountCalendarViewModel? ResolveCalendar(object sender)
+        => (sender as FrameworkElement)?.DataContext switch
+        {
+            AccountCalendarViewModel calendar => calendar,
+            UngroupedCalendarMenuItem { Parameter: { } calendar } => calendar,
+            _ => null
+        };
+
+    private void CalendarContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (ResolveCalendar(sender) is not { IsPublicFolder: true })
+            args.Handled = true;
+    }
+
+    // The favourite service announces the change; the calendar pane drops the calendar and reloads.
+    private void UnpinPublicCalendarMenuItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (ResolveCalendar(sender) is { IsPublicFolder: true } calendar)
+        {
+            WinoApplication.Current.Services.GetService<IPublicFolderFavoriteService>()?
+                .RemoveFavorite(calendar.AccountId, calendar.RemoteCalendarId);
+        }
+    }
 
     private static IMailShellClient MailClient
         => WinoApplication.Current.Services.GetRequiredService<IMailShellClient>();

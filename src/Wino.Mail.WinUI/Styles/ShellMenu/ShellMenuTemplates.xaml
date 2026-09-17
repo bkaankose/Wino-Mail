@@ -840,7 +840,22 @@
                                     VerticalContentAlignment="Stretch"
                                     AutomationProperties.AutomationId="AccountCalendarCheckBox"
                                     AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Name), Mode=OneWay}"
+                                    ContextRequested="CalendarContextRequested"
                                     IsChecked="{x:Bind IsChecked, Mode=TwoWay}">
+                                    <!--  Exchange only: offered for a pinned public calendar, suppressed for every other one.  -->
+                                    <CheckBox.ContextFlyout>
+                                        <coreControls:WinoMenuFlyout>
+                                            <MenuFlyoutItem
+                                                AutomationProperties.AutomationId="AccountCalendarUnpinPublicCalendar"
+                                                Click="UnpinPublicCalendarMenuItemClicked"
+                                                DataContext="{x:Bind}"
+                                                Text="{x:Bind domain:Translator.PublicFolders_Unpin, Mode=OneTime}">
+                                                <MenuFlyoutItem.Icon>
+                                                    <SymbolIcon Symbol="UnPin" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                        </coreControls:WinoMenuFlyout>
+                                    </CheckBox.ContextFlyout>
                                     <Grid Margin="0,0,0,5" ColumnSpacing="6">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -875,8 +890,23 @@
             HorizontalContentAlignment="Stretch"
             AutomationProperties.AutomationId="UngroupedCalendarNavigationItem"
             AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Parameter.Name), Mode=OneWay}"
+            ContextRequested="CalendarContextRequested"
             DataContext="{x:Bind}"
             SelectsOnInvoked="False">
+            <!--  Exchange only: offered for a pinned public calendar, suppressed for every other one.  -->
+            <coreControls:WinoNavigationViewItem.ContextFlyout>
+                <coreControls:WinoMenuFlyout>
+                    <MenuFlyoutItem
+                        AutomationProperties.AutomationId="UngroupedCalendarUnpinPublicCalendar"
+                        Click="UnpinPublicCalendarMenuItemClicked"
+                        DataContext="{x:Bind Parameter, Mode=OneWay}"
+                        Text="{x:Bind domain:Translator.PublicFolders_Unpin, Mode=OneTime}">
+                        <MenuFlyoutItem.Icon>
+                            <SymbolIcon Symbol="UnPin" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                </coreControls:WinoMenuFlyout>
+            </coreControls:WinoNavigationViewItem.ContextFlyout>
             <Grid Margin="0,2" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />

@@ -31,4 +31,11 @@ public class AccountCalendar : IAccountCalendar
 
     [Ignore]
     public MailAccount MailAccount { get; set; }
+
+    /// <summary>
+    /// A pinned Exchange public calendar folder shown as a read-only overlay. It is never stored: the row is
+    /// built from the pin each time Calendar opens, and its events are read live for the visible range.
+    /// </summary>
+    [Ignore]
+    public bool IsPublicFolder { get; set; }
 }

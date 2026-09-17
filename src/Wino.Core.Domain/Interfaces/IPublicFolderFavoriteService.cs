@@ -19,6 +19,9 @@ public interface IPublicFolderFavoriteService
 
     void RemoveFavorite(Guid accountId, string folderId);
 
+    /// <summary>Remembers whether a pinned public calendar is ticked in the Calendar pane. Announces nothing.</summary>
+    void SetFavoriteChecked(Guid accountId, string folderId, bool isChecked);
+
     /// <summary>
     /// Whether the "Public Folders" tree root is shown under Exchange accounts in the mail navigation.
     /// Defaults to false (hidden) so the user reveals it only to browse or pin folders.
