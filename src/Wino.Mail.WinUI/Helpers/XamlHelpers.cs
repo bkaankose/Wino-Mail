@@ -736,6 +736,9 @@ public static class XamlHelpers
             MailOperation.DarkEditor => WinoIconGlyph.DarkEditor,
             MailOperation.LightEditor => WinoIconGlyph.LightEditor,
             MailOperation.ViewMessageSource => WinoIconGlyph.ViewMessageSource,
+            MailOperation.BlockSender => WinoIconGlyph.Blocked,
+            MailOperation.NeverBlockSender => WinoIconGlyph.People,
+            MailOperation.CreateRule => WinoIconGlyph.Reminder,
             _ => WinoIconGlyph.None,
         };
     }
@@ -878,6 +881,9 @@ public static class XamlHelpers
             MailOperation.ViewMessageSource => Translator.MailOperation_ViewMessageSource,
             MailOperation.RetryDraftUpload => Translator.Draft_RetryUpload,
             MailOperation.Navigate => Translator.MailOperation_Navigate,
+            MailOperation.BlockSender => Translator.MailOperation_BlockSender,
+            MailOperation.NeverBlockSender => Translator.MailOperation_NeverBlockSender,
+            MailOperation.CreateRule => Translator.MailOperation_CreateRule,
             _ => "unknown",
         };
     }

@@ -103,4 +103,13 @@ public interface IMailDialogService : IDialogServiceBase
     Task<WinoAccountSyncExportResult?> ShowWinoAccountExportDialogAsync();
 
     Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync();
+
+    /// <summary>Opens the server-side inbox rules manager for an Exchange account.</summary>
+    Task ShowInboxRulesManagerAsync(MailAccount account);
+
+    /// <summary>
+    /// Opens the inbox rule editor for a new rule on an Exchange account, seeded with a From condition
+    /// for <paramref name="senderAddress"/> (the "Create rule from message" action).
+    /// </summary>
+    Task ShowInboxRuleEditorAsync(MailAccount account, string? senderAddress);
 }

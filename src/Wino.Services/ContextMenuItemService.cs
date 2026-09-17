@@ -123,14 +123,26 @@ public class ContextMenuItemService : IContextMenuItemService
         if (!isDraftOrSent)
             operationList.Add(MailOperationMenuItem.Create(MailOperation.Ignore));
 
+        // Create rule (server-side inbox rule prefilled with this sender): Exchange only, single message
+        // only since the rule keys on one sender.
+        if (isSingleItem && !isDraftOrSent && singleItem.AssignedAccount?.ProviderType == MailProviderType.Exchange)
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.CreateRule));
+
         // Seperator
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
 
         // Junk folder
         if (isJunkFolder && !isPop3)
+        {
             operationList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender));
+        }
         else if (!isDraftOrSent && !isPop3)
+        {
             operationList.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.BlockSender));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender));
+        }
 
         AddFocusedInboxActions(operationList, selectedItems);
 
@@ -193,9 +205,16 @@ public class ContextMenuItemService : IContextMenuItemService
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
 
         if (mailItem.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk && mailItem.AssignedAccount?.ProviderType != MailProviderType.POP3)
+        {
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk, true, true));
+            actionList.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender, true, true));
+        }
         else if (!mailItem.IsDraft && mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Sent && mailItem.AssignedAccount?.ProviderType != MailProviderType.POP3)
+        {
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
+            actionList.Add(MailOperationMenuItem.Create(MailOperation.BlockSender, true, true));
+            actionList.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender, true, true));
+        }
 
         if (IsOutlookInboxMail(mailItem))
         {

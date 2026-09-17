@@ -88,6 +88,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsImapServer))]
     [NotifyPropertyChangedFor(nameof(IsExchangeServer))]
+    [NotifyPropertyChangedFor(nameof(IsPop3Server))]
     public partial CustomServerInformation ServerInformation { get; set; }
 
     [ObservableProperty]
@@ -155,6 +156,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     // IMAP/SMTP and POP3 only: Exchange has its own settings page and no protocol conversation to capture.
     public bool IsImapServer => ServerInformation != null && Account?.ProviderType != MailProviderType.Exchange;
     public bool IsExchangeServer => Account?.ProviderType == MailProviderType.Exchange;
+    // POP3 has no junk folder handling, so the junk email lists card is hidden for it.
+    public bool IsPop3Server => Account?.ProviderType == MailProviderType.POP3;
     public bool HasMailAccess => Account?.IsMailAccessGranted == true;
     public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;
     public bool HasContactAccess => Account?.IsContactAccessGranted == true;
@@ -290,6 +293,16 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     [RelayCommand]
     private void EditCategories()
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.MailCategoryManagementPage_Title, WinoPage.MailCategoryManagementPage, Account.Id));
+
+    [RelayCommand]
+    private void EditJunkEmailLists()
+        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsJunkEmail_Title, WinoPage.JunkEmailSettingsPage, Account.Id));
+
+    // Server-side inbox rules live in a dialog rather than a page: the manager reads from and writes to
+    // the Exchange server directly and must report each save synchronously.
+    [RelayCommand]
+    private Task ManageInboxRulesAsync()
+        => Account is null ? Task.CompletedTask : _dialogService.ShowInboxRulesManagerAsync(Account);
 
     [RelayCommand]
     private void CustomizeFolderList()

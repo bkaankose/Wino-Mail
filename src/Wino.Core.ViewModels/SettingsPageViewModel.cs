@@ -168,6 +168,17 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 "categories labels");
         }
 
+        if (account.ProviderType != MailProviderType.POP3)
+        {
+            yield return CreateAccountSearchItem(
+                account,
+                Translator.SettingsJunkEmail_Title,
+                Translator.SettingsJunkEmail_Description,
+                WinoPage.JunkEmailSettingsPage,
+                AccountDetailsTab.Mail,
+                "junk spam blocked safe senders");
+        }
+
         if (account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3)
         {
             yield return CreateAccountSearchItem(
@@ -241,6 +252,8 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
                 return Translator.FolderCustomization_Description;
             case WinoPage.MailCategoryManagementPage:
                 return Translator.MailCategoryManagementPage_Description;
+            case WinoPage.JunkEmailSettingsPage:
+                return Translator.SettingsJunkEmail_Description;
             case WinoPage.MailFiltersPage:
             case WinoPage.MailFilterEditorPage:
                 return Translator.MailFilters_Description;

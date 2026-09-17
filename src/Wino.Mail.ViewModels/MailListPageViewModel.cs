@@ -973,9 +973,35 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             return;
         }
 
+        if (mailOperation == MailOperation.CreateRule)
+        {
+            await CreateRuleFromMailAsync(mailItemList.FirstOrDefault());
+            return;
+        }
+
         var package = new MailOperationPreperationRequest(mailOperation, mailItemList.Select(a => a.MailCopy));
 
         await ExecuteMailOperationAsync(package);
+    }
+
+    /// <summary>
+    /// "Create rule" from a mail item: opens the server-side inbox-rule editor for that message's account,
+    /// seeded with a From = sender condition. Exchange only; the dialog explains otherwise.
+    /// </summary>
+    public async Task CreateRuleFromMailAsync(MailItemViewModel targetMail)
+    {
+        var source = targetMail?.MailCopy;
+        if (source?.AssignedAccount == null)
+            return;
+
+        try
+        {
+            await _mailDialogService.ShowInboxRuleEditorAsync(source.AssignedAccount, source.FromAddress);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Create rule from mail failed.");
+        }
     }
 
     private static bool IsDraftCreationOperation(MailOperation operation)

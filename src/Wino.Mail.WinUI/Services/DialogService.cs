@@ -20,7 +20,9 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Dialogs;
+using Wino.Dialogs.Rules;
 using Wino.Mail.Dialogs;
+using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.ViewModels;
 using Wino.Mail.WinUI.Services;
@@ -441,4 +443,13 @@ public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<S
 
         return dialog.Result;
     }
+
+    public Task ShowInboxRulesManagerAsync(MailAccount account)
+        => CreateInboxRulesCoordinator().ShowManagerAsync(account);
+
+    public Task ShowInboxRuleEditorAsync(MailAccount account, string? senderAddress)
+        => CreateInboxRulesCoordinator().ShowEditorForSenderAsync(account, senderAddress);
+
+    private InboxRulesCoordinator CreateInboxRulesCoordinator()
+        => new(WinoApplication.Current.Services, this, HandleDialogPresentationAsync, ThemeService.RootTheme.ToWindowsElementTheme());
 }

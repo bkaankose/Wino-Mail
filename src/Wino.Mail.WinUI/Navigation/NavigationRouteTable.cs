@@ -66,6 +66,7 @@ public static class NavigationRouteTable
         Settings(WinoPage.BackupRestorePage, typeof(BackupRestorePage)),
         Settings(WinoPage.AliasManagementPage, typeof(AliasManagementPage)),
         Settings(WinoPage.MailCategoryManagementPage, typeof(MailCategoryManagementPage)),
+        Settings(WinoPage.JunkEmailSettingsPage, typeof(JunkEmailSettingsPage)),
         Settings(WinoPage.MailFiltersPage, typeof(MailFiltersPage)),
         Settings(WinoPage.MailFilterEditorPage, typeof(MailFilterEditorPage)),
         Settings(WinoPage.ImapCalDavSettingsPage, typeof(ImapCalDavSettingsPage)),

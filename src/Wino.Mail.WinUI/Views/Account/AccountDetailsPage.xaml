@@ -484,6 +484,37 @@
                     </controls:SettingsCard.HeaderIcon>
                 </controls:SettingsCard>
 
+                <!--  Junk email lists: safe and blocked senders (local for every provider; mirrored to Exchange over MAPI/HTTP).  -->
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCardJunkEmail"
+                    Command="{x:Bind ViewModel.EditJunkEmailListsCommand}"
+                    Description="{x:Bind domain:Translator.SettingsJunkEmail_Card_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsJunkEmail_Title, Mode=OneTime}"
+                    IsClickEnabled="True"
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsPop3Server), Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8F8;" />
+                    </controls:SettingsCard.HeaderIcon>
+                </controls:SettingsCard>
+
+                <!--  Exchange only: server-side inbox rules (Rules and Alerts).  -->
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCardInboxRules"
+                    Description="{x:Bind domain:Translator.Rules_Card_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.Rules_Title, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsExchangeServer, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE71C;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button
+                        Width="160"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.AutomationId="AccountDetailsPageButtonInboxRules"
+                        Command="{x:Bind ViewModel.ManageInboxRulesCommand}"
+                        Content="{x:Bind domain:Translator.Rules_Card_Action, Mode=OneTime}"
+                        Style="{ThemeResource AccentButtonStyle}" />
+                </controls:SettingsCard>
+
 
 
                 <controls:SettingsExpander

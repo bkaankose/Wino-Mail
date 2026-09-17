@@ -63,5 +63,6 @@ public enum WinoPage
     WinoIntelligenceManagementPage,
     IntelligenceCoveragePage,
     CompanionSettingsPage,
-    NotificationSettingsPage
+    NotificationSettingsPage,
+    JunkEmailSettingsPage
 }

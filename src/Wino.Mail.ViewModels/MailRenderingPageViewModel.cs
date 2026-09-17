@@ -878,11 +878,26 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         else
             menuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
 
+        var isPop3 = initializedMailItemViewModel.MailCopy.AssignedAccount?.ProviderType == MailProviderType.POP3;
+
         if (assignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+        {
             menuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk, true, true));
+
+            if (!isPop3)
+                menuItems.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender, true, true));
+        }
         else if (!initializedMailItemViewModel.IsDraft &&
                  assignedFolder.SpecialFolderType != SpecialFolderType.Sent)
+        {
             menuItems.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
+
+            if (!isPop3)
+            {
+                menuItems.Add(MailOperationMenuItem.Create(MailOperation.BlockSender, true, true));
+                menuItems.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender, true, true));
+            }
+        }
 
         MenuItems = menuItems;
     }

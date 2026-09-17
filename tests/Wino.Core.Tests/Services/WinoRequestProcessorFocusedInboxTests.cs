@@ -59,7 +59,8 @@ public sealed class WinoRequestProcessorFocusedInboxTests
             Mock.Of<IKeyPressService>(),
             Mock.Of<IPreferencesService>(),
             Mock.Of<IMailDialogService>(),
-            Mock.Of<IMailService>());
+            Mock.Of<IMailService>(),
+            Mock.Of<IJunkSenderService>());
 
     private static MailCopy CreateMail(MailProviderType providerType)
         => new()

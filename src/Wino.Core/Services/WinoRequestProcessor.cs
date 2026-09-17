@@ -29,6 +29,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
     private readonly IPreferencesService _preferencesService;
     private readonly IMailDialogService _dialogService;
     private readonly IMailService _mailService;
+    private readonly IJunkSenderService _junkSenderService;
 
     /// <summary>
     /// Set of rules that defines which action should be executed if user wants to toggle an action.
@@ -45,13 +46,15 @@ public class WinoRequestProcessor : IWinoRequestProcessor
                                 IKeyPressService keyPressService,
                                 IPreferencesService preferencesService,
                                 IMailDialogService dialogService,
-                                IMailService mailService)
+                                IMailService mailService,
+                                IJunkSenderService junkSenderService)
     {
         _folderService = folderService;
         _keyPressService = keyPressService;
         _preferencesService = preferencesService;
         _dialogService = dialogService;
         _mailService = mailService;
+        _junkSenderService = junkSenderService;
     }
 
     public Task<IContactActionRequest> PrepareContactRequestAsync(ContactOperationPreparationRequest request)
@@ -289,6 +292,39 @@ public class WinoRequestProcessor : IWinoRequestProcessor
                 return new MoveRequest(mailItem, mailItem.AssignedFolder, junkFolder);
 
             return new ChangeJunkStateRequest(true, mailItem, mailItem.AssignedFolder, junkFolder);
+        }
+        else if (action == MailOperation.BlockSender)
+        {
+            var junkFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Junk)
+                ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Junk, mailItem.AssignedAccount.Id);
+
+            // Record the sender in the local blocked list (source of truth + the Junk email settings page).
+            await _junkSenderService.AddSenderAsync(mailItem.AssignedAccount.Id, mailItem.FromAddress, JunkListType.Blocked);
+
+            // IMAP/POP3 have no junk API: just move. Exchange/Gmail/Outlook go through ChangeJunkState so the
+            // provider can also add the sender to its server-side blocked list (EWS MarkAsJunk, MAPI junk rule).
+            if (mailItem.AssignedAccount.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3)
+                return new MoveRequest(mailItem, mailItem.AssignedFolder, junkFolder);
+
+            return new ChangeJunkStateRequest(true, mailItem, mailItem.AssignedFolder, junkFolder);
+        }
+        else if (action == MailOperation.NeverBlockSender)
+        {
+            var inboxFolder = await _folderService.GetSpecialFolderByAccountIdAsync(mailItem.AssignedAccount.Id, SpecialFolderType.Inbox)
+                ?? throw new UnavailableSpecialFolderException(SpecialFolderType.Inbox, mailItem.AssignedAccount.Id);
+
+            // Mark the sender safe; AddSenderAsync drops it from the blocked list.
+            await _junkSenderService.AddSenderAsync(mailItem.AssignedAccount.Id, mailItem.FromAddress, JunkListType.Safe);
+
+            // Items already in the Inbox only need the list edit. IMAP/POP3 just move back to Inbox; the
+            // other providers go through ChangeJunkState, which un-blocks the sender server-side as well.
+            if (mailItem.AssignedFolder?.SpecialFolderType != SpecialFolderType.Junk)
+                return null;
+
+            if (mailItem.AssignedAccount.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3)
+                return new MoveRequest(mailItem, mailItem.AssignedFolder, inboxFolder);
+
+            return new ChangeJunkStateRequest(false, mailItem, mailItem.AssignedFolder, inboxFolder);
         }
         else if (action is MailOperation.MoveToFocused or MailOperation.MoveToOther
                  or MailOperation.AlwaysMoveToFocused or MailOperation.AlwaysMoveToOther)
