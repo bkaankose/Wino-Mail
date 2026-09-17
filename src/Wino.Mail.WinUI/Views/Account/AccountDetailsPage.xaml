@@ -515,6 +515,25 @@
                         Style="{ThemeResource AccentButtonStyle}" />
                 </controls:SettingsCard>
 
+                <!--  Exchange only: read-only browsing of public folders and the online archive in the folder list.  -->
+                <controls:SettingsExpander
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsExpanderRemoteFolders"
+                    Description="{x:Bind domain:Translator.AccountDetailsPage_RemoteFolders_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.AccountDetailsPage_RemoteFolders_Title, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsExchangeServer, Mode=OneWay}">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8B7;" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountDetailsPageShowPublicFoldersCard" Header="{x:Bind domain:Translator.AccountDetailsPage_ShowPublicFolders_Title, Mode=OneTime}">
+                            <ToggleSwitch AutomationProperties.AutomationId="AccountDetailsPageShowPublicFoldersToggle" IsOn="{x:Bind ViewModel.ArePublicFoldersVisible, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountDetailsPageShowOnlineArchiveCard" Header="{x:Bind domain:Translator.AccountDetailsPage_ShowOnlineArchive_Title, Mode=OneTime}">
+                            <ToggleSwitch AutomationProperties.AutomationId="AccountDetailsPageShowOnlineArchiveToggle" IsOn="{x:Bind ViewModel.AreOnlineArchivesVisible, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+
 
 
                 <controls:SettingsExpander

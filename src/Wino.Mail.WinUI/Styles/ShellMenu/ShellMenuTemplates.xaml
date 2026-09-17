@@ -372,6 +372,58 @@
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
+    <!--
+        Read-only remote tree nodes: Exchange public folders and the online archive. Children load
+        lazily on the first expansion; only mail folders select and open, placeholder rows are inert.
+    -->
+    <DataTemplate x:Key="RemoteFolderMenuTemplate" x:DataType="menu:RemoteFolderMenuItem">
+        <coreControls:WinoNavigationViewItem
+            MinHeight="40"
+            AutomationProperties.AutomationId="ShellRemoteFolderItem"
+            AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
+            DataContext="{x:Bind}"
+            FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
+            IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsPlaceholder)}"
+            IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
+            IsSelected="{x:Bind IsSelected, Mode=TwoWay}"
+            MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
+            SelectsOnInvoked="{x:Bind CanOpen}"
+            ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
+            <coreControls:WinoNavigationViewItem.ContextFlyout>
+                <coreControls:WinoMenuFlyout>
+                    <MenuFlyoutItem
+                        AutomationProperties.AutomationId="RemoteFolderContextPinMenuItem"
+                        Command="{x:Bind TogglePinCommand}"
+                        IsEnabled="{x:Bind CanPin}"
+                        Text="{x:Bind PinActionText, Mode=OneWay}">
+                        <MenuFlyoutItem.Icon>
+                            <SymbolIcon Symbol="Pin" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                </coreControls:WinoMenuFlyout>
+            </coreControls:WinoNavigationViewItem.ContextFlyout>
+            <coreControls:WinoNavigationViewItem.Icon>
+                <coreControls:WinoFontIcon FontSize="86" Icon="{x:Bind helpers:XamlHelpers.GetRemoteFolderIcon(Kind, IsOnlineArchive, IsRoot, IsPlaceholder)}" />
+            </coreControls:WinoNavigationViewItem.Icon>
+            <muxc:NavigationViewItem.Content>
+                <Grid
+                    x:Name="RemoteFolderBackgroundGrid"
+                    MaxHeight="36"
+                    Padding="2"
+                    VerticalAlignment="Center">
+                    <TextBlock
+                        x:Name="RemoteFolderTitle"
+                        VerticalAlignment="Center"
+                        FontStyle="{x:Bind helpers:XamlHelpers.GetRemoteFolderFontStyle(IsPlaceholder)}"
+                        FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightBySyncState(IsSelected), Mode=OneWay}"
+                        Style="{StaticResource BodyTextBlockStyle}"
+                        Text="{x:Bind FolderName, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                </Grid>
+            </muxc:NavigationViewItem.Content>
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
     <DataTemplate x:Key="MailCategoryMenuTemplate" x:DataType="menu:MailCategoryMenuItem">
         <coreControls:WinoNavigationViewItem
             MinHeight="40"

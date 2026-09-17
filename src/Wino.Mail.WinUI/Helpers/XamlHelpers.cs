@@ -788,9 +788,33 @@ public static class XamlHelpers
             SpecialFolderType.Social => WinoIconGlyph.SpecialFolderSocial,
             SpecialFolderType.Other => WinoIconGlyph.SpecialFolderOther,
             SpecialFolderType.More => WinoIconGlyph.SpecialFolderMore,
+            SpecialFolderType.PublicFolders => WinoIconGlyph.Folder,
+            SpecialFolderType.OnlineArchive => WinoIconGlyph.SpecialFolderArchive,
             _ => WinoIconGlyph.None,
         };
     }
+
+    /// <summary>
+    /// The icon of a read-only remote tree node: the roots show the tree they open, children show the surface
+    /// their container class maps to, and placeholder rows show no icon so they read as a status, not a folder.
+    /// </summary>
+    public static WinoIconGlyph GetRemoteFolderIcon(PublicFolderKind kind, bool isOnlineArchive, bool isRoot, bool isPlaceholder)
+    {
+        if (isPlaceholder)
+            return WinoIconGlyph.None;
+
+        if (isRoot)
+            return isOnlineArchive ? WinoIconGlyph.SpecialFolderArchive : WinoIconGlyph.Folder;
+
+        return kind switch
+        {
+            PublicFolderKind.Calendar => WinoIconGlyph.Calendar,
+            PublicFolderKind.Contacts => WinoIconGlyph.People,
+            _ => WinoIconGlyph.Folder,
+        };
+    }
+
+    public static FontStyle GetRemoteFolderFontStyle(bool isPlaceholder) => isPlaceholder ? FontStyle.Italic : FontStyle.Normal;
 
 
     public static WinoIconGlyph GetProviderIcon(MailProviderType providerType, SpecialImapProvider specialImapProvider)

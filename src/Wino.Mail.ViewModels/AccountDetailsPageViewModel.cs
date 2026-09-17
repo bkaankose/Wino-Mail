@@ -49,6 +49,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     private readonly IAccountCapabilityService _accountCapabilityService;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IWinoIntelligenceEntitlementService? _entitlementService;
+    private readonly IPublicFolderFavoriteService? _publicFolderFavoriteService;
     private bool isLoaded = false;
 
     [ObservableProperty]
@@ -244,8 +245,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IWinoLogger winoLogger,
         IAccountCapabilityService accountCapabilityService,
         ISynchronizationManager synchronizationManager,
-        IWinoIntelligenceEntitlementService? entitlementService = null)
+        IWinoIntelligenceEntitlementService? entitlementService = null,
+        IPublicFolderFavoriteService? publicFolderFavoriteService = null)
     {
+        _publicFolderFavoriteService = publicFolderFavoriteService;
         _dialogService = dialogService;
         _accountService = accountService;
         _folderService = folderService;
@@ -303,6 +306,47 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     [RelayCommand]
     private Task ManageInboxRulesAsync()
         => Account is null ? Task.CompletedTask : _dialogService.ShowInboxRulesManagerAsync(Account);
+
+    // The read-only remote trees (public folders, online archive) are hidden by default; each toggle is
+    // app-wide and takes effect by rebuilding the loaded account's folder list.
+
+    /// <summary>Whether the "Public Folders" tree root is shown under Exchange accounts.</summary>
+    public bool ArePublicFoldersVisible
+    {
+        get => _publicFolderFavoriteService?.ArePublicFoldersVisible ?? false;
+        set
+        {
+            if (_publicFolderFavoriteService is null || value == _publicFolderFavoriteService.ArePublicFoldersVisible)
+                return;
+
+            _publicFolderFavoriteService.ArePublicFoldersVisible = value;
+            OnPropertyChanged();
+            NotifyFolderStructureChanged();
+        }
+    }
+
+    /// <summary>Whether the read-only "Online Archive" tree root is shown under Exchange accounts.</summary>
+    public bool AreOnlineArchivesVisible
+    {
+        get => _publicFolderFavoriteService?.AreOnlineArchivesVisible ?? false;
+        set
+        {
+            if (_publicFolderFavoriteService is null || value == _publicFolderFavoriteService.AreOnlineArchivesVisible)
+                return;
+
+            _publicFolderFavoriteService.AreOnlineArchivesVisible = value;
+            OnPropertyChanged();
+            NotifyFolderStructureChanged();
+        }
+    }
+
+    private void NotifyFolderStructureChanged()
+    {
+        if (Account is not null)
+        {
+            Messenger.Send(new AccountFolderConfigurationUpdated(Account.Id));
+        }
+    }
 
     [RelayCommand]
     private void CustomizeFolderList()

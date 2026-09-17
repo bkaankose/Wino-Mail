@@ -43,6 +43,7 @@
             NewTaskListTemplate="{StaticResource NewTaskListTemplate}"
             PlannedTaskTemplate="{StaticResource PlannedTaskTemplate}"
             RatingItemTemplate="{StaticResource RatingItemTemplate}"
+            RemoteFolderMenuTemplate="{StaticResource RemoteFolderMenuTemplate}"
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
             SettingsShellGroupItemTemplate="{StaticResource SettingsShellGroupItemTemplate}"
             SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
