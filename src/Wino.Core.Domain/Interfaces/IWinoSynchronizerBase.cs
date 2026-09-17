@@ -4,8 +4,10 @@ using System.Threading.Tasks;
 using MailKit;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Rules;
 using Wino.Core.Domain.Models.Synchronization;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -55,4 +57,30 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
     /// <returns>Search results after downloading missing mail copies from server.</returns>
     Task<List<MailCopy>> OnlineSearchAsync(RemoteMailSearchCriteria criteria, List<IMailItemFolder> folders, CancellationToken cancellationToken = default);
     Task DownloadCalendarAttachmentAsync(CalendarItem calendarItem, CalendarAttachment attachment, string localFilePath, CancellationToken cancellationToken);
+
+    // Direct request/response surfaces (not queued mutations): the Exchange provider overrides these,
+    // everything else keeps the defaults. Defaults live here so fakes and the local synchronizers
+    // stay untouched.
+
+    /// <summary>Whether this provider exposes server-side inbox rules (currently Exchange only).</summary>
+    bool SupportsInboxRules => false;
+
+    /// <summary>Reads the account's server-side inbox rules. Throws <see cref="System.NotSupportedException"/> when unsupported.</summary>
+    Task<IReadOnlyList<RemoteInboxRule>> GetInboxRulesAsync(CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
+
+    /// <summary>
+    /// Applies a batch of create/update/delete changes to the account's server-side inbox rules.
+    /// <paramref name="removeOutlookRuleBlob"/> clears classic Outlook's legacy rule blob when the server
+    /// reports it blocks updates; only pass true after user consent (Outlook client-only rules are lost).
+    /// </summary>
+    Task<InboxRuleUpdateResult> UpdateInboxRulesAsync(IReadOnlyList<InboxRuleChange> changes, bool removeOutlookRuleBlob = false, CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
+
+    /// <summary>Whether this provider keeps a server-side Safe/Blocked senders list that <see cref="UpdateServerJunkListAsync"/> can edit.</summary>
+    bool SupportsServerJunkLists => false;
+
+    /// <summary>Adds or removes <paramref name="address"/> on the provider's Safe or Blocked senders list.</summary>
+    Task UpdateServerJunkListAsync(string address, JunkListType listType, bool add, CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
 }

@@ -166,6 +166,7 @@ VALUES
             Connection.CreateTableAsync<MergedInbox>(),
             Connection.CreateTableAsync<MailAccountPreferences>(),
             Connection.CreateTableAsync<MailAccountAlias>(),
+            Connection.CreateTableAsync<JunkSender>(),
             Connection.CreateTableAsync<Thumbnail>(),
             Connection.CreateTableAsync<KeyboardShortcut>(),
             Connection.CreateTableAsync<AccountCalendar>(),

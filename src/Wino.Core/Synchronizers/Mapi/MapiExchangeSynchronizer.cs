@@ -20,6 +20,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Domain.Models.Rules;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Requests;
@@ -31,6 +32,7 @@ using Wino.Core.Synchronizers.Exchange;
 using Wino.Mapi;
 using Wino.Mapi.Calendar;
 using Wino.Mapi.Rops;
+using Wino.Mapi.Rules;
 using Wino.Mapi.Transport;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
@@ -794,15 +796,239 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
     }
 
     /// <summary>
-    /// Junk is a move to or from the target folder. The server's Blocked Senders list lives in the junk
-    /// rule's condition; editing it arrives with the junk-list surface, so for now the move stands alone.
+    /// Junk is a move to or from the target folder plus the server's Blocked Senders list, which
+    /// lives in the junk rule's condition: marking junk adds the sender there (and drops it from
+    /// the safe lists), marking not-junk removes it, the same edits EWS MarkAsJunk makes. The list
+    /// edit is best effort: the move stands even if the rule cannot be rewritten.
     /// </summary>
     public override List<IRequestBundle<EwsRequest>> ChangeJunkState(BatchChangeJunkStateRequest requests)
     {
         if (requests == null || requests.Count == 0)
             return [];
 
-        return Move(new BatchMoveRequest(requests.Select(r => new MoveRequest(r.Item, r.FromFolder, r.TargetFolder))));
+        var bundles = Move(new BatchMoveRequest(requests.Select(r => new MoveRequest(r.Item, r.FromFolder, r.TargetFolder))));
+
+        var senders = requests
+            .Where(r => !string.IsNullOrWhiteSpace(r.Item.FromAddress) && r.Item.FromAddress.Contains('@'))
+            .Select(r => (r.IsJunk, Address: JunkRuleEditor.Normalize(r.Item.FromAddress)))
+            .Distinct()
+            .ToList();
+        if (senders.Count == 0)
+            return bundles;
+
+        bundles.AddRange(MapiBundle(async session =>
+        {
+            try
+            {
+                var inbox = session.Logon!.InboxFolderId;
+                var written = await MapiRulesOperations.UpdateJunkRuleAsync(session, inbox, root =>
+                {
+                    foreach (var (isJunk, address) in senders)
+                    {
+                        if (isJunk) JunkRuleEditor.Block(root, address);
+                        else JunkRuleEditor.Unblock(root, address);
+                    }
+                    return root;
+                }, CancellationToken.None, Diagnostics).ConfigureAwait(false);
+
+                if (written)
+                {
+                    Logger.Information("MAPI junk {Account}: blocked senders updated ({Blocked} blocked, {Unblocked} unblocked).", Account.Address, senders.Count(s => s.IsJunk), senders.Count(s => !s.IsJunk));
+                    await ImportServerJunkListsAsync(session, inbox, CancellationToken.None).ConfigureAwait(false);
+                }
+                else
+                {
+                    Logger.Debug("MAPI junk {Account}: no junk rule on the server; blocked senders not updated.", Account.Address);
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Logger.Warning(ex, "MAPI junk {Account}: the server's blocked senders could not be updated; the move stands.", Account.Address);
+            }
+        }, requests[0], requests));
+
+        return bundles;
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // Inbox rules: the rules table of the Inbox, read and written over RopGetRulesTable /
+    // RopModifyRules. Same DTO subset and fidelity guard as the EWS path; the classic Outlook rule
+    // blob (IPM.RuleOrganizer) is detected and removed only with the user's consent, as EWS does.
+    // ------------------------------------------------------------------------------------------------
+
+    private static string? FolderKey(MailItemFolder folder) => folder.RemoteFolderId ?? folder.MapiFolderId;
+
+    private static ulong ParseFolderId(MailItemFolder folder) => TryParseFolderId(folder, out var id) ? id : 0;
+
+    public override async Task<IReadOnlyList<RemoteInboxRule>> GetInboxRulesAsync(CancellationToken cancellationToken = default)
+    {
+        var folders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var inboxId = RequireFolderId(folders.FirstOrDefault(f => f.SpecialFolderType == SpecialFolderType.Inbox));
+
+        await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+        var session = lease.Session;
+
+        var rows = await MapiRulesOperations.ReadRulesAsync(session, inboxId, cancellationToken, RulesDiagnostics).ConfigureAwait(false);
+
+        // Only Outlook/OWA-managed rules are the user's; delegate and other provider rules stay hidden, as on EWS.
+        var userRules = rows.Where(r => string.Equals(r.Provider, PropertyTags.RuleOrganizerProvider, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        uint? keywordsTag = null;
+        if (userRules.Any(r => r.Actions?.Any(a => a.Type == Wino.Mapi.Rules.RuleActionType.Tag) == true))
+            keywordsTag = await TryResolveKeywordsTagAsync(session, cancellationToken).ConfigureAwait(false);
+
+        var byMapiId = folders.Where(f => TryParseFolderId(f, out _)).ToDictionary(f => ParseFolderId(f), f => f);
+        var rules = userRules
+            .Select(r => MapiRuleMapper.ToDto(r, id => byMapiId.TryGetValue(id, out var folder) ? FolderKey(folder) : null, keywordsTag))
+            .OrderBy(r => r.Priority)
+            .ToList();
+
+        Logger.Information("MAPI rules {Account}: {Count} rules ({ReadOnly} read-only).", Account.Address, rules.Count, rules.Count(r => r.IsReadOnly));
+        return rules;
+    }
+
+    public override async Task<InboxRuleUpdateResult> UpdateInboxRulesAsync(IReadOnlyList<InboxRuleChange> changes, bool removeOutlookRuleBlob = false, CancellationToken cancellationToken = default)
+    {
+        if (changes == null || changes.Count == 0)
+            return InboxRuleUpdateResult.Ok;
+
+        var folders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var inboxId = RequireFolderId(folders.FirstOrDefault(f => f.SpecialFolderType == SpecialFolderType.Inbox));
+        var byKey = folders
+            .Where(f => TryParseFolderId(f, out _) && FolderKey(f) is not null)
+            .GroupBy(f => FolderKey(f)!)
+            .ToDictionary(g => g.Key, g => ParseFolderId(g.First()));
+
+        try
+        {
+            await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+            var session = lease.Session;
+
+            // The Outlook rule blob is only removed with explicit user consent: while a mailbox's rules are
+            // held by classic Outlook's blob, a table write would leave the two out of step. Callers surface
+            // the refusal as a consent prompt and retry with removeOutlookRuleBlob.
+            var blob = await MapiRulesOperations.FindOutlookRuleBlobAsync(session, inboxId, cancellationToken).ConfigureAwait(false);
+            if (blob is { } blobId)
+            {
+                if (!removeOutlookRuleBlob)
+                {
+                    Logger.Warning("MAPI rules {Account}: update blocked by the classic Outlook rule blob.", Account.Address);
+                    return new InboxRuleUpdateResult
+                    {
+                        Success = false,
+                        Errors = new[] { Translator.Rules_OutlookBlobExists },
+                        RequiresOutlookRuleBlobRemoval = true
+                    };
+                }
+
+                await MapiRulesOperations.DeleteFaiMessageAsync(session, inboxId, blobId, cancellationToken).ConfigureAwait(false);
+                Logger.Information("MAPI rules {Account}: removed the classic Outlook rule blob with consent.", Account.Address);
+            }
+
+            uint? keywordsTag = null;
+            if (changes.Any(c => c.Rule is not null && MapiRuleMapper.NeedsKeywordsTag(c.Rule)))
+                keywordsTag = await MapiRulesOperations.ResolveKeywordsTagAsync(session, cancellationToken).ConfigureAwait(false);
+
+            foreach (var change in changes)
+            {
+                switch (change.Kind)
+                {
+                    case InboxRuleChangeKind.Create:
+                        await MapiRulesOperations.AddRuleAsync(session, inboxId, MapiRuleMapper.ToDefinition(change.Rule, key => byKey.TryGetValue(key, out var id) ? id : null, keywordsTag), cancellationToken, RulesDiagnostics).ConfigureAwait(false);
+                        break;
+
+                    case InboxRuleChangeKind.Update:
+                        if (!MapiRuleMapper.TryParseRuleId(change.Rule?.Id, out var updateId))
+                            return InboxRuleUpdateResult.Failed($"Rule '{change.Rule?.Name}' has no server id.");
+                        await MapiRulesOperations.UpdateRuleAsync(session, inboxId, updateId, MapiRuleMapper.ToDefinition(change.Rule, key => byKey.TryGetValue(key, out var id) ? id : null, keywordsTag), cancellationToken, RulesDiagnostics).ConfigureAwait(false);
+                        break;
+
+                    case InboxRuleChangeKind.Delete:
+                        if (!MapiRuleMapper.TryParseRuleId(change.RuleId, out var deleteId))
+                            return InboxRuleUpdateResult.Failed("The rule has no server id.");
+                        await MapiRulesOperations.DeleteRuleAsync(session, inboxId, deleteId, cancellationToken, RulesDiagnostics).ConfigureAwait(false);
+                        break;
+                }
+            }
+
+            return InboxRuleUpdateResult.Ok;
+        }
+        catch (NotSupportedException ex)
+        {
+            return InboxRuleUpdateResult.Failed(ex.Message);
+        }
+        catch (MapiException ex)
+        {
+            Logger.Warning(ex, "MAPI rules {Account}: update failed.", Account.Address);
+            return InboxRuleUpdateResult.Failed(ex.Message);
+        }
+    }
+
+    private void RulesDiagnostics(string line) => Logger.Debug("MAPI rules {Account}: {Line}", Account.Address, line);
+
+    private async Task<uint?> TryResolveKeywordsTagAsync(MapiSession session, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await MapiRulesOperations.ResolveKeywordsTagAsync(session, cancellationToken).ConfigureAwait(false);
+        }
+        catch (MapiException ex)
+        {
+            Logger.Debug(ex, "MAPI rules {Account}: the Keywords property could not be resolved; category actions read as unsupported.", Account.Address);
+            return null;
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // Junk lists: the server's Blocked and Safe senders live in the junk rule's condition, which EWS
+    // never exposed. They are merged into the account's local lists on each folder pass (one-way,
+    // server to local; local-only entries survive), and an edit from the settings page goes straight
+    // to the server through UpdateServerJunkListAsync.
+    // ------------------------------------------------------------------------------------------------
+
+    /// <summary>Failure here never fails the folder sync.</summary>
+    private async Task ImportServerJunkListsAsync(MapiSession session, ulong inboxFolderId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var lists = await MapiRulesOperations.ReadJunkListsAsync(session, inboxFolderId, cancellationToken, Diagnostics).ConfigureAwait(false);
+            if (lists is null)
+            {
+                Logger.Debug("MAPI junk {Account}: the mailbox has no junk rule.", Account.Address);
+                return;
+            }
+
+            var blocked = await ExchangeChangeProcessor.ImportJunkSendersAsync(Account.Id, JunkListType.Blocked, lists.BlockedSenders).ConfigureAwait(false);
+            var safe = await ExchangeChangeProcessor.ImportJunkSendersAsync(Account.Id, JunkListType.Safe, lists.SafeSenders).ConfigureAwait(false);
+            if (blocked > 0 || safe > 0)
+                Logger.Information("MAPI junk {Account}: imported {Blocked} blocked and {Safe} safe senders from the server (server holds {ServerBlocked}/{ServerSafe}).",
+                    Account.Address, blocked, safe, lists.BlockedSenders.Count, lists.SafeSenders.Count);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.Warning(ex, "MAPI junk {Account}: server junk lists could not be read; local lists unchanged.", Account.Address);
+        }
+    }
+
+    public override bool SupportsServerJunkLists => true;
+
+    public override async Task UpdateServerJunkListAsync(string address, JunkListType listType, bool add, CancellationToken cancellationToken = default)
+    {
+        await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+        var session = lease.Session;
+        var inbox = session.Logon!.InboxFolderId;
+        var written = await MapiRulesOperations.UpdateJunkRuleAsync(session, inbox, root => (listType, add) switch
+        {
+            (JunkListType.Blocked, true) => JunkRuleEditor.Block(root, address),
+            (JunkListType.Blocked, false) => JunkRuleEditor.Unblock(root, address),
+            (_, true) => JunkRuleEditor.Trust(root, address),
+            _ => JunkRuleEditor.Untrust(root, address),
+        }, cancellationToken, Diagnostics).ConfigureAwait(false);
+
+        if (!written)
+            throw new InvalidOperationException("The mailbox has no junk rule to hold the list.");
+
+        Logger.Information("MAPI junk {Account}: {List} list {Action} {Address}.", Account.Address, listType, add ? "gained" : "dropped", address);
     }
 
     /// <summary>Soft delete: a move to Deleted Items; an item already there is hard-deleted.</summary>
@@ -1108,6 +1334,8 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
                 [logon.SentItemsFolderId] = SpecialFolderType.Sent,
                 [logon.DeletedItemsFolderId] = SpecialFolderType.Deleted,
             };
+
+            await ImportServerJunkListsAsync(session, logon.InboxFolderId, cancellationToken).ConfigureAwait(false);
         }
 
         foreach (var folder in remoteFolders)

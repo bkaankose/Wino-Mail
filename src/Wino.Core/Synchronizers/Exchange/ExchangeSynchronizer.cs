@@ -20,6 +20,7 @@ using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Requests;
+using Wino.Core.Domain.Models.Rules;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.Tasks;
 using Wino.Core.Extensions;
@@ -2096,6 +2097,161 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         return Bundle(service => service.MarkAsJunk(ids, isJunk, true, default), requests[0], requests);
     }
+
+    #region Inbox rules
+
+    // Server-side inbox rules are a direct request/response (the manager dialog reads them and reports
+    // save success synchronously), not a queued mutation. The EWS NETCore signatures take the
+    // CancellationToken LAST: GetInboxRules(ct) and UpdateInboxRules(operations, removeOutlookRuleBlob, ct).
+    public override bool SupportsInboxRules => true;
+
+    public override async Task<IReadOnlyList<RemoteInboxRule>> GetInboxRulesAsync(CancellationToken cancellationToken = default)
+    {
+        var service = await CreateServiceAsync().ConfigureAwait(false);
+        var ruleCollection = await service.GetInboxRules(cancellationToken).ConfigureAwait(false);
+
+        var rules = new List<RemoteInboxRule>();
+        foreach (var rule in ruleCollection)
+            rules.Add(ExchangeRuleMapper.ToDto(rule));
+
+        // EWS returns internal recipients as legacy X500/EX distinguished names; resolve them to SMTP so
+        // the UI shows a readable address and run-now matches exactly. Best-effort + cached per read; the
+        // DN is kept on failure (run-now still matches it by the sender's display name).
+        var smtpCache = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var dto in rules)
+        {
+            foreach (var condition in dto.Conditions.Where(c => c.Field is RuleConditionField.From or RuleConditionField.SentTo))
+                condition.Value = await ResolveAddressListToSmtpAsync(service, condition.Value, smtpCache, cancellationToken).ConfigureAwait(false);
+
+            foreach (var action in dto.Actions.Where(a => a.Type == RuleActionType.Forward))
+                action.Value = await ResolveAddressListToSmtpAsync(service, action.Value, smtpCache, cancellationToken).ConfigureAwait(false);
+        }
+
+        return rules.OrderBy(r => r.Priority).ToList();
+    }
+
+    private static bool IsExchangeLegacyDn(string value)
+        => !string.IsNullOrEmpty(value)
+           && (value.StartsWith("/o=", StringComparison.OrdinalIgnoreCase) || value.Contains("/cn=", StringComparison.OrdinalIgnoreCase));
+
+    private static string StripSmtpPrefix(string address)
+        => address != null && address.StartsWith("smtp:", StringComparison.OrdinalIgnoreCase) ? address.Substring(5) : address;
+
+    // Rewrites a comma/semicolon-separated address list, replacing any legacy EX DN with its SMTP address.
+    private async Task<string> ResolveAddressListToSmtpAsync(ExchangeService service, string value, IDictionary<string, string> cache, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(value) || !IsExchangeLegacyDn(value))
+            return value;
+
+        var resolved = new List<string>();
+        foreach (var part in value.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+        {
+            var trimmed = part.Trim();
+            resolved.Add(IsExchangeLegacyDn(trimmed)
+                ? await ResolveLegacyDnToSmtpAsync(service, trimmed, cache, cancellationToken).ConfigureAwait(false) ?? trimmed
+                : trimmed);
+        }
+
+        return string.Join(", ", resolved);
+    }
+
+    private async Task<string> ResolveLegacyDnToSmtpAsync(ExchangeService service, string dn, IDictionary<string, string> cache, CancellationToken cancellationToken)
+    {
+        if (cache.TryGetValue(dn, out var cached))
+            return cached;
+
+        string smtp = null;
+        try
+        {
+            var resolutions = await service
+                .ResolveName(dn, ResolveNameSearchLocation.DirectoryOnly, returnContactDetails: true, cancellationToken)
+                .ConfigureAwait(false);
+
+            var resolution = resolutions.FirstOrDefault();
+            if (resolution != null)
+            {
+                var mailbox = resolution.Mailbox?.Address;
+                if (!string.IsNullOrEmpty(mailbox) && mailbox.Contains('@'))
+                {
+                    smtp = StripSmtpPrefix(mailbox);
+                }
+                else if (resolution.Contact?.EmailAddresses != null)
+                {
+                    foreach (var key in new[] { EmailAddressKey.EmailAddress1, EmailAddressKey.EmailAddress2, EmailAddressKey.EmailAddress3 })
+                    {
+                        if (resolution.Contact.EmailAddresses.TryGetValue(key, out var emailAddress)
+                            && emailAddress?.Address?.Contains('@') == true)
+                        {
+                            smtp = StripSmtpPrefix(emailAddress.Address);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Could not resolve EX address to SMTP for {Account}.", Account.Name);
+        }
+
+        cache[dn] = smtp;
+        return smtp;
+    }
+
+    public override async Task<InboxRuleUpdateResult> UpdateInboxRulesAsync(IReadOnlyList<InboxRuleChange> changes, bool removeOutlookRuleBlob = false, CancellationToken cancellationToken = default)
+    {
+        if (changes == null || changes.Count == 0)
+            return InboxRuleUpdateResult.Ok;
+
+        var operations = new List<RuleOperation>();
+        foreach (var change in changes)
+        {
+            switch (change.Kind)
+            {
+                case InboxRuleChangeKind.Create:
+                    operations.Add(new CreateRuleOperation(ExchangeRuleMapper.ToEwsRule(change.Rule)));
+                    break;
+                case InboxRuleChangeKind.Update:
+                    operations.Add(new SetRuleOperation(ExchangeRuleMapper.ToEwsRule(change.Rule)));
+                    break;
+                case InboxRuleChangeKind.Delete:
+                    operations.Add(new DeleteRuleOperation(change.RuleId));
+                    break;
+            }
+        }
+
+        if (operations.Count == 0)
+            return InboxRuleUpdateResult.Ok;
+
+        var service = await CreateServiceAsync().ConfigureAwait(false);
+
+        try
+        {
+            // The Outlook rule blob is only removed with explicit user consent: when a mailbox's rules
+            // were last managed by classic Outlook, EWS rejects updates (ErrorOutlookRuleBlobExists)
+            // until the blob is cleared. Callers surface that as a consent prompt and retry with true.
+            await service.UpdateInboxRules(operations, removeOutlookRuleBlob, cancellationToken).ConfigureAwait(false);
+            return InboxRuleUpdateResult.Ok;
+        }
+        catch (UpdateInboxRulesException ex) when (ex.ErrorCode == ServiceError.ErrorOutlookRuleBlobExists)
+        {
+            _logger.Warning("UpdateInboxRules blocked by the classic Outlook rule blob for {Account}.", Account.Name);
+            return new InboxRuleUpdateResult
+            {
+                Success = false,
+                Errors = new[] { Translator.Rules_OutlookBlobExists },
+                RequiresOutlookRuleBlobRemoval = true
+            };
+        }
+        catch (UpdateInboxRulesException ex)
+        {
+            _logger.Warning(ex, "UpdateInboxRules reported errors for {Account}: {Code} {Message}", Account.Name, ex.ErrorCode, ex.ErrorMessage);
+            var message = string.IsNullOrWhiteSpace(ex.ErrorMessage) ? ex.ErrorCode.ToString() : ex.ErrorMessage;
+            return InboxRuleUpdateResult.Failed(message);
+        }
+    }
+
+    #endregion
 
     public override List<IRequestBundle<EwsRequest>> Delete(BatchDeleteRequest requests)
     {

@@ -58,6 +58,9 @@ public static class ServicesContainerSetup
         services.AddTransient<ITaskQueryService>(provider => provider.GetRequiredService<ITaskService>());
         services.AddTransient<ISignatureService, SignatureService>();
         services.AddTransient<IEmailTemplateService, EmailTemplateService>();
+        services.AddTransient<IRuleService, RuleService>();
+        services.AddTransient<IJunkSenderService, JunkSenderService>();
+        services.AddTransient<IServerJunkListService, ServerJunkListService>();
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
         services.AddTransient<ICalendarContextMenuItemService, CalendarContextMenuItemService>();
         services.AddSingleton<IKnownImapProviderCatalogLoader, KnownImapProviderCatalogLoader>();

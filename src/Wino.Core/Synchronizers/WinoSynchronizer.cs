@@ -17,6 +17,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Rules;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Helpers;
 using Wino.Core.Requests.Bundles;
@@ -1056,6 +1057,27 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <exception cref="NotSupportedException"></exception>
     public virtual Task<List<MailCopy>> OnlineSearchAsync(RemoteMailSearchCriteria criteria, List<IMailItemFolder> folders, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
+    #region Inbox rules and junk lists
+
+    // Server-side inbox rules and the Safe/Blocked senders lists are read and written directly (a
+    // dialog reads rules and reports save success synchronously) rather than through the queued
+    // request pipeline, so they live on the non-generic IWinoSynchronizerBase and default to
+    // NotSupported here; only the Exchange synchronizers override them.
+    public virtual bool SupportsInboxRules => false;
+
+    public virtual Task<IReadOnlyList<RemoteInboxRule>> GetInboxRulesAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
+    public virtual Task<InboxRuleUpdateResult> UpdateInboxRulesAsync(IReadOnlyList<InboxRuleChange> changes, bool removeOutlookRuleBlob = false, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
+    public virtual bool SupportsServerJunkLists => false;
+
+    public virtual Task UpdateServerJunkListAsync(string address, JunkListType listType, bool add, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
+    #endregion
 
     public List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(Func<IImapClient, IRequestBase, Task> action, IRequestBase request, IUIChangeRequest uIChangeRequest)
     {

@@ -37,10 +37,18 @@ public interface IExchangeChangeProcessor : IDefaultChangeProcessor
 
     /// <summary>The series masters stored for a calendar (rows with a rule and no parent), for deletion reconciliation.</summary>
     Task<List<CalendarItem>> GetRecurringMastersAsync(AccountCalendar calendar);
+
+    /// <summary>
+    /// Merges server-side junk lists (read from the mailbox's junk rule over MAPI) into the account's
+    /// local Blocked / Safe senders. One-way: local-only entries are kept. Returns the number added.
+    /// </summary>
+    Task<int> ImportJunkSendersAsync(Guid accountId, JunkListType listType, IEnumerable<string> addresses);
 }
 
 public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangeProcessor
 {
+    private readonly IJunkSenderService _junkSenderService;
+
     public ExchangeChangeProcessor(IDatabaseService databaseService,
                                    IFolderService folderService,
                                    IMailService mailService,
@@ -48,13 +56,18 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
                                    IAccountService accountService,
                                    IMimeFileService mimeFileService,
                                    IContactService contactService = null,
-                                   ITaskService taskService = null)
+                                   ITaskService taskService = null,
+                                   IJunkSenderService junkSenderService = null)
         : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
     {
+        _junkSenderService = junkSenderService;
     }
 
     public Task UpdateAccountServerInformationAsync(CustomServerInformation serverInformation)
         => AccountService.UpdateAccountCustomServerInformationAsync(serverInformation);
+
+    public Task<int> ImportJunkSendersAsync(Guid accountId, JunkListType listType, IEnumerable<string> addresses)
+        => _junkSenderService is null ? Task.FromResult(0) : _junkSenderService.ImportAsync(accountId, listType, addresses);
 
     public Task<List<CalendarItem>> GetCalendarItemsInRangeAsync(AccountCalendar calendar, DateTime startUtc, DateTime endUtc)
         => CalendarService.GetCalendarEventsAsync(calendar, new TimeRange(startUtc, endUtc));
