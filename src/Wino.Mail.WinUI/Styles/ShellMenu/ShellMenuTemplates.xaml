@@ -115,14 +115,22 @@
                         DataContext="{x:Bind}"
                         Tag="PublicFolders"
                         Text="{x:Bind domain:Translator.AccountDetailsPage_ShowPublicFolders_Title, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}">
+                        <ToggleMenuFlyoutItem.Icon>
+                            <coreControls:WinoFontIcon Icon="Folder" />
+                        </ToggleMenuFlyoutItem.Icon>
+                    </ToggleMenuFlyoutItem>
                     <ToggleMenuFlyoutItem
                         AutomationProperties.AutomationId="AccountContextShowOnlineArchiveMenuItem"
                         Click="ShowOnlineArchiveMenuItemClicked"
                         DataContext="{x:Bind}"
                         Tag="OnlineArchive"
                         Text="{x:Bind domain:Translator.AccountDetailsPage_ShowOnlineArchive_Title, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}">
+                        <ToggleMenuFlyoutItem.Icon>
+                            <coreControls:WinoFontIcon Icon="SpecialFolderArchive" />
+                        </ToggleMenuFlyoutItem.Icon>
+                    </ToggleMenuFlyoutItem>
                 </coreControls:WinoMenuFlyout>
             </controls:AccountNavigationItem.ContextFlyout>
             <muxc:NavigationViewItem.Icon>
