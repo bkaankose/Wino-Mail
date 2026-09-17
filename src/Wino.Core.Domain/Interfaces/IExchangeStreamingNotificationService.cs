@@ -22,6 +22,12 @@ public interface IExchangeStreamingNotificationService
     /// <summary>Stops and disposes the listener for the given account, if any.</summary>
     Task StopForAccountAsync(Guid accountId);
 
-    /// <summary>True when a push listener is active for the account (so the poll can be relaxed).</summary>
+    /// <summary>True while the account's push channel is open (so the poll can be relaxed).</summary>
     bool IsStreaming(Guid accountId);
+
+    /// <summary>
+    /// How many times the account's open push channel has closed. Server changes made while it was
+    /// closed were not pushed, so a relaxed poll reconciles once whenever this value moves.
+    /// </summary>
+    int GetInterruptionCount(Guid accountId);
 }

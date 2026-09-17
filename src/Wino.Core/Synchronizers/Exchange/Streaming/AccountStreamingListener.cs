@@ -46,6 +46,11 @@ internal sealed class AccountStreamingListener : IAccountNotificationListener
     private StreamingSubscription _subscription;
     private StreamingSubscriptionConnection _connection;
     private volatile bool _stopped;
+    private volatile bool _connected;
+    private int _interruptionCount;
+
+    public bool IsConnected => _connected && !_stopped;
+    public int InterruptionCount => Volatile.Read(ref _interruptionCount);
 
     public AccountStreamingListener(
         MailAccount account,
@@ -109,6 +114,7 @@ internal sealed class AccountStreamingListener : IAccountNotificationListener
         _connection.OnSubscriptionError += OnSubscriptionError;
         _connection.OnDisconnect += OnDisconnect;
         _connection.Open();
+        _connected = true;
 
         _logger.Information("EWS streaming connection opened for {Account} ({Url}).", _account.Name, server.IncomingServer);
     }
@@ -254,6 +260,13 @@ internal sealed class AccountStreamingListener : IAccountNotificationListener
         _connection = null;
         if (connection == null)
             return;
+
+        // Each reopen builds a new subscription, so whatever changed in between was not pushed.
+        if (_connected)
+        {
+            _connected = false;
+            Interlocked.Increment(ref _interruptionCount);
+        }
 
         connection.OnNotificationEvent -= OnNotificationEvent;
         connection.OnSubscriptionError -= OnSubscriptionError;

@@ -100,7 +100,13 @@ public sealed class ExchangeStreamingNotificationService : IExchangeStreamingNot
         }
     }
 
-    public bool IsStreaming(Guid accountId) => _listeners.ContainsKey(accountId);
+    // A listener that gave up (sign-in needed, protocol not offered) or is between reconnects stays
+    // registered, so being registered is not enough: the channel has to be open.
+    public bool IsStreaming(Guid accountId)
+        => _listeners.TryGetValue(accountId, out var listener) && listener.IsConnected;
+
+    public int GetInterruptionCount(Guid accountId)
+        => _listeners.TryGetValue(accountId, out var listener) ? listener.InterruptionCount : 0;
 
     public Task StopForAccountAsync(Guid accountId)
     {

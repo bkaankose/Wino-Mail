@@ -91,6 +91,10 @@ public partial class App : WinoApplication,
     private readonly SemaphoreSlim _activationInfrastructureSemaphore = new(1, 1);
     private readonly SemaphoreSlim _appHostInfrastructureSemaphore = new(1, 1);
     private readonly ConcurrentDictionary<Guid, int> _inboxSyncCounters = [];
+
+    // Exchange accounts with an open push channel are polled less often; each loop counts its own ticks.
+    private readonly Wino.Core.Services.PushAwarePollPolicy _mailPollPolicy = new();
+    private readonly Wino.Core.Services.PushAwarePollPolicy _calendarPollPolicy = new();
     private readonly AppNotificationHandler _notificationHandler;
     private readonly AppActivationHandler _activationHandler;
     private readonly DispatcherQueue? _applicationDispatcherQueue;
@@ -2390,6 +2394,9 @@ public partial class App : WinoApplication,
                 _inboxSyncCounters.TryRemove(staleAccountId, out _);
             }
 
+            _mailPollPolicy.Retain(currentAccountIds);
+            _calendarPollPolicy.Retain(currentAccountIds);
+
             var synchronizationTasks = accounts
                 .Select(account => ExecuteAutoSynchronizationForAccountAsync(account, cancellationToken))
                 .ToList();
@@ -2440,6 +2447,9 @@ public partial class App : WinoApplication,
         if (_synchronizationManager.IsAccountSynchronizing(account.Id))
             return;
 
+        if (GetPollDecision(_calendarPollPolicy, account) == Wino.Core.Services.PollDecision.Skip)
+            return;
+
         await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
         {
             AccountId = account.Id,
@@ -2455,6 +2465,12 @@ public partial class App : WinoApplication,
         cancellationToken.ThrowIfCancellationRequested();
 
         if (_synchronizationManager.IsAccountSynchronizing(account.Id))
+            return;
+
+        // While push delivers an Exchange account's changes, the tick is skipped and only a periodic full
+        // reconciliation runs as the safety net. Every other account always gets the ordinary poll.
+        var pollDecision = GetPollDecision(_mailPollPolicy, account);
+        if (pollDecision == Wino.Core.Services.PollDecision.Skip)
             return;
 
         if (account.IsContactAccessGranted)
@@ -2477,6 +2493,23 @@ public partial class App : WinoApplication,
 
         if (!account.IsMailAccessGranted)
             return;
+
+        if (pollDecision == Wino.Core.Services.PollDecision.Reconcile)
+        {
+            var reconcileResult = await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = MailSynchronizationType.FullFolders
+            }, cancellationToken);
+
+            if (reconcileResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
+            {
+                await ClearInvalidCredentialAttentionIfNeededAsync(account.Id);
+                _inboxSyncCounters[account.Id] = 0;
+            }
+
+            return;
+        }
 
         var inboxSyncOptions = new MailSynchronizationOptions
         {
@@ -2506,6 +2539,11 @@ public partial class App : WinoApplication,
         }
 
     }
+
+    private Wino.Core.Services.PollDecision GetPollDecision(Wino.Core.Services.PushAwarePollPolicy policy, Wino.Core.Domain.Entities.Shared.MailAccount account)
+        => account.ProviderType == MailProviderType.Exchange && _exchangeStreamingService is { } streamingService
+            ? policy.Next(account.Id, streamingService.IsStreaming(account.Id), streamingService.GetInterruptionCount(account.Id))
+            : Wino.Core.Services.PollDecision.Poll;
 
     private async Task ClearInvalidCredentialAttentionIfNeededAsync(Guid accountId)
     {

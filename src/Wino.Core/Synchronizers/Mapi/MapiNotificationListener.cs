@@ -45,6 +45,11 @@ internal sealed class MapiNotificationListener : IAccountNotificationListener
     private CancellationTokenSource? _loop;
     private MapiEndpointInfo? _endpoint;
     private int _dumpedBuffers;
+    private volatile bool _connected;
+    private int _interruptionCount;
+
+    public bool IsConnected => _connected;
+    public int InterruptionCount => Volatile.Read(ref _interruptionCount);
 
     public MapiNotificationListener(MailAccount account, IExchangeAuthenticator authenticator, Func<IReadOnlyCollection<StreamingChange>, Task> dispatch)
     {
@@ -131,7 +136,21 @@ internal sealed class MapiNotificationListener : IAccountNotificationListener
         RopNotify.ParseRegisterNotification(new RopReader(rops));
 
         _logger.Information("MAPI notification session opened for {Account}.", _account.Name);
+        _connected = true;
 
+        try
+        {
+            await PumpNotificationsAsync(session, transport, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _connected = false;
+            Interlocked.Increment(ref _interruptionCount);
+        }
+    }
+
+    private async Task PumpNotificationsAsync(MapiSession session, MapiHttpTransport transport, CancellationToken cancellationToken)
+    {
         while (!cancellationToken.IsCancellationRequested)
         {
             // Returns when the server has something, or after its own (up to five-minute) timeout.
