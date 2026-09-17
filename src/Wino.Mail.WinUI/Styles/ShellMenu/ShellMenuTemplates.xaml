@@ -109,6 +109,16 @@
                             <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE71C;" />
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
+                    <MenuFlyoutItem
+                        AutomationProperties.AutomationId="AccountContextJunkEmailMenuItem"
+                        Click="JunkEmailMenuItemClicked"
+                        DataContext="{x:Bind}"
+                        Text="{x:Bind domain:Translator.SettingsJunkEmail_Title, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsJunkEmailSettings), Mode=OneWay}">
+                        <MenuFlyoutItem.Icon>
+                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8F8;" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
                     <ToggleMenuFlyoutItem
                         AutomationProperties.AutomationId="AccountContextShowPublicFoldersMenuItem"
                         Click="ShowPublicFoldersMenuItemClicked"
@@ -235,6 +245,12 @@
                         DataContext="{x:Bind}"
                         Text="{x:Bind domain:Translator.Rules_Title, Mode=OneTime}"
                         Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
+                    <MenuFlyoutItem
+                        AutomationProperties.AutomationId="CompactAccountContextJunkEmailMenuItem"
+                        Click="JunkEmailMenuItemClicked"
+                        DataContext="{x:Bind}"
+                        Text="{x:Bind domain:Translator.SettingsJunkEmail_Title, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsJunkEmailSettings), Mode=OneWay}" />
                     <ToggleMenuFlyoutItem
                         AutomationProperties.AutomationId="CompactAccountContextShowPublicFoldersMenuItem"
                         Click="ShowPublicFoldersMenuItemClicked"

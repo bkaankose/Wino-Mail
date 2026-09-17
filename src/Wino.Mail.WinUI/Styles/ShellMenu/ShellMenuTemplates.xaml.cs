@@ -227,6 +227,28 @@ public sealed partial class ShellMenuTemplates
             await WinoApplication.Current.Services.GetRequiredService<IMailDialogService>().ShowInboxRulesManagerAsync(account);
     }
 
+    // Opens the junk email lists of the account inside Settings, with manage accounts and the
+    // account itself as breadcrumb parents so Back behaves as if the user had walked there.
+    private void JunkEmailMenuItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: IAccountNavigationMenuItem { Account: { } account } })
+            return;
+
+        var route = SettingsNavigationRoute.ForAccountSubpage(
+            account,
+            Translator.SettingsJunkEmail_Title,
+            WinoPage.JunkEmailSettingsPage,
+            AccountDetailsTab.Mail);
+
+        NavigationService.ChangeApplicationMode(
+            WinoApplicationMode.Settings,
+            new ShellModeActivationContext
+            {
+                Parameter = new SettingsPageActivationContext(WinoPage.JunkEmailSettingsPage, account.Id, route),
+                SuppressStartupFlows = true
+            });
+    }
+
     private void ShowPublicFoldersMenuItemClicked(object sender, RoutedEventArgs e)
         => ApplyRemoteFolderVisibility(sender, (service, visible) => service.ArePublicFoldersVisible = visible);
 
