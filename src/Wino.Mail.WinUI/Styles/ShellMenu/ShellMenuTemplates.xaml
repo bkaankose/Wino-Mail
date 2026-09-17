@@ -990,6 +990,16 @@
                             <FontIcon Glyph="&#xE74D;" />
                         </MenuFlyoutItem.Icon>
                     </MenuFlyoutItem>
+                    <!--  Exchange only: a pinned public contact folder leaves the pane again.  -->
+                    <MenuFlyoutItem
+                        AutomationProperties.AutomationId="ContactsPaneUnpinPublicFolder"
+                        Command="{x:Bind UnpinCommand, Mode=OneTime}"
+                        Text="{x:Bind domain:Translator.PublicFolders_Unpin, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsPublicFolder), Mode=OneTime}">
+                        <MenuFlyoutItem.Icon>
+                            <SymbolIcon Symbol="UnPin" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
                 </coreControls:WinoMenuFlyout>
             </muxc:NavigationViewItem.ContextFlyout>
 

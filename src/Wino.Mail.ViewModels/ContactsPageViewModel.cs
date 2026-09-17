@@ -115,8 +115,12 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         INavigationService navigationService, IMailDialogService dialogService,
         ILaunchProtocolService launchProtocolService,
         ICardDavSynchronizationStore cardDavSynchronizationStore = null,
-        IPreferencesService preferencesService = null)
+        IPreferencesService preferencesService = null,
+        IPublicFolderService publicFolderService = null,
+        IPublicFolderFavoriteService publicFolderFavoriteService = null)
     {
+        _publicFolderService = publicFolderService;
+        _publicFolderFavoriteService = publicFolderFavoriteService;
         _contactService = contactService;
         _accountService = accountService;
         _synchronizationManager = synchronizationManager;
@@ -147,8 +151,13 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             return;
         }
 
-        _accounts = (await _accountService.GetAccountsAsync())
+        var allAccounts = await _accountService.GetAccountsAsync();
+
+        _accounts = allAccounts
             .Where(account => account.IsContactAccessEnabled)
+            .ToDictionary(account => account.Id);
+        _exchangeAccounts = allAccounts
+            .Where(account => account.ProviderType == MailProviderType.Exchange)
             .ToDictionary(account => account.Id);
 
         // The title bar button is bound before this runs, so it has to be told that there
@@ -329,9 +338,12 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                 var previousKind = SelectedFilter?.Kind;
                 var previousBookId = SelectedFilter?.AddressBookId;
                 var previousListId = SelectedFilter?.ListId;
+                var previousAccountId = SelectedFilter?.AccountId;
+                var previousPublicFolderId = SelectedFilter?.PublicFolderId;
 
                 ReconcilePrimaryFilters(favoritesCount);
                 ReconcileAddressBookFilters(books);
+                ReconcilePublicFolderFilters();
                 ReconcileListFilters(lists, listCounts);
                 ReconcileFilterGroups();
 
@@ -341,6 +353,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                     ContactFilterKind.Favorites => all.FirstOrDefault(item => item.Kind == ContactFilterKind.Favorites),
                     ContactFilterKind.AddressBook => all.FirstOrDefault(item => item.AddressBookId == previousBookId),
                     ContactFilterKind.List => all.FirstOrDefault(item => item.ListId == previousListId),
+                    ContactFilterKind.PublicFolder => all.FirstOrDefault(item => IsSamePublicFolder(item, previousAccountId, previousPublicFolderId)),
                     _ => null
                 } ?? all.FirstOrDefault();
             });
@@ -463,6 +476,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         if (_addressBookFilterGroup.Count > 0)
             desired.Add(_addressBookFilterGroup);
 
+        if (_publicFolderFilterGroup.Count > 0)
+            desired.Add(_publicFolderFilterGroup);
+
         if (_listFilterGroup.Count > 0)
             desired.Add(_listFilterGroup);
 
@@ -574,6 +590,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         Messenger.Register<ContactListStateChanged>(this);
         Messenger.Register<ContactListMembershipStateChanged>(this);
         Messenger.Register<ContactAddressBookStateChanged>(this);
+        Messenger.Register<PublicFolderFavoritesChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -585,6 +602,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         Messenger.Unregister<ContactListStateChanged>(this);
         Messenger.Unregister<ContactListMembershipStateChanged>(this);
         Messenger.Unregister<ContactAddressBookStateChanged>(this);
+        Messenger.Unregister<PublicFolderFavoritesChanged>(this);
     }
 
     void IRecipient<ContactSynchronizationCompleted>.Receive(ContactSynchronizationCompleted message)
@@ -652,6 +670,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             ContactFilterKind.Favorites => contact.IsFavorite,
             ContactFilterKind.AddressBook => SelectedFilter.AddressBookId == contact.AddressBookId,
             ContactFilterKind.List => false,
+            ContactFilterKind.PublicFolder => false,
             _ => true
         };
 
@@ -782,6 +801,13 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
             try
             {
+                // A pinned public contact folder is read live and whole; it has no rows to page through.
+                if (SelectedFilter is { IsPublicFolder: true } publicFolderFilter)
+                {
+                    await LoadPublicFolderContactsAsync(publicFolderFilter, queryVersion).ConfigureAwait(false);
+                    return;
+                }
+
                 var filter = SelectedFilter?.ToQueryFilter(null)
                     ?? new ContactQueryFilter(ExcludeRootContacts: true);
 
@@ -832,6 +858,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         var search = queryText?.Trim();
         if (string.IsNullOrWhiteSpace(search))
             return [];
+
+        if (SelectedFilter is { IsPublicFolder: true } publicFolderFilter)
+            return SearchPublicFolderContacts(publicFolderFilter, search, limit);
 
         var filter = SelectedFilter?.ToQueryFilter(search)
             ?? new ContactQueryFilter(SearchQuery: search, ExcludeRootContacts: true);
@@ -986,7 +1015,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task ToggleFavoriteAsync(AccountContactViewModel contact)
     {
-        if (contact is null) return;
+        if (contact is null || !contact.CanFavorite) return;
 
         var original = RequestEntityCloner.Contact(contact.SourceContact);
         var desired = RequestEntityCloner.Contact(contact.SourceContact);
@@ -1009,7 +1038,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     [RelayCommand(CanExecute = nameof(CanDeleteSelectedContacts))]
     private async Task FavoriteSelectedContactsAsync()
     {
-        var contacts = SelectedContacts.DistinctBy(item => item.Id).ToList();
+        var contacts = SelectedContacts.Where(item => item.CanFavorite).DistinctBy(item => item.Id).ToList();
         if (contacts.Count == 0) return;
 
         // Mixed selections become fully favorited rather than toggling item by item.
@@ -1170,13 +1199,14 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     {
         if (list is null) return;
 
-        var ids = SelectedContacts.Select(item => item.Id).Distinct().ToList();
+        var ids = SelectedContacts.Where(item => !item.IsReadOnlySource).Select(item => item.Id).Distinct().ToList();
         await AssignContactsToListAsync(list, ids).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<ContactList>> GetAssignableListsAsync(AccountContactViewModel contact)
     {
-        if (contact is null)
+        // Lists hold stored contacts; a contact read live from a public folder has no row to add.
+        if (contact is null || contact.IsReadOnlySource)
             return [];
 
         var availableLists = ContactLists.ToList();
@@ -1226,10 +1256,10 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     public IReadOnlyList<Guid> ResolveContactDragIds(IEnumerable<AccountContactViewModel> draggedContacts)
     {
         var dragged = draggedContacts?
-            .Where(contact => contact is not null)
+            .Where(contact => contact is not null && !contact.IsReadOnlySource)
             .DistinctBy(contact => contact.Id)
             .ToList() ?? [];
-        var selected = SelectedContacts.DistinctBy(contact => contact.Id).ToList();
+        var selected = SelectedContacts.Where(contact => !contact.IsReadOnlySource).DistinctBy(contact => contact.Id).ToList();
 
         if (selected.Count > 1)
         {
@@ -1351,6 +1381,10 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     private async Task ReconcileContactsAsync()
     {
+        // Nothing in the contact store feeds a public folder listing, so there is nothing to reconcile.
+        if (IsPublicFolderSelected)
+            return;
+
         var queryVersion = _currentQueryVersion;
         await _loadSemaphore.WaitAsync().ConfigureAwait(false);
 

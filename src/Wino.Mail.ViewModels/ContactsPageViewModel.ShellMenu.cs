@@ -135,8 +135,11 @@ public partial class ContactsPageViewModel
         FilterGroups.Clear();
         _primaryFilterGroup.Clear();
         _addressBookFilterGroup.Clear();
+        _publicFolderFilterGroup.Clear();
         _listFilterGroup.Clear();
         _accounts.Clear();
+        _exchangeAccounts.Clear();
+        _publicFolderContacts = [];
 
         _isInitialized = false;
         _currentOffset = 0;
@@ -314,5 +317,6 @@ public partial class ContactsPageViewModel
         filter.RenameRequested = item => RenameListCommand.Execute(item);
         filter.DeleteRequested = item => DeleteListCommand.Execute(item);
         filter.SynchronizeAccountRequested = SynchronizeAccountAsync;
+        filter.UnpinRequested = UnpinPublicFolder;
     }
 }
