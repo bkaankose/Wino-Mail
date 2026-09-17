@@ -43,7 +43,6 @@ internal sealed class AccountStreamingListener : IAccountNotificationListener
     private readonly SemaphoreSlim _reconnectLock = new(1, 1);
 
     private ExchangeService _service;
-    private StreamingSubscription _subscription;
     private StreamingSubscriptionConnection _connection;
     private volatile bool _stopped;
     private volatile bool _connected;
@@ -100,7 +99,7 @@ internal sealed class AccountStreamingListener : IAccountNotificationListener
 
         // "All folders" covers the whole mailbox tree (mail, Calendar, Contacts, Tasks) and auto-includes
         // folders created later.
-        _subscription = await _service.SubscribeToStreamingNotificationsOnAllFolders(
+        var subscription = await _service.SubscribeToStreamingNotificationsOnAllFolders(
             CancellationToken.None,
             EventType.NewMail,
             EventType.Created,
@@ -109,7 +108,7 @@ internal sealed class AccountStreamingListener : IAccountNotificationListener
             EventType.Deleted).ConfigureAwait(false);
 
         _connection = new StreamingSubscriptionConnection(_service, ConnectionLifetimeMinutes);
-        _connection.AddSubscription(_subscription);
+        _connection.AddSubscription(subscription);
         _connection.OnNotificationEvent += OnNotificationEvent;
         _connection.OnSubscriptionError += OnSubscriptionError;
         _connection.OnDisconnect += OnDisconnect;

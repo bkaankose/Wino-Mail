@@ -121,7 +121,7 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
     // Connect + Logon cost two round trips plus Autodiscover on first use; doing that per operation was
     // the single largest fixed cost of every click. One session is kept per synchronizer behind a gate
     // and reopened when it ages, idles, or faults. A caller that finds the gate held (a sync pass in
-    // flight) opens a temporary session as before rather than waiting, so actions stay responsive.
+    // flight) opens a temporary session rather than waiting, so actions stay responsive.
 
     private static readonly TimeSpan SessionMaxAge = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan SessionMaxIdle = TimeSpan.FromMinutes(4);
@@ -227,7 +227,7 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
     {
         var credential = await ResolveCredentialAsync().ConfigureAwait(false);
         var endpoint = await ResolveEndpointAsync(credential, cancellationToken).ConfigureAwait(false);
-        var transport = new MapiHttpTransport(endpoint.MailStoreUrl, credential, UserAgent, line => Logger.Debug("MAPI {Account} {Line}", Account.Address, line));
+        var transport = new MapiHttpTransport(endpoint.MailStoreUrl, credential, UserAgent, Diagnostics);
         return await MapiSession.OpenAsync(transport, endpoint.LegacyDn, cancellationToken).ConfigureAwait(false);
     }
 
@@ -362,7 +362,7 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
     /// One folder. ICS when it works: the server tells us what changed since the state we hand it,
     /// and the first sync of a folder yields everything. If ICS fails for any reason the folder
     /// falls back to the full read below for this pass and its state is cleared, so the app never
-    /// gets worse than the pre-ICS behaviour while the stream parser is still being proven.
+    /// gets worse than a full read.
     /// </summary>
     private async Task<List<MailCopy>> SynchronizeFolderMessagesAsync(MapiSession session, MailItemFolder folder, CancellationToken cancellationToken)
     {
@@ -1156,15 +1156,6 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
         }, requests[0], requests);
     }
 
-    public override List<IRequestBundle<EwsRequest>> Archive(BatchArchiveRequest request)
-        => Move(new BatchMoveRequest(request.Select(a => new MoveRequest(a.Item, a.FromFolder, a.ToFolder))));
-
-    public override List<IRequestBundle<EwsRequest>> EmptyFolder(EmptyFolderRequest request)
-        => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a))));
-
-    public override List<IRequestBundle<EwsRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
-        => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
-
     // ------------------------------------------------------------------------------------------------
     // Drafts and send (native): the compose window's MIME is lifted into properties and written with
     // RopCreateMessage / RopSetProperties / write streams / RopModifyRecipients / attachments; sending
@@ -1396,16 +1387,6 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
             remoteFolders = await MapiFolderOperations.ReadHierarchyAsync(session, logon.IpmSubtreeFolderId, cancellationToken, Diagnostics).ConfigureAwait(false);
             await MapiFolderOperations.ResolveEntryIdsAsync(session, remoteFolders, cancellationToken, Diagnostics).ConfigureAwait(false);
             specialEntryIds = await MapiFolderOperations.ReadSpecialFolderEntryIdsAsync(session, logon.InboxFolderId, cancellationToken).ConfigureAwait(false);
-
-            // Self-check of the EntryID construction: the Drafts id the server hands out must equal the one
-            // built from the Drafts folder's long-term id. If it does not, the ProviderUID/FolderType
-            // assumption is wrong and every EntryID this client builds would be refused.
-            if (specialEntryIds.Drafts is { } draftsId)
-            {
-                var built = remoteFolders.Any(f => f.EntryId is { } e && e.AsSpan().SequenceEqual(draftsId));
-                Logger.Debug("MAPI {Account} EntryID self-check: server Drafts id {Match} a constructed folder EntryID ({Length} bytes).",
-                    Account.Address, built ? "matches" : "does NOT match", draftsId.Length);
-            }
 
             specialByFolderId = new Dictionary<ulong, SpecialFolderType>
             {
@@ -2009,7 +1990,7 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
             OrganizerName = Account.SenderName ?? Account.Name ?? Account.Address,
             OrganizerAddress = Account.Address,
             TimeZoneId = item.StartTimeZone,
-            RecurrenceRule = RecurrenceRuleOf(item),
+            RecurrenceRule = EwsRecurrenceMapper.GetRecurrenceRule(item),
             Subject = item.Title,
             Body = item.Description,
             Location = item.Location,
@@ -2043,13 +2024,6 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
 
         return write;
     }
-
-    /// <summary>The RRULE line of the item's recurrence text (lines separated by the app's separator), or null.</summary>
-    private static string? RecurrenceRuleOf(CalendarItem item)
-        => item.Recurrence?
-            .Split(Constants.CalendarEventRecurrenceRuleSeperator, StringSplitOptions.RemoveEmptyEntries)
-            .Select(l => l.Trim())
-            .FirstOrDefault(l => l.StartsWith("RRULE:", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// After one occurrence of a meeting the account organizes was changed or removed, the attendees
@@ -2169,9 +2143,6 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
         }, request, request);
     }
 
-    public override List<IRequestBundle<EwsRequest>> ChangeStartAndEndDate(ChangeStartAndEndDateRequest request)
-        => UpdateCalendarEvent(request);
-
     public override List<IRequestBundle<EwsRequest>> DeleteCalendarEvent(DeleteCalendarEventRequest request)
     {
         var item = request.Item;
@@ -2214,8 +2185,8 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
     public override List<IRequestBundle<EwsRequest>> DeclineEvent(DeclineEventRequest request)
         => RespondToMeeting(request, MapiCalendarOperations.MeetingResponse.Decline, request.Item, request.ResponseMessage);
 
-    // A response to one occurrence of a series is sent for the series (the master's id is the part
-    // before the occurrence suffix); per-occurrence responses are a later refinement.
+    // A response to one occurrence of a series is sent for the series: the master's id is the part
+    // before the occurrence suffix.
     private List<IRequestBundle<EwsRequest>> RespondToMeeting(CalendarRequestBase request, MapiCalendarOperations.MeetingResponse response, CalendarItem item, string? comment)
     {
         return MapiBundle(async session =>

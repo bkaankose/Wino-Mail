@@ -30,7 +30,7 @@ public sealed class MapiConnectionProbe(IExchangeAuthenticator exchangeAuthentic
 
         try
         {
-            var (credential, _) = await ResolveCredentialAsync(account).ConfigureAwait(false);
+            var credential = await ResolveCredentialAsync(account).ConfigureAwait(false);
             await MapiAutodiscover.DiscoverAsync(AutodiscoverUrl(ewsUri), account.Address, credential, cancellationToken).ConfigureAwait(false);
             Logger.Information("Exchange transport for {Account}: MAPI/HTTP is advertised.", account.Address);
             return ExchangeTransport.MapiHttp;
@@ -51,16 +51,14 @@ public sealed class MapiConnectionProbe(IExchangeAuthenticator exchangeAuthentic
     /// The same credential source the synchronizers use, so detection follows the app's own path.
     /// A bearer token means OAuth; otherwise the stored password as NTLM.
     /// </summary>
-    private async Task<(MapiCredential Credential, string AuthMode)> ResolveCredentialAsync(MailAccount account)
+    private async Task<MapiCredential> ResolveCredentialAsync(MailAccount account)
     {
         var token = await exchangeAuthenticator.TryGetBearerTokenAsync(account).ConfigureAwait(false);
         if (!string.IsNullOrEmpty(token))
-            return (new MapiCredential.Bearer(token), "OAuth bearer token");
+            return new MapiCredential.Bearer(token);
 
         var credentials = await exchangeAuthenticator.GetCredentialsAsync(account).ConfigureAwait(false);
-        var network = (credentials as WebCredentials)?.Credentials as NetworkCredential;
-        return (new MapiCredential.Integrated("NTLM", network),
-            network is null ? "Windows integrated (current identity), NTLM" : "stored password, NTLM");
+        return new MapiCredential.Integrated("NTLM", (credentials as WebCredentials)?.Credentials as NetworkCredential);
     }
 
     private static Uri AutodiscoverUrl(Uri ewsUri) => new($"{ewsUri.Scheme}://{ewsUri.Host}/autodiscover/autodiscover.xml");

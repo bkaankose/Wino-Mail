@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Exchange.WebServices.Data;
 using Wino.Core.Domain.Enums;

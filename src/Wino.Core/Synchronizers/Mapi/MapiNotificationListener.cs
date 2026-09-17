@@ -44,7 +44,6 @@ internal sealed class MapiNotificationListener : IAccountNotificationListener
 
     private CancellationTokenSource? _loop;
     private MapiEndpointInfo? _endpoint;
-    private int _dumpedBuffers;
     private volatile bool _connected;
     private int _interruptionCount;
 
@@ -160,14 +159,6 @@ internal sealed class MapiNotificationListener : IAccountNotificationListener
 
             // An Execute with no ROPs of its own; the response buffer is the pending RopNotify list.
             var (notifyRops, _) = await session.ExecuteAsync([], [session.LogonHandle], cancellationToken).ConfigureAwait(false);
-
-            if (_dumpedBuffers < 5)
-            {
-                // The first few raw buffers, to pin the notification shapes against MS-OXCNOTIF from a real
-                // server. Ids and flags only, no content.
-                _dumpedBuffers++;
-                _logger.Debug("MAPI notify {Account} raw buffer {N}:{NewLine}{Dump}", _account.Address, _dumpedBuffers, Environment.NewLine, HexDump.Render(notifyRops, 512));
-            }
 
             List<RopNotify.Notification> notifications;
             try
