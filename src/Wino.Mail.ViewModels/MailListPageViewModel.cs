@@ -24,6 +24,7 @@ using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.PublicFolders;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Mail;
@@ -87,6 +88,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private int otherInboxUnreadRequestVersion;
     private bool isLoadingMore;
     private MailFetchCursor nextMailCursor;
+
+    // Paging state of the listed read-only remote folder; null for every ordinary listing.
+    private RemoteMailPager remoteMailPager;
     private FolderPivotViewModel lastRequestedPivot;
     private TaskCompletionSource<bool> pendingFolderCompletion;
 
@@ -1124,6 +1128,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     {
         MailListLoadContext context;
         MailFetchCursor cursor;
+        RemoteMailPager remotePager;
         lock (mailLoadSync)
         {
             if (IsInitializingFolder ||
@@ -1141,6 +1146,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             isLoadingMore = true;
             cursor = nextMailCursor;
+            remotePager = remoteMailPager;
             var handlingFolders = (!string.IsNullOrWhiteSpace(SearchQuery) && SearchHandlingFolders.Count > 0
                     ? SearchHandlingFolders
                     : ActiveFolder.HandlingFolders)
@@ -1177,10 +1183,26 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             acquired = true;
             context.CancellationToken.ThrowIfCancellationRequested();
 
+            // A read-only remote folder has no local rows and no cursor: its next window is fetched
+            // live by skip/take and goes through the same pipeline as pre-fetched copies.
+            List<MailCopy> remoteItems = null;
+            var remoteFolder = remotePager == null
+                ? null
+                : context.HandlingFolders
+                    .OfType<MailItemFolder>()
+                    .FirstOrDefault(f => f.IsRemoteReadOnlyNode && !f.IsPublicFolderPlaceholder);
+
+            if (remoteFolder != null)
+            {
+                remoteItems = remotePager.Accept(
+                    await FetchRemoteFolderMailAsync(remoteFolder, remotePager.Offset, remotePager.PageSize, context.CancellationToken).ConfigureAwait(false));
+            }
+
             var options = CreateInitializationOptions(
                 context,
                 context.IsSearchMode ? context.Query : string.Empty,
-                CreateExistingIdSet());
+                CreateExistingIdSet(),
+                remoteItems);
             var page = await _mailService
                 .FetchMailPageAsync(options, cursor, context.CancellationToken)
                 .ConfigureAwait(false);
@@ -1214,7 +1236,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             {
                 if (IsCurrentMailLoad(context))
                 {
-                    FinishedLoading = !page.HasMore;
+                    FinishedLoading = remoteFolder != null ? !remotePager.HasMore : !page.HasMore;
                 }
             });
         }
@@ -1285,10 +1307,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     }
 
     /// <summary>
-    /// Loads a read-only remote folder's messages live and stamps each with the synthetic folder's id, so the
+    /// Loads one skip/take window of a read-only remote folder's messages live and stamps each with the synthetic folder's id, so the
     /// standard list pipeline resolves the folder and account from the list's own folders.
     /// </summary>
-    private async Task<List<MailCopy>> FetchRemoteFolderMailAsync(MailItemFolder folder, CancellationToken cancellationToken)
+    private async Task<List<MailCopy>> FetchRemoteFolderMailAsync(MailItemFolder folder, int skip, int take, CancellationToken cancellationToken)
     {
         // A placeholder or informational row has no remote folder id; never query the server with one.
         if (string.IsNullOrEmpty(folder.RemoteFolderId))
@@ -1303,14 +1325,14 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 if (_onlineArchiveService == null)
                     return [];
 
-                items = await _onlineArchiveService.GetMailItemsAsync(folder.MailAccountId, folder.RemoteFolderId, 0, 0, cancellationToken).ConfigureAwait(false);
+                items = await _onlineArchiveService.GetMailItemsAsync(folder.MailAccountId, folder.RemoteFolderId, skip, take, cancellationToken).ConfigureAwait(false);
             }
             else
             {
                 if (_publicFolderService == null)
                     return [];
 
-                items = await _publicFolderService.GetMailItemsAsync(folder.MailAccountId, folder.RemoteFolderId, 0, 0, cancellationToken).ConfigureAwait(false);
+                items = await _publicFolderService.GetMailItemsAsync(folder.MailAccountId, folder.RemoteFolderId, skip, take, cancellationToken).ConfigureAwait(false);
             }
 
             var list = new List<MailCopy>(items.Count);
@@ -2668,6 +2690,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             cancellationTokenSource = mailLoadCancellationTokenSource;
             generation = ++mailLoadGeneration;
             nextMailCursor = null;
+            remoteMailPager = null;
             isLoadingMore = false;
         }
 
@@ -2739,6 +2762,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             mailLoadCancellationTokenSource.Cancel();
             mailLoadGeneration++;
             nextMailCursor = null;
+            remoteMailPager = null;
             isLoadingMore = false;
         }
     }
@@ -2989,9 +3013,14 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 (context.SearchCriteria.ExecutionMode == SearchMode.Online || context.IsOnlineSearch);
             List<MailCopy> onlineSearchItems = null;
 
+            RemoteMailPager remotePager = null;
+
             if (remoteFolder != null)
             {
-                onlineSearchItems = await FetchRemoteFolderMailAsync(remoteFolder, context.CancellationToken).ConfigureAwait(false);
+                // The first window only; the following ones arrive through LoadMoreItemsAsync.
+                remotePager = new RemoteMailPager(isDoingSearch || context.Filter.Type != FilterOptionType.All);
+                onlineSearchItems = remotePager.Accept(
+                    await FetchRemoteFolderMailAsync(remoteFolder, 0, remotePager.PageSize, context.CancellationToken).ConfigureAwait(false));
             }
 
             if (isDoingSemanticSearch)
@@ -3125,6 +3154,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 if (IsCurrentMailLoad(context))
                 {
                     nextMailCursor = page.NextCursor;
+                    remoteMailPager = remotePager;
                 }
             }
 
@@ -3133,7 +3163,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 if (!IsCurrentMailLoad(context))
                     return;
 
-                FinishedLoading = !page.HasMore;
+                FinishedLoading = remotePager != null ? !remotePager.HasMore : !page.HasMore;
                 HasNoOnlineSearchResult = (isDoingOnlineSearch || isDoingSemanticSearch) && page.Items.Count == 0;
                 OnPropertyChanged(nameof(HasNoOnlineSearchResult));
                 IsOnlineSearchButtonVisible = supportsOnlineSearch && isDoingSearch && !isDoingOnlineSearch && !isDoingSemanticSearch;

@@ -2404,6 +2404,9 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         var pageSize = take <= 0 ? (int)InitialMessageDownloadCountPerFolder : take;
         var view = new ItemView(pageSize, Math.Max(0, skip)) { PropertySet = ItemMetadataPropertySet };
 
+        // Consecutive skip/take windows only line up under a fixed order; newest first matches the list.
+        view.OrderBy.Add(ItemSchema.DateTimeReceived, SortDirection.Descending);
+
         var results = await service.FindItems(new FolderId(folderId), view).ConfigureAwait(false);
         return results.Items.Select(MapRemoteMailItem).Where(m => m != null).ToList();
     }
