@@ -191,8 +191,14 @@ public sealed class InboxRulesCoordinator
         }
 
         if (!result.Success)
-            await ShowInfoAsync(string.Format(Translator.Rules_SaveFailed,
-                result.Errors.Count > 0 ? string.Join(" ", result.Errors) : "unknown error"));
+            await ShowInfoAsync(FormatSaveFailure(result));
+    }
+
+    /// <summary>The user-facing message for a rule change the server refused.</summary>
+    internal static string FormatSaveFailure(InboxRuleUpdateResult result)
+    {
+        var detail = result.Errors.Count > 0 ? string.Join(" ", result.Errors) : "unknown error";
+        return string.Format(Translator.Rules_SaveFailed, detail);
     }
 
     // Client-side "Run rules now" over the Inbox: evaluate enabled rules and apply the executable
@@ -217,17 +223,6 @@ public sealed class InboxRulesCoordinator
         // features), and evaluating the lossy remainder over-matches. See RuleRunPlanner.Plan.
         var rules = enabledRules.Where(r => !r.IsReadOnly).ToList();
         var readOnlySkippedCount = enabledRules.Count - rules.Count;
-
-        foreach (var rule in enabledRules)
-        {
-            Log.Information(
-                "Run rules now: rule '{Name}' (priority {Priority}, readOnly={ReadOnly}) conditions=[{Conditions}] actions=[{Actions}]",
-                rule.Name,
-                rule.Priority,
-                rule.IsReadOnly,
-                string.Join("; ", rule.Conditions.Select(c => $"{c.Field}='{c.Value}'")),
-                string.Join("; ", rule.Actions.Select(a => $"{a.Type}='{a.Value}'")));
-        }
 
         if (rules.Count == 0)
         {
@@ -295,12 +290,6 @@ public sealed class InboxRulesCoordinator
         Log.Information(
             "Run rules now: planned {BatchCount} batch(es) matching {MatchedCount} of {MessageCount} message(s) in '{Folder}'; copy/forward skipped={CopyForwardSkipped}, read-only rules skipped={ReadOnlySkipped}",
             plan.Batches.Count, plan.MatchedMessageCount, facts.Count, inbox.FolderName, plan.SkippedCopyForwardCount, readOnlySkippedCount);
-
-        foreach (var batch in plan.Batches)
-        {
-            Log.Information("Run rules now: batch {Action} -> '{Value}' with {Count} message(s)",
-                batch.Action, batch.Value, batch.MessageIds.Count);
-        }
 
         var executableActions = new HashSet<RuleActionType> { RuleActionType.Move, RuleActionType.MarkRead, RuleActionType.Delete };
         var executableBatches = plan.Batches.Where(b => executableActions.Contains(b.Action)).ToList();

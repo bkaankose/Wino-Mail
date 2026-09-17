@@ -61,14 +61,13 @@ public partial class RemoteFolderMenuItem : FolderMenuItem
     public bool CanPin => !IsPlaceholder && !IsRoot && !IsOnlineArchive &&
                           Kind is PublicFolderKind.Mail or PublicFolderKind.Contacts or PublicFolderKind.Calendar;
 
-    public string PinActionText => IsPinned
-        ? Translator.PublicFolders_Unpin
-        : Kind switch
-        {
-            PublicFolderKind.Contacts => Translator.PublicFolders_PinToPeople,
-            PublicFolderKind.Calendar => Translator.PublicFolders_PinToCalendar,
-            _ => Translator.PublicFolders_PinToFolders
-        };
+    public string PinActionText => Kind switch
+    {
+        _ when IsPinned => Translator.PublicFolders_Unpin,
+        PublicFolderKind.Contacts => Translator.PublicFolders_PinToPeople,
+        PublicFolderKind.Calendar => Translator.PublicFolders_PinToCalendar,
+        _ => Translator.PublicFolders_PinToFolders
+    };
 
     public void MarkChildrenLoaded() => AreChildrenLoaded = true;
 

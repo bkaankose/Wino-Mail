@@ -1487,7 +1487,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         return null;
     }
 
-    private bool CanRespondToInvitationWith(AttendeeStatus status) => CanRespondToInvitation && !IsRespondingToInvitation;
+    // Every response (accept, tentative, decline) is allowed whenever the card is actionable, so the
+    // requested status does not narrow it. The parameter is required by the command's CanExecute shape.
+    private bool CanRespondToInvitationWith(AttendeeStatus _) => CanRespondToInvitation && !IsRespondingToInvitation;
 
     [RelayCommand(CanExecute = nameof(CanRespondToInvitationWith))]
     private async Task RespondToInvitationAsync(AttendeeStatus status)

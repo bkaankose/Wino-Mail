@@ -309,7 +309,7 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
     {
         if (UseModernAuth)
         {
-            var key = string.Join("|", EmailAddress?.Trim(), EwsUrl?.Trim(), OAuthAuthority?.Trim(), OAuthClientId?.Trim(), OAuthResource?.Trim(), OAuthRedirectUri?.Trim(), GetEffectiveUsername());
+            var key = BuildModernAuthCacheKey();
             if (_preparedModernAuthServerInformation != null && _preparedModernAuthKey == key)
                 return _preparedModernAuthServerInformation;
 
@@ -329,7 +329,15 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             return null;
         }
 
-        return new CustomServerInformation
+        var serverInformation = BuildCommonServerInformation();
+        serverInformation.IncomingServerPassword = Password;
+
+        return serverInformation;
+    }
+
+    /// <summary>The fields both the password and the modern-auth paths fill in the same way.</summary>
+    private CustomServerInformation BuildCommonServerInformation()
+        => new()
         {
             Id = Guid.NewGuid(),
             Address = EmailAddress.Trim(),
@@ -337,10 +345,19 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
             IncomingServerType = CustomIncomingServerType.Exchange,
             ExchangeTransport = (ExchangeTransport)TransportIndex,
             IncomingServerUsername = GetEffectiveUsername(),
-            IncomingServerPassword = Password,
             CalendarSupportMode = ResolveCalendarSupportMode()
         };
-    }
+
+    /// <summary>Identifies the inputs an interactive sign-in result belongs to, so Save signs in only once.</summary>
+    private string BuildModernAuthCacheKey()
+        => string.Join("|",
+            EmailAddress?.Trim(),
+            EwsUrl?.Trim(),
+            OAuthAuthority?.Trim(),
+            OAuthClientId?.Trim(),
+            OAuthResource?.Trim(),
+            OAuthRedirectUri?.Trim(),
+            GetEffectiveUsername());
 
     // The local calendar the wizard offered is created by the account service when the mode is LocalOnly.
     private ImapCalendarSupportMode ResolveCalendarSupportMode()
@@ -502,22 +519,16 @@ public partial class ExchangeSettingsPageViewModel : MailBaseViewModel
                 return null;
             }
 
-            return new CustomServerInformation
-            {
-                Id = Guid.NewGuid(),
-                Address = EmailAddress.Trim(),
-                IncomingServer = EwsUrl.Trim(),
-                IncomingServerType = CustomIncomingServerType.Exchange,
-                ExchangeTransport = (ExchangeTransport)TransportIndex,
-                IncomingServerUsername = GetEffectiveUsername(),
-                CalendarSupportMode = ResolveCalendarSupportMode(),
-                UseOAuthAuthentication = true,
-                OAuthAuthority = configuration.Authority,
-                OAuthClientId = configuration.ClientId,
-                OAuthResource = configuration.Resource,
-                OAuthRedirectUri = configuration.RedirectUri,
-                OAuthRefreshToken = tokenSet.RefreshToken
-            };
+            var serverInformation = BuildCommonServerInformation();
+
+            serverInformation.UseOAuthAuthentication = true;
+            serverInformation.OAuthAuthority = configuration.Authority;
+            serverInformation.OAuthClientId = configuration.ClientId;
+            serverInformation.OAuthResource = configuration.Resource;
+            serverInformation.OAuthRedirectUri = configuration.RedirectUri;
+            serverInformation.OAuthRefreshToken = tokenSet.RefreshToken;
+
+            return serverInformation;
         }
         catch (OperationCanceledException) when (signInCancellationTokenSource.IsCancellationRequested)
         {

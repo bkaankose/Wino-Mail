@@ -1186,11 +1186,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // A read-only remote folder has no local rows and no cursor: its next window is fetched
             // live by skip/take and goes through the same pipeline as pre-fetched copies.
             List<MailCopy> remoteItems = null;
-            var remoteFolder = remotePager == null
-                ? null
-                : context.HandlingFolders
-                    .OfType<MailItemFolder>()
-                    .FirstOrDefault(f => f.IsRemoteReadOnlyNode && !f.IsPublicFolderPlaceholder);
+            var remoteFolder = remotePager == null ? null : ResolveRemoteReadOnlyFolder(context);
 
             if (remoteFolder != null)
             {
@@ -2731,6 +2727,15 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             trace);
     }
 
+    /// <summary>
+    /// The read-only remote folder (public folder or online archive) this load is showing, if any. Such a
+    /// folder has no local rows, so its page is fetched live instead of read from the database.
+    /// </summary>
+    private static MailItemFolder ResolveRemoteReadOnlyFolder(MailListLoadContext context)
+        => context.HandlingFolders
+            .OfType<MailItemFolder>()
+            .FirstOrDefault(f => f.IsRemoteReadOnlyNode && !f.IsPublicFolderPlaceholder);
+
     private bool IsCurrentMailLoad(MailListLoadContext context) =>
         context != null &&
         context.Generation == Volatile.Read(ref mailLoadGeneration) &&
@@ -2999,9 +3004,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             // A read-only remote folder (public folder, online archive) has no local rows: its page is
             // fetched live and fed in as pre-fetched copies, and a search filters that page locally.
-            var remoteFolder = context.HandlingFolders
-                .OfType<MailItemFolder>()
-                .FirstOrDefault(f => f.IsRemoteReadOnlyNode && !f.IsPublicFolderPlaceholder);
+            var remoteFolder = ResolveRemoteReadOnlyFolder(context);
 
             var isDoingSemanticSearch = isDoingSearch &&
                 remoteFolder == null &&

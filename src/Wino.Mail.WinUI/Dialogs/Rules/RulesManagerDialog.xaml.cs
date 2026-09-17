@@ -156,7 +156,7 @@ public sealed partial class RulesManagerDialog : ContentDialog
                 return;
             }
 
-            EditorPane.ShowError(JoinErrors(result));
+            EditorPane.ShowError(InboxRulesCoordinator.FormatSaveFailure(result));
         }
         catch (Exception ex)
         {
@@ -275,7 +275,7 @@ public sealed partial class RulesManagerDialog : ContentDialog
 
     private void ReportFailure(InboxRuleUpdateResult result, Func<bool, Task<InboxRuleUpdateResult>> operation)
     {
-        ShowError(JoinErrors(result));
+        ShowError(InboxRulesCoordinator.FormatSaveFailure(result));
 
         if (result.RequiresOutlookRuleBlobRemoval)
         {
@@ -291,7 +291,7 @@ public sealed partial class RulesManagerDialog : ContentDialog
             return;
 
         // The consent has been given once: a failure here reports the error without offering it again.
-        await RunListMutationAsync(() => operation(true), result => ShowError(JoinErrors(result)));
+        await RunListMutationAsync(() => operation(true), result => ShowError(InboxRulesCoordinator.FormatSaveFailure(result)));
     }
 
     private static RemoteInboxRule CloneRule(RemoteInboxRule rule) => new()
@@ -308,12 +308,6 @@ public sealed partial class RulesManagerDialog : ContentDialog
     // ---- helpers -------------------------------------------------------------------------------
 
     private void SetBusy(bool busy) => BusyRing.IsActive = busy;
-
-    private static string JoinErrors(InboxRuleUpdateResult result)
-    {
-        var detail = result.Errors.Count > 0 ? string.Join(" ", result.Errors) : "unknown error";
-        return string.Format(Translator.Rules_SaveFailed, detail);
-    }
 
     private void ShowError(string message)
     {
