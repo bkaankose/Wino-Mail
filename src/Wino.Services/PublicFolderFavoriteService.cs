@@ -32,7 +32,7 @@ public class PublicFolderFavoriteService : IPublicFolderFavoriteService
 
         try
         {
-            return JsonSerializer.Deserialize<List<PublicFolderFavorite>>(json) ?? new List<PublicFolderFavorite>();
+            return JsonSerializer.Deserialize(json, PublicFolderFavoriteJsonContext.Default.ListPublicFolderFavorite) ?? new List<PublicFolderFavorite>();
         }
         catch (JsonException)
         {
@@ -76,5 +76,5 @@ public class PublicFolderFavoriteService : IPublicFolderFavoriteService
     }
 
     private void Save(List<PublicFolderFavorite> favorites)
-        => _configurationService.Set(FavoritesKey, JsonSerializer.Serialize(favorites));
+        => _configurationService.Set(FavoritesKey, JsonSerializer.Serialize(favorites, PublicFolderFavoriteJsonContext.Default.ListPublicFolderFavorite));
 }
