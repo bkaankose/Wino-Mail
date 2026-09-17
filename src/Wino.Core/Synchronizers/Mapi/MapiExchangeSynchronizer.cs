@@ -1043,7 +1043,7 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
     public override async Task<IReadOnlyList<AccountContact>> SearchGlobalAddressListAsync(string query, int maxResults, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query) || maxResults <= 0)
-            return [];
+            return Array.Empty<AccountContact>();
 
         var credential = await ResolveCredentialAsync().ConfigureAwait(false);
         var endpoint = await ResolveEndpointAsync(credential, cancellationToken).ConfigureAwait(false);

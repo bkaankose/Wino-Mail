@@ -2108,7 +2108,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
     public override async Task<IReadOnlyList<AccountContact>> SearchGlobalAddressListAsync(string query, int maxResults, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query) || maxResults <= 0)
-            return [];
+            return Array.Empty<AccountContact>();
 
         var service = await CreateServiceAsync().ConfigureAwait(false);
         var resolutions = await service

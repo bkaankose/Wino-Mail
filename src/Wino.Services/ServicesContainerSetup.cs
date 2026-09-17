@@ -61,6 +61,7 @@ public static class ServicesContainerSetup
         services.AddTransient<IRuleService, RuleService>();
         services.AddTransient<IJunkSenderService, JunkSenderService>();
         services.AddTransient<IServerJunkListService, ServerJunkListService>();
+        services.AddTransient<IGlobalAddressListService, GlobalAddressListService>();
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
         services.AddTransient<ICalendarContextMenuItemService, CalendarContextMenuItemService>();
         services.AddSingleton<IKnownImapProviderCatalogLoader, KnownImapProviderCatalogLoader>();
