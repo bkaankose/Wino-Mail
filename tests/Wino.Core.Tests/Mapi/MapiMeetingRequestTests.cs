@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Wino.Core.Tests.Mapi;
 
-/// <summary>Rung 8, the organizer side (MS-OXOCAL 3.1.4.4 to 3.1.4.6): global object ids, the organizer's stamps and recipient table, the request and the cancellation.</summary>
+/// <summary>The organizer side (MS-OXOCAL 3.1.4.4 to 3.1.4.6): global object ids, the organizer's stamps and recipient table, the request and the cancellation.</summary>
 public class MapiMeetingRequestTests
 {
     private static readonly MapiCalendarTags Tags = new(

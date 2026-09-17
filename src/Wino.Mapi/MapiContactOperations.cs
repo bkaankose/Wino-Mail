@@ -43,7 +43,7 @@ public sealed class MapiContactWrite
 }
 
 /// <summary>
-/// Contacts over MAPI (rung 8): the Contacts folder found by its well-known entry id on the Inbox
+/// Contacts over MAPI: the Contacts folder found by its well-known entry id on the Inbox
 /// (MS-OXOSFLD 2.2.3), rows read from its contents table with the fixed contact properties plus the
 /// PSETID_Address named ones, and create / update as an IPM.Contact message (MS-OXOCNTC).
 /// </summary>

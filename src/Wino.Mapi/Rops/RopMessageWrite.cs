@@ -5,7 +5,7 @@ namespace Wino.Mapi.Rops;
 /// <summary>
 /// Creating and sending messages (MS-OXCMSG, MS-OXOMSG, MS-OXCPRPT): RopCreateMessage,
 /// RopModifyRecipients, attachments, write streams, RopSubmitMessage. The write half of the message
-/// model; rung 5 of the plan.
+/// model.
 /// </summary>
 public static class RopMessageWrite
 {

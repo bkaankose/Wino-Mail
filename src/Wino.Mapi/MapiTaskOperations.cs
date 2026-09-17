@@ -46,7 +46,7 @@ public sealed class MapiTaskWrite
 }
 
 /// <summary>
-/// Tasks over MAPI (rung 8): the Tasks folder by its well-known entry id on the Inbox, rows from its
+/// Tasks over MAPI: the Tasks folder by its well-known entry id on the Inbox, rows from its
 /// contents table with the MS-OXOTASK named properties, and create / update as IPM.Task.
 /// </summary>
 public static class MapiTaskOperations

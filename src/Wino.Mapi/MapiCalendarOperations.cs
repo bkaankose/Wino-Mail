@@ -63,7 +63,7 @@ public sealed record MapiAppointmentInfo(
 }
 
 /// <summary>
-/// Calendar over MAPI (rung 8): the Calendar folder by its well-known entry id, rows from its contents
+/// Calendar over MAPI: the Calendar folder by its well-known entry id, rows from its contents
 /// table with the MS-OXOCAL named properties, and the recurrence blob for series masters. Recurrence is
 /// expanded by the caller (the server does not expand a contents table the way an EWS CalendarView did).
 /// </summary>

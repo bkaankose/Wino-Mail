@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Wino.Core.Tests.Mapi;
 
-/// <summary>Rung 8, meeting responses (MS-OXOCAL 2.2.7 / 3.1.4.8): the appointment stamps and the response message.</summary>
+/// <summary>Meeting responses (MS-OXOCAL 2.2.7 / 3.1.4.8): the appointment stamps and the response message.</summary>
 public class MapiMeetingResponseTests
 {
     private static readonly MapiCalendarTags Tags = new(

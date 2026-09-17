@@ -70,7 +70,7 @@ public sealed class IcsContentsResult
 }
 
 /// <summary>
-/// Incremental contents synchronization (rung 6): the MS-OXCFXICS download path over a session.
+/// Incremental contents synchronization: the MS-OXCFXICS download path over a session.
 /// The first sync of a folder (no state) yields every message; later ones only what changed, plus
 /// deletions and read-state changes, and the server never has to be asked "what do you have" again.
 /// </summary>

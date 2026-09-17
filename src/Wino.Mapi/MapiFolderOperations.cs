@@ -32,7 +32,7 @@ public sealed record MapiSpecialFolderEntryIds(byte[]? Drafts, byte[]? Junk);
 
 /// <summary>
 /// Folder-level operations over a session: the hierarchy table and the special-folder entry ids.
-/// This is the whole of rung 1 of the plan; the synchronizer turns the result into folder rows.
+/// The synchronizer turns the result into folder rows.
 /// </summary>
 public static class MapiFolderOperations
 {

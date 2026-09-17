@@ -46,7 +46,7 @@ public sealed record MapiFaiRuleRow(string MessageClass, string? Provider, strin
 public sealed record MapiJunkLists(List<string> BlockedSenders, List<string> SafeSenders, List<string> SafeRecipients, RestrictionNode Condition, ulong MessageId = 0);
 
 /// <summary>
-/// Rules over the rules table (rung 8). This is the classic-rule surface, the one EWS also reaches;
+/// Rules over the rules table. This is the classic-rule surface, the one EWS also reaches;
 /// the point of doing it here is that the condition and actions come back as structures rather than
 /// EWS's lossy predicate model, and the junk rule (an extended rule, read from the FAI table) sits
 /// beside them.

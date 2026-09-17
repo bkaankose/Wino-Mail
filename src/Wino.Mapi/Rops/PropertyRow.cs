@@ -142,7 +142,7 @@ public static class PropertyTypes
     public const ushort RuleAction = 0x00FE;
 }
 
-/// <summary>Property tags used so far, by name. Grows with each rung of the plan.</summary>
+/// <summary>Property tags used so far, by name.</summary>
 public static class PropertyTags
 {
     public const uint MessageClass = 0x001A001F;                 // PidTagMessageClass

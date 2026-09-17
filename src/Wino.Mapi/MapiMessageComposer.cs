@@ -28,7 +28,7 @@ public sealed class MapiOutgoingMessage
 public sealed record MapiOutgoingAttachment(string FileName, string MimeType, byte[] Data, string? ContentId, bool IsInline);
 
 /// <summary>
-/// Creates messages on the server from <see cref="MapiOutgoingMessage"/> (rung 5): drafts, and the
+/// Creates messages on the server from <see cref="MapiOutgoingMessage"/>: drafts, and the
 /// message that RopSubmitMessage sends. Everything larger than a few KB goes through a write stream;
 /// RopSetProperties has the same ~8KB ceiling as its read counterpart.
 /// </summary>

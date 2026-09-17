@@ -54,7 +54,7 @@ public sealed class MapiMessageContent
 
 /// <summary>
 /// Message-level operations over a session: the folder's list, one message's content, and the
-/// mutations. Rungs 2 to 4 of the plan in one place, because they share the handle choreography.
+/// mutations, kept in one place because they share the handle choreography.
 /// </summary>
 public static class MapiMessageOperations
 {
@@ -63,7 +63,7 @@ public static class MapiMessageOperations
 
     /// <summary>
     /// Reads up to <paramref name="limit"/> messages of a folder, newest delivered first. The limit
-    /// bounds the initial download the same way the EWS path does; incremental sync is rung 6 (ICS).
+    /// bounds the initial download the same way the EWS path does; incremental sync is ICS.
     /// </summary>
     public static async Task<List<MapiMessageInfo>> ReadMessageListAsync(MapiSession session, ulong folderId, int limit, CancellationToken cancellationToken = default, Action<string>? diagnostics = null)
     {
@@ -345,7 +345,7 @@ public static class MapiMessageOperations
         }
     }
 
-    // --- Mutations (rung 4) ---
+    // --- Mutations ---
 
     public static async Task SetReadAsync(MapiSession session, ulong folderId, IReadOnlyList<ulong> messageIds, bool isRead, CancellationToken cancellationToken = default)
     {

@@ -8,7 +8,7 @@ using Xunit;
 namespace Wino.Core.Tests.Mapi;
 
 /// <summary>
-/// The ICS codecs (rung 6): serialized IDSETs and the FastTransfer element encoding. Both are
+/// The ICS codecs: serialized IDSETs and the FastTransfer element encoding. Both are
 /// "plausible number, not an error" territory, so every command and every widened count is pinned.
 /// </summary>
 public class MapiIcsTests

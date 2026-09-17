@@ -12,7 +12,7 @@ using RuleActionType = Wino.Core.Domain.Enums.RuleActionType;
 
 namespace Wino.Core.Tests.Mapi;
 
-/// <summary>Rung 8, rules: the rules-table row value types, the codecs, and the DTO mapping.</summary>
+/// <summary>Rules: the rules-table row value types, the codecs, and the DTO mapping.</summary>
 public class MapiRulesTests
 {
     [Fact]
@@ -321,7 +321,7 @@ public class MapiRulesTests
     }
 }
 
-/// <summary>Rung 8, junk: the junk rule's condition splits into blocked and safe lists.</summary>
+/// <summary>Junk: the junk rule's condition splits into blocked and safe lists.</summary>
 public class MapiJunkListTests
 {
     [Fact]

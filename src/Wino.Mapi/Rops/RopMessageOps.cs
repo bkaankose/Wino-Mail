@@ -4,8 +4,7 @@ namespace Wino.Mapi.Rops;
 
 /// <summary>
 /// Message mutations and attachment access (MS-OXCROPS 2.2.6 / 2.2.7 / MS-OXCFOLD / MS-OXCMSG):
-/// read flags, property writes with save, move/copy, delete, and the attachment table. These are the
-/// write half of rung 4 and the attachment half of rung 3 of the plan.
+/// read flags, property writes with save, move/copy, delete, and the attachment table.
 ///
 /// A folder-level read-flag change and a move/delete take message ids directly, so none of them need
 /// the message opened first. A property change (flag, categories) does: RopOpenMessage read/write,

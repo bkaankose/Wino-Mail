@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Wino.Core.Tests.Mapi;
 
-/// <summary>Rung 8, calendar: the appointment recurrence blob (MS-OXOCAL 2.2.1.44) and its RRULE.</summary>
+/// <summary>Calendar: the appointment recurrence blob (MS-OXOCAL 2.2.1.44) and its RRULE.</summary>
 public class MapiCalendarTests
 {
     private static byte[] Blob(ushort frequency, ushort patternType, uint period, uint[] specific, uint endType, uint count, uint firstDow,

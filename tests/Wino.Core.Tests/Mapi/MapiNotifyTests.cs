@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Wino.Core.Tests.Mapi;
 
-/// <summary>Rung 7: the notification subscription request and the RopNotify response shapes (MS-OXCNOTIF 2.2.1.4.1).</summary>
+/// <summary>The notification subscription request and the RopNotify response shapes (MS-OXCNOTIF 2.2.1.4.1).</summary>
 public class MapiNotifyTests
 {
     [Fact]

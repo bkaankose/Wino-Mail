@@ -7,7 +7,7 @@ using Xunit;
 namespace Wino.Core.Tests.Mapi;
 
 /// <summary>
-/// The message-side ROPs (rungs 2 to 4): request encodings checked field by field against MS-OXCROPS,
+/// The message-side ROPs: request encodings checked field by field against MS-OXCROPS,
 /// and the list-row / attachment-row parsing the synchronizer maps from. Requests are checked by
 /// reading them back, because a wrong field width here fails on the server as ecRpcFormat, which
 /// says nothing about which field.
