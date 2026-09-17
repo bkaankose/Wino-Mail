@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -77,7 +78,7 @@ public class JunkSenderService : BaseDatabaseService, IJunkSenderService
     {
         var added = 0;
 
-        foreach (var address in addresses ?? [])
+        foreach (var address in addresses ?? Enumerable.Empty<string>())
         {
             if (string.IsNullOrWhiteSpace(address))
                 continue;
