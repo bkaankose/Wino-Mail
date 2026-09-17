@@ -175,6 +175,43 @@ public sealed class ContextMenuItemServiceTests
         operations.Should().NotContain(MailOperation.NeverBlockSender);
     }
 
+    [Fact]
+    public void GetMailItemContextMenuActions_ForRemoteReadOnlyItems_OffersOnlyComposeActions()
+    {
+        var publicFolderMail = CreateMail(isRead: true);
+        publicFolderMail.AssignedFolder.IsPublicFolderNode = true;
+        publicFolderMail.AssignedFolder.SpecialFolderType = SpecialFolderType.PublicFolders;
+
+        var operations = _service.GetMailItemContextMenuActions([publicFolderMail]).Select(action => action.Operation).ToList();
+
+        operations.Should().BeEquivalentTo([MailOperation.Reply, MailOperation.ReplyAll, MailOperation.Forward]);
+    }
+
+    [Fact]
+    public void GetMailItemRenderMenuActions_ForRemoteReadOnlyItems_StopsAfterComposeActions()
+    {
+        var archiveMail = CreateMail(isRead: true);
+        archiveMail.AssignedFolder.IsOnlineArchiveNode = true;
+        archiveMail.AssignedFolder.SpecialFolderType = SpecialFolderType.OnlineArchive;
+
+        var operations = _service.GetMailItemRenderMenuActions(archiveMail, isDarkEditor: false).Select(action => action.Operation).ToList();
+
+        operations.Should().Contain([MailOperation.Reply, MailOperation.Forward]);
+        operations.Should().NotContain([MailOperation.Archive, MailOperation.SoftDelete, MailOperation.SetFlag, MailOperation.MarkAsUnread]);
+    }
+
+    [Fact]
+    public void GetMailItemRenderMenuActions_WithOnlineArchive_DropsTheLocalArchiveAction()
+    {
+        var mail = CreateMail(isRead: true);
+        mail.AssignedAccount = new MailAccount { ProviderType = MailProviderType.Exchange, HasOnlineArchive = true };
+
+        var operations = _service.GetMailItemRenderMenuActions(mail, isDarkEditor: false).Select(action => action.Operation).ToList();
+
+        operations.Should().NotContain(MailOperation.Archive);
+        operations.Should().Contain(MailOperation.SoftDelete);
+    }
+
     private static MailCopy CreateMail(bool isRead) =>
         new()
         {

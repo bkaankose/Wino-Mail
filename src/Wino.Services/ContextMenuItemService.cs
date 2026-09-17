@@ -46,6 +46,16 @@ public class ContextMenuItemService : IContextMenuItemService
 
         var operationList = new List<MailOperationMenuItem>();
 
+        // Items of a read-only remote tree (public folders, online archive) cannot be changed; only the
+        // compose actions that start a new message from them apply.
+        if (selectedItems.All(a => a.AssignedFolder?.IsRemoteReadOnlyNode == true))
+        {
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.Reply));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.ReplyAll));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.Forward));
+            return operationList;
+        }
+
         // Disable archive button for Archive folder itself.
 
         bool isArchiveFolder = selectedItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Archive);
@@ -181,10 +191,15 @@ public class ContextMenuItemService : IContextMenuItemService
             actionList.Add(MailOperationMenuItem.Create(MailOperation.Forward));
         }
 
-        // Archive - Unarchive
+        // A read-only remote item (public folder, online archive) stops here: nothing below can change it.
+        if (mailItem.AssignedFolder.IsRemoteReadOnlyNode)
+            return actionList;
+
+        // Archive - Unarchive. An Exchange account with an online archive is archived server-side by
+        // retention policy, so the local Archive action is not offered.
         if (isArchiveFolder)
             actionList.Add(MailOperationMenuItem.Create(MailOperation.UnArchive));
-        else
+        else if (mailItem.AssignedAccount?.SuppressLocalArchive != true)
             actionList.Add(MailOperationMenuItem.Create(MailOperation.Archive));
 
         // Delete

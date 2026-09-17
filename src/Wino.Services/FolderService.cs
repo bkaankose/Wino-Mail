@@ -25,14 +25,17 @@ public class FolderService : BaseDatabaseService, IFolderService
 {
     private readonly IAccountService _accountService;
     private readonly IMailCategoryService _mailCategoryService;
+    private readonly IPublicFolderFavoriteService _publicFolderFavoriteService;
     private readonly ILogger _logger = Log.ForContext<FolderService>();
 
     public FolderService(IDatabaseService databaseService,
                            IAccountService accountService,
-                           IMailCategoryService mailCategoryService) : base(databaseService)
+                           IMailCategoryService mailCategoryService,
+                           IPublicFolderFavoriteService publicFolderFavoriteService = null) : base(databaseService)
     {
         _accountService = accountService;
         _mailCategoryService = mailCategoryService;
+        _publicFolderFavoriteService = publicFolderFavoriteService;
     }
 
     public async Task ChangeStickyStatusAsync(Guid folderId, bool isSticky)
@@ -600,8 +603,34 @@ public class FolderService : BaseDatabaseService, IFolderService
             preparedFolderMenuItems.Add(categoryFolderMenuItem);
         }
 
+        var isExchange = mailAccount.ProviderType == MailProviderType.Exchange && _publicFolderFavoriteService != null;
+
+        // Pinned public mail folders surface under the More folder for quick access (read-only, "(Public)" suffix).
+        if (isExchange)
+        {
+            var pins = _publicFolderFavoriteService.GetFavorites()
+                .Where(f => f.Kind == PublicFolderKind.Mail && f.AccountId == mailAccount.Id);
+
+            foreach (var pin in pins)
+            {
+                moreFolderMenuItem.SubMenuItems.Add(PublicFolderMenuItemFactory.CreatePinnedMailFolder(mailAccount, pin, moreFolderMenuItem));
+            }
+        }
+
         // Only add More folder if there are any items in it.
         if (moreFolderMenuItem.SubMenuItems.Any()) preparedFolderMenuItems.Add(moreFolderMenuItem);
+
+        // The read-only remote trees sit at the bottom of an Exchange account, each gated on its visibility
+        // toggle (default hidden). Children load lazily on expand; pinned favourites above are unaffected.
+        if (isExchange && _publicFolderFavoriteService.ArePublicFoldersVisible)
+        {
+            preparedFolderMenuItems.Add(PublicFolderMenuItemFactory.CreatePublicFoldersRoot(mailAccount, accountMenuItem));
+        }
+
+        if (isExchange && _publicFolderFavoriteService.AreOnlineArchivesVisible)
+        {
+            preparedFolderMenuItems.Add(PublicFolderMenuItemFactory.CreateOnlineArchiveRoot(mailAccount, accountMenuItem));
+        }
 
         return preparedFolderMenuItems;
     }
