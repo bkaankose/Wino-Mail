@@ -55,9 +55,9 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
                                    ICalendarService calendarService,
                                    IAccountService accountService,
                                    IMimeFileService mimeFileService,
+                                   IJunkSenderService junkSenderService,
                                    IContactService contactService = null,
-                                   ITaskService taskService = null,
-                                   IJunkSenderService junkSenderService = null)
+                                   ITaskService taskService = null)
         : base(databaseService, folderService, mailService, calendarService, accountService, mimeFileService, contactService, taskService)
     {
         _junkSenderService = junkSenderService;
@@ -67,7 +67,7 @@ public class ExchangeChangeProcessor : DefaultChangeProcessor, IExchangeChangePr
         => AccountService.UpdateAccountCustomServerInformationAsync(serverInformation);
 
     public Task<int> ImportJunkSendersAsync(Guid accountId, JunkListType listType, IEnumerable<string> addresses)
-        => _junkSenderService is null ? Task.FromResult(0) : _junkSenderService.ImportAsync(accountId, listType, addresses);
+        => _junkSenderService.ImportAsync(accountId, listType, addresses);
 
     public Task<List<CalendarItem>> GetCalendarItemsInRangeAsync(AccountCalendar calendar, DateTime startUtc, DateTime endUtc)
         => CalendarService.GetCalendarEventsAsync(calendar, new TimeRange(startUtc, endUtc));

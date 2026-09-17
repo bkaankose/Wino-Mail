@@ -81,8 +81,6 @@ public sealed class LoopbackRedirectListener : IDisposable
 
     public void Start() => _listener.Start();
 
-    public int Port => ((IPEndPoint)_listener.LocalEndpoint).Port;
-
     public async Task<RedirectResult> WaitForRedirectAsync(CancellationToken cancellationToken)
     {
         using var client = await _listener.AcceptTcpClientAsync(cancellationToken).ConfigureAwait(false);

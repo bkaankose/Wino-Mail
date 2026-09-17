@@ -50,14 +50,10 @@ public class OnlineArchiveService : IOnlineArchiveService
         return await synchronizer.GetOnlineArchiveMailMimeAsync(folderId, itemId, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<IWinoSynchronizerBase> GetCapableSynchronizerAsync(Guid accountId)
-    {
-        var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(accountId).ConfigureAwait(false)
-            ?? throw new InvalidOperationException($"No synchronizer is available for account {accountId}.");
-
-        if (!synchronizer.SupportsOnlineArchive)
-            throw new NotSupportedException("The online archive is only supported for Exchange accounts.");
-
-        return synchronizer;
-    }
+    private Task<IWinoSynchronizerBase> GetCapableSynchronizerAsync(Guid accountId)
+        => SynchronizerCapabilityGate.RequireAsync(
+            _synchronizerFactory,
+            accountId,
+            synchronizer => synchronizer.SupportsOnlineArchive,
+            "The online archive is only supported for Exchange accounts.");
 }

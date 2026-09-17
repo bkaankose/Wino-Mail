@@ -97,14 +97,10 @@ public class RuleService : IRuleService
         }
     }
 
-    private async Task<IWinoSynchronizerBase> GetRuleCapableSynchronizerAsync(Guid accountId)
-    {
-        var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(accountId).ConfigureAwait(false)
-            ?? throw new InvalidOperationException($"No synchronizer is available for account {accountId}.");
-
-        if (!synchronizer.SupportsInboxRules)
-            throw new NotSupportedException(Translator.Rules_ExchangeOnly);
-
-        return synchronizer;
-    }
+    private Task<IWinoSynchronizerBase> GetRuleCapableSynchronizerAsync(Guid accountId)
+        => SynchronizerCapabilityGate.RequireAsync(
+            _synchronizerFactory,
+            accountId,
+            synchronizer => synchronizer.SupportsInboxRules,
+            Translator.Rules_ExchangeOnly);
 }

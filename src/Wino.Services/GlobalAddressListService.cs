@@ -46,7 +46,7 @@ public class GlobalAddressListService : IGlobalAddressListService
         catch (Exception ex)
         {
             Log.Debug(ex, "GAL search failed for account {AccountId}; falling back to local contacts.", accountId);
-            return [];
+            return Array.Empty<AccountContact>();
         }
     }
 }

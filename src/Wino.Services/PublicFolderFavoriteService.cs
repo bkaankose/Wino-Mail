@@ -43,7 +43,7 @@ public class PublicFolderFavoriteService : IPublicFolderFavoriteService
     }
 
     public bool IsFavorite(Guid accountId, string folderId)
-        => GetFavorites().Any(f => f.AccountId == accountId && string.Equals(f.FolderId, folderId, StringComparison.Ordinal));
+        => GetFavorites().Any(f => Matches(f, accountId, folderId));
 
     public void AddFavorite(PublicFolderFavorite favorite)
     {
@@ -51,7 +51,7 @@ public class PublicFolderFavoriteService : IPublicFolderFavoriteService
             return;
 
         var list = GetFavorites().ToList();
-        if (list.Any(f => f.AccountId == favorite.AccountId && string.Equals(f.FolderId, favorite.FolderId, StringComparison.Ordinal)))
+        if (list.Any(f => Matches(f, favorite.AccountId, favorite.FolderId)))
             return;
 
         list.Add(favorite);
@@ -63,15 +63,15 @@ public class PublicFolderFavoriteService : IPublicFolderFavoriteService
     public void RemoveFavorite(Guid accountId, string folderId)
     {
         var list = GetFavorites().ToList();
-        var removed = list.Where(f => f.AccountId == accountId && string.Equals(f.FolderId, folderId, StringComparison.Ordinal)).ToList();
+        var removedKinds = list.Where(f => Matches(f, accountId, folderId)).Select(f => f.Kind).Distinct().ToList();
 
-        if (removed.Count == 0)
+        if (removedKinds.Count == 0)
             return;
 
-        list.RemoveAll(removed.Contains);
+        list.RemoveAll(f => Matches(f, accountId, folderId));
         Save(list);
 
-        foreach (var kind in removed.Select(f => f.Kind).Distinct())
+        foreach (var kind in removedKinds)
         {
             WeakReferenceMessenger.Default.Send(new PublicFolderFavoritesChanged(accountId, kind));
         }
@@ -80,7 +80,7 @@ public class PublicFolderFavoriteService : IPublicFolderFavoriteService
     public void SetFavoriteChecked(Guid accountId, string folderId, bool isChecked)
     {
         var list = GetFavorites().ToList();
-        var favorite = list.FirstOrDefault(f => f.AccountId == accountId && string.Equals(f.FolderId, folderId, StringComparison.Ordinal));
+        var favorite = list.FirstOrDefault(f => Matches(f, accountId, folderId));
 
         if (favorite == null || favorite.IsChecked == isChecked)
             return;
@@ -100,6 +100,9 @@ public class PublicFolderFavoriteService : IPublicFolderFavoriteService
         get => _configurationService.Get(OnlineArchiveVisibleKey, false);
         set => _configurationService.Set(OnlineArchiveVisibleKey, value);
     }
+
+    private static bool Matches(PublicFolderFavorite favorite, Guid accountId, string folderId)
+        => favorite.AccountId == accountId && string.Equals(favorite.FolderId, folderId, StringComparison.Ordinal);
 
     private void Save(List<PublicFolderFavorite> favorites)
         => _configurationService.Set(FavoritesKey, JsonSerializer.Serialize(favorites, PublicFolderFavoriteJsonContext.Default.ListPublicFolderFavorite));

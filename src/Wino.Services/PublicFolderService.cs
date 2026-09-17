@@ -64,14 +64,10 @@ public class PublicFolderService : IPublicFolderService
         return await synchronizer.GetPublicFolderContactsAsync(folderId, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<IWinoSynchronizerBase> GetCapableSynchronizerAsync(Guid accountId)
-    {
-        var synchronizer = await _synchronizerFactory.GetAccountSynchronizerAsync(accountId).ConfigureAwait(false)
-            ?? throw new InvalidOperationException($"No synchronizer is available for account {accountId}.");
-
-        if (!synchronizer.SupportsPublicFolders)
-            throw new NotSupportedException("Public folders are only supported for Exchange accounts.");
-
-        return synchronizer;
-    }
+    private Task<IWinoSynchronizerBase> GetCapableSynchronizerAsync(Guid accountId)
+        => SynchronizerCapabilityGate.RequireAsync(
+            _synchronizerFactory,
+            accountId,
+            synchronizer => synchronizer.SupportsPublicFolders,
+            "Public folders are only supported for Exchange accounts.");
 }

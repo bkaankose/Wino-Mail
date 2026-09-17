@@ -58,8 +58,9 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
             var bearerChallenge = challengeList.FirstOrDefault(c =>
                 !string.IsNullOrWhiteSpace(c) && c.TrimStart().StartsWith("Bearer", StringComparison.OrdinalIgnoreCase));
 
-            var authorizationUri = bearerChallenge == null ? null : ExtractChallengeParameter(bearerChallenge, "authorization_uri");
-            var issuerKind = bearerChallenge == null ? null : ExtractChallengeParameter(bearerChallenge, "issuer_kind");
+            // ExtractChallengeParameter already yields null when there is no Bearer challenge.
+            var authorizationUri = ExtractChallengeParameter(bearerChallenge, "authorization_uri");
+            var issuerKind = ExtractChallengeParameter(bearerChallenge, "issuer_kind");
 
             return new ExchangeAuthProbeResult
             {
@@ -80,7 +81,7 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
         }
     }
 
-    public static ExchangeAuthCapability ClassifyChallenges(IEnumerable<string> wwwAuthenticateValues)
+    private static ExchangeAuthCapability ClassifyChallenges(IEnumerable<string> wwwAuthenticateValues)
     {
         if (wwwAuthenticateValues == null)
             return ExchangeAuthCapability.Unknown;
@@ -102,7 +103,7 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
         return sawAny ? ExchangeAuthCapability.BasicOnly : ExchangeAuthCapability.Unknown;
     }
 
-    public static string ExtractChallengeParameter(string bearerChallenge, string parameterName)
+    private static string ExtractChallengeParameter(string bearerChallenge, string parameterName)
     {
         if (string.IsNullOrEmpty(bearerChallenge) || string.IsNullOrEmpty(parameterName))
             return null;
@@ -117,7 +118,7 @@ public sealed class ExchangeAuthCapabilityProbe : IExchangeAuthCapabilityProbe
         return end < 0 ? null : bearerChallenge[start..end];
     }
 
-    public static string DeriveAuthority(string authorizationUri)
+    private static string DeriveAuthority(string authorizationUri)
     {
         if (string.IsNullOrWhiteSpace(authorizationUri))
             return null;
