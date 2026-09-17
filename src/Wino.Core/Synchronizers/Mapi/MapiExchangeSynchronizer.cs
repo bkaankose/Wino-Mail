@@ -19,6 +19,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.PublicFolders;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Rules;
 using Wino.Core.Domain.Models.Synchronization;
@@ -35,6 +36,7 @@ using Wino.Mapi.Calendar;
 using Wino.Mapi.Rops;
 using Wino.Mapi.Rules;
 using Wino.Mapi.Transport;
+using Wino.Mapi.Wire;
 using Wino.Messaging.Server;
 using Wino.Messaging.UI;
 using Task = System.Threading.Tasks.Task;
@@ -66,6 +68,8 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
     private const string UserAgent = "WinoMail/MAPI";
 
     private MapiEndpointInfo? _endpoint;
+    private MapiEndpointInfo? _archiveEndpoint;
+    private MapiEndpointInfo? _publicFolderEndpoint;
 
     public MapiExchangeSynchronizer(MailAccount account,
                                     IExchangeAuthenticator exchangeAuthenticator,
@@ -564,6 +568,23 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
     public override async Task DownloadMissingMimeMessageAsync(MailCopy mailItem, MailKit.ITransferProgress? transferProgress = null, CancellationToken cancellationToken = default)
     {
         var messageId = RequireMessageId(mailItem);
+
+        // An item of a read-only remote tree (public folder or online archive) has no local folder row:
+        // its MIME is read from the remote store by the folder id the navigation node carries.
+        if (mailItem.AssignedFolder is { IsRemoteReadOnlyNode: true } remoteFolder && !string.IsNullOrEmpty(remoteFolder.RemoteFolderId))
+        {
+            var remoteMime = remoteFolder.IsOnlineArchiveNode
+                ? await GetOnlineArchiveMailMimeAsync(remoteFolder.RemoteFolderId, mailItem.Id, cancellationToken).ConfigureAwait(false)
+                : await GetPublicFolderMailMimeAsync(remoteFolder.RemoteFolderId, mailItem.Id, cancellationToken).ConfigureAwait(false);
+
+            if (remoteMime is null)
+                throw new SynchronizerEntityNotFoundException($"Mail '{mailItem.Subject}' is not available in its remote folder.");
+
+            using var remoteStream = new System.IO.MemoryStream(remoteMime);
+            var remoteMessage = await MimeKit.MimeMessage.LoadAsync(remoteStream, cancellationToken).ConfigureAwait(false);
+            await ExchangeChangeProcessor.SaveMimeFileAsync(mailItem.FileId, remoteMessage, Account.Id).ConfigureAwait(false);
+            return;
+        }
 
         var folders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
         var folder = folders.FirstOrDefault(f => f.Id == mailItem.FolderId)
@@ -1512,6 +1533,26 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
 
         if (structureChanged)
             WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+
+        // Autodiscover names the archive as an AlternativeMailbox of type Archive, so no EWS probe is needed.
+        await ProbeOnlineArchiveOverMapiAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task ProbeOnlineArchiveOverMapiAsync(CancellationToken cancellationToken)
+    {
+        bool hasArchive;
+        try
+        {
+            var endpoint = await ResolveEndpointAsync(await ResolveCredentialAsync().ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+            hasArchive = !string.IsNullOrEmpty(endpoint.ArchiveSmtpAddress);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.Debug(ex, "MAPI {Account}: online archive probe failed; keeping cached state.", Account.Address);
+            return;
+        }
+
+        await PersistOnlineArchiveStateAsync(hasArchive).ConfigureAwait(false);
     }
 
     // ------------------------------------------------------------------------------------------------
@@ -2209,6 +2250,456 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
             {
                 _sessionGate.Release();
             }
+        }
+
+        await _archiveSlot.CloseAsync().ConfigureAwait(false);
+        await _publicFolderSlot.CloseAsync().ConfigureAwait(false);
+
+        List<RemoteSessionSlot> contentSlots;
+        lock (_publicContentStores)
+            contentSlots = _publicContentStores.Values.Select(s => s.Slot).ToList();
+
+        foreach (var slot in contentSlots)
+            await slot.CloseAsync().ConfigureAwait(false);
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // Read-only remote stores: the online archive and the public folders. Each is another store the
+    // user may open; Autodiscover names them, their own Autodiscover gives the routable MailStore URL,
+    // and the logon is private (archive) or a public-store logon (public folders). Rows are transient,
+    // as on EWS. Browsing a tree is a burst of calls, so one session is kept per store.
+    // ------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// One kept session for a remote store. Same age, idle and fault rules as the mailbox session; calls
+    /// on one slot are serialized, which browsing does not mind.
+    /// </summary>
+    private sealed class RemoteSessionSlot
+    {
+        private readonly SemaphoreSlim _gate = new(1, 1);
+        private MapiSession? _session;
+        private DateTime _openedUtc;
+        private DateTime _usedUtc;
+
+        public sealed class Lease(RemoteSessionSlot slot, MapiSession? session) : IAsyncDisposable
+        {
+            public MapiSession? Session { get; } = session;
+
+            public async ValueTask DisposeAsync()
+            {
+                try
+                {
+                    slot._usedUtc = DateTime.UtcNow;
+                    if (Session is { Faulted: true })
+                        await slot.DropAsync().ConfigureAwait(false);
+                }
+                finally
+                {
+                    slot._gate.Release();
+                }
+            }
+        }
+
+        public async Task<Lease> AcquireAsync(Func<CancellationToken, Task<MapiSession?>> open, CancellationToken cancellationToken)
+        {
+            await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                var now = DateTime.UtcNow;
+                if (_session is not null && (_session.Faulted || now - _openedUtc > SessionMaxAge || now - _usedUtc > SessionMaxIdle))
+                    await DropAsync().ConfigureAwait(false);
+
+                if (_session is null)
+                {
+                    _session = await open(cancellationToken).ConfigureAwait(false);
+                    _openedUtc = now;
+                }
+
+                _usedUtc = now;
+                return new Lease(this, _session);
+            }
+            catch
+            {
+                _gate.Release();
+                throw;
+            }
+        }
+
+        public async Task CloseAsync()
+        {
+            if (!await _gate.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false))
+                return;
+
+            try
+            {
+                await DropAsync().ConfigureAwait(false);
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
+        private async Task DropAsync()
+        {
+            var session = _session;
+            _session = null;
+            if (session is not null)
+                await session.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    private readonly RemoteSessionSlot _archiveSlot = new();
+    private readonly RemoteSessionSlot _publicFolderSlot = new();
+
+    /// <summary>A session on the archive mailbox, or null when the account has none.</summary>
+    private async Task<MapiSession?> OpenArchiveSessionAsync(CancellationToken cancellationToken)
+    {
+        var credential = await ResolveCredentialAsync().ConfigureAwait(false);
+        var primary = await ResolveEndpointAsync(credential, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(primary.ArchiveSmtpAddress))
+            return null;
+
+        if (_archiveEndpoint is null)
+        {
+            _archiveEndpoint = await MapiAutodiscover.DiscoverAsync(AutodiscoverUrl, primary.ArchiveSmtpAddress, credential, cancellationToken).ConfigureAwait(false);
+            Diagnostics($"archive mailbox {primary.ArchiveSmtpAddress} discovered");
+        }
+
+        var transport = new MapiHttpTransport(_archiveEndpoint.MailStoreUrl, credential, UserAgent, line => Logger.Debug("MAPI archive {Account} {Line}", Account.Address, line));
+        return await MapiSession.OpenAsync(transport, primary.LegacyDn, cancellationToken, mailboxDn: _archiveEndpoint.LegacyDn).ConfigureAwait(false);
+    }
+
+    public override async Task<IReadOnlyList<PublicFolderNode>> GetOnlineArchiveChildrenAsync(string parentFolderId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await using var lease = await _archiveSlot.AcquireAsync(OpenArchiveSessionAsync, cancellationToken).ConfigureAwait(false);
+            var session = lease.Session;
+            if (session is null)
+                return null;
+
+            var subtree = session.Logon!.IpmSubtreeFolderId;
+            var parent = string.IsNullOrEmpty(parentFolderId) ? subtree : TryParseMailCopyId(parentFolderId, out var p) ? p : subtree;
+            return await ReadRemoteChildrenAsync(session, parent, parentFolderId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.Warning(ex, "MAPI archive {Account}: folder list failed; using EWS for this call.", Account.Address);
+            return await base.GetOnlineArchiveChildrenAsync(parentFolderId, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    public override async Task<IReadOnlyList<MailCopy>> GetOnlineArchiveMailItemsAsync(string folderId, int skip, int take, CancellationToken cancellationToken = default)
+    {
+        if (!TryParseMailCopyId(folderId, out var fid))
+            return await base.GetOnlineArchiveMailItemsAsync(folderId, skip, take, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            await using var lease = await _archiveSlot.AcquireAsync(OpenArchiveSessionAsync, cancellationToken).ConfigureAwait(false);
+            var session = lease.Session;
+            if (session is null)
+                return [];
+
+            return await ReadRemoteMailAsync(session, fid, skip, take, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.Warning(ex, "MAPI archive {Account}: message list of 0x{Id:X16} failed.", Account.Address, fid);
+            return [];
+        }
+    }
+
+    public override async Task<byte[]> GetOnlineArchiveMailMimeAsync(string folderId, string itemId, CancellationToken cancellationToken = default)
+    {
+        if (!TryParseMailCopyId(folderId, out var fid) || !TryParseMailCopyId(itemId, out var mid))
+            return await base.GetOnlineArchiveMailMimeAsync(folderId, itemId, cancellationToken).ConfigureAwait(false);
+
+        await using var lease = await _archiveSlot.AcquireAsync(OpenArchiveSessionAsync, cancellationToken).ConfigureAwait(false);
+        var session = lease.Session;
+        if (session is null)
+            return null;
+
+        return await ReadRemoteMimeAsync(session, fid, mid, cancellationToken).ConfigureAwait(false);
+    }
+
+    // ---- Shared live reads for the archive and public folder trees (rows transient, never persisted) ----
+
+    private async Task<IReadOnlyList<PublicFolderNode>> ReadRemoteChildrenAsync(MapiSession session, ulong parent, string parentFolderId, CancellationToken cancellationToken)
+    {
+        var folders = await MapiFolderOperations.ReadHierarchyAsync(session, parent, cancellationToken, Diagnostics, deep: false).ConfigureAwait(false);
+        return folders
+            .Where(f => !f.IsHidden)           // system folders that OWA keeps out of the tree
+            .Select(f => new PublicFolderNode
+            {
+                Id = ToMailCopyId(f.FolderId),
+                ParentId = parentFolderId,
+                Name = string.IsNullOrWhiteSpace(f.DisplayName) ? Translator.RemoteFolders_Unnamed : f.DisplayName,
+                Kind = PublicFolderClassifier.Classify(f.ContainerClass),
+                HasChildren = f.HasSubfolders,
+            })
+            .OrderBy(n => n.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    private async Task<IReadOnlyList<MailCopy>> ReadRemoteMailAsync(MapiSession session, ulong folderId, int skip, int take, CancellationToken cancellationToken)
+    {
+        var pageSize = take <= 0 ? (int)InitialMessageDownloadCountPerFolder : take;
+        var offset = Math.Max(0, skip);
+        var rows = await MapiMessageOperations.ReadMessageListAsync(session, folderId, offset + pageSize, cancellationToken, Diagnostics).ConfigureAwait(false);
+        return rows.Skip(offset).Select(r =>
+        {
+            var copy = MapToMailCopy(r, Guid.Empty, inDraftsFolder: false);
+            copy.FileId = RemoteItemFileId(copy.Id);
+            copy.IsRead = true;                // read state is not per-user-meaningful in a shared store
+            copy.AssignedAccount = Account;
+            return copy;
+        }).ToList();
+    }
+
+    private async Task<byte[]> ReadRemoteMimeAsync(MapiSession session, ulong folderId, ulong messageId, CancellationToken cancellationToken)
+    {
+        var info = await MapiMessageOperations.ReadMessageInfoAsync(session, folderId, messageId, cancellationToken).ConfigureAwait(false);
+        var content = await MapiMessageOperations.ReadMessageContentAsync(session, folderId, messageId, cancellationToken, Diagnostics).ConfigureAwait(false);
+        var mime = MapiMimeAssembler.Build(MapToMailCopy(info, Guid.Empty, inDraftsFolder: false), content, info.DisplayTo);
+        using var buffer = new System.IO.MemoryStream();
+        mime.WriteTo(buffer);
+        return buffer.ToArray();
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // Public folders over MAPI: Autodiscover names the public folder mailbox, whose own Autodiscover
+    // gives the routable endpoint; the logon is a public-store logon and the tree is the public IPM
+    // subtree, expanded one level at a time. Calendar and contact folders read with the same
+    // operations the mailbox uses, against named property ids resolved on the public store.
+    // ------------------------------------------------------------------------------------------------
+
+    /// <summary>A public-store session, or null when Autodiscover names no public folder mailbox.</summary>
+    private async Task<MapiSession?> OpenPublicFolderSessionAsync(CancellationToken cancellationToken)
+    {
+        var credential = await ResolveCredentialAsync().ConfigureAwait(false);
+        var primary = await ResolveEndpointAsync(credential, cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(primary.PublicFolderSmtpAddress))
+            return null;
+
+        if (_publicFolderEndpoint is null)
+        {
+            _publicFolderEndpoint = await MapiAutodiscover.DiscoverAsync(AutodiscoverUrl, primary.PublicFolderSmtpAddress, credential, cancellationToken).ConfigureAwait(false);
+            Diagnostics($"public folder mailbox {primary.PublicFolderSmtpAddress} discovered");
+        }
+
+        var transport = new MapiHttpTransport(_publicFolderEndpoint.MailStoreUrl, credential, UserAgent, line => Logger.Debug("MAPI public {Account} {Line}", Account.Address, line));
+        return await MapiSession.OpenAsync(transport, primary.LegacyDn, cancellationToken, publicStore: true).ConfigureAwait(false);
+    }
+
+    // Content of a ghosted public folder lives in another public folder mailbox, which the replica list
+    // names by legacyDN. Autodiscover accepts a legacyDN as the address, so the content mailbox gets its
+    // own endpoint and public-store session, kept per DN; a folder remembers where its content was found
+    // so the message body read goes straight there.
+    private readonly Dictionary<string, (MapiEndpointInfo Endpoint, RemoteSessionSlot Slot)> _publicContentStores = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Where a ghosted folder's content was found: the replica, and the folder's id in that store.</summary>
+    private readonly Dictionary<ulong, (string Replica, ulong ContentFolderId)> _publicContentByFolder = new();
+
+    /// <summary>
+    /// Folder ids are per store (the ReplId half is this logon's mapping), so a folder id from the
+    /// hierarchy mailbox means nothing in the content mailbox. The long-term id (ReplGuid + counter) is
+    /// the same everywhere: convert on the way out, and back on the way in.
+    /// </summary>
+    private static async Task<ulong> TranslateFolderIdAsync(MapiSession from, MapiSession to, ulong folderId, CancellationToken cancellationToken)
+    {
+        var (rops, _) = await from.ExecuteAsync(RopIds.BuildLongTermIdFromId(0, folderId), [from.LogonHandle], cancellationToken).ConfigureAwait(false);
+        var longTermId = RopIds.ParseLongTermIdFromId(new RopReader(rops));
+        (rops, _) = await to.ExecuteAsync(RopIds.BuildIdFromLongTermId(0, longTermId), [to.LogonHandle], cancellationToken).ConfigureAwait(false);
+        return RopIds.ParseIdFromLongTermId(new RopReader(rops));
+    }
+
+    private async Task<RemoteSessionSlot.Lease> AcquirePublicContentSessionAsync(string replicaDn, CancellationToken cancellationToken)
+    {
+        (MapiEndpointInfo Endpoint, RemoteSessionSlot Slot) store;
+        lock (_publicContentStores)
+            _publicContentStores.TryGetValue(replicaDn, out store);
+
+        var credential = await ResolveCredentialAsync().ConfigureAwait(false);
+        var primary = await ResolveEndpointAsync(credential, cancellationToken).ConfigureAwait(false);
+        if (store.Endpoint is null)
+        {
+            var address = ReplicaToAddress(replicaDn);
+            var endpoint = await MapiAutodiscover.DiscoverAsync(AutodiscoverUrl, address, credential, cancellationToken).ConfigureAwait(false);
+            Diagnostics($"public folder content mailbox {address} discovered");
+            store = (endpoint, new RemoteSessionSlot());
+            lock (_publicContentStores)
+                _publicContentStores[replicaDn] = store;
+        }
+
+        return await store.Slot.AcquireAsync(async ct =>
+        {
+            var transport = new MapiHttpTransport(store.Endpoint.MailStoreUrl, credential, UserAgent, line => Logger.Debug("MAPI public-content {Account} {Line}", Account.Address, line));
+            return await MapiSession.OpenAsync(transport, primary.LegacyDn, ct, publicStore: true).ConfigureAwait(false);
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// The address Autodiscover takes for a replica. The list names the content mailbox as a server DN,
+    /// ".../cn=Configuration/cn=Servers/cn={mailbox guid}@{domain}/cn=Microsoft Public MDB", and the
+    /// guid@domain segment is the mailbox's routing address (the same form the archive uses). Anything
+    /// else is passed through as-is.
+    /// </summary>
+    internal static string ReplicaToAddress(string replica)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(replica, @"/cn=Servers/cn=([^/]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value : replica;
+    }
+
+    /// <summary>
+    /// Runs a content read on the public folder mailbox, following the replica list once when the folder
+    /// is ghosted elsewhere. The read gets the session to use and the folder's id in that store.
+    /// </summary>
+    private async Task<T> ReadPublicContentAsync<T>(ulong folderId, Func<MapiSession, ulong, Task<T>> read, CancellationToken cancellationToken)
+    {
+        (string Replica, ulong ContentFolderId) known;
+        lock (_publicContentByFolder)
+            _publicContentByFolder.TryGetValue(folderId, out known);
+
+        if (known.Replica is not null)
+        {
+            await using var direct = await AcquirePublicContentSessionAsync(known.Replica, cancellationToken).ConfigureAwait(false);
+            return await read(direct.Session!, known.ContentFolderId).ConfigureAwait(false);
+        }
+
+        await using var lease = await _publicFolderSlot.AcquireAsync(OpenPublicFolderSessionAsync, cancellationToken).ConfigureAwait(false);
+        if (lease.Session is null)
+            throw new InvalidOperationException("Autodiscover named no public folder mailbox.");
+
+        try
+        {
+            return await read(lease.Session, folderId).ConfigureAwait(false);
+        }
+        catch (MapiGhostedFolderException ghosted)
+        {
+            var replica = ghosted.Replicas[0];
+            Logger.Information("MAPI public folders {Account}: folder 0x{Id:X16} content is in {Replica}; following.", Account.Address, folderId, replica);
+            await using var content = await AcquirePublicContentSessionAsync(replica, cancellationToken).ConfigureAwait(false);
+            var contentFolderId = await TranslateFolderIdAsync(lease.Session, content.Session!, folderId, cancellationToken).ConfigureAwait(false);
+            Diagnostics($"public folder 0x{folderId:X16} is 0x{contentFolderId:X16} in its content mailbox");
+            var result = await read(content.Session!, contentFolderId).ConfigureAwait(false);
+            lock (_publicContentByFolder)
+                _publicContentByFolder[folderId] = (replica, contentFolderId);
+            return result;
+        }
+    }
+
+    public override async Task<IReadOnlyList<PublicFolderNode>> GetPublicFolderChildrenAsync(string parentFolderId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await using var lease = await _publicFolderSlot.AcquireAsync(OpenPublicFolderSessionAsync, cancellationToken).ConfigureAwait(false);
+            var session = lease.Session;
+            if (session is null)
+                return await base.GetPublicFolderChildrenAsync(parentFolderId, cancellationToken).ConfigureAwait(false);
+
+            var root = session.Logon!.PublicIpmSubtreeFolderId;
+            var parent = string.IsNullOrEmpty(parentFolderId) ? root : TryParseMailCopyId(parentFolderId, out var p) ? p : root;
+            return await ReadRemoteChildrenAsync(session, parent, parentFolderId, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.Warning(ex, "MAPI public folders {Account}: folder list failed; using EWS for this call.", Account.Address);
+            return await base.GetPublicFolderChildrenAsync(parentFolderId, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    public override async Task<IReadOnlyList<MailCopy>> GetPublicFolderMailItemsAsync(string folderId, int skip, int take, CancellationToken cancellationToken = default)
+    {
+        if (!TryParseMailCopyId(folderId, out var fid))
+            return await base.GetPublicFolderMailItemsAsync(folderId, skip, take, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            return await ReadPublicContentAsync(fid, (session, folder) => ReadRemoteMailAsync(session, folder, skip, take, cancellationToken), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.Warning(ex, "MAPI public folders {Account}: message list of 0x{Id:X16} failed.", Account.Address, fid);
+            return [];
+        }
+    }
+
+    public override async Task<byte[]> GetPublicFolderMailMimeAsync(string folderId, string itemId, CancellationToken cancellationToken = default)
+    {
+        if (!TryParseMailCopyId(folderId, out var fid) || !TryParseMailCopyId(itemId, out var mid))
+            return await base.GetPublicFolderMailMimeAsync(folderId, itemId, cancellationToken).ConfigureAwait(false);
+
+        return await ReadPublicContentAsync(fid, (session, folder) => ReadRemoteMimeAsync(session, folder, mid, cancellationToken), cancellationToken).ConfigureAwait(false);
+    }
+
+    public override async Task<IReadOnlyList<CalendarItem>> GetPublicFolderAppointmentsAsync(string folderId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default)
+    {
+        if (!TryParseMailCopyId(folderId, out var fid))
+            return await base.GetPublicFolderAppointmentsAsync(folderId, startUtc, endUtc, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            var rows = await ReadPublicContentAsync(fid, async (session, folder) =>
+            {
+                // Named property ids are per store: resolved on the store that answers, not from the mailbox's cache.
+                var tags = await MapiCalendarOperations.ResolveTagsAsync(session, cancellationToken, Diagnostics).ConfigureAwait(false);
+                return await MapiCalendarOperations.ReadAppointmentsAsync(session, folder, tags, cancellationToken, Diagnostics).ConfigureAwait(false);
+            }, cancellationToken).ConfigureAwait(false);
+
+            var items = new List<CalendarItem>();
+            foreach (var row in rows.Where(r => r.IsAppointment))
+            {
+                foreach (var occurrence in MapiCalendarExpander.Expand(row, startUtc, endUtc, Diagnostics))
+                    items.Add(MapRemoteAppointment(occurrence));
+            }
+
+            return items;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.Warning(ex, "MAPI public folders {Account}: appointments of 0x{Id:X16} failed.", Account.Address, fid);
+            return [];
+        }
+    }
+
+    public override async Task<IReadOnlyList<PublicFolderContact>> GetPublicFolderContactsAsync(string folderId, CancellationToken cancellationToken = default)
+    {
+        if (!TryParseMailCopyId(folderId, out var fid))
+            return await base.GetPublicFolderContactsAsync(folderId, cancellationToken).ConfigureAwait(false);
+
+        try
+        {
+            var rows = await ReadPublicContentAsync(fid, async (session, folder) =>
+            {
+                var tags = await MapiContactOperations.ResolveTagsAsync(session, cancellationToken).ConfigureAwait(false);
+                return await MapiContactOperations.ReadContactsAsync(session, folder, tags, cancellationToken, Diagnostics).ConfigureAwait(false);
+            }, cancellationToken).ConfigureAwait(false);
+
+            return rows
+                .Where(c => c.IsContact)
+                .Select(c => new PublicFolderContact
+                {
+                    RemoteId = ToMailCopyId(c.MessageId),
+                    DisplayName = c.DisplayName,
+                    Address = c.Email1 ?? c.Email2 ?? c.Email3,
+                    Company = c.Company,
+                    Title = c.JobTitle,
+                    BusinessPhone = c.BusinessPhone,
+                    HomePhone = c.HomePhone,
+                    MobilePhone = c.MobilePhone,
+                    BusinessFax = c.BusinessFax,
+                    StreetAddress = c.WorkStreet,
+                    Notes = c.Notes,
+                })
+                .OrderBy(c => c.DisplayName ?? c.Address, StringComparer.CurrentCultureIgnoreCase)
+                .ToList();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Logger.Warning(ex, "MAPI public folders {Account}: contacts of 0x{Id:X16} failed.", Account.Address, fid);
+            return [];
         }
     }
 }

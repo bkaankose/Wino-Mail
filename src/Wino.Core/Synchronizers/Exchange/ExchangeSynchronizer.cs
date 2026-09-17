@@ -19,6 +19,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.PublicFolders;
 using Wino.Core.Domain.Models.Requests;
 using Wino.Core.Domain.Models.Rules;
 using Wino.Core.Domain.Models.Synchronization;
@@ -1629,6 +1630,46 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         // Refresh the navigation tree so server-side creates/moves/deletes surface without an app restart.
         if (structureChanged)
             WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(Account.Id));
+
+        await ProbeOnlineArchiveAsync(service).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Detects whether the mailbox has an online archive (in-place archive) provisioned and persists the
+    /// flag on the account. The UI keys the local Archive action off it (<see cref="MailAccount.SuppressLocalArchive"/>)
+    /// so users do not divert mail into the local Archive folder behind the server-side archive. Only
+    /// writes when the flag actually changes; a transient failure keeps the cached state.
+    /// </summary>
+    protected async Task ProbeOnlineArchiveAsync(ExchangeService service)
+    {
+        bool hasArchive;
+        try
+        {
+            await service.FindFolders(WellKnownFolderName.ArchiveMsgFolderRoot, new FolderView(1)).ConfigureAwait(false);
+            hasArchive = true;
+        }
+        catch (ServiceResponseException)
+        {
+            hasArchive = false;   // no archive mailbox provisioned for this user
+        }
+        catch (Exception ex)
+        {
+            _logger.Debug(ex, "Online archive probe failed for {Account}; keeping cached state.", Account.Name);
+            return;
+        }
+
+        await PersistOnlineArchiveStateAsync(hasArchive).ConfigureAwait(false);
+    }
+
+    /// <summary>Persists a probed online-archive flag when it differs from the cached one.</summary>
+    protected async Task PersistOnlineArchiveStateAsync(bool hasArchive)
+    {
+        if (hasArchive == Account.HasOnlineArchive)
+            return;
+
+        Account.HasOnlineArchive = hasArchive;
+        await _exchangeChangeProcessor.UpdateAccountAsync(Account).ConfigureAwait(false);
+        _logger.Information("Online archive {State} for {Account}.", hasArchive ? "detected" : "no longer available", Account.Name);
     }
 
     /// <summary>
@@ -2097,6 +2138,252 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
 
         return Bundle(service => service.MarkAsJunk(ids, isJunk, true, default), requests[0], requests);
     }
+
+    #region Public Folders
+
+    // Read-only browse of the organization's public folder hierarchy. Public folders have no sync state
+    // and no notifications, so everything here is fetched live on demand and mapped to transient (never
+    // persisted) entities; the mailbox tables, the unified inbox, search and the address book are left
+    // untouched. The EWS Managed API routes hierarchy and content through the account's default public
+    // folder mailbox.
+    private static readonly PropertySet RemoteFolderPropertySet = new(
+        BasePropertySet.IdOnly, FolderSchema.DisplayName, FolderSchema.FolderClass, FolderSchema.ChildFolderCount);
+
+    private const int RemoteFolderChildPageSize = 1000;
+
+    public override bool SupportsPublicFolders => true;
+
+    public override async Task<IReadOnlyList<PublicFolderNode>> GetPublicFolderChildrenAsync(string parentFolderId, CancellationToken cancellationToken = default)
+    {
+        var service = await CreateServiceAsync().ConfigureAwait(false);
+        var view = new FolderView(RemoteFolderChildPageSize) { Traversal = FolderTraversal.Shallow, PropertySet = RemoteFolderPropertySet };
+
+        var results = string.IsNullOrEmpty(parentFolderId)
+            ? await service.FindFolders(WellKnownFolderName.PublicFoldersRoot, view).ConfigureAwait(false)
+            : await service.FindFolders(new FolderId(parentFolderId), view).ConfigureAwait(false);
+
+        return MapRemoteFolderNodes(results.Folders, parentFolderId);
+    }
+
+    public override Task<IReadOnlyList<MailCopy>> GetPublicFolderMailItemsAsync(string folderId, int skip, int take, CancellationToken cancellationToken = default)
+        => FetchRemoteFolderMailItemsAsync(folderId, skip, take);
+
+    public override Task<byte[]> GetPublicFolderMailMimeAsync(string folderId, string itemId, CancellationToken cancellationToken = default)
+        => FetchRemoteFolderMailMimeAsync(itemId);
+
+    public override async Task<IReadOnlyList<CalendarItem>> GetPublicFolderAppointmentsAsync(string folderId, DateTime startUtc, DateTime endUtc, CancellationToken cancellationToken = default)
+    {
+        var service = await CreateServiceAsync(TimeZoneInfo.Utc).ConfigureAwait(false);
+        var calendarFolder = await CalendarFolder.Bind(service, new FolderId(folderId), new PropertySet(BasePropertySet.IdOnly)).ConfigureAwait(false);
+
+        // CalendarView expands recurrence into individual occurrences, so each appointment maps to one event.
+        var view = new CalendarView(startUtc, endUtc, RemoteFolderChildPageSize) { PropertySet = new PropertySet(BasePropertySet.IdOnly) };
+        var results = await calendarFolder.FindAppointments(view).ConfigureAwait(false);
+        var appointments = results.Items;
+
+        if (appointments.Count == 0)
+            return Array.Empty<CalendarItem>();
+
+        await service.LoadPropertiesForItems(appointments, EventPropertySet).ConfigureAwait(false);
+        return appointments.Select(a => MapRemoteAppointment(MapToSyncedEvent(a))).ToList();
+    }
+
+    public override async Task<IReadOnlyList<PublicFolderContact>> GetPublicFolderContactsAsync(string folderId, CancellationToken cancellationToken = default)
+    {
+        var service = await CreateServiceAsync().ConfigureAwait(false);
+        var contacts = new List<PublicFolderContact>();
+
+        var view = new ItemView(ContactDownloadPageSize);
+        FindItemsResults<Item> results;
+        do
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            results = await service.FindItems(new FolderId(folderId), view).ConfigureAwait(false);
+
+            var page = results.Items.OfType<Contact>().ToList();
+            if (page.Count > 0)
+            {
+                await service.LoadPropertiesForItems(page, ContactPropertySet).ConfigureAwait(false);
+                contacts.AddRange(page.Select(MapRemoteContact).Where(c => c != null));
+            }
+
+            view.Offset += results.Items.Count;
+        }
+        while (results.MoreAvailable);
+
+        return contacts.OrderBy(c => c.DisplayName ?? c.Address, StringComparer.CurrentCultureIgnoreCase).ToList();
+    }
+
+    /// <summary>
+    /// A transient copy of a remote (public folder or archive) item. FolderId is left empty: the mail list
+    /// stamps the synthetic navigation folder's id so the item resolves its folder and account from the
+    /// list's own folders. The file id is derived from the item id so a re-open hits the MIME cache.
+    /// </summary>
+    private MailCopy MapRemoteMailItem(Item item)
+    {
+        if (item?.Id == null)
+            return null;
+
+        var email = item as EmailMessage;
+        return new MailCopy
+        {
+            UniqueId = Guid.NewGuid(),
+            FileId = RemoteItemFileId(item.Id.UniqueId),
+            Id = item.Id.UniqueId,
+            FolderId = Guid.Empty,
+            ThreadId = SafeGet(() => item.ConversationId?.UniqueId),
+            MessageId = SafeGet(() => email?.InternetMessageId),
+            Subject = SafeGet(() => item.Subject),
+            FromName = SafeGet(() => email?.From?.Name),
+            FromAddress = SafeGet(() => email?.From?.Address),
+            CreationDate = SafeGet(() => item.DateTimeReceived.ToUniversalTime()),
+            IsRead = true,                     // read state is not per-user-meaningful in a shared store
+            IsFlagged = SafeGet(() => item.Flag?.FlagStatus) == ItemFlagStatus.Flagged,
+            HasAttachments = SafeGet(() => (bool?)item.HasAttachments) ?? false,
+            Importance = MapImportance(SafeGet(() => (Importance?)item.Importance) ?? Microsoft.Exchange.WebServices.Data.Importance.Normal),
+            ItemType = MapItemType(SafeGet(() => item.ItemClass)),
+            AssignedAccount = Account
+        };
+    }
+
+    /// <summary>A stable file id for a remote item's cached MIME, derived from the account and the item id.</summary>
+    protected Guid RemoteItemFileId(string itemId)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(Account.Id.ToString("N") + ":" + itemId);
+        return new Guid(System.Security.Cryptography.MD5.HashData(bytes));
+    }
+
+    /// <summary>A transient, locked calendar item for a read-only overlay; the caller stamps the calendar id.</summary>
+    protected static CalendarItem MapRemoteAppointment(SyncedCalendarEvent occurrence)
+        => new()
+        {
+            Id = Guid.NewGuid(),
+            RemoteEventId = occurrence.RemoteId,
+            Title = occurrence.Title,
+            Description = occurrence.Description,
+            Location = occurrence.Location,
+            StartDate = occurrence.StartUtc,
+            DurationInSeconds = (occurrence.EndUtc - occurrence.StartUtc).TotalSeconds,
+            StartTimeZone = TimeZoneInfo.Utc.Id,
+            EndTimeZone = TimeZoneInfo.Utc.Id,
+            OrganizerEmail = occurrence.OrganizerEmail,
+            OrganizerDisplayName = occurrence.OrganizerName,
+            IsLocked = true,
+            ShowAs = occurrence.ShowAs,
+            Visibility = occurrence.Visibility,
+            Status = CalendarItemStatus.Accepted
+        };
+
+    private static PublicFolderContact MapRemoteContact(Contact contact)
+    {
+        if (contact?.Id == null)
+            return null;
+
+        return new PublicFolderContact
+        {
+            RemoteId = contact.Id.UniqueId,
+            DisplayName = SafeGet(() => contact.DisplayName),
+            Address = GetRemoteContactPrimaryEmail(contact),
+            Company = SafeGet(() => contact.CompanyName),
+            Title = SafeGet(() => contact.JobTitle),
+            BusinessPhone = GetRemoteContactPhone(contact, PhoneNumberKey.BusinessPhone),
+            HomePhone = GetRemoteContactPhone(contact, PhoneNumberKey.HomePhone),
+            MobilePhone = GetRemoteContactPhone(contact, PhoneNumberKey.MobilePhone),
+            BusinessFax = GetRemoteContactPhone(contact, PhoneNumberKey.BusinessFax),
+            StreetAddress = SafeGet(() => contact.PhysicalAddresses.TryGetValue(PhysicalAddressKey.Business, out var a) ? a?.Street : null),
+            Notes = SafeGet(() => contact.Body?.Text)
+        };
+    }
+
+    private static string GetRemoteContactPrimaryEmail(Contact contact)
+    {
+        foreach (var key in new[] { EmailAddressKey.EmailAddress1, EmailAddressKey.EmailAddress2, EmailAddressKey.EmailAddress3 })
+        {
+            var address = SafeGet(() => contact.EmailAddresses.TryGetValue(key, out var e) ? e?.Address : null);
+            if (!string.IsNullOrWhiteSpace(address))
+                return address;
+        }
+
+        return null;
+    }
+
+    private static string GetRemoteContactPhone(Contact contact, PhoneNumberKey key)
+        => SafeGet(() => contact.PhoneNumbers.TryGetValue(key, out var v) ? v : null);
+
+    // Projects EWS folder results into ordered transient nodes, trusting each folder's container class
+    // exactly as Outlook does. Shared by the public folder and online archive browse paths.
+    private static List<PublicFolderNode> MapRemoteFolderNodes(IEnumerable<Folder> folders, string parentFolderId)
+        => folders
+            .Select(f => new PublicFolderNode
+            {
+                Id = f.Id.UniqueId,
+                ParentId = parentFolderId,
+                Name = string.IsNullOrWhiteSpace(f.DisplayName) ? Translator.RemoteFolders_Unnamed : f.DisplayName,
+                Kind = PublicFolderClassifier.Classify(f.FolderClass),
+                HasChildren = f.ChildFolderCount > 0
+            })
+            .OrderBy(n => n.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+
+    // Shared live (never persisted) reads used by both browse paths: a folder's items by page, and a
+    // single item's MIME. Both fetch by folder or item id off a fresh service.
+    private async Task<IReadOnlyList<MailCopy>> FetchRemoteFolderMailItemsAsync(string folderId, int skip, int take)
+    {
+        var service = await CreateServiceAsync().ConfigureAwait(false);
+        var pageSize = take <= 0 ? (int)InitialMessageDownloadCountPerFolder : take;
+        var view = new ItemView(pageSize, Math.Max(0, skip)) { PropertySet = ItemMetadataPropertySet };
+
+        var results = await service.FindItems(new FolderId(folderId), view).ConfigureAwait(false);
+        return results.Items.Select(MapRemoteMailItem).Where(m => m != null).ToList();
+    }
+
+    private async Task<byte[]> FetchRemoteFolderMailMimeAsync(string itemId)
+    {
+        var service = await CreateServiceAsync().ConfigureAwait(false);
+        var item = await Item.Bind(service, new ItemId(itemId), new PropertySet(BasePropertySet.IdOnly, ItemSchema.MimeContent)).ConfigureAwait(false);
+        return item.MimeContent?.Content;
+    }
+
+    #endregion
+
+    #region Online Archive
+
+    // Read-only browse of the user's in-place archive mailbox via WellKnownFolderName.ArchiveMsgFolderRoot
+    // (the archive analogue of MsgFolderRoot). Like public folders, everything is fetched live and mapped
+    // to transient copies; archive folders are mail folders, so they reuse the public folder classifier,
+    // mapping and property sets. When no archive is provisioned the root call returns null so the UI
+    // shows "not enabled" rather than a load error.
+
+    public override bool SupportsOnlineArchive => true;
+
+    public override async Task<IReadOnlyList<PublicFolderNode>> GetOnlineArchiveChildrenAsync(string parentFolderId, CancellationToken cancellationToken = default)
+    {
+        var service = await CreateServiceAsync().ConfigureAwait(false);
+        var view = new FolderView(RemoteFolderChildPageSize) { Traversal = FolderTraversal.Shallow, PropertySet = RemoteFolderPropertySet };
+
+        FindFoldersResults results;
+        try
+        {
+            results = string.IsNullOrEmpty(parentFolderId)
+                ? await service.FindFolders(WellKnownFolderName.ArchiveMsgFolderRoot, view).ConfigureAwait(false)
+                : await service.FindFolders(new FolderId(parentFolderId), view).ConfigureAwait(false);
+        }
+        catch (ServiceResponseException ex) when (string.IsNullOrEmpty(parentFolderId))
+        {
+            _logger.Debug("Online archive not available for {Account}: {ErrorCode}.", Account.Name, ex.ErrorCode);
+            return null;
+        }
+
+        return MapRemoteFolderNodes(results.Folders, parentFolderId);
+    }
+
+    public override Task<IReadOnlyList<MailCopy>> GetOnlineArchiveMailItemsAsync(string folderId, int skip, int take, CancellationToken cancellationToken = default)
+        => FetchRemoteFolderMailItemsAsync(folderId, skip, take);
+
+    public override Task<byte[]> GetOnlineArchiveMailMimeAsync(string folderId, string itemId, CancellationToken cancellationToken = default)
+        => FetchRemoteFolderMailMimeAsync(itemId);
+
+    #endregion
 
     #region Global Address List
 
