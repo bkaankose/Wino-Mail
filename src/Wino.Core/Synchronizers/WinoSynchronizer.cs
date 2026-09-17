@@ -1079,6 +1079,17 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
     #endregion
 
+    #region Global Address List
+
+    // Read-only directory lookup feeding recipient autocomplete; a direct request, not a queued
+    // mutation. Defaults to NotSupported here; only the Exchange synchronizers override it.
+    public virtual bool SupportsGlobalAddressList => false;
+
+    public virtual Task<IReadOnlyList<AccountContact>> SearchGlobalAddressListAsync(string query, int maxResults, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+
+    #endregion
+
     public List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(Func<IImapClient, IRequestBase, Task> action, IRequestBase request, IUIChangeRequest uIChangeRequest)
     {
         return [new ImapRequestBundle(new ImapRequest(action, request), request, uIChangeRequest)];

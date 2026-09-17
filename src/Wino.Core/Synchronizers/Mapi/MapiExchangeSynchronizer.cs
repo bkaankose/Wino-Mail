@@ -30,6 +30,7 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.Exchange;
 using Wino.Mapi;
+using Wino.Mapi.AddressBook;
 using Wino.Mapi.Calendar;
 using Wino.Mapi.Rops;
 using Wino.Mapi.Rules;
@@ -1029,6 +1030,63 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
             throw new InvalidOperationException("The mailbox has no junk rule to hold the list.");
 
         Logger.Information("MAPI junk {Account}: {List} list {Action} {Address}.", Account.Address, listType, add ? "gained" : "dropped", address);
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // GAL: NSPI over MAPI/HTTP on the AddressBook endpoint Autodiscover named, replacing the EWS
+    // ResolveName lookup. GetMatches with a PidTagAnr restriction is the directory's own ambiguous-name
+    // resolution, so "mat" finds the Matts the way Outlook's To line does. The address-book endpoint is
+    // a separate transport from the mailbox session (no ROP logon), so each search binds its own
+    // short-lived NSPI client rather than borrowing the shared MapiSession.
+    // ------------------------------------------------------------------------------------------------
+
+    public override async Task<IReadOnlyList<AccountContact>> SearchGlobalAddressListAsync(string query, int maxResults, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query) || maxResults <= 0)
+            return [];
+
+        var credential = await ResolveCredentialAsync().ConfigureAwait(false);
+        var endpoint = await ResolveEndpointAsync(credential, cancellationToken).ConfigureAwait(false);
+        if (endpoint.AddressBookUrl is null)
+            throw new InvalidOperationException("Autodiscover named no MAPI/HTTP AddressBook endpoint for this mailbox.");
+
+        // Failures propagate: the GAL service degrades to local-only suggestions on any exception.
+        var transport = new MapiHttpTransport(endpoint.AddressBookUrl, credential, UserAgent, line => Logger.Debug("MAPI nspi {Account} {Line}", Account.Address, line));
+        await using var nspi = new NspiClient(transport, Diagnostics);
+        await nspi.BindAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await nspi.GetMatchesAsync(query.Trim(), NspiClient.SuggestionColumns, (uint)Math.Min(maxResults * 2, 100), cancellationToken).ConfigureAwait(false);
+        var results = MapGalRows(rows, maxResults, Account.Id);
+        Logger.Debug("MAPI GAL {Account}: '{Query}' matched {Rows} rows, {Results} usable.", Account.Address, query, rows.Count, results.Count);
+        return results;
+    }
+
+    /// <summary>Rows in <see cref="NspiClient.SuggestionColumns"/> order to transient contacts: SMTP-addressed entries only, deduped by address.</summary>
+    internal static List<AccountContact> MapGalRows(IReadOnlyList<PropertyValue[]> rows, int maxResults, Guid accountId = default)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var results = new List<AccountContact>();
+        foreach (var row in rows)
+        {
+            var smtp = row[1].AsString;
+            if (string.IsNullOrWhiteSpace(smtp) && string.Equals(row[3].AsString, "SMTP", StringComparison.OrdinalIgnoreCase))
+                smtp = row[2].AsString;
+            if (string.IsNullOrWhiteSpace(smtp) || !smtp.Contains('@') || !seen.Add(smtp.Trim()))
+                continue;
+
+            results.Add(new AccountContact
+            {
+                MailAccountId = accountId,
+                SourceKind = ContactSourceKind.Exchange,
+                Address = smtp.Trim(),
+                Name = string.IsNullOrWhiteSpace(row[0].AsString) ? smtp.Trim() : row[0].AsString,
+                CompanyName = row[4].AsString,
+                JobTitle = row[5].AsString,
+                Department = row[6].AsString,
+            });
+            if (results.Count >= maxResults)
+                break;
+        }
+        return results;
     }
 
     /// <summary>Soft delete: a move to Deleted Items; an item already there is hard-deleted.</summary>

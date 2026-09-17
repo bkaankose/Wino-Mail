@@ -2098,6 +2098,65 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         return Bundle(service => service.MarkAsJunk(ids, isJunk, true, default), requests[0], requests);
     }
 
+    #region Global Address List
+
+    public override bool SupportsGlobalAddressList => true;
+
+    // Resolves the query against the directory (ResolveName cannot enumerate a GAL, only match) and maps
+    // each ambiguous match to a transient AccountContact for recipient autocomplete. Mail-enabled
+    // distribution lists resolve to their SMTP address and ride along; EX-only/legacy entries are dropped.
+    public override async Task<IReadOnlyList<AccountContact>> SearchGlobalAddressListAsync(string query, int maxResults, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(query) || maxResults <= 0)
+            return [];
+
+        var service = await CreateServiceAsync().ConfigureAwait(false);
+        var resolutions = await service
+            .ResolveName(query.Trim(), ResolveNameSearchLocation.DirectoryOnly, returnContactDetails: true, cancellationToken)
+            .ConfigureAwait(false);
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var results = new List<AccountContact>();
+
+        foreach (var resolution in resolutions)
+        {
+            var address = CleanSmtpAddress(resolution.Mailbox?.Address);
+            if (address == null || !seen.Add(address))
+                continue;
+
+            var contact = resolution.Contact;
+
+            results.Add(new AccountContact
+            {
+                MailAccountId = Account.Id,
+                SourceKind = ContactSourceKind.Exchange,
+                Address = address,
+                Name = ResolveDirectoryDisplayName(resolution, address),
+                CompanyName = contact?.CompanyName,
+                JobTitle = contact?.JobTitle,
+                Department = contact?.Department,
+            });
+
+            if (results.Count >= maxResults)
+                break;
+        }
+
+        return results;
+    }
+
+    // Picks a friendly display name for a resolved directory entry: the contact's display name, else the
+    // mailbox name, else the supplied fallback (the SMTP address).
+    private static string ResolveDirectoryDisplayName(NameResolution resolution, string fallback)
+    {
+        var name = resolution?.Contact?.DisplayName;
+        if (string.IsNullOrWhiteSpace(name))
+            name = resolution?.Mailbox?.Name;
+
+        return string.IsNullOrWhiteSpace(name) ? fallback : name;
+    }
+
+    #endregion
+
     #region Inbox rules
 
     // Server-side inbox rules are a direct request/response (the manager dialog reads them and reports

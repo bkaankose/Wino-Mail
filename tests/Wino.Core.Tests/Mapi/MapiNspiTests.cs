@@ -1,4 +1,6 @@
 using FluentAssertions;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Synchronizers.Mapi;
 using Wino.Mapi;
 using Wino.Mapi.AddressBook;
 using Wino.Mapi.Rops;
@@ -115,5 +117,40 @@ public class MapiNspiTests
         failed.UInt32(0); failed.UInt32(0x80004005); failed.UInt8(0); failed.UInt8(0); failed.UInt8(0); failed.UInt32(0);
         var act = () => NspiClient.ParseGetMatches(failed.ToArray(), [PropertyTags.DisplayName]);
         act.Should().Throw<MapiRopException>();
+    }
+
+    [Fact]
+    public void GalRows_MapToSmtpContactsOnly_Deduped()
+    {
+        PropertyValue[] Row(string name, string? smtp, string? email, string? type, string? company = null, string? title = null, string? department = null) =>
+        [
+            PropertyValue.Of(PropertyTags.DisplayName, name), smtp is null ? PropertyValue.Absent(PropertyTags.SmtpAddress) : PropertyValue.Of(PropertyTags.SmtpAddress, smtp),
+            PropertyValue.Of(PropertyTags.EmailAddress, email), PropertyValue.Of(PropertyTags.AddressType, type),
+            PropertyValue.Of(NspiClient.CompanyName, company), PropertyValue.Of(NspiClient.Title, title),
+            department is null ? PropertyValue.Absent(NspiClient.DepartmentName) : PropertyValue.Of(NspiClient.DepartmentName, department),
+            PropertyValue.Of(NspiClient.DisplayType, 0u),
+        ];
+
+        var rows = new List<PropertyValue[]>
+        {
+            Row("Matthew Johnson", "matt@example.com", "/o=X/ou=Y/cn=Recipients/cn=matt", "EX", "MTEC", "Engineer", "Ops"),
+            Row("Matt Again", "MATT@example.com", null, "EX"),
+            Row("Contact", null, "ext@example.com", "SMTP"),
+            Row("Legacy only", null, "/o=X/cn=legacy", "EX"),
+            Row("", "blank@example.com", null, "EX"),
+        };
+
+        var accountId = Guid.NewGuid();
+        var contacts = MapiExchangeSynchronizer.MapGalRows(rows, 10, accountId);
+
+        contacts.Select(c => c.Address).Should().Equal("matt@example.com", "ext@example.com", "blank@example.com");
+        contacts[0].Name.Should().Be("Matthew Johnson");
+        contacts[0].CompanyName.Should().Be("MTEC");
+        contacts[0].JobTitle.Should().Be("Engineer");
+        contacts[0].Department.Should().Be("Ops");
+        contacts[0].MailAccountId.Should().Be(accountId);
+        contacts[0].SourceKind.Should().Be(ContactSourceKind.Exchange);
+        contacts[2].Name.Should().Be("blank@example.com", "no display name falls back to the address");
+        MapiExchangeSynchronizer.MapGalRows(rows, 1).Should().HaveCount(1);
     }
 }

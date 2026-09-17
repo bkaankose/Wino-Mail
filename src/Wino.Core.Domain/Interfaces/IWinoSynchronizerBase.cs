@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using MailKit;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -82,5 +83,16 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
 
     /// <summary>Adds or removes <paramref name="address"/> on the provider's Safe or Blocked senders list.</summary>
     Task UpdateServerJunkListAsync(string address, JunkListType listType, bool add, CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
+
+    /// <summary>Whether this provider exposes a Global Address List (directory) for recipient resolution (currently Exchange only).</summary>
+    bool SupportsGlobalAddressList => false;
+
+    /// <summary>
+    /// Searches the provider's Global Address List (directory) for <paramref name="query"/> and returns up to
+    /// <paramref name="maxResults"/> matches as transient <see cref="AccountContact"/> entries that are never
+    /// persisted; they feed recipient autocomplete. Mail-enabled distribution lists ride along as addressable entries.
+    /// </summary>
+    Task<IReadOnlyList<AccountContact>> SearchGlobalAddressListAsync(string query, int maxResults, CancellationToken cancellationToken = default)
         => throw new System.NotSupportedException();
 }
