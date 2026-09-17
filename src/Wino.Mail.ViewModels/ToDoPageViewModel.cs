@@ -105,6 +105,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanEditSelectedTask))]
+    [NotifyPropertyChangedFor(nameof(AreStepsAvailableForSelectedTask))]
     public partial TaskItemViewModel SelectedTask { get; set; }
 
     [ObservableProperty]
@@ -216,6 +217,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         OnPropertyChanged(nameof(IsMyDaySelected));
         OnPropertyChanged(nameof(CanEditSelectedList));
         OnPropertyChanged(nameof(CanDeleteSelectedList));
+        OnPropertyChanged(nameof(CanRenameSelectedList));
         OnPropertyChanged(nameof(IsSelectedListReadOnly));
         OnPropertyChanged(nameof(CanEditSelectedTask));
         OnPropertyChanged(nameof(SelectedSurfaceTitle));
@@ -266,8 +268,14 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     public bool IsSmartViewSelected => SelectedList is null;
     public bool IsMyDaySelected => SelectedList is null && SelectedView == TaskViewKind.MyDay;
     public bool CanEditSelectedList => SelectedList is { IsReadOnly: false };
-    public bool CanDeleteSelectedList => SelectedList is { IsReadOnly: false, IsOutlookDefaultList: false };
+    public bool CanDeleteSelectedList => SelectedList is { IsReadOnly: false, IsOutlookDefaultList: false, IsFixedProviderList: false };
+
+    /// <summary>An Exchange account's list is the mailbox's Tasks folder; the server names it.</summary>
+    public bool CanRenameSelectedList => SelectedList is { IsReadOnly: false, IsFixedProviderList: false };
     public bool CanEditSelectedTask => SelectedTask is { IsReadOnly: false };
+
+    /// <summary>Exchange tasks have no checklist, so the steps section is not shown for them.</summary>
+    public bool AreStepsAvailableForSelectedTask => SelectedTask?.Task?.SourceKind != TaskSourceKind.Exchange;
     public bool IsSelectedListReadOnly => SelectedList?.IsReadOnly ?? true;
 
     /// <summary>Raised after a reload rebuilds the selection so the list view can re-apply its own containers.</summary>
@@ -1633,7 +1641,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     [RelayCommand]
     private async Task AddStepAsync()
     {
-        if (SelectedTask is null || !CanEditSelectedTask)
+        if (SelectedTask is null || !CanEditSelectedTask || !AreStepsAvailableForSelectedTask)
             return;
 
         var selectedTask = SelectedTask;
@@ -1722,14 +1730,25 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private async Task CreateListAsync()
     {
         var account = Accounts.FirstOrDefault(account => account.Id == _selectedAccountId)
+            ?? Accounts.FirstOrDefault(account => account.IsTaskAccessEnabled && CanCreateListFor(account))
             ?? Accounts.FirstOrDefault(account => account.IsTaskAccessEnabled);
         if (account is null)
             return;
         await CreateListForAccountAsync(account, null).ConfigureAwait(false);
     }
 
+    /// <summary>An Exchange account serves the mailbox's one Tasks folder; this client adds no lists to it.</summary>
+    private static bool CanCreateListFor(MailAccount account)
+        => ResolveTaskSource(account) != TaskSourceKind.Exchange;
+
     private async Task CreateListForAccountAsync(MailAccount account, Guid? groupId)
     {
+        if (!CanCreateListFor(account))
+        {
+            _dialogService.InfoBarMessage(Translator.ToDoPage_NewList, Translator.Synchronizer_ExchangeTaskListsUnsupported, InfoBarMessageType.Information);
+            return;
+        }
+
         var title = await _dialogService.ShowTextInputDialogAsync(
             string.Empty,
             Translator.ToDoPage_NewList,
@@ -1868,7 +1887,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private async Task RenameListFromMenuAsync(AccountTaskListMenuItem item)
     {
-        if (item.Parameter.IsReadOnly)
+        if (!item.CanRename)
             return;
         var title = await _dialogService.ShowTextInputDialogAsync(
             item.Title,
@@ -2134,10 +2153,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     /// Renames the selected list through the same dialog the shell menu uses, so there is one
     /// rename experience wherever a list is renamed from.
     /// </summary>
-    [RelayCommand(CanExecute = nameof(CanEditSelectedList))]
+    [RelayCommand(CanExecute = nameof(CanRenameSelectedList))]
     private async Task RenameSelectedListAsync()
     {
-        if (SelectedList is null || SelectedList.IsReadOnly)
+        if (!CanRenameSelectedList)
             return;
 
         var title = await _dialogService.ShowTextInputDialogAsync(
@@ -2153,7 +2172,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     [RelayCommand]
     private async Task RenameListAsync(string title)
     {
-        if (SelectedList is null || SelectedList.IsReadOnly)
+        if (!CanRenameSelectedList)
             return;
 
         var trimmed = title?.Trim();
@@ -2353,7 +2372,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private static bool RequiresLocalFallbackList(MailAccount account)
         => account.IsTaskAccessEnabled &&
-           (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook) ||
+           (account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook or MailProviderType.Exchange) ||
            !account.IsTaskAccessGranted ||
            account.IsTaskReauthorizationRequired);
 

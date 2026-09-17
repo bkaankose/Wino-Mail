@@ -1103,6 +1103,42 @@ public sealed class ToDoPageViewModelTests
     }
 
     [Fact]
+    public async Task ExchangeAccount_OffersNoListOrStepManagement()
+    {
+        var account = CreateAccount(MailProviderType.Exchange, taskAccess: true);
+        var list = CreateList(account.Id, TaskSourceKind.Exchange, isDefault: true);
+        var taskService = CreateTaskService([list]);
+        var dialogs = new Mock<IMailDialogService>();
+        var delegator = new Mock<IWinoRequestDelegator>();
+        var viewModel = CreateViewModel(taskService.Object, [account], delegator.Object, dialogs.Object);
+        await viewModel.ReloadCommand.ExecuteAsync(null);
+
+        await viewModel.OnMenuItemInvokedAsync(viewModel.ShellMenu.Items.OfType<NewTaskListMenuItem>().Single());
+
+        viewModel.SelectedList = list;
+        viewModel.SelectedTask = new TaskItemViewModel(new AccountTask
+        {
+            Id = Guid.NewGuid(),
+            MailAccountId = account.Id,
+            TaskListId = list.Id,
+            SourceKind = TaskSourceKind.Exchange,
+            Title = "Exchange task"
+        }, list.Title);
+        await viewModel.AddStepCommand.ExecuteAsync(null);
+
+        viewModel.CanCreateTask.Should().BeTrue();
+        viewModel.CanRenameSelectedList.Should().BeFalse();
+        viewModel.CanDeleteSelectedList.Should().BeFalse();
+        viewModel.RenameSelectedListCommand.CanExecute(null).Should().BeFalse();
+        viewModel.AreStepsAvailableForSelectedTask.Should().BeFalse();
+        dialogs.Verify(service => service.ShowTextInputDialogAsync(
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        dialogs.Verify(service => service.InfoBarMessage(
+            Translator.ToDoPage_NewList, Translator.Synchronizer_ExchangeTaskListsUnsupported, InfoBarMessageType.Information), Times.Once);
+        delegator.Verify(service => service.ExecuteAsync(It.IsAny<Guid>(), It.IsAny<IEnumerable<IRequestBase>>()), Times.Never);
+    }
+
+    [Fact]
     public async Task SmartView_ClearsAccountSelectionAndHidesItsListHierarchy()
     {
         var account = CreateAccount(MailProviderType.Gmail, taskAccess: true);

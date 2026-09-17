@@ -443,7 +443,7 @@
                             Command="{x:Bind ViewModel.RenameSelectedListCommand}"
                             Style="{StaticResource TransparentActionButtonStyle}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_RenameList, Mode=OneTime}"
-                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanEditSelectedList), Mode=OneWay}">
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanRenameSelectedList), Mode=OneWay}">
                             <FontIcon FontSize="12" Glyph="&#xE70F;" />
                         </Button>
                     </StackPanel>
@@ -1082,7 +1082,7 @@
                 VerticalScrollBarVisibility="Auto">
                 <StackPanel Spacing="16">
                     <!--  Steps  -->
-                    <StackPanel>
+                    <StackPanel Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.AreStepsAvailableForSelectedTask), Mode=OneWay}">
                         <Grid Margin="12,0,12,2" ColumnSpacing="10">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />

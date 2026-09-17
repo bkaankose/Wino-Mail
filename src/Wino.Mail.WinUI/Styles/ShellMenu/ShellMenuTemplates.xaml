@@ -1207,7 +1207,8 @@
                         AutomationProperties.AutomationId="ToDoListRename"
                         Click="ListRename_Click"
                         Tag="{x:Bind}"
-                        Text="{x:Bind domain:Translator.ToDoPage_RenameList, Mode=OneTime}">
+                        Text="{x:Bind domain:Translator.ToDoPage_RenameList, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(CanRename), Mode=OneWay}">
                         <MenuFlyoutItem.Icon>
                             <SymbolIcon Symbol="Rename" />
                         </MenuFlyoutItem.Icon>
