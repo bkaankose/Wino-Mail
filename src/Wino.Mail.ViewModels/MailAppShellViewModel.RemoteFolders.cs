@@ -8,6 +8,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.PublicFolders;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
@@ -147,22 +148,73 @@ public partial class MailAppShellViewModel
 
         var accountId = node.ParentAccount.Id;
         var folderId = node.RemoteFolder.RemoteFolderId;
+        var isPinning = !_publicFolderFavoriteService.IsFavorite(accountId, folderId);
 
-        if (_publicFolderFavoriteService.IsFavorite(accountId, folderId))
+        if (isPinning)
         {
-            _publicFolderFavoriteService.RemoveFavorite(accountId, folderId);
+            _publicFolderFavoriteService.AddFavorite(PublicFolderFavorite.Create(accountId, folderId, node.Kind, node.RemoteFolder.FolderName));
         }
         else
         {
-            _publicFolderFavoriteService.AddFavorite(new PublicFolderFavorite
-            {
-                AccountId = accountId,
-                FolderId = folderId,
-                Kind = PublicFolderKind.Mail,
-                Name = node.RemoteFolder.FolderName
-            });
+            _publicFolderFavoriteService.RemoveFavorite(accountId, folderId);
         }
 
-        await RefreshLoadedAccountFolderStructureAsync(accountId);
+        // A mail pin lives in this very folder list, which is rebuilt to show or drop it. Contact and
+        // calendar pins surface in People and Calendar, so the tree stays as the user left it.
+        if (node.Kind == PublicFolderKind.Mail)
+        {
+            await RefreshLoadedAccountFolderStructureAsync(accountId);
+            return;
+        }
+
+        await ExecuteUIThread(() =>
+        {
+            node.IsPinned = isPinning;
+
+            if (!isPinning)
+                return;
+
+            _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Info,
+                string.Format(
+                    node.Kind == PublicFolderKind.Contacts ? Translator.PublicFolders_PinnedToPeople : Translator.PublicFolders_PinnedToCalendar,
+                    node.RemoteFolder.FolderName),
+                InfoBarMessageType.Success);
+        });
+    }
+
+    /// <summary>
+    /// A contact or calendar folder can also be unpinned from People or Calendar; the loaded tree nodes
+    /// then have to offer "pin" again.
+    /// </summary>
+    public void Receive(PublicFolderFavoritesChanged message)
+    {
+        if (message.Kind == PublicFolderKind.Mail || _publicFolderFavoriteService == null)
+            return;
+
+        _ = ExecuteUIThread(() => RefreshRemoteFolderPinStates(MenuItems, message.AccountId));
+    }
+
+    private void RefreshRemoteFolderPinStates(IEnumerable<IMenuItem> items, Guid accountId)
+    {
+        if (items == null)
+            return;
+
+        foreach (var item in items)
+        {
+            if (item is RemoteFolderMenuItem { CanPin: true, IsPinnedEntry: false } node && node.ParentAccount?.Id == accountId)
+            {
+                node.IsPinned = _publicFolderFavoriteService.IsFavorite(accountId, node.RemoteFolder.RemoteFolderId);
+            }
+
+            if (item is IBaseFolderMenuItem folder)
+            {
+                RefreshRemoteFolderPinStates(folder.SubMenuItems, accountId);
+            }
+            else if (item is AccountMenuItem account)
+            {
+                RefreshRemoteFolderPinStates(account.SubMenuItems, accountId);
+            }
+        }
     }
 }

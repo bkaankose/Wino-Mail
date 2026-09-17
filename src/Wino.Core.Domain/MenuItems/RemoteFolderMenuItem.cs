@@ -54,10 +54,21 @@ public partial class RemoteFolderMenuItem : FolderMenuItem
     /// <summary>Only mail folders open in the mail list; containers and other kinds are structure only.</summary>
     public bool CanOpen => !IsPlaceholder && !IsRoot && Kind == PublicFolderKind.Mail;
 
-    /// <summary>Public mail folders can be pinned under the account's folders for quick access.</summary>
-    public bool CanPin => !IsPlaceholder && !IsRoot && !IsOnlineArchive && Kind == PublicFolderKind.Mail;
+    /// <summary>
+    /// Public mail, contact and calendar folders can be pinned. A mail folder then shows under the account's
+    /// folders, a contact folder in People and a calendar folder in Calendar; other kinds have no home.
+    /// </summary>
+    public bool CanPin => !IsPlaceholder && !IsRoot && !IsOnlineArchive &&
+                          Kind is PublicFolderKind.Mail or PublicFolderKind.Contacts or PublicFolderKind.Calendar;
 
-    public string PinActionText => IsPinned ? Translator.PublicFolders_Unpin : Translator.PublicFolders_PinToFolders;
+    public string PinActionText => IsPinned
+        ? Translator.PublicFolders_Unpin
+        : Kind switch
+        {
+            PublicFolderKind.Contacts => Translator.PublicFolders_PinToPeople,
+            PublicFolderKind.Calendar => Translator.PublicFolders_PinToCalendar,
+            _ => Translator.PublicFolders_PinToFolders
+        };
 
     public void MarkChildrenLoaded() => AreChildrenLoaded = true;
 

@@ -89,16 +89,12 @@ public static class PublicFolderMenuItemFactory
     /// <summary>A pinned public mail folder surfaced under the account's folders for quick access.</summary>
     public static RemoteFolderMenuItem CreatePinnedMailFolder(MailAccount account, PublicFolderFavorite favorite, IMenuItem parent)
     {
-        var name = string.IsNullOrWhiteSpace(favorite.Name)
-            ? Translator.PublicFolders_PinnedSuffix
-            : favorite.Name + " " + Translator.PublicFolders_PinnedSuffix;
-
         var folder = new MailItemFolder
         {
             Id = DeterministicId(account.Id, "pinned:" + favorite.FolderId),
             MailAccountId = account.Id,
             RemoteFolderId = favorite.FolderId,
-            FolderName = name,
+            FolderName = favorite.DisplayName,
             SpecialFolderType = SpecialFolderType.PublicFolders,
             IsPublicFolderNode = true,
             PublicFolderKind = PublicFolderKind.Mail,

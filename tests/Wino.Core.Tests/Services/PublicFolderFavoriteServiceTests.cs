@@ -1,7 +1,9 @@
+using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.PublicFolders;
+using Wino.Messaging.UI;
 using Wino.Services;
 using Xunit;
 
@@ -61,6 +63,55 @@ public class PublicFolderFavoriteServiceTests
         _service.RemoveFavorite(_accountId, "missing");
 
         _service.GetFavorites().Should().ContainSingle().Which.FolderId.Should().Be("f2");
+    }
+
+    [Fact]
+    public void PinningAndUnpinning_AnnounceTheKindOnce()
+    {
+        var recipient = new object();
+        var announced = new List<PublicFolderFavoritesChanged>();
+        WeakReferenceMessenger.Default.Register<PublicFolderFavoritesChanged>(recipient, (_, message) =>
+        {
+            if (message.AccountId == _accountId)
+                announced.Add(message);
+        });
+
+        try
+        {
+            _service.AddFavorite(PublicFolderFavorite.Create(_accountId, "c1", PublicFolderKind.Contacts, "Staff"));
+            _service.AddFavorite(PublicFolderFavorite.Create(_accountId, "c1", PublicFolderKind.Contacts, "Staff"));
+            _service.RemoveFavorite(_accountId, "missing");
+            _service.RemoveFavorite(_accountId, "c1");
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+
+        announced.Should().Equal(
+            new PublicFolderFavoritesChanged(_accountId, PublicFolderKind.Contacts),
+            new PublicFolderFavoritesChanged(_accountId, PublicFolderKind.Contacts));
+    }
+
+    [Fact]
+    public void Create_GivesOnlyCalendarsAStableColour()
+    {
+        var calendar = PublicFolderFavorite.Create(_accountId, "cal-1", PublicFolderKind.Calendar, "Company");
+        var again = PublicFolderFavorite.Create(_accountId, "cal-1", PublicFolderKind.Calendar, "Company");
+        var contacts = PublicFolderFavorite.Create(_accountId, "con-1", PublicFolderKind.Contacts, "Staff");
+
+        calendar.ColorHex.Should().MatchRegex("^#[0-9A-F]{6}$").And.Be(again.ColorHex);
+        contacts.ColorHex.Should().BeNull();
+        contacts.DisplayName.Should().StartWith("Staff ");
+        new PublicFolderFavorite().DisplayName.Should().NotBeNullOrWhiteSpace();
+    }
+
+    [Fact]
+    public void DisplayName_IsNotPersisted()
+    {
+        _service.AddFavorite(PublicFolderFavorite.Create(_accountId, "c1", PublicFolderKind.Contacts, "Staff"));
+
+        _configuration.Get<string>("PublicFolderFavorites").Should().NotContain("DisplayName");
     }
 
     [Fact]

@@ -45,6 +45,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     IRecipient<AccountSynchronizationProgressUpdatedMessage>,
     IRecipient<NavigateAppPreferencesRequested>,
     IRecipient<AccountFolderConfigurationUpdated>,
+    IRecipient<PublicFolderFavoritesChanged>,
     IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>
 {
@@ -1766,6 +1767,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Register<AccountSynchronizationProgressUpdatedMessage>(this);
         Messenger.Register<NavigateAppPreferencesRequested>(this);
         Messenger.Register<AccountFolderConfigurationUpdated>(this);
+        Messenger.Register<PublicFolderFavoritesChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -1785,6 +1787,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
         Messenger.Unregister<NavigateAppPreferencesRequested>(this);
         Messenger.Unregister<AccountFolderConfigurationUpdated>(this);
+        Messenger.Unregister<PublicFolderFavoritesChanged>(this);
     }
 
     public async void Receive(AccountRemovedMessage message)

@@ -43,10 +43,41 @@ public class RemoteFolderMenuItemTests
         mail.SubMenuItems.Should().ContainSingle();
 
         contacts.CanOpen.Should().BeFalse();
-        contacts.CanPin.Should().BeFalse();
         contacts.AreChildrenLoaded.Should().BeTrue();
         contacts.SubMenuItems.Should().BeEmpty();
         contacts.RemoteFolder.RemoteFolderId.Should().Be("f2");
+    }
+
+    [Theory]
+    [InlineData(PublicFolderKind.Mail, true)]
+    [InlineData(PublicFolderKind.Contacts, true)]
+    [InlineData(PublicFolderKind.Calendar, true)]
+    [InlineData(PublicFolderKind.Container, false)]
+    [InlineData(PublicFolderKind.Other, false)]
+    public void OnlyKindsWithAHome_CanBePinned(PublicFolderKind kind, bool expected)
+    {
+        var root = PublicFolderMenuItemFactory.CreatePublicFoldersRoot(_account, null);
+        var node = PublicFolderMenuItemFactory.CreateNode(_account, new PublicFolderNode { Id = "f1", Name = "Folder", Kind = kind }, root);
+
+        node.CanPin.Should().Be(expected);
+    }
+
+    [Fact]
+    public void PinActionText_NamesWhereTheFolderWillSurface()
+    {
+        var root = PublicFolderMenuItemFactory.CreatePublicFoldersRoot(_account, null);
+        var texts = new[] { PublicFolderKind.Mail, PublicFolderKind.Contacts, PublicFolderKind.Calendar }
+            .Select(kind => PublicFolderMenuItemFactory.CreateNode(_account, new PublicFolderNode { Id = kind.ToString(), Name = "Folder", Kind = kind }, root))
+            .ToList();
+
+        texts.Select(node => node.PinActionText).Should().OnlyHaveUniqueItems();
+
+        var changed = new List<string>();
+        texts[1].PropertyChanged += (_, e) => changed.Add(e.PropertyName);
+        texts[1].IsPinned = true;
+
+        changed.Should().Contain(nameof(RemoteFolderMenuItem.PinActionText));
+        texts[1].PinActionText.Should().Be(Wino.Core.Domain.Translator.PublicFolders_Unpin);
     }
 
     [Fact]

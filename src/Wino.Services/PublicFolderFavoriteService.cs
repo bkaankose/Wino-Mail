@@ -2,8 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.PublicFolders;
+using Wino.Messaging.UI;
 
 namespace Wino.Services;
 
@@ -54,13 +56,25 @@ public class PublicFolderFavoriteService : IPublicFolderFavoriteService
 
         list.Add(favorite);
         Save(list);
+
+        WeakReferenceMessenger.Default.Send(new PublicFolderFavoritesChanged(favorite.AccountId, favorite.Kind));
     }
 
     public void RemoveFavorite(Guid accountId, string folderId)
     {
         var list = GetFavorites().ToList();
-        if (list.RemoveAll(f => f.AccountId == accountId && string.Equals(f.FolderId, folderId, StringComparison.Ordinal)) > 0)
-            Save(list);
+        var removed = list.Where(f => f.AccountId == accountId && string.Equals(f.FolderId, folderId, StringComparison.Ordinal)).ToList();
+
+        if (removed.Count == 0)
+            return;
+
+        list.RemoveAll(removed.Contains);
+        Save(list);
+
+        foreach (var kind in removed.Select(f => f.Kind).Distinct())
+        {
+            WeakReferenceMessenger.Default.Send(new PublicFolderFavoritesChanged(accountId, kind));
+        }
     }
 
     public bool ArePublicFoldersVisible

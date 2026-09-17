@@ -3578,5 +3578,9 @@
     "AccountDetailsPage_RemoteFolders_Title": "Public folders and online archive",
     "AccountDetailsPage_RemoteFolders_Description": "Browse the organization's public folders and your online archive read-only from the folder list.",
     "AccountDetailsPage_ShowPublicFolders_Title": "Show public folders",
-    "AccountDetailsPage_ShowOnlineArchive_Title": "Show online archive"
+    "AccountDetailsPage_ShowOnlineArchive_Title": "Show online archive",
+    "PublicFolders_PinToPeople": "Pin to People",
+    "PublicFolders_PinToCalendar": "Pin to Calendar",
+    "PublicFolders_PinnedToPeople": "\"{0}\" now shows in People as a read-only source.",
+    "PublicFolders_PinnedToCalendar": "\"{0}\" now shows in Calendar as a read-only calendar."
 }
