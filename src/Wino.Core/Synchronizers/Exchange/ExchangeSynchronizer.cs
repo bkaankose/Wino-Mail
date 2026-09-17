@@ -613,6 +613,7 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
         var reminders = request.ComposeResult?.SelectedReminders;
         var calendarRemoteId = request.AssignedCalendar.RemoteCalendarId;
         var isRecurring = request.IsRecurring;
+        var recurrenceRule = EwsRecurrenceMapper.GetRecurrenceRule(item) ?? request.ComposeResult?.Recurrence;
         var title = item.Title;
 
         return Bundle(async service =>
@@ -623,15 +624,22 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             // Stamp the local preview id so the synced event reconciles with the optimistic UI item.
             appointment.SetExtendedProperty(ExchangeCalendarSchema.WinoClientTrackingId, item.Id.ToString("N"));
 
-            // RRULE to EWS recurrence mapping is a follow-up; create the base event for now.
+            // A repeating event is saved as a series master carrying the rule; the server expands it.
             if (isRecurring)
-                _logger.Warning("EWS recurring-event creation is not yet supported; created '{Title}' as a single event.", title);
+            {
+                var recurrence = EwsRecurrenceMapper.Create(recurrenceRule, item.StartDate);
+
+                if (recurrence is null)
+                    _logger.Warning("The recurrence rule of '{Title}' has no Exchange equivalent; created it as a single event.", title);
+                else
+                    appointment.Recurrence = recurrence;
+            }
 
             var sendMode = HasAttendees(appointment) ? SendInvitationsMode.SendToAllAndSaveCopy : SendInvitationsMode.SendToNone;
             await appointment.Save(new FolderId(calendarRemoteId), sendMode).ConfigureAwait(false);
 
-            // A series was saved as one event; let the resync store what the server has rather than
-            // persisting a master row the server-side expansion would never confirm.
+            // The calendar view returns a series as its occurrences, so a master row stored here would
+            // never be confirmed by a sync; the resync after this request stores the occurrences.
             if (!isRecurring)
             {
                 await _exchangeChangeProcessor.PersistCreatedCalendarEventAsync(
