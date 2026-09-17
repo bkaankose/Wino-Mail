@@ -363,6 +363,13 @@ WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
                 .ConfigureAwait(false);
         }
 
+        if (!accountColumns.Any(c => c.Name == nameof(MailAccount.HasOnlineArchive)))
+        {
+            await Connection
+                .ExecuteAsync($"ALTER TABLE {nameof(MailAccount)} ADD COLUMN {nameof(MailAccount.HasOnlineArchive)} INTEGER NOT NULL DEFAULT 0")
+                .ConfigureAwait(false);
+        }
+
         if (!accountColumns.Any(c => c.Name == nameof(MailAccount.IsCalendarAccessEnabled)))
         {
             await Connection

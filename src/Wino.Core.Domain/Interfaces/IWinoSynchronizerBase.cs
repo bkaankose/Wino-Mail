@@ -8,6 +8,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.PublicFolders;
 using Wino.Core.Domain.Models.Rules;
 using Wino.Core.Domain.Models.Synchronization;
 
@@ -94,5 +95,46 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
     /// persisted; they feed recipient autocomplete. Mail-enabled distribution lists ride along as addressable entries.
     /// </summary>
     Task<IReadOnlyList<AccountContact>> SearchGlobalAddressListAsync(string query, int maxResults, CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
+
+    /// <summary>Whether this provider exposes the organization's public folders for read-only browsing (currently Exchange only).</summary>
+    bool SupportsPublicFolders => false;
+
+    /// <summary>Direct children of a public folder, or of the public folders root when <paramref name="parentFolderId"/> is null. Live, never persisted.</summary>
+    Task<IReadOnlyList<PublicFolderNode>> GetPublicFolderChildrenAsync(string parentFolderId, CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
+
+    /// <summary>A page of a public mail folder's items as transient copies (FolderId is empty, AssignedAccount is set). A non-positive <paramref name="take"/> means the provider's default page.</summary>
+    Task<IReadOnlyList<MailCopy>> GetPublicFolderMailItemsAsync(string folderId, int skip, int take, CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
+
+    /// <summary>Raw MIME of a single public folder message.</summary>
+    Task<byte[]> GetPublicFolderMailMimeAsync(string folderId, string itemId, CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
+
+    /// <summary>Appointments of a public calendar folder inside a UTC window, expanded into occurrences, as transient locked calendar items.</summary>
+    Task<IReadOnlyList<CalendarItem>> GetPublicFolderAppointmentsAsync(string folderId, System.DateTime startUtc, System.DateTime endUtc, CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
+
+    /// <summary>Contacts of a public contacts folder as transient DTOs.</summary>
+    Task<IReadOnlyList<PublicFolderContact>> GetPublicFolderContactsAsync(string folderId, CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
+
+    /// <summary>Whether this provider can browse the mailbox's online archive read-only (currently Exchange only).</summary>
+    bool SupportsOnlineArchive => false;
+
+    /// <summary>
+    /// Direct children of an archive folder, or the archive's top-level folders when <paramref name="parentFolderId"/>
+    /// is null. Returns null for the root call when the mailbox has no archive provisioned.
+    /// </summary>
+    Task<IReadOnlyList<PublicFolderNode>> GetOnlineArchiveChildrenAsync(string parentFolderId, CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
+
+    /// <summary>A page of an archive folder's items as transient copies. A non-positive <paramref name="take"/> means the provider's default page.</summary>
+    Task<IReadOnlyList<MailCopy>> GetOnlineArchiveMailItemsAsync(string folderId, int skip, int take, CancellationToken cancellationToken = default)
+        => throw new System.NotSupportedException();
+
+    /// <summary>Raw MIME of a single archive message.</summary>
+    Task<byte[]> GetOnlineArchiveMailMimeAsync(string folderId, string itemId, CancellationToken cancellationToken = default)
         => throw new System.NotSupportedException();
 }

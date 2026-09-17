@@ -19,5 +19,11 @@ public enum SpecialFolderType
     Promotions,
     Social,
     Other,
-    More
+    More,
+
+    /// <summary>The read-only Exchange public folders tree (synthetic nodes, never persisted).</summary>
+    PublicFolders,
+
+    /// <summary>The read-only Exchange online archive tree (synthetic nodes, never persisted).</summary>
+    OnlineArchive
 }

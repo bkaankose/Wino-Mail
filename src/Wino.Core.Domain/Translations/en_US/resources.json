@@ -3565,5 +3565,18 @@
     "Rules_RunNowSkippedNote": "{0} copy/forward match(es) only run on the server for new mail, so they’re skipped here.",
     "Rules_RunNowApply": "Apply",
     "Rules_RunNowComplete": "Applied rules to {0} message(s).",
-    "Rules_OperationFailed": "Rules ran into a problem: {0}"
+    "Rules_OperationFailed": "Rules ran into a problem: {0}",
+    "PublicFolders_RootName": "Public Folders",
+    "OnlineArchive_RootName": "Online Archive",
+    "RemoteFolders_Loading": "Loading…",
+    "RemoteFolders_Unnamed": "(unnamed)",
+    "OnlineArchive_NotEnabled": "Online Archive is not enabled for this account",
+    "PublicFolders_PinnedSuffix": "(Public)",
+    "PublicFolders_PinToFolders": "Pin to Folders",
+    "PublicFolders_Unpin": "Unpin",
+    "RemoteFolders_LoadFailed": "Could not load this folder: {0}",
+    "AccountDetailsPage_RemoteFolders_Title": "Public folders and online archive",
+    "AccountDetailsPage_RemoteFolders_Description": "Browse the organization's public folders and your online archive read-only from the folder list.",
+    "AccountDetailsPage_ShowPublicFolders_Title": "Show public folders",
+    "AccountDetailsPage_ShowOnlineArchive_Title": "Show online archive"
 }

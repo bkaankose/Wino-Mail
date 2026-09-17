@@ -65,9 +65,34 @@ public class MailItemFolder : IMailItemFolder
     [Ignore]
     public List<IMailItemFolder> ChildFolders { get; set; } = [];
 
-    // Category and Move type folders are not valid move targets.
-    // These folders are virtual. They don't exist on the server.
-    public bool IsMoveTarget => !(SpecialFolderType == SpecialFolderType.More || SpecialFolderType == SpecialFolderType.Category);
+    // Read-only remote trees (Exchange public folders and the online archive) are synthetic nodes that are
+    // never persisted. The hierarchy is walked lazily and content is fetched live, so a node carries only
+    // what the navigation and the live reads need: RemoteFolderId holds the provider's folder id.
+
+    /// <summary>A node of the read-only Exchange public folders tree.</summary>
+    [Ignore]
+    public bool IsPublicFolderNode { get; set; }
+
+    /// <summary>A node of the read-only Exchange online archive tree.</summary>
+    [Ignore]
+    public bool IsOnlineArchiveNode { get; set; }
+
+    /// <summary>The surface a remote read-only node belongs to, derived from its container class.</summary>
+    [Ignore]
+    public PublicFolderKind PublicFolderKind { get; set; }
+
+    /// <summary>A throwaway "Loading" or informational child that gives a lazy remote node its expander.</summary>
+    [Ignore]
+    public bool IsPublicFolderPlaceholder { get; set; }
+
+    /// <summary>True for any read-only remote tree node (public folders or online archive).</summary>
+    [Ignore]
+    public bool IsRemoteReadOnlyNode => IsPublicFolderNode || IsOnlineArchiveNode;
+
+    // Category, More and remote read-only folders are not valid move targets.
+    // These folders are virtual or read-only. They don't exist on the server as mailbox folders.
+    public bool IsMoveTarget => !(SpecialFolderType is SpecialFolderType.More or SpecialFolderType.Category or SpecialFolderType.PublicFolders or SpecialFolderType.OnlineArchive)
+                                && !IsRemoteReadOnlyNode;
 
     public bool ContainsSpecialFolderType(SpecialFolderType type)
     {
