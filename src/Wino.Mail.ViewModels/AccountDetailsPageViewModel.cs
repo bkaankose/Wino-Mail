@@ -132,21 +132,25 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsMailCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsCalendarCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsContactsCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsTasksCapabilitySelected { get; set; }
 
     [ObservableProperty]
@@ -166,6 +170,16 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public bool IsTaskReauthorizationRequired => Account?.IsTaskReauthorizationRequired == true;
     public bool IsContactReauthorizationRequired => Account?.IsContactReauthorizationRequired == true;
     public bool IsOAuthCapabilityEditable => Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
+
+    /// <summary>
+    /// Whether the account's capabilities can be changed here. Exchange serves calendar, contacts and
+    /// tasks from the server like the OAuth providers; switching one on moves it to the provider
+    /// source without a new sign-in, because the mailbox credentials already cover it.
+    /// </summary>
+    public bool IsCapabilityEditable => IsOAuthCapabilityEditable || IsExchangeServer;
+
+    /// <summary>Only the OAuth providers ask for consent again when the selection changes.</summary>
+    public bool IsCapabilityReauthenticationNoticeVisible => IsOAuthCapabilityEditable && IsCapabilitySelectionChanged;
     public bool IsCapabilitySelectionChanged => Account is not null &&
         (Account.IsMailAccessGranted != IsMailCapabilitySelected ||
          Account.IsCalendarAccessGranted != IsCalendarCapabilitySelected ||
@@ -1073,6 +1087,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         OnPropertyChanged(nameof(IsTaskReauthorizationRequired));
         OnPropertyChanged(nameof(IsContactReauthorizationRequired));
         OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
+        OnPropertyChanged(nameof(IsCapabilityEditable));
+        OnPropertyChanged(nameof(IsCapabilityReauthenticationNoticeVisible));
         OnPropertyChanged(nameof(IsSenderNameEditable));
         OnPropertyChanged(nameof(ContactIntegrationSourceText));
         OnPropertyChanged(nameof(TaskIntegrationSourceText));

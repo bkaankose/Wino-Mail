@@ -181,7 +181,7 @@
                     AutomationProperties.AutomationId="AccountDetailsPageSettingsCard4"
                     Description="{x:Bind domain:Translator.AccountDetailsPage_CapabilityDescription, Mode=OneTime}"
                     Header="{x:Bind domain:Translator.AccountDetailsPage_CapabilityTitle, Mode=OneTime}"
-                    Visibility="{x:Bind ViewModel.IsOAuthCapabilityEditable, Mode=OneWay}">
+                    Visibility="{x:Bind ViewModel.IsCapabilityEditable, Mode=OneWay}">
                     <controls:SettingsExpander.HeaderIcon>
                         <FontIcon Glyph="&#xE787;" />
                     </controls:SettingsExpander.HeaderIcon>
@@ -189,7 +189,7 @@
                         <muxc:InfoBar
                             AutomationProperties.AutomationId="AccountCapabilitiesReauthenticationInfo"
                             IsClosable="False"
-                            IsOpen="{x:Bind ViewModel.IsCapabilitySelectionChanged, Mode=OneWay}"
+                            IsOpen="{x:Bind ViewModel.IsCapabilityReauthenticationNoticeVisible, Mode=OneWay}"
                             Message="{x:Bind domain:Translator.AccountDetailsPage_CapabilityReauthenticationMessage, Mode=OneTime}"
                             Severity="Informational" />
                     </controls:SettingsExpander.ItemsHeader>
