@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.System;
 using Wino.Calendar.ViewModels.Data;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Services.Companion;
@@ -25,6 +26,8 @@ public sealed partial class CompanionFlyoutView : UserControl
     public CompanionDashboardViewModel ViewModel { get; }
 
     internal event EventHandler? HideRequested;
+
+    private async void OpenEvent_Click(object? sender, EventArgs e) => await OpenEventAsync();
 
     private void Root_KeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -93,7 +96,7 @@ public sealed partial class CompanionFlyoutView : UserControl
             sender,
             static (viewModel, parameter) => viewModel.OpenCalendarEventCommand.ExecuteAsync((CalendarItemViewModel)parameter));
 
-    private async void OpenEvent_Click(object sender, RoutedEventArgs e)
+    private async Task OpenEventAsync()
     {
         try
         {

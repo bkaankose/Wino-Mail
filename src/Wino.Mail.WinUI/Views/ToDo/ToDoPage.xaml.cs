@@ -4,10 +4,10 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Input;
@@ -15,9 +15,12 @@ using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Helpers;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
+using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Views.Abstract;
@@ -178,60 +181,92 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
             await ViewModel.ToggleImportanceCommand.ExecuteAsync(ViewModel.SelectedTask);
     }
 
-    private async void TaskMyDayMenuItem_Click(object sender, RoutedEventArgs e)
+    private void TaskContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if (GetContextTask(sender) is { } item)
-            await ViewModel.ToggleMyDayCommand.ExecuteAsync(item);
-    }
-
-    private async void TaskImportanceMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (GetContextTask(sender) is { } item)
-            await ViewModel.ToggleImportanceCommand.ExecuteAsync(item);
-    }
-
-    private async void TaskCompletionMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (GetContextTask(sender) is { } item)
-            await ViewModel.ToggleTaskCommand.ExecuteAsync(item);
-    }
-
-    private async void TaskDueTodayMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (GetContextTask(sender) is { } item)
-            await ViewModel.SetTaskDueDateAsync(item, DateTime.Now.Date);
-    }
-
-    private async void TaskDueTomorrowMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (GetContextTask(sender) is { } item)
-            await ViewModel.SetTaskDueDateAsync(item, DateTime.Now.Date.AddDays(1));
-    }
-
-    private async void TaskPickDueDateMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (GetContextTask(sender) is not { } item || TaskDueDatePickerHost.Flyout is not DatePickerFlyout picker)
+        if (sender is not FrameworkElement { DataContext: TaskItemViewModel task } target)
             return;
 
-        picker.Date = item.DueDate is { } dueDate
+        var items = new List<ContextFlyoutMenuEntry>
+        {
+            CreateTaskCommand(task.MyDayActionText, WinoIconGlyph.CalendarToday, "ToDoTaskMyDay", ViewModel.ToggleMyDayCommand, task),
+            CreateTaskCommand(task.ImportanceActionText, WinoIconGlyph.Star, "ToDoTaskImportance", ViewModel.ToggleImportanceCommand, task),
+            CreateTaskCommand(task.CompletionActionText, WinoIconGlyph.MarkRead, "ToDoTaskCompletion", ViewModel.ToggleTaskCommand, task),
+            ContextFlyoutSeparatorEntry.Instance,
+            CreateTaskCommand(Translator.ToDoPage_DueToday, WinoIconGlyph.CalendarToday, "ToDoTaskDueToday", new AsyncRelayCommand(() => ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date)), isEnabled: task.IsEditable),
+            CreateTaskCommand(Translator.ToDoPage_DueTomorrow, WinoIconGlyph.Calendar, "ToDoTaskDueTomorrow", new AsyncRelayCommand(() => ViewModel.SetTaskDueDateAsync(task, DateTime.Now.Date.AddDays(1))), isEnabled: task.IsEditable),
+            CreateTaskCommand(Translator.ToDoPage_DuePresetPickDate, WinoIconGlyph.Calendar, "ToDoTaskPickDueDate", new AsyncRelayCommand(() => PickTaskDueDateAsync(task)), isEnabled: task.IsEditable),
+            ContextFlyoutSeparatorEntry.Instance,
+            CreateTaskCommand(Translator.ToDoPage_MoveTaskTo, WinoIconGlyph.Move, "ToDoTaskMove", new RelayCommand(() => ShowMoveTaskFlyout(task)), isEnabled: task.IsEditable),
+            ContextFlyoutSeparatorEntry.Instance,
+            CreateTaskCommand(
+                Translator.ToDoPage_DeleteTask,
+                WinoIconGlyph.Delete,
+                "ToDoTaskDelete",
+                ViewModel.DeleteTaskCommand,
+                task,
+                isDestructive: true,
+                shortcut: new ContextFlyoutShortcut("Delete", "Delete"))
+        };
+
+#if DEBUG
+        items.Add(ContextFlyoutSeparatorEntry.Instance);
+        items.Add(CreateTaskCommand(
+            Translator.Buttons_TestNotification,
+            WinoIconGlyph.Reminder,
+            "ToDoTaskTestNotification",
+            new AsyncRelayCommand(() => _notificationBuilder.CreateTestTaskReminderNotificationAsync(task.Task))));
+#endif
+
+        WinoContextFlyoutHelper.Show(target, args, items);
+    }
+
+    private static ContextFlyoutCommandEntry CreateTaskCommand(
+        string text,
+        WinoIconGlyph icon,
+        string automationId,
+        System.Windows.Input.ICommand command,
+        object? commandParameter = null,
+        bool isEnabled = true,
+        bool isDestructive = false,
+        ContextFlyoutShortcut? shortcut = null)
+        => new()
+        {
+            Text = text,
+            Icon = CreateContextIcon(icon),
+            Command = command,
+            CommandParameter = commandParameter,
+            IsEnabled = isEnabled && command.CanExecute(commandParameter),
+            IsDestructive = isDestructive,
+            Shortcut = shortcut,
+            AutomationId = automationId
+        };
+
+    private static ContextFlyoutIcon? CreateContextIcon(WinoIconGlyph icon)
+        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
+            ? new ContextFlyoutIcon(glyph)
+            : null;
+
+    private async Task PickTaskDueDateAsync(TaskItemViewModel task)
+    {
+        if (TaskDueDatePickerHost.Flyout is not DatePickerFlyout picker)
+            return;
+
+        picker.Date = task.DueDate is { } dueDate
             ? new DateTimeOffset(dueDate)
             : new DateTimeOffset(DateTime.Now.Date);
         var selectedDate = await picker.ShowAtAsync(TaskListView);
         if (selectedDate is { } value)
-            await ViewModel.SetTaskDueDateAsync(item, value.Date);
+            await ViewModel.SetTaskDueDateAsync(task, value.Date);
     }
 
-    private void TaskMoveMenuItem_Click(object sender, RoutedEventArgs e)
+    private void ShowMoveTaskFlyout(TaskItemViewModel task)
     {
-        if (GetContextTask(sender) is not { } item)
-            return;
-
-        _moveTaskTarget = item;
+        _moveTaskTarget = task;
         MoveTaskListView.ItemsSource = ViewModel.TaskLists
             .Where(list => !list.IsReadOnly &&
-                           list.Id != item.Task.TaskListId &&
-                           list.MailAccountId == item.Task.MailAccountId &&
-                           list.SourceKind == item.Task.SourceKind)
+                           list.Id != task.Task.TaskListId &&
+                           list.MailAccountId == task.Task.MailAccountId &&
+                           list.SourceKind == task.Task.SourceKind)
             .ToList();
         MoveTaskFlyoutHost.Flyout.ShowAt(TaskListView);
     }
@@ -245,54 +280,6 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         _moveTaskTarget = null;
         await ViewModel.MoveTaskAsync(item, destination);
     }
-
-    private async void TaskDeleteMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (GetContextTask(sender) is { } item)
-            await ViewModel.DeleteTaskCommand.ExecuteAsync(item);
-    }
-
-#if DEBUG
-    private void TaskContextFlyout_Opening(object sender, object e)
-    {
-        if (sender is not MenuFlyout flyout ||
-            flyout.Target is not FrameworkElement { DataContext: TaskItemViewModel task })
-        {
-            return;
-        }
-
-        var testItem = flyout.Items
-            .OfType<MenuFlyoutItem>()
-            .FirstOrDefault(item => AutomationProperties.GetAutomationId(item) == "ToDoTaskTestNotificationMenuItem");
-        if (testItem == null)
-        {
-            flyout.Items.Add(new MenuFlyoutSeparator());
-            testItem = new MenuFlyoutItem
-            {
-                Text = Translator.Buttons_TestNotification,
-                Icon = new FontIcon { Glyph = "\uE7ED" }
-            };
-            AutomationProperties.SetAutomationId(testItem, "ToDoTaskTestNotificationMenuItem");
-            testItem.Click += TaskTestNotificationMenuItem_Click;
-            flyout.Items.Add(testItem);
-        }
-
-        testItem.Tag = task;
-    }
-
-    private async void TaskTestNotificationMenuItem_Click(object sender, RoutedEventArgs e)
-    {
-        if (GetContextTask(sender) is { } item)
-            await _notificationBuilder.CreateTestTaskReminderNotificationAsync(item.Task);
-    }
-#else
-    private void TaskContextFlyout_Opening(object sender, object e)
-    {
-    }
-#endif
-
-    private static TaskItemViewModel? GetContextTask(object sender)
-        => (sender as FrameworkElement)?.Tag as TaskItemViewModel;
 
     private async void SuggestionButton_Click(object sender, RoutedEventArgs e)
     {

@@ -5,6 +5,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Serilog;
@@ -16,6 +17,7 @@ namespace Wino.Mail.WinUI.Services;
 
 internal sealed partial class NativeTrayIcon : IDisposable
 {
+    private const int DoubleClickDispatchPaddingMilliseconds = 50;
     private const uint TrayCallbackMessage = 2048u;
     private const uint MenuCommandOpen = 1u;
     private const int ImageIcon = 1;
@@ -64,6 +66,7 @@ internal sealed partial class NativeTrayIcon : IDisposable
     private readonly Action? _leftInteractionStarted;
     private readonly uint _taskbarRestartMessageId;
     private readonly NativeTrayIconWindow _iconWindow;
+    private CancellationTokenSource? _pendingLeftClick;
     private long _ignoreButtonUpUntil;
 
     private nint _iconHandle;
@@ -208,6 +211,7 @@ internal sealed partial class NativeTrayIcon : IDisposable
             return;
 
         _isDisposed = true;
+        CancelPendingLeftClick();
         UnregisterActiveHotKey();
         Hide();
         _iconWindow.Dispose();
@@ -382,7 +386,33 @@ internal sealed partial class NativeTrayIcon : IDisposable
             return;
         }
 
-        InvokeAction(_primaryAction);
+        CancelPendingLeftClick();
+        var cancellationTokenSource = new CancellationTokenSource();
+        _pendingLeftClick = cancellationTokenSource;
+        _ = InvokePrimaryActionAfterDoubleClickWindowAsync(cancellationTokenSource);
+    }
+
+    private async Task InvokePrimaryActionAfterDoubleClickWindowAsync(CancellationTokenSource cancellationTokenSource)
+    {
+        try
+        {
+            await Task.Delay((int)GetDoubleClickTime() + DoubleClickDispatchPaddingMilliseconds, cancellationTokenSource.Token);
+            InvokeAction(_primaryAction);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            Interlocked.CompareExchange(ref _pendingLeftClick, null, cancellationTokenSource);
+            cancellationTokenSource.Dispose();
+        }
+    }
+
+    private void CancelPendingLeftClick()
+    {
+        var pendingLeftClick = Interlocked.Exchange(ref _pendingLeftClick, null);
+        pendingLeftClick?.Cancel();
     }
 
     private void NotifyLeftInteractionStarted()
@@ -426,12 +456,13 @@ internal sealed partial class NativeTrayIcon : IDisposable
                         break;
                     case WmLButtonDoubleClick:
                         NotifyLeftInteractionStarted();
+                        CancelPendingLeftClick();
                         _ignoreButtonUpUntil = Environment.TickCount64 + GetDoubleClickTime();
                         InvokeAction(_doubleClickAction);
                         break;
                     case NinKeySelect:
                         NotifyLeftInteractionStarted();
-                        OnLeftClicked();
+                        InvokeAction(_primaryAction);
                         break;
                     case WmRButtonUp:
                     case WmContextMenu:

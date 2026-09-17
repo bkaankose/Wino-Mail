@@ -4,10 +4,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
@@ -23,6 +23,8 @@ using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Settings;
+using Wino.Helpers;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
 using Wino.MenuFlyouts;
@@ -57,20 +59,25 @@ public sealed partial class ShellMenuTemplates
             _ => null
         };
 
+    // Exchange only: a pinned public calendar can be unpinned; every other calendar has no menu. The
+    // favourite service announces the change, and the calendar pane drops the calendar and reloads.
     private void CalendarContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if (ResolveCalendar(sender) is not { IsPublicFolder: true })
-            args.Handled = true;
-    }
-
-    // The favourite service announces the change; the calendar pane drops the calendar and reloads.
-    private void UnpinPublicCalendarMenuItemClicked(object sender, RoutedEventArgs e)
-    {
-        if (ResolveCalendar(sender) is { IsPublicFolder: true } calendar)
+        if (sender is not FrameworkElement target || ResolveCalendar(sender) is not { IsPublicFolder: true } calendar)
         {
-            WinoApplication.Current.Services.GetService<IPublicFolderFavoriteService>()?
-                .RemoveFavorite(calendar.AccountId, calendar.RemoteCalendarId);
+            args.Handled = true;
+            return;
         }
+
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            CreateContextCommand(
+                Translator.PublicFolders_Unpin,
+                WinoIconGlyph.UnPin,
+                "CalendarUnpinPublicCalendar",
+                new RelayCommand(() => WinoApplication.Current.Services.GetService<IPublicFolderFavoriteService>()?
+                    .RemoveFavorite(calendar.AccountId, calendar.RemoteCalendarId)))
+        ]);
     }
 
     private static IMailShellClient MailClient
@@ -173,6 +180,331 @@ public sealed partial class ShellMenuTemplates
 
     #region Context menus
 
+    private void AccountContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: IAccountNavigationMenuItem account } target)
+            return;
+
+        var items = new List<ContextFlyoutMenuEntry>
+        {
+            CreateContextCommand(
+                Translator.AccountContextMenu_ManageAccountSettings,
+                WinoIconGlyph.ManageAccounts,
+                "AccountContextManageSettings",
+                new RelayCommand(() => OpenAccountSettings(account)))
+        };
+
+        if (account.SupportsAccountSynchronization)
+        {
+            items.Add(CreateContextCommand(
+                Translator.Buttons_Sync,
+                WinoIconGlyph.Sync,
+                "AccountContextSynchronize",
+                new AsyncRelayCommand(account.SynchronizeAccountAsync)));
+        }
+
+        if (account is AccountMenuItem mailAccount && account.SupportsMailAccountActions)
+        {
+            items.Add(CreateContextCommand(
+                Translator.AccountContextMenu_CreateFolder,
+                WinoIconGlyph.CreateFolder,
+                "AccountContextCreateFolder",
+                new AsyncRelayCommand(() => MailClient.CreateRootFolderAsync(mailAccount))));
+        }
+
+        AddExchangeAccountEntries(items, account);
+
+        WinoContextFlyoutHelper.Show(target, args, items);
+    }
+
+    // Exchange only: inbox rules, the junk email lists, and the two switches for the read-only remote
+    // trees. The switches are app-wide (the same values as on the account details page), and a change
+    // rebuilds the account's folder list.
+    private static void AddExchangeAccountEntries(List<ContextFlyoutMenuEntry> items, IAccountNavigationMenuItem accountMenuItem)
+    {
+        if (accountMenuItem.Account is not { } account ||
+            !(accountMenuItem.SupportsExchangeAccountActions || accountMenuItem.SupportsJunkEmailSettings))
+        {
+            return;
+        }
+
+        items.Add(ContextFlyoutSeparatorEntry.Instance);
+
+        if (accountMenuItem.SupportsExchangeAccountActions)
+        {
+            items.Add(new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Rules_Title,
+                Icon = new ContextFlyoutIcon("\uE71C"),
+                Command = new AsyncRelayCommand(() => WinoApplication.Current.Services.GetRequiredService<IMailDialogService>().ShowInboxRulesManagerAsync(account)),
+                AutomationId = "AccountContextInboxRules"
+            });
+        }
+
+        if (accountMenuItem.SupportsJunkEmailSettings)
+        {
+            items.Add(CreateContextCommand(
+                Translator.SettingsJunkEmail_Title,
+                WinoIconGlyph.SpecialFolderJunk,
+                "AccountContextJunkEmail",
+                new RelayCommand(() => OpenJunkEmailSettings(account))));
+        }
+
+        if (accountMenuItem.SupportsExchangeAccountActions &&
+            WinoApplication.Current.Services.GetService<IPublicFolderFavoriteService>() is { } remoteFolders)
+        {
+            items.Add(new ContextFlyoutToggleEntry
+            {
+                Text = Translator.AccountDetailsPage_ShowPublicFolders_Title,
+                Icon = CreateContextIcon(WinoIconGlyph.Folder),
+                IsChecked = remoteFolders.ArePublicFoldersVisible,
+                Command = new RelayCommand(() =>
+                {
+                    remoteFolders.ArePublicFoldersVisible = !remoteFolders.ArePublicFoldersVisible;
+                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(account.Id));
+                }),
+                AutomationId = "AccountContextShowPublicFolders"
+            });
+
+            items.Add(new ContextFlyoutToggleEntry
+            {
+                Text = Translator.AccountDetailsPage_ShowOnlineArchive_Title,
+                Icon = CreateContextIcon(WinoIconGlyph.SpecialFolderArchive),
+                IsChecked = remoteFolders.AreOnlineArchivesVisible,
+                Command = new RelayCommand(() =>
+                {
+                    remoteFolders.AreOnlineArchivesVisible = !remoteFolders.AreOnlineArchivesVisible;
+                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(account.Id));
+                }),
+                AutomationId = "AccountContextShowOnlineArchive"
+            });
+        }
+    }
+
+    // Opens the junk email lists of the account inside Settings, with manage accounts and the
+    // account itself as breadcrumb parents so Back behaves as if the user had walked there.
+    private static void OpenJunkEmailSettings(Wino.Core.Domain.Entities.Shared.MailAccount account)
+    {
+        var route = SettingsNavigationRoute.ForAccountSubpage(
+            account,
+            Translator.SettingsJunkEmail_Title,
+            WinoPage.JunkEmailSettingsPage,
+            AccountDetailsTab.Mail);
+
+        NavigationService.ChangeApplicationMode(
+            WinoApplicationMode.Settings,
+            new ShellModeActivationContext
+            {
+                Parameter = new SettingsPageActivationContext(WinoPage.JunkEmailSettingsPage, account.Id, route),
+                SuppressStartupFlows = true
+            });
+    }
+
+    // Exchange only: a public mail, contact or calendar folder can be pinned and unpinned.
+    private void RemoteFolderContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: RemoteFolderMenuItem { CanPin: true } folder } target)
+        {
+            args.Handled = true;
+            return;
+        }
+
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            CreateContextCommand(
+                folder.PinActionText,
+                folder.IsPinned ? WinoIconGlyph.UnPin : WinoIconGlyph.Pin,
+                "RemoteFolderContextPin",
+                folder.TogglePinCommand)
+        ]);
+    }
+
+    private void ContactListContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: ContactFilterViewModel contactList } target)
+            return;
+
+        if (contactList.IsPublicFolder)
+        {
+            WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+            [
+                CreateContextCommand(
+                    Translator.PublicFolders_Unpin,
+                    WinoIconGlyph.UnPin,
+                    "ContactsPaneUnpinPublicFolder",
+                    contactList.UnpinCommand)
+            ]);
+            return;
+        }
+
+        if (!contactList.CanRenameOrDelete)
+        {
+            args.Handled = true;
+            return;
+        }
+
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            CreateContextCommand(
+                Translator.ContactList_Rename,
+                WinoIconGlyph.Rename,
+                "ContactsPaneRenameList",
+                contactList.RenameListCommand),
+            CreateContextCommand(
+                Translator.ContactsPage_Delete,
+                WinoIconGlyph.Delete,
+                "ContactsPaneDeleteList",
+                contactList.DeleteListCommand,
+                isDestructive: true,
+                shortcut: new ContextFlyoutShortcut("Delete", "Delete"))
+        ]);
+    }
+
+    private void TaskGroupContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: AccountTaskListGroupMenuItem group } target)
+            return;
+
+        var items = new List<ContextFlyoutMenuEntry>();
+        if (group.NewListRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_NewList,
+                WinoIconGlyph.New,
+                "ToDoGroupNewList",
+                new AsyncRelayCommand(() => group.NewListRequested(group))));
+        }
+
+        if (group.IsEditable && group.RenameRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_RenameGroup,
+                WinoIconGlyph.Rename,
+                "ToDoGroupRename",
+                new AsyncRelayCommand(() => group.RenameRequested(group))));
+        }
+
+        if (group.CanUngroup && group.UngroupRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_UngroupLists,
+                WinoIconGlyph.Move,
+                "ToDoGroupUngroupLists",
+                new AsyncRelayCommand(() => group.UngroupRequested(group))));
+        }
+
+        if (group.CanDelete && group.DeleteRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_DeleteGroup,
+                WinoIconGlyph.Delete,
+                "ToDoGroupDelete",
+                new AsyncRelayCommand(() => group.DeleteRequested(group)),
+                isDestructive: true,
+                shortcut: new ContextFlyoutShortcut("Delete", "Delete")));
+        }
+
+        WinoContextFlyoutHelper.Show(target, args, items);
+    }
+
+    private void TaskListContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: AccountTaskListMenuItem list } target)
+            return;
+
+        var items = new List<ContextFlyoutMenuEntry>();
+        if (list.CanRename && list.RenameRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_RenameList,
+                WinoIconGlyph.Rename,
+                "ToDoListRename",
+                new AsyncRelayCommand(() => list.RenameRequested(list))));
+        }
+
+        if (list.IsGrouped && list.RemoveFromGroupRequested is not null)
+        {
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_RemoveFromGroup,
+                WinoIconGlyph.Move,
+                "ToDoListRemoveFromGroup",
+                new AsyncRelayCommand(() => list.RemoveFromGroupRequested(list))));
+        }
+
+        if (list.CanMoveToGroup && list.MoveToGroupRequested is not null)
+        {
+            var destinations = list.AvailableGroups
+                .Where(group => group.Id != list.Parameter.GroupId)
+                .Select(group => (ContextFlyoutMenuEntry)CreateContextCommand(
+                    group.Title,
+                    WinoIconGlyph.Folder,
+                    $"ToDoMoveToGroup_{group.Id:N}",
+                    new AsyncRelayCommand(() => list.MoveToGroupRequested(list, group.Id))))
+                .ToArray();
+
+            if (destinations.Length > 0)
+            {
+                items.Add(new ContextFlyoutSubMenuEntry
+                {
+                    Text = Translator.ToDoPage_MoveToGroup,
+                    Icon = CreateContextIcon(WinoIconGlyph.Move),
+                    Items = destinations,
+                    AutomationId = "ToDoListMoveToGroup"
+                });
+            }
+        }
+
+        if (list.CanDelete && list.DeleteRequested is not null)
+        {
+            items.Add(ContextFlyoutSeparatorEntry.Instance);
+            items.Add(CreateContextCommand(
+                Translator.ToDoPage_DeleteList,
+                WinoIconGlyph.Delete,
+                "ToDoListDelete",
+                new AsyncRelayCommand(() => list.DeleteRequested(list)),
+                isDestructive: true,
+                shortcut: new ContextFlyoutShortcut("Delete", "Delete")));
+        }
+
+        WinoContextFlyoutHelper.Show(target, args, items);
+    }
+
+    private static ContextFlyoutCommandEntry CreateContextCommand(
+        string text,
+        WinoIconGlyph icon,
+        string automationId,
+        System.Windows.Input.ICommand command,
+        bool isDestructive = false,
+        ContextFlyoutShortcut? shortcut = null)
+        => new()
+        {
+            Text = text,
+            Icon = CreateContextIcon(icon),
+            Command = command,
+            IsEnabled = command.CanExecute(null),
+            IsDestructive = isDestructive,
+            Shortcut = shortcut,
+            AutomationId = automationId
+        };
+
+    private static ContextFlyoutIcon? CreateContextIcon(WinoIconGlyph icon)
+        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
+            ? new ContextFlyoutIcon(glyph)
+            : null;
+
+    private static void OpenAccountSettings(IAccountNavigationMenuItem accountMenuItem)
+    {
+        NavigationService.ChangeApplicationMode(
+            WinoApplicationMode.Settings,
+            new ShellModeActivationContext
+            {
+                Parameter = new SettingsPageActivationContext(
+                    WinoPage.ManageAccountsPage,
+                    new AccountDetailsNavigationContext(accountMenuItem.Account.Id, accountMenuItem.AccountDetailsTab)),
+                SuppressStartupFlows = true
+            });
+    }
+
     private async void MenuItemContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         if (sender is not WinoNavigationViewItem menuItem ||
@@ -190,11 +522,7 @@ public sealed partial class ShellMenuTemplates
         var actions = mailClient.GetFolderContextMenuActions(baseFolderMenuItem);
         var flyout = new FolderOperationFlyout(actions, completionSource);
 
-        flyout.ShowAt(menuItem, new FlyoutShowOptions
-        {
-            ShowMode = FlyoutShowMode.Standard,
-            Position = new Point(position.X + 30, position.Y - 20)
-        });
+        flyout.ShowAt(menuItem, WinoContextFlyoutHelper.CreatePointerAlignedOptions(position));
 
         var operation = await completionSource.Task;
         flyout.Dispose();
@@ -202,104 +530,6 @@ public sealed partial class ShellMenuTemplates
         if (operation != null)
         {
             await mailClient.PerformFolderOperationAsync(operation.Operation, baseFolderMenuItem);
-        }
-    }
-
-    private void ManageAccountSettingsMenuItemClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { DataContext: IAccountNavigationMenuItem accountMenuItem })
-            return;
-
-        NavigationService.ChangeApplicationMode(
-            WinoApplicationMode.Settings,
-            new ShellModeActivationContext
-            {
-                Parameter = new SettingsPageActivationContext(
-                    WinoPage.ManageAccountsPage,
-                    new AccountDetailsNavigationContext(accountMenuItem.Account.Id, accountMenuItem.AccountDetailsTab)),
-                SuppressStartupFlows = true
-            });
-    }
-
-    private async void SynchronizeAccountMenuItemClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: IAccountNavigationMenuItem accountMenuItem })
-            await accountMenuItem.SynchronizeAccountAsync();
-    }
-
-    // Exchange only. The two switches are app-wide (the same values as on the account details page);
-    // the flyout reads them each time it opens, and a change rebuilds the account's folder list.
-
-    private void AccountContextFlyoutOpening(object? sender, object e)
-    {
-        if (sender is not MenuFlyout flyout ||
-            WinoApplication.Current.Services.GetService<IPublicFolderFavoriteService>() is not { } remoteFolders)
-        {
-            return;
-        }
-
-        foreach (var toggle in flyout.Items.OfType<ToggleMenuFlyoutItem>())
-        {
-            toggle.IsChecked = toggle.Tag switch
-            {
-                "PublicFolders" => remoteFolders.ArePublicFoldersVisible,
-                "OnlineArchive" => remoteFolders.AreOnlineArchivesVisible,
-                _ => toggle.IsChecked
-            };
-        }
-    }
-
-    private async void InboxRulesMenuItemClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: IAccountNavigationMenuItem { Account: { } account } })
-            await WinoApplication.Current.Services.GetRequiredService<IMailDialogService>().ShowInboxRulesManagerAsync(account);
-    }
-
-    // Opens the junk email lists of the account inside Settings, with manage accounts and the
-    // account itself as breadcrumb parents so Back behaves as if the user had walked there.
-    private void JunkEmailMenuItemClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { DataContext: IAccountNavigationMenuItem { Account: { } account } })
-            return;
-
-        var route = SettingsNavigationRoute.ForAccountSubpage(
-            account,
-            Translator.SettingsJunkEmail_Title,
-            WinoPage.JunkEmailSettingsPage,
-            AccountDetailsTab.Mail);
-
-        NavigationService.ChangeApplicationMode(
-            WinoApplicationMode.Settings,
-            new ShellModeActivationContext
-            {
-                Parameter = new SettingsPageActivationContext(WinoPage.JunkEmailSettingsPage, account.Id, route),
-                SuppressStartupFlows = true
-            });
-    }
-
-    private void ShowPublicFoldersMenuItemClicked(object sender, RoutedEventArgs e)
-        => ApplyRemoteFolderVisibility(sender, (service, visible) => service.ArePublicFoldersVisible = visible);
-
-    private void ShowOnlineArchiveMenuItemClicked(object sender, RoutedEventArgs e)
-        => ApplyRemoteFolderVisibility(sender, (service, visible) => service.AreOnlineArchivesVisible = visible);
-
-    private static void ApplyRemoteFolderVisibility(object sender, Action<IPublicFolderFavoriteService, bool> apply)
-    {
-        if (sender is not ToggleMenuFlyoutItem { DataContext: IAccountNavigationMenuItem { Account: { } account } } toggle ||
-            WinoApplication.Current.Services.GetService<IPublicFolderFavoriteService>() is not { } remoteFolders)
-        {
-            return;
-        }
-
-        apply(remoteFolders, toggle.IsChecked);
-        WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(account.Id));
-    }
-
-    private async void CreateFolderMenuItemClicked(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { DataContext: AccountMenuItem accountMenuItem })
-        {
-            await MailClient.CreateRootFolderAsync(accountMenuItem);
         }
     }
 
@@ -326,83 +556,6 @@ public sealed partial class ShellMenuTemplates
     {
         if (MenuItem<NewTaskListMenuItem>(sender) is { NewGroupRequested: not null } item)
             await item.NewGroupRequested();
-    }
-
-    private async void GroupNewList_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListGroupMenuItem>(sender) is { NewListRequested: not null } item)
-            await item.NewListRequested(item);
-    }
-
-    private async void GroupRename_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListGroupMenuItem>(sender) is { RenameRequested: not null } item)
-            await item.RenameRequested(item);
-    }
-
-    private async void GroupUngroup_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListGroupMenuItem>(sender) is { UngroupRequested: not null } item)
-            await item.UngroupRequested(item);
-    }
-
-    private async void GroupDelete_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListGroupMenuItem>(sender) is { DeleteRequested: not null } item)
-            await item.DeleteRequested(item);
-    }
-
-    private async void ListRename_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListMenuItem>(sender) is { RenameRequested: not null } item)
-            await item.RenameRequested(item);
-    }
-
-    private async void ListRemoveFromGroup_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListMenuItem>(sender) is { RemoveFromGroupRequested: not null } item)
-            await item.RemoveFromGroupRequested(item);
-    }
-
-    private async void ListDelete_Click(object sender, RoutedEventArgs e)
-    {
-        if (MenuItem<AccountTaskListMenuItem>(sender) is { DeleteRequested: not null } item)
-            await item.DeleteRequested(item);
-    }
-
-    private void ListFlyout_Opening(object sender, object e)
-    {
-        if (sender is not MenuFlyout flyout ||
-            flyout.Items.OfType<MenuFlyoutItemBase>().Select(candidate => (candidate as FrameworkElement)?.Tag).OfType<AccountTaskListMenuItem>().FirstOrDefault() is not { } item)
-            return;
-
-        var remove = flyout.Items.OfType<MenuFlyoutItem>().FirstOrDefault(candidate =>
-            AutomationProperties.GetAutomationId(candidate) == "ToDoListRemoveFromGroup");
-        if (remove is not null)
-            remove.Visibility = item.IsGrouped ? Visibility.Visible : Visibility.Collapsed;
-
-        var move = flyout.Items.OfType<MenuFlyoutSubItem>().FirstOrDefault();
-        if (move is null)
-            return;
-
-        move.Visibility = item.CanMoveToGroup ? Visibility.Visible : Visibility.Collapsed;
-        move.Items.Clear();
-        foreach (var group in item.AvailableGroups.Where(group => group.Id != item.Parameter.GroupId))
-        {
-            var destination = new MenuFlyoutItem
-            {
-                Text = group.Title,
-                Icon = new FontIcon { Glyph = "\uE8B7" }
-            };
-            AutomationProperties.SetAutomationId(destination, $"ToDoMoveToGroup_{group.Id:N}");
-            destination.Click += async (_, _) =>
-            {
-                if (item.MoveToGroupRequested is not null)
-                    await item.MoveToGroupRequested(item, group.Id);
-            };
-            move.Items.Add(destination);
-        }
-        move.IsEnabled = move.Items.Count > 0;
     }
 
     private void ShellItem_DragStarting(UIElement sender, DragStartingEventArgs args)

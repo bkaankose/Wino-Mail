@@ -233,11 +233,17 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
         if (category == null)
             return;
 
-        var placeholders = string.Join(",", uniqueIds.Select(_ => "?"));
-        var query = $"SELECT * FROM {nameof(MailCategoryAssignment)} WHERE {nameof(MailCategoryAssignment.MailCategoryId)} = ? AND {nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders})";
-        var existingAssignments = await Connection.QueryAsync<MailCategoryAssignment>(
-            query,
-            [categoryId, .. uniqueIds.Cast<object>()]).ConfigureAwait(false);
+        var existingAssignments = new List<MailCategoryAssignment>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(uniqueIds))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var query = $"SELECT * FROM {nameof(MailCategoryAssignment)} WHERE {nameof(MailCategoryAssignment.MailCategoryId)} = ? AND {nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders})";
+            existingAssignments.AddRange(await Connection.QueryAsync<MailCategoryAssignment>(
+                query,
+                [categoryId, .. idChunk.Cast<object>()]).ConfigureAwait(false));
+        }
+
         var existingUniqueIds = existingAssignments.Select(a => a.MailCopyUniqueId).ToHashSet();
 
         foreach (var uniqueId in uniqueIds.Where(a => !existingUniqueIds.Contains(a)))
@@ -263,10 +269,13 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
         if (category == null)
             return;
 
-        var placeholders = string.Join(",", uniqueIds.Select(_ => "?"));
-        await Connection.ExecuteAsync(
-            $"DELETE FROM {nameof(MailCategoryAssignment)} WHERE {nameof(MailCategoryAssignment.MailCategoryId)} = ? AND {nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders})",
-            [categoryId, .. uniqueIds.Cast<object>()]).ConfigureAwait(false);
+        foreach (var idChunk in SqliteVariableLimit.Batch(uniqueIds))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            await Connection.ExecuteAsync(
+                $"DELETE FROM {nameof(MailCategoryAssignment)} WHERE {nameof(MailCategoryAssignment.MailCategoryId)} = ? AND {nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders})",
+                [categoryId, .. idChunk.Cast<object>()]).ConfigureAwait(false);
+        }
 
         WeakReferenceMessenger.Default.Send(new RefreshUnreadCountsMessage(category.MailAccountId));
     }
@@ -277,15 +286,22 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
         if (uniqueIds.Count == 0)
             return [];
 
-        var placeholders = string.Join(",", uniqueIds.Select(_ => "?"));
-        var sql = $"SELECT DISTINCT MailCategory.* FROM {nameof(MailCategory)} " +
-                  $"INNER JOIN {nameof(MailCategoryAssignment)} ON {nameof(MailCategory)}.{nameof(MailCategory.Id)} = {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCategoryId)} " +
-                  $"WHERE {nameof(MailCategory)}.{nameof(MailCategory.MailAccountId)} = ? AND {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders}) " +
-                  $"ORDER BY {nameof(MailCategory.Name)} COLLATE NOCASE";
+        var categories = new List<MailCategory>();
 
-        return await Connection.QueryAsync<MailCategory>(
-            sql,
-            [accountId, .. uniqueIds.Cast<object>()]).ConfigureAwait(false);
+        foreach (var idChunk in SqliteVariableLimit.Batch(uniqueIds, fixedParameters: 1))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql = $"SELECT DISTINCT MailCategory.* FROM {nameof(MailCategory)} " +
+                      $"INNER JOIN {nameof(MailCategoryAssignment)} ON {nameof(MailCategory)}.{nameof(MailCategory.Id)} = {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCategoryId)} " +
+                      $"WHERE {nameof(MailCategory)}.{nameof(MailCategory.MailAccountId)} = ? AND {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders}) " +
+                      $"ORDER BY {nameof(MailCategory.Name)} COLLATE NOCASE";
+
+            categories.AddRange(await Connection.QueryAsync<MailCategory>(
+                sql,
+                [accountId, .. idChunk.Cast<object>()]).ConfigureAwait(false));
+        }
+
+        return categories.DistinctBy(static category => category.Id).ToList();
     }
 
     public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<MailCategory>>> GetCategoriesByMailAsync(Guid accountId, IEnumerable<Guid> mailCopyUniqueIds)
@@ -294,27 +310,32 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
         if (uniqueIds.Count == 0)
             return new Dictionary<Guid, IReadOnlyList<MailCategory>>();
 
-        var placeholders = string.Join(",", uniqueIds.Select(_ => "?"));
-        var sql =
-            $"SELECT {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCopyUniqueId)} as {nameof(MailCategoryRow.MailCopyUniqueId)}, " +
-            $"{nameof(MailCategory)}.{nameof(MailCategory.Id)} as {nameof(MailCategoryRow.Id)}, " +
-            $"{nameof(MailCategory)}.{nameof(MailCategory.MailAccountId)} as {nameof(MailCategoryRow.MailAccountId)}, " +
-            $"{nameof(MailCategory)}.{nameof(MailCategory.RemoteId)} as {nameof(MailCategoryRow.RemoteId)}, " +
-            $"{nameof(MailCategory)}.{nameof(MailCategory.Name)} as {nameof(MailCategoryRow.Name)}, " +
-            $"{nameof(MailCategory)}.{nameof(MailCategory.IsFavorite)} as {nameof(MailCategoryRow.IsFavorite)}, " +
-            $"{nameof(MailCategory)}.{nameof(MailCategory.BackgroundColorHex)} as {nameof(MailCategoryRow.BackgroundColorHex)}, " +
-            $"{nameof(MailCategory)}.{nameof(MailCategory.TextColorHex)} as {nameof(MailCategoryRow.TextColorHex)}, " +
-            $"{nameof(MailCategory)}.{nameof(MailCategory.Source)} as {nameof(MailCategoryRow.Source)} " +
-            $"FROM {nameof(MailCategory)} " +
-            $"INNER JOIN {nameof(MailCategoryAssignment)} ON {nameof(MailCategory)}.{nameof(MailCategory.Id)} = {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCategoryId)} " +
-            $"WHERE {nameof(MailCategory)}.{nameof(MailCategory.MailAccountId)} = ? AND {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders}) " +
-            $"ORDER BY {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCopyUniqueId)}, {nameof(MailCategory)}.{nameof(MailCategory.Name)} COLLATE NOCASE";
+        var allRows = new List<MailCategoryRow>();
 
-        var rows = await Connection.QueryAsync<MailCategoryRow>(
-            sql,
-            [accountId, .. uniqueIds.Cast<object>()]).ConfigureAwait(false);
+        foreach (var idChunk in SqliteVariableLimit.Batch(uniqueIds, fixedParameters: 1))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql =
+                $"SELECT {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCopyUniqueId)} as {nameof(MailCategoryRow.MailCopyUniqueId)}, " +
+                $"{nameof(MailCategory)}.{nameof(MailCategory.Id)} as {nameof(MailCategoryRow.Id)}, " +
+                $"{nameof(MailCategory)}.{nameof(MailCategory.MailAccountId)} as {nameof(MailCategoryRow.MailAccountId)}, " +
+                $"{nameof(MailCategory)}.{nameof(MailCategory.RemoteId)} as {nameof(MailCategoryRow.RemoteId)}, " +
+                $"{nameof(MailCategory)}.{nameof(MailCategory.Name)} as {nameof(MailCategoryRow.Name)}, " +
+                $"{nameof(MailCategory)}.{nameof(MailCategory.IsFavorite)} as {nameof(MailCategoryRow.IsFavorite)}, " +
+                $"{nameof(MailCategory)}.{nameof(MailCategory.BackgroundColorHex)} as {nameof(MailCategoryRow.BackgroundColorHex)}, " +
+                $"{nameof(MailCategory)}.{nameof(MailCategory.TextColorHex)} as {nameof(MailCategoryRow.TextColorHex)}, " +
+                $"{nameof(MailCategory)}.{nameof(MailCategory.Source)} as {nameof(MailCategoryRow.Source)} " +
+                $"FROM {nameof(MailCategory)} " +
+                $"INNER JOIN {nameof(MailCategoryAssignment)} ON {nameof(MailCategory)}.{nameof(MailCategory.Id)} = {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCategoryId)} " +
+                $"WHERE {nameof(MailCategory)}.{nameof(MailCategory.MailAccountId)} = ? AND {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders}) " +
+                $"ORDER BY {nameof(MailCategoryAssignment)}.{nameof(MailCategoryAssignment.MailCopyUniqueId)}, {nameof(MailCategory)}.{nameof(MailCategory.Name)} COLLATE NOCASE";
 
-        return rows
+            allRows.AddRange(await Connection.QueryAsync<MailCategoryRow>(
+                sql,
+                [accountId, .. idChunk.Cast<object>()]).ConfigureAwait(false));
+        }
+
+        return allRows
             .GroupBy(a => a.MailCopyUniqueId)
             .ToDictionary(
                 a => a.Key,
@@ -327,16 +348,31 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
         if (uniqueIds.Count == 0)
             return [];
 
-        var placeholders = string.Join(",", uniqueIds.Select(_ => "?"));
-        var sql = $"SELECT {nameof(MailCategoryAssignment.MailCategoryId)} " +
-                  $"FROM {nameof(MailCategoryAssignment)} " +
-                  $"WHERE {nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders}) " +
-                  $"GROUP BY {nameof(MailCategoryAssignment.MailCategoryId)} " +
-                  $"HAVING COUNT(DISTINCT {nameof(MailCategoryAssignment.MailCopyUniqueId)}) = ?";
+        HashSet<Guid> commonCategoryIds = null;
 
-        return await Connection.QueryScalarsAsync<Guid>(
-            sql,
-            [.. uniqueIds.Cast<object>(), uniqueIds.Count]).ConfigureAwait(false);
+        foreach (var idChunk in SqliteVariableLimit.Batch(uniqueIds))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            var sql = $"SELECT {nameof(MailCategoryAssignment.MailCategoryId)} " +
+                      $"FROM {nameof(MailCategoryAssignment)} " +
+                      $"WHERE {nameof(MailCategoryAssignment.MailCopyUniqueId)} IN ({placeholders}) " +
+                      $"GROUP BY {nameof(MailCategoryAssignment.MailCategoryId)} " +
+                      $"HAVING COUNT(DISTINCT {nameof(MailCategoryAssignment.MailCopyUniqueId)}) = ?";
+
+            var chunkCategoryIds = await Connection.QueryScalarsAsync<Guid>(
+                sql,
+                [.. idChunk.Cast<object>(), idChunk.Length]).ConfigureAwait(false);
+
+            if (commonCategoryIds is null)
+                commonCategoryIds = chunkCategoryIds.ToHashSet();
+            else
+                commonCategoryIds.IntersectWith(chunkCategoryIds);
+
+            if (commonCategoryIds.Count == 0)
+                break;
+        }
+
+        return commonCategoryIds?.ToList() ?? [];
     }
 
     public async Task<List<string>> GetCategoryNamesForMailAsync(Guid mailCopyUniqueId)

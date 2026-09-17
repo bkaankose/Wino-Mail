@@ -2,71 +2,39 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.Extensions.DependencyInjection;
+using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Interfaces;
-using Wino.Mail.Controls.AccountIcon;
-using Wino.Mail.ViewModels.Data;
-using Wino.Mail.WinUI.Controls;
-using Wino.Mail.WinUI;
+using Wino.Mail.Controls.ContextFlyout;
+using Wino.Mail.Controls.Core.ContextFlyout;
 
 namespace Wino.MenuFlyouts;
 
-public partial class AccountSelectorFlyout : WinoMenuFlyout, IDisposable
+public partial class AccountSelectorFlyout : WinoContextFlyout, IDisposable
 {
     private readonly IEnumerable<MailAccount> _accounts;
     private readonly Func<MailAccount, Task> _onItemSelection;
 
     public AccountSelectorFlyout(IEnumerable<MailAccount> accounts, Func<MailAccount, Task> onItemSelection)
     {
-        _accounts = accounts;
+        _accounts = accounts.ToArray();
         _onItemSelection = onItemSelection;
-        var profilePictureService = WinoApplication.Current.Services.GetRequiredService<IAccountProfilePictureFileService>();
 
-        foreach (var account in _accounts)
-        {
-            var menuItem = new MenuFlyoutItem
+        ItemsSource = _accounts
+            .Select(account => (ContextFlyoutMenuEntry)new ContextFlyoutCommandEntry
             {
-                Tag = account.Address,
-                Icon = new WinoAccountIcon
-                {
-                    Account = MailAccountIconInfoFactory.Create(account, profilePictureService),
-                    IconSize = 28,
-                },
                 Text = $"{account.Name} ({account.Address})",
-                MinHeight = 55,
-            };
-
-            menuItem.Click += AccountClicked;
-            Items.Add(menuItem);
-        }
+                Icon = new ContextFlyoutIcon("\uE77B"),
+                Command = new AsyncRelayCommand(() => SelectAccountAsync(account)),
+                AutomationId = $"AccountSelector_{account.Id:N}"
+            })
+            .ToArray();
     }
 
-    public void Dispose()
+    public void Dispose() => Hide();
+
+    private async Task SelectAccountAsync(MailAccount account)
     {
-        foreach (var menuItem in Items)
-        {
-            if (menuItem is MenuFlyoutItem flyoutItem)
-            {
-                flyoutItem.Click -= AccountClicked;
-            }
-        }
-    }
-
-    private async void AccountClicked(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-    {
-        if (sender is MenuFlyoutItem menuItem && menuItem.Tag is string accountAddress)
-        {
-            var selectedMenuItem = _accounts.FirstOrDefault(a => a.Address == accountAddress);
-
-            if (selectedMenuItem != null)
-            {
-                await _onItemSelection(selectedMenuItem);
-            }
-        }
-
+        await _onItemSelection(account);
         Dispose();
-        Hide();
     }
 }

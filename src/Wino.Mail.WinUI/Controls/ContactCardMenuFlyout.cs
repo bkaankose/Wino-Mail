@@ -1,20 +1,22 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
-using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Windows.Foundation;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Helpers;
+using Wino.Mail.Controls.ContextFlyout;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.WinUI.Controls;
 
-public partial class ContactCardMenuFlyout : WinoMenuFlyout
+public partial class ContactCardMenuFlyout : WinoContextFlyout
 {
     private int _showRequestVersion;
 #if DEBUG
@@ -37,41 +39,35 @@ public partial class ContactCardMenuFlyout : WinoMenuFlyout
         if (target.XamlRoot is null)
             return;
 
-        BuildItems(viewModel, contact, assignableLists);
-
         // A read-only contact without an address has no action at all; do not open an empty menu.
-        if (Items.Count == 0)
+        if (BuildItems(viewModel, contact, assignableLists) == 0)
             return;
 
         if (position is Point targetPosition)
         {
-            ShowAt(target, new FlyoutShowOptions
-            {
-                Position = targetPosition,
-                Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft
-            });
+            ShowAt(target, WinoContextFlyoutHelper.CreatePointerAlignedOptions(targetPosition));
         }
         else
         {
             ShowAt(target, new FlyoutShowOptions
             {
-                Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft
+                Placement = FlyoutPlacementMode.RightEdgeAlignedTop
             });
         }
     }
 
-    private void BuildItems(
+    private int BuildItems(
         ContactsPageViewModel viewModel,
         AccountContactViewModel contact,
         IReadOnlyList<ContactList> assignableLists)
     {
-        Items.Clear();
+        var items = new List<ContextFlyoutMenuEntry>();
 
         if (contact.CanEdit)
         {
-            Items.Add(CreateCommandItem(
+            items.Add(CreateCommandItem(
                 Translator.ContactAction_Edit,
-                "\uE70F",
+                WinoIconGlyph.Rename,
                 "ContactCardContextEdit",
                 viewModel.EditContactCommand,
                 contact));
@@ -80,9 +76,9 @@ public partial class ContactCardMenuFlyout : WinoMenuFlyout
         // A contact read live from a public folder has no stored row to mark.
         if (contact.CanFavorite)
         {
-            Items.Add(CreateCommandItem(
+            items.Add(CreateCommandItem(
                 contact.FavoriteActionText,
-                "\uE734",
+                WinoIconGlyph.Star,
                 "ContactCardContextFavorite",
                 viewModel.ToggleFavoriteCommand,
                 contact));
@@ -90,9 +86,9 @@ public partial class ContactCardMenuFlyout : WinoMenuFlyout
 
         if (contact.CanSendMail)
         {
-            Items.Add(CreateCommandItem(
+            items.Add(CreateCommandItem(
                 Translator.ContactAction_SendMail,
-                "\uE715",
+                WinoIconGlyph.Send,
                 "ContactCardContextSendMail",
                 viewModel.ComposeToContactCommand,
                 contact));
@@ -100,71 +96,75 @@ public partial class ContactCardMenuFlyout : WinoMenuFlyout
 
         if (assignableLists.Count > 0)
         {
-            var assignSubItem = new MenuFlyoutSubItem
-            {
-                Text = Translator.ContactAction_AddToList,
-                Icon = CreateIcon("\uE8FD")
-            };
-            AutomationProperties.SetAutomationId(assignSubItem, "ContactCardContextAssignToList");
-
+            var assignItems = new List<ContextFlyoutMenuEntry>();
             foreach (var list in assignableLists)
             {
-                var listItem = new MenuFlyoutItem
+                assignItems.Add(new ContextFlyoutCommandEntry
                 {
                     Text = list.Name,
-                    Tag = list
-                };
-                AutomationProperties.SetAutomationId(listItem, $"ContactCardContextAssignList_{list.Id:N}");
-                listItem.Click += async (_, _) => await viewModel.AssignContactsToListAsync(list, new[] { contact.Id });
-                assignSubItem.Items.Add(listItem);
+                    Command = new AsyncRelayCommand(() => viewModel.AssignContactsToListAsync(list, (System.Guid[])[contact.Id])),
+                    AutomationId = $"ContactCardContextAssignList_{list.Id:N}"
+                });
             }
 
-            Items.Add(assignSubItem);
+            items.Add(new ContextFlyoutSubMenuEntry
+            {
+                Text = Translator.ContactAction_AddToList,
+                Icon = CreateIcon(WinoIconGlyph.People),
+                Items = assignItems,
+                AutomationId = "ContactCardContextAssignToList"
+            });
         }
 
 #if DEBUG
-        Items.Add(new MenuFlyoutSeparator());
-        var testNotificationItem = new MenuFlyoutItem
+        items.Add(ContextFlyoutSeparatorEntry.Instance);
+        items.Add(new ContextFlyoutCommandEntry
         {
             Text = Translator.Buttons_TestNotification,
-            Icon = CreateIcon("\uE7ED")
-        };
-        AutomationProperties.SetAutomationId(testNotificationItem, "ContactCardContextTestNotification");
-        testNotificationItem.Click += async (_, _) =>
-            await _notificationBuilder.CreateTestPeopleNotificationAsync(contact.SourceContact);
-        Items.Add(testNotificationItem);
+            Icon = CreateIcon(WinoIconGlyph.Reminder),
+            Command = new AsyncRelayCommand(() => _notificationBuilder.CreateTestPeopleNotificationAsync(contact.SourceContact)),
+            AutomationId = "ContactCardContextTestNotification"
+        });
 #endif
 
         if (contact.CanDelete)
         {
-            Items.Add(new MenuFlyoutSeparator());
-            Items.Add(CreateCommandItem(
+            items.Add(ContextFlyoutSeparatorEntry.Instance);
+            items.Add(CreateCommandItem(
                 Translator.ContactAction_Delete,
-                "\uE74D",
+                WinoIconGlyph.Delete,
                 "ContactCardContextDelete",
                 viewModel.DeleteContactCommand,
-                contact));
+                contact,
+                isDestructive: true,
+                shortcut: new ContextFlyoutShortcut("Delete", "Delete")));
         }
+
+        ItemsSource = items;
+        return items.Count;
     }
 
-    private static MenuFlyoutItem CreateCommandItem(
+    private static ContextFlyoutCommandEntry CreateCommandItem(
         string text,
-        string glyph,
+        WinoIconGlyph icon,
         string automationId,
         System.Windows.Input.ICommand command,
-        object commandParameter)
-    {
-        var item = new MenuFlyoutItem
+        object commandParameter,
+        bool isDestructive = false,
+        ContextFlyoutShortcut? shortcut = null)
+        => new()
         {
             Text = text,
-            Icon = CreateIcon(glyph),
+            Icon = CreateIcon(icon),
             Command = command,
-            CommandParameter = commandParameter
+            CommandParameter = commandParameter,
+            IsDestructive = isDestructive,
+            Shortcut = shortcut,
+            AutomationId = automationId
         };
-        AutomationProperties.SetAutomationId(item, automationId);
-        return item;
-    }
 
-    private static FontIcon CreateIcon(string glyph)
-        => new() { Glyph = glyph, FontSize = 16 };
+    private static ContextFlyoutIcon? CreateIcon(WinoIconGlyph icon)
+        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
+            ? new ContextFlyoutIcon(glyph)
+            : null;
 }

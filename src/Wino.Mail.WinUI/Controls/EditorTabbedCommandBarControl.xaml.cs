@@ -5,10 +5,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Models.Translations;
 using Wino.Editor;
 
 namespace Wino.Mail.Controls;
@@ -34,6 +36,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     public partial EditorColorOption? SelectedHighlightColorOption { get; set; }
 
     private const string LineSpacingGroupName = "ComposerLineSpacing";
+    private const string SpellCheckLanguageGroupName = "ComposerSpellCheckLanguage";
 
     private bool _isApplyingState;
     private IEditorCommandTarget? _subscribedTarget;
@@ -42,6 +45,10 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     private IReadOnlyList<EditorColorOption> _highlightColorOptions = Array.Empty<EditorColorOption>();
     private readonly List<ICommandBarElement> _injectedInsertCommands = [];
     private readonly List<ICommandBarElement> _injectedOptionsCommands = [];
+    private string _selectedSpellCheckLanguageCode = string.Empty;
+
+    public event EventHandler<SpellCheckEnabledChangedEventArgs>? SpellCheckEnabledChanged;
+    public event EventHandler<SpellCheckLanguageChangedEventArgs>? SpellCheckLanguageChanged;
 
     public Brush SelectedTextColorBrush => SelectedTextColorOption?.Brush ?? TransparentBrush;
     public Brush SelectedHighlightColorBrush => SelectedHighlightColorOption?.Brush ?? TransparentBrush;
@@ -495,6 +502,30 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         await ExecuteAsync(EditorCommand.SetTextColor(color.Value));
     }
 
+    public void ConfigureSpellCheckLanguages(
+        IReadOnlyList<AppLanguageModel> languages,
+        string selectedLanguageCode)
+    {
+        _selectedSpellCheckLanguageCode = selectedLanguageCode;
+        SpellCheckLanguageFlyout.Items.Clear();
+
+        foreach (var language in languages)
+        {
+            var item = new RadioMenuFlyoutItem
+            {
+                Text = language.DisplayName,
+                GroupName = SpellCheckLanguageGroupName,
+                Tag = language.Code,
+                IsChecked = string.Equals(language.Code, selectedLanguageCode, StringComparison.OrdinalIgnoreCase)
+            };
+
+            AutomationProperties.SetAutomationId(item, $"SpellCheckLanguage_{language.Code}");
+            AutomationProperties.SetName(item, language.DisplayName);
+            item.Click += SpellCheckLanguageMenuItem_Click;
+            SpellCheckLanguageFlyout.Items.Add(item);
+        }
+    }
+
     private async void HighlightColorGridView_ItemClick(object sender, ItemClickEventArgs e)
     {
         if (_isApplyingState || e.ClickedItem is not EditorColorOption color)
@@ -530,9 +561,24 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         await ExecuteAsync(EditorCommand.SetHighlightColor(SelectedHighlightColorOption.Value));
     }
 
-    private async void SpellCheckButton_Click(object sender, RoutedEventArgs e)
+    private async void SpellCheckButton_Click(SplitButton sender, SplitButtonClickEventArgs e)
     {
-        await ExecuteAsync(EditorCommand.ToggleSpellCheck(SpellCheckButton.IsChecked == true));
+        var isEnabled = SpellCheckButton.IsChecked == true;
+        await ExecuteAsync(EditorCommand.ToggleSpellCheck(isEnabled));
+        SpellCheckEnabledChanged?.Invoke(this, new SpellCheckEnabledChangedEventArgs(isEnabled));
+    }
+
+    private async void SpellCheckLanguageMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not RadioMenuFlyoutItem { Tag: string languageCode } ||
+            string.Equals(languageCode, _selectedSpellCheckLanguageCode, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _selectedSpellCheckLanguageCode = languageCode;
+        await ExecuteAsync(EditorCommand.SetSpellCheckLanguage(languageCode));
+        SpellCheckLanguageChanged?.Invoke(this, new SpellCheckLanguageChangedEventArgs(languageCode));
     }
 
     private async void LinkButton_Click(object sender, RoutedEventArgs e) => await ShowLinkDialogAsync();
@@ -685,6 +731,16 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         }
     }
 
+}
+
+public sealed class SpellCheckEnabledChangedEventArgs(bool isEnabled) : EventArgs
+{
+    public bool IsEnabled { get; } = isEnabled;
+}
+
+public sealed class SpellCheckLanguageChangedEventArgs(string languageCode) : EventArgs
+{
+    public string LanguageCode { get; } = languageCode;
 }
 
 

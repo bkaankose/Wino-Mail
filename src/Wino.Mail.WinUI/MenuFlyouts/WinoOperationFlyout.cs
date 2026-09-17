@@ -1,11 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Wino.Mail.WinUI.Controls;
+using Wino.Mail.Controls.ContextFlyout;
 
 namespace Wino.MenuFlyouts;
 
-public partial class WinoOperationFlyout<TActionType> : WinoMenuFlyout, IDisposable where TActionType : class
+public partial class WinoOperationFlyout<TActionType> : WinoContextFlyout, IDisposable where TActionType : class
 {
     public TActionType ClickedOperation { get; set; } = null!;
 
@@ -38,12 +38,6 @@ public partial class WinoOperationFlyout<TActionType> : WinoMenuFlyout, IDisposa
 
     public void Dispose()
     {
-        foreach (var item in Items)
-        {
-            if (item is IDisposable disposableItem)
-            {
-                disposableItem.Dispose();
-            }
-        }
+        Closing -= FlyoutClosing;
     }
 }

@@ -495,16 +495,22 @@
                 <!--  Importance, signing, encryption and read receipts are injected in front of these by the composer.  -->
                 <AppBarSeparator x:Name="OptionsInjectedCommandsSeparator" />
 
-                <AppBarToggleButton
-                    x:Name="SpellCheckButton"
-                    AutomationProperties.AutomationId="SpellCheckButton"
-                    Click="SpellCheckButton_Click"
-                    Label="{x:Bind domain:Translator.Composer_SpellCheck, Mode=OneTime}"
-                    ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_SpellCheckDescription, Mode=OneTime}">
-                    <AppBarToggleButton.Icon>
-                        <FontIcon Glyph="&#xEA53;" />
-                    </AppBarToggleButton.Icon>
-                </AppBarToggleButton>
+                <AppBarElementContainer>
+                    <ToggleSplitButton
+                        x:Name="SpellCheckButton"
+                        AutomationProperties.AutomationId="SpellCheckButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Composer_SpellCheck, Mode=OneTime}"
+                        Click="SpellCheckButton_Click"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_SpellCheckDescription, Mode=OneTime}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xEA53;" />
+                            <TextBlock Text="{x:Bind domain:Translator.Composer_SpellCheck, Mode=OneTime}" />
+                        </StackPanel>
+                        <ToggleSplitButton.Flyout>
+                            <MenuFlyout x:Name="SpellCheckLanguageFlyout" />
+                        </ToggleSplitButton.Flyout>
+                    </ToggleSplitButton>
+                </AppBarElementContainer>
 
             </toolkit:TabbedCommandBarItem>
         </toolkit:TabbedCommandBar.MenuItems>

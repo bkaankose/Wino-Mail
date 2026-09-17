@@ -89,6 +89,25 @@ public class CalendarServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CreateNewCalendarItemAsync_ExtractsDirectJoinLinkFromDescription()
+    {
+        var calendarItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Online meeting",
+            Description = "Join at https://meet.google.com/abc-defg-hij",
+            StartDate = DateTime.UtcNow,
+            DurationInSeconds = 3600,
+            CalendarId = _testCalendar.Id
+        };
+
+        await _calendarService.CreateNewCalendarItemAsync(calendarItem, null);
+
+        var stored = await _databaseService.Connection.FindAsync<CalendarItem>(calendarItem.Id);
+        stored.DirectJoinLink.Should().Be("https://meet.google.com/abc-defg-hij");
+    }
+
+    [Fact]
     public async Task GetCalendarEventsAsync_UsesLocalDisplayPeriod_ForTimezoneAwareEvents()
     {
         // Arrange

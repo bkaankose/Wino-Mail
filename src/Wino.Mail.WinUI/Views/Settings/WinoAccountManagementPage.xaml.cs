@@ -24,10 +24,20 @@ public sealed partial class WinoAccountManagementPage : WinoAccountManagementPag
         }
 
         var index = ViewModel.Benefits.IndexOf(ViewModel.SelectedBenefit);
-        if (index >= 0)
+        if (index < 0)
         {
-            itemsView.Select(index);
+            return;
         }
+
+        // Select throws E_INVALIDARG when the view has not materialized the
+        // items yet (the offers live in an x:Load-deferred subtree), so only
+        // select an index the view itself can satisfy right now.
+        if (itemsView.ItemsSource is not System.Collections.ICollection source || index >= source.Count)
+        {
+            return;
+        }
+
+        itemsView.Select(index);
     }
 
     /// <summary>
@@ -50,7 +60,11 @@ public sealed partial class WinoAccountManagementPage : WinoAccountManagementPag
 
     private void BenefitSelectionChanged(ItemsView sender, ItemsViewSelectionChangedEventArgs args)
     {
-        if (sender.SelectedItem is WinoAccountBenefitItemViewModel benefit)
+        // Deselection reports a null item, and a recycled container can report
+        // an item that no longer belongs to the grid. Neither may clear or
+        // replace the view model's selection with a mismatched value.
+        if (sender.SelectedItem is WinoAccountBenefitItemViewModel benefit
+            && ViewModel.Benefits.Contains(benefit))
         {
             ViewModel.SelectedBenefit = benefit;
         }

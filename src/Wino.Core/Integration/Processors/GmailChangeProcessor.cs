@@ -9,6 +9,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Extensions;
 using Wino.Services;
@@ -168,6 +169,8 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
                     OrganizerEmail = GetOrganizerEmail(calendarEvent, organizerAccount)
                 };
             }
+
+            calendarItem.DirectJoinLink = ResolveDirectJoinLink(calendarEvent, calendarItem.Description, parentRecurringEvent);
 
             // Hide canceled events.
             calendarItem.IsHidden = calendarItem.Status == CalendarItemStatus.Cancelled;
@@ -360,6 +363,7 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             existingCalendarItem.Visibility = string.IsNullOrEmpty(calendarEvent.Visibility) ? parentRecurringEvent?.Visibility ?? existingCalendarItem.Visibility : GetVisibility(calendarEvent.Visibility);
             existingCalendarItem.ShowAs = string.IsNullOrEmpty(calendarEvent.Transparency) ? parentRecurringEvent?.ShowAs ?? existingCalendarItem.ShowAs : GetShowAs(calendarEvent.Transparency);
             existingCalendarItem.HtmlLink = string.IsNullOrEmpty(calendarEvent.HtmlLink) ? parentRecurringEvent?.HtmlLink ?? existingCalendarItem.HtmlLink : calendarEvent.HtmlLink;
+            existingCalendarItem.DirectJoinLink = ResolveDirectJoinLink(calendarEvent, existingCalendarItem.Description, parentRecurringEvent);
             existingCalendarItem.IsLocked = calendarEvent.Locked.GetValueOrDefault(existingCalendarItem.IsLocked);
             existingCalendarItem.OrganizerDisplayName = string.IsNullOrEmpty(GetOrganizerName(calendarEvent, organizerAccount)) ? parentRecurringEvent?.OrganizerDisplayName ?? existingCalendarItem.OrganizerDisplayName : GetOrganizerName(calendarEvent, organizerAccount);
             existingCalendarItem.OrganizerEmail = string.IsNullOrEmpty(GetOrganizerEmail(calendarEvent, organizerAccount)) ? parentRecurringEvent?.OrganizerEmail ?? existingCalendarItem.OrganizerEmail : GetOrganizerEmail(calendarEvent, organizerAccount);
@@ -404,6 +408,18 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
 
         // Upsert the event.
         await Connection.InsertOrReplaceAsync(existingCalendarItem, typeof(CalendarItem));
+    }
+
+    private static string ResolveDirectJoinLink(Event calendarEvent, string description, CalendarItem parentRecurringEvent)
+    {
+        var structuredLink = calendarEvent.ConferenceData?.EntryPoints?
+            .FirstOrDefault(entryPoint => string.Equals(entryPoint.EntryPointType, "video", StringComparison.OrdinalIgnoreCase))?
+            .Uri;
+
+        structuredLink ??= calendarEvent.HangoutLink;
+        structuredLink ??= parentRecurringEvent?.DirectJoinLink;
+
+        return CalendarJoinLinkResolver.ResolveDirectJoinLink(structuredLink, description);
     }
 
     private string GetOrganizerName(Event calendarEvent, MailAccount account)

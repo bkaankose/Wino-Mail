@@ -151,6 +151,7 @@ public partial class CalendarItemViewModel : ObservableObject, ICalendarItem, IC
         CalendarItem.IsHidden = calendarItem.IsHidden;
         CalendarItem.CustomEventColorHex = calendarItem.CustomEventColorHex;
         CalendarItem.HtmlLink = calendarItem.HtmlLink;
+        CalendarItem.DirectJoinLink = calendarItem.DirectJoinLink;
         CalendarItem.Status = calendarItem.Status;
         CalendarItem.Visibility = calendarItem.Visibility;
         CalendarItem.ShowAs = calendarItem.ShowAs;

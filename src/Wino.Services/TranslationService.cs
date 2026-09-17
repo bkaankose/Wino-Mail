@@ -17,6 +17,7 @@ namespace Wino.Services;
 public class TranslationService : ITranslationService
 {
     public const AppLanguage DefaultAppLanguage = AppLanguage.English;
+    public const string DefaultLanguageCode = "en-US";
 
     private ILogger _logger = Log.ForContext<TranslationService>();
     private readonly IPreferencesService _preferencesService;
@@ -140,6 +141,7 @@ public class TranslationService : ITranslationService
             "sk" => AppLanguage.Slovak,
             "tr" => AppLanguage.Turkish,
             "uk" => AppLanguage.Ukrainian,
+            "vi" => AppLanguage.Vietnamese,
             "zh" => AppLanguage.Chinese,
             _ => AppLanguage.None
         };
@@ -147,9 +149,10 @@ public class TranslationService : ITranslationService
         return supportedLanguage != AppLanguage.None;
     }
 
-    public List<AppLanguageModel> GetAvailableLanguages()
-    {
-        return
+    public List<AppLanguageModel> GetAvailableLanguages() => CreateAvailableLanguages();
+
+    private static List<AppLanguageModel> CreateAvailableLanguages()
+        =>
         [
             new AppLanguageModel(AppLanguage.Chinese, "Chinese", "zh-CN"),
             new AppLanguageModel(AppLanguage.Czech, "Czech", "cs-CZ"),
@@ -176,7 +179,11 @@ public class TranslationService : ITranslationService
             new AppLanguageModel(AppLanguage.Japanese, "Japanese", "ja-JP"),
             new AppLanguageModel(AppLanguage.Lithuanian, "Lithuanian", "lt-LT"),
             new AppLanguageModel(AppLanguage.Slovak, "Slovak", "sk-SK"),
-            new AppLanguageModel(AppLanguage.Ukrainian, "Ukrainian", "uk-UA")
+            new AppLanguageModel(AppLanguage.Ukrainian, "Ukrainian", "uk-UA"),
+            new AppLanguageModel(AppLanguage.Vietnamese, "Vietnamese", "vi-VN")
         ];
-    }
+
+    public static bool IsSupportedLanguageCode(string? languageCode)
+        => CreateAvailableLanguages().Any(language =>
+            string.Equals(language.Code, languageCode, System.StringComparison.OrdinalIgnoreCase));
 }

@@ -375,6 +375,31 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(ComposerFontSize), value);
     }
 
+    public bool IsComposerSpellCheckEnabled
+    {
+        get => _configurationService.Get(nameof(IsComposerSpellCheckEnabled), true);
+        set => SetPropertyAndSave(nameof(IsComposerSpellCheckEnabled), value);
+    }
+
+    public string ComposerSpellCheckLanguageCode
+    {
+        get
+        {
+            var languageCode = _configurationService.Get(
+                nameof(ComposerSpellCheckLanguageCode),
+                TranslationService.DefaultLanguageCode);
+
+            return TranslationService.IsSupportedLanguageCode(languageCode)
+                ? languageCode
+                : TranslationService.DefaultLanguageCode;
+        }
+        set => SetPropertyAndSave(
+            nameof(ComposerSpellCheckLanguageCode),
+            TranslationService.IsSupportedLanguageCode(value)
+                ? value
+                : TranslationService.DefaultLanguageCode);
+    }
+
     public bool IsNavigationPaneOpened
     {
         get => _configurationService.Get(nameof(IsNavigationPaneOpened), true);

@@ -35,20 +35,7 @@
         </Style>
 
         <DataTemplate x:Key="ContactTokenTemplate" x:DataType="entities:IContactDisplayItem">
-            <Grid>
-                <Grid.ContextFlyout>
-                    <coreControls:WinoMenuFlyout>
-                        <MenuFlyoutItem
-                            AutomationProperties.AutomationId="ComposePageMenuFlyoutItem"
-                            Click="CopyContactAddress_Click"
-                            CommandParameter="{x:Bind Address}"
-                            Text="{x:Bind domain:Translator.Buttons_Copy}">
-                            <MenuFlyoutItem.Icon>
-                                <SymbolIcon Symbol="Copy" />
-                            </MenuFlyoutItem.Icon>
-                        </MenuFlyoutItem>
-                    </coreControls:WinoMenuFlyout>
-                </Grid.ContextFlyout>
+            <Grid ContextRequested="ContactTokenContextRequested">
 
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -81,21 +68,8 @@
                 Margin="-8,0"
                 Padding="0"
                 Background="Transparent"
-                ColumnSpacing="3">
-                <Grid.ContextFlyout>
-                    <coreControls:WinoMenuFlyout>
-                        <MenuFlyoutItem
-                            AutomationProperties.AutomationId="ComposePageMenuFlyoutItem2"
-                            Click="OpenAttachment_Click"
-                            CommandParameter="{x:Bind}"
-                            Text="{x:Bind domain:Translator.Buttons_Open}" />
-                        <MenuFlyoutItem
-                            AutomationProperties.AutomationId="ComposePageMenuFlyoutItem3"
-                            Click="SaveAttachment_Click"
-                            CommandParameter="{x:Bind}"
-                            Text="{x:Bind domain:Translator.Buttons_Save}" />
-                    </coreControls:WinoMenuFlyout>
-                </Grid.ContextFlyout>
+                ColumnSpacing="3"
+                ContextRequested="AttachmentContextRequested">
                 <ToolTipService.ToolTip>
                     <ToolTip Content="{x:Bind FileName}" />
                 </ToolTipService.ToolTip>
@@ -218,7 +192,11 @@
                 </Grid.RowDefinitions>
 
                 <!--  Format  -->
-                <controls1:EditorTabbedCommandBarControl CommandTarget="{x:Bind WebViewEditor}">
+                <controls1:EditorTabbedCommandBarControl
+                    x:Name="EditorCommandBar"
+                    CommandTarget="{x:Bind WebViewEditor}"
+                    SpellCheckEnabledChanged="EditorCommandBar_SpellCheckEnabledChanged"
+                    SpellCheckLanguageChanged="EditorCommandBar_SpellCheckLanguageChanged">
                     <controls1:EditorTabbedCommandBarControl.PaneCustomContent>
                         <toolkit:TabbedCommandBarItem
                             CommandAlignment="Right"

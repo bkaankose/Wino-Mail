@@ -49,6 +49,8 @@ public static class CalendarEventComposeMapper
             IsLocked = false
         };
 
+        calendarItem.DirectJoinLink = CalendarJoinLinkResolver.ResolveDirectJoinLink(null, calendarItem.Description);
+
         var attendees = composeResult.Attendees?
             .Where(attendee => attendee != null)
             .Select(attendee => new CalendarEventAttendee

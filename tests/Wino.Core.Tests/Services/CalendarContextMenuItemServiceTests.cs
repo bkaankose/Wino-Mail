@@ -48,7 +48,7 @@ public class CalendarContextMenuItemServiceTests
             Title = "Recurring invite",
             IsLocked = true,
             RecurringCalendarItemId = Guid.NewGuid(),
-            HtmlLink = "https://contoso.example/meeting"
+            DirectJoinLink = "https://meet.google.com/abc-defg-hij"
         };
 
         var items = _service.GetContextMenuItems(calendarItem);

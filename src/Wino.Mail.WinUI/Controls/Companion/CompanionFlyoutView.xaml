@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:calendar="using:Wino.Calendar.ViewModels.Data"
+    xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mail="using:Wino.Mail.ViewModels.Data"
@@ -359,24 +360,18 @@
                                         ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_EventMoreActions, Mode=OneTime}">
                                         <FontIcon FontSize="14" Glyph="&#xE712;" />
                                         <Button.Flyout>
-                                            <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                                <MenuFlyoutItem
-                                                    AutomationProperties.AutomationId="CompanionOpenEventMenuItem"
+                                            <contextFlyout:WinoContextFlyout Placement="BottomEdgeAlignedRight">
+                                                <contextFlyout:WinoContextFlyoutItem
+                                                    AutomationId="CompanionOpenEvent"
                                                     Click="OpenEvent_Click"
-                                                    Text="{x:Bind domain:Translator.Companion_OpenEvent, Mode=OneTime}">
-                                                    <MenuFlyoutItem.Icon>
-                                                        <FontIcon Glyph="&#xE787;" />
-                                                    </MenuFlyoutItem.Icon>
-                                                </MenuFlyoutItem>
-                                                <MenuFlyoutItem
-                                                    AutomationProperties.AutomationId="CompanionOpenCalendarMenuItem"
+                                                    IconGlyph="&#xE8A7;"
+                                                    Text="{x:Bind domain:Translator.Companion_OpenEvent, Mode=OneTime}" />
+                                                <contextFlyout:WinoContextFlyoutItem
+                                                    AutomationId="CompanionOpenCalendar"
                                                     Command="{x:Bind ViewModel.OpenCalendarCommand}"
-                                                    Text="{x:Bind domain:Translator.Companion_OpenCalendar, Mode=OneTime}">
-                                                    <MenuFlyoutItem.Icon>
-                                                        <FontIcon Glyph="&#xE8A5;" />
-                                                    </MenuFlyoutItem.Icon>
-                                                </MenuFlyoutItem>
-                                            </MenuFlyout>
+                                                    IconGlyph="&#xE912;"
+                                                    Text="{x:Bind domain:Translator.Companion_OpenCalendar, Mode=OneTime}" />
+                                            </contextFlyout:WinoContextFlyout>
                                         </Button.Flyout>
                                     </Button>
                                 </Grid>

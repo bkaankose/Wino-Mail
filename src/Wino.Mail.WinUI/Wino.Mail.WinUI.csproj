@@ -130,11 +130,11 @@
     <None Remove="Assets\StoreLogo.scale-200.png" />
     <None Remove="Assets\StoreLogo.scale-400.png" />
     <None Remove="Assets\WinoLogo.png" />
-    <None Remove="Assets\UpdateNotes\Images\Calendar.svg" />
-    <None Remove="Assets\UpdateNotes\Images\Security.svg" />
+    <None Remove="Assets\UpdateNotes\Images\Suite.svg" />
+    <None Remove="Assets\UpdateNotes\Images\Intelligence.svg" />
+    <None Remove="Assets\UpdateNotes\Images\Performance.svg" />
+    <None Remove="Assets\UpdateNotes\Images\Companion.svg" />
     <None Remove="Assets\UpdateNotes\Images\Thread.svg" />
-    <None Remove="Assets\UpdateNotes\Images\Notification.svg" />
-    <None Remove="Assets\UpdateNotes\Images\More.svg" />
     <None Remove="Assets\UpdateNotes\Images\Mail.svg" />
     <None Remove="Assets\UpdateNotes\Images\Customize.svg" />
     <None Remove="Assets\AppEntries\Mail.svg" />
@@ -228,11 +228,11 @@
     <Content Include="AppThemes\Indigo.xaml" />
     <Content Include="Assets\UpdateNotes\vnext.json" />
     <Content Include="Assets\UpdateNotes\features.json" />
-    <Content Include="Assets\UpdateNotes\Images\Calendar.svg" />
-    <Content Include="Assets\UpdateNotes\Images\Security.svg" />
+    <Content Include="Assets\UpdateNotes\Images\Suite.svg" />
+    <Content Include="Assets\UpdateNotes\Images\Intelligence.svg" />
+    <Content Include="Assets\UpdateNotes\Images\Performance.svg" />
+    <Content Include="Assets\UpdateNotes\Images\Companion.svg" />
     <Content Include="Assets\UpdateNotes\Images\Thread.svg" />
-    <Content Include="Assets\UpdateNotes\Images\Notification.svg" />
-    <Content Include="Assets\UpdateNotes\Images\More.svg" />
     <Content Include="Assets\UpdateNotes\Images\Mail.svg" />
     <Content Include="Assets\UpdateNotes\Images\Customize.svg" />
     <Content Include="Assets\AppEntries\Mail.svg" />
@@ -340,6 +340,13 @@
 	<ProjectReference Include="..\..\controls\Wino.Mail.Controls\Wino.Mail.Controls.csproj" />
 	<ProjectReference Include="..\..\controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
 	<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Build the notification hosts before the app's packaging target publishes them. -->
+    <ProjectReference Include="..\Wino.Mail.NotificationHost\Wino.Mail.NotificationHost.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\Wino.Calendar.NotificationHost\Wino.Calendar.NotificationHost.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\Wino.People.NotificationHost\Wino.People.NotificationHost.csproj" ReferenceOutputAssembly="false" Private="false" />
+    <ProjectReference Include="..\Wino.Tasks.NotificationHost\Wino.Tasks.NotificationHost.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
   <ItemGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">
     <TrimmerRootAssembly Include="Ical.Net" />
@@ -521,6 +528,7 @@
     <AppxBundle>Always</AppxBundle>
     <AppxBundlePlatforms>x64</AppxBundlePlatforms>
     <AppxPackageDir Condition="'$(AppxPackageDir)' == ''">$(MSBuildProjectDirectory)\AppPackages\</AppxPackageDir>
+    <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
   </PropertyGroup>
 
   <Import Project="..\..\scripts\Wino.Release.targets" Condition="'$(WinoReleaseStagingRoot)' != ''" />

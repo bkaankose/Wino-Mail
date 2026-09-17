@@ -61,88 +61,12 @@
             AutomationProperties.AutomationId="ShellAccountSelector"
             AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
             BindingData="{x:Bind}"
+            ContextRequested="AccountContextRequested"
             DataContext="{x:Bind}"
             IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             SelectsOnInvoked="{x:Bind SelectsOnInvoked, Mode=OneTime}"
             Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
-            <controls:AccountNavigationItem.ContextFlyout>
-                <coreControls:WinoMenuFlyout Opening="AccountContextFlyoutOpening">
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="AccountContextManageSettingsMenuItem"
-                        Click="ManageAccountSettingsMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Text="{x:Bind domain:Translator.AccountContextMenu_ManageAccountSettings, Mode=OneTime}"
-                        Visibility="Visible">
-                        <MenuFlyoutItem.Icon>
-                            <coreControls:WinoFontIcon Icon="ManageAccounts" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="AccountContextSynchronizeMenuItem"
-                        Click="SynchronizeAccountMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Text="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsAccountSynchronization), Mode=OneWay}">
-                        <MenuFlyoutItem.Icon>
-                            <SymbolIcon Symbol="Sync" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="AccountContextCreateFolderMenuItem"
-                        Click="CreateFolderMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Text="{x:Bind domain:Translator.AccountContextMenu_CreateFolder, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsMailAccountActions), Mode=OneWay}">
-                        <MenuFlyoutItem.Icon>
-                            <coreControls:WinoFontIcon Icon="CreateFolder" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <MenuFlyoutSeparator AutomationProperties.AutomationId="AccountContextExchangeSeparator" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="AccountContextInboxRulesMenuItem"
-                        Click="InboxRulesMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Text="{x:Bind domain:Translator.Rules_Title, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}">
-                        <MenuFlyoutItem.Icon>
-                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE71C;" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="AccountContextJunkEmailMenuItem"
-                        Click="JunkEmailMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Text="{x:Bind domain:Translator.SettingsJunkEmail_Title, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsJunkEmailSettings), Mode=OneWay}">
-                        <MenuFlyoutItem.Icon>
-                            <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8F8;" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <ToggleMenuFlyoutItem
-                        AutomationProperties.AutomationId="AccountContextShowPublicFoldersMenuItem"
-                        Click="ShowPublicFoldersMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Tag="PublicFolders"
-                        Text="{x:Bind domain:Translator.AccountDetailsPage_ShowPublicFolders_Title, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}">
-                        <ToggleMenuFlyoutItem.Icon>
-                            <coreControls:WinoFontIcon Icon="Folder" />
-                        </ToggleMenuFlyoutItem.Icon>
-                    </ToggleMenuFlyoutItem>
-                    <ToggleMenuFlyoutItem
-                        AutomationProperties.AutomationId="AccountContextShowOnlineArchiveMenuItem"
-                        Click="ShowOnlineArchiveMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Tag="OnlineArchive"
-                        Text="{x:Bind domain:Translator.AccountDetailsPage_ShowOnlineArchive_Title, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}">
-                        <ToggleMenuFlyoutItem.Icon>
-                            <coreControls:WinoFontIcon Icon="SpecialFolderArchive" />
-                        </ToggleMenuFlyoutItem.Icon>
-                    </ToggleMenuFlyoutItem>
-                </coreControls:WinoMenuFlyout>
-            </controls:AccountNavigationItem.ContextFlyout>
             <muxc:NavigationViewItem.Icon>
                 <accountIcon:WinoAccountIcon
                     Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account), Mode=OneWay}"
@@ -213,60 +137,12 @@
             AutomationProperties.AutomationId="ShellAccountSelector"
             AutomationProperties.Name="{x:Bind AccountName, Mode=OneWay}"
             BindingData="{x:Bind}"
+            ContextRequested="AccountContextRequested"
             DataContext="{x:Bind}"
             IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             SelectsOnInvoked="{x:Bind SelectsOnInvoked, Mode=OneTime}"
             Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
-            <controls:AccountNavigationItem.ContextFlyout>
-                <coreControls:WinoMenuFlyout Opening="AccountContextFlyoutOpening">
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="AccountContextManageSettingsMenuItem"
-                        Click="ManageAccountSettingsMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Text="{x:Bind domain:Translator.AccountContextMenu_ManageAccountSettings, Mode=OneTime}"
-                        Visibility="Visible" />
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="AccountContextSynchronizeMenuItem"
-                        Click="SynchronizeAccountMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Text="{x:Bind domain:Translator.Buttons_Sync, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsAccountSynchronization), Mode=OneWay}" />
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="AccountContextCreateFolderMenuItem"
-                        Click="CreateFolderMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Text="{x:Bind domain:Translator.AccountContextMenu_CreateFolder, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsMailAccountActions), Mode=OneWay}" />
-                    <MenuFlyoutSeparator AutomationProperties.AutomationId="CompactAccountContextExchangeSeparator" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="CompactAccountContextInboxRulesMenuItem"
-                        Click="InboxRulesMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Text="{x:Bind domain:Translator.Rules_Title, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="CompactAccountContextJunkEmailMenuItem"
-                        Click="JunkEmailMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Text="{x:Bind domain:Translator.SettingsJunkEmail_Title, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsJunkEmailSettings), Mode=OneWay}" />
-                    <ToggleMenuFlyoutItem
-                        AutomationProperties.AutomationId="CompactAccountContextShowPublicFoldersMenuItem"
-                        Click="ShowPublicFoldersMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Tag="PublicFolders"
-                        Text="{x:Bind domain:Translator.AccountDetailsPage_ShowPublicFolders_Title, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
-                    <ToggleMenuFlyoutItem
-                        AutomationProperties.AutomationId="CompactAccountContextShowOnlineArchiveMenuItem"
-                        Click="ShowOnlineArchiveMenuItemClicked"
-                        DataContext="{x:Bind}"
-                        Tag="OnlineArchive"
-                        Text="{x:Bind domain:Translator.AccountDetailsPage_ShowOnlineArchive_Title, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(SupportsExchangeAccountActions), Mode=OneWay}" />
-                </coreControls:WinoMenuFlyout>
-            </controls:AccountNavigationItem.ContextFlyout>
             <muxc:NavigationViewItem.Icon>
                 <accountIcon:WinoAccountIcon
                     Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account), Mode=OneWay}"
@@ -451,6 +327,7 @@
             MinHeight="40"
             AutomationProperties.AutomationId="ShellRemoteFolderItem"
             AutomationProperties.Name="{x:Bind FolderName, Mode=OneWay}"
+            ContextRequested="RemoteFolderContextRequested"
             DataContext="{x:Bind}"
             FontWeight="{x:Bind helpers:XamlHelpers.GetFontWeightByChildSelectedState(IsSelected), Mode=OneWay}"
             IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(IsPlaceholder)}"
@@ -459,19 +336,6 @@
             MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
             SelectsOnInvoked="{x:Bind CanOpen}"
             ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
-            <coreControls:WinoNavigationViewItem.ContextFlyout>
-                <coreControls:WinoMenuFlyout>
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="RemoteFolderContextPinMenuItem"
-                        Command="{x:Bind TogglePinCommand}"
-                        IsEnabled="{x:Bind CanPin}"
-                        Text="{x:Bind PinActionText, Mode=OneWay}">
-                        <MenuFlyoutItem.Icon>
-                            <SymbolIcon Symbol="Pin" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                </coreControls:WinoMenuFlyout>
-            </coreControls:WinoNavigationViewItem.ContextFlyout>
             <coreControls:WinoNavigationViewItem.Icon>
                 <coreControls:WinoFontIcon FontSize="86" Icon="{x:Bind helpers:XamlHelpers.GetRemoteFolderIcon(Kind, IsOnlineArchive, IsRoot, IsPlaceholder)}" />
             </coreControls:WinoNavigationViewItem.Icon>
@@ -842,20 +706,6 @@
                                     AutomationProperties.Name="{x:Bind helpers:XamlHelpers.GetCalendarToggleAutomationName(Name), Mode=OneWay}"
                                     ContextRequested="CalendarContextRequested"
                                     IsChecked="{x:Bind IsChecked, Mode=TwoWay}">
-                                    <!--  Exchange only: offered for a pinned public calendar, suppressed for every other one.  -->
-                                    <CheckBox.ContextFlyout>
-                                        <coreControls:WinoMenuFlyout>
-                                            <MenuFlyoutItem
-                                                AutomationProperties.AutomationId="AccountCalendarUnpinPublicCalendar"
-                                                Click="UnpinPublicCalendarMenuItemClicked"
-                                                DataContext="{x:Bind}"
-                                                Text="{x:Bind domain:Translator.PublicFolders_Unpin, Mode=OneTime}">
-                                                <MenuFlyoutItem.Icon>
-                                                    <SymbolIcon Symbol="UnPin" />
-                                                </MenuFlyoutItem.Icon>
-                                            </MenuFlyoutItem>
-                                        </coreControls:WinoMenuFlyout>
-                                    </CheckBox.ContextFlyout>
                                     <Grid Margin="0,0,0,5" ColumnSpacing="6">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto" />
@@ -893,20 +743,6 @@
             ContextRequested="CalendarContextRequested"
             DataContext="{x:Bind}"
             SelectsOnInvoked="False">
-            <!--  Exchange only: offered for a pinned public calendar, suppressed for every other one.  -->
-            <coreControls:WinoNavigationViewItem.ContextFlyout>
-                <coreControls:WinoMenuFlyout>
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="UngroupedCalendarUnpinPublicCalendar"
-                        Click="UnpinPublicCalendarMenuItemClicked"
-                        DataContext="{x:Bind Parameter, Mode=OneWay}"
-                        Text="{x:Bind domain:Translator.PublicFolders_Unpin, Mode=OneTime}">
-                        <MenuFlyoutItem.Icon>
-                            <SymbolIcon Symbol="UnPin" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                </coreControls:WinoMenuFlyout>
-            </coreControls:WinoNavigationViewItem.ContextFlyout>
             <Grid Margin="0,2" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -988,6 +824,7 @@
             behaviors:MenuItemDropBehavior.IsDropTarget="{x:Bind IsList, Mode=OneTime}"
             AutomationProperties.AutomationId="ContactsFilterItem"
             AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
+            ContextRequested="ContactListContextRequested"
             DataContext="{x:Bind}"
             Icon="{x:Bind helpers:XamlHelpers.GetAccountOrGlyphIcon(Account, Glyph), Mode=OneTime}"
             IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
@@ -1000,38 +837,6 @@
                     Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
                     Value="{x:Bind Count, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
-            <muxc:NavigationViewItem.ContextFlyout>
-                <coreControls:WinoMenuFlyout>
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="ContactsPaneRenameList"
-                        Command="{x:Bind RenameListCommand, Mode=OneTime}"
-                        Text="{x:Bind domain:Translator.ContactList_Rename, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(CanRenameOrDelete), Mode=OneTime}">
-                        <MenuFlyoutItem.Icon>
-                            <FontIcon Glyph="&#xE8AC;" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="ContactsPaneDeleteList"
-                        Command="{x:Bind DeleteListCommand, Mode=OneTime}"
-                        Text="{x:Bind domain:Translator.ContactsPage_Delete, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(CanRenameOrDelete), Mode=OneTime}">
-                        <MenuFlyoutItem.Icon>
-                            <FontIcon Glyph="&#xE74D;" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <!--  Exchange only: a pinned public contact folder leaves the pane again.  -->
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="ContactsPaneUnpinPublicFolder"
-                        Command="{x:Bind UnpinCommand, Mode=OneTime}"
-                        Text="{x:Bind domain:Translator.PublicFolders_Unpin, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsPublicFolder), Mode=OneTime}">
-                        <MenuFlyoutItem.Icon>
-                            <SymbolIcon Symbol="UnPin" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                </coreControls:WinoMenuFlyout>
-            </muxc:NavigationViewItem.ContextFlyout>
 
             <Grid>
                 <!--  Drop highlight for list entries.  -->
@@ -1163,6 +968,7 @@
             AutomationProperties.Name="{x:Bind Title, Mode=OneWay}"
             Background="Transparent"
             Content="{x:Bind Title, Mode=OneWay}"
+            ContextRequested="TaskGroupContextRequested"
             DataContext="{x:Bind}"
             DragEnter="ShellItem_DragEnter"
             DragLeave="ShellItem_DragLeave"
@@ -1180,51 +986,6 @@
                     VerticalAlignment="Center"
                     Data="F1 M 3.125 5 C 2.955729 5.000001 2.809245 5.06185 2.685547 5.185547 C 2.561849 5.309245 2.5 5.455729 2.5 5.625 C 2.5 5.794271 2.561849 5.940756 2.685547 6.064453 C 2.809245 6.188151 2.955729 6.25 3.125 6.25 L 4.375 6.25 C 4.544271 6.25 4.690755 6.188151 4.814453 6.064453 C 4.938151 5.940756 5 5.794271 5 5.625 C 5 5.455729 4.938151 5.309245 4.814453 5.185547 C 4.690755 5.06185 4.544271 5.000001 4.375 5 Z M 3.125 8.75 C 2.955729 8.75 2.809245 8.81185 2.685547 8.935547 C 2.561849 9.059245 2.5 9.205729 2.5 9.375 C 2.5 9.544271 2.561849 9.690756 2.685547 9.814453 C 2.809245 9.938151 2.955729 10 3.125 10 L 4.375 10 C 4.544271 10 4.690755 9.938151 4.814453 9.814453 C 4.938151 9.690756 5 9.544271 5 9.375 C 5 9.205729 4.938151 9.059245 4.814453 8.935547 C 4.690755 8.81185 4.544271 8.75 4.375 8.75 Z M 3.125 12.5 C 2.955729 12.5 2.809245 12.56185 2.685547 12.685547 C 2.561849 12.809245 2.5 12.955729 2.5 13.125 C 2.5 13.294271 2.561849 13.440756 2.685547 13.564453 C 2.809245 13.688151 2.955729 13.75 3.125 13.75 L 4.375 13.75 C 4.544271 13.75 4.690755 13.688151 4.814453 13.564453 C 4.938151 13.440756 5 13.294271 5 13.125 C 5 12.955729 4.938151 12.809245 4.814453 12.685547 C 4.690755 12.56185 4.544271 12.5 4.375 12.5 Z M 0 15 C 0 15.345053 0.065104 15.668945 0.195312 15.97168 C 0.325521 16.274414 0.504557 16.539715 0.732422 16.767578 C 0.960286 16.995443 1.225586 17.174479 1.52832 17.304688 C 1.831055 17.434896 2.154948 17.5 2.5 17.5 L 17.5 17.5 C 17.845051 17.5 18.168945 17.434896 18.47168 17.304688 C 18.774414 17.174479 19.039713 16.995443 19.267578 16.767578 C 19.495441 16.539715 19.674479 16.274414 19.804688 15.97168 C 19.934895 15.668945 20 15.345053 20 15 L 20 3.75 C 20 3.404949 19.934895 3.081055 19.804688 2.77832 C 19.674479 2.475586 19.495441 2.210287 19.267578 1.982422 C 19.039713 1.754559 18.774414 1.575521 18.47168 1.445312 C 18.168945 1.315105 17.845051 1.25 17.5 1.25 L 2.5 1.25 C 2.154948 1.25 1.831055 1.315105 1.52832 1.445312 C 1.225586 1.575521 0.960286 1.754559 0.732422 1.982422 C 0.504557 2.210287 0.325521 2.475586 0.195312 2.77832 C 0.065104 3.081055 0 3.404949 0 3.75 Z M 2.5 16.25 C 2.324219 16.25 2.161458 16.217449 2.011719 16.152344 C 1.861979 16.08724 1.730143 15.997722 1.616211 15.883789 C 1.502279 15.769857 1.41276 15.638021 1.347656 15.488281 C 1.282552 15.338542 1.25 15.175781 1.25 15 L 1.25 3.75 C 1.25 3.574219 1.282552 3.411459 1.347656 3.261719 C 1.41276 3.11198 1.502279 2.980145 1.616211 2.866211 C 1.730143 2.752279 1.861979 2.662762 2.011719 2.597656 C 2.161458 2.532553 2.324219 2.5 2.5 2.5 L 6.25 2.5 L 6.25 16.25 Z M 7.5 16.25 L 7.5 2.5 L 17.5 2.5 C 17.675781 2.5 17.838541 2.532553 17.988281 2.597656 C 18.13802 2.662762 18.269855 2.752279 18.383789 2.866211 C 18.497721 2.980145 18.587238 3.11198 18.652344 3.261719 C 18.717447 3.411459 18.75 3.574219 18.75 3.75 L 18.75 15 C 18.75 15.175781 18.717447 15.338542 18.652344 15.488281 C 18.587238 15.638021 18.497721 15.769857 18.383789 15.883789 C 18.269855 15.997722 18.13802 16.08724 17.988281 16.152344 C 17.838541 16.217449 17.675781 16.25 17.5 16.25 Z " />
             </muxc:NavigationViewItem.Icon>
-            <coreControls:WinoNavigationViewItem.ContextFlyout>
-                <MenuFlyout>
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="ToDoGroupNewList"
-                        Click="GroupNewList_Click"
-                        Tag="{x:Bind}"
-                        Text="{x:Bind domain:Translator.ToDoPage_NewList, Mode=OneTime}">
-                        <MenuFlyoutItem.Icon>
-                            <SymbolIcon Symbol="Add" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="ToDoGroupRename"
-                        Click="GroupRename_Click"
-                        Tag="{x:Bind}"
-                        Text="{x:Bind domain:Translator.ToDoPage_RenameGroup, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsEditable), Mode=OneWay}">
-                        <MenuFlyoutItem.Icon>
-                            <SymbolIcon Symbol="Rename" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <!--  A group with lists is emptied; an empty one is deleted. Never both.  -->
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="ToDoGroupUngroupLists"
-                        Click="GroupUngroup_Click"
-                        Tag="{x:Bind}"
-                        Text="{x:Bind domain:Translator.ToDoPage_UngroupLists, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(CanUngroup), Mode=OneWay}">
-                        <MenuFlyoutItem.Icon>
-                            <FontIcon Glyph="&#xE8F1;" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="ToDoGroupDelete"
-                        Click="GroupDelete_Click"
-                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                        Tag="{x:Bind}"
-                        Text="{x:Bind domain:Translator.ToDoPage_DeleteGroup, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(CanDelete), Mode=OneWay}">
-                        <MenuFlyoutItem.Icon>
-                            <SymbolIcon Symbol="Delete" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                </MenuFlyout>
-            </coreControls:WinoNavigationViewItem.ContextFlyout>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
@@ -1237,6 +998,7 @@
             Background="Transparent"
             CanDrag="{x:Bind CanMoveToGroup, Mode=OneWay}"
             Content="{x:Bind Title, Mode=OneWay}"
+            ContextRequested="TaskListContextRequested"
             DataContext="{x:Bind}"
             DragStarting="ShellItem_DragStarting"
             SelectsOnInvoked="True">
@@ -1257,51 +1019,6 @@
                     Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(Count), Mode=OneWay}"
                     Value="{x:Bind Count, Mode=OneWay}" />
             </muxc:NavigationViewItem.InfoBadge>
-            <coreControls:WinoNavigationViewItem.ContextFlyout>
-                <MenuFlyout Opening="ListFlyout_Opening">
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="ToDoListRename"
-                        Click="ListRename_Click"
-                        Tag="{x:Bind}"
-                        Text="{x:Bind domain:Translator.ToDoPage_RenameList, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(CanRename), Mode=OneWay}">
-                        <MenuFlyoutItem.Icon>
-                            <SymbolIcon Symbol="Rename" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <MenuFlyoutItem
-                        x:Name="RemoveFromGroupItem"
-                        AutomationProperties.AutomationId="ToDoListRemoveFromGroup"
-                        Click="ListRemoveFromGroup_Click"
-                        Tag="{x:Bind}"
-                        Text="{x:Bind domain:Translator.ToDoPage_RemoveFromGroup, Mode=OneTime}">
-                        <MenuFlyoutItem.Icon>
-                            <FontIcon Glyph="&#xE8F1;" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <MenuFlyoutSubItem
-                        x:Name="MoveToGroupItem"
-                        AutomationProperties.AutomationId="ToDoListMoveToGroup"
-                        Tag="{x:Bind}"
-                        Text="{x:Bind domain:Translator.ToDoPage_MoveToGroup, Mode=OneTime}">
-                        <MenuFlyoutSubItem.Icon>
-                            <SymbolIcon Symbol="MoveToFolder" />
-                        </MenuFlyoutSubItem.Icon>
-                    </MenuFlyoutSubItem>
-                    <MenuFlyoutSeparator Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(CanDelete), Mode=OneWay}" />
-                    <MenuFlyoutItem
-                        AutomationProperties.AutomationId="ToDoListDelete"
-                        Click="ListDelete_Click"
-                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                        Tag="{x:Bind}"
-                        Text="{x:Bind domain:Translator.ToDoPage_DeleteList, Mode=OneTime}"
-                        Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(CanDelete), Mode=OneWay}">
-                        <MenuFlyoutItem.Icon>
-                            <SymbolIcon Symbol="Delete" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                </MenuFlyout>
-            </coreControls:WinoNavigationViewItem.ContextFlyout>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 

@@ -18,3 +18,15 @@ Initialize a run, then follow REPLAY.md. Route all commands through the recorder
 Historical logging did not preserve every argument boundary or all implicit/direct commands. Those gaps cannot be recovered retroactively. Future commands are lossless only when routed through the recorder. A dispatched mutation can complete after interruption; reconcile before retrying.
 
 Validation performed: PowerShell parsing; real `winapp --version`; invalid-argument capture with spaces, quotes and literal shell metacharacters; output files and exit code; PAUSE prevents dispatch. Full end-to-end replay was not rerun as part of packaging.
+
+## Scripted regression subset
+
+Use [REGRESSION.md](REGRESSION.md) for finite task/contact persistence and protocol-routing checks:
+
+```powershell
+./scripts/wino.ps1 audit app -List
+```
+
+This runner builds current Debug source once and records each WinApp invocation.
+Its helper checks pass; live scenario certification is pending a compatible Debug development environment.
+Use REPLAY.md for the complete agent-guided baseline.

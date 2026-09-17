@@ -176,6 +176,20 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public partial WinoAccountBenefitItemViewModel? SelectedBenefit { get; set; }
 
     /// <summary>
+    /// The detail panel binds straight through this property, so it must never
+    /// stay null: a null offer leaves the detail panel showing a previously
+    /// selected offer and pushes an unset value into the compiled binding
+    /// update. Fall back to the first offer instead.
+    /// </summary>
+    partial void OnSelectedBenefitChanged(WinoAccountBenefitItemViewModel? value)
+    {
+        if (value is null && Benefits.Count > 0)
+        {
+            SelectedBenefit = Benefits[0];
+        }
+    }
+
+    /// <summary>
     /// Each illustration in the detail panel is its own piece of XAML, so the panel loads
     /// exactly one of these four at a time rather than switching a template.
     /// </summary>

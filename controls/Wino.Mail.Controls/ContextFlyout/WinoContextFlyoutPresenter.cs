@@ -27,8 +27,6 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     private readonly ObservableCollection<ContextFlyoutRow> _visibleItems = [];
     private readonly Dictionary<KeyboardAccelerator, ContextFlyoutRow> _acceleratorItems = [];
     private readonly Stack<IReadOnlyList<ContextFlyoutMenuEntry>> _navigationStack = [];
-    private readonly DataTemplateSelector _itemTemplateSelector;
-    private readonly DataTemplate _headerItemTemplate;
     private IReadOnlyList<ContextFlyoutMenuEntry> _currentItems = [];
     private IReadOnlyList<ContextFlyoutRow> _currentRows = [];
     private IReadOnlyList<ContextFlyoutSearchCandidate> _searchCandidates = [];
@@ -44,23 +42,20 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     private bool _isBackButtonVisible;
     private bool _isUpdatingSearch;
     private bool _isOpen;
+    private bool _areHandlersRegistered;
     private int _focusRequestVersion;
 
     internal WinoContextFlyoutPresenter(WinoContextFlyout owner)
     {
         _owner = owner;
         DefaultStyleKey = typeof(WinoContextFlyoutPresenter);
-
-        var itemResources = new WinoContextFlyoutResources();
-        Resources.MergedDictionaries.Add(itemResources);
-        _itemTemplateSelector = itemResources.TemplateSelector;
-        _headerItemTemplate = itemResources.HeaderItemTemplate;
     }
 
     public ObservableCollection<ContextFlyoutRow> VisibleItems => _visibleItems;
 
     protected override void OnApplyTemplate()
     {
+        UnregisterHeaderItemHandlers();
         UnregisterHandlers();
         base.OnApplyTemplate();
 
@@ -79,8 +74,6 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         if (_searchBox is not null)
         {
             _searchBox.PlaceholderText = _owner.SearchPlaceholderText;
-            _searchBox.TextChanged += SearchBoxTextChanged;
-            _searchBox.KeyDown += SearchBoxKeyDown;
         }
 
         if (_backButton is not null)
@@ -89,35 +82,35 @@ public sealed partial class WinoContextFlyoutPresenter : Control
             _hideBackButtonStoryboard = _backButton.Resources[HideBackButtonStoryboardKey] as Storyboard;
             SetBackButtonStoryboardTargets(_showBackButtonStoryboard, _backButton);
             SetBackButtonStoryboardTargets(_hideBackButtonStoryboard, _backButton);
-            _backButton.Click += BackButtonClick;
             UpdateBackButton(useTransitions: false);
-        }
-
-        if (_headerItems is not null)
-        {
-            _headerItems.ItemTemplate = _headerItemTemplate;
-            _headerItems.ElementPrepared += HeaderItemsElementPrepared;
-            _headerItems.ElementClearing += HeaderItemsElementClearing;
         }
 
         if (_itemsList is not null)
         {
             _itemsList.ItemsSource = _visibleItems;
-            _itemsList.ItemTemplateSelector = _itemTemplateSelector;
-            _itemsList.ItemClick += ItemsListItemClick;
-            _itemsList.KeyDown += ItemsListKeyDown;
-            _itemsList.ContainerContentChanging += ItemsListContainerContentChanging;
         }
 
         if (_emptyText is not null)
         {
             _emptyText.Text = _owner.NoResultsText;
         }
+
+        if (_isOpen)
+        {
+            RegisterHandlers();
+        }
     }
 
     internal void PrepareForOpen()
     {
         _isOpen = true;
+        RegisterHandlers();
+
+        if (_itemsList is not null)
+        {
+            _itemsList.ItemsSource = _visibleItems;
+        }
+
         _navigationStack.Clear();
         ShowPage(_owner.RootItems, animateBackButton: false);
     }
@@ -126,12 +119,15 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     {
         _isOpen = false;
         _focusRequestVersion++;
+        UnregisterKeyboardAccelerators();
+        UnregisterHeaderItemHandlers();
+        UnregisterHandlers();
+
         _navigationStack.Clear();
         _currentItems = [];
         _currentRows = [];
         _searchCandidates = [];
         _visibleItems.Clear();
-        UnregisterKeyboardAccelerators();
         ClearHeaderItems();
 
         _isUpdatingSearch = true;
@@ -143,6 +139,11 @@ public sealed partial class WinoContextFlyoutPresenter : Control
 
         _showBackButtonStoryboard?.Stop();
         _hideBackButtonStoryboard?.Stop();
+
+        if (_itemsList is not null)
+        {
+            _itemsList.ItemsSource = null;
+        }
     }
 
     private void SearchBoxTextChanged(object sender, TextChangedEventArgs e)
@@ -425,6 +426,11 @@ public sealed partial class WinoContextFlyoutPresenter : Control
 
     private void UnregisterHandlers()
     {
+        if (!_areHandlersRegistered)
+        {
+            return;
+        }
+
         if (_searchBox is not null)
         {
             _searchBox.TextChanged -= SearchBoxTextChanged;
@@ -447,6 +453,58 @@ public sealed partial class WinoContextFlyoutPresenter : Control
             _itemsList.ItemClick -= ItemsListItemClick;
             _itemsList.KeyDown -= ItemsListKeyDown;
             _itemsList.ContainerContentChanging -= ItemsListContainerContentChanging;
+        }
+
+        _areHandlersRegistered = false;
+    }
+
+    private void RegisterHandlers()
+    {
+        if (_areHandlersRegistered)
+        {
+            return;
+        }
+
+        if (_searchBox is not null)
+        {
+            _searchBox.TextChanged += SearchBoxTextChanged;
+            _searchBox.KeyDown += SearchBoxKeyDown;
+        }
+
+        if (_backButton is not null)
+        {
+            _backButton.Click += BackButtonClick;
+        }
+
+        if (_headerItems is not null)
+        {
+            _headerItems.ElementPrepared += HeaderItemsElementPrepared;
+            _headerItems.ElementClearing += HeaderItemsElementClearing;
+        }
+
+        if (_itemsList is not null)
+        {
+            _itemsList.ItemClick += ItemsListItemClick;
+            _itemsList.KeyDown += ItemsListKeyDown;
+            _itemsList.ContainerContentChanging += ItemsListContainerContentChanging;
+        }
+
+        _areHandlersRegistered = true;
+    }
+
+    private void UnregisterHeaderItemHandlers()
+    {
+        if (_headerItems is null)
+        {
+            return;
+        }
+
+        for (var index = 0; index < _headerRows.Count; index++)
+        {
+            if (_headerItems.TryGetElement(index) is ButtonBase button)
+            {
+                button.Click -= HeaderItemClick;
+            }
         }
     }
 

@@ -10,9 +10,12 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
 using Serilog;
+using WinRT;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -27,6 +30,7 @@ using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.ContentProcessing;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Models;
 using Wino.Mail.WinUI;
@@ -40,6 +44,9 @@ using Wino.Views.Abstract;
 
 namespace Wino.Views.Mail;
 
+[GeneratedBindableCustomProperty(
+    new string[] { nameof(ViewModel) },
+    new Type[] { })]
 public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IPopoutClient,
     IReentryTarget,
@@ -440,20 +447,31 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         HostActionRequested?.Invoke(this, new PopoutHostActionRequestedEventArgs(PopoutHostActionKind.PopOutNextNavigation, typeof(ComposePage), e.DraftUniqueId));
     }
 
-    private void OpenAttachment_Click(object sender, RoutedEventArgs e)
+    private void AttachmentContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
-        {
-            ViewModel.OpenAttachmentCommand.Execute(attachment);
-        }
-    }
+        if (sender is not FrameworkElement { DataContext: MailAttachmentViewModel attachment } target)
+            return;
 
-    private void SaveAttachment_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is MailAttachmentViewModel attachment)
-        {
-            ViewModel.SaveAttachmentCommand.Execute(attachment);
-        }
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Buttons_Open,
+                Icon = new ContextFlyoutIcon("\uE8E5"),
+                Command = ViewModel.OpenAttachmentCommand,
+                CommandParameter = attachment,
+                AutomationId = "MailRenderingAttachmentOpen"
+            },
+            new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Buttons_Save,
+                Icon = new ContextFlyoutIcon("\uE74E"),
+                Command = ViewModel.SaveAttachmentCommand,
+                CommandParameter = attachment,
+                Shortcut = new ContextFlyoutShortcut("Ctrl+S", "S", Control: true),
+                AutomationId = "MailRenderingAttachmentSave"
+            }
+        ], FlyoutPlacementMode.Right);
     }
 
     protected override void RegisterRecipients()

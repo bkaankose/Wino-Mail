@@ -49,7 +49,7 @@ function New-FixturePlan([bool]$Store, [bool]$Beta, [string[]]$Architectures = @
 }
 
 try {
-    Test-Case 'Store output retains the upload and its exact verified bundle' {
+    Test-Case 'Store output retains the upload and signs its verified local bundle' {
         $plan = New-FixturePlan $true $false
         $staging = Join-Path $plan.OutputRoot ('.staging/' + [guid]::NewGuid().ToString('N'))
         $contents = Join-Path $staging 'upload-contents'
@@ -68,12 +68,22 @@ try {
             $script:StoreBundleVerified = $true
             return @{}
         }
-        $null = Get-StoreReleaseArtifact $plan $staging
+        $script:StoreBundleSigned = $false
+        function Sign-StoreReleaseBundle {
+            param($Bundle, $CertificatePath, $Certificate, $Tools, $LogPath)
+            Add-Content -LiteralPath $Bundle -Value 'signed fixture'
+            'public certificate fixture' | Set-Content -LiteralPath $CertificatePath
+            $script:StoreBundleSigned = $true
+        }
+        $certificate = [pscustomobject]@{ Thumbprint = '0123456789ABCDEF0123456789ABCDEF01234567' }
+        $null = Get-StoreReleaseArtifact $plan $staging ([pscustomobject]@{ SignTool = 'signtool' }) $certificate
         Complete-ReleaseOutputs $plan $staging
         $folder = $plan.Destinations[0]
         Assert-True $script:StoreBundleVerified 'Store bundle verification was skipped.'
-        Assert-True ((Get-FileHash -LiteralPath (Join-Path $folder "WinoMail_Store_$($plan.Version).msixbundle")).Hash -eq (Get-FileHash -LiteralPath $originalBundle).Hash) 'Final Store bundle differs from upload contents.'
+        Assert-True $script:StoreBundleSigned 'Store bundle signing was skipped.'
+        Assert-True ((Get-FileHash -LiteralPath (Join-Path $folder "WinoMail_Store_$($plan.Version).msixbundle")).Hash -ne (Get-FileHash -LiteralPath $originalBundle).Hash) 'Locally installable Store bundle was not signed.'
         Assert-True ((Get-FileHash -LiteralPath (Join-Path $folder "WinoMail_Store_$($plan.Version).msixupload")).Hash -eq (Get-FileHash -LiteralPath $upload).Hash) 'Store upload was changed.'
+        Assert-True (Test-Path -LiteralPath (Join-Path $folder 'WinoMail_Store_TestCertificate.cer')) 'Store test certificate was not exported.'
     }
     Test-Case 'Profiles isolate all notification hosts and retain stable identities' {
         $plan = New-FixturePlan $true $true -Sideload $true
@@ -172,6 +182,17 @@ try {
             Assert-True (@($arguments | Where-Object { $_ -match 'RuntimeIdentifier=|ReleaseSideload|Restore=true' }).Count -eq 0) 'Build overrides inner runtime or restores twice.'
         }
     }
+    Test-Case 'Restore and build isolate intermediates for each release run' {
+        $plan = New-FixturePlan $false $true
+        $staging = Join-Path $script:TestRoot 'isolated-run'
+        foreach ($arguments in @(
+            (Get-ReleaseBuildArguments $plan $staging -Restore),
+            (Get-ReleaseBuildArguments $plan $staging)
+        )) {
+            Assert-True ($arguments -contains "-p:ArtifactsPath=$(Join-Path $staging 'build')") 'Build intermediates can collide with another run.'
+            Assert-True ($arguments -contains "-p:NotificationHostPublishRoot=$(Join-Path $staging 'notification-hosts')\") 'Notification host outputs are not isolated.'
+        }
+    }
     Test-Case 'Process arguments are literal and Azure credentials never reach build tools' {
         $oldSecret = $env:WINO_BETA_RELEASE_AZURE_CLIENT_SECRET
         try {
@@ -184,15 +205,24 @@ try {
         }
         finally { $env:WINO_BETA_RELEASE_AZURE_CLIENT_SECRET = $oldSecret }
     }
-    Test-Case 'Store-only does not ask for signing configuration' {
+    Test-Case 'Store-only selects a local test certificate without Azure signing configuration' {
         $plan = New-FixturePlan $true $false
         function Read-ReleaseSelection { return $plan.Selection }
         function New-ReleasePlan { param($Selection); return $plan }
         function Get-ReleaseTools { param($Selection); return @{} }
+        function Get-StoreSigningCertificate { param($Plan, $Thumbprint); return [pscustomobject]@{ Thumbprint = 'fixture' } }
         function Get-ReleaseSigningConfiguration { throw 'Store must not require signing.' }
-        function Invoke-ReleaseBuild { param($Plan, $Tools, $Signing); Assert-True ($null -eq $Signing) 'Unexpected credentials.' }
+        function Invoke-ReleaseBuild {
+            param($Plan, $Tools, $Signing, $StoreCertificate)
+            Assert-True ($null -eq $Signing) 'Unexpected Azure credentials.'
+            Assert-True ($StoreCertificate.Thumbprint -eq 'fixture') 'Store test certificate was not selected.'
+        }
         function Invoke-Item { param($LiteralPath) }
         Invoke-InteractiveRelease
+    }
+    Test-Case 'Store test certificate thumbprints reject unsafe input' {
+        $plan = New-FixturePlan $true $false
+        Assert-Throws { Get-StoreSigningCertificate $plan '../not-a-thumbprint' } '40 hexadecimal'
     }
     Test-Case 'Incomplete beta credentials fail before compilation' {
         $oldTenant = $env:WINO_BETA_RELEASE_AZURE_TENANT_ID
@@ -352,6 +382,13 @@ try {
             function Copy-ReleaseDependencies { param($SdkOutput, $Destination) }
             function Sign-SideloadRelease { param($Bundle, $Plan, $Tools, $Signing, $Staging, $Channel); $script:SignCalls++; $Channel | Set-Content -LiteralPath $Bundle }
             function New-SideloadAppInstaller { param($Bundle, $Plan, $Distribution) }
+            function Copy-ReleaseSymbols {
+                param($Plan, $Staging)
+                $destination = Join-Path (Join-Path $Plan.OutputRoot $Plan.Version) 'Symbols'
+                $null = New-Item -ItemType Directory -Path $destination -Force
+                'symbols fixture' | Set-Content -LiteralPath (Join-Path $destination 'Wino.Core.pdb')
+                return $destination
+            }
             Invoke-ReleaseBuild $plan ([pscustomobject]@{ MSBuild = 'dotnet'; MakeAppx = 'makeappx' }) @{ Distributions = @{ Beta = @{}; Sideload = @{} } }
             Assert-True (@($script:Commands | Where-Object { $_ -match '-t:Build' }).Count -eq 1) 'Compilation repeated.'
             Assert-True (@($script:Commands | Where-Object { $_ -match '-t:Restore' }).Count -eq 1) 'Restore repeated.'
@@ -362,7 +399,8 @@ try {
             $expectedSigns = $plan.SideloadChannels.Count
             Assert-True ($script:SignCalls -eq $expectedSigns) 'Signing repeated or was skipped.'
             Assert-True ($script:PackageCalls -eq ($expectedSigns * $architectures.Count)) 'Sideload architecture packaging repeated.'
-            Assert-True (@(Get-ChildItem -LiteralPath $plan.OutputRoot -Directory).Count -eq $plan.Destinations.Count) 'Unselected channel folder exists.'
+            $outputFolders = @(Get-ChildItem -LiteralPath $plan.OutputRoot -Directory | Where-Object Name -ne $plan.Version)
+            Assert-True ($outputFolders.Count -eq $plan.Destinations.Count) 'Unselected channel folder exists.'
             if ($plan.Selection.Sideload) {
                 $stableBundle = Join-Path $plan.OutputRoot 'WinoMail_SideloadRelease_2.53.0/WinoMail_SideloadRelease_2.53.0.msixbundle'
                 Assert-True (Test-Path -LiteralPath $stableBundle) 'Wrong stable output name.'

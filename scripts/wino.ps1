@@ -17,11 +17,14 @@ Runs the standard Wino Mail development harness.
 [CmdletBinding()]
 param(
     [Parameter(Position = 0, Mandatory)]
-    [ValidateSet("affected", "build", "test", "run", "debug", "ui", "xaml", "help")]
+    [ValidateSet("affected", "build", "test", "run", "debug", "doctor", "audit", "ui", "xaml", "help")]
     [string]$Command,
 
     [Parameter(Position = 1)]
     [string]$Target,
+
+    [ValidateSet("Debug", "Release")]
+    [string]$Configuration = "Debug",
 
     [switch]$Restore,
     [switch]$NoBuild,
@@ -30,6 +33,9 @@ param(
     [string[]]$Path,
     [string]$Filter,
     [string[]]$Scenario,
+    [string]$Account,
+    [string]$ContactDestination,
+    [string]$Theme,
     [switch]$UseRunning,
     [switch]$Fast,
     [switch]$List
@@ -37,6 +43,10 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ($PSBoundParameters.ContainsKey("Configuration") -and $Command -ne "build") {
+    throw "-Configuration is supported only by build. Runtime commands use Debug."
+}
 
 $repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
@@ -60,13 +70,18 @@ function Show-Usage {
     Write-Host @"
 Wino Mail development harness
 
-  .\scripts\wino.ps1 affected
-  .\scripts\wino.ps1 build <app|controls|core|editor|playground|viewmodels> [-Restore]
+  .\scripts\wino.ps1 affected [-Path <repository-relative path[]>]
+  .\scripts\wino.ps1 build <app|controls|core|editor|playground|viewmodels> [-Configuration Debug|Release] [-Restore]
   .\scripts\wino.ps1 test <controls|core|viewmodels|smoke> [-Filter <text>] [-NoBuild] [-Restore]
   .\scripts\wino.ps1 run <app|playground> [-NoBuild] [-Restore]
   .\scripts\wino.ps1 debug <app|playground> [-NoBuild] [-Restore]
+  .\scripts\wino.ps1 doctor <app|playground>
+  .\scripts\wino.ps1 audit app -Account <name> -ContactDestination <name> -Theme <name> [-Scenario <name[]>] [-Restore] [-List]
   .\scripts\wino.ps1 ui app [-Scenario <name>] [-UseRunning] [-NoBuild] [-Fast] [-List]
   .\scripts\wino.ps1 xaml [all|changed] [-Check] [-Path <path[]>]
+
+Builds never deploy or launch. Release is compile-only. Runtime commands use Debug.
+The build target 'core' is Wino.Mail.Controls.Core; the test target 'core' is Wino.Core.Tests.
 "@
 }
 
@@ -105,7 +120,7 @@ function Get-BuildArguments {
         [Parameter(Mandatory)][string]$ProjectName
     )
 
-    $arguments = @("build", $ProjectPath, "-c", "Debug", "-p:Platform=x64")
+    $arguments = @("build", $ProjectPath, "-c", $Configuration, "-p:Platform=x64")
 
     if (-not $Restore) {
         $arguments += "--no-restore"
@@ -133,6 +148,8 @@ function Invoke-WinApp {
     }
 
     $projectPath = Get-ProjectPath -Map $projects -Name $ProjectName -Kind "run"
+    . (Join-Path $PSScriptRoot 'Wino.Debug.ps1')
+    Assert-WinoDebugReady -ProjectPath $projectPath | Out-Null
     $arguments = @(
         "run", $projectPath,
         "-c", "Debug",
@@ -167,8 +184,21 @@ switch ($Command) {
         Show-Usage
     }
     "affected" {
-        $changedFiles = @(& git diff HEAD --name-only --diff-filter=ACMR)
-        $changedFiles += @(& git ls-files --others --exclude-standard)
+        if ($Path) {
+            $changedFiles = @($Path)
+        }
+        else {
+            $changedFiles = @(& git diff HEAD --name-only --diff-filter=ACMR)
+            if ($LASTEXITCODE -ne 0) {
+                throw "Git changed-file discovery failed."
+            }
+
+            $changedFiles += @(& git ls-files --others --exclude-standard)
+            if ($LASTEXITCODE -ne 0) {
+                throw "Git untracked-file discovery failed."
+            }
+        }
+
         $changedFiles = @($changedFiles | Where-Object { $_ } | Sort-Object -Unique)
 
         if ($changedFiles.Count -eq 0) {
@@ -217,6 +247,23 @@ switch ($Command) {
     }
     "debug" {
         Invoke-WinApp -ProjectName $Target -Attached
+    }
+    "doctor" {
+        if ($Target -notin @('app', 'playground')) { throw "Doctor requires the app or playground target." }
+        . (Join-Path $PSScriptRoot 'Wino.Debug.ps1')
+        Get-WinoDebugReadiness -ProjectPath (Get-ProjectPath -Map $projects -Name $Target -Kind 'doctor') | ConvertTo-Json -Depth 6
+    }
+    "audit" {
+        if ($Target -ne 'app') { throw "Audit supports only the app target." }
+        if ($NoBuild -or $UseRunning) { throw "Audit builds current Debug source. -NoBuild and -UseRunning are not supported." }
+        $arguments = @{}
+        if ($List) { $arguments.List = $true }
+        if ($Scenario) { $arguments.Scenario = $Scenario }
+        if ($Account) { $arguments.Account = $Account }
+        if ($ContactDestination) { $arguments.ContactDestination = $ContactDestination }
+        if ($Theme) { $arguments.Theme = $Theme }
+        if ($Restore) { $arguments.Restore = $true }
+        & (Join-Path $PSScriptRoot 'ui-audit/Run-WinoRegression.ps1') @arguments
     }
     "ui" {
         if ($Target -ne "app") {

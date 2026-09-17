@@ -38,10 +38,15 @@ public class SentMailReceiptService(
         if (uniqueIds.Count == 0)
             return;
 
-        var placeholders = string.Join(",", uniqueIds.Select(_ => "?"));
-        var states = await Connection.QueryAsync<SentMailReceiptState>(
-            $"SELECT * FROM {nameof(SentMailReceiptState)} WHERE {nameof(SentMailReceiptState.MailUniqueId)} IN ({placeholders})",
-            uniqueIds.Cast<object>().ToArray()).ConfigureAwait(false);
+        var states = new List<SentMailReceiptState>();
+
+        foreach (var idChunk in SqliteVariableLimit.Batch(uniqueIds))
+        {
+            var placeholders = string.Join(",", idChunk.Select(_ => "?"));
+            states.AddRange(await Connection.QueryAsync<SentMailReceiptState>(
+                $"SELECT * FROM {nameof(SentMailReceiptState)} WHERE {nameof(SentMailReceiptState.MailUniqueId)} IN ({placeholders})",
+                idChunk.Cast<object>().ToArray()).ConfigureAwait(false));
+        }
 
         var stateLookup = states.ToDictionary(s => s.MailUniqueId);
 

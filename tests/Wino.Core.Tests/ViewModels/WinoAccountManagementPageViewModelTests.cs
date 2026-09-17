@@ -433,6 +433,20 @@ public sealed class WinoAccountManagementPageViewModelTests
         }
     }
 
+    [Fact]
+    public void ClearingSelectedBenefit_FallsBackToFirstOffer()
+    {
+        var viewModel = CreateViewModelWithAccounts(
+            hasUnlimitedAccounts: false,
+            mailAccountCount: 0,
+            out _);
+
+        viewModel.SelectedBenefit = null;
+
+        viewModel.SelectedBenefit.Should().BeSameAs(viewModel.Benefits[0]);
+        viewModel.IsDeviceTransferBenefitSelected.Should().BeTrue();
+    }
+
     private static WinoAccountManagementPageViewModel CreateViewModelWithAccounts(
         bool hasUnlimitedAccounts,
         int mailAccountCount,

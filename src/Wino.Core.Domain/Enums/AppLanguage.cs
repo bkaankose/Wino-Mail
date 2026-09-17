@@ -28,5 +28,6 @@ public enum AppLanguage
     Lithuanian,
     Slovak,
     Ukrainian,
-    Hebrew
+    Hebrew,
+    Vietnamese
 }

@@ -44,17 +44,26 @@
                     Text="{x:Bind domain:Translator.WelcomeWindow_AppDescription}" />
             </StackPanel>
 
-            <!--  FlipView  -->
+            <!--  Latest changes  -->
             <Grid
                 Grid.Row="1"
-                MaxHeight="300"
-                VerticalAlignment="Center">
+                MaxHeight="340"
+                VerticalAlignment="Center"
+                RowSpacing="12">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource BodyStrongTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.WelcomeWindow_WhatsNewTitle, Mode=OneTime}" />
+
                 <Border
+                    Grid.Row="1"
                     Padding="0"
                     VerticalAlignment="Center"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -77,12 +86,17 @@
                                     AutomationProperties.Name="{x:Bind AccessibilityName, Mode=OneTime}"
                                     ColumnSpacing="40">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="200" />
+                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
                                     <!--  Illustration  -->
-                                    <Border Height="160" CornerRadius="8">
+                                    <Border
+                                        Width="176"
+                                        Height="176"
+                                        VerticalAlignment="Center"
+                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                        CornerRadius="16">
                                         <Image
                                             Width="{x:Bind ActualImageWidth, Mode=OneTime}"
                                             Height="{x:Bind ActualImageHeight, Mode=OneTime}"
@@ -98,9 +112,13 @@
                                         Grid.Column="1"
                                         VerticalAlignment="Center"
                                         Spacing="8">
-                                        <TextBlock Text="{x:Bind Title, Mode=OneTime}" TextWrapping="WrapWholeWords" />
+                                        <TextBlock
+                                            Style="{StaticResource SubtitleTextBlockStyle}"
+                                            Text="{x:Bind Title, Mode=OneTime}"
+                                            TextWrapping="WrapWholeWords" />
                                         <TextBlock
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            Style="{StaticResource BodyTextBlockStyle}"
                                             Text="{x:Bind Description, Mode=OneTime}"
                                             TextWrapping="WrapWholeWords" />
                                     </StackPanel>
@@ -113,8 +131,8 @@
                 <!--  PipsPager  -->
                 <PipsPager
                     x:Name="FlipViewPager"
-                    Grid.Row="1"
-                    Margin="0,16,0,0"
+                    Grid.Row="2"
+                    Margin="0,4,0,0"
                     HorizontalAlignment="Center"
                     AutomationProperties.AutomationId="FlipViewPager"
                     AutomationProperties.Name="{x:Bind domain:Translator.WelcomeWindow_UpdateCarouselPagerAutomationName, Mode=OneTime}"

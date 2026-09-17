@@ -1,0 +1,1128 @@
+[
+  {
+    "id": "PRE-001",
+    "scope": "global",
+    "prerequisites": [],
+    "fixture": "deployment",
+    "steps": [
+      "Record doctor, revision, status, manifest, package, CLI version",
+      "deploy current Debug x64"
+    ],
+    "expected": "Current-source deployment succeeds and one intended shell is identified",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "PRE-002",
+    "scope": "global",
+    "prerequisites": [
+      "PRE-001"
+    ],
+    "fixture": "inventory",
+    "steps": [
+      "Inspect accounts, addresses, theme, language, shortcuts and threading",
+      "audit automation IDs"
+    ],
+    "expected": "Every configured account and distinct address is recorded; sending ring is explicit",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "NAV-001",
+    "scope": "account",
+    "prerequisites": [
+      "PRE-002"
+    ],
+    "fixture": "none",
+    "steps": [
+      "Select exact account",
+      "visit Inbox, Sent, Drafts and Trash"
+    ],
+    "expected": "Account and folder headers match; previous account content is absent",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "SEND-001",
+    "scope": "account",
+    "prerequisites": [
+      "NAV-001"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Compose tagged mail to next account",
+      "inspect From, To, subject and token",
+      "send once"
+    ],
+    "expected": "Matching Sent entry and destination receipt contain the correct sender and token",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "CrossAccount"
+    ]
+  },
+  {
+    "id": "READ-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Context mark unread",
+      "inspect row and menu without opening reader"
+    ],
+    "expected": "Unread state is visible",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "READ-002",
+    "scope": "account",
+    "prerequisites": [
+      "READ-001"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Context mark read",
+      "inspect row and menu"
+    ],
+    "expected": "Read state is visible",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "READ-003",
+    "scope": "account",
+    "prerequisites": [
+      "READ-002"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Context mark unread",
+      "sync",
+      "navigate away and back"
+    ],
+    "expected": "Unread state persists",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI",
+      "PostSync"
+    ]
+  },
+  {
+    "id": "FLAG-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Context flag",
+      "sync",
+      "navigate away and back"
+    ],
+    "expected": "Flag is visible and persists",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI",
+      "PostSync"
+    ]
+  },
+  {
+    "id": "FLAG-002",
+    "scope": "account",
+    "prerequisites": [
+      "FLAG-001"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Context unflag",
+      "sync",
+      "navigate away and back"
+    ],
+    "expected": "Flag is absent and stays absent",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI",
+      "PostSync"
+    ]
+  },
+  {
+    "id": "REPLY-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "conversation",
+    "steps": [
+      "Reply with a new token",
+      "inspect recipients",
+      "send",
+      "inspect both accounts"
+    ],
+    "expected": "Reply arrives; original and reply form a conversation in both accounts",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "replier",
+      "original-sender"
+    ]
+  },
+  {
+    "id": "THREAD-001",
+    "scope": "account",
+    "prerequisites": [
+      "REPLY-001"
+    ],
+    "fixture": "conversation",
+    "steps": [
+      "Expand thread",
+      "identify original and reply by tokens",
+      "collapse"
+    ],
+    "expected": "Correct members and count appear; collapse preserves selection",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "THREAD-002",
+    "scope": "account",
+    "prerequisites": [
+      "THREAD-001"
+    ],
+    "fixture": "conversation",
+    "steps": [
+      "Mark thread unread",
+      "expand and inspect members"
+    ],
+    "expected": "Aggregate and member unread state matches operation scope",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "THREAD-003",
+    "scope": "account",
+    "prerequisites": [
+      "THREAD-002"
+    ],
+    "fixture": "conversation",
+    "steps": [
+      "Mark thread read",
+      "expand and inspect members"
+    ],
+    "expected": "Aggregate and member read state matches operation scope",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "THREAD-004",
+    "scope": "account",
+    "prerequisites": [
+      "THREAD-003"
+    ],
+    "fixture": "conversation",
+    "steps": [
+      "Mark thread unread",
+      "sync and reopen folder"
+    ],
+    "expected": "Unread state persists",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "THREAD-005",
+    "scope": "account",
+    "prerequisites": [
+      "THREAD-001"
+    ],
+    "fixture": "conversation",
+    "steps": [
+      "Flag thread",
+      "inspect aggregate and members"
+    ],
+    "expected": "Flag state matches operation scope",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "THREAD-006",
+    "scope": "account",
+    "prerequisites": [
+      "THREAD-005"
+    ],
+    "fixture": "conversation",
+    "steps": [
+      "Unflag thread",
+      "sync and reopen folder"
+    ],
+    "expected": "Flag state clears and persists",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "DELETE-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "delete-single",
+    "steps": [
+      "Create dedicated single fixture",
+      "delete",
+      "cancel first if offered",
+      "then confirm"
+    ],
+    "expected": "Cancellation preserves mail; deletion removes source and adds Trash item",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "DELETE-002",
+    "scope": "account",
+    "prerequisites": [
+      "REPLY-001"
+    ],
+    "fixture": "delete-thread",
+    "steps": [
+      "Create dedicated conversation",
+      "record every member",
+      "delete conversation"
+    ],
+    "expected": "All expected members leave source and appear in Trash after sync",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "DRAFT-001",
+    "scope": "account",
+    "prerequisites": [
+      "NAV-001"
+    ],
+    "fixture": "draft-send",
+    "steps": [
+      "Compose draft",
+      "close",
+      "reopen Drafts",
+      "edit token",
+      "send"
+    ],
+    "expected": "Recipients, subject and body persist; edited message arrives",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI",
+      "CrossAccount"
+    ]
+  },
+  {
+    "id": "DRAFT-002",
+    "scope": "account",
+    "prerequisites": [
+      "NAV-001"
+    ],
+    "fixture": "draft-discard",
+    "steps": [
+      "Create disposable draft",
+      "test retain/cancel and discard paths"
+    ],
+    "expected": "Retain keeps edits; discard removes only this draft",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "ATTACH-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "attachment",
+    "steps": [
+      "Choose Vesika.png in picker",
+      "remove",
+      "re-add",
+      "send"
+    ],
+    "expected": "Name and size appear; removal works; receiver has attachment",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI",
+      "CrossAccount"
+    ]
+  },
+  {
+    "id": "ATTACH-002",
+    "scope": "account",
+    "prerequisites": [
+      "ATTACH-001"
+    ],
+    "fixture": "attachment",
+    "steps": [
+      "Preview received image",
+      "download through UI",
+      "hash downloaded file"
+    ],
+    "expected": "Preview renders; downloaded bytes match original",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "FORWARD-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "forward",
+    "steps": [
+      "Forward fixture to next account",
+      "add token",
+      "inspect recipient",
+      "send"
+    ],
+    "expected": "Original content and added token arrive; Sent entry exists",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "REPLYALL-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "reply-all",
+    "steps": [
+      "Create fixture with configured accounts only",
+      "reply all",
+      "inspect recipients",
+      "send"
+    ],
+    "expected": "Expected distinct recipients receive reply; no outside address occurs",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "ARCHIVE-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "move",
+    "steps": [
+      "Create dedicated fixture",
+      "archive",
+      "inspect destination",
+      "unarchive"
+    ],
+    "expected": "Source and destination membership change correctly in both directions",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "MOVE-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "move",
+    "steps": [
+      "Move dedicated fixture between existing folders",
+      "return it"
+    ],
+    "expected": "Source removal and destination presence persist after sync",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "PIN-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Pin",
+      "inspect ordering",
+      "navigate back",
+      "unpin"
+    ],
+    "expected": "Pin state and ordering update and persist",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "CATEGORY-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Assign existing category",
+      "reopen",
+      "remove category"
+    ],
+    "expected": "Category state persists then clears; definitions stay unchanged",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "SEARCH-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Search exact subject and token",
+      "search impossible token",
+      "clear"
+    ],
+    "expected": "Correct result, empty state, and restored list appear",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "FILTER-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Exercise exposed unread, flagged, attachment filters and sorting"
+    ],
+    "expected": "Known fixtures appear or disappear according to state; order matches selection",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "BULK-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "bulk-pair",
+    "steps": [
+      "Create two fixtures",
+      "select exact pair",
+      "mark unread then read"
+    ],
+    "expected": "Selection count is two; both states change; unrelated rows stay unchanged",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "BULK-002",
+    "scope": "account",
+    "prerequisites": [
+      "BULK-001"
+    ],
+    "fixture": "bulk-pair",
+    "steps": [
+      "Flag selected pair then unflag"
+    ],
+    "expected": "Both flags change in each direction",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "BULK-003",
+    "scope": "account",
+    "prerequisites": [
+      "BULK-002"
+    ],
+    "fixture": "bulk-pair",
+    "steps": [
+      "Move selected pair to existing folder"
+    ],
+    "expected": "Both leave source and appear in target",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "BULK-004",
+    "scope": "account",
+    "prerequisites": [
+      "BULK-003"
+    ],
+    "fixture": "bulk-pair",
+    "steps": [
+      "Select exact pair at target",
+      "delete"
+    ],
+    "expected": "Both appear in Trash and leave target",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "UNDO-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "undo",
+    "steps": [
+      "Delete dedicated fixture",
+      "invoke offered undo before expiry"
+    ],
+    "expected": "Fixture returns to original folder and remains after sync",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "READER-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Switch between two known messages",
+      "use arrow navigation"
+    ],
+    "expected": "Reader subject and token follow selection without stale content",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "MENU-001",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "single",
+    "steps": [
+      "Right-click unselected fixture",
+      "inspect all actions",
+      "Escape",
+      "reopen nested menus"
+    ],
+    "expected": "Menu targets clicked row; dismissal works; labels and enabled states match fixture",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "KEY-001",
+    "scope": "account",
+    "prerequisites": [
+      "NAV-001"
+    ],
+    "fixture": "keyboard",
+    "steps": [
+      "Use configured New Mail shortcut",
+      "type and edit text"
+    ],
+    "expected": "Composer opens; editing does not trigger mailbox commands",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "KEY-002",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "keyboard",
+    "steps": [
+      "Use configured read shortcut twice on fixture"
+    ],
+    "expected": "Read state changes in both directions",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "KEY-003",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "keyboard",
+    "steps": [
+      "Use configured flag shortcut twice on fixture"
+    ],
+    "expected": "Flag state changes in both directions",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "KEY-004",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "keyboard",
+    "steps": [
+      "Use configured archive shortcut on dedicated fixture"
+    ],
+    "expected": "Fixture reaches archive; return through UI",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "KEY-005",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "keyboard",
+    "steps": [
+      "Use configured move shortcut",
+      "choose existing folder"
+    ],
+    "expected": "Fixture reaches chosen folder",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "KEY-006",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "keyboard",
+    "steps": [
+      "Use configured reply shortcut on fixture",
+      "inspect draft"
+    ],
+    "expected": "Reply draft targets sender and quotes original",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "KEY-007",
+    "scope": "account",
+    "prerequisites": [
+      "REPLYALL-001"
+    ],
+    "fixture": "keyboard",
+    "steps": [
+      "Use configured reply-all shortcut",
+      "inspect draft"
+    ],
+    "expected": "Reply-all recipients match configured participants",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "KEY-008",
+    "scope": "account",
+    "prerequisites": [
+      "KEY-001"
+    ],
+    "fixture": "keyboard",
+    "steps": [
+      "Fill dedicated draft",
+      "inspect addresses",
+      "use configured send shortcut once"
+    ],
+    "expected": "Sent entry and destination receipt contain token",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "KEY-009",
+    "scope": "account",
+    "prerequisites": [
+      "SEND-001"
+    ],
+    "fixture": "keyboard-delete",
+    "steps": [
+      "Use configured Delete shortcut on dedicated fixture"
+    ],
+    "expected": "Fixture leaves source and appears in Trash",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "SETTING-001",
+    "scope": "global",
+    "prerequisites": [
+      "PRE-002"
+    ],
+    "fixture": "conversation",
+    "steps": [
+      "With known thread, toggle threading off once in Message List settings",
+      "return to Mail"
+    ],
+    "expected": "Same messages become separate rows; visible list has no thread expanders",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "SETTING-002",
+    "scope": "global",
+    "prerequisites": [
+      "SETTING-001"
+    ],
+    "fixture": "conversation",
+    "steps": [
+      "Toggle threading on",
+      "return to same folder"
+    ],
+    "expected": "Known original and reply regroup correctly",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "PERSIST-001",
+    "scope": "account",
+    "prerequisites": [
+      "NAV-001"
+    ],
+    "fixture": "retained",
+    "steps": [
+      "After one shared Debug restart, inspect retained fixtures for this account"
+    ],
+    "expected": "Previously verified read, flag, draft, thread, move and delete states persist",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  },
+  {
+    "id": "FINAL-001",
+    "scope": "global",
+    "prerequisites": [
+      "PRE-002"
+    ],
+    "fixture": "retained",
+    "steps": [
+      "Restore original settings",
+      "record leftovers and all outcomes"
+    ],
+    "expected": "Settings match baseline; fixture ledger and coverage contain every scenario",
+    "evidence": [
+      "Recorded commands and assertion output",
+      "Current PID/HWND and theme",
+      "Screenshot for visual states"
+    ],
+    "recovery": "Inspect current UI and fixture ledger. Never repeat uncertain sends. Block dependents; continue independent scenarios.",
+    "requiredStages": [
+      "UI"
+    ]
+  }
+]

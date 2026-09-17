@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <title>Faster and more secure</title>
+  <defs>
+    <linearGradient id="pf-shield" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#34D399"/>
+      <stop offset="1" stop-color="#047857"/>
+    </linearGradient>
+    <linearGradient id="pf-inner" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ECFDF5"/>
+      <stop offset="1" stop-color="#C7F2E0"/>
+    </linearGradient>
+    <linearGradient id="pf-bolt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FBBF24"/>
+      <stop offset="1" stop-color="#F97316"/>
+    </linearGradient>
+  </defs>
+
+  <!--  Speed trails  -->
+  <rect x="4" y="44" width="26" height="7" rx="3.5" fill="#059669" opacity="0.3"/>
+  <rect x="10" y="61" width="18" height="7" rx="3.5" fill="#059669" opacity="0.22"/>
+  <rect x="4" y="78" width="26" height="7" rx="3.5" fill="#059669" opacity="0.15"/>
+
+  <!--  Shield  -->
+  <path d="M74 10 L116 26 L116 62 C116 89 98 108 74 118 C50 108 32 89 32 62 L32 26 Z" fill="url(#pf-shield)"/>
+  <path d="M74 22 L105 33.8 L105 62 C105 83 91.5 98 74 106.4 C56.5 98 43 83 43 62 L43 33.8 Z" fill="url(#pf-inner)"/>
+
+  <!--  Bolt  -->
+  <path d="M80 36 L58 70 L72 70 L66 96 L90 60 L75 60 Z" fill="url(#pf-bolt)"/>
+</svg>

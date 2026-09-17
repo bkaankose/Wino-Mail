@@ -57,7 +57,8 @@ public enum EditorCommandKind
     InsertTable,
     ToggleBuiltInToolbar,
     ToggleTheme,
-    ToggleSpellCheck
+    ToggleSpellCheck,
+    SetSpellCheckLanguage
 }
 
 public enum EditorTextAlignment
@@ -95,6 +96,7 @@ public sealed record class EditorCommand(EditorCommandKind Kind, object? Value =
     public static EditorCommand ToggleBuiltInToolbar(bool isVisible) => new(EditorCommandKind.ToggleBuiltInToolbar, isVisible);
     public static EditorCommand ToggleTheme(bool isDarkMode) => new(EditorCommandKind.ToggleTheme, isDarkMode);
     public static EditorCommand ToggleSpellCheck(bool isEnabled) => new(EditorCommandKind.ToggleSpellCheck, isEnabled);
+    public static EditorCommand SetSpellCheckLanguage(string languageCode) => new(EditorCommandKind.SetSpellCheckLanguage, languageCode);
 }
 
 public sealed record class EditorLinkCommandArgs(

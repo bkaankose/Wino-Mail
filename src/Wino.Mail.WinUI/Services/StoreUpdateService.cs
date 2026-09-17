@@ -6,15 +6,15 @@ using CommunityToolkit.WinUI;
 using Windows.Services.Store;
 using Wino.Core.Domain.Interfaces;
 using WinRT.Interop;
-using WinUIEx;
 
 namespace Wino.Mail.WinUI.Services;
 
 public class StoreUpdateService : IStoreUpdateService
 {
     private readonly IWinoLogger _logger;
-    private readonly SemaphoreSlim _refreshSemaphore = new(1, 1);
-    private readonly StoreContext _storeContext = StoreContext.GetDefault();
+    private readonly SemaphoreSlim _operationSemaphore = new(1, 1);
+    private StoreContext _storeContext;
+    private int _isInstalling;
 
     public bool HasAvailableUpdate { get; private set; }
 
@@ -23,13 +23,14 @@ public class StoreUpdateService : IStoreUpdateService
         _logger = logger;
     }
 
-    public async Task<bool> RefreshAvailabilityAsync(bool showNotification = false)
+    public async Task<bool> RefreshAvailabilityAsync()
     {
-        await _refreshSemaphore.WaitAsync().ConfigureAwait(false);
+        await _operationSemaphore.WaitAsync().ConfigureAwait(false);
 
         try
         {
-            var updates = await _storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
+            var updates = await RunOnMainWindowAsync(async context =>
+                await context.GetAppAndOptionalStorePackageUpdatesAsync());
             HasAvailableUpdate = updates?.Count > 0;
 
             return HasAvailableUpdate;
@@ -37,48 +38,66 @@ public class StoreUpdateService : IStoreUpdateService
         catch (Exception ex)
         {
             _logger.CaptureException(ex, nameof(RefreshAvailabilityAsync));
-            HasAvailableUpdate = false;
+            // An unsuccessful check does not invalidate the last successful snapshot.
             return false;
         }
         finally
         {
-            _refreshSemaphore.Release();
+            _operationSemaphore.Release();
         }
     }
 
     public async Task<bool> StartUpdateAsync()
     {
+        // A legacy toast and the shell prompt can both request installation.
+        if (Interlocked.CompareExchange(ref _isInstalling, 1, 0) != 0)
+            return false;
+
+        await _operationSemaphore.WaitAsync().ConfigureAwait(false);
+
         try
         {
-            var updates = await _storeContext.GetAppAndOptionalStorePackageUpdatesAsync();
-
-            if (updates == null || updates.Count == 0)
+            return await RunOnMainWindowAsync(async context =>
             {
-                HasAvailableUpdate = false;
-                return false;
-            }
+                var updates = await context.GetAppAndOptionalStorePackageUpdatesAsync();
 
-            var result = await RequestDownloadAndInstallOnMainWindowAsync(updates);
-            var isCompleted = result?.OverallState == StorePackageUpdateState.Completed;
-
-            if (!isCompleted && result != null)
-            {
-                _logger.TrackEvent("Store update installation did not complete", new Dictionary<string, string>
+                if (updates == null || updates.Count == 0)
                 {
-                    { nameof(result.OverallState), result.OverallState.ToString() }
-                });
-            }
+                    HasAvailableUpdate = false;
+                    return false;
+                }
 
-            return isCompleted;
+                HasAvailableUpdate = true;
+                var result = await context.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
+                var isCompleted = result?.OverallState == StorePackageUpdateState.Completed;
+
+                if (isCompleted)
+                    HasAvailableUpdate = false;
+
+                if (!isCompleted && result != null)
+                {
+                    _logger.TrackEvent("Store update installation did not complete", new Dictionary<string, string>
+                    {
+                        { nameof(result.OverallState), result.OverallState.ToString() }
+                    });
+                }
+
+                return isCompleted;
+            });
         }
         catch (Exception ex)
         {
             _logger.CaptureException(ex, nameof(StartUpdateAsync));
             return false;
         }
+        finally
+        {
+            _operationSemaphore.Release();
+            Volatile.Write(ref _isInstalling, 0);
+        }
     }
 
-    private async Task<StorePackageUpdateResult> RequestDownloadAndInstallOnMainWindowAsync(IReadOnlyList<StorePackageUpdate> updates)
+    private async Task<T> RunOnMainWindowAsync<T>(Func<StoreContext, Task<T>> operation)
     {
         var mainWindow = WinoApplication.MainWindow
             ?? throw new InvalidOperationException("Main window is not available for Store update installation.");
@@ -88,18 +107,17 @@ public class StoreUpdateService : IStoreUpdateService
 
         if (dispatcherQueue.HasThreadAccess)
         {
-            InitializeStoreContextWithWindow(mainWindow);
-            return await _storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
+            return await RunAsync();
         }
 
-        return await dispatcherQueue.EnqueueAsync(async () =>
-        {
-            InitializeStoreContextWithWindow(mainWindow);
-            return await _storeContext.RequestDownloadAndInstallStorePackageUpdatesAsync(updates);
-        });
-    }
+        return await dispatcherQueue.EnqueueAsync(RunAsync);
 
-    private void InitializeStoreContextWithWindow(WindowEx mainWindow)
-        => InitializeWithWindow.Initialize(_storeContext, WindowNative.GetWindowHandle(mainWindow));
+        async Task<T> RunAsync()
+        {
+            _storeContext ??= StoreContext.GetDefault();
+            InitializeWithWindow.Initialize(_storeContext, WindowNative.GetWindowHandle(mainWindow));
+            return await operation(_storeContext);
+        }
+    }
 
 }

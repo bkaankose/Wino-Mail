@@ -6,6 +6,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.ViewModels.Data;
 using Wino.Helpers;
+using Wino.Mail.Controls.ContextFlyout;
 using Wino.Views.Abstract;
 
 namespace Wino.Views.Settings;
@@ -51,9 +52,10 @@ public sealed partial class NotificationSettingsPage : NotificationSettingsPageA
         }
     }
 
-    private void SnoozePreset_Click(object sender, RoutedEventArgs e)
+    private void SnoozePreset_Click(object? sender, EventArgs e)
     {
-        if (sender is FrameworkElement { Tag: string tag } && Enum.TryParse<NotificationSnoozePreset>(tag, out var preset))
+        if (sender is WinoContextFlyoutItem { CommandParameter: string value } &&
+            Enum.TryParse<NotificationSnoozePreset>(value, out var preset))
         {
             ViewModel.StartSnoozeCommand.Execute(preset);
         }

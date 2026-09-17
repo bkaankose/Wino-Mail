@@ -465,8 +465,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
             MailContextFlyout.ShowAt(showAtElement, new FlyoutShowOptions()
             {
                 ShowMode = FlyoutShowMode.Standard,
-                Placement = FlyoutPlacementMode.Bottom,
-                Position = new Point(x + (WinoContextFlyout.PresenterWidth / 2), y)
+                Placement = FlyoutPlacementMode.BottomEdgeAlignedLeft,
+                Position = new Point(x, y)
             });
 
             await closedSource.Task;

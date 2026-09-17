@@ -25,8 +25,6 @@ public sealed partial class ContextFlyoutPage : Page
 
         HeaderItems = CreateHeaderItems();
         CardItems = CreateCardItems();
-        BoundItems = CreateBoundItems();
-
         InitializeComponent();
     }
 
@@ -37,8 +35,6 @@ public sealed partial class ContextFlyoutPage : Page
     public IReadOnlyList<ContextFlyoutHeaderEntry> HeaderItems { get; }
 
     public IReadOnlyList<ContextFlyoutMenuEntry> CardItems { get; }
-
-    public IReadOnlyList<ContextFlyoutMenuEntry> BoundItems { get; }
 
     private ContextFlyoutHeaderEntry[] CreateHeaderItems() =>
     [
@@ -187,33 +183,4 @@ public sealed partial class ContextFlyoutPage : Page
         ContextFlyoutSeparatorEntry.Instance
     ];
 
-    private ContextFlyoutMenuEntry[] CreateBoundItems()
-    {
-        var folders = new List<ContextFlyoutMenuEntry>();
-
-        for (var index = 1; index <= 24; index++)
-        {
-            folders.Add(new ContextFlyoutCommandEntry
-            {
-                Text = $"Folder {index:00}",
-                SearchKeywords = "folder destination",
-                Icon = new ContextFlyoutIcon(FolderGlyph),
-                Command = SampleCommand,
-                CommandParameter = $"Folder {index:00}",
-                AutomationId = $"BoundFolder{index:00}"
-            });
-        }
-
-        return
-        [
-            new ContextFlyoutSubMenuEntry
-            {
-                Text = "Move to",
-                SearchKeywords = "folder destination",
-                Icon = new ContextFlyoutIcon(MoveGlyph),
-                Items = folders,
-                AutomationId = "BoundMoveSubItem"
-            }
-        ];
-    }
 }

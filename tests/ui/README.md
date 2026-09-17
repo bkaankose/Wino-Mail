@@ -3,6 +3,13 @@
 Double-click `Run-WinoUiTests.cmd` to stop Wino Mail, build the x64 Debug project, deploy it, and run every UI scenario.
 
 The command file pauses at the end. A direct PowerShell run does not pause.
+
+The runner now checks development-mode package ownership before stopping Wino or building.
+Run `./scripts/wino.ps1 doctor app` for the read-only readiness report.
+Signed installed packages with the same identity block Debug deployment even when the publisher matches.
+`-UseRunning` also requires a development registration and does not prove current-source deployment.
+
+For synthetic task/contact persistence and activation routing, use the [scripted audit](../../scripts/ui-audit/REGRESSION.md).
 The runner leaves Wino Mail open. It writes screenshots and `test-results.json` under `artifacts/ui-tests/<timestamp>`.
 
 For a faster deployment of the existing Debug output:

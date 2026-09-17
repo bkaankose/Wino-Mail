@@ -7,7 +7,7 @@ The release script creates packages locally. Publication to Microsoft Store or t
 
 | Channel | Distribution | Required access |
 | --- | --- | --- |
-| Store | Upload package for Microsoft Partner Center | Package sources for builds; access to the Wino Partner Center listing for publication. |
+| Store | Partner Center upload and signed local-update bundle | Package sources and a local Store-subject test certificate. Partner Center access is required for publication. |
 | Beta | Signed bundle with the beta App Installer feed | Wino Artifact Signing account; download-site access for publication. |
 | Stable sideload | Separate signed bundle with the stable App Installer feed | Same signing account; download-site access for publication. |
 
@@ -31,11 +31,25 @@ The version must have four numeric components, a nonzero major component, and a 
 For example, `2.0.55.0` is valid.
 
 The script compiles Release once for each selected architecture. All three channels use the same compiled binaries.
+Each invocation keeps its build intermediates inside that run's staging directory, so a Visual Studio build or another release run cannot lock its XAML compiler outputs.
 Sideload packaging replaces the identity, runtime profile, notification IDs, and resource index without compilation.
 Beta packaging also replaces display names and artwork. Theme and accent preferences do not change.
 The script creates and signs a separate bundle for each sideload distribution.
 It checks each final copy against its signed bundle. Each sideload distribution receives its own App Installer update feed.
 The script does not install or launch packages.
+
+For a Store release, the script selects a test certificate from `Cert:\CurrentUser\My`.
+The certificate subject must match the Store publisher in `Package.appxmanifest`.
+The certificate must be valid for code signing and must have an accessible private key.
+By default, the script selects the newest valid matching certificate.
+
+To select a specific certificate, use its thumbprint:
+
+```powershell
+pwsh -NoProfile -File .\scripts\build-releases.ps1 -NonInteractive -Store -Architectures x64 -StoreTestCertificateThumbprint 0123456789ABCDEF0123456789ABCDEF01234567
+```
+
+You can also set `WINO_STORE_TEST_CERTIFICATE_THUMBPRINT` for repeated builds.
 
 ## Beta artwork and runtime profiles
 
@@ -91,7 +105,8 @@ The Visual Studio application does not need to run.
 
 ## Sideload signing setup
 
-Store-only builds do not require Azure credentials or signing tools. Microsoft signs Store packages during publication.
+Store-only builds do not require Azure credentials. Microsoft signs Store packages during publication.
+The script uses SignTool only for the local-update bundle.
 Beta and stable sideload builds require the Wino Azure Artifact Signing account and a public-trust certificate profile.
 Request access and account details from the project maintainers. Creating an unrelated Azure account does not grant permission to sign official Wino packages.
 
@@ -135,16 +150,54 @@ WinoMail_SideloadRelease_2.0.55/
 WinoMail_Store_2.0.55.0/
   WinoMail_Store_2.0.55.0.msixupload
   WinoMail_Store_2.0.55.0.msixbundle
+  WinoMail_Store_TestCertificate.cer
 ```
+
+The build also retains the exact symbols from the compilation under
+`<version>/Symbols/`. Symbol upload is intentionally opt-in: an interactive
+build asks whether to upload them after packaging. Declining does not delete
+the symbols. Upload them later with:
+
+```powershell
+pwsh -NoProfile -File .\scripts\upload-sentry-symbols.ps1 `
+  -Version 2.1.1.0 `
+  -SymbolsPath .\src\Wino.Mail.WinUI\AppPackages\2.1.1.0\Symbols
+```
+
+The upload script uses the `SENTRY_AUTH_TOKEN` environment variable and the
+`bkaankose/winomail` Sentry project. It uploads the symbols for one exact
+build once, regardless of how many signed packages were produced.
 
 Only selected channels appear. Both sideload bundles have a verified, timestamped signature.
 Stable sideload folder and bundle names use three version components. Package manifests and App Installer versions retain all four components.
 The Store upload includes the architecture bundle and symbols.
-The separate Store `.msixbundle` is an exact copy of the bundle inside the upload file. It retains the Store identity and is unsigned locally.
+The script does not change the Store upload file.
+The separate Store `.msixbundle` retains the Store identity and has a local test signature.
+The `.cer` file contains the public test certificate.
 The script verifies package identities, architectures, binary hashes, and sideload resource candidates before it completes.
 
 To publish a Store release, upload the `.msixupload` file to the Wino listing in Partner Center with an authorized account.
 The script creates App Installer update feeds for the selected sideload channels. It does not upload any files.
+
+## Install the local Store update
+
+The local package version must be greater than the installed Store version.
+Close Wino Mail before you install the package.
+
+1. Import the public certificate for the current user:
+
+   ```powershell
+   Import-Certificate -FilePath .\WinoMail_Store_TestCertificate.cer -CertStoreLocation Cert:\CurrentUser\TrustedPeople
+   ```
+
+2. Install the signed Store bundle:
+
+   ```powershell
+   Add-AppxPackage .\WinoMail_Store_2.0.55.0.msixbundle
+   ```
+
+Windows updates the installed Store-identity package and retains its application data.
+The Microsoft Store replaces the test signature after it installs a later published version.
 
 ## Sideload website updates
 

@@ -57,6 +57,7 @@ public class WinoTranslationDictionary : Dictionary<string, string>
             AppLanguage.Lithuanian => "lt_LT",
             AppLanguage.Slovak => "sk_SK",
             AppLanguage.Ukrainian => "uk_UA",
+            AppLanguage.Vietnamese => "vi_VN",
             _ => "en_US",
         };
     }

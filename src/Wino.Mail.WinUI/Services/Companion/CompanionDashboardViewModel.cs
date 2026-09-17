@@ -16,6 +16,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -846,7 +847,7 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
     private CancellationToken CurrentToken => _visibilityCancellation?.Token ?? CancellationToken.None;
 
     private static bool HasJoinUri(CalendarItemViewModel item)
-        => Uri.TryCreate(item.CalendarItem.HtmlLink, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https";
+        => CalendarJoinLinkResolver.TryGetEffectiveJoinUri(item?.CalendarItem, out _);
 
     private Task RunOnUIAsync(Action action)
     {

@@ -3,13 +3,18 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Navigation;
 using Serilog;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Interfaces;
 using Wino.Editor;
+using Wino.Helpers;
+using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Views.Abstract;
 using Wino.Messaging.Client.Calendar;
@@ -139,19 +144,30 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         }
     }
 
-    private void OpenCalendarAttachment_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
+    private void CalendarAttachmentContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is CalendarAttachmentViewModel attachment)
-        {
-            ViewModel?.OpenAttachmentCommand.Execute(attachment);
-        }
-    }
+        if (sender is not FrameworkElement { DataContext: CalendarAttachmentViewModel attachment } target || ViewModel is null)
+            return;
 
-    private void SaveCalendarAttachment_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)
-    {
-        if (sender is MenuFlyoutItem item && item.CommandParameter is CalendarAttachmentViewModel attachment)
-        {
-            ViewModel?.SaveAttachmentCommand.Execute(attachment);
-        }
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Buttons_Open,
+                Icon = new ContextFlyoutIcon("\uE8E5"),
+                Command = ViewModel.OpenAttachmentCommand,
+                CommandParameter = attachment,
+                AutomationId = "EventAttachmentOpen"
+            },
+            new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Buttons_Save,
+                Icon = new ContextFlyoutIcon("\uE74E"),
+                Command = ViewModel.SaveAttachmentCommand,
+                CommandParameter = attachment,
+                Shortcut = new ContextFlyoutShortcut("Ctrl+S", "S", Control: true),
+                AutomationId = "EventAttachmentSave"
+            }
+        ], FlyoutPlacementMode.Right);
     }
 }
