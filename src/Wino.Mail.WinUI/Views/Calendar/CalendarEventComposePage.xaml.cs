@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using CommunityToolkit.Mvvm.Messaging;
 using CommunityToolkit.WinUI.Controls;
 using EmailValidation;
@@ -24,6 +25,7 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
     IRecipient<ApplicationThemeChanged>
 {
     private readonly List<IDisposable> _disposables = [];
+    private CancellationTokenSource? _attendeeQueryCancellation;
 
     public CalendarEventComposePage()
     {
@@ -55,6 +57,10 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
     {
         base.OnNavigatingFrom(e);
 
+        _attendeeQueryCancellation?.Cancel();
+        _attendeeQueryCancellation?.Dispose();
+        _attendeeQueryCancellation = null;
+
         foreach (var disposable in _disposables)
         {
             disposable.Dispose();
@@ -72,9 +78,36 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
                 return;
             }
 
-            var addresses = await ViewModel.SearchContactsAsync(senderBox.Text).ConfigureAwait(false);
-            await ViewModel.ExecuteUIThread(() => senderBox.ItemsSource = addresses);
+            // Each new query cancels the previous one so a slow directory lookup never blocks
+            // typing, and a superseded result is dropped instead of shown.
+            var queryCancellation = RestartAttendeeQuery();
+            var cancellationToken = queryCancellation.Token;
+
+            try
+            {
+                var addresses = await ViewModel.SearchContactsAsync(senderBox.Text, cancellationToken).ConfigureAwait(false);
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
+                await ViewModel.ExecuteUIThread(() =>
+                {
+                    if (!cancellationToken.IsCancellationRequested)
+                        senderBox.ItemsSource = addresses;
+                });
+            }
+            catch (OperationCanceledException)
+            {
+                // A newer query superseded this one.
+            }
         });
+    }
+
+    private CancellationTokenSource RestartAttendeeQuery()
+    {
+        _attendeeQueryCancellation?.Cancel();
+        _attendeeQueryCancellation?.Dispose();
+        _attendeeQueryCancellation = new CancellationTokenSource();
+        return _attendeeQueryCancellation;
     }
 
     private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)

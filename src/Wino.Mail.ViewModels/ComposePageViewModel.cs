@@ -25,6 +25,7 @@ using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.Common;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
@@ -183,6 +184,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private readonly DraftUpdateRegistry _draftRegistry;
     private readonly IDraftSaveService _draftSaveService;
     private readonly IAttachmentFileService _attachmentFileService;
+    private readonly IGlobalAddressListService _globalAddressListService;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -201,10 +203,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IDraftSyncRetryService draftSyncRetryService,
                                 IDraftUpdateCoordinator draftUpdates, DraftUpdateRegistry draftRegistry,
                                 IDraftSaveService draftSaveService,
+                                IGlobalAddressListService globalAddressListService,
                                 IAttachmentFileService attachmentFileService = null)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
+        _globalAddressListService = globalAddressListService;
         FontService = fontService;
         PreferencesService = preferencesService;
 
@@ -1042,6 +1046,28 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         foreach (var item in addresses)
             list.Add(new MailboxAddress(item.Name, item.Address));
+    }
+
+    private const int GalSuggestionLimit = 15;
+
+    /// <summary>
+    /// Recipient (To/Cc/Bcc) autocomplete source: the user's local contacts, plus matches from the
+    /// sending account's Global Address List when it is an Exchange account. Local contacts win on a
+    /// duplicate address. Degrades to local-only when there is no directory or the lookup fails, and
+    /// a cancelled (superseded) query surfaces as <see cref="OperationCanceledException"/>.
+    /// </summary>
+    public async Task<List<AccountContact>> GetRecipientSuggestionsAsync(string text, CancellationToken cancellationToken = default)
+    {
+        var local = await ContactService.ResolveRecipientCandidatesAsync(ComposingAccount?.Id, text).ConfigureAwait(false) ?? [];
+
+        var account = ComposingAccount;
+        if (account == null || _globalAddressListService == null || !_globalAddressListService.SupportsGlobalAddressList(account))
+            return local;
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var directory = await _globalAddressListService.SearchAsync(account.Id, text, GalSuggestionLimit, cancellationToken).ConfigureAwait(false);
+        return RecipientSuggestionMerge.Merge(local, directory);
     }
 
     public async Task<AccountContact> GetAddressInformationAsync(string tokenText, ObservableCollection<AccountContact> collection)
