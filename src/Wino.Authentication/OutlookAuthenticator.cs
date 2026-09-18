@@ -44,6 +44,12 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
         var authenticationRedirectUri = nativeAppService.GetWebAuthenticationBrokerUri();
 
+        var windowsBrokerOptions = new WindowsBrokerOptions
+        {
+            HeaderText = Translator.OutlookAuthentication_WamHeaderText,
+            ListWindowsWorkAndSchoolAccounts = true,
+        };
+
         var options = new BrokerOptions(BrokerOptions.OperatingSystems.Windows)
         {
             Title = authenticatorConfig.ApplicationDisplayName,
@@ -58,19 +64,29 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         {
             outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
                 .WithDefaultRedirectUri()
-                .WithBroker(options)
-                .WithAuthority(Authority);
+                .WithBroker(options);
         }
         else
         {
             outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
                 .WithBroker(options)
                 .WithParentActivityOrWindow(_nativeAppService.GetCoreWindowHwnd)
-                .WithDefaultRedirectUri()
-                .WithAuthority(Authority);
+                .WithDefaultRedirectUri();
         }
 
+        outlookAppBuilder = ApplyWindowsBrokerOptions(outlookAppBuilder, windowsBrokerOptions)
+            .WithAuthority(Authority);
+
         _publicClientApplication = outlookAppBuilder.Build();
+    }
+
+    private static PublicClientApplicationBuilder ApplyWindowsBrokerOptions(
+        PublicClientApplicationBuilder builder,
+        WindowsBrokerOptions options)
+    {
+#pragma warning disable CS0618
+        return builder.WithWindowsBrokerOptions(options);
+#pragma warning restore CS0618
     }
 
     private string[] GetScope(MailAccount account, IReadOnlyCollection<ProviderFeature> features = null)
@@ -151,10 +167,18 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
             if (_nativeAppService.GetCoreWindowHwnd == null) throw new AuthenticationAttentionException(account);
 
+            var cachedAccounts = (await _publicClientApplication
+                .GetAccountsAsync()
+                .ConfigureAwait(false))
+                .ToList();
+            var storedAccount = FindStoredAccount(cachedAccounts, account);
+
             var interactiveBuilder = _publicClientApplication.AcquireTokenInteractive(GetScope(account, requestedFeatures));
             var loginHint = GetAuthenticationAddress(account);
 
-            if (!string.IsNullOrWhiteSpace(loginHint))
+            if (storedAccount is not null)
+                interactiveBuilder = interactiveBuilder.WithAccount(storedAccount);
+            else if (!string.IsNullOrWhiteSpace(loginHint))
                 interactiveBuilder = interactiveBuilder.WithLoginHint(loginHint);
 
             AuthenticationResult authResult = await interactiveBuilder.ExecuteAsync();
