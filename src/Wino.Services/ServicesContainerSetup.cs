@@ -67,9 +67,6 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoAccountSessionService>(provider => WinoAccountSessionService.For(provider.GetRequiredService<IDatabaseService>()));
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
         services.AddSingleton<IIntelligenceBackend, CloudIntelligenceBackend>();
-        services.AddSingleton<IIntelligenceSearchEligibilityService, IntelligenceSearchEligibilityService>();
-        services.AddSingleton<IIntelligenceSearchService, IntelligenceSearchService>();
-        services.AddSingleton<ILocalIntelligenceSearchEngine, LocalIntelligenceSearchEngine>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
         services.AddSingleton<IWinoBillingService, WinoBillingService>();
         services.AddSingleton<IWinoPendingCheckoutStore, WinoPendingCheckoutStore>();
@@ -78,10 +75,11 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoIntelligenceEntitlementService, WinoIntelligenceEntitlementService>();
         services.AddSingleton<ISemanticIndexJobRegistry, SemanticIndexJobRegistry>();
         services.AddSingleton<IIntelligenceMessageContextResolver, IntelligenceMessageContextResolver>();
-        services.AddSingleton<ISemanticIndexCoordinator, SemanticIndexCoordinator>();
+        services.AddSingleton<IMailIntelligenceCoordinator, MailIntelligenceCoordinator>();
+        services.AddSingleton<MailIntelligenceUploadBuilder>();
         services.AddSingleton<IWinoIntelligenceCoordinator, WinoIntelligenceCoordinator>();
         services.AddSingleton<IIntelligenceCoverageHandoff, IntelligenceCoverageHandoff>();
-        services.AddSingleton<ILocalIntelligenceStore, LocalIntelligenceStore>();
+        services.AddSingleton<IMailIntelligenceStore, MailIntelligenceStore>();
         services.AddSingleton<ILocalIntelligenceService, LocalIntelligenceService>();
         services.AddSingleton<IContentEnvelopeEncryptor>(_ =>
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load()));

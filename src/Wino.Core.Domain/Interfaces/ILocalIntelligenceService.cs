@@ -10,17 +10,22 @@ namespace Wino.Core.Domain.Interfaces;
 public interface ILocalIntelligenceService
 {
     Task<IReadOnlyList<DailyBriefingAccount>> GetEligibleAccountsAsync(CancellationToken cancellationToken = default);
-    Task<DailyBriefingFactsResult> GetBriefingFactsAsync(DateOnly localDate, TimeZoneInfo timeZone,
-        bool includeIgnored = false, CancellationToken cancellationToken = default);
-    Task IgnoreBriefingItemAsync(Guid localAccountId, Guid briefingId, long artifactRevision,
-        CancellationToken cancellationToken = default);
-    Task UnignoreBriefingItemAsync(Guid localAccountId, Guid briefingId,
-        CancellationToken cancellationToken = default);
-    Task DeleteBriefingItemAsync(Guid localAccountId, string remoteMessageId,
+    /// <summary>
+    /// Briefing entries grouped by the day each message was received, newest day first.
+    /// Only messages Jev included are returned.
+    /// </summary>
+    Task<DailyBriefingFactsResult> GetBriefingFactsAsync(
+        TimeZoneInfo timeZone,
+        bool includeIgnored = false,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Latest locally imported briefing-fact revision for the account.</summary>
-    Task<long> GetLatestBriefingFactRevisionAsync(Guid localAccountId, CancellationToken cancellationToken = default);
+    /// <summary>Ignores a card for the content it currently has.</summary>
+    Task IgnoreBriefingItemAsync(Guid localAccountId, string remoteMessageId, string contentHash,
+        CancellationToken cancellationToken = default);
+
+    Task UnignoreBriefingItemAsync(Guid localAccountId, string remoteMessageId,
+        CancellationToken cancellationToken = default);
+
     Task SaveAccessSnapshotAsync(LocalIntelligenceAccessSnapshot snapshot, CancellationToken cancellationToken = default);
     Task<LocalIntelligenceAccessSnapshot?> GetAccessSnapshotAsync(Guid localAccountId, CancellationToken cancellationToken = default);
     Task InvalidateAccessSnapshotsAsync(CancellationToken cancellationToken = default);

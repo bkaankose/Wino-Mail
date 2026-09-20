@@ -2,49 +2,72 @@ using System;
 
 namespace Wino.Core.Domain.Models.SemanticIndexing;
 
-public enum SemanticIndexJobStatus
+public enum MailIntelligenceJobStatus
 {
     Idle,
     Calculating,
-    Queued,
-    Indexing,
-    GeneratingInsights,
-    TranslatingHeadlines,
+    Uploading,
+    Waiting,
+    Downloading,
     PausedForQuota,
     Completed,
     Failed,
     Cancelled,
 }
 
-public sealed record SemanticIndexJobSnapshot(
-    Guid LocalAccountId,
-    SemanticIndexJobStatus Status,
-    int UploadedMessageCount,
-    int SelectedMessageCount,
-    string? ErrorCode = null,
-    int FailedMessageCount = 0,
-    int RestoredMessageCount = 0)
+/// <summary>
+/// Progress of one stage, as this device sees it. Jev and Luna advance independently, so
+/// the UI reports them separately rather than as one blended percentage.
+/// </summary>
+public sealed record MailIntelligenceStageProgress(
+    string Status,
+    int PageCount,
+    bool IsImported,
+    bool IsAcknowledged)
 {
-    public bool IsActive => Status is
-        SemanticIndexJobStatus.Calculating or
-        SemanticIndexJobStatus.Queued or
-        SemanticIndexJobStatus.Indexing or
-        SemanticIndexJobStatus.GeneratingInsights or
-        SemanticIndexJobStatus.TranslatingHeadlines;
+    public static MailIntelligenceStageProgress Pending { get; } = new("pending", 0, false, false);
 
-    public int ProcessedMessageCount
-        => UploadedMessageCount + RestoredMessageCount + FailedMessageCount;
-
-    public int SucceededMessageCount
-        => UploadedMessageCount + RestoredMessageCount;
+    public bool IsPublished => string.Equals(Status, "published", StringComparison.Ordinal);
 }
 
-public enum SemanticMessageIndexState
+/// <summary>
+/// What the management screen shows for one account. Several jobs can be in flight for a
+/// mailbox at once, so this aggregates them.
+/// </summary>
+public sealed record MailIntelligenceJobSnapshot(
+    Guid LocalAccountId,
+    MailIntelligenceJobStatus Status,
+    int SelectedMessageCount,
+    int ProcessedMessageCount,
+    int FailedMessageCount,
+    int ActiveJobCount,
+    MailIntelligenceStageProgress Jev,
+    MailIntelligenceStageProgress Luna,
+    string? ErrorCode = null)
 {
-    NotIndexed,
+    public static MailIntelligenceJobSnapshot Idle(Guid localAccountId) => new(
+        localAccountId,
+        MailIntelligenceJobStatus.Idle,
+        0,
+        0,
+        0,
+        0,
+        MailIntelligenceStageProgress.Pending,
+        MailIntelligenceStageProgress.Pending);
+
+    public bool IsActive => Status is
+        MailIntelligenceJobStatus.Calculating or
+        MailIntelligenceJobStatus.Uploading or
+        MailIntelligenceJobStatus.Waiting or
+        MailIntelligenceJobStatus.Downloading;
+}
+
+public enum MailMessageIntelligenceState
+{
+    NotProcessed,
     Queued,
-    Indexing,
-    Indexed,
+    Processing,
+    Processed,
     Failed,
     Unsupported,
 }

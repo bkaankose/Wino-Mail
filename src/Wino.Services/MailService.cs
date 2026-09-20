@@ -42,7 +42,7 @@ public class MailService : BaseDatabaseService, IMailService
     private readonly ISentMailReceiptService _sentMailReceiptService;
     private readonly IMailCategoryService _mailCategoryService;
     private readonly IWinoAccountProfileService _winoAccountProfileService;
-    private readonly ILocalIntelligenceStore _localIntelligenceStore;
+    private readonly IMailIntelligenceStore _localIntelligenceStore;
 
     private readonly ILogger _logger = Log.ForContext<MailService>();
 
@@ -56,7 +56,7 @@ public class MailService : BaseDatabaseService, IMailService
                        ISentMailReceiptService sentMailReceiptService,
                        IMailCategoryService mailCategoryService,
                        IWinoAccountProfileService winoAccountProfileService = null,
-                       ILocalIntelligenceStore localIntelligenceStore = null,
+                       IMailIntelligenceStore localIntelligenceStore = null,
                        DraftUpdateRegistry draftUpdates = null) : base(databaseService)
     {
         _draftUpdates = draftUpdates;
@@ -951,15 +951,15 @@ public class MailService : BaseDatabaseService, IMailService
             if (mailsByRemoteId.Count == 0)
                 continue;
 
-            var documentsByRemoteId = await _localIntelligenceStore.GetCurrentDocumentsAsync(
-                accountGroup.Key,
-                mailsByRemoteId.Keys.ToArray(),
-                cancellationToken).ConfigureAwait(false);
+            var remoteIds = mailsByRemoteId.Keys.ToArray();
+            var jevByRemoteId = await _localIntelligenceStore.GetJevArtifactsAsync(
+                accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
+            var lunaByRemoteId = await _localIntelligenceStore.GetLunaArtifactsAsync(
+                accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
 
             foreach (var (remoteId, matchingMails) in mailsByRemoteId)
             {
-                documentsByRemoteId.TryGetValue(remoteId, out var document);
-                var metadata = CreateIntelligenceMetadata(remoteId, document);
+                var metadata = CreateIntelligenceMetadata(remoteId, jevByRemoteId, lunaByRemoteId);
                 foreach (var mail in matchingMails)
                     mail.IntelligenceMetadata = metadata;
             }
@@ -968,23 +968,16 @@ public class MailService : BaseDatabaseService, IMailService
 
     internal static MailIntelligenceMetadata CreateIntelligenceMetadata(
         string remoteMessageId,
-        MessageIntelligenceDownloadDto document)
+        IReadOnlyDictionary<string, JevArtifact> jevArtifacts,
+        IReadOnlyDictionary<string, LunaArtifact> lunaArtifacts)
     {
-        var documentLabels = document?.Analysis.SmartLabels
-            .Where(static label => label.Label != SmartLabelV1.Unknown)
-            .Select(static label => Enum.TryParse<MailSmartLabel>(label.Label.ToString(), out var mapped)
-                ? new SmartLabelScore(mapped, label.Confidence)
-                : null)
-            .OfType<SmartLabelScore>()
-            .ToArray() ?? [];
-        var smartLabels = documentLabels.DistinctBy(static label => label.Label).ToArray();
-        var metadata = new MailIntelligenceMetadata(
-            remoteMessageId,
-            smartLabels,
-            null,
-            document?.Analysis.Headline ?? string.Empty,
-            document?.Analysis.Summary ?? string.Empty);
-        return metadata.HasVisibleMetadata ? metadata : null;
+        if (!jevArtifacts.TryGetValue(remoteMessageId, out var jev))
+        {
+            return null;
+        }
+
+        lunaArtifacts.TryGetValue(remoteMessageId, out var luna);
+        return MailIntelligenceMetadata.From(jev, luna);
     }
 
     private async Task<MailCopy> HydrateMailCopyAsync(MailCopy mailCopy)

@@ -33,7 +33,7 @@ public class AccountService : BaseDatabaseService, IAccountService
     private readonly IAccountProfilePictureFileService _accountProfilePictureFileService;
     private readonly IServerCertificateTrustService _serverCertificateTrustService;
     private readonly ISemanticIndexJobRegistry _semanticIndexJobRegistry;
-    private readonly ILocalIntelligenceStore _localIntelligenceStore;
+    private readonly IMailIntelligenceStore _localIntelligenceStore;
     private readonly ICardDavSynchronizationStore _cardDavSynchronizationStore;
     private readonly IDavCredentialStore _davCredentialStore;
 
@@ -47,7 +47,7 @@ public class AccountService : BaseDatabaseService, IAccountService
                           IContactPictureFileService contactPictureFileService,
                           IServerCertificateTrustService serverCertificateTrustService = null,
                           ISemanticIndexJobRegistry semanticIndexJobRegistry = null,
-                          ILocalIntelligenceStore localIntelligenceStore = null,
+                          IMailIntelligenceStore localIntelligenceStore = null,
                           IAccountProfilePictureFileService accountProfilePictureFileService = null,
                           ICardDavSynchronizationStore cardDavSynchronizationStore = null,
                           IDavCredentialStore davCredentialStore = null) : base(databaseService)
@@ -339,7 +339,7 @@ public class AccountService : BaseDatabaseService, IAccountService
 
         await DeleteProviderTokenAsync(account).ConfigureAwait(false);
         if (_localIntelligenceStore is not null)
-            await _localIntelligenceStore.DeleteMailboxAsync(account.Id).ConfigureAwait(false);
+            await _localIntelligenceStore.DeleteAccountAsync(account.Id).ConfigureAwait(false);
 
         // Collect calendar entities before deletion so we can notify UI subscribers.
         var accountCalendars = await Connection.Table<AccountCalendar>()

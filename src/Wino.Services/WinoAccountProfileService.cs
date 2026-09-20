@@ -18,7 +18,6 @@ using Wino.Mail.Api.Contracts.Users;
 using Wino.Messaging.UI;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.Contracts.Intelligence;
-using Wino.Mail.Contracts.SemanticIndex;
 
 namespace Wino.Services;
 
@@ -26,8 +25,8 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 {
     private readonly IWinoAccountApiClient _apiClient;
     private readonly ITranslationService? _translationService;
-    private readonly ISemanticIndexCoordinator? _semanticIndexCoordinator;
-    private readonly ILocalIntelligenceStore? _localIntelligenceStore;
+    private readonly IMailIntelligenceCoordinator? _semanticIndexCoordinator;
+    private readonly IMailIntelligenceStore? _localIntelligenceStore;
     private readonly IWinoAccountSessionService _sessions;
     private readonly IWinoPendingCheckoutStore? _pendingCheckouts;
     private readonly ILogger _logger = Log.ForContext<WinoAccountProfileService>();
@@ -35,8 +34,8 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     public WinoAccountProfileService(IDatabaseService databaseService,
                                      IWinoAccountApiClient apiClient,
                                      ITranslationService? translationService = null,
-                                     ISemanticIndexCoordinator? semanticIndexCoordinator = null,
-                                     ILocalIntelligenceStore? localIntelligenceStore = null,
+                                     IMailIntelligenceCoordinator? semanticIndexCoordinator = null,
+                                     IMailIntelligenceStore? localIntelligenceStore = null,
                                      IWinoAccountSessionService? sessionService = null,
                                      IWinoPendingCheckoutStore? pendingCheckouts = null) : base(databaseService)
     {

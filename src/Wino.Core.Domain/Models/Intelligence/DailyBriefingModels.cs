@@ -2,12 +2,16 @@
 using System;
 using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Shared;
-using Wino.Mail.AI.Abstractions;
 
 namespace Wino.Core.Domain.Models.Intelligence;
 
-public sealed record LocalIntelligenceAccessSnapshot(Guid LocalAccountId, Guid WinoAccountId,
-    bool HasAiPack, bool HasIntelligenceConsent, Guid? MailboxId, DateTimeOffset UpdatedAtUtc)
+public sealed record LocalIntelligenceAccessSnapshot(
+    Guid LocalAccountId,
+    Guid WinoAccountId,
+    bool HasAiPack,
+    bool HasIntelligenceConsent,
+    Guid? MailboxId,
+    DateTimeOffset UpdatedAtUtc)
 {
     public bool IsEligible => HasAiPack && HasIntelligenceConsent && MailboxId is not null;
 }
@@ -15,52 +19,82 @@ public sealed record LocalIntelligenceAccessSnapshot(Guid LocalAccountId, Guid W
 public sealed record DailyBriefingAccount(MailAccount Account, Guid? MailboxId = null);
 
 /// <summary>
-/// Presentation state calculated from one mailbox's local intelligence settings.
-/// Daily Briefing keeps source labels separate from the included chips so a later
-/// settings change never mutates the indexed artifact.
+/// Which indicators the user wants to see for one account. Filtering happens at display
+/// time so a settings change never rewrites a stored artifact.
 /// </summary>
 public sealed record DailyBriefingIndicatorState(
-    bool IsDeadlineVisible,
-    bool IsNeedsReplyVisible,
     bool IsPriorityVisible,
-    bool IsBriefingVisible,
-    IReadOnlyList<SmartLabelScore> IncludedSmartLabels)
+    bool IsHeadlineVisible,
+    IReadOnlySet<string> EnabledLabels)
 {
-    public static DailyBriefingIndicatorState AllVisible(IReadOnlyList<SmartLabelScore>? smartLabels = null)
-        => new(true, true, true, true, smartLabels ?? []);
+    public static DailyBriefingIndicatorState AllVisible(IReadOnlySet<string>? enabledLabels = null)
+        => new(true, true, enabledLabels ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase));
 }
 
 /// <summary>
-/// A language-neutral briefing fact joined with its separately stored localized headline.
+/// One briefing entry: a message Jev included, described only in terms Jev and Luna can
+/// actually support.
 /// </summary>
-public sealed record DailyBriefingFact(Guid LocalAccountId, Guid MailUniqueId, string RemoteMessageId,
-    string Subject, string Sender, DateTimeOffset OccurredAt, string Headline, long ArtifactRevision,
-    BriefingFactCapabilityPayload Fact,
-    IReadOnlyList<SmartLabelScore>? SourceSmartLabels = null,
+public sealed record DailyBriefingFact(
+    Guid LocalAccountId,
+    Guid MailUniqueId,
+    string RemoteMessageId,
+    string ContentHash,
+    string Subject,
+    string SenderName,
+    string SenderAddress,
+    DateTimeOffset ReceivedAt,
+    IReadOnlyList<string> Labels,
+    string Priority,
+    string Headline,
+    string Summary,
+    DateTime FirstImportedUtc,
     DailyBriefingIndicatorState? IndicatorState = null,
     bool IsIgnored = false)
 {
-    /// <summary>Raw smart-label artifact values carried alongside the source fact.</summary>
-    public IReadOnlyList<SmartLabelScore> SmartLabels => SourceSmartLabels ?? [];
+    public IReadOnlyList<string> VisibleLabels
+    {
+        get
+        {
+            if (IndicatorState is null || IndicatorState.EnabledLabels.Count == 0)
+            {
+                return Labels;
+            }
 
-    /// <summary>Smart-label chips remaining after local mailbox filtering.</summary>
-    public IReadOnlyList<SmartLabelScore> IncludedSmartLabels
-        => IndicatorState?.IncludedSmartLabels ?? SmartLabels;
+            var visible = new List<string>(Labels.Count);
+            foreach (var label in Labels)
+            {
+                if (IndicatorState.EnabledLabels.Contains(label))
+                {
+                    visible.Add(label);
+                }
+            }
 
-    public bool IsDeadlineVisible => IndicatorState?.IsDeadlineVisible ?? true;
-    public bool IsNeedsReplyVisible => IndicatorState?.IsNeedsReplyVisible ?? true;
+            return visible;
+        }
+    }
+
     public bool IsPriorityVisible => IndicatorState?.IsPriorityVisible ?? true;
-    public bool IsBriefingVisible => IndicatorState?.IsBriefingVisible ?? true;
+
+    public bool IsHeadlineVisible => IndicatorState?.IsHeadlineVisible ?? true;
+
+    /// <summary>
+    /// New since the briefing was last viewed. Keyed on when the artifact first arrived
+    /// locally, which replaces the artifact revision the old change feed carried.
+    /// </summary>
+    public bool IsNewSince(DateTime? lastViewedUtc)
+        => lastViewedUtc is null || FirstImportedUtc > lastViewedUtc.Value;
 }
 
+/// <summary>Briefing entries for one received day.</summary>
+public sealed record DailyBriefingDay(DateOnly LocalDate, IReadOnlyList<DailyBriefingFact> Facts);
+
 public sealed record DailyBriefingFactsResult(
-    IReadOnlyList<DailyBriefingFact> Facts,
-    bool HasIgnoredFacts);
+    IReadOnlyList<DailyBriefingDay> Days,
+    int TotalCount,
+    int IgnoredCount)
+{
+    public static DailyBriefingFactsResult Empty { get; } = new([], 0, 0);
+}
 
-public sealed record DailyBriefingIgnoreEntry(
-    Guid LocalAccountId,
-    Guid BriefingId,
-    long IgnoredArtifactRevision,
-    DateTimeOffset IgnoredAtUtc);
-
-public sealed record DailyBriefingUnseenState(bool HasUnseenContent, DateTimeOffset? LastOpenedAtUtc);
+public sealed record DailyBriefingUnseenState(bool HasUnseenContent, DateTime? LastViewedUtc);

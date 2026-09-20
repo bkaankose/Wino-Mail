@@ -11,7 +11,6 @@ using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Users;
-using Wino.Mail.Contracts.SemanticIndex;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Mail.AI.Abstractions;
 
@@ -36,29 +35,19 @@ public interface IWinoAccountApiClient
     Task SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default);
     Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default);
     Task ReplaceMailboxesAsync(ReplaceUserMailboxesRequestDto request, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<SemanticMailboxDto>> GetSemanticMailboxesAsync(CancellationToken cancellationToken = default);
-    Task<SemanticMailboxDto> EnsureSemanticMailboxAsync(string address, int providerType, CancellationToken cancellationToken = default);
-    Task<WinoIntelligenceManifestDto> GetWinoIntelligenceManifestAsync(CancellationToken cancellationToken = default);
-    Task<MailboxIntelligenceHeadDto?> GetIntelligenceHeadAsync(Guid mailboxId, CancellationToken cancellationToken = default);
-    Task<BeginIntelligenceReindexResultDto> BeginIntelligenceReindexAsync(Guid mailboxId, BeginIntelligenceReindexRequest request, CancellationToken cancellationToken = default);
-    Task<MessageIntelligenceIngestionJobAcceptedDto> StartMessageIntelligenceIngestionJobAsync(Guid mailboxId, byte[] encryptedEnvelope, CancellationToken cancellationToken = default);
-    Task<MessageIntelligenceIngestionJobDto> GetMessageIntelligenceIngestionJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);
-    Task<MessageIntelligenceIngestResultDto> IngestMessageIntelligenceAsync(Guid mailboxId, byte[] encryptedEnvelope, CancellationToken cancellationToken = default);
-    Task<ReconcileMessageIntelligenceResultDto> ReconcileMessageIntelligenceAsync(Guid mailboxId, ReconcileMessageIntelligenceRequest request, CancellationToken cancellationToken = default);
-    Task<IntelligenceChangesPageDto> GetIntelligenceChangesAsync(Guid mailboxId, string intelligenceVersion, Guid indexEpoch, long afterRevision, int pageSize, CancellationToken cancellationToken = default);
-    Task<IntelligenceManifestDto> GetIntelligenceManifestAsync(CancellationToken cancellationToken = default);
-    Task<IntelligenceMailboxStatusDto> GetIntelligenceStatusAsync(Guid mailboxId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<string>> ResolveIntelligenceDeltaAsync(Guid mailboxId, IReadOnlyList<string> remoteMessageIds, CancellationToken cancellationToken = default);
-    Task<IntelligenceReconciliationResultDto> ReconcileIntelligenceAsync(Guid mailboxId, byte[] encryptedEnvelope, CancellationToken cancellationToken = default);
-    Task<IntelligenceIngestResultDto> IngestIntelligenceAsync(Guid mailboxId, byte[] encryptedEnvelope, CancellationToken cancellationToken = default);
-    Task<IntelligenceArtifactCursorPageDto> GetIntelligenceArtifactsAsync(Guid mailboxId, string? cursor, int pageSize, CancellationToken cancellationToken = default);
-    Task<IntelligenceMailboxStatusDto> RebuildIntelligenceEmbeddingsAsync(Guid mailboxId, CancellationToken cancellationToken = default);
-    Task<IntelligenceSemanticSearchResultDto> SearchIntelligenceAsync(IntelligenceSemanticSearchRequest request, CancellationToken cancellationToken = default);
-    Task<IntelligenceSemanticSearchResultDto> SearchIntelligenceAsync(byte[] encryptedEnvelope, CancellationToken cancellationToken = default);
-    Task<IntelligenceSearchPlanResultDto> CreateIntelligenceSearchPlanAsync(IntelligenceSearchPlanRequest request, CancellationToken cancellationToken = default);
-    Task<WinoSuggestedRepliesResult> GetSuggestedRepliesAsync(Guid mailboxId, WinoSuggestedRepliesRequest request, Guid requestId, CancellationToken cancellationToken = default);
-    Task<HeadlineTranslationResultDto> TranslateBriefingHeadlinesAsync(Guid mailboxId, string targetLanguage, CancellationToken cancellationToken = default);
-    Task DeleteIntelligenceAsync(Guid mailboxId, CancellationToken cancellationToken = default);
+    // Mail intelligence. Jobs are submitted per mailbox; results are collected as two
+    // independently downloadable and independently acknowledged stages.
+    Task<MailIntelligenceJobAcceptedDto> SubmitMailIntelligenceJobAsync(
+        Guid mailboxId, Guid jobId, string checksum, byte[] upload, CancellationToken cancellationToken = default);
+    Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(CancellationToken cancellationToken = default);
+    Task<MailIntelligenceJobDto?> GetMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);
+    Task<JevResultPageDto> GetJevResultPageAsync(Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default);
+    Task<LunaResultPageDto> GetLunaResultPageAsync(Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default);
+    Task<MailIntelligenceStageAckResultDto> AcknowledgeMailIntelligenceStageAsync(
+        Guid mailboxId, Guid jobId, string stage, string digest, CancellationToken cancellationToken = default);
+    Task CancelMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);
+    Task<AnalyzeMailResponseDto> AnalyzeMailAsync(
+        Guid mailboxId, byte[] encryptedEnvelope, string language, CancellationToken cancellationToken = default);
     Task<IntelligenceConsentDto> GetIntelligenceConsentAsync(CancellationToken cancellationToken = default);
     Task<IntelligenceConsentDto> AcceptIntelligenceConsentAsync(string policyVersion, string source, CancellationToken cancellationToken = default);
     Task<IntelligenceConsentDto> RevokeIntelligenceConsentAsync(string source, CancellationToken cancellationToken = default);

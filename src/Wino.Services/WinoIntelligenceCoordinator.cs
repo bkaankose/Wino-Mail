@@ -27,9 +27,9 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
 {
     private readonly IWinoAccountProfileService _profileService;
     private readonly IWinoAccountApiClient _apiClient;
-    private readonly ISemanticIndexCoordinator _semanticIndexCoordinator;
+    private readonly IMailIntelligenceCoordinator _mailIntelligenceCoordinator;
     private readonly IIntelligenceMessageContextResolver _messageResolver;
-    private readonly ILocalIntelligenceStore _localStore;
+    private readonly IMailIntelligenceStore _localStore;
     private readonly IMimeFileService _mimeFileService;
     private readonly IMailService _mailService;
     private readonly IAccountService _accountService;
@@ -37,7 +37,6 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
     private readonly ITranslationService _translationService;
     private readonly IPreferencesService _preferencesService;
     private readonly IWinoLogger _logger;
-    private readonly ILocalIntelligenceSearchEngine _localSearch;
     private readonly IMailContentProjector _contentProjector;
     private readonly IWinoAccountIntelligenceSnapshotService? _accountSnapshotService;
     private readonly IWinoIntelligenceEntitlementService? _entitlementService;
@@ -46,9 +45,9 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
     public WinoIntelligenceCoordinator(
         IWinoAccountProfileService profileService,
         IWinoAccountApiClient apiClient,
-        ISemanticIndexCoordinator semanticIndexCoordinator,
+        IMailIntelligenceCoordinator mailIntelligenceCoordinator,
         IIntelligenceMessageContextResolver messageResolver,
-        ILocalIntelligenceStore localStore,
+        IMailIntelligenceStore localStore,
         IMimeFileService mimeFileService,
         IMailService mailService,
         IAccountService accountService,
@@ -56,14 +55,13 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         ITranslationService translationService,
         IPreferencesService preferencesService,
         IWinoLogger logger,
-        ILocalIntelligenceSearchEngine localSearch,
         IMailContentProjector contentProjector,
         IWinoAccountIntelligenceSnapshotService? accountSnapshotService = null,
         IWinoIntelligenceEntitlementService? entitlementService = null)
     {
         _profileService = profileService;
         _apiClient = apiClient;
-        _semanticIndexCoordinator = semanticIndexCoordinator;
+        _mailIntelligenceCoordinator = mailIntelligenceCoordinator;
         _messageResolver = messageResolver;
         _localStore = localStore;
         _mimeFileService = mimeFileService;
@@ -73,7 +71,6 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         _translationService = translationService;
         _preferencesService = preferencesService;
         _logger = logger;
-        _localSearch = localSearch;
         _contentProjector = contentProjector;
         _accountSnapshotService = accountSnapshotService;
         _entitlementService = entitlementService;
@@ -95,19 +92,6 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         try
         {
             var metadata = context.IntelligenceMetadata;
-            var needsReply = metadata?.NeedsReply?.Value == true;
-            var needsReplyDetail = metadata?.Headline ?? string.Empty;
-            var deadlinePayload = metadata?.Deadline;
-            var deadline = deadlinePayload?.HasDeadline == true
-                ? new WinoIntelligenceDeadline(
-                    deadlinePayload.Action,
-                    deadlinePayload.DueAtUtc,
-                    deadlinePayload.LocalDate,
-                    deadlinePayload.LocalDateEnd,
-                    deadlinePayload.TimeZoneId,
-                    deadlinePayload.Precision,
-                    deadlinePayload.Confidence)
-                : null;
 
             AccessSnapshot access;
             try
@@ -139,8 +123,8 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
                                       candidate is not null &&
                                       isSupportedProvider;
             var state = processingAvailable
-                ? await _semanticIndexCoordinator.GetMessageStateAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false)
-                : SemanticMessageIndexState.Unsupported;
+                ? await _mailIntelligenceCoordinator.GetMessageStateAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false)
+                : MailMessageIntelligenceState.Unsupported;
 
             var language = ResolveSummaryLanguage();
             var inference = context.InferenceProjection ??
@@ -161,14 +145,10 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
                 access.CanConsumeQuota && access.HasIntelligenceConsent,
                 access.CanConsumeQuota && access.HasIntelligenceConsent,
                 processingAvailable,
-                processingAvailable,
-                processingAvailable && state == SemanticMessageIndexState.Indexed,
                 state,
                 access.MailboxId,
                 candidate?.RemoteMessageId,
-                needsReply,
-                needsReplyDetail,
-                deadline,
+                metadata,
                 string.IsNullOrWhiteSpace(cachedSummary) ? null : cachedSummary);
         }
         catch (OperationCanceledException)
@@ -187,7 +167,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         var snapshot = await GetSnapshotAsync(context, cancellationToken).ConfigureAwait(false);
         if (!snapshot.IsProcessingAvailable)
             throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
-        await _semanticIndexCoordinator.IndexMessageAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false);
+        await _mailIntelligenceCoordinator.ProcessMessageAsync(context.LocalAccountId, context.MessageId, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -260,110 +240,6 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
             return translated;
         }, cancellationToken);
 
-    public Task<WinoIntelligenceOperationResult<IReadOnlyList<WinoSuggestedReply>>> GetSuggestedRepliesAsync(
-        WinoIntelligenceContext context,
-        Guid requestId,
-        CancellationToken cancellationToken = default)
-        => RunAsync(context, requestId, async token =>
-        {
-            var snapshot = await GetSnapshotAsync(context, token).ConfigureAwait(false);
-            if (!snapshot.IsSuggestedRepliesAvailable || snapshot.MailboxId is null)
-                throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
-            var target = await _messageResolver.FindCandidateAsync(context.LocalAccountId, context.MessageId, token).ConfigureAwait(false)
-                ?? throw new InvalidOperationException("This message is not available for intelligence.");
-            var candidates = await _messageResolver.GetCandidatesAsync(context.LocalAccountId, null, token).ConfigureAwait(false);
-            var processor = CreateProcessor();
-            var targetPrepared = processor.Prepare(
-                context.Sender,
-                context.Subject,
-                new MailBodyContent(MailBodyFormat.Html, context.Html),
-                EmbeddingProfile.OpenAiTextEmbedding3Small768);
-            var targetMessage = ToReplyMessage(target, targetPrepared);
-            var threadCandidates = string.IsNullOrWhiteSpace(target.ThreadId)
-                ? []
-                : candidates.Where(x => x.RemoteMessageId != target.RemoteMessageId && x.ThreadId == target.ThreadId)
-                    .OrderBy(x => x.ReceivedAt).Take(12).ToArray();
-            var thread = await PrepareMessagesAsync(context.LocalAccountId, threadCandidates, processor, token).ConfigureAwait(false);
-            var excluded = threadCandidates.Select(static candidate => candidate.RemoteMessageId)
-                .Append(target.RemoteMessageId)
-                .ToHashSet(StringComparer.Ordinal);
-            var similarExamples = await _localSearch.FindSimilarAsync(
-                context.LocalAccountId, target.RemoteMessageId, 5, true, excluded, token).ConfigureAwait(false);
-            var exampleIds = similarExamples.Select(static match => match.RemoteMessageId).ToHashSet(StringComparer.Ordinal);
-            var exampleRanks = similarExamples.Select((match, index) => (match.RemoteMessageId, index))
-                .ToDictionary(static pair => pair.RemoteMessageId, static pair => pair.index, StringComparer.Ordinal);
-            var exampleCandidates = candidates.Where(candidate => exampleIds.Contains(candidate.RemoteMessageId))
-                .OrderBy(candidate => exampleRanks[candidate.RemoteMessageId])
-                .ToArray();
-            if (exampleCandidates.Length == 0)
-            {
-                exampleCandidates = candidates
-                    .Where(candidate => candidate.IsOutgoing && !excluded.Contains(candidate.RemoteMessageId))
-                    .OrderByDescending(static candidate => candidate.ReceivedAt)
-                    .Take(5)
-                    .ToArray();
-            }
-            var examples = await PrepareMessagesAsync(context.LocalAccountId, exampleCandidates, processor, token).ConfigureAwait(false);
-            var result = await _apiClient.GetSuggestedRepliesAsync(
-                snapshot.MailboxId.Value,
-                new WinoSuggestedRepliesRequest(targetMessage, thread, examples),
-                requestId,
-                token).ConfigureAwait(false);
-            if (result.RequestId != requestId)
-                throw new InvalidOperationException("Suggested reply response did not match the active request.");
-            return (IReadOnlyList<WinoSuggestedReply>)result.Suggestions;
-        }, cancellationToken);
-
-    public Task<WinoIntelligenceOperationResult<IReadOnlyList<WinoSimilarMailItem>>> FindSimilarAsync(
-        WinoIntelligenceContext context,
-        Guid requestId,
-        CancellationToken cancellationToken = default)
-        => RunAsync(context, requestId, async token =>
-        {
-            var snapshot = await GetSnapshotAsync(context, token).ConfigureAwait(false);
-            if (!snapshot.IsFindSimilarAvailable || snapshot.MailboxId is null)
-                throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
-            var candidates = await _messageResolver.GetCandidatesAsync(context.LocalAccountId, null, token).ConfigureAwait(false);
-            var byRemoteId = candidates.GroupBy(x => x.RemoteMessageId, StringComparer.Ordinal)
-                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
-            var currentRemoteId = candidates.FirstOrDefault(candidate => candidate.UniqueId == context.MailUniqueId)?.RemoteMessageId;
-            if (string.IsNullOrWhiteSpace(currentRemoteId))
-                return Array.Empty<WinoSimilarMailItem>();
-            var matches = await _localSearch.FindSimilarAsync(
-                context.LocalAccountId, currentRemoteId, 10, false, null, token).ConfigureAwait(false);
-            return (IReadOnlyList<WinoSimilarMailItem>)matches
-                .Where(x => byRemoteId.ContainsKey(x.RemoteMessageId))
-                .Select(x =>
-                {
-                    var candidate = byRemoteId[x.RemoteMessageId];
-                    return new WinoSimilarMailItem(candidate.UniqueId, candidate.Subject, candidate.Sender, ToUtc(candidate.ReceivedAt), x.Similarity);
-                })
-                .Take(10)
-                .ToArray();
-        }, cancellationToken);
-
-    public async Task<Guid> CreateSuggestedReplyDraftAsync(
-        WinoIntelligenceContext context,
-        string replyText,
-        CancellationToken cancellationToken = default)
-    {
-        var account = await _accountService.GetAccountAsync(context.LocalAccountId).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("The mail account no longer exists.");
-        var mime = await _mimeFileService.GetMimeMessageInformationAsync(context.FileId, context.LocalAccountId, cancellationToken).ConfigureAwait(false);
-        var referenceCopy = await _mailService.GetSingleMailItemAsync(context.MailUniqueId).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("The referenced message no longer exists.");
-        var options = new DraftCreationOptions
-        {
-            Reason = DraftCreationReason.Reply,
-            InitialBodyText = replyText,
-            ReferencedMessage = new ReferencedMessage { MailCopy = referenceCopy, MimeMessage = mime.MimeMessage },
-        };
-        var (draftCopy, draftMime) = await _mailService.CreateDraftAsync(context.LocalAccountId, options).ConfigureAwait(false);
-        var preparation = new DraftPreparationRequest(account, draftCopy, draftMime, options.Reason, referenceCopy);
-        await _requestDelegator.ExecuteAsync(preparation).ConfigureAwait(false);
-        return draftCopy.UniqueId;
-    }
-
     public void CancelRequest(Guid requestId)
     {
         if (_requests.TryGetValue(requestId, out var pending))
@@ -378,7 +254,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
 
     public void InvalidateAccess()
     {
-        _ = _localStore.DeleteAccessSnapshotsAsync();
+        _ = Task.CompletedTask;
     }
 
     private void InvalidateAccessAndNotify()
@@ -416,17 +292,16 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
                 if (accountSnapshot.Billing?.AiPack.HasAccess != true)
                     return AccessSnapshot.None;
 
-                var mailbox = accountSnapshot.Mailboxes.FirstOrDefault(x =>
-                    x.ProviderType == (int)context.ProviderType &&
-                    string.Equals(x.Address.Trim(), context.AccountAddress.Trim(), StringComparison.OrdinalIgnoreCase));
+                // The mailbox id comes from the local access record now, because the
+                // account snapshot no longer caches a server-side mailbox list.
+                var localAccess = await LoadAccessSnapshotAsync(context.LocalAccountId, cancellationToken).ConfigureAwait(false);
                 var hasConsent = accountSnapshot.Consent is { } consent && IsCurrent(consent);
-                return new(true, hasConsent, mailbox?.MailboxId, entitlement?.CanConsumeQuota ?? true);
+                return new(true, hasConsent, localAccess?.MailboxId, entitlement?.CanConsumeQuota ?? true);
             }
         }
 
-        // Keep compatibility with the earlier account-scoped cache while existing installations
-        // migrate to WinoAccountIntelligenceSnapshot. A cache miss intentionally means no access.
-        var persisted = await _localStore.GetAccessSnapshotAsync(context.LocalAccountId, cancellationToken).ConfigureAwait(false);
+        // A cache miss intentionally means no access.
+        var persisted = await LoadAccessSnapshotAsync(context.LocalAccountId, cancellationToken).ConfigureAwait(false);
         if (persisted is not null && persisted.WinoAccountId == winoAccount.Id)
             return new(persisted.HasAiPack, persisted.HasIntelligenceConsent, persisted.MailboxId,
                 entitlement?.CanConsumeQuota ?? persisted.HasAiPack);
@@ -465,27 +340,6 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
             linked.Dispose();
         }
     }
-
-    private async Task<IReadOnlyList<WinoSuggestedReplyMessage>> PrepareMessagesAsync(
-        Guid accountId,
-        IReadOnlyList<IntelligenceMessageCandidate> candidates,
-        MailContentProcessor processor,
-        CancellationToken cancellationToken)
-    {
-        var output = new List<WinoSuggestedReplyMessage>(candidates.Count);
-        foreach (var candidate in candidates)
-        {
-            var content = await _messageResolver.GetContentAsync(accountId, candidate, cancellationToken).ConfigureAwait(false);
-            var from = content.From.Count > 0 ? content.From : [new MailAddress(candidate.Sender, candidate.SenderName)];
-            var prepared = processor.Prepare(from, candidate.Subject, content.Body, EmbeddingProfile.OpenAiTextEmbedding3Small768);
-            output.Add(ToReplyMessage(candidate, prepared));
-        }
-        return output;
-    }
-
-    private static WinoSuggestedReplyMessage ToReplyMessage(IntelligenceMessageCandidate candidate, PreparedMailContent prepared)
-        => new(candidate.RemoteMessageId, prepared.ContentHash, prepared.Subject, prepared.Sender, prepared.Body,
-            ToUtc(candidate.ReceivedAt), candidate.IsOutgoing);
 
     private static MailContentProcessor CreateProcessor()
         => new(new HtmlContentSanitizer());
@@ -546,26 +400,6 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
     private static string CreateTranslationCacheKey(MailContentProjection projection, string? sourceLanguage, string targetLanguage)
         => $"{projection.Version}-{projection.ContentHash}-{sourceLanguage ?? "detect"}-{targetLanguage}-gpt5mini-v1";
 
-    private static (bool NeedsReply, string NeedsReplyDetail, WinoIntelligenceDeadline? Deadline) ParseArtifacts(
-        IReadOnlyList<IntelligenceArtifactDto> artifacts)
-    {
-        var fact = artifacts.FirstOrDefault(x => !x.IsDeleted && x.Capability == IntelligenceCapability.BriefingFact)?.BriefingFact;
-        var metadata = new MailIntelligenceMetadata(string.Empty, [], fact, string.Empty);
-        var needsReply = metadata.NeedsReply?.Value == true;
-        var detail = string.Empty;
-        var deadline = metadata.Deadline;
-        if (deadline?.HasDeadline != true)
-            return (needsReply, detail, null);
-        return (needsReply, detail, new WinoIntelligenceDeadline(
-            deadline.Action,
-            deadline.DueAtUtc,
-            deadline.LocalDate,
-            deadline.LocalDateEnd,
-            deadline.TimeZoneId,
-            deadline.Precision,
-            deadline.Confidence));
-    }
-
     private static bool IsCurrent(IntelligenceConsentDto consent)
         => consent.Status == ConsentStatuses.Active && consent.AcceptedPolicyVersion == consent.CurrentPolicyVersion;
 
@@ -575,6 +409,24 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         DateTimeKind.Local => new DateTimeOffset(value.ToUniversalTime()),
         _ => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)),
     };
+
+    private async Task<LocalIntelligenceAccessSnapshot?> LoadAccessSnapshotAsync(
+        Guid localAccountId, CancellationToken cancellationToken)
+    {
+        var access = await _localStore.GetAccessAsync(localAccountId, cancellationToken).ConfigureAwait(false);
+        if (access is not { } value)
+        {
+            return null;
+        }
+
+        return new LocalIntelligenceAccessSnapshot(
+            localAccountId,
+            Guid.Empty,
+            value.HasAiPack,
+            value.HasConsent,
+            value.MailboxId == Guid.Empty ? null : value.MailboxId,
+            DateTimeOffset.UtcNow);
+    }
 
     private sealed record PendingRequest(string ContentKey, CancellationTokenSource Cancellation);
     private sealed record AccessSnapshot(bool HasAiPack, bool HasIntelligenceConsent, Guid? MailboxId, bool CanConsumeQuota)

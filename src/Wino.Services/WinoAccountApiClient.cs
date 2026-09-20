@@ -30,7 +30,6 @@ using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Mail.Contracts.Intelligence;
-using Wino.Mail.Contracts.SemanticIndex;
 
 namespace Wino.Services;
 
@@ -304,261 +303,186 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<IReadOnlyList<SemanticMailboxDto>> GetSemanticMailboxesAsync(CancellationToken cancellationToken = default)
-    {
-        var envelope = await SendAuthorizedRequestAsync(
-            "api/v1/ai/semantic-index/mailboxes",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeListSemanticMailboxDto,
-            cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result != null
-            ? envelope.Result
-            : throw new InvalidOperationException(envelope.ErrorCode ?? "Semantic mailbox discovery failed.");
-    }
+    private const string MailIntelligenceRoot = "api/v2/ai/intelligence";
 
-    public async Task<SemanticMailboxDto> EnsureSemanticMailboxAsync(
-        string address,
-        int providerType,
-        CancellationToken cancellationToken = default)
-    {
-        var envelope = await SendAuthorizedRequestAsync(
-            HttpMethod.Put,
-            "api/v1/ai/semantic-index/mailboxes",
-            new EnsureSemanticMailboxRequest(address, providerType),
-            WinoAccountApiJsonContext.Default.EnsureSemanticMailboxRequest,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeSemanticMailboxDto,
-            cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result != null
-            ? envelope.Result
-            : throw SemanticApiFailure(envelope.ErrorCode, "Semantic mailbox creation failed.");
-    }
+    private static string MailIntelligenceJobsRoute(Guid mailboxId)
+        => $"{MailIntelligenceRoot}/mailboxes/{mailboxId:D}/jobs";
 
-    public async Task<IntelligenceManifestDto> GetIntelligenceManifestAsync(CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            "api/v1/ai/intelligence/manifest",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceManifestDto,
-            cancellationToken).ConfigureAwait(false), "Intelligence manifest request failed.");
+    private static string MailIntelligenceJobRoute(Guid mailboxId, Guid jobId)
+        => $"{MailIntelligenceJobsRoute(mailboxId)}/{jobId:D}";
 
-    public async Task<WinoIntelligenceManifestDto> GetWinoIntelligenceManifestAsync(CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            "api/v1/ai/intelligence/manifest",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeWinoIntelligenceManifestDto,
-            cancellationToken).ConfigureAwait(false), "Intelligence manifest request failed.");
-
-    public async Task<MailboxIntelligenceHeadDto?> GetIntelligenceHeadAsync(
-        Guid mailboxId,
-        CancellationToken cancellationToken = default)
-    {
-        var envelope = await SendAuthorizedRequestAsync(
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/head",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeMailboxIntelligenceHeadDto,
-            cancellationToken).ConfigureAwait(false);
-
-        return envelope.IsSuccess
-            ? envelope.Result
-            : throw IntelligenceApiFailure(envelope.ErrorCode, "Intelligence head request failed.");
-    }
-
-    public async Task<BeginIntelligenceReindexResultDto> BeginIntelligenceReindexAsync(
-        Guid mailboxId,
-        BeginIntelligenceReindexRequest request,
-        CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            HttpMethod.Post,
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/reindex:begin",
-            request,
-            WinoAccountApiJsonContext.Default.BeginIntelligenceReindexRequest,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeBeginIntelligenceReindexResultDto,
-            cancellationToken).ConfigureAwait(false), "Intelligence reindex request failed.");
-
-    public Task<MessageIntelligenceIngestResultDto> IngestMessageIntelligenceAsync(
-        Guid mailboxId,
-        byte[] encryptedEnvelope,
-        CancellationToken cancellationToken = default)
-        => SendEncryptedIntelligenceAsync(
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/ingest",
-            encryptedEnvelope,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeMessageIntelligenceIngestResultDto,
-            "Intelligence ingestion failed.",
-            cancellationToken);
-
-    public Task<MessageIntelligenceIngestionJobAcceptedDto> StartMessageIntelligenceIngestionJobAsync(
-        Guid mailboxId,
-        byte[] encryptedEnvelope,
-        CancellationToken cancellationToken = default)
-        => SendEncryptedIntelligenceOnceAsync(
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/ingestion-jobs",
-            encryptedEnvelope,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeMessageIntelligenceIngestionJobAcceptedDto,
-            "Intelligence ingestion job start failed.",
-            cancellationToken);
-
-    public async Task<MessageIntelligenceIngestionJobDto> GetMessageIntelligenceIngestionJobAsync(
+    /// <summary>
+    /// Streams one encrypted SQLite upload. The job id and checksum make a retry
+    /// idempotent, so a dropped connection never produces a duplicate job.
+    /// </summary>
+    public async Task<MailIntelligenceJobAcceptedDto> SubmitMailIntelligenceJobAsync(
         Guid mailboxId,
         Guid jobId,
-        CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/ingestion-jobs/{jobId:D}",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeMessageIntelligenceIngestionJobDto,
-            cancellationToken).ConfigureAwait(false), "Intelligence ingestion job poll failed.");
-
-    public async Task<ReconcileMessageIntelligenceResultDto> ReconcileMessageIntelligenceAsync(
-        Guid mailboxId,
-        ReconcileMessageIntelligenceRequest request,
-        CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            HttpMethod.Post,
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/reconcile",
-            request,
-            WinoAccountApiJsonContext.Default.ReconcileMessageIntelligenceRequest,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeReconcileMessageIntelligenceResultDto,
-            cancellationToken).ConfigureAwait(false), "Intelligence reconciliation failed.");
-
-    public async Task<IntelligenceChangesPageDto> GetIntelligenceChangesAsync(
-        Guid mailboxId,
-        string intelligenceVersion,
-        Guid indexEpoch,
-        long afterRevision,
-        int pageSize,
-        CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/changes" +
-            $"?intelligenceVersion={Uri.EscapeDataString(intelligenceVersion)}" +
-            $"&indexEpoch={indexEpoch:D}&afterRevision={afterRevision}&pageSize={pageSize}",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceChangesPageDto,
-            cancellationToken).ConfigureAwait(false), "Intelligence changes request failed.");
-
-    public async Task<IntelligenceMailboxStatusDto> GetIntelligenceStatusAsync(Guid mailboxId, CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/status",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceMailboxStatusDto,
-            cancellationToken).ConfigureAwait(false), "Intelligence status request failed.");
-
-    public async Task<IReadOnlyList<string>> ResolveIntelligenceDeltaAsync(
-        Guid mailboxId,
-        IReadOnlyList<string> remoteMessageIds,
+        string checksum,
+        byte[] upload,
         CancellationToken cancellationToken = default)
     {
-        var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
-            ?? throw new InvalidOperationException("A Wino account is required for mail intelligence.");
-        var route = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/delta:resolve";
-        var envelopeRoute = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/delta:resolve";
+        ArgumentNullException.ThrowIfNull(upload);
+        var endpoint = $"{MailIntelligenceJobsRoute(mailboxId)}?jobId={jobId:D}&checksum={checksum}";
+
+        for (var attempt = 0; attempt < _maximumEncryptedAttempts; attempt++)
+        {
+            try
+            {
+                using var response = await SendAuthorizedAsync(
+                    () => CreateAuthorizedRequestAsync(
+                        HttpMethod.Post,
+                        endpoint,
+                        () =>
+                        {
+                            var content = new ByteArrayContent(upload);
+                            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                            return content;
+                        }),
+                    cancellationToken).ConfigureAwait(false)
+                    ?? throw new InvalidOperationException("MissingAccessToken");
+
+                if (attempt < _maximumEncryptedAttempts - 1 &&
+                    response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.BadGateway or
+                        HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
+                    continue;
+                }
+
+                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                var envelope = await JsonSerializer.DeserializeAsync(
+                    stream,
+                    WinoAccountApiJsonContext.Default.ApiEnvelopeMailIntelligenceJobAcceptedDto,
+                    cancellationToken).ConfigureAwait(false);
+                return RequireResult(
+                    envelope ?? ApiEnvelope<MailIntelligenceJobAcceptedDto>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
+                    "Submitting the intelligence job failed.");
+            }
+            catch (HttpRequestException) when (attempt < _maximumEncryptedAttempts - 1)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        throw new InvalidOperationException("Submitting the intelligence job failed. Retry limit reached.");
+    }
+
+    public async Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            HttpMethod.Get,
+            $"{MailIntelligenceRoot}/jobs",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeMailIntelligenceJobListDto,
+            cancellationToken).ConfigureAwait(false), "Listing intelligence jobs failed.");
+
+    /// <summary>Returns null when the job is gone, which happens once both stages are acknowledged.</summary>
+    public async Task<MailIntelligenceJobDto?> GetMailIntelligenceJobAsync(
+        Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(HttpMethod.Get, MailIntelligenceJobRoute(mailboxId, jobId)),
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("MissingAccessToken");
+
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var envelope = await JsonSerializer.DeserializeAsync(
+            stream,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeMailIntelligenceJobDto,
+            cancellationToken).ConfigureAwait(false);
+        return RequireResult(
+            envelope ?? ApiEnvelope<MailIntelligenceJobDto>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
+            "Reading the intelligence job failed.");
+    }
+
+    public async Task<JevResultPageDto> GetJevResultPageAsync(
+        Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default)
+        => await GetResultPageAsync(
+            mailboxId, jobId, "jev", page, WinoAccountApiJsonContext.Default.JevResultPageDto, cancellationToken).ConfigureAwait(false);
+
+    public async Task<LunaResultPageDto> GetLunaResultPageAsync(
+        Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default)
+        => await GetResultPageAsync(
+            mailboxId, jobId, "luna", page, WinoAccountApiJsonContext.Default.LunaResultPageDto, cancellationToken).ConfigureAwait(false);
+
+    /// <summary>Result pages are served as plain JSON rather than wrapped in an envelope.</summary>
+    private async Task<T> GetResultPageAsync<T>(
+        Guid mailboxId,
+        Guid jobId,
+        string stage,
+        int page,
+        JsonTypeInfo<T> typeInfo,
+        CancellationToken cancellationToken) where T : class
+    {
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(
+                HttpMethod.Get,
+                $"{MailIntelligenceJobRoute(mailboxId, jobId)}/results/{stage}?page={page}"),
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("MissingAccessToken");
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        return await JsonSerializer.DeserializeAsync(stream, typeInfo, cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException($"The {stage} result page was empty.");
+    }
+
+    public async Task<MailIntelligenceStageAckResultDto> AcknowledgeMailIntelligenceStageAsync(
+        Guid mailboxId, Guid jobId, string stage, string digest, CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            $"{MailIntelligenceJobRoute(mailboxId, jobId)}/results/{stage}:ack",
+            new MailIntelligenceStageAckRequest(digest),
+            WinoAccountApiJsonContext.Default.MailIntelligenceStageAckRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeMailIntelligenceStageAckResultDto,
+            cancellationToken).ConfigureAwait(false), "Acknowledging the intelligence stage failed.");
+
+    public async Task CancelMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(HttpMethod.Delete, MailIntelligenceJobRoute(mailboxId, jobId)),
+            cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("MissingAccessToken");
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Processes one mail synchronously. The response carries the Jev artifact always and
+    /// the Luna artifact whenever Jev selected the message for the briefing.
+    /// </summary>
+    public async Task<AnalyzeMailResponseDto> AnalyzeMailAsync(
+        Guid mailboxId,
+        byte[] encryptedEnvelope,
+        string language,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(encryptedEnvelope);
+        var endpoint = $"{MailIntelligenceRoot}/mailboxes/{mailboxId:D}/messages:analyze?language={Uri.EscapeDataString(language)}";
         using var response = await SendAuthorizedAsync(
             () => CreateAuthorizedRequestAsync(
                 HttpMethod.Post,
-                route.TrimStart('/'),
-                () => new DeltaFrameContent(async (stream, token) =>
+                endpoint,
+                () =>
                 {
-                    var frameCount = Math.Max(1, (remoteMessageIds.Count + 999) / 1_000);
-                    for (var sequence = 0; sequence < frameCount; sequence++)
-                    {
-                        var ids = remoteMessageIds.Skip(sequence * 1_000).Take(1_000).ToArray();
-                        var frame = new IntelligenceDeltaFrameRequest(sequence, sequence == frameCount - 1, ids);
-                        var plaintext = JsonSerializer.SerializeToUtf8Bytes(
-                            frame, WinoAccountApiJsonContext.Default.IntelligenceDeltaFrameRequest);
-                        byte[]? encoded = null;
-                        try
-                        {
-                            var encrypted = _contentEnvelopeEncryptor.Encrypt(
-                                plaintext,
-                                new ContentEnvelopeContext(account.Id, mailboxId, envelopeRoute),
-                                Guid.NewGuid(),
-                                DateTimeOffset.UtcNow);
-                            try { encoded = ContentEnvelopeBinaryCodec.Encode(encrypted); }
-                            finally
-                            {
-                                CryptographicOperations.ZeroMemory(encrypted.WrappedKey);
-                                CryptographicOperations.ZeroMemory(encrypted.Nonce);
-                                CryptographicOperations.ZeroMemory(encrypted.Tag);
-                                CryptographicOperations.ZeroMemory(encrypted.Ciphertext);
-                            }
-                            var length = new byte[sizeof(int)];
-                            BinaryPrimitives.WriteInt32BigEndian(length, encoded.Length);
-                            await stream.WriteAsync(length, token).ConfigureAwait(false);
-                            await stream.WriteAsync(encoded, token).ConfigureAwait(false);
-                        }
-                        finally
-                        {
-                            CryptographicOperations.ZeroMemory(plaintext);
-                            if (encoded is not null) CryptographicOperations.ZeroMemory(encoded);
-                        }
-                    }
-                })),
+                    var content = new ByteArrayContent(encryptedEnvelope);
+                    content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+                    return content;
+                }),
             cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("MissingAccessToken");
-        response.EnsureSuccessStatusCode();
-        var missing = new List<string>();
-        await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        using var reader = new StreamReader(responseStream);
-        while (await reader.ReadLineAsync(cancellationToken).ConfigureAwait(false) is { } line)
-        {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-            var frame = JsonSerializer.Deserialize(line, WinoAccountApiJsonContext.Default.IntelligenceDeltaFrameResult)
-                ?? throw new InvalidOperationException("The intelligence delta response is invalid.");
-            missing.AddRange(frame.MissingRemoteMessageIds);
-            if (frame.IsFinal) break;
-        }
-        return missing;
-    }
 
-    public async Task<IntelligenceIngestResultDto> IngestIntelligenceAsync(
-        Guid mailboxId,
-        byte[] encryptedEnvelope,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await SendEncryptedIntelligenceAsync(
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/ingest",
-            encryptedEnvelope,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeCompactIntelligenceIngestResultDto,
-            "Intelligence ingestion failed.",
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+        var envelope = await JsonSerializer.DeserializeAsync(
+            stream,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeAnalyzeMailResponseDto,
             cancellationToken).ConfigureAwait(false);
-
-        return new IntelligenceIngestResultDto(
-            result.Items,
-            result.Artifacts.Select(static artifact => artifact.ToContract()).ToArray());
+        return RequireResult(
+            envelope ?? ApiEnvelope<AnalyzeMailResponseDto>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
+            "Analyzing the message failed.");
     }
-
-    public async Task<IntelligenceReconciliationResultDto> ReconcileIntelligenceAsync(
-        Guid mailboxId,
-        byte[] encryptedEnvelope,
-        CancellationToken cancellationToken = default)
-    {
-        var result = await SendEncryptedIntelligenceAsync(
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/reconcile",
-            encryptedEnvelope,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeCompactIntelligenceReconciliationResultDto,
-            "Intelligence reconciliation failed.",
-            cancellationToken).ConfigureAwait(false);
-
-        return new IntelligenceReconciliationResultDto(
-            result.CoveredRemoteMessageIds,
-            result.MissingRemoteMessageIds,
-            result.Artifacts.Select(static artifact => artifact.ToContract()).ToArray());
-    }
-
-    public async Task<IntelligenceArtifactCursorPageDto> GetIntelligenceArtifactsAsync(
-        Guid mailboxId,
-        string? cursor,
-        int pageSize,
-        CancellationToken cancellationToken = default)
-    {
-        var page = RequireResult(await SendAuthorizedRequestAsync(
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/artifacts?cursor={Uri.EscapeDataString(cursor ?? string.Empty)}&pageSize={pageSize}",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeCompactIntelligenceArtifactCursorPageDto,
-            cancellationToken).ConfigureAwait(false), "Intelligence artifact download failed.");
-
-        return new IntelligenceArtifactCursorPageDto(
-            page.NextCursor,
-            page.Items.Select(static artifact => artifact.ToContract()).ToArray());
-    }
-
-    public async Task<IntelligenceMailboxStatusDto> RebuildIntelligenceEmbeddingsAsync(
-        Guid mailboxId,
-        CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            HttpMethod.Post,
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/embeddings:rebuild",
-            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceMailboxStatusDto,
-            cancellationToken).ConfigureAwait(false), "Embedding rebuild request failed.");
 
     private async Task<T> SendEncryptedIntelligenceAsync<T>(
         string endpoint,
@@ -633,148 +557,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             failureMessage);
     }
 
-    public Task<IntelligenceSemanticSearchResultDto> SearchIntelligenceAsync(byte[] encryptedEnvelope, CancellationToken cancellationToken = default)
-        => SendEncryptedIntelligenceAsync(
-            "api/v1/ai/intelligence/search",
-            encryptedEnvelope,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceSemanticSearchResultDto,
-            "Semantic intelligence search failed.",
-            cancellationToken);
-
-    public async Task<IntelligenceSearchPlanResultDto> CreateIntelligenceSearchPlanAsync(
-        IntelligenceSearchPlanRequest request,
-        CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            HttpMethod.Post,
-            "api/v1/ai/intelligence/search:plan",
-            request,
-            WinoAccountApiJsonContext.Default.IntelligenceSearchPlanRequest,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceSearchPlanResultDto,
-            cancellationToken).ConfigureAwait(false), "Semantic search planning failed.");
-
-    public async Task<IntelligenceSemanticSearchResultDto> SearchIntelligenceAsync(
-        IntelligenceSemanticSearchRequest request,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
-            ?? throw new InvalidOperationException("A Wino account is required for semantic search.");
-        var plaintext = JsonSerializer.SerializeToUtf8Bytes(
-            request,
-            WinoAccountApiJsonContext.Default.IntelligenceSemanticSearchRequest);
-        const string route = "/api/v1/ai/intelligence/search";
-        byte[]? encodedEnvelope = null;
-        EncryptedContentEnvelope? encryptedEnvelope = null;
-        try
-        {
-            encryptedEnvelope = _contentEnvelopeEncryptor.Encrypt(
-                plaintext,
-                new ContentEnvelopeContext(account.Id, Guid.Empty, route),
-                Guid.NewGuid(),
-                DateTimeOffset.UtcNow);
-            encodedEnvelope = ContentEnvelopeBinaryCodec.Encode(encryptedEnvelope);
-            return await SearchIntelligenceAsync(encodedEnvelope, cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(plaintext);
-            if (encodedEnvelope is not null) CryptographicOperations.ZeroMemory(encodedEnvelope);
-            if (encryptedEnvelope is not null)
-            {
-                CryptographicOperations.ZeroMemory(encryptedEnvelope.WrappedKey);
-                CryptographicOperations.ZeroMemory(encryptedEnvelope.Nonce);
-                CryptographicOperations.ZeroMemory(encryptedEnvelope.Tag);
-                CryptographicOperations.ZeroMemory(encryptedEnvelope.Ciphertext);
-            }
-        }
-    }
-
-    public async Task<HeadlineTranslationResultDto> TranslateBriefingHeadlinesAsync(
-        Guid mailboxId,
-        string targetLanguage,
-        CancellationToken cancellationToken = default)
-        => RequireResult(await SendAuthorizedRequestAsync(
-            HttpMethod.Post,
-            $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}/headlines:translate",
-            new HeadlineTranslationRequest(targetLanguage),
-            WinoAccountApiJsonContext.Default.HeadlineTranslationRequest,
-            WinoAccountApiJsonContext.Default.ApiEnvelopeHeadlineTranslationResultDto,
-            cancellationToken).ConfigureAwait(false), "Headline translation failed.");
-
-    public async Task<WinoSuggestedRepliesResult> GetSuggestedRepliesAsync(
-        Guid mailboxId,
-        WinoSuggestedRepliesRequest request,
-        Guid requestId,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false)
-            ?? throw new InvalidOperationException("A Wino account is required for suggested replies.");
-        var wireRequest = new LocalizedSuggestedRepliesRequest(
-            request.Target,
-            request.Thread,
-            request.CandidateExamples,
-            GetApplicationLanguage(),
-            request.Tone,
-            request.Count);
-        var plaintext = JsonSerializer.SerializeToUtf8Bytes(
-            wireRequest,
-            WinoAccountApiJsonContext.Default.LocalizedSuggestedRepliesRequest);
-        var route = $"/api/v1/ai/intelligence/mailboxes/{mailboxId:D}/suggested-replies";
-        byte[]? encodedEnvelope = null;
-        EncryptedContentEnvelope? encryptedEnvelope = null;
-        try
-        {
-            encryptedEnvelope = _contentEnvelopeEncryptor.Encrypt(
-                plaintext,
-                new ContentEnvelopeContext(account.Id, mailboxId, route),
-                requestId,
-                DateTimeOffset.UtcNow);
-            encodedEnvelope = ContentEnvelopeBinaryCodec.Encode(encryptedEnvelope);
-            using var response = await SendAuthorizedAsync(
-                () => CreateAuthorizedRequestAsync(
-                    HttpMethod.Post,
-                    route.TrimStart('/'),
-                    () =>
-                    {
-                        var content = new ByteArrayContent(encodedEnvelope);
-                        content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-                        return content;
-                    }),
-                cancellationToken).ConfigureAwait(false)
-                ?? throw new InvalidOperationException("MissingAccessToken");
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            var envelope = await JsonSerializer.DeserializeAsync(
-                stream,
-                WinoAccountApiJsonContext.Default.ApiEnvelopeWinoSuggestedRepliesResult,
-                cancellationToken).ConfigureAwait(false);
-            return RequireResult(
-                envelope ?? ApiEnvelope<WinoSuggestedRepliesResult>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
-                "Suggested replies request failed.");
-        }
-        finally
-        {
-            CryptographicOperations.ZeroMemory(plaintext);
-            if (encodedEnvelope is not null) CryptographicOperations.ZeroMemory(encodedEnvelope);
-            if (encryptedEnvelope is not null)
-            {
-                CryptographicOperations.ZeroMemory(encryptedEnvelope.WrappedKey);
-                CryptographicOperations.ZeroMemory(encryptedEnvelope.Nonce);
-                CryptographicOperations.ZeroMemory(encryptedEnvelope.Tag);
-                CryptographicOperations.ZeroMemory(encryptedEnvelope.Ciphertext);
-            }
-        }
-    }
-
-    public async Task DeleteIntelligenceAsync(Guid mailboxId, CancellationToken cancellationToken = default)
-    {
-        using var response = await SendAuthorizedAsync(
-            () => CreateAuthorizedRequestAsync(HttpMethod.Delete, $"api/v1/ai/intelligence/mailboxes/{mailboxId:D}"),
-            cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("MissingAccessToken");
-        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
-    }
-
     private static T RequireResult<T>(ApiEnvelope<T> envelope, string fallback) where T : class
         => envelope.IsSuccess && envelope.Result is not null
             ? envelope.Result
@@ -815,8 +597,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private static InvalidOperationException SemanticApiFailure(string? errorCode, string fallbackMessage)
         => new(errorCode switch
         {
-            ApiErrorCodes.SemanticMailboxLimitExceeded => Translator.SemanticIndex_MailboxLimitExceeded,
-            ApiErrorCodes.SemanticIndexStorageLimitExceeded => Translator.SemanticIndex_StorageLimitExceeded,
+            ApiErrorCodes.IntelligenceUploadTooLarge => Translator.SemanticIndex_StorageLimitExceeded,
             _ => errorCode ?? fallbackMessage,
         });
 
@@ -1207,113 +988,28 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<JsonElement>))]
 [JsonSerializable(typeof(ReplaceUserMailboxesRequestDto))]
 [JsonSerializable(typeof(List<UserMailboxSyncItemDto>))]
-[JsonSerializable(typeof(ApiEnvelope<List<SemanticMailboxDto>>))]
-[JsonSerializable(typeof(ApiEnvelope<SemanticMailboxDto>))]
-[JsonSerializable(typeof(EnsureSemanticMailboxRequest))]
-[JsonSerializable(typeof(HeadlineTranslationRequest))]
-[JsonSerializable(typeof(LocalizedSuggestedRepliesRequest))]
-[JsonSerializable(typeof(IndexIntelligenceRequest))]
-[JsonSerializable(typeof(GenerateInsightsRequest))]
-[JsonSerializable(typeof(IntelligenceDeltaFrameRequest))]
-[JsonSerializable(typeof(IntelligenceDeltaFrameResult))]
-[JsonSerializable(typeof(ReconcileIntelligenceRequest))]
-[JsonSerializable(typeof(IngestIntelligenceRequest))]
-[JsonSerializable(typeof(IntelligenceIngestDocumentRequest))]
-[JsonSerializable(typeof(IntelligenceCoverageRequest))]
-[JsonSerializable(typeof(IntelligenceMetadataUpdateRequest))]
-[JsonSerializable(typeof(IntelligenceDeleteMessagesRequest))]
-[JsonSerializable(typeof(IntelligenceUpgradeRequest))]
-[JsonSerializable(typeof(IntelligenceSemanticSearchRequest))]
-[JsonSerializable(typeof(List<IntelligenceIndexDocumentRequest>))]
-[JsonSerializable(typeof(IntelligenceIndexDocumentRequest))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceManifestDto>))]
-[JsonSerializable(typeof(ApiEnvelope<WinoIntelligenceManifestDto>))]
-[JsonSerializable(typeof(ApiEnvelope<MailboxIntelligenceHeadDto>))]
-[JsonSerializable(typeof(BeginIntelligenceReindexRequest))]
-[JsonSerializable(typeof(ApiEnvelope<BeginIntelligenceReindexResultDto>))]
-[JsonSerializable(typeof(IngestMessageIntelligenceRequest))]
-[JsonSerializable(typeof(MessageIntelligenceSourceV1))]
-[JsonSerializable(typeof(ApiEnvelope<MessageIntelligenceIngestResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<MessageIntelligenceIngestionJobAcceptedDto>))]
-[JsonSerializable(typeof(ApiEnvelope<MessageIntelligenceIngestionJobDto>))]
-[JsonSerializable(typeof(ReconcileMessageIntelligenceRequest))]
-[JsonSerializable(typeof(ApiEnvelope<ReconcileMessageIntelligenceResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceChangesPageDto>))]
-[JsonSerializable(typeof(MessageIntelligenceDownloadDto))]
-[JsonSerializable(typeof(MessageIntelligenceDocumentV1))]
 [JsonSerializable(typeof(string[]))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceMailboxStatusDto>))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceIngestResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<CompactIntelligenceIngestResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<CompactIntelligenceReconciliationResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceArtifactCursorPageDto>))]
-[JsonSerializable(typeof(ApiEnvelope<CompactIntelligenceArtifactCursorPageDto>))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceMailboxStateDto>))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceStageResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceCoverageResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceArtifactPageDto>))]
-[JsonSerializable(typeof(IntelligenceArtifactDto))]
-[JsonSerializable(typeof(SmartLabelsCapabilityPayload))]
-[JsonSerializable(typeof(SimilarMessagesCapabilityPayload))]
-[JsonSerializable(typeof(BriefingFactCapabilityPayload))]
-[JsonSerializable(typeof(BriefingHeadlineCapabilityPayload))]
-[JsonSerializable(typeof(SuggestedRepliesCapabilityPayload))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceSemanticSearchResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<WinoSuggestedRepliesResult>))]
-[JsonSerializable(typeof(IntelligenceSearchPlanRequest))]
-[JsonSerializable(typeof(ApiEnvelope<IntelligenceSearchPlanResultDto>))]
-[JsonSerializable(typeof(ApiEnvelope<HeadlineTranslationResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobAcceptedDto>))]
+[JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobListDto>))]
+[JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobDto>))]
+[JsonSerializable(typeof(ApiEnvelope<MailIntelligenceStageAckResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<AnalyzeMailResponseDto>))]
+[JsonSerializable(typeof(MailIntelligenceStageAckRequest))]
+[JsonSerializable(typeof(MailIntelligenceJobDto))]
+[JsonSerializable(typeof(MailIntelligenceStageStatusDto))]
+[JsonSerializable(typeof(JevResultPageDto))]
+[JsonSerializable(typeof(LunaResultPageDto))]
+[JsonSerializable(typeof(JevMailArtifactDto))]
+[JsonSerializable(typeof(LunaMailArtifactDto))]
+[JsonSerializable(typeof(MailArtifactIdentityDto))]
+[JsonSerializable(typeof(MailIntelligenceFailureDto))]
+[JsonSerializable(typeof(AnalyzeMailResponseDto))]
+[JsonSerializable(typeof(MailIntelligenceUploadEnvelopeDto))]
+[JsonSerializable(typeof(MailSmartLabel))]
+[JsonSerializable(typeof(MailPriority))]
 [JsonSerializable(typeof(IntelligenceConsentDto))]
 [JsonSerializable(typeof(UpdateIntelligenceConsentRequest))]
 [JsonSerializable(typeof(RevokeIntelligenceConsentRequest))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceConsentDto>))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;
 
-internal sealed record CompactIntelligenceArtifactCursorPageDto(
-    string? NextCursor,
-    IReadOnlyList<CompactIntelligenceArtifactDto> Items);
-
-internal sealed record CompactIntelligenceIngestResultDto(
-    IReadOnlyList<IntelligenceIngestItemResultDto> Items,
-    IReadOnlyList<CompactIntelligenceArtifactDto> Artifacts);
-
-internal sealed record CompactIntelligenceReconciliationResultDto(
-    IReadOnlyList<string> CoveredRemoteMessageIds,
-    IReadOnlyList<string> MissingRemoteMessageIds,
-    IReadOnlyList<CompactIntelligenceArtifactDto> Artifacts);
-
-internal sealed class CompactIntelligenceArtifactDto
-{
-    public required string RemoteMessageId { get; init; }
-    public required string ContentHash { get; init; }
-    public required IntelligenceCapability Capability { get; init; }
-    public required int GenerationVersion { get; init; }
-    public required int PayloadSchemaVersion { get; init; }
-    public required long ArtifactRevision { get; init; }
-    public required DateTimeOffset GeneratedAtUtc { get; init; }
-    public bool IsDeleted { get; init; }
-    public double? Confidence { get; init; }
-    public SmartLabelsCapabilityPayload? SmartLabels { get; init; }
-    public SimilarMessagesCapabilityPayload? SimilarMessages { get; init; }
-    public BriefingFactCapabilityPayload? BriefingFact { get; init; }
-    public BriefingHeadlineCapabilityPayload? BriefingHeadline { get; init; }
-    public SuggestedRepliesCapabilityPayload? SuggestedReplies { get; init; }
-
-    public IntelligenceArtifactDto ToContract() => new()
-    {
-        RemoteMessageId = RemoteMessageId,
-        ContentHash = ContentHash,
-        Capability = Capability,
-        GenerationVersion = GenerationVersion,
-        PayloadSchemaVersion = PayloadSchemaVersion,
-        ArtifactRevision = ArtifactRevision,
-        GeneratedAtUtc = GeneratedAtUtc,
-        IsDeleted = IsDeleted,
-        Confidence = Confidence,
-        SmartLabels = SmartLabels,
-        SimilarMessages = SimilarMessages,
-        BriefingFact = BriefingFact,
-        BriefingHeadline = BriefingHeadline,
-        SuggestedReplies = SuggestedReplies,
-    };
-}

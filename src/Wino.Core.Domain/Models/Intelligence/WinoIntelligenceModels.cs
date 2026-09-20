@@ -25,36 +25,20 @@ public sealed record WinoIntelligenceContext(
     MailContentProjection? TranslationProjection = null,
     MailIntelligenceMetadata? IntelligenceMetadata = null);
 
-public sealed record WinoIntelligenceDeadline(
-    DeadlineAction Action,
-    DateTimeOffset? DueAtUtc,
-    DateOnly? LocalDate,
-    DateOnly? LocalDateEnd,
-    string TimeZoneId,
-    DeadlinePrecision Precision,
-    double Confidence)
-{
-    public string ActionText => Action.ToString();
-}
-
 public sealed record WinoIntelligenceSnapshot(
     bool IsVisible,
     bool IsSummaryAvailable,
     bool IsTranslateAvailable,
     bool IsProcessingAvailable,
-    bool IsSuggestedRepliesAvailable,
-    bool IsFindSimilarAvailable,
-    SemanticMessageIndexState ProcessingState,
+    MailMessageIntelligenceState ProcessingState,
     Guid? MailboxId,
     string? RemoteMessageId,
-    bool NeedsReply,
-    string NeedsReplyDetail,
-    WinoIntelligenceDeadline? Deadline,
+    MailIntelligenceMetadata? Metadata,
     string? CachedSummary)
 {
     public static WinoIntelligenceSnapshot Hidden { get; } = new(
-        false, false, false, false, false, false,
-        SemanticMessageIndexState.Unsupported, null, null, false, string.Empty, null, null);
+        false, false, false, false,
+        MailMessageIntelligenceState.Unsupported, null, null, null, null);
 }
 
 public sealed record WinoIntelligenceOperationResult<T>(
@@ -66,10 +50,3 @@ public sealed record WinoIntelligenceOperationResult<T>(
 {
     public bool IsSuccess => !IsCanceled && Error is null;
 }
-
-public sealed record WinoSimilarMailItem(
-    Guid MailUniqueId,
-    string Subject,
-    string Sender,
-    DateTimeOffset OccurredAtUtc,
-    double Similarity);

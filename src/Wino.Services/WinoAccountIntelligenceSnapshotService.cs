@@ -4,6 +4,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Interfaces;
@@ -17,7 +19,7 @@ namespace Wino.Services;
 public sealed class WinoAccountIntelligenceSnapshotService(
     IWinoBillingService billingService,
     IWinoAccountApiClient apiClient,
-    ILocalIntelligenceStore localStore,
+    IMailIntelligenceStore localStore,
     IWinoAccountSessionService sessions) : IWinoAccountIntelligenceSnapshotService
 {
     private readonly ConcurrentDictionary<(Guid, long), Lazy<Task<WinoAccountIntelligenceRefreshResult?>>> _refreshes = new();
@@ -30,7 +32,10 @@ public sealed class WinoAccountIntelligenceSnapshotService(
 
         WinoAccountIntelligenceSnapshot? snapshot = null;
         await sessions.CommitAsync(session, async () =>
-            snapshot = await localStore.GetAccountIntelligenceSnapshotAsync(winoAccountId, cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false);
+        {
+            var payload = await localStore.GetAccountSnapshotJsonAsync(winoAccountId, cancellationToken).ConfigureAwait(false);
+            snapshot = Deserialize(payload);
+        }, cancellationToken).ConfigureAwait(false);
         return snapshot is null ? null : snapshot with { Session = session };
     }
 
@@ -61,11 +66,35 @@ public sealed class WinoAccountIntelligenceSnapshotService(
         var session = snapshot.Session ?? await sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
         if (session?.AccountId != snapshot.WinoAccountId) return;
 
-        await sessions.CommitAsync(session, () => localStore.SaveAccountIntelligenceSnapshotAsync(snapshot, cancellationToken), cancellationToken).ConfigureAwait(false);
+        await sessions.CommitAsync(session, () => SaveSnapshotAsync(snapshot, cancellationToken), cancellationToken).ConfigureAwait(false);
     }
 
     public Task ClearAsync(CancellationToken cancellationToken = default)
-        => localStore.DeleteAccountIntelligenceSnapshotsAsync(cancellationToken);
+        => localStore.DeleteAccountSnapshotsAsync(cancellationToken);
+
+    private Task SaveSnapshotAsync(WinoAccountIntelligenceSnapshot snapshot, CancellationToken cancellationToken)
+        => localStore.SaveAccountSnapshotJsonAsync(
+            snapshot.WinoAccountId,
+            JsonSerializer.Serialize(snapshot, MailIntelligenceSnapshotJsonContext.Default.WinoAccountIntelligenceSnapshot),
+            cancellationToken);
+
+    private static WinoAccountIntelligenceSnapshot? Deserialize(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            return null;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(payload, MailIntelligenceSnapshotJsonContext.Default.WinoAccountIntelligenceSnapshot);
+        }
+        catch (JsonException)
+        {
+            // A snapshot written by an older build is simply re-fetched.
+            return null;
+        }
+    }
 
     private async Task<WinoAccountIntelligenceRefreshResult?> RefreshSerializedAsync(
         WinoAccountSession session, bool purchasesOnly, CancellationToken cancellationToken = default)
@@ -96,12 +125,8 @@ public sealed class WinoAccountIntelligenceSnapshotService(
         var billing = existing.Billing;
         var consent = existing.Consent;
         var usage = existing.Usage;
-        var mailboxes = existing.Mailboxes;
-        var statuses = existing.MailboxStatuses;
-        var heads = existing.MailboxHeads;
         DateTimeOffset? billingAt = existing.BillingUpdatedAtUtc, consentAt = existing.ConsentUpdatedAtUtc,
-            usageAt = existing.UsageUpdatedAtUtc, mailboxesAt = existing.MailboxesUpdatedAtUtc,
-            headsAt = existing.HeadsUpdatedAtUtc;
+            usageAt = existing.UsageUpdatedAtUtc;
 
         var billingTask = billingService.GetStatusAsync(cancellationToken);
         try
@@ -139,47 +164,23 @@ public sealed class WinoAccountIntelligenceSnapshotService(
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
                 catch (Exception ex) { errors.Add(ex.Message); }
 
-                try
-                {
-                    mailboxes = await apiClient.GetSemanticMailboxesAsync(cancellationToken).ConfigureAwait(false);
-                    mailboxesAt = now;
-                    changed = true;
-                    var responses = await Task.WhenAll(mailboxes.Select(async mailbox =>
-                    {
-                        try { return (mailbox.MailboxId, Head: await apiClient.GetIntelligenceHeadAsync(mailbox.MailboxId, cancellationToken).ConfigureAwait(false), Error: (string?)null); }
-                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-                        catch (Exception ex) { return (mailbox.MailboxId, Head: (MailboxIntelligenceHeadDto?)null, Error: ex.Message); }
-                    })).ConfigureAwait(false);
-                    var mailboxIds = mailboxes.Select(static mailbox => mailbox.MailboxId).ToHashSet();
-                    var nextHeads = heads.Where(pair => mailboxIds.Contains(pair.Key)).ToDictionary();
-                    foreach (var response in responses)
-                    {
-                        if (response.Head is not null) { nextHeads[response.MailboxId] = response.Head; changed = true; }
-                        else if (!string.IsNullOrWhiteSpace(response.Error)) errors.Add(response.Error);
-                    }
-                    heads = nextHeads;
-                    if (responses.Any(x => x.Head is not null)) headsAt = now;
-                }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { throw; }
-                catch (Exception ex) { errors.Add(ex.Message); }
             }
         }
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var snapshot = new WinoAccountIntelligenceSnapshot(accountId, billing, consent, usage, mailboxes, statuses,
-            billingAt, consentAt, usageAt, mailboxesAt, existing.StatusesUpdatedAtUtc,
+        var snapshot = new WinoAccountIntelligenceSnapshot(
+            accountId, billing, consent, usage,
+            billingAt, consentAt, usageAt,
             changed ? now : existing.LastSuccessfulRefreshUtc)
         {
             Session = session,
-            MailboxHeads = heads,
-            HeadsUpdatedAtUtc = headsAt,
         };
         if (changed)
         {
             if (!await sessions.CommitAsync(session, async () =>
             {
-                await localStore.SaveAccountIntelligenceSnapshotAsync(snapshot, cancellationToken).ConfigureAwait(false);
+                await SaveSnapshotAsync(snapshot, cancellationToken).ConfigureAwait(false);
                 if (billingRefreshed)
                 {
                     WeakReferenceMessenger.Default.Send(new WinoIntelligenceEntitlementChanged(
@@ -196,3 +197,6 @@ public sealed class WinoAccountIntelligenceSnapshotService(
         return new(snapshot, changed, errors.FirstOrDefault()) { BillingRefreshed = billingRefreshed };
     }
 }
+
+[JsonSerializable(typeof(WinoAccountIntelligenceSnapshot))]
+internal sealed partial class MailIntelligenceSnapshotJsonContext : JsonSerializerContext;

@@ -2,55 +2,45 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Wino.Mail.AI.Abstractions;
 
 namespace Wino.Core.Domain.Models.Intelligence;
 
+/// <summary>
+/// What this device knows about one message after processing.
+/// Jev supplies the labels, the priority and the briefing decision; Luna supplies the
+/// headline and summary, and only for messages Jev included. There is deliberately no
+/// deadline, due date, action or status here: those were the least reliable outputs of
+/// the previous design and the decision model cannot produce them.
+/// </summary>
 public sealed record MailIntelligenceMetadata(
     string RemoteMessageId,
-    IReadOnlyList<SmartLabelScore> SmartLabels,
-    BriefingFactCapabilityPayload? BriefingFact,
-    string Headline,
+    IReadOnlyList<string> Labels,
+    string Priority,
+    bool IncludeInBriefing,
+    string Headline = "",
     string Summary = "")
 {
-    public NeedsReplyCapabilityPayload? NeedsReply => BriefingFact?.PrimaryAction is ReplyActionPayload action
-        ? new(true, action.Confidence)
-        : null;
+    public static MailIntelligenceMetadata Empty { get; } = new(string.Empty, [], "normal", false);
 
-    public PriorityCapabilityPayload? Priority => BriefingFact is null
-        ? null
-        : new(BriefingFact.Urgency, BriefingFact.Confidence);
+    public bool HasLabels => Labels.Count > 0;
 
-    public string VerificationCode => (BriefingFact?.PrimaryAction as CopyVerificationCodeActionPayload)?.Code ?? string.Empty;
+    public bool HasHeadline => !string.IsNullOrWhiteSpace(Headline);
 
-    public DeadlineCapabilityPayload? Deadline
-    {
-        get
-        {
-            var deadline = BriefingFact?.TemporalReferences.OfType<DeadlineTemporalPayload>().FirstOrDefault();
-            if (deadline is null) return null;
-            var point = deadline.Due;
-            return new DeadlineCapabilityPayload(
-                true,
-                DeadlineKind.Other,
-                point.InstantUtc,
-                point.LocalDate,
-                point.TimeZoneId,
-                point.Precision switch
-                {
-                    TemporalPrecision.ExactDateTime => DeadlinePrecision.DateTime,
-                    TemporalPrecision.Date => DeadlinePrecision.Date,
-                    TemporalPrecision.Month => DeadlinePrecision.Month,
-                    _ => DeadlinePrecision.Unknown,
-                },
-                DeadlineAction.None,
-                deadline.Confidence,
-                point.LocalDate);
-        }
-    }
+    public bool IsHighPriority =>
+        string.Equals(Priority, "high", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(Priority, "urgent", StringComparison.OrdinalIgnoreCase);
 
-    public bool HasVisibleMetadata => SmartLabels.Count > 0 ||
-                                      BriefingFact is not null ||
-                                      !string.IsNullOrWhiteSpace(Headline) ||
-                                      !string.IsNullOrWhiteSpace(Summary);
+    public static MailIntelligenceMetadata From(JevArtifact jev, LunaArtifact? luna = null) => new(
+        jev.Key.RemoteMessageId,
+        jev.Labels,
+        jev.Priority,
+        jev.IncludeInBriefing,
+        luna?.Headline ?? string.Empty,
+        luna?.Summary ?? string.Empty);
+
+    /// <summary>Labels remaining after the user's per-account indicator settings.</summary>
+    public IReadOnlyList<string> VisibleLabels(IReadOnlySet<string>? enabledLabels)
+        => enabledLabels is null
+            ? Labels
+            : [.. Labels.Where(enabledLabels.Contains)];
 }
