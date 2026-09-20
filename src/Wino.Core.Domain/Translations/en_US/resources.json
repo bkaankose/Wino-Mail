@@ -559,6 +559,7 @@
     "Exception_TokenInfoRetrivalFailed": "Failed to get token information.",
     "Exception_UnknowErrorDuringAuthentication": "Unknown error occurred during authentication",
     "Exception_UnsupportedAction": "Action {0} is not implemented in request processor",
+    "OutlookAuthentication_WamHeaderText": "Sign in to Wino Mail to continue.",
     "Exception_UnsupportedProvider": "This provider is not supported.",
     "Exception_UnsupportedSynchronizerOperation": "This operation is not supported for {0}",
     "Exception_UserCancelSystemFolderSetupDialog": "User canceled system folder config dialog.",
