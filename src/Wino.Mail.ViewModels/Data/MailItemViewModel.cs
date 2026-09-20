@@ -212,7 +212,7 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
     /// spells out in full, and as an icon with no label they say nothing in a list row.
     /// </summary>
     public IReadOnlyList<WinoIntelligenceTile> RowIntelligenceTiles
-        => IntelligenceTiles.Where(static tile => tile.Kind != WinoIntelligenceTileKind.BriefingFact).ToArray();
+        => IntelligenceTiles.ToArray();
 
     public bool HasRowIntelligenceTiles => CanShowIntelligence && RowIntelligenceTiles.Count > 0;
 

@@ -19,7 +19,6 @@ using Wino.Core.ViewModels.Data;
 using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Contracts.Intelligence;
-using Wino.Mail.Contracts.SemanticIndex;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
 
@@ -37,7 +36,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private readonly IWinoBillingService _billingService;
     private readonly IWinoAccountApiClient _apiClient;
     private readonly IAccountService _accountService;
-    private readonly ISemanticIndexCoordinator _semanticIndexCoordinator;
+    private readonly IMailIntelligenceCoordinator _semanticIndexCoordinator;
     private readonly IPreferencesService _preferencesService;
     private readonly IAiActionOptionsService _aiActionOptionsService;
     private bool _isAiLanguageInitialized;
@@ -225,7 +224,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                                                IWinoBillingService billingService,
                                                IWinoAccountApiClient apiClient,
                                                IAccountService accountService,
-                                               ISemanticIndexCoordinator semanticIndexCoordinator,
+                                               IMailIntelligenceCoordinator semanticIndexCoordinator,
                                                IPreferencesService preferencesService,
                                                IAiActionOptionsService aiActionOptionsService,
                                                IWinoAccountIntelligenceSnapshotService? snapshotService = null,
@@ -673,7 +672,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     {
         foreach (var account in await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? [])
         {
-            await _semanticIndexCoordinator.DeleteLocalIndexAsync(account.Id).ConfigureAwait(false);
+            await _semanticIndexCoordinator.DeleteLocalIntelligenceAsync(account.Id).ConfigureAwait(false);
             if (!account.Preferences.IsSemanticIndexingEnabled)
                 continue;
 
@@ -703,17 +702,16 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         {
             if (mailbox.LocalAccountId is Guid localAccountId)
             {
-                await _semanticIndexCoordinator.DeleteIndexAsync(localAccountId).ConfigureAwait(false);
+                // Results are device-local, so deleting them is a local operation. Any
+                // outstanding server job is cancelled with it.
+                await _semanticIndexCoordinator.CancelAsync(localAccountId).ConfigureAwait(false);
+                await _semanticIndexCoordinator.DeleteLocalIntelligenceAsync(localAccountId).ConfigureAwait(false);
                 var account = await _accountService.GetAccountAsync(localAccountId).ConfigureAwait(false);
                 if (account != null)
                 {
                     account.Preferences.IsSemanticIndexingEnabled = false;
                     await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
                 }
-            }
-            else
-            {
-                await _apiClient.DeleteIntelligenceAsync(mailbox.MailboxId).ConfigureAwait(false);
             }
 
             await LoadIntelligenceDataAsync().ConfigureAwait(false);
@@ -755,10 +753,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             if (account == null)
                 return;
 
-            if (requested)
-                await _semanticIndexCoordinator.EnsureMailboxAsync(localAccountId).ConfigureAwait(false);
-            else
-                await _semanticIndexCoordinator.DeleteIndexAsync(localAccountId).ConfigureAwait(false);
+            if (!requested)
+            {
+                await _semanticIndexCoordinator.CancelAsync(localAccountId).ConfigureAwait(false);
+                await _semanticIndexCoordinator.DeleteLocalIntelligenceAsync(localAccountId).ConfigureAwait(false);
+            }
 
             account.Preferences.IsSemanticIndexingEnabled = requested;
             await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
@@ -1060,10 +1059,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             HasIntelligenceAccess = entitlement.CanAccessSurfaces;
             ApplyAiPackBillingTexts(aiPack);
             if (snapshot.Consent is not null) ApplyIntelligenceConsent(snapshot.Consent);
-            var mailboxItems = snapshot.Mailboxes.Select(mailbox => CreateCachedIntelligenceMailboxItem(
-                mailbox, localAccounts, snapshot.MailboxHeads.GetValueOrDefault(mailbox.MailboxId))).ToArray();
-            mailboxItems = [.. mailboxItems, .. localAccounts.Where(account => mailboxItems.All(item => item.LocalAccountId != account.Id))
-                .Select(CreateLocalIntelligenceMailboxItem)];
+            var mailboxItems = localAccounts.Select(CreateLocalIntelligenceMailboxItem).ToArray();
             IntelligenceMailboxes.Clear();
             foreach (var item in mailboxItems.OrderBy(item => item.Address, StringComparer.OrdinalIgnoreCase))
             {
@@ -1081,23 +1077,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             ApplySubtitleTexts();
             PurchaseAddOnCommand.NotifyCanExecuteChanged();
         });
-    }
-
-    private IntelligenceMailboxData CreateCachedIntelligenceMailboxItem(SemanticMailboxDto mailbox, IReadOnlyList<MailAccount> localAccounts, MailboxIntelligenceHeadDto? head)
-    {
-        var localAccount = localAccounts.FirstOrDefault(account => (int)account.ProviderType == mailbox.ProviderType && string.Equals(account.Address?.Trim(), mailbox.Address?.Trim(), StringComparison.OrdinalIgnoreCase));
-        var storage = head?.StorageSizeBytes ?? mailbox.IndexState?.StorageSizeBytes ?? 0;
-        return new IntelligenceMailboxData
-        {
-            MailboxId = mailbox.MailboxId, Address = mailbox.Address, ProviderType = (MailProviderType)mailbox.ProviderType,
-            SpecialProvider = localAccount?.SpecialImapProvider ?? SpecialImapProvider.None,
-            LocalAccountId = localAccount?.Id, Account = localAccount, HasServerIntelligence = storage > 0,
-            IsEnabled = localAccount?.Preferences?.IsSemanticIndexingEnabled == true,
-            CanToggle = localAccount is not null && (localAccount.Preferences?.IsSemanticIndexingEnabled == true || HasIntelligenceAccess && IsConsentGranted),
-            StorageSizeBytes = storage,
-            IntelligenceSummary = string.Format(Translator.WinoAccount_Management_IntelligenceMailboxSummary, head?.IndexedMessageCount ?? 0, 0, FormatStorageSize(storage)),
-            ManageCommand = ManageIntelligenceMailboxCommand, DeleteCommand = DeleteIntelligenceCommand, ToggleEnabledCommand = ToggleIntelligenceMailboxCommand
-        };
     }
 
     private async Task ApplyAccountStateAsync(Wino.Core.Domain.Entities.Shared.WinoAccount? account, WinoAccountSession? session = null)
@@ -1390,26 +1369,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         }
 
         var localAccounts = await _accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
-        var mailboxItems = Array.Empty<IntelligenceMailboxData>();
+        // Intelligence is device-local, so the list comes from the accounts on this device
+        // rather than from a server mailbox registry.
         var mailboxError = string.Empty;
-        try
-        {
-            var serverMailboxes = await _apiClient.GetSemanticMailboxesAsync().ConfigureAwait(false);
-            mailboxItems = await Task.WhenAll(serverMailboxes.Select(mailbox =>
-                CreateIntelligenceMailboxItemAsync(mailbox, localAccounts))).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            mailboxError = exception.Message is WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode or WinoAccountApiErrorTranslator.IntelligenceConsentVersionOutdatedCode
-                ? string.Empty
-                : WinoAccountApiErrorTranslator.Translate(exception.Message);
-        }
-
-        var localOnlyItems = localAccounts
-            .Where(account => mailboxItems.All(item => item.LocalAccountId != account.Id))
-            .Select(CreateLocalIntelligenceMailboxItem)
-            .ToArray();
-        mailboxItems = [.. mailboxItems, .. localOnlyItems];
+        var mailboxItems = localAccounts.Select(CreateLocalIntelligenceMailboxItem).ToArray();
 
         var usage = usageResponse?.IsSuccess == true ? usageResponse.Result : null;
         var totalStorageSize = mailboxItems.Sum(item => item.StorageSizeBytes);
@@ -1448,50 +1411,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             }
             ConsentErrorMessage = consentError;
         });
-    }
-
-    private async Task<IntelligenceMailboxData> CreateIntelligenceMailboxItemAsync(
-        SemanticMailboxDto mailbox,
-        IReadOnlyList<Wino.Core.Domain.Entities.Shared.MailAccount> localAccounts)
-    {
-        MailboxIntelligenceHeadDto? intelligenceHead = null;
-        try
-        {
-            intelligenceHead = await _apiClient.GetIntelligenceHeadAsync(mailbox.MailboxId).ConfigureAwait(false);
-        }
-        catch
-        {
-            // The semantic mailbox state is still server-authoritative when intelligence consent is unavailable.
-        }
-
-        var localAccount = localAccounts.FirstOrDefault(account =>
-            (int)account.ProviderType == mailbox.ProviderType &&
-            string.Equals(account.Address?.Trim(), mailbox.Address?.Trim(), StringComparison.OrdinalIgnoreCase));
-        var storageSize = intelligenceHead?.StorageSizeBytes ?? mailbox.IndexState?.StorageSizeBytes ?? 0;
-
-        return new IntelligenceMailboxData
-        {
-            MailboxId = mailbox.MailboxId,
-            Address = mailbox.Address,
-            ProviderType = (MailProviderType)mailbox.ProviderType,
-            SpecialProvider = localAccount?.SpecialImapProvider ?? SpecialImapProvider.None,
-            LocalAccountId = localAccount?.Id,
-            Account = localAccount,
-            HasServerIntelligence = storageSize > 0,
-            IsEnabled = localAccount?.Preferences?.IsSemanticIndexingEnabled == true,
-            CanToggle = localAccount != null &&
-                        (localAccount.Preferences?.IsSemanticIndexingEnabled == true ||
-                         HasIntelligenceAccess && IsConsentGranted),
-            StorageSizeBytes = storageSize,
-            IntelligenceSummary = string.Format(
-                Translator.WinoAccount_Management_IntelligenceMailboxSummary,
-                intelligenceHead?.IndexedMessageCount ?? 0,
-                0,
-                FormatStorageSize(storageSize)),
-            ManageCommand = ManageIntelligenceMailboxCommand,
-            DeleteCommand = DeleteIntelligenceCommand,
-            ToggleEnabledCommand = ToggleIntelligenceMailboxCommand,
-        };
     }
 
     private IntelligenceMailboxData CreateLocalIntelligenceMailboxItem(Wino.Core.Domain.Entities.Shared.MailAccount account)

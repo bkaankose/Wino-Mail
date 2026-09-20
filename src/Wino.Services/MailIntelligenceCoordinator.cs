@@ -609,6 +609,30 @@ public sealed class MailIntelligenceCoordinator(
             ? snapshot
             : MailIntelligenceJobSnapshot.Idle(localMailAccountId);
 
+    public async Task<MailIntelligenceAccountState> GetStateAsync(
+        Guid localMailAccountId, CancellationToken cancellationToken = default)
+    {
+        var account = await accountService.GetAccountAsync(localMailAccountId).ConfigureAwait(false);
+        if (account is null)
+        {
+            return MailIntelligenceAccountState.Empty;
+        }
+
+        var access = await store.GetAccessAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
+        var jobs = await store.GetJobsForAccountAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);
+        var candidates = await messageResolver.GetCandidatesAsync(localMailAccountId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var remoteIds = candidates.Select(static candidate => candidate.RemoteMessageId).ToArray();
+        var processed = await store.GetProcessedMessageIdsAsync(localMailAccountId, remoteIds, cancellationToken).ConfigureAwait(false);
+
+        return new MailIntelligenceAccountState(
+            account.Preferences?.IsSemanticIndexingEnabled == true,
+            access is { MailboxId: var mailboxId } && mailboxId != Guid.Empty ? mailboxId : null,
+            processed.Count,
+            Math.Max(0, remoteIds.Length - processed.Count),
+            remoteIds.Length > 0,
+            jobs.Count(static job => !job.IsFinished));
+    }
+
     public async Task<IReadOnlyList<MailIntelligenceJobState>> GetJobsAsync(
         Guid localMailAccountId, CancellationToken cancellationToken = default)
         => await store.GetJobsForAccountAsync(localMailAccountId, cancellationToken).ConfigureAwait(false);

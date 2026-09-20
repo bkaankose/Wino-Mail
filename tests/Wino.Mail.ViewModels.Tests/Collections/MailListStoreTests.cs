@@ -322,10 +322,9 @@ public sealed class MailListStoreTests
         var mail = CreateMailCopy("thread-1");
         mail.IntelligenceMetadata = new MailIntelligenceMetadata(
             "outlook:test",
-            [new SmartLabelScore(MailSmartLabel.Important, 1)],
-            null,
-            string.Empty,
-            string.Empty);
+            ["important"],
+            "normal",
+            IncludeInBriefing: false);
         await store.AddAsync(mail);
         mail.IntelligenceMetadata = null;
 

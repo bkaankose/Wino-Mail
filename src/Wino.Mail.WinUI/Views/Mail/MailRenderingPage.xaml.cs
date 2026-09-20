@@ -51,7 +51,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     IPopoutClient,
     IReentryTarget,
     IRecipient<ApplicationThemeChanged>,
-    IRecipient<SemanticIndexJobChanged>,
+    IRecipient<MailIntelligenceJobChanged>,
     IRecipient<WinoIntelligenceAccessChanged>,
     IRecipient<WinoIntelligenceEntitlementChanged>,
     IRecipient<IntelligenceMetadataChanged>,
@@ -527,7 +527,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private void RegisterWinoIntelligenceRecipients()
     {
-        WeakReferenceMessenger.Default.Register<SemanticIndexJobChanged>(this);
+        WeakReferenceMessenger.Default.Register<MailIntelligenceJobChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
         WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
@@ -536,7 +536,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private void UnregisterWinoIntelligenceRecipients()
     {
-        WeakReferenceMessenger.Default.Unregister<SemanticIndexJobChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<MailIntelligenceJobChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
         WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
@@ -642,8 +642,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         IntelligenceHeader.IsSummaryAvailable = snapshot.IsSummaryAvailable;
         IntelligenceHeader.IsTranslateAvailable = snapshot.IsTranslateAvailable;
         IntelligenceHeader.IsProcessingAvailable = snapshot.IsProcessingAvailable;
-        IntelligenceHeader.IsSuggestedRepliesAvailable = snapshot.IsSuggestedRepliesAvailable;
-        IntelligenceHeader.IsFindSimilarMailAvailable = snapshot.IsFindSimilarAvailable;
+        IntelligenceHeader.IsSuggestedRepliesAvailable = false;
+        IntelligenceHeader.IsFindSimilarMailAvailable = false;
         IntelligenceHeader.ProcessingState = MapProcessingState(snapshot.ProcessingState);
         if (_currentMailItem?.MailCopy.IntelligenceMetadata is { } metadata)
             ApplyPassiveIntelligenceMetadata(metadata);
@@ -651,17 +651,13 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         {
             var excludedIndicators = _currentMailItem?.MailCopy?.AssignedAccount?.Preferences?
                 .ExcludedIntelligenceIndicatorIds;
-            var showNeedsReply = IntelligenceVisibilityPolicy.IsVisible(excludedIndicators, IntelligenceFactKind.NeedsReply);
-            var showDeadline = IntelligenceVisibilityPolicy.IsVisible(excludedIndicators, IntelligenceFactKind.Deadline);
 
-            IntelligenceHeader.NeedsReply = showNeedsReply && snapshot.NeedsReply;
-            IntelligenceHeader.NeedsReplyDetailText = string.IsNullOrWhiteSpace(snapshot.NeedsReplyDetail)
-                ? Translator.WinoIntelligence_NeedsReplyDetail
-                : snapshot.NeedsReplyDetail;
+            IntelligenceHeader.NeedsReply = false;
+            IntelligenceHeader.NeedsReplyDetailText = string.Empty;
             IntelligenceHeader.BriefingFactText = string.Empty;
-            IntelligenceHeader.DeadlineText = showDeadline ? FormatDeadline(snapshot.Deadline) : string.Empty;
-            IntelligenceHeader.DeadlineDetailText = snapshot.Deadline?.ActionText ?? string.Empty;
-            IntelligenceHeader.IsAddToCalendarAvailable = showDeadline && snapshot.Deadline is not null;
+            IntelligenceHeader.DeadlineText = string.Empty;
+            IntelligenceHeader.DeadlineDetailText = string.Empty;
+            IntelligenceHeader.IsAddToCalendarAvailable = false;
         }
         if (!string.IsNullOrWhiteSpace(snapshot.CachedSummary))
             IntelligenceHeader.SummaryText = snapshot.CachedSummary;
@@ -673,19 +669,15 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         var excludedIndicators = _currentMailItem?.MailCopy?.AssignedAccount?.Preferences?
             .ExcludedIntelligenceIndicatorIds;
-        var showDeadline = IntelligenceVisibilityPolicy.IsVisible(excludedIndicators, IntelligenceFactKind.Deadline);
-        var showNeedsReply = IntelligenceVisibilityPolicy.IsVisible(excludedIndicators, IntelligenceFactKind.NeedsReply);
         var showBriefing = IntelligenceVisibilityPolicy.IsVisible(excludedIndicators, IntelligenceFactKind.Briefing);
 
-        IntelligenceHeader.NeedsReply = showNeedsReply && metadata.NeedsReply?.Value == true;
-        IntelligenceHeader.NeedsReplyDetailText = Translator.WinoIntelligence_NeedsReplyDetail;
+        IntelligenceHeader.NeedsReply = false;
+        IntelligenceHeader.NeedsReplyDetailText = string.Empty;
         IntelligenceHeader.BriefingFactText = showBriefing ? metadata.Headline : string.Empty;
-        IntelligenceHeader.DeadlineText = showDeadline && metadata.Deadline?.HasDeadline == true
-            ? MailIntelligenceTileFactory.FormatDeadline(metadata.Deadline, CultureInfo.CurrentCulture)
-            : string.Empty;
+        IntelligenceHeader.DeadlineText = string.Empty;
         IntelligenceHeader.DeadlineDetailText = string.Empty;
-        IntelligenceHeader.IsAddToCalendarAvailable = showDeadline && metadata.Deadline?.HasDeadline == true;
-        IntelligenceHeader.VerificationCode = metadata.VerificationCode ?? string.Empty;
+        IntelligenceHeader.IsAddToCalendarAvailable = false;
+        IntelligenceHeader.VerificationCode = string.Empty;
     }
 
     private void ClearPassiveIntelligenceMetadata()
@@ -743,46 +735,12 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         var result = e.Feature == WinoIntelligenceFeature.Summary
             ? await _intelligenceCoordinator.SummarizeAsync(context, e.RequestId)
             : null;
-        if (e.Feature == WinoIntelligenceFeature.SuggestedReplies)
+        // Suggested replies and find-similar are no longer offered; the header never
+        // raises them, and an unexpected request fails rather than hanging.
+        if (e.Feature is WinoIntelligenceFeature.SuggestedReplies or WinoIntelligenceFeature.FindSimilarMail)
         {
-            var replies = await _intelligenceCoordinator.GetSuggestedRepliesAsync(context, e.RequestId);
             _liveFeatureRequestIds.Remove(e.RequestId);
-            if (!IsCurrent(replies.ContentKey) || replies.IsCanceled)
-                return;
-            if (!replies.IsSuccess)
-            {
-                ReportFeatureFailure(e.RequestId, replies.Error);
-                return;
-            }
-            IntelligenceHeader.CompleteSuggestedReplies(
-                e.RequestId,
-                replies.Value?.Select(x => new WinoIntelligenceReply(x.Tone, x.Text)) ?? []);
-            return;
-        }
-
-        if (e.Feature == WinoIntelligenceFeature.FindSimilarMail)
-        {
-            var similar = await _intelligenceCoordinator.FindSimilarAsync(context, e.RequestId);
-            _liveFeatureRequestIds.Remove(e.RequestId);
-            if (!IsCurrent(similar.ContentKey) || similar.IsCanceled)
-                return;
-            if (!similar.IsSuccess)
-            {
-                ReportFeatureFailure(e.RequestId, similar.Error);
-                return;
-            }
-
-            IntelligenceHeader.CompleteSimilarMail(
-                e.RequestId,
-                similar.Value?.Select(item => new WinoIntelligenceSimilarMailItem
-                {
-                    DisplayName = item.Sender,
-                    Initials = FormatInitials(item.Sender),
-                    Subject = item.Subject,
-                    Meta = $"{item.Sender} · {item.OccurredAtUtc.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)}",
-                    ScoreText = item.Similarity.ToString("P0", CultureInfo.CurrentCulture),
-                    Tag = item.MailUniqueId,
-                }) ?? []);
+            IntelligenceHeader.FailRequest(e.RequestId);
             return;
         }
 
@@ -842,7 +800,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
                     CancelTranslation();
                     break;
                 case WinoIntelligenceAction.AddDeadlineToCalendar:
-                    OpenDeadlineInCalendar(context);
+                    // Deadlines are no longer produced, so the header never offers this.
                     break;
             }
         }
@@ -853,33 +811,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         }
     }
 
-    private async void IntelligenceHeader_SuggestedReplyChosen(object? sender, WinoIntelligenceReplyChosenEventArgs e)
-    {
-        var context = _intelligenceContext;
-        var cancellation = _intelligenceContextCancellation;
-        if (context is null || cancellation is null)
-            return;
-        try
-        {
-            var draftId = await _intelligenceCoordinator.CreateSuggestedReplyDraftAsync(context, e.Reply.Text, cancellation.Token);
-            if (IsCurrent(context.ContentKey))
-                HostActionRequested?.Invoke(this, new PopoutHostActionRequestedEventArgs(PopoutHostActionKind.PopOutNextNavigation, typeof(ComposePage), draftId));
-        }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
-        {
-        }
-        catch (Exception exception)
-        {
-            if (IsCurrent(context.ContentKey))
-                _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, WinoAccountApiErrorTranslator.Translate(exception.Message), InfoBarMessageType.Error);
-        }
-    }
-
-    private void IntelligenceHeader_SimilarMailChosen(object? sender, WinoIntelligenceSimilarMailChosenEventArgs e)
-    {
-        if (e.Item.Tag is Guid mailUniqueId)
-            WeakReferenceMessenger.Default.Send(new MailItemNavigationRequested(mailUniqueId, ScrollToItem: true));
-    }
 
     private async Task TranslateCurrentMessageAsync(WinoIntelligenceContext context)
     {
@@ -949,35 +880,6 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         IntelligenceHeader.TranslationStatusText = Translator.WinoIntelligence_TranslationCanceled;
     }
 
-    private void OpenDeadlineInCalendar(WinoIntelligenceContext context)
-    {
-        var deadline = _intelligenceSnapshot?.Deadline;
-        if (deadline is null)
-            return;
-        var isAllDay = deadline.DueAtUtc is null && deadline.LocalDate is not null;
-        var start = deadline.DueAtUtc?.ToLocalTime().DateTime
-                    ?? deadline.LocalDate?.ToDateTime(TimeOnly.MinValue)
-                    ?? DateTime.Now;
-        var end = isAllDay
-            ? deadline.LocalDateEnd?.AddDays(1).ToDateTime(TimeOnly.MinValue) ?? start.AddDays(1)
-            : start.AddMinutes(30);
-        var title = string.IsNullOrWhiteSpace(deadline.ActionText) ? context.Subject : deadline.ActionText;
-        var notes = $"<p><strong>{WebUtility.HtmlEncode(context.Subject)}</strong><br>{WebUtility.HtmlEncode(context.Sender)}</p>";
-        _navigationService.ChangeApplicationMode(
-            WinoApplicationMode.Calendar,
-            new ShellModeActivationContext
-            {
-                Parameter = new CalendarEventComposeNavigationArgs
-                {
-                    Title = title,
-                    StartDate = start,
-                    EndDate = end,
-                    IsAllDay = isAllDay,
-                    NotesHtml = notes,
-                }
-            });
-    }
-
     private void ReportFeatureFailure(Guid requestId, string? error)
     {
         if (IntelligenceHeader.FailRequest(requestId))
@@ -987,27 +889,15 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private bool IsCurrent(string contentKey)
         => _intelligenceContext is { } context && string.Equals(context.ContentKey, contentKey, StringComparison.Ordinal);
 
-    private static WinoIntelligenceProcessingState MapProcessingState(SemanticMessageIndexState state) => state switch
+    private static WinoIntelligenceProcessingState MapProcessingState(MailMessageIntelligenceState state) => state switch
     {
-        SemanticMessageIndexState.NotIndexed => WinoIntelligenceProcessingState.NotProcessed,
-        SemanticMessageIndexState.Queued => WinoIntelligenceProcessingState.Queued,
-        SemanticMessageIndexState.Indexing => WinoIntelligenceProcessingState.Processing,
-        SemanticMessageIndexState.Indexed => WinoIntelligenceProcessingState.Processed,
-        SemanticMessageIndexState.Failed => WinoIntelligenceProcessingState.Failed,
+        MailMessageIntelligenceState.NotProcessed => WinoIntelligenceProcessingState.NotProcessed,
+        MailMessageIntelligenceState.Queued => WinoIntelligenceProcessingState.Queued,
+        MailMessageIntelligenceState.Processing => WinoIntelligenceProcessingState.Processing,
+        MailMessageIntelligenceState.Processed => WinoIntelligenceProcessingState.Processed,
+        MailMessageIntelligenceState.Failed => WinoIntelligenceProcessingState.Failed,
         _ => WinoIntelligenceProcessingState.Unavailable,
     };
-
-    private static string FormatDeadline(WinoIntelligenceDeadline? deadline)
-    {
-        if (deadline?.DueAtUtc is { } dueAt)
-            return dueAt.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
-        if (deadline?.LocalDate is not { } localDate)
-            return string.Empty;
-        var startText = localDate.ToString("d", CultureInfo.CurrentCulture);
-        return deadline.LocalDateEnd is { } localDateEnd
-            ? $"{startText} – {localDateEnd.ToString("d", CultureInfo.CurrentCulture)}"
-            : startText;
-    }
 
     private static string FormatInitials(string displayName)
         => string.Concat((displayName ?? string.Empty)
@@ -1022,7 +912,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _ => new DateTimeOffset(DateTime.SpecifyKind(value, DateTimeKind.Utc)),
     };
 
-    void IRecipient<SemanticIndexJobChanged>.Receive(SemanticIndexJobChanged message)
+    void IRecipient<MailIntelligenceJobChanged>.Receive(MailIntelligenceJobChanged message)
     {
         if (_intelligenceContext?.LocalAccountId != message.AccountId)
             return;

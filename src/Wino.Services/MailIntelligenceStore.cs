@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -105,7 +106,7 @@ public sealed class MailIntelligenceStore(
             LastError = job.LastError,
             CreatedUtc = job.CreatedUtc,
             UpdatedUtc = DateTime.UtcNow,
-        }).ConfigureAwait(false);
+        }, typeof(MailIntelligenceJobRow)).ConfigureAwait(false);
     }
 
     public async Task<MailIntelligenceJobState?> GetJobAsync(Guid jobId, CancellationToken cancellationToken = default)
@@ -194,7 +195,7 @@ public sealed class MailIntelligenceStore(
                     // Re-importing the same identity keeps the original arrival time, so a
                     // duplicate result never makes an old card look new.
                     FirstImportedUtc = existing.TryGetValue(artifact.Key.RemoteMessageId, out var first) ? first : now,
-                });
+                }, typeof(JevArtifactRow));
             }
         }).ConfigureAwait(false);
 
@@ -241,7 +242,7 @@ public sealed class MailIntelligenceStore(
                     Summary = artifact.Summary,
                     CompletedUtc = artifact.CompletedUtc,
                     FirstImportedUtc = existing.TryGetValue(artifact.Key.RemoteMessageId, out var first) ? first : now,
-                });
+                }, typeof(LunaArtifactRow));
             }
         }).ConfigureAwait(false);
 
@@ -257,7 +258,8 @@ public sealed class MailIntelligenceStore(
            desiredHashes.TryGetValue(key.RemoteMessageId, out var desired) &&
            !string.Equals(desired, key.ContentHash, StringComparison.OrdinalIgnoreCase);
 
-    private static async Task<Dictionary<string, DateTime>> LoadFirstImportedAsync<TRow>(
+    private static async Task<Dictionary<string, DateTime>> LoadFirstImportedAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRow>(
         SQLiteAsyncConnection connection,
         Guid localAccountId,
         IEnumerable<string> remoteMessageIds)
@@ -340,7 +342,7 @@ public sealed class MailIntelligenceStore(
 
         mutate(row);
         row.UpdatedUtc = DateTime.UtcNow;
-        await lease.Connection.InsertOrReplaceAsync(row).ConfigureAwait(false);
+        await lease.Connection.InsertOrReplaceAsync(row, typeof(MailIntelligenceJobRow)).ConfigureAwait(false);
     }
 
     // ---- artifacts -----------------------------------------------------------------
@@ -408,7 +410,8 @@ public sealed class MailIntelligenceStore(
         return row?.FirstImportedUtc;
     }
 
-    private static async Task<List<TRow>> QueryByIdsAsync<TRow>(
+    private static async Task<List<TRow>> QueryByIdsAsync<
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.All)] TRow>(
         SQLiteAsyncConnection connection, string table, Guid localAccountId, string[] ids)
         where TRow : new()
     {
@@ -445,7 +448,7 @@ public sealed class MailIntelligenceStore(
             RemoteMessageId = remoteMessageId,
             ContentHash = contentHash,
             IgnoredUtc = DateTime.UtcNow,
-        }).ConfigureAwait(false);
+        }, typeof(BriefingIgnoreRow)).ConfigureAwait(false);
     }
 
     /// <summary>Ignored messages, mapped to the content hash that was ignored.</summary>
@@ -485,7 +488,7 @@ public sealed class MailIntelligenceStore(
             .FirstOrDefaultAsync()
             .ConfigureAwait(false) ?? new BriefingViewStateRow { LocalAccountId = localAccountId };
         mutate(row);
-        await lease.Connection.InsertOrReplaceAsync(row).ConfigureAwait(false);
+        await lease.Connection.InsertOrReplaceAsync(row, typeof(MailIntelligenceJobRow)).ConfigureAwait(false);
     }
 
     // ---- access --------------------------------------------------------------------
@@ -502,7 +505,7 @@ public sealed class MailIntelligenceStore(
             HasAiPack = hasAiPack,
             HasIntelligenceConsent = hasConsent,
             UpdatedUtc = DateTime.UtcNow,
-        }).ConfigureAwait(false);
+        }, typeof(MailIntelligenceAccessRow)).ConfigureAwait(false);
     }
 
     public async Task<(Guid MailboxId, bool HasAiPack, bool HasConsent)?> GetAccessAsync(
@@ -536,7 +539,7 @@ public sealed class MailIntelligenceStore(
             WinoAccountId = winoAccountId,
             Payload = payload,
             UpdatedUtc = DateTime.UtcNow,
-        }).ConfigureAwait(false);
+        }, typeof(AccountIntelligenceSnapshotRow)).ConfigureAwait(false);
     }
 
     public async Task DeleteAccountSnapshotsAsync(CancellationToken cancellationToken = default)

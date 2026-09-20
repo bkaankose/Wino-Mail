@@ -36,9 +36,9 @@ public sealed class WinoIntelligenceSessionSafetyTests
             return release.Task;
         });
         var viewModel = new WinoIntelligenceManagementPageViewModel(Mock.Of<IMailDialogService>(),
-            Mock.Of<IAccountService>(), Mock.Of<IFolderService>(), Mock.Of<ISemanticIndexCoordinator>(),
+            Mock.Of<IAccountService>(), Mock.Of<IFolderService>(), Mock.Of<IMailIntelligenceCoordinator>(),
             Mock.Of<IIntelligenceMessageContextResolver>(), Mock.Of<IWinoAccountApiClient>(),
-            Mock.Of<ILocalIntelligenceStore>(), Mock.Of<ITranslationService>(), Mock.Of<IIntelligenceCoverageHandoff>(),
+            Mock.Of<IMailIntelligenceStore>(), Mock.Of<ITranslationService>(), Mock.Of<IIntelligenceCoverageHandoff>(),
             snapshotService: snapshots.Object, sessions: sessions.Object)
         {
             Account = new MailAccount { Id = Guid.NewGuid(), Address = "mail@example.test" },

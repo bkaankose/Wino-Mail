@@ -103,7 +103,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private IContactService ContactService { get; } = WinoApplication.Current.Services.GetRequiredService<IContactService>();
     private IFolderService FolderService { get; } = WinoApplication.Current.Services.GetRequiredService<IFolderService>();
     private IAccountService AccountService { get; } = WinoApplication.Current.Services.GetRequiredService<IAccountService>();
-    private IIntelligenceSearchEligibilityService IntelligenceEligibilityService { get; } = WinoApplication.Current.Services.GetRequiredService<IIntelligenceSearchEligibilityService>();
     private IWinoIntelligenceEntitlementService EntitlementService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoIntelligenceEntitlementService>();
     private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
     private IKeyboardShortcutService KeyboardShortcutService { get; } = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
@@ -1045,53 +1044,20 @@ public sealed partial class MailListPage : MailListPageAbstract,
         await DispatcherQueue.EnqueueAsync(() => SenderSuggestions = suggestions);
     }
 
-    public async Task<SemanticSearchAvailability> GetSemanticSearchAvailabilityAsync(SearchBarFilterSnapshot filters)
-    {
-        var folders = await ResolveSearchFoldersAsync(filters.Scope).ConfigureAwait(false);
-        var eligibility = await IntelligenceEligibilityService.ResolveAsync(
-            folders.Select(folder => folder.MailAccountId).Distinct().ToArray()).ConfigureAwait(false);
-        if (!eligibility.HasCompatibleBackends)
-            return new(false, Translator.SearchBar_SemanticUnavailableMixedBackend);
-        if (!eligibility.HasEligibleAccounts)
-            return new(false, Translator.WinoIntelligence_InsightsLocked);
-        return new(true, string.Empty);
-    }
+    /// <summary>
+    /// Meaning search is no longer offered. It was backed by embeddings, which the
+    /// intelligence rewrite removed, so the toggle stays unavailable.
+    /// </summary>
+    public Task<SemanticSearchAvailability> GetSemanticSearchAvailabilityAsync(SearchBarFilterSnapshot filters)
+        => Task.FromResult(new SemanticSearchAvailability(false, Translator.WinoIntelligence_InsightsLocked));
 
     public async Task OnMailSearchSubmittedAsync(SearchBarSubmittedEventArgs args)
     {
         IReadOnlyList<MailItemFolder> folders = await ResolveSearchFoldersAsync(args.Filters.Scope).ConfigureAwait(false);
-        if (args.IsSemanticSearchEnabled)
-        {
-            var eligibility = await IntelligenceEligibilityService.ResolveAsync(
-                folders.Select(folder => folder.MailAccountId).Distinct().ToArray()).ConfigureAwait(false);
-            if (!eligibility.HasCompatibleBackends)
-            {
-                await DispatcherQueue.EnqueueAsync(() => MailDialogService.InfoBarMessage(
-                    Translator.GeneralTitle_Error,
-                    Translator.SearchBar_SemanticUnavailableMixedBackend,
-                    InfoBarMessageType.Warning));
-                return;
-            }
-
-            var eligibleAccountIds = eligibility.Accounts.Where(account => account.IsEligible).Select(account => account.AccountId).ToHashSet();
-            var omittedNames = eligibility.Accounts.Where(account => !account.IsEligible).Select(account => account.AccountName).ToArray();
-            folders = folders.Where(folder => eligibleAccountIds.Contains(folder.MailAccountId)).ToArray();
-            if (omittedNames.Length > 0)
-            {
-                await DispatcherQueue.EnqueueAsync(() => MailDialogService.InfoBarMessage(
-                    Translator.SemanticSearch_PartialTitle,
-                    string.Format(Translator.SemanticSearch_OmittedAccountsMessage, string.Join(", ", omittedNames)),
-                    InfoBarMessageType.Warning));
-            }
-            if (folders.Count == 0)
-                return;
-        }
         var (afterUtc, beforeUtc) = ResolveUtcDateRange(args.Filters.DateRange, DateTime.Now);
-        var executionMode = args.IsSemanticSearchEnabled
-            ? Wino.Core.Domain.Enums.SearchMode.Semantic
-            : args.Filters.Reach == SearchBarReach.IncludeServer
-                ? Wino.Core.Domain.Enums.SearchMode.Online
-                : Wino.Core.Domain.Enums.SearchMode.Local;
+        var executionMode = args.Filters.Reach == SearchBarReach.IncludeServer
+            ? Wino.Core.Domain.Enums.SearchMode.Online
+            : Wino.Core.Domain.Enums.SearchMode.Local;
         var criteria = new MailSearchCriteria(
             args.QueryText.Trim(),
             executionMode,

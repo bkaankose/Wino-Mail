@@ -71,10 +71,10 @@ public sealed class WinoIntelligenceCancelCommandTests
             Mock.Of<IMailDialogService>(),
             Mock.Of<IAccountService>(),
             Mock.Of<IFolderService>(),
-            Mock.Of<ISemanticIndexCoordinator>(),
+            Mock.Of<IMailIntelligenceCoordinator>(),
             Mock.Of<IIntelligenceMessageContextResolver>(),
             Mock.Of<IWinoAccountApiClient>(),
-            Mock.Of<ILocalIntelligenceStore>(),
+            Mock.Of<IMailIntelligenceStore>(),
             Mock.Of<ITranslationService>(),
             Mock.Of<IIntelligenceCoverageHandoff>());
 }

@@ -16,7 +16,7 @@ public sealed class WinoAccountIntelligenceSnapshotServiceTests : IAsyncLifetime
     private readonly InMemoryDatabaseService _database = new();
     private readonly Mock<IWinoBillingService> _billing = new();
     private readonly Mock<IWinoAccountApiClient> _api = new();
-    private readonly Mock<ILocalIntelligenceStore> _store = new();
+    private readonly Mock<IMailIntelligenceStore> _store = new();
     private WinoAccountSessionService _sessions = null!;
     private WinoAccountIntelligenceSnapshotService _service = null!;
     private readonly Guid _accountId = Guid.NewGuid();
@@ -27,7 +27,7 @@ public sealed class WinoAccountIntelligenceSnapshotServiceTests : IAsyncLifetime
         _sessions = new(_database);
         await _sessions.ReplaceAsync(new WinoAccount { Id = _accountId }, () => Task.CompletedTask);
         _api.Setup(x => x.GetIntelligenceConsentAsync(It.IsAny<CancellationToken>())).ThrowsAsync(new InvalidOperationException("Offline"));
-        _store.Setup(x => x.SaveAccountIntelligenceSnapshotAsync(It.IsAny<WinoAccountIntelligenceSnapshot>(), It.IsAny<CancellationToken>()))
+        _store.Setup(x => x.SaveAccountSnapshotJsonAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
         _service = new(_billing.Object, _api.Object, _store.Object, _sessions);
     }
@@ -44,7 +44,7 @@ public sealed class WinoAccountIntelligenceSnapshotServiceTests : IAsyncLifetime
 
         await _service.SaveAsync(snapshot);
 
-        _store.Verify(x => x.SaveAccountIntelligenceSnapshotAsync(It.IsAny<WinoAccountIntelligenceSnapshot>(),
+        _store.Verify(x => x.SaveAccountSnapshotJsonAsync(It.IsAny<Guid>(), It.IsAny<string>(),
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -68,7 +68,7 @@ public sealed class WinoAccountIntelligenceSnapshotServiceTests : IAsyncLifetime
 
         results[0].Should().BeSameAs(results[1]);
         _billing.Verify(x => x.GetStatusAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _store.Verify(x => x.SaveAccountIntelligenceSnapshotAsync(It.IsAny<WinoAccountIntelligenceSnapshot>(), It.IsAny<CancellationToken>()), Times.Once);
+        _store.Verify(x => x.SaveAccountSnapshotJsonAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public sealed class WinoAccountIntelligenceSnapshotServiceTests : IAsyncLifetime
 
         await _service.SaveAsync(WinoAccountIntelligenceSnapshot.Empty(_accountId));
 
-        _store.Verify(x => x.SaveAccountIntelligenceSnapshotAsync(It.IsAny<WinoAccountIntelligenceSnapshot>(), It.IsAny<CancellationToken>()), Times.Never);
+        _store.Verify(x => x.SaveAccountSnapshotJsonAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public sealed class WinoAccountIntelligenceSnapshotServiceTests : IAsyncLifetime
         release.SetResult();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
-        _store.Verify(x => x.SaveAccountIntelligenceSnapshotAsync(It.IsAny<WinoAccountIntelligenceSnapshot>(), It.IsAny<CancellationToken>()), Times.Never);
+        _store.Verify(x => x.SaveAccountSnapshotJsonAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private static TaskCompletionSource Signal() => new(TaskCreationOptions.RunContinuationsAsynchronously);

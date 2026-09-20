@@ -64,8 +64,8 @@ public sealed class WinoIntelligenceIndicatorSettingsTests
         viewModel.Account = account;
         viewModel.IsPageReady = true;
 
-        var hideDeadline = viewModel.SetIntelligenceIndicatorVisibilityAsync(
-            IntelligenceIndicatorId.FactDeadline,
+        var hideHeadline = viewModel.SetIntelligenceIndicatorVisibilityAsync(
+            IntelligenceIndicatorId.FactHeadline,
             false);
         await firstUpdateEntered.Task;
 
@@ -75,11 +75,11 @@ public sealed class WinoIntelligenceIndicatorSettingsTests
         updateCount.Should().Be(1);
 
         releaseFirstUpdate.SetResult();
-        await Task.WhenAll(hideDeadline, hidePriority);
+        await Task.WhenAll(hideHeadline, hidePriority);
 
         updateCount.Should().Be(2);
         account.Preferences.ExcludedIntelligenceIndicatorIds.Should().BeEquivalentTo(
-            IntelligenceIndicatorId.FactDeadline,
+            IntelligenceIndicatorId.FactHeadline,
             IntelligenceIndicatorId.FactPriority);
     }
 
@@ -98,7 +98,7 @@ public sealed class WinoIntelligenceIndicatorSettingsTests
         viewModel.IsPageReady = true;
 
         var actualState = await viewModel.SetIntelligenceIndicatorVisibilityAsync(
-            IntelligenceIndicatorId.FactDeadline,
+            IntelligenceIndicatorId.FactPriority,
             false);
 
         actualState.Should().BeTrue();
@@ -128,7 +128,7 @@ public sealed class WinoIntelligenceIndicatorSettingsTests
         viewModel.IsPageReady = true;
 
         var save = viewModel.SetIntelligenceIndicatorVisibilityAsync(
-            IntelligenceIndicatorId.FactDeadline,
+            IntelligenceIndicatorId.FactPriority,
             false);
         await updateEntered.Task;
 
@@ -139,7 +139,7 @@ public sealed class WinoIntelligenceIndicatorSettingsTests
         await save;
 
         originalAccount.Preferences.ExcludedIntelligenceIndicatorIds.Should()
-            .ContainSingle(IntelligenceIndicatorId.FactDeadline);
+            .ContainSingle(IntelligenceIndicatorId.FactPriority);
         nextAccount.Preferences.ExcludedIntelligenceIndicatorIds.Should().BeEmpty();
         nextAccountItem.IsVisible.Should().BeTrue();
     }
@@ -160,7 +160,7 @@ public sealed class WinoIntelligenceIndicatorSettingsTests
 
     private static IntelligenceIndicatorSettingsItem CreateIndicator(bool isVisible)
         => new(
-            IntelligenceIndicatorId.FactDeadline,
+            IntelligenceIndicatorId.FactPriority,
             "Deadline",
             "DeadlineToggle",
             string.Empty,
@@ -180,10 +180,10 @@ public sealed class WinoIntelligenceIndicatorSettingsTests
             Mock.Of<IMailDialogService>(),
             accountService,
             Mock.Of<IFolderService>(),
-            Mock.Of<ISemanticIndexCoordinator>(),
+            Mock.Of<IMailIntelligenceCoordinator>(),
             Mock.Of<IIntelligenceMessageContextResolver>(),
             Mock.Of<IWinoAccountApiClient>(),
-            Mock.Of<ILocalIntelligenceStore>(),
+            Mock.Of<IMailIntelligenceStore>(),
             Mock.Of<ITranslationService>(),
             Mock.Of<IIntelligenceCoverageHandoff>());
 }

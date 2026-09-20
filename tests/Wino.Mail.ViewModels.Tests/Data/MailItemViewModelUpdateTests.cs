@@ -124,14 +124,9 @@ public class MailItemViewModelUpdateTests
     public void IntelligenceTiles_ShouldApplyVisibilityPolicyAndPreserveLabelOrder()
     {
         var mail = CreateMailCopy("thread-1", DateTime.UtcNow);
+        // Label order is preserved exactly as Jev returned it.
         mail.IntelligenceMetadata = new MailIntelligenceMetadata(
-            "outlook:test",
-            [
-                new SmartLabelScore(MailSmartLabel.Travel, 0.9),
-                new SmartLabelScore(MailSmartLabel.Finance, 0.8),
-            ],
-            null,
-            "Review the attached contract by Friday.");
+            "outlook:test", ["travel", "finance"], "normal", IncludeInBriefing: false);
 
         var sut = new MailItemViewModel(mail);
 
@@ -222,17 +217,7 @@ public class MailItemViewModelUpdateTests
     }
 
     private static MailIntelligenceMetadata CreatePriorityMetadata(MailPriority priority)
-        => new("outlook:test", [], new GeneralFactPayload
-        {
-            BriefingId = Guid.NewGuid(),
-            OccurredAtUtc = DateTimeOffset.UtcNow,
-            Kind = MessageKind.Information,
-            Status = BriefingStatus.Informational,
-            Urgency = priority,
-            PrimaryAction = new NoActionPayload(),
-            TemporalReferences = [],
-            Confidence = 0.9,
-        }, string.Empty);
+        => new("outlook:test", [], priority.ToString().ToLowerInvariant(), IncludeInBriefing: false);
 
     private static MailCopy CreateMailCopy(string threadId, DateTime creationDate)
         => new()

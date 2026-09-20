@@ -2910,6 +2910,7 @@
     "DailyBriefing_ActionSchedule": "Schedule",
     "DailyBriefing_ActionAddToCalendar": "Add to calendar",
     "DailyBriefing_ActionOpen": "Open mail",
+    "DailyBriefing_New": "New",
     "DailyBriefing_UnavailableTitle": "Briefing is not available",
     "DailyBriefing_UnavailableMessage": "Sign in to Wino, activate Intelligence, and enable processing for at least one account.",
     "DailyBriefing_LocalHint": "Built from briefing facts stored on this device. No network request is made.",

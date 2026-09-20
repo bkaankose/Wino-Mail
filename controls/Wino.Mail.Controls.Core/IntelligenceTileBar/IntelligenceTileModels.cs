@@ -7,11 +7,8 @@ namespace Wino.Mail.Controls.Core.IntelligenceTileBar;
 /// <summary>Identifies the semantic kind and fixed ordering group of a mail intelligence tile.</summary>
 public enum WinoIntelligenceTileKind
 {
-    Deadline,
-    NeedsReply,
     Priority,
     SmartLabel,
-    BriefingFact,
 }
 
 #if WINRT_EXPOSED

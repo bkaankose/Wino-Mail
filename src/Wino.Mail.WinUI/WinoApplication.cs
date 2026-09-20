@@ -99,7 +99,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
     public IEnumerable<IInitializeAsync> GetActivationServices()
     {
         yield return DatabaseService;
-        yield return Services.GetRequiredService<ILocalIntelligenceStore>();
+        yield return Services.GetRequiredService<IMailIntelligenceStore>();
         yield return TranslationService;
         yield return Services.GetRequiredService<SynchronizationManagerInitializer>();
     }

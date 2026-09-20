@@ -10,9 +10,8 @@ namespace Wino.Core.Domain.Models.Intelligence;
 /// <summary>Identifies one of the fact-derived intelligence indicators.</summary>
 public enum IntelligenceFactKind
 {
-    Deadline,
-    NeedsReply,
     Priority,
+    Headline,
     Briefing,
 }
 
@@ -30,14 +29,12 @@ public enum IntelligenceIndicatorKind
 /// </summary>
 public readonly record struct IntelligenceIndicatorId
 {
-    public const string FactDeadline = "fact:deadline";
-    public const string FactNeedsReply = "fact:needs-reply";
     public const string FactPriority = "fact:priority";
+    public const string FactHeadline = "fact:headline";
     public const string FactBriefing = "fact:briefing";
 
-    public const string Deadline = FactDeadline;
-    public const string NeedsReply = FactNeedsReply;
     public const string Priority = FactPriority;
+    public const string Headline = FactHeadline;
     public const string Briefing = FactBriefing;
 
     public const string FactPrefix = "fact:";
@@ -62,14 +59,13 @@ public readonly record struct IntelligenceIndicatorId
     {
         kind = Value switch
         {
-            FactDeadline => IntelligenceFactKind.Deadline,
-            FactNeedsReply => IntelligenceFactKind.NeedsReply,
             FactPriority => IntelligenceFactKind.Priority,
+            FactHeadline => IntelligenceFactKind.Headline,
             FactBriefing => IntelligenceFactKind.Briefing,
             _ => default,
         };
 
-        return Value is FactDeadline or FactNeedsReply or FactPriority or FactBriefing;
+        return Value is FactPriority or FactHeadline or FactBriefing;
     }
 
     public bool TryGetSmartLabel(out MailSmartLabel label)
@@ -93,9 +89,8 @@ public readonly record struct IntelligenceIndicatorId
 
     public static IntelligenceIndicatorId ForFact(IntelligenceFactKind kind) => kind switch
     {
-        IntelligenceFactKind.Deadline => new(FactDeadline),
-        IntelligenceFactKind.NeedsReply => new(FactNeedsReply),
         IntelligenceFactKind.Priority => new(FactPriority),
+        IntelligenceFactKind.Headline => new(FactHeadline),
         IntelligenceFactKind.Briefing => new(FactBriefing),
         _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
     };
@@ -115,9 +110,8 @@ public readonly record struct IntelligenceIndicatorId
             return false;
 
         var candidate = value.Trim();
-        if (candidate.Equals(FactDeadline, StringComparison.Ordinal) ||
-            candidate.Equals(FactNeedsReply, StringComparison.Ordinal) ||
-            candidate.Equals(FactPriority, StringComparison.Ordinal) ||
+        if (candidate.Equals(FactPriority, StringComparison.Ordinal) ||
+            candidate.Equals(FactHeadline, StringComparison.Ordinal) ||
             candidate.Equals(FactBriefing, StringComparison.Ordinal))
         {
             id = new(candidate);
@@ -145,9 +139,8 @@ public readonly record struct IntelligenceIndicatorId
 
     public static IReadOnlyList<IntelligenceIndicatorId> GetKnownIndicators()
         => [
-            new(FactDeadline),
-            new(FactNeedsReply),
             new(FactPriority),
+            new(FactHeadline),
             new(FactBriefing),
             .. Enum.GetValues<MailSmartLabel>().Select(ForSmartLabel),
         ];

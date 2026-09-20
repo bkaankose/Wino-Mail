@@ -109,7 +109,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly IWinoLogger _winoLogger;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
-    private readonly IIntelligenceSearchService _intelligenceSearchService;
     private MailItemViewModel _activeMailItem;
     private CancellationTokenSource markAsReadDelayCancellationTokenSource;
     private IReadOnlyList<MailItemViewModel> _selectedItems = [];
@@ -177,8 +176,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public MailSearchCriteria SearchCriteria { get; private set; } = MailSearchCriteria.Empty;
     private IReadOnlyList<IMailItemFolder> SearchHandlingFolders { get; set; } = [];
 
-    public bool IsSemanticSearchAvailable => _intelligenceSearchService is not null &&
-        _entitlementService?.Current.CanAccessSurfaces == true;
+    /// <summary>
+    /// Meaning search is no longer offered: it was backed by embeddings, which the
+    /// intelligence rewrite removed.
+    /// </summary>
+    public bool IsSemanticSearchAvailable => false;
 
     [ObservableProperty]
     public partial bool IsSemanticSearchBusy { get; set; }
@@ -306,7 +308,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  ISynchronizationManager synchronizationManager,
                                  IDraftSyncRetryService draftSyncRetryService,
                                  IMailShellClient shellMenuProvider = null,
-                                 IIntelligenceSearchService intelligenceSearchService = null,
                                  IWinoIntelligenceEntitlementService entitlementService = null)
     {
         ShellMenuProvider = shellMenuProvider;
@@ -323,7 +324,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _keyPressService = keyPressService;
         _synchronizationManager = synchronizationManager;
         _draftSyncRetryService = draftSyncRetryService;
-        _intelligenceSearchService = intelligenceSearchService;
         _entitlementService = entitlementService;
 
         PreferencesService = preferencesService;
@@ -2860,57 +2860,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 }
             }
 
-            var isDoingSemanticSearch = isDoingSearch &&
-                context.SearchCriteria.ExecutionMode == SearchMode.Semantic &&
-                _intelligenceSearchService is not null;
             var isDoingOnlineSearch = isDoingSearch &&
-                !isDoingSemanticSearch &&
                 (context.SearchCriteria.ExecutionMode == SearchMode.Online || context.IsOnlineSearch);
             List<MailCopy> onlineSearchItems = null;
-
-            if (isDoingSemanticSearch)
-            {
-                try
-                {
-                    await ExecuteUIThread(() => IsSemanticSearchBusy = true);
-                    var semanticResult = await _intelligenceSearchService.SearchAsync(new IntelligenceSearchOptions(
-                        context.Query,
-                        context.HandlingFolders.OfType<MailItemFolder>().ToArray(),
-                        IsUnread: context.SearchCriteria.IsUnread || context.Filter.Type == FilterOptionType.Unread ? true : null,
-                        IsFlagged: context.SearchCriteria.IsFlagged || context.Filter.Type == FilterOptionType.Flagged ? true : null,
-                        HasAttachments: context.SearchCriteria.HasAttachments || context.Filter.Type == FilterOptionType.Files ? true : null), context.CancellationToken).ConfigureAwait(false);
-                    onlineSearchItems = semanticResult.Items
-                        .Where(item => MatchesSemanticPostFilters(item, context.SearchCriteria))
-                        .ToList();
-                    if (semanticResult.Omissions.Count > 0 && IsCurrentMailLoad(context))
-                    {
-                        await ExecuteUIThread(() => _mailDialogService.InfoBarMessage(
-                            Translator.SemanticSearch_PartialTitle,
-                            Translator.SemanticSearch_PartialMessage,
-                            InfoBarMessageType.Warning));
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warning(ex, "Failed to perform semantic search.");
-                    isDoingSemanticSearch = false;
-                    if (IsCurrentMailLoad(context))
-                    {
-                        await ExecuteUIThread(() => _mailDialogService.InfoBarMessage(
-                            Translator.GeneralTitle_Error,
-                            ex.Message,
-                            InfoBarMessageType.Warning));
-                    }
-                }
-                finally
-                {
-                    await ExecuteUIThread(() => IsSemanticSearchBusy = false);
-                }
-            }
 
             if (isDoingOnlineSearch)
             {
@@ -2953,11 +2905,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             var options = CreateInitializationOptions(
                 context,
-                isDoingOnlineSearch || isDoingSemanticSearch ? string.Empty : context.Query,
+                isDoingOnlineSearch ? string.Empty : context.Query,
                 new ConcurrentDictionary<Guid, bool>(),
                 onlineSearchItems,
                 isDoingOnlineSearch,
-                isDoingSemanticSearch);
+                false);
 
             context.Trace?.Mark(MailListLoadStage.QueryStarted);
             var page = await _mailService
@@ -3008,9 +2960,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                     return;
 
                 FinishedLoading = !page.HasMore;
-                HasNoOnlineSearchResult = (isDoingOnlineSearch || isDoingSemanticSearch) && page.Items.Count == 0;
+                HasNoOnlineSearchResult = isDoingOnlineSearch && page.Items.Count == 0;
                 OnPropertyChanged(nameof(HasNoOnlineSearchResult));
-                IsOnlineSearchButtonVisible = supportsOnlineSearch && isDoingSearch && !isDoingOnlineSearch && !isDoingSemanticSearch;
+                IsOnlineSearchButtonVisible = supportsOnlineSearch && isDoingSearch && !isDoingOnlineSearch;
 
                 IsInitializingFolder = false;
                 OnPropertyChanged(nameof(CanSynchronize));

@@ -7,6 +7,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Synchronizers.Mail;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.AI.Abstractions;
 using Wino.Services;
 using MimeKit;

@@ -19,6 +19,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Folders;

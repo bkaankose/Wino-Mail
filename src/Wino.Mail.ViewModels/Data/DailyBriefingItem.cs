@@ -1,49 +1,87 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
-using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Intelligence;
-using Wino.Mail.AI.Abstractions;
 
 namespace Wino.Mail.ViewModels;
 
+/// <summary>
+/// One briefing card. It shows only what Jev and Luna produce: sender and date, smart
+/// labels, priority, a headline, a one-line summary, and Open.
+/// There is no action button, status or due date, because the decision model cannot
+/// produce those reliably.
+/// </summary>
 public sealed partial class DailyBriefingItem : ObservableObject
 {
-    public DailyBriefingItem(DailyBriefingFact fact, DailyBriefingAccount account,
-        CalendarEventComposeNavigationArgs? calendarArgs, string verificationCode)
+    public DailyBriefingItem(DailyBriefingFact fact, DailyBriefingAccount account)
     {
         Fact = fact;
         Account = account;
-        CalendarArgs = calendarArgs;
-        VerificationCode = verificationCode;
         IsIgnored = fact.IsIgnored;
     }
 
     public DailyBriefingFact Fact { get; }
+
     public DailyBriefingAccount Account { get; }
-    public CalendarEventComposeNavigationArgs? CalendarArgs { get; }
-    public string VerificationCode { get; }
+
     public Guid LocalAccountId => Fact.LocalAccountId;
-    public Guid BriefingId => Fact.Fact.BriefingId;
+
     public Guid MailUniqueId => Fact.MailUniqueId;
-    public long ArtifactRevision => Fact.ArtifactRevision;
-    public bool IsPriority => Fact.IsPriorityVisible && Fact.Fact.Urgency is MailPriority.Urgent or MailPriority.High;
-    public DailyBriefingTone Tone => Fact.Fact switch
+
+    public string RemoteMessageId => Fact.RemoteMessageId;
+
+    /// <summary>The hash the card was built from. Ignoring is keyed on it.</summary>
+    public string ContentHash => Fact.ContentHash;
+
+    public string Subject => Fact.Subject;
+
+    public string SenderName => string.IsNullOrWhiteSpace(Fact.SenderName) ? Fact.SenderAddress : Fact.SenderName;
+
+    public string SenderAddress => Fact.SenderAddress;
+
+    public DateTimeOffset ReceivedAt => Fact.ReceivedAt;
+
+    public string Headline => Fact.IsHeadlineVisible ? Fact.Headline : string.Empty;
+
+    public string Summary => Fact.Summary;
+
+    public bool HasHeadline => !string.IsNullOrWhiteSpace(Headline);
+
+    public bool HasSummary => !string.IsNullOrWhiteSpace(Summary);
+
+    public IReadOnlyList<string> Labels => Fact.VisibleLabels;
+
+    /// <summary>
+    /// Label chips as a typed model. Binding to plain strings would force a cast inside
+    /// the template, which the XAML compiler handles poorly.
+    /// </summary>
+    public IReadOnlyList<BriefingLabelChip> LabelChips =>
+        (BriefingLabelChip[])[.. Labels.Select(BriefingLabelChip.Create)];
+
+    public bool HasLabels => Labels.Count > 0;
+
+    public string Priority => Fact.Priority;
+
+    public bool IsPriority => Fact.IsPriorityVisible &&
+        (string.Equals(Priority, "urgent", StringComparison.OrdinalIgnoreCase) ||
+         string.Equals(Priority, "high", StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// Priority is the only signal left that carries urgency, so the card's tone follows
+    /// it directly rather than being inferred from a fact category.
+    /// </summary>
+    public DailyBriefingTone Tone => Priority.ToLowerInvariant() switch
     {
-        SecurityFactPayload or AccountFactPayload => DailyBriefingTone.Critical,
-        FinanceFactPayload or PurchaseFactPayload or SubscriptionFactPayload => DailyBriefingTone.Caution,
-        TravelFactPayload or ReservationFactPayload => DailyBriefingTone.Success,
-        ConversationFactPayload or SocialFactPayload => DailyBriefingTone.Attention,
-        TaskFactPayload or ApprovalFactPayload or MeetingFactPayload => DailyBriefingTone.Critical,
-        _ when Fact.Fact.Status is BriefingStatus.AwaitingMyReply or BriefingStatus.AwaitingOthers => DailyBriefingTone.Caution,
-        _ => DailyBriefingTone.Neutral,
+        "urgent" => DailyBriefingTone.Critical,
+        "high" => DailyBriefingTone.Caution,
+        "low" => DailyBriefingTone.Neutral,
+        _ => DailyBriefingTone.Attention,
     };
-    public IReadOnlyList<SmartLabelScore> SmartLabels => Fact.IncludedSmartLabels;
-    public DailyBriefingIndicatorState IndicatorState => Fact.IndicatorState ?? DailyBriefingIndicatorState.AllVisible(Fact.SmartLabels);
-    public bool HasIgnoreAction => BriefingId != Guid.Empty;
+
     public bool CanOpen => MailUniqueId != Guid.Empty;
 
     [ObservableProperty]
@@ -52,21 +90,19 @@ public sealed partial class DailyBriefingItem : ObservableObject
     [ObservableProperty]
     public partial bool IsIgnorePending { get; set; }
 
-    [ObservableProperty]
-    public partial bool IsDeletePending { get; set; }
+    public bool CanToggleIgnore => !IsIgnorePending;
 
-    public bool CanToggleIgnore => HasIgnoreAction && !IsIgnorePending && !IsDeletePending;
-    public bool CanDelete => HasIgnoreAction && !IsDeletePending && !IsIgnorePending;
-    public string DeleteActionText => Translator.Buttons_Delete;
     public string IgnoreActionText => IsIgnored ? Translator.DailyBriefing_ActionUnignore : Translator.DailyBriefing_ActionIgnore;
+
     public string IgnoreActionAutomationId => IsIgnored ? "DailyBriefingUnignoreButton" : "DailyBriefingIgnoreButton";
+
     public string IgnoreActionGlyph => IsIgnored ? DailyBriefingIcons.Show : DailyBriefingIcons.Hide;
-    public DailyBriefingActionPresentation Action => DailyBriefingActionPresentationFactory.Create(
-        Fact.Fact.PrimaryAction,
-        canAddToCalendar: CalendarArgs is not null,
-        hasVerificationCode: !string.IsNullOrWhiteSpace(VerificationCode),
-        allowReplyAction: IndicatorState.IsNeedsReplyVisible);
-    public bool ShowOpenAction => CanOpen && Action.Execution != DailyBriefingActionExecution.OpenSource;
+
+    public string OpenActionAutomationId => "DailyBriefingOpenButton";
+
+    /// <summary>Set by the panel when the card arrived after the briefing was last viewed.</summary>
+    [ObservableProperty]
+    public partial bool IsNew { get; set; }
 
     partial void OnIsIgnoredChanged(bool value)
     {
@@ -76,6 +112,11 @@ public sealed partial class DailyBriefingItem : ObservableObject
     }
 
     partial void OnIsIgnorePendingChanged(bool value) => OnPropertyChanged(nameof(CanToggleIgnore));
+}
 
-    partial void OnIsDeletePendingChanged(bool value) => OnPropertyChanged(nameof(CanDelete));
+/// <summary>One smart-label chip on a briefing card.</summary>
+public sealed record BriefingLabelChip(string Text, string Glyph)
+{
+    public static BriefingLabelChip Create(string label)
+        => new(Data.MailIntelligenceTileFactory.GetSmartLabelText(label), DailyBriefingIcons.Label(label));
 }

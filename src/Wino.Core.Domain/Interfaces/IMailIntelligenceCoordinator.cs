@@ -36,6 +36,7 @@ public interface IMailIntelligenceCoordinator
     Task RetryJobAsync(Guid jobId, CancellationToken cancellationToken = default);
 
     MailIntelligenceJobSnapshot GetJobSnapshot(Guid localMailAccountId);
+    Task<MailIntelligenceAccountState> GetStateAsync(Guid localMailAccountId, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Models.Intelligence.MailIntelligenceJobState>> GetJobsAsync(Guid localMailAccountId, CancellationToken cancellationToken = default);
     Task<MailMessageIntelligenceState> GetMessageStateAsync(Guid localMailAccountId, string mailUniqueId, CancellationToken cancellationToken = default);
 

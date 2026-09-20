@@ -7,25 +7,22 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
+using Wino.Mail.ViewModels;
 
 namespace Wino.Mail.ViewModels.Data;
 
 /// <summary>Stable identifiers used by local per-mailbox intelligence presentation preferences.</summary>
 public static class IntelligenceIndicatorIds
 {
-    public const string Deadline = IntelligenceIndicatorId.FactDeadline;
-    public const string NeedsReply = IntelligenceIndicatorId.FactNeedsReply;
     public const string Priority = IntelligenceIndicatorId.FactPriority;
+    public const string Headline = IntelligenceIndicatorId.FactHeadline;
     public const string Briefing = IntelligenceIndicatorId.FactBriefing;
 
     public static string ForSmartLabel(MailSmartLabel label) => IntelligenceIndicatorId.ForSmartLabel(label).Value;
 
     public static string ForTile(WinoIntelligenceTile tile) => tile.Kind switch
     {
-        WinoIntelligenceTileKind.Deadline => Deadline,
-        WinoIntelligenceTileKind.NeedsReply => NeedsReply,
         WinoIntelligenceTileKind.Priority => Priority,
-        WinoIntelligenceTileKind.BriefingFact => Briefing,
         WinoIntelligenceTileKind.SmartLabel => string.Empty,
         _ => string.Empty,
     };
@@ -73,10 +70,9 @@ public static class IntelligenceIndicatorSettingsCatalog
     // indicator it turns on or off.
     private static readonly (string Identifier, string DisplayName, string Glyph)[] FactIndicators =
     [
-        (IntelligenceIndicatorIds.Deadline, Translator.IntelligenceTile_Deadline, MailIntelligenceTileFactory.DeadlineGlyph),
-        (IntelligenceIndicatorIds.NeedsReply, Translator.IntelligenceTile_NeedsReply, MailIntelligenceTileFactory.NeedsReplyGlyph),
         (IntelligenceIndicatorIds.Priority, Translator.IntelligenceSettings_Priority, MailIntelligenceTileFactory.PriorityGlyph),
-        (IntelligenceIndicatorIds.Briefing, Translator.IntelligenceSettings_BriefingFact, MailIntelligenceTileFactory.BriefingGlyph),
+        (IntelligenceIndicatorIds.Headline, Translator.IntelligenceSettings_BriefingFact, DailyBriefingIcons.Information),
+        (IntelligenceIndicatorIds.Briefing, Translator.IntelligenceSettings_BriefingFact, DailyBriefingIcons.Information),
     ];
 
     public static ObservableCollection<IntelligenceIndicatorSettingsItem> Create(

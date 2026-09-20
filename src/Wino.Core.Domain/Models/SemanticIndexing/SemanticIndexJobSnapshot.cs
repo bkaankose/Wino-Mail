@@ -71,3 +71,23 @@ public enum MailMessageIntelligenceState
     Failed,
     Unsupported,
 }
+
+/// <summary>
+/// What the management screen knows about one account, read from local state.
+/// There is no server-side index to describe any more, so every number here comes from
+/// the device's own intelligence database.
+/// </summary>
+public sealed record MailIntelligenceAccountState(
+    bool IsEnabled,
+    Guid? MailboxId,
+    int ProcessedMessageCount,
+    int WaitingMessageCount,
+    bool HasEligibleMessages,
+    int ActiveJobCount)
+{
+    public bool IsUpToDate => WaitingMessageCount == 0 && ActiveJobCount == 0;
+
+    public bool HasIntelligenceData => ProcessedMessageCount > 0;
+
+    public static MailIntelligenceAccountState Empty { get; } = new(false, null, 0, 0, false, 0);
+}

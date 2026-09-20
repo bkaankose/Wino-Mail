@@ -62,7 +62,7 @@ public class AccountServiceTests : IAsyncLifetime
         try
         {
             preferences.ExcludedIntelligenceIndicatorIds =
-            [IntelligenceIndicatorId.FactDeadline, IntelligenceIndicatorId.FactPriority];
+            [IntelligenceIndicatorId.FactPriority, IntelligenceIndicatorId.FactHeadline];
 
             await _accountService.UpdateAccountPreferencesAsync(preferences);
         }
@@ -73,13 +73,13 @@ public class AccountServiceTests : IAsyncLifetime
 
         var persisted = await _accountService.GetAccountPreferencesAsync(accountId);
         persisted.ExcludedIntelligenceIndicatorIds.Should().BeEquivalentTo(
-            IntelligenceIndicatorId.FactDeadline,
-            IntelligenceIndicatorId.FactPriority);
+            IntelligenceIndicatorId.FactPriority,
+            IntelligenceIndicatorId.FactHeadline);
         notification.Should().NotBeNull();
         notification!.LocalAccountId.Should().Be(accountId);
         notification.ExcludedIndicatorIds.Should().BeEquivalentTo(
-            IntelligenceIndicatorId.FactDeadline,
-            IntelligenceIndicatorId.FactPriority);
+            IntelligenceIndicatorId.FactPriority,
+            IntelligenceIndicatorId.FactHeadline);
     }
 
     [Fact]

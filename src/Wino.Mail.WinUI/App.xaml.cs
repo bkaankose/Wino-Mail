@@ -742,7 +742,7 @@ public partial class App : WinoApplication,
             await entitlementService.GetAsync();
             _ = entitlementService.RefreshAsync();
 
-            await Services.GetRequiredService<ISemanticIndexCoordinator>().InitializeAsync();
+            await Services.GetRequiredService<IMailIntelligenceCoordinator>().InitializeAsync();
 
             _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
 

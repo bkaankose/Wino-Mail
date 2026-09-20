@@ -83,11 +83,8 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
         IntelligenceHeader.ContentKey = Guid.NewGuid().ToString();
         IntelligenceHeader.IntelligenceTiles = new WinoIntelligenceTile[]
         {
-            new(WinoIntelligenceTileKind.Deadline, "\uE787", "Review: Friday, 5:00 PM", "Review deadline: Friday, 5:00 PM"),
-            new(WinoIntelligenceTileKind.NeedsReply, "\uE97A", "Needs reply", "This message needs a reply"),
             new(WinoIntelligenceTileKind.Priority, "\uE7BA", "Urgent", "Urgent priority", isWarning: true),
             new(WinoIntelligenceTileKind.SmartLabel, "\uE8EC", "Finance", "Finance"),
-            new(WinoIntelligenceTileKind.BriefingFact, "\uE946", string.Empty, "Action required, urgent: countersign the agreement", true),
         };
         ApplyVariant(VariantOptions[0]);
     }
