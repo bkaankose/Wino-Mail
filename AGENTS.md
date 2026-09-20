@@ -30,6 +30,7 @@ Read only references that apply to the task:
 | New UI feature or visual pattern | [Wino design guideline](docs/wino-design-guideline.md) |
 | Reusable controls or playground | [controls/AGENTS.md](controls/AGENTS.md) |
 | Contacts, To Do, or activation audit replay | [replay contract](scripts/ui-audit/REPLAY.md) |
+| Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
 | Release packaging | [release guide](docs/releases.md) |
 
 Repository commands and package rules take precedence over stale personal skill instructions.

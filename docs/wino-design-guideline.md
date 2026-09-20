@@ -190,7 +190,7 @@ The selected backdrop is decorative. The content layer, selected state, focus vi
 | Reader or editor | Full-bleed content with compact command chrome | Protect the reading/writing measure. Keep themed personalization behind the content layer. |
 | Settings | Section header + labeled controls + concise helper text | Reuse settings header and information-area patterns. Group by user goal, not implementation subsystem. |
 | A simple choice | `RadioButtons` for 2–3 choices; `ComboBox` for 4+ | Show the selected value clearly. Do not create custom segmented pills. |
-| Search | `AutoSuggestBox` | Make scope and loading state clear; retain Wino semantic-search behavior. |
+| Search | `AutoSuggestBox` | Make scope and loading state clear. |
 | Long work | Inline progress with cancel/retry where meaningful | State what is happening and what follows. A spinner alone is not enough. |
 
 ## 10. Required states
