@@ -47,11 +47,11 @@ public sealed class MailIntelligenceStoreTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ImportJevPage_StoresArtifactsAndMarksBriefingCandidates()
+    public async Task ImportClassificationPage_StoresArtifactsAndMarksBriefingCandidates()
     {
-        await _store.ImportJevPageAsync(AccountId, [Jev("m1", "h1", include: true), Jev("m2", "h2", include: false)], [], Empty);
+        await _store.ImportClassificationPageAsync(AccountId, [Classification("m1", "h1", include: true), Classification("m2", "h2", include: false)], [], Empty);
 
-        var artifacts = await _store.GetJevArtifactsAsync(AccountId, ["m1", "m2"]);
+        var artifacts = await _store.GetClassificationArtifactsAsync(AccountId, ["m1", "m2"]);
         artifacts.Should().HaveCount(2);
         artifacts["m1"].IncludeInBriefing.Should().BeTrue();
 
@@ -60,44 +60,72 @@ public sealed class MailIntelligenceStoreTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ImportJevPage_IgnoresArtifactsWhoseHashNoLongerMatches()
+    public async Task ImportClassificationPage_KeepsTheRawSignalsBehindEachDecision()
+    {
+        var signals = new ClassificationSignals(
+            new Dictionary<string, double>(StringComparer.Ordinal) { ["finance"] = 0.62, ["newsletter"] = 0.11 },
+            0.87,
+            0.5,
+            new Dictionary<string, double>(StringComparer.Ordinal) { ["normal"] = 0.5, ["high"] = 0.5 },
+            "pay",
+            0.45,
+            0.18);
+
+        await _store.ImportClassificationPageAsync(
+            AccountId, [Classification("m1", "h1", include: true, signals)], [], Empty);
+
+        var stored = (await _store.GetClassificationArtifactsAsync(AccountId, ["m1"]))["m1"].Signals;
+
+        // Retuning a threshold has to be possible against results that are already here,
+        // so every probability survives the round trip, including the rejected ones.
+        stored.LabelProbabilities["finance"].Should().Be(0.62);
+        stored.BriefingProbability.Should().Be(0.87);
+        stored.PriorityScore.Should().Be(0.5);
+        stored.PriorityProbabilities["high"].Should().Be(0.5);
+        stored.TopAction.Should().Be("pay");
+        stored.TopActionProbability.Should().Be(0.45);
+        stored.ActionConfidence.Should().Be(0.18);
+    }
+
+    [Fact]
+    public async Task ImportClassificationPage_IgnoresArtifactsWhoseHashNoLongerMatches()
     {
         // The message changed locally after the job was submitted.
         var desired = new Dictionary<string, string>(StringComparer.Ordinal) { ["m1"] = "current-hash" };
 
-        var result = await _store.ImportJevPageAsync(AccountId, [Jev("m1", "stale-hash", include: true)], [], desired);
+        var result = await _store.ImportClassificationPageAsync(AccountId, [Classification("m1", "stale-hash", include: true)], [], desired);
 
         result.Imported.Should().Be(0);
         result.SkippedStale.Should().Be(1);
-        (await _store.GetJevArtifactsAsync(AccountId, ["m1"])).Should().BeEmpty();
+        (await _store.GetClassificationArtifactsAsync(AccountId, ["m1"])).Should().BeEmpty();
     }
 
     [Fact]
-    public async Task ImportJevPage_IsIdempotentAndKeepsTheOriginalArrivalTime()
+    public async Task ImportClassificationPage_IsIdempotentAndKeepsTheOriginalArrivalTime()
     {
-        await _store.ImportJevPageAsync(AccountId, [Jev("m1", "h1", include: true)], [], Empty);
+        await _store.ImportClassificationPageAsync(AccountId, [Classification("m1", "h1", include: true)], [], Empty);
         var firstImported = await _store.GetFirstImportedUtcAsync(AccountId, "m1");
 
         await Task.Delay(20);
-        await _store.ImportJevPageAsync(AccountId, [Jev("m1", "h1", include: true)], [], Empty);
+        await _store.ImportClassificationPageAsync(AccountId, [Classification("m1", "h1", include: true)], [], Empty);
 
         // A duplicate result must not make an old card look new.
         (await _store.GetFirstImportedUtcAsync(AccountId, "m1")).Should().Be(firstImported);
-        (await _store.GetJevArtifactsAsync(AccountId, ["m1"])).Should().ContainSingle();
+        (await _store.GetClassificationArtifactsAsync(AccountId, ["m1"])).Should().ContainSingle();
     }
 
     [Fact]
-    public async Task JevAndLunaImportIndependently()
+    public async Task ClassificationAndSummarizationImportIndependently()
     {
-        await _store.ImportJevPageAsync(AccountId, [Jev("m1", "h1", include: true)], [], Empty);
+        await _store.ImportClassificationPageAsync(AccountId, [Classification("m1", "h1", include: true)], [], Empty);
 
-        // Jev alone is a complete, usable result; Luna simply has not arrived yet.
-        (await _store.GetJevArtifactsAsync(AccountId, ["m1"])).Should().ContainSingle();
-        (await _store.GetLunaArtifactsAsync(AccountId, ["m1"])).Should().BeEmpty();
+        // Classification alone is a complete, usable result; Summarization simply has not arrived yet.
+        (await _store.GetClassificationArtifactsAsync(AccountId, ["m1"])).Should().ContainSingle();
+        (await _store.GetSummaryArtifactsAsync(AccountId, ["m1"])).Should().BeEmpty();
 
-        await _store.ImportLunaPageAsync(AccountId, [Luna("m1", "h1")], [], Empty);
+        await _store.ImportSummaryPageAsync(AccountId, [Summary("m1", "h1")], [], Empty);
 
-        (await _store.GetLunaArtifactsAsync(AccountId, ["m1"])).Should().ContainSingle()
+        (await _store.GetSummaryArtifactsAsync(AccountId, ["m1"])).Should().ContainSingle()
             .Which.Value.Headline.Should().Be("Headline m1");
     }
 
@@ -107,15 +135,15 @@ public sealed class MailIntelligenceStoreTests : IAsyncLifetime
         var jobId = Guid.NewGuid();
         await _store.UpsertJobAsync(Job(jobId));
 
-        await _store.MarkStageImportedAsync(jobId, MailIntelligenceStageKind.Jev);
-        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Jev);
+        await _store.MarkStageImportedAsync(jobId, MailIntelligenceStageKind.Classification);
+        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Classification);
 
         var job = await _store.GetJobAsync(jobId);
-        job!.Jev.IsAcknowledged.Should().BeTrue();
-        job.Luna.IsAcknowledged.Should().BeFalse();
+        job!.Classification.IsAcknowledged.Should().BeTrue();
+        job.Summarization.IsAcknowledged.Should().BeFalse();
         job.IsFinished.Should().BeFalse();
 
-        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Luna);
+        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Summarization);
         (await _store.GetJobAsync(jobId))!.IsFinished.Should().BeTrue();
     }
 
@@ -127,10 +155,10 @@ public sealed class MailIntelligenceStoreTests : IAsyncLifetime
 
         (await _store.GetUnfinishedJobsAsync()).Should().ContainSingle();
 
-        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Jev);
-        (await _store.GetUnfinishedJobsAsync()).Should().ContainSingle("Luna is still outstanding");
+        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Classification);
+        (await _store.GetUnfinishedJobsAsync()).Should().ContainSingle("Summarization is still outstanding");
 
-        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Luna);
+        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Summarization);
         (await _store.GetUnfinishedJobsAsync()).Should().BeEmpty();
     }
 
@@ -166,22 +194,33 @@ public sealed class MailIntelligenceStoreTests : IAsyncLifetime
     public async Task DeleteAccountRemovesEverythingForThatAccountOnly()
     {
         var otherAccount = Guid.NewGuid();
-        await _store.ImportJevPageAsync(AccountId, [Jev("m1", "h1", include: true)], [], Empty);
-        await _store.ImportJevPageAsync(otherAccount, [Jev("m2", "h2", include: true)], [], Empty);
+        await _store.ImportClassificationPageAsync(AccountId, [Classification("m1", "h1", include: true)], [], Empty);
+        await _store.ImportClassificationPageAsync(otherAccount, [Classification("m2", "h2", include: true)], [], Empty);
 
         await _store.DeleteAccountAsync(AccountId);
 
-        (await _store.GetJevArtifactsAsync(AccountId, ["m1"])).Should().BeEmpty();
-        (await _store.GetJevArtifactsAsync(otherAccount, ["m2"])).Should().ContainSingle();
+        (await _store.GetClassificationArtifactsAsync(AccountId, ["m1"])).Should().BeEmpty();
+        (await _store.GetClassificationArtifactsAsync(otherAccount, ["m2"])).Should().ContainSingle();
     }
 
     private static IReadOnlyDictionary<string, string> Empty { get; } =
         new Dictionary<string, string>(StringComparer.Ordinal);
 
-    private static JevArtifact Jev(string remoteMessageId, string hash, bool include)
-        => new(new MailArtifactKey(remoteMessageId, hash), ["important"], "normal", include, DateTime.UtcNow);
+    private static ClassificationArtifact Classification(
+        string remoteMessageId,
+        string hash,
+        bool include,
+        ClassificationSignals? signals = null)
+        => new(
+            new MailArtifactKey(remoteMessageId, hash),
+            ["important"],
+            "normal",
+            "none",
+            include,
+            DateTime.UtcNow,
+            signals ?? ClassificationSignals.Empty);
 
-    private static LunaArtifact Luna(string remoteMessageId, string hash)
+    private static SummaryArtifact Summary(string remoteMessageId, string hash)
         => new(new MailArtifactKey(remoteMessageId, hash), $"Headline {remoteMessageId}", "Summary.", DateTime.UtcNow);
 
     private static MailIntelligenceJobState Job(Guid jobId) => new(

@@ -145,26 +145,97 @@ public sealed class ProviderSelectionPageViewModelTests
     }
 
     [Fact]
-    public async Task ContinueFromTheProviderStep_MovesToTheCapabilityStep()
+    public async Task ContinueFromTheProviderStep_MovesToTheIdentityStep()
     {
         var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
-        viewModel.AccountName = "Personal";
 
+        await viewModel.ContinueCommand.ExecuteAsync(null);
+
+        viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Identity);
+        viewModel.IsIdentityStepVisible.Should().BeTrue();
+        viewModel.IsAccountSummaryVisible.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ContinueFromTheIdentityStep_MovesToTheCapabilityStep()
+    {
+        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+
+        await viewModel.ContinueCommand.ExecuteAsync(null);
+        viewModel.AccountName = "Personal";
         await viewModel.ContinueCommand.ExecuteAsync(null);
 
         viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Capabilities);
     }
 
     [Fact]
-    public void ProviderStep_RequiresBothAProviderAndAnAccountName()
+    public void ProviderStep_RequiresOnlyASelectedProvider()
     {
-        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+        var viewModel = new ProviderSelectionPageViewModel(
+            Mock.Of<IAccountService>(),
+            Mock.Of<IDialogServiceBase>(),
+            Mock.Of<IProviderService>(),
+            Mock.Of<INewThemeService>(),
+            new WelcomeWizardContext());
 
         viewModel.ContinueCommand.CanExecute(null).Should().BeFalse();
 
-        viewModel.AccountName = "Personal";
+        viewModel.SelectedProvider = new ProviderDetail(MailProviderType.Outlook, SpecialImapProvider.None);
 
         viewModel.ContinueCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IdentityStep_RequiresAnAccountName()
+    {
+        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+        viewModel.CurrentStep = ProviderSelectionWizardStep.Identity;
+
+        viewModel.ContinueCommand.CanExecute(null).Should().BeFalse();
+
+        viewModel.AccountName = "   ";
+        viewModel.ContinueCommand.CanExecute(null).Should().BeFalse();
+
+        viewModel.AccountName = "Personal";
+        viewModel.ContinueCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public void IdentityStep_GoesBackToTheProviderStep()
+    {
+        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+        viewModel.CurrentStep = ProviderSelectionWizardStep.Identity;
+
+        viewModel.GoBackCommand.Execute(null);
+
+        viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Provider);
+        viewModel.CanGoBack.Should().BeFalse();
+        viewModel.IsAccountSummaryVisible.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SummaryDetail_FallsBackToTheProviderDescriptionUntilTheAccountIsNamed()
+    {
+        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+
+        viewModel.SelectedProviderSummaryDetail.Should().Be(viewModel.SelectedProviderDescription);
+
+        viewModel.AccountName = "Personal";
+
+        viewModel.SelectedProviderSummaryDetail.Should().Be("Personal");
+    }
+
+    [Fact]
+    public void StepProgress_CountsThreeSteps()
+    {
+        var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);
+
+        ProviderSelectionPageViewModel.TotalStepCount.Should().Be(3);
+        viewModel.CurrentStepNumber.Should().Be(1);
+
+        viewModel.CurrentStep = ProviderSelectionWizardStep.Capabilities;
+
+        viewModel.CurrentStepNumber.Should().Be(3);
     }
 
     [Fact]

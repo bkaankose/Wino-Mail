@@ -124,7 +124,7 @@ public class MailItemViewModelUpdateTests
     public void IntelligenceTiles_ShouldApplyVisibilityPolicyAndPreserveLabelOrder()
     {
         var mail = CreateMailCopy("thread-1", DateTime.UtcNow);
-        // Label order is preserved exactly as Jev returned it.
+        // Label order is preserved exactly as Classification returned it.
         mail.IntelligenceMetadata = new MailIntelligenceMetadata(
             "outlook:test", ["travel", "finance"], "normal", IncludeInBriefing: false);
 

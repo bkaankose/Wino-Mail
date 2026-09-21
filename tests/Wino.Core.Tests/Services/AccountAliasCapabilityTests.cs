@@ -10,7 +10,7 @@ using Xunit;
 
 namespace Wino.Core.Tests.Services;
 
-public class AccountAliasCapabilityTests : IAsyncLifetime
+public partial class AccountAliasCapabilityTests : IAsyncLifetime
 {
     private InMemoryDatabaseService _databaseService = null!;
     private AccountService _accountService = null!;

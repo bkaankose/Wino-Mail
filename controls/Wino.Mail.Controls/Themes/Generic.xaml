@@ -1837,6 +1837,7 @@
     </Style>
 
     <Style TargetType="contextFlyout:WinoContextFlyoutPresenter">
+        <Setter Property="MinWidth" Value="75" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="contextFlyout:WinoContextFlyoutPresenter">

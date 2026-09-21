@@ -219,9 +219,13 @@ public sealed class WinoAccountManagementPageViewModelTests
             ApiEnvelope<AiUsageStatusDto>.Success(new AiUsageStatusDto
             {
                 EntitlementStatus = "active",
-                UsagePercentage = 42.5m,
-                RemainingPercentage = 57.5m,
-                IsExhausted = false
+                Buckets =
+                [
+                    new AiQuotaBucketDto(AiQuotaBucketIds.Intelligence, 638, 1_500),
+                    new AiQuotaBucketDto(AiQuotaBucketIds.Summarize, 12, 1_500),
+                    new AiQuotaBucketDto(AiQuotaBucketIds.Rewrite, 3, 1_500),
+                    new AiQuotaBucketDto(AiQuotaBucketIds.Translate, 9, 100),
+                ],
             }));
 
         var accountService = new Mock<IAccountService>();
@@ -245,7 +249,15 @@ public sealed class WinoAccountManagementPageViewModelTests
         await WaitUntilAsync(() => viewModel.IntelligenceMailboxes.Count == 1);
 
         viewModel.HasIntelligenceAccess.Should().BeTrue();
-        viewModel.IntelligenceUsagePercentage.Should().Be(42.5);
+
+        // Counts, not a percentage of a budget the user was never shown. Every bucket is
+        // listed, and the headline is the one indexing spends.
+        viewModel.IntelligenceUsageItems.Should().HaveCount(4);
+        var messages = viewModel.IntelligenceUsageItems.Single(x => x.Bucket == AiQuotaBucketIds.Intelligence);
+        messages.Used.Should().Be(638);
+        messages.Limit.Should().Be(1_500);
+        messages.Remaining.Should().Be(862);
+        viewModel.IntelligenceUsageItems.Single(x => x.Bucket == AiQuotaBucketIds.Translate).Limit.Should().Be(100);
         viewModel.IntelligenceMailboxes.Single().Address.Should().Be(localAccount.Address);
         viewModel.IntelligenceMailboxes.Single().CanManage.Should().BeTrue();
 

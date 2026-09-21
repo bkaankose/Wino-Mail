@@ -104,6 +104,8 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     internal void PrepareForOpen()
     {
         _isOpen = true;
+        Width = double.NaN;
+        Height = double.NaN;
         RegisterHandlers();
 
         if (_itemsList is not null)
@@ -113,11 +115,15 @@ public sealed partial class WinoContextFlyoutPresenter : Control
 
         _navigationStack.Clear();
         ShowPage(_owner.RootItems, animateBackButton: false);
+        LayoutUpdated += CaptureInitialSize;
     }
 
     internal void PrepareForClose()
     {
         _isOpen = false;
+        LayoutUpdated -= CaptureInitialSize;
+        Width = double.NaN;
+        Height = double.NaN;
         _focusRequestVersion++;
         UnregisterKeyboardAccelerators();
         UnregisterHeaderItemHandlers();
@@ -144,6 +150,18 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         {
             _itemsList.ItemsSource = null;
         }
+    }
+
+    private void CaptureInitialSize(object? sender, object e)
+    {
+        if (!_isOpen || ActualWidth <= 0 || ActualHeight <= 0)
+        {
+            return;
+        }
+
+        LayoutUpdated -= CaptureInitialSize;
+        Width = Math.Max(75, ActualWidth);
+        Height = ActualHeight;
     }
 
     private void SearchBoxTextChanged(object sender, TextChangedEventArgs e)

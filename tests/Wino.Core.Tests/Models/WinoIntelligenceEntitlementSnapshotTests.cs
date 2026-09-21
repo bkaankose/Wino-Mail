@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.Api.Contracts.Billing;
+using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Contracts.Intelligence;
 using Xunit;
 
@@ -79,9 +80,8 @@ public sealed class WinoIntelligenceEntitlementSnapshotTests
             new AiUsageStatusDto
             {
                 EntitlementStatus = "active",
-                RemainingPercentage = 0,
-                UsagePercentage = 100,
-                IsExhausted = true,
+                // Only the mail-message bucket gates indexing.
+                Buckets = [new AiQuotaBucketDto(AiQuotaBucketIds.Intelligence, 1_500, 1_500)],
             });
 
         entitlement.State.Should().Be(WinoIntelligenceEntitlementState.QuotaExhausted);
