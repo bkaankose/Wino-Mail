@@ -37,6 +37,7 @@ public enum WinoPage
     MailFiltersPage,
     MailFilterEditorPage,
     ImapCalDavSettingsPage,
+    ExchangeSettingsPage,
     KeyboardShortcutsPage,
     CalendarPage,
     CalendarSettingsPage,
@@ -62,5 +63,6 @@ public enum WinoPage
     WinoIntelligenceManagementPage,
     IntelligenceCoveragePage,
     CompanionSettingsPage,
-    NotificationSettingsPage
+    NotificationSettingsPage,
+    JunkEmailSettingsPage
 }

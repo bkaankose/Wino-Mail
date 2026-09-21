@@ -108,6 +108,110 @@ public sealed class ContextMenuItemServiceTests
         operations.Should().NotContain(MailOperation.AlwaysMoveToOther);
     }
 
+    [Theory]
+    [InlineData(MailProviderType.Exchange, true)]
+    [InlineData(MailProviderType.Outlook, false)]
+    [InlineData(MailProviderType.Gmail, false)]
+    [InlineData(MailProviderType.IMAP4, false)]
+    public void GetMailItemContextMenuActions_OffersCreateRuleForExchangeOnly(MailProviderType providerType, bool expected)
+    {
+        var mail = CreateMail(isRead: true);
+        mail.AssignedAccount = new MailAccount { ProviderType = providerType };
+
+        var operations = _service.GetMailItemContextMenuActions([mail]).Select(action => action.Operation);
+
+        (operations.Contains(MailOperation.CreateRule)).Should().Be(expected);
+    }
+
+    [Fact]
+    public void GetMailItemContextMenuActions_OffersCreateRuleForASingleMessageOnly()
+    {
+        var first = CreateMail(isRead: true);
+        first.AssignedAccount = new MailAccount { ProviderType = MailProviderType.Exchange };
+        var second = CreateMail(isRead: true);
+        second.AssignedAccount = first.AssignedAccount;
+
+        _service.GetMailItemContextMenuActions([first, second])
+            .Select(action => action.Operation)
+            .Should().NotContain(MailOperation.CreateRule);
+    }
+
+    [Fact]
+    public void GetMailItemContextMenuActions_OffersBlockAndNeverBlockOutsideJunk()
+    {
+        var mail = CreateMail(isRead: true);
+        mail.AssignedAccount = new MailAccount { ProviderType = MailProviderType.Exchange };
+
+        var operations = _service.GetMailItemContextMenuActions([mail]).Select(action => action.Operation).ToList();
+
+        operations.Should().Contain(MailOperation.MoveToJunk);
+        operations.Should().Contain(MailOperation.BlockSender);
+        operations.Should().Contain(MailOperation.NeverBlockSender);
+    }
+
+    [Fact]
+    public void GetMailItemContextMenuActions_InJunkOffersNeverBlockButNotBlock()
+    {
+        var mail = CreateMail(isRead: true);
+        mail.AssignedFolder.SpecialFolderType = SpecialFolderType.Junk;
+        mail.AssignedAccount = new MailAccount { ProviderType = MailProviderType.Gmail };
+
+        var operations = _service.GetMailItemContextMenuActions([mail]).Select(action => action.Operation).ToList();
+
+        operations.Should().Contain(MailOperation.MarkAsNotJunk);
+        operations.Should().Contain(MailOperation.NeverBlockSender);
+        operations.Should().NotContain(MailOperation.BlockSender);
+    }
+
+    [Fact]
+    public void GetMailItemContextMenuActions_ForPop3_OffersNoJunkListActions()
+    {
+        var mail = CreateMail(isRead: true);
+        mail.AssignedAccount = new MailAccount { ProviderType = MailProviderType.POP3 };
+
+        var operations = _service.GetMailItemContextMenuActions([mail]).Select(action => action.Operation).ToList();
+
+        operations.Should().NotContain(MailOperation.BlockSender);
+        operations.Should().NotContain(MailOperation.NeverBlockSender);
+    }
+
+    [Fact]
+    public void GetMailItemContextMenuActions_ForRemoteReadOnlyItems_OffersOnlyComposeActions()
+    {
+        var publicFolderMail = CreateMail(isRead: true);
+        publicFolderMail.AssignedFolder.IsPublicFolderNode = true;
+        publicFolderMail.AssignedFolder.SpecialFolderType = SpecialFolderType.PublicFolders;
+
+        var operations = _service.GetMailItemContextMenuActions([publicFolderMail]).Select(action => action.Operation).ToList();
+
+        operations.Should().BeEquivalentTo([MailOperation.Reply, MailOperation.ReplyAll, MailOperation.Forward]);
+    }
+
+    [Fact]
+    public void GetMailItemRenderMenuActions_ForRemoteReadOnlyItems_StopsAfterComposeActions()
+    {
+        var archiveMail = CreateMail(isRead: true);
+        archiveMail.AssignedFolder.IsOnlineArchiveNode = true;
+        archiveMail.AssignedFolder.SpecialFolderType = SpecialFolderType.OnlineArchive;
+
+        var operations = _service.GetMailItemRenderMenuActions(archiveMail, isDarkEditor: false).Select(action => action.Operation).ToList();
+
+        operations.Should().Contain([MailOperation.Reply, MailOperation.Forward]);
+        operations.Should().NotContain([MailOperation.Archive, MailOperation.SoftDelete, MailOperation.SetFlag, MailOperation.MarkAsUnread]);
+    }
+
+    [Fact]
+    public void GetMailItemRenderMenuActions_WithOnlineArchive_DropsTheLocalArchiveAction()
+    {
+        var mail = CreateMail(isRead: true);
+        mail.AssignedAccount = new MailAccount { ProviderType = MailProviderType.Exchange, HasOnlineArchive = true };
+
+        var operations = _service.GetMailItemRenderMenuActions(mail, isDarkEditor: false).Select(action => action.Operation).ToList();
+
+        operations.Should().NotContain(MailOperation.Archive);
+        operations.Should().Contain(MailOperation.SoftDelete);
+    }
+
     private static MailCopy CreateMail(bool isRead) =>
         new()
         {

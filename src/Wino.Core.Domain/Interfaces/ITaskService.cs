@@ -39,6 +39,14 @@ public interface ITaskService : ITaskQueryService
     Task<AccountTaskList> UpsertRemoteTaskListAsync(AccountTaskList list);
     Task CommitTaskListDeltaLinkAsync(Guid listId, string listDeltaLink);
     Task UpdateTaskListAsync(AccountTaskList list);
+
+    /// <summary>
+    /// Points a provider task list, and the listed tasks in it, at new remote ids without marking
+    /// anything as a pending change. Used when the same server folder becomes addressable under
+    /// another id scheme (an Exchange account switching between EWS and MAPI), so the list keeps its
+    /// colour, group and placement and the tasks keep their local identity.
+    /// </summary>
+    Task RekeyTaskListAsync(Guid listId, string remoteId, IReadOnlyDictionary<Guid, string> taskRemoteIds);
     Task DeleteTaskListAsync(Guid listId);
     Task RemoveTaskListAsync(Guid listId);
 

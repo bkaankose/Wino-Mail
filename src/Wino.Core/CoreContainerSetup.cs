@@ -1,16 +1,21 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Serilog.Core;
 using Wino.Authentication;
+using Wino.Authentication.Exchange;
+using Wino.Authentication.Oidc;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Integration;
 using Wino.Core.Services;
 using Wino.Core.Synchronizers.Errors;
+using Wino.Core.Synchronizers.Errors.Exchange;
 using Wino.Core.Synchronizers.Errors.Gmail;
 using Wino.Core.Synchronizers.Errors.Imap;
 using Wino.Core.Synchronizers.Errors.Outlook;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.CardDav;
+using Wino.Core.Synchronizers.Exchange.Streaming;
+using Wino.Core.Synchronizers.Mapi;
 
 namespace Wino.Core;
 
@@ -34,6 +39,7 @@ public static class CoreContainerSetup
         services.AddTransient<IGmailChangeProcessor, GmailChangeProcessor>();
         services.AddTransient<IImapChangeProcessor, ImapChangeProcessor>();
         services.AddTransient<IOutlookChangeProcessor, OutlookChangeProcessor>();
+        services.AddTransient<IExchangeChangeProcessor, ExchangeChangeProcessor>();
         services.AddTransient<IWinoRequestProcessor, WinoRequestProcessor>();
         services.AddTransient<IWinoRequestDelegator, WinoRequestDelegator>();
         services.AddTransient<IMailFilterExecutor, MailFilterExecutor>();
@@ -50,10 +56,22 @@ public static class CoreContainerSetup
         services.AddTransient<ISmtpTransport, MailKitSmtpTransport>();
         services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
+        services.AddTransient<IExchangeAutoDiscoveryService, ExchangeAutoDiscoveryService>();
+        services.AddTransient<IExchangeAuthCapabilityProbe, ExchangeAuthCapabilityProbe>();
+        services.AddTransient<IMapiConnectionProbe, MapiConnectionProbe>();
+        services.AddSingleton<IExchangeStreamingNotificationService, ExchangeStreamingNotificationService>();
         services.AddTransient<IFontService, FontService>();
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();
+
+        // Exchange: one token cache per process; the WinUI head swaps the interactive sign-in for a WebView2 host.
+        services.AddSingleton<ExchangeTokenCache>();
+        services.AddTransient<IOidcTokenClient, OidcTokenClient>();
+        services.AddTransient<IInteractiveOidcAuthenticator, InteractiveOidcAuthenticator>();
+        services.AddTransient<ExchangeNtlmAuthenticator>();
+        services.AddTransient<ExchangeOAuthAuthenticator>();
+        services.AddTransient<IExchangeAuthenticator, ExchangeAuthenticator>();
 
         services.AddTransient<UnifiedImapSynchronizer>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();
@@ -78,6 +96,11 @@ public static class CoreContainerSetup
         services.AddTransient<ImapFolderNotFoundHandler>();
         services.AddTransient<ImapProtocolErrorHandler>();
 
+        // Register Exchange error handlers
+        services.AddTransient<ExchangeAuthenticationFailedHandler>();
+        services.AddTransient<ExchangeServerBusyHandler>();
+        services.AddTransient<ExchangeInvalidServerResponseHandler>();
+
         // Register Outlook auth handlers
         services.AddTransient<OutlookAuthenticationFailedHandler>();
 
@@ -85,6 +108,7 @@ public static class CoreContainerSetup
         services.AddTransient<IOutlookSynchronizerErrorHandlerFactory, OutlookSynchronizerErrorHandlingFactory>();
         services.AddTransient<IGmailSynchronizerErrorHandlerFactory, GmailSynchronizerErrorHandlingFactory>();
         services.AddTransient<IImapSynchronizerErrorHandlerFactory, ImapSynchronizerErrorHandlingFactory>();
+        services.AddTransient<IExchangeSynchronizerErrorHandlerFactory, ExchangeSynchronizerErrorHandlingFactory>();
 
         // Register retry executor
         services.AddTransient<IRetryExecutor, RetryExecutor>();

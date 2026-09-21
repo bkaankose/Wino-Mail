@@ -82,7 +82,8 @@
                     VerticalAlignment="Bottom"
                     AutomationProperties.AutomationId="ContactEditorPhotoOptions"
                     CornerRadius="14"
-                    ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_PhotoOptions, Mode=OneTime}">
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_PhotoOptions, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.CanEditPhoto, Mode=OneWay}">
                     <FontIcon FontSize="13" Glyph="&#xE712;" />
                     <Button.Flyout>
                         <MenuFlyout Placement="BottomEdgeAlignedLeft">

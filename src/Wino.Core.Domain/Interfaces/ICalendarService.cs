@@ -29,6 +29,14 @@ public interface ICalendarService
     /// <returns>List of calendar items that fall within the requested period.</returns>
     Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period);
 
+    /// <summary>
+    /// The series masters stored for a calendar: rows that carry a recurrence rule and have no parent.
+    /// Masters sit outside any date-range query, so a provider that expands series itself uses this to
+    /// reconcile deletions of whole series.
+    /// </summary>
+    /// <param name="accountCalendarId">The calendar to list masters for.</param>
+    Task<List<CalendarItem>> GetRecurringMastersAsync(Guid accountCalendarId);
+
     Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId);
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
 
@@ -38,6 +46,15 @@ public interface ICalendarService
     /// <param name="targetDetails">Target details.</param>
     Task<CalendarItem> GetCalendarItemTargetAsync(CalendarItemTarget targetDetails);
     Task<CalendarItem> GetCalendarItemAsync(Guid id);
+
+    /// <summary>
+    /// The calendar item a meeting message refers to, with its calendar loaded, or null when the meeting
+    /// has not reached a local calendar. Resolved through the invitation mapping the synchronizers write
+    /// for the mail, then any mapping of another mail with the same iCalendar UID (an update or a
+    /// cancellation shares it with the original request), then a title and start match across the
+    /// account's calendars.
+    /// </summary>
+    Task<CalendarItem> GetInvitationCalendarItemAsync(Guid accountId, string mailCopyId, InvitationDetails invitation);
     Task<List<CalendarEventAttendee>> GetAttendeesAsync(Guid calendarEventTrackingId);
     Task<List<CalendarEventAttendee>> ManageEventAttendeesAsync(Guid calendarItemId, List<CalendarEventAttendee> allAttendees);
     Task UpdateCalendarItemAsync(CalendarItem calendarItem, List<CalendarEventAttendee> attendees);

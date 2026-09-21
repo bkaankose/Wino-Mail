@@ -1,0 +1,109 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.PublicFolders;
+using Wino.Messaging.UI;
+
+namespace Wino.Services;
+
+/// <summary>
+/// Stores the user's public folder favourites and the remote-tree visibility toggles as small values in the
+/// configuration store, the only persisted public folder state. Low contention (user-driven changes), so no locking.
+/// </summary>
+public class PublicFolderFavoriteService : IPublicFolderFavoriteService
+{
+    private const string FavoritesKey = "PublicFolderFavorites";
+    private const string PublicFoldersVisibleKey = "PublicFoldersRootVisible";
+    private const string OnlineArchiveVisibleKey = "OnlineArchiveRootVisible";
+
+    private readonly IConfigurationService _configurationService;
+
+    public PublicFolderFavoriteService(IConfigurationService configurationService)
+    {
+        _configurationService = configurationService;
+    }
+
+    public IReadOnlyList<PublicFolderFavorite> GetFavorites()
+    {
+        var json = _configurationService.Get<string>(FavoritesKey, null);
+        if (string.IsNullOrWhiteSpace(json))
+            return Array.Empty<PublicFolderFavorite>();
+
+        try
+        {
+            return JsonSerializer.Deserialize(json, PublicFolderFavoriteJsonContext.Default.ListPublicFolderFavorite) ?? new List<PublicFolderFavorite>();
+        }
+        catch (JsonException)
+        {
+            return Array.Empty<PublicFolderFavorite>();
+        }
+    }
+
+    public bool IsFavorite(Guid accountId, string folderId)
+        => GetFavorites().Any(f => Matches(f, accountId, folderId));
+
+    public void AddFavorite(PublicFolderFavorite favorite)
+    {
+        if (favorite == null || string.IsNullOrEmpty(favorite.FolderId))
+            return;
+
+        var list = GetFavorites().ToList();
+        if (list.Any(f => Matches(f, favorite.AccountId, favorite.FolderId)))
+            return;
+
+        list.Add(favorite);
+        Save(list);
+
+        WeakReferenceMessenger.Default.Send(new PublicFolderFavoritesChanged(favorite.AccountId, favorite.Kind));
+    }
+
+    public void RemoveFavorite(Guid accountId, string folderId)
+    {
+        var list = GetFavorites().ToList();
+        var removedKinds = list.Where(f => Matches(f, accountId, folderId)).Select(f => f.Kind).Distinct().ToList();
+
+        if (removedKinds.Count == 0)
+            return;
+
+        list.RemoveAll(f => Matches(f, accountId, folderId));
+        Save(list);
+
+        foreach (var kind in removedKinds)
+        {
+            WeakReferenceMessenger.Default.Send(new PublicFolderFavoritesChanged(accountId, kind));
+        }
+    }
+
+    public void SetFavoriteChecked(Guid accountId, string folderId, bool isChecked)
+    {
+        var list = GetFavorites().ToList();
+        var favorite = list.FirstOrDefault(f => Matches(f, accountId, folderId));
+
+        if (favorite == null || favorite.IsChecked == isChecked)
+            return;
+
+        favorite.IsChecked = isChecked;
+        Save(list);
+    }
+
+    public bool ArePublicFoldersVisible
+    {
+        get => _configurationService.Get(PublicFoldersVisibleKey, false);
+        set => _configurationService.Set(PublicFoldersVisibleKey, value);
+    }
+
+    public bool AreOnlineArchivesVisible
+    {
+        get => _configurationService.Get(OnlineArchiveVisibleKey, false);
+        set => _configurationService.Set(OnlineArchiveVisibleKey, value);
+    }
+
+    private static bool Matches(PublicFolderFavorite favorite, Guid accountId, string folderId)
+        => favorite.AccountId == accountId && string.Equals(favorite.FolderId, folderId, StringComparison.Ordinal);
+
+    private void Save(List<PublicFolderFavorite> favorites)
+        => _configurationService.Set(FavoritesKey, JsonSerializer.Serialize(favorites, PublicFolderFavoriteJsonContext.Default.ListPublicFolderFavorite));
+}

@@ -97,7 +97,11 @@ public class MimeFileService : IMimeFileService
         }
     }
 
-    private string GetEMLPath(string resourcePath) => $"{resourcePath}\\mail.eml";
+    // Path.Combine, not a literal separator: on a platform where a backslash is an ordinary filename
+    // character the message would be written BESIDE its own folder, as a file called
+    // "<fileId>\mail.eml". Reading used the same path so it looked right, but the folder the inline
+    // images unpack into stayed empty and a cache sweep that removes folders could never reclaim it.
+    private static string GetEMLPath(string resourcePath) => Path.Combine(resourcePath, "mail.eml");
 
     public async Task<string> GetMimeResourcePathAsync(Guid accountId, Guid fileId)
     {

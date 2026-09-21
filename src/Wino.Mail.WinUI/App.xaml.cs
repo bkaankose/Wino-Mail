@@ -36,7 +36,9 @@ using Wino.Core.ViewModels;
 using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
+using Wino.Authentication.Oidc;
 using Wino.Mail.WinUI.Activation;
+using Wino.Mail.WinUI.Authentication;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
@@ -73,6 +75,7 @@ public partial class App : WinoApplication,
     private const int InboxSyncsPerFullSync = 20;
     private const string ToggleDefaultModeLaunchArgument = "--mode=toggle-default";
     private ISynchronizationManager? _synchronizationManager;
+    private IExchangeStreamingNotificationService? _exchangeStreamingService;
     private IPreferencesService? _preferencesService;
     private IAccountService? _accountService;
     private bool _windowManagerConfigured;
@@ -88,6 +91,10 @@ public partial class App : WinoApplication,
     private readonly SemaphoreSlim _activationInfrastructureSemaphore = new(1, 1);
     private readonly SemaphoreSlim _appHostInfrastructureSemaphore = new(1, 1);
     private readonly ConcurrentDictionary<Guid, int> _inboxSyncCounters = [];
+
+    // Exchange accounts with an open push channel are polled less often; each loop counts its own ticks.
+    private readonly Wino.Core.Services.PushAwarePollPolicy _mailPollPolicy = new();
+    private readonly Wino.Core.Services.PushAwarePollPolicy _calendarPollPolicy = new();
     private readonly AppNotificationHandler _notificationHandler;
     private readonly AppActivationHandler _activationHandler;
     private readonly DispatcherQueue? _applicationDispatcherQueue;
@@ -537,6 +544,8 @@ public partial class App : WinoApplication,
         if (_isExiting) return;
         _isExiting = true;
 
+        _ = _exchangeStreamingService?.StopAsync();
+
         try
         {
             var updates = Services.GetService<IDraftUpdateCoordinator>();
@@ -594,6 +603,8 @@ public partial class App : WinoApplication,
         services.AddSingleton<ISearchHistoryService, SearchHistoryService>();
         services.AddSingleton<ReleaseLocalAccountDataCleanupService>();
         services.AddTransient<IProviderService, ProviderService>();
+        // Exchange modern auth signs in through an embedded WebView2 instead of the system browser.
+        services.AddTransient<IInteractiveOidcAuthenticator, WebView2InteractiveOidcAuthenticator>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
         services.AddSingleton<IDateContextProvider, SystemDateContextProvider>();
@@ -632,6 +643,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(IdlePageViewModel));
 
         services.AddTransient(typeof(ImapCalDavSettingsPageViewModel));
+        services.AddTransient(typeof(ExchangeSettingsPageViewModel));
         services.AddTransient(typeof(AccountDetailsPageViewModel));
         services.AddTransient(typeof(WinoIntelligenceManagementPageViewModel));
         services.AddTransient(typeof(IntelligenceCoveragePageViewModel));
@@ -653,6 +665,7 @@ public partial class App : WinoApplication,
         services.AddTransient(typeof(WinoAccountManagementPageViewModel));
         services.AddTransient(typeof(AliasManagementPageViewModel));
         services.AddTransient(typeof(MailCategoryManagementPageViewModel));
+        services.AddTransient(typeof(JunkEmailSettingsPageViewModel));
         services.AddTransient(typeof(MailFiltersPageViewModel));
         services.AddTransient(typeof(MailFilterEditorPageViewModel));
         services.AddSingleton(typeof(ContactsPageViewModel));
@@ -737,6 +750,7 @@ public partial class App : WinoApplication,
             _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
             _preferencesService = Services.GetRequiredService<IPreferencesService>();
             _accountService = Services.GetRequiredService<IAccountService>();
+            _exchangeStreamingService = Services.GetRequiredService<IExchangeStreamingNotificationService>();
 
             var entitlementService = Services.GetRequiredService<IWinoIntelligenceEntitlementService>();
             await entitlementService.GetAsync();
@@ -754,6 +768,10 @@ public partial class App : WinoApplication,
             }
 
             _ = Services.GetRequiredService<AccountProfilePictureBackfillService>().RunAsync();
+
+            // Exchange push (MAPI/HTTP notifications or EWS streaming). Fire-and-forget; the listeners
+            // reconnect on their own and the periodic poll stays as the backstop.
+            _ = _exchangeStreamingService.StartAsync();
 
             _activationInfrastructureInitialized = true;
         }
@@ -1871,6 +1889,9 @@ public partial class App : WinoApplication,
     public void Receive(AccountCreatedMessage message)
     {
         _hasConfiguredAccounts = true;
+
+        // Begin push notifications for a newly added Exchange account (no-op for other providers).
+        _ = _exchangeStreamingService?.StartForAccountAsync(message.Account);
         _ = _companionIntegration?.SetReadinessAsync(CompanionReadinessState.Ready);
         EnsurePreferenceChangedSubscription();
         QueueJumpListOptionsUpdateOnUiThread();
@@ -2016,6 +2037,7 @@ public partial class App : WinoApplication,
 
     public void Receive(AccountRemovedMessage message)
     {
+        _ = _exchangeStreamingService?.StopForAccountAsync(message.Account.Id);
         QueueJumpListOptionsUpdateOnUiThread();
 
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
@@ -2371,6 +2393,9 @@ public partial class App : WinoApplication,
                 _inboxSyncCounters.TryRemove(staleAccountId, out _);
             }
 
+            _mailPollPolicy.Retain(currentAccountIds);
+            _calendarPollPolicy.Retain(currentAccountIds);
+
             var synchronizationTasks = accounts
                 .Select(account => ExecuteAutoSynchronizationForAccountAsync(account, cancellationToken))
                 .ToList();
@@ -2421,6 +2446,9 @@ public partial class App : WinoApplication,
         if (_synchronizationManager.IsAccountSynchronizing(account.Id))
             return;
 
+        if (GetPollDecision(_calendarPollPolicy, account) == Wino.Core.Services.PollDecision.Skip)
+            return;
+
         await _synchronizationManager.SynchronizeCalendarAsync(new CalendarSynchronizationOptions
         {
             AccountId = account.Id,
@@ -2436,6 +2464,12 @@ public partial class App : WinoApplication,
         cancellationToken.ThrowIfCancellationRequested();
 
         if (_synchronizationManager.IsAccountSynchronizing(account.Id))
+            return;
+
+        // While push delivers an Exchange account's changes, the tick is skipped and only a periodic full
+        // reconciliation runs as the safety net. Every other account always gets the ordinary poll.
+        var pollDecision = GetPollDecision(_mailPollPolicy, account);
+        if (pollDecision == Wino.Core.Services.PollDecision.Skip)
             return;
 
         if (account.IsContactAccessGranted)
@@ -2458,6 +2492,23 @@ public partial class App : WinoApplication,
 
         if (!account.IsMailAccessGranted)
             return;
+
+        if (pollDecision == Wino.Core.Services.PollDecision.Reconcile)
+        {
+            var reconcileResult = await _synchronizationManager.SynchronizeMailAsync(new MailSynchronizationOptions
+            {
+                AccountId = account.Id,
+                Type = MailSynchronizationType.FullFolders
+            }, cancellationToken);
+
+            if (reconcileResult.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.PartiallyCompleted)
+            {
+                await ClearInvalidCredentialAttentionIfNeededAsync(account.Id);
+                _inboxSyncCounters[account.Id] = 0;
+            }
+
+            return;
+        }
 
         var inboxSyncOptions = new MailSynchronizationOptions
         {
@@ -2487,6 +2538,11 @@ public partial class App : WinoApplication,
         }
 
     }
+
+    private Wino.Core.Services.PollDecision GetPollDecision(Wino.Core.Services.PushAwarePollPolicy policy, Wino.Core.Domain.Entities.Shared.MailAccount account)
+        => account.ProviderType == MailProviderType.Exchange && _exchangeStreamingService is { } streamingService
+            ? policy.Next(account.Id, streamingService.IsStreaming(account.Id), streamingService.GetInterruptionCount(account.Id))
+            : Wino.Core.Services.PollDecision.Poll;
 
     private async Task ClearInvalidCredentialAttentionIfNeededAsync(Guid accountId)
     {

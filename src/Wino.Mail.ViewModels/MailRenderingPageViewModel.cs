@@ -14,6 +14,7 @@ using MimeKit;
 using MimeKit.Cryptography;
 using Serilog;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -21,6 +22,7 @@ using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models;
 using Wino.Core.Domain.Models.Attachments;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Menus;
 using Wino.Core.Domain.Models.Navigation;
@@ -57,7 +59,50 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IUnsubscriptionService _unsubscriptionService;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IAttachmentFileService _attachmentFileService;
+    private readonly ICalendarService _calendarService;
     private bool forceImageLoading = false;
+
+    // Invitation card (meeting request, cancellation or response messages).
+
+    [ObservableProperty]
+    public partial bool HasInvitation { get; set; }
+
+    [ObservableProperty]
+    public partial string InvitationTitle { get; set; }
+
+    [ObservableProperty]
+    public partial string InvitationWhen { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasInvitationLocation))]
+    public partial string InvitationLocation { get; set; }
+
+    [ObservableProperty]
+    public partial string InvitationOrganizer { get; set; }
+
+    [ObservableProperty]
+    public partial string InvitationRequired { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasInvitationOptional))]
+    public partial string InvitationOptional { get; set; }
+
+    [ObservableProperty]
+    public partial string InvitationStatus { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RespondToInvitationCommand))]
+    public partial bool CanRespondToInvitation { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RespondToInvitationCommand))]
+    public partial bool IsRespondingToInvitation { get; set; }
+
+    public bool HasInvitationLocation => !string.IsNullOrWhiteSpace(InvitationLocation);
+    public bool HasInvitationOptional => !string.IsNullOrWhiteSpace(InvitationOptional);
+
+    private CalendarItem _invitationCalendarItem;
+    private InvitationDetails _invitationDetails;
 
     private MailItemViewModel initializedMailItemViewModel = null;
     private MimeMessageInformation initializedMimeMessageInformation = null;
@@ -214,9 +259,11 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IPreferencesService preferencesService,
         IPrintService printService,
         IApplicationConfiguration applicationConfiguration,
+        ICalendarService calendarService,
         IAttachmentFileService attachmentFileService = null)
     {
         _dialogService = dialogService;
+        _calendarService = calendarService;
         NativeAppService = nativeAppService;
         StatePersistenceService = statePersistenceService;
         _contactService = contactService;
@@ -474,6 +521,10 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         FromAddress = string.Empty;
         CreationDate = default;
 
+        HasInvitation = false;
+        _invitationDetails = null;
+        _invitationCalendarItem = null;
+
         // The recipient and attachment collections are deliberately left alone: RenderAsync clears
         // and repopulates them in one UI pass, and they stay hidden behind the loading treatment
         // until then. Emptying them here would add a second teardown of the items controls bound to
@@ -632,6 +683,9 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         var ccAccountContacts = await GetAccountContacts(message.Cc);
         var bccAccountContacts = await GetAccountContacts(message.Bcc);
 
+        // The invitation card's details and calendar item are resolved off the UI thread as well.
+        var (invitationDetails, invitationCalendarItem) = await ResolveInvitationAsync(message).ConfigureAwait(false);
+
         await ExecuteUIThread(() =>
         {
             Attachments.Clear();
@@ -656,6 +710,8 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
 
             // Use the received date from MailCopy if available, otherwise fall back to the sent date from MIME message
             CreationDate = initializedMailItemViewModel?.MailCopy.CreationDate ?? message.Date.DateTime;
+
+            ApplyInvitation(invitationDetails, invitationCalendarItem);
 
             // Automatically block remote image loading for Junk folder to reduce pixel tracking.
             // This can only work for selected mail item rendering, not for EML file rendering.
@@ -822,11 +878,26 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         else
             menuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
 
+        var isPop3 = initializedMailItemViewModel.MailCopy.AssignedAccount?.ProviderType == MailProviderType.POP3;
+
         if (assignedFolder.SpecialFolderType == SpecialFolderType.Junk)
+        {
             menuItems.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk, true, true));
+
+            if (!isPop3)
+                menuItems.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender, true, true));
+        }
         else if (!initializedMailItemViewModel.IsDraft &&
                  assignedFolder.SpecialFolderType != SpecialFolderType.Sent)
+        {
             menuItems.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
+
+            if (!isPop3)
+            {
+                menuItems.Add(MailOperationMenuItem.Create(MailOperation.BlockSender, true, true));
+                menuItems.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender, true, true));
+            }
+        }
 
         MenuItems = menuItems;
     }
@@ -1262,6 +1333,201 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
             }
         }
     }
+
+    #region Invitation card
+
+    // A meeting message's text/calendar part gives the details; the calendar item it refers to is what
+    // the response is sent for, through the same request the calendar view uses. Without a synced
+    // calendar item the card shows details only.
+
+    private async Task<(InvitationDetails Details, CalendarItem CalendarItem)> ResolveInvitationAsync(MimeMessage message)
+    {
+        var ics = GetCalendarPart(message);
+        if (string.IsNullOrEmpty(ics))
+            return (null, null);
+
+        var details = InvitationDetails.Parse(ics);
+        if (details.Start == null && string.IsNullOrEmpty(details.Summary))
+            return (null, null);
+
+        CalendarItem calendarItem = null;
+        var mailCopy = initializedMailItemViewModel?.MailCopy;
+
+        if (mailCopy?.AssignedAccount != null)
+        {
+            try
+            {
+                calendarItem = await _calendarService.GetInvitationCalendarItemAsync(mailCopy.AssignedAccount.Id, mailCopy.Id, details).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Invitation card: calendar lookup failed.");
+            }
+        }
+
+        return (details, calendarItem);
+    }
+
+    private void ApplyInvitation(InvitationDetails details, CalendarItem calendarItem)
+    {
+        _invitationDetails = details;
+        _invitationCalendarItem = calendarItem;
+
+        if (details == null)
+        {
+            HasInvitation = false;
+            return;
+        }
+
+        InvitationTitle = string.IsNullOrWhiteSpace(details.Summary) ? Subject : details.Summary;
+        InvitationWhen = FormatInvitationWhen(details);
+        InvitationLocation = details.Location;
+        InvitationOrganizer = string.IsNullOrWhiteSpace(details.OrganizerName) ? details.OrganizerEmail : $"{details.OrganizerName} <{details.OrganizerEmail}>";
+        InvitationRequired = string.Join("; ", details.Attendees.Where(a => !a.IsOptional).Select(a => a.Name ?? a.Email));
+        InvitationOptional = string.Join("; ", details.Attendees.Where(a => a.IsOptional).Select(a => a.Name ?? a.Email));
+
+        RefreshInvitationStatus();
+        HasInvitation = true;
+    }
+
+    private void RefreshInvitationStatus()
+    {
+        var details = _invitationDetails;
+        var item = _invitationCalendarItem;
+
+        if (details?.IsCancellation == true)
+        {
+            InvitationStatus = Translator.Reader_Invitation_Cancelled;
+            CanRespondToInvitation = false;
+            return;
+        }
+
+        if (details?.IsReply == true)
+        {
+            var responder = string.IsNullOrWhiteSpace(FromName) ? FromAddress : FromName;
+            var attendee = details.Attendees.FirstOrDefault();
+
+            InvitationStatus = (attendee?.ParticipationStatus ?? string.Empty) switch
+            {
+                "ACCEPTED" => string.Format(Translator.Reader_Invitation_ResponseAccepted, responder),
+                "TENTATIVE" => string.Format(Translator.Reader_Invitation_ResponseTentative, responder),
+                "DECLINED" => string.Format(Translator.Reader_Invitation_ResponseDeclined, responder),
+                _ => string.Format(Translator.Reader_Invitation_ResponseReceived, responder)
+            };
+            CanRespondToInvitation = false;
+            return;
+        }
+
+        if (item == null)
+        {
+            InvitationStatus = Translator.Reader_Invitation_NotSynced;
+            CanRespondToInvitation = false;
+            return;
+        }
+
+        InvitationStatus = item.Status switch
+        {
+            CalendarItemStatus.Accepted when item.IsLocked => Translator.Reader_Invitation_YouAccepted,
+            CalendarItemStatus.Tentative => Translator.Reader_Invitation_YouTentative,
+            CalendarItemStatus.Cancelled => Translator.Reader_Invitation_YouDeclined,
+            _ => Translator.Reader_Invitation_PleaseRespond
+        };
+        CanRespondToInvitation = item.AssignedCalendar?.IsReadOnly != true && item.Status != CalendarItemStatus.Cancelled;
+    }
+
+    private static string FormatInvitationWhen(InvitationDetails details)
+    {
+        if (details.Start is not { } start)
+            return string.Empty;
+
+        if (details.IsAllDay)
+        {
+            var endDate = details.End?.Date ?? start.Date.AddDays(1);
+            var lastDay = endDate.AddDays(-1);
+
+            return lastDay <= start.Date
+                ? $"{start.Date:D} ({Translator.CalendarItemAllDay})"
+                : $"{start.Date:D} - {lastDay:D} ({Translator.CalendarItemAllDay})";
+        }
+
+        var localStart = start.ToLocalTime();
+        if (details.End is not { } end)
+            return $"{localStart:D} {localStart:t}";
+
+        var localEnd = end.ToLocalTime();
+
+        return localStart.Date == localEnd.Date
+            ? $"{localStart:D} {localStart:t} - {localEnd:t}"
+            : $"{localStart:D} {localStart:t} - {localEnd:D} {localEnd:t}";
+    }
+
+    private static string GetCalendarPart(MimeMessage message)
+    {
+        try
+        {
+            foreach (var part in message.BodyParts.OfType<MimePart>())
+            {
+                if (!part.ContentType.IsMimeType("text", "calendar"))
+                    continue;
+
+                if (part is TextPart text)
+                    return text.Text;
+
+                using var stream = new MemoryStream();
+                part.Content.DecodeTo(stream);
+
+                return System.Text.Encoding.UTF8.GetString(stream.ToArray());
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Invitation card: calendar part not read.");
+        }
+
+        return null;
+    }
+
+    // Every response (accept, tentative, decline) is allowed whenever the card is actionable, so the
+    // requested status does not narrow it. The parameter is required by the command's CanExecute shape.
+    private bool CanRespondToInvitationWith(AttendeeStatus _) => CanRespondToInvitation && !IsRespondingToInvitation;
+
+    [RelayCommand(CanExecute = nameof(CanRespondToInvitationWith))]
+    private async Task RespondToInvitationAsync(AttendeeStatus status)
+    {
+        var item = _invitationCalendarItem;
+        if (item == null || !CanRespondToInvitation)
+            return;
+
+        // The request to send, and the status to show at once while the calendar sync confirms it.
+        var (operation, respondedStatus) = status switch
+        {
+            AttendeeStatus.Accepted => (CalendarSynchronizerOperation.AcceptEvent, CalendarItemStatus.Accepted),
+            AttendeeStatus.Tentative => (CalendarSynchronizerOperation.TentativeEvent, CalendarItemStatus.Tentative),
+            AttendeeStatus.Declined => (CalendarSynchronizerOperation.DeclineEvent, CalendarItemStatus.Cancelled),
+            _ => throw new InvalidOperationException($"Invalid RSVP status: {status}")
+        };
+
+        IsRespondingToInvitation = true;
+
+        try
+        {
+            await _requestDelegator.ExecuteAsync(new CalendarOperationPreparationRequest(operation, item)).ConfigureAwait(false);
+
+            item.Status = respondedStatus;
+            await ExecuteUIThread(RefreshInvitationStatus);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Invitation response failed.");
+            _dialogService.InfoBarMessage(Translator.Reader_Invitation_ResponseFailed, ex.Message, InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsRespondingToInvitation = false);
+        }
+    }
+
+    #endregion
 
     protected override void RegisterRecipients()
     {

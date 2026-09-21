@@ -49,6 +49,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     private readonly IAccountCapabilityService _accountCapabilityService;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IWinoIntelligenceEntitlementService? _entitlementService;
+    private readonly IPublicFolderFavoriteService? _publicFolderFavoriteService;
     private bool isLoaded = false;
 
     [ObservableProperty]
@@ -87,6 +88,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsImapServer))]
+    [NotifyPropertyChangedFor(nameof(IsExchangeServer))]
+    [NotifyPropertyChangedFor(nameof(IsPop3Server))]
     public partial CustomServerInformation ServerInformation { get; set; }
 
     [ObservableProperty]
@@ -129,21 +132,25 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsMailCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsCalendarCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsContactsCapabilitySelected { get; set; }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ApplyCapabilitiesCommand))]
     [NotifyPropertyChangedFor(nameof(IsCapabilitySelectionChanged))]
+    [NotifyPropertyChangedFor(nameof(IsCapabilityReauthenticationNoticeVisible))]
     public partial bool IsTasksCapabilitySelected { get; set; }
 
     [ObservableProperty]
@@ -151,7 +158,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public partial bool IsApplyingCapabilities { get; set; }
 
     public bool IsFocusedInboxSupportedForAccount => Account != null && Account.Preferences.IsFocusedInboxEnabled != null;
-    public bool IsImapServer => ServerInformation != null;
+    // IMAP/SMTP and POP3 only: Exchange has its own settings page and no protocol conversation to capture.
+    public bool IsImapServer => ServerInformation != null && Account?.ProviderType != MailProviderType.Exchange;
+    public bool IsExchangeServer => Account?.ProviderType == MailProviderType.Exchange;
+    // POP3 has no junk folder handling, so the junk email lists card is hidden for it.
+    public bool IsPop3Server => Account?.ProviderType == MailProviderType.POP3;
     public bool HasMailAccess => Account?.IsMailAccessGranted == true;
     public bool HasCalendarAccess => Account?.IsCalendarAccessGranted == true;
     public bool HasContactAccess => Account?.IsContactAccessGranted == true;
@@ -159,6 +170,16 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     public bool IsTaskReauthorizationRequired => Account?.IsTaskReauthorizationRequired == true;
     public bool IsContactReauthorizationRequired => Account?.IsContactReauthorizationRequired == true;
     public bool IsOAuthCapabilityEditable => Account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
+
+    /// <summary>
+    /// Whether the account's capabilities can be changed here. Exchange serves calendar, contacts and
+    /// tasks from the server like the OAuth providers; switching one on moves it to the provider
+    /// source without a new sign-in, because the mailbox credentials already cover it.
+    /// </summary>
+    public bool IsCapabilityEditable => IsOAuthCapabilityEditable || IsExchangeServer;
+
+    /// <summary>Only the OAuth providers ask for consent again when the selection changes.</summary>
+    public bool IsCapabilityReauthenticationNoticeVisible => IsOAuthCapabilityEditable && IsCapabilitySelectionChanged;
     public bool IsCapabilitySelectionChanged => Account is not null &&
         (Account.IsMailAccessGranted != IsMailCapabilitySelected ||
          Account.IsCalendarAccessGranted != IsCalendarCapabilitySelected ||
@@ -238,8 +259,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IWinoLogger winoLogger,
         IAccountCapabilityService accountCapabilityService,
         ISynchronizationManager synchronizationManager,
-        IWinoIntelligenceEntitlementService? entitlementService = null)
+        IWinoIntelligenceEntitlementService? entitlementService = null,
+        IPublicFolderFavoriteService? publicFolderFavoriteService = null)
     {
+        _publicFolderFavoriteService = publicFolderFavoriteService;
         _dialogService = dialogService;
         _accountService = accountService;
         _folderService = folderService;
@@ -289,6 +312,57 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.MailCategoryManagementPage_Title, WinoPage.MailCategoryManagementPage, Account.Id));
 
     [RelayCommand]
+    private void EditJunkEmailLists()
+        => Messenger.Send(new BreadcrumbNavigationRequested(Translator.SettingsJunkEmail_Title, WinoPage.JunkEmailSettingsPage, Account.Id));
+
+    // Server-side inbox rules live in a dialog rather than a page: the manager reads from and writes to
+    // the Exchange server directly and must report each save synchronously.
+    [RelayCommand]
+    private Task ManageInboxRulesAsync()
+        => Account is null ? Task.CompletedTask : _dialogService.ShowInboxRulesManagerAsync(Account);
+
+    // The read-only remote trees (public folders, online archive) are hidden by default; each toggle is
+    // app-wide and takes effect by rebuilding the loaded account's folder list.
+
+    /// <summary>Whether the "Public Folders" tree root is shown under Exchange accounts.</summary>
+    public bool ArePublicFoldersVisible
+    {
+        get => _publicFolderFavoriteService?.ArePublicFoldersVisible ?? false;
+        set
+        {
+            if (_publicFolderFavoriteService is null || value == _publicFolderFavoriteService.ArePublicFoldersVisible)
+                return;
+
+            _publicFolderFavoriteService.ArePublicFoldersVisible = value;
+            OnPropertyChanged();
+            NotifyFolderStructureChanged();
+        }
+    }
+
+    /// <summary>Whether the read-only "Online Archive" tree root is shown under Exchange accounts.</summary>
+    public bool AreOnlineArchivesVisible
+    {
+        get => _publicFolderFavoriteService?.AreOnlineArchivesVisible ?? false;
+        set
+        {
+            if (_publicFolderFavoriteService is null || value == _publicFolderFavoriteService.AreOnlineArchivesVisible)
+                return;
+
+            _publicFolderFavoriteService.AreOnlineArchivesVisible = value;
+            OnPropertyChanged();
+            NotifyFolderStructureChanged();
+        }
+    }
+
+    private void NotifyFolderStructureChanged()
+    {
+        if (Account is not null)
+        {
+            Messenger.Send(new AccountFolderConfigurationUpdated(Account.Id));
+        }
+    }
+
+    [RelayCommand]
     private void CustomizeFolderList()
         => Messenger.Send(new BreadcrumbNavigationRequested(Translator.FolderCustomization_Title, WinoPage.FolderCustomizationPage, Account.Id));
 
@@ -328,6 +402,13 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         var entitlement = await _entitlementService!.GetAsync().ConfigureAwait(false);
         await ExecuteUIThread(() => CanAccessWinoIntelligence = entitlement.CanAccessSurfaces);
     }
+
+    [RelayCommand]
+    private void EditExchangeServerSettings()
+        => Messenger.Send(new BreadcrumbNavigationRequested(
+            Translator.SettingsEditAccountDetails_ExchangeServerSettings_Title,
+            WinoPage.ExchangeSettingsPage,
+            Account.Id));
 
     [RelayCommand]
     private void EditImapCalDavSettings()
@@ -1006,6 +1087,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         OnPropertyChanged(nameof(IsTaskReauthorizationRequired));
         OnPropertyChanged(nameof(IsContactReauthorizationRequired));
         OnPropertyChanged(nameof(IsOAuthCapabilityEditable));
+        OnPropertyChanged(nameof(IsCapabilityEditable));
+        OnPropertyChanged(nameof(IsCapabilityReauthenticationNoticeVisible));
         OnPropertyChanged(nameof(IsSenderNameEditable));
         OnPropertyChanged(nameof(ContactIntegrationSourceText));
         OnPropertyChanged(nameof(TaskIntegrationSourceText));

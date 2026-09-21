@@ -37,5 +37,10 @@
 		<ProjectReference Include="..\..\src\Wino.Services\Wino.Services.csproj" />
 		<ProjectReference Include="..\..\src\Wino.Core.Domain\Wino.Core.Domain.csproj" />
 		<ProjectReference Include="..\..\src\Wino.Core.ML\Wino.Core.ML.csproj" />
+		<ProjectReference Include="..\..\src\Wino.Mapi\Wino.Mapi.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="Mapi\TestData-CompressedQueryRows.bin" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 </Project>

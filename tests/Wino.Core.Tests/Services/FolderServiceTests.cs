@@ -6,6 +6,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Folders;
+using Wino.Core.Domain.Models.PublicFolders;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
 using Xunit;
@@ -254,6 +255,56 @@ public class FolderServiceTests : IAsyncLifetime
             .Should().ContainSingle(item => item.SpecialFolderType == SpecialFolderType.Category)
             .Subject;
         categoriesMenuItem.SubMenuItems.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task GetAccountFoldersForDisplayAsync_ExchangeAccount_AddsRemoteTreesAndPinsWhenEnabled()
+    {
+        _account.ProviderType = MailProviderType.Exchange;
+        await _databaseService.Connection.UpdateAsync(_account, typeof(MailAccount));
+        await InsertFoldersAsync(CreateFolder("Inbox", "inbox", isSticky: true, specialFolderType: SpecialFolderType.Inbox));
+
+        var favorites = new Mock<IPublicFolderFavoriteService>();
+        favorites.SetupGet(f => f.ArePublicFoldersVisible).Returns(true);
+        favorites.SetupGet(f => f.AreOnlineArchivesVisible).Returns(true);
+        favorites.Setup(f => f.GetFavorites()).Returns(new List<PublicFolderFavorite>
+        {
+            new() { AccountId = _account.Id, FolderId = "pf-sales", Kind = PublicFolderKind.Mail, Name = "Sales" },
+            new() { AccountId = Guid.NewGuid(), FolderId = "pf-other", Kind = PublicFolderKind.Mail, Name = "Other account" },
+            new() { AccountId = _account.Id, FolderId = "pf-cal", Kind = PublicFolderKind.Calendar, Name = "Rooms" }
+        });
+
+        var folderService = new FolderService(_databaseService, CreateAccountService(_databaseService), new MailCategoryService(_databaseService), favorites.Object);
+        var menuItems = (await folderService.GetAccountFoldersForDisplayAsync(new AccountMenuItem(_account, null))).ToList();
+
+        var remoteRoots = menuItems.OfType<RemoteFolderMenuItem>().ToList();
+        remoteRoots.Should().HaveCount(2);
+        remoteRoots.Should().ContainSingle(item => item.SpecialFolderType == SpecialFolderType.PublicFolders && item.IsRoot);
+        remoteRoots.Should().ContainSingle(item => item.SpecialFolderType == SpecialFolderType.OnlineArchive && item.IsRoot);
+        menuItems.Last().Should().BeOfType<RemoteFolderMenuItem>();
+
+        var moreFolder = menuItems.OfType<FolderMenuItem>().Single(item => item.SpecialFolderType == SpecialFolderType.More);
+        var pinned = moreFolder.SubMenuItems.OfType<RemoteFolderMenuItem>().Should().ContainSingle().Subject;
+        pinned.IsPinnedEntry.Should().BeTrue();
+        pinned.RemoteFolder.RemoteFolderId.Should().Be("pf-sales");
+    }
+
+    [Fact]
+    public async Task GetAccountFoldersForDisplayAsync_ExchangeAccount_HidesRemoteTreesByDefault()
+    {
+        _account.ProviderType = MailProviderType.Exchange;
+        await _databaseService.Connection.UpdateAsync(_account, typeof(MailAccount));
+        await InsertFoldersAsync(CreateFolder("Inbox", "inbox", isSticky: true, specialFolderType: SpecialFolderType.Inbox));
+
+        var favorites = new Mock<IPublicFolderFavoriteService>();
+        favorites.Setup(f => f.GetFavorites()).Returns(new List<PublicFolderFavorite>());
+
+        var folderService = new FolderService(_databaseService, CreateAccountService(_databaseService), new MailCategoryService(_databaseService), favorites.Object);
+        var menuItems = (await folderService.GetAccountFoldersForDisplayAsync(new AccountMenuItem(_account, null))).ToList();
+
+        menuItems.OfType<RemoteFolderMenuItem>().Should().BeEmpty();
+        (await _folderService.GetAccountFoldersForDisplayAsync(new AccountMenuItem(_account, null)))
+            .OfType<RemoteFolderMenuItem>().Should().BeEmpty("a folder service without the favourite service adds no remote trees");
     }
 
     private MailItemFolder CreateFolder(

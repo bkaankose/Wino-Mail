@@ -493,4 +493,43 @@ public class ContactEditPageViewModelTests
             requests[1].Photo == imageBytes)), Times.Once);
         delegator.Verify(service => service.ExecuteAsync(It.IsAny<ContactOperationPreparationRequest>()), Times.Never);
     }
+
+    [Fact]
+    public async Task ExchangeDestination_OffersNoPhotoActionsAndSendsNoPhotoMutation()
+    {
+        byte[] imageBytes = [0x89, 0x50, 0x4E, 0x47];
+        var dialogs = new Mock<IMailDialogService>();
+        dialogs.Setup(service => service.PickFilesAsync(It.IsAny<object[]>()))
+            .ReturnsAsync([new SharedFile("contact.png", imageBytes)]);
+        var contactService = new Mock<IContactService>();
+        contactService.Setup(service => service.SetContactFavoriteAsync(It.IsAny<Guid>(), It.IsAny<bool>())).Returns(Task.CompletedTask);
+        contactService.Setup(service => service.SetListsForContactAsync(It.IsAny<Guid>(), It.IsAny<IEnumerable<Guid>>())).Returns(Task.CompletedTask);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        var viewModel = new ContactEditPageViewModel(
+            contactService.Object,
+            delegator.Object,
+            Mock.Of<INavigationService>(),
+            dialogs.Object,
+            Mock.Of<IContactPictureFileService>());
+        var local = new ContactCreateDestination(Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Local, "Local", "Contacts", true);
+        var exchange = new ContactCreateDestination(Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Exchange, "Exchange", "Contacts", true);
+        viewModel.Destinations.Add(local);
+        viewModel.Destinations.Add(exchange);
+        viewModel.DisplayName = "Photo Contact";
+        viewModel.EmailAddresses.Add(new() { Address = "photo@example.com", IsPrimary = true });
+
+        // A photo picked while a photo-capable destination was selected must not follow the contact
+        // to the Exchange address book.
+        viewModel.SelectedDestination = local;
+        viewModel.CanEditPhoto.Should().BeTrue();
+        await viewModel.ChoosePhotoCommand.ExecuteAsync(null);
+
+        viewModel.SelectedDestination = exchange;
+        viewModel.CanEditPhoto.Should().BeFalse();
+        await viewModel.SaveCommand.ExecuteAsync(null);
+
+        delegator.Verify(service => service.ExecuteAsync(It.Is<IReadOnlyList<ContactOperationPreparationRequest>>(requests =>
+            requests.Count == 1 &&
+            requests[0].Operation == ContactSynchronizerOperation.Create)), Times.Once);
+    }
 }

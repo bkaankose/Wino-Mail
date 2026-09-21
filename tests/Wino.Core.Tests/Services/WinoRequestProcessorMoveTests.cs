@@ -121,7 +121,8 @@ public sealed class WinoRequestProcessorMoveTests
             Mock.Of<IKeyPressService>(),
             Mock.Of<IPreferencesService>(),
             Mock.Of<IMailDialogService>(),
-            Mock.Of<IMailService>());
+            Mock.Of<IMailService>(),
+            Mock.Of<IJunkSenderService>());
 
     private static MailAccount CreateAccount()
         => new()

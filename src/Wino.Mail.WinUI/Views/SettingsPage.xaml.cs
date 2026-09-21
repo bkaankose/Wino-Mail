@@ -64,6 +64,14 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         await EntitlementService.GetAsync();
         if (IsIntelligencePage(initialPage) && !EntitlementService.Current.CanAccessSurfaces)
             initialPage = WinoPage.WinoAccountManagementPage;
+
+        // A nested page brings its breadcrumb parents along, exactly like a settings search result.
+        if (activationContext?.Route is { Steps.Count: > 0 } route && route.Destination.PageType == initialPage)
+        {
+            NavigateToRoute(route);
+            return;
+        }
+
         NavigateToRootPage(initialPage, activationContext?.PageParameter);
     }
 

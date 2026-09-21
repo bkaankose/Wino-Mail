@@ -322,6 +322,7 @@ public static class SettingsNavigationInfoProvider
             WinoPage.AliasManagementPage => WinoPage.ManageAccountsPage,
             WinoPage.FolderCustomizationPage => WinoPage.ManageAccountsPage,
             WinoPage.MailCategoryManagementPage => WinoPage.ManageAccountsPage,
+            WinoPage.JunkEmailSettingsPage => WinoPage.ManageAccountsPage,
             WinoPage.MailFiltersPage => WinoPage.ManageAccountsPage,
             WinoPage.MailFilterEditorPage => WinoPage.ManageAccountsPage,
             WinoPage.SignatureManagementPage => WinoPage.ManageAccountsPage,

@@ -14,7 +14,10 @@
 	<ItemGroup>
 		<PackageReference Include="CommunityToolkit.Diagnostics" />
 		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="DnsClient" />
+		<PackageReference Include="Exchange.WebServices.NETCore" />
 		<PackageReference Include="HtmlAgilityPack" />
+		<PackageReference Include="Ical.Net" />
 		<PackageReference Include="HtmlKit" />
 		<PackageReference Include="MailKit" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
@@ -28,6 +31,7 @@
 		<PackageReference Include="NodaTime" />
 		<PackageReference Include="Sentry.Serilog" />
 		<PackageReference Include="SkiaSharp" />
+		<PackageReference Include="System.DirectoryServices.Protocols" />
 		<PackageReference Include="Wino.Mail.AI.Abstractions" />
 		<PackageReference Include="Wino.Mail.AI.ContentProcessing" />
 	</ItemGroup>
@@ -35,6 +39,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\Wino.Authentication\Wino.Authentication.csproj" />
 		<ProjectReference Include="..\Wino.Core.Domain\Wino.Core.Domain.csproj" />
+		<ProjectReference Include="..\Wino.Mapi\Wino.Mapi.csproj" />
 		<ProjectReference Include="..\Wino.Messages\Wino.Messaging.csproj" />
 		<ProjectReference Include="..\Wino.Services\Wino.Services.csproj" />
 	</ItemGroup>

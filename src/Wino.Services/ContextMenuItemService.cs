@@ -46,6 +46,16 @@ public class ContextMenuItemService : IContextMenuItemService
 
         var operationList = new List<MailOperationMenuItem>();
 
+        // Items of a read-only remote tree (public folders, online archive) cannot be changed; only the
+        // compose actions that start a new message from them apply.
+        if (selectedItems.All(a => a.AssignedFolder?.IsRemoteReadOnlyNode == true))
+        {
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.Reply));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.ReplyAll));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.Forward));
+            return operationList;
+        }
+
         // Disable archive button for Archive folder itself.
 
         bool isArchiveFolder = selectedItems.All(a => a.AssignedFolder.SpecialFolderType == SpecialFolderType.Archive);
@@ -123,14 +133,26 @@ public class ContextMenuItemService : IContextMenuItemService
         if (!isDraftOrSent)
             operationList.Add(MailOperationMenuItem.Create(MailOperation.Ignore));
 
+        // Create rule (server-side inbox rule prefilled with this sender): Exchange only, single message
+        // only since the rule keys on one sender.
+        if (isSingleItem && !isDraftOrSent && singleItem.AssignedAccount?.ProviderType == MailProviderType.Exchange)
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.CreateRule));
+
         // Seperator
         operationList.Add(MailOperationMenuItem.Create(MailOperation.Seperator));
 
         // Junk folder
         if (isJunkFolder && !isPop3)
+        {
             operationList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender));
+        }
         else if (!isDraftOrSent && !isPop3)
+        {
             operationList.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.BlockSender));
+            operationList.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender));
+        }
 
         AddFocusedInboxActions(operationList, selectedItems);
 
@@ -169,10 +191,15 @@ public class ContextMenuItemService : IContextMenuItemService
             actionList.Add(MailOperationMenuItem.Create(MailOperation.Forward));
         }
 
-        // Archive - Unarchive
+        // A read-only remote item (public folder, online archive) stops here: nothing below can change it.
+        if (mailItem.AssignedFolder.IsRemoteReadOnlyNode)
+            return actionList;
+
+        // Archive - Unarchive. An Exchange account with an online archive is archived server-side by
+        // retention policy, so the local Archive action is not offered.
         if (isArchiveFolder)
             actionList.Add(MailOperationMenuItem.Create(MailOperation.UnArchive));
-        else
+        else if (mailItem.AssignedAccount?.SuppressLocalArchive != true)
             actionList.Add(MailOperationMenuItem.Create(MailOperation.Archive));
 
         // Delete
@@ -193,9 +220,16 @@ public class ContextMenuItemService : IContextMenuItemService
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsRead, true, false));
 
         if (mailItem.AssignedFolder.SpecialFolderType == SpecialFolderType.Junk && mailItem.AssignedAccount?.ProviderType != MailProviderType.POP3)
+        {
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MarkAsNotJunk, true, true));
+            actionList.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender, true, true));
+        }
         else if (!mailItem.IsDraft && mailItem.AssignedFolder.SpecialFolderType != SpecialFolderType.Sent && mailItem.AssignedAccount?.ProviderType != MailProviderType.POP3)
+        {
             actionList.Add(MailOperationMenuItem.Create(MailOperation.MoveToJunk, true, true));
+            actionList.Add(MailOperationMenuItem.Create(MailOperation.BlockSender, true, true));
+            actionList.Add(MailOperationMenuItem.Create(MailOperation.NeverBlockSender, true, true));
+        }
 
         if (IsOutlookInboxMail(mailItem))
         {

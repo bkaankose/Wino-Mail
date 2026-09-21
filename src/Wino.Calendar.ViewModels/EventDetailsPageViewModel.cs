@@ -277,7 +277,11 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
     {
         try
         {
-            var currentEventItem = await _calendarService.GetCalendarItemTargetAsync(target);
+            // An event of a pinned public calendar exists only in memory: the item handed over is all
+            // there is, and the read-only calendar it belongs to keeps every write away from it.
+            var currentEventItem = target.Item?.AssignedCalendar?.IsPublicFolder == true
+                ? target.Item
+                : await _calendarService.GetCalendarItemTargetAsync(target);
 
             if (currentEventItem == null)
                 return;

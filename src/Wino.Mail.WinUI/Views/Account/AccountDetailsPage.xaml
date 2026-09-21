@@ -181,7 +181,7 @@
                     AutomationProperties.AutomationId="AccountDetailsPageSettingsCard4"
                     Description="{x:Bind domain:Translator.AccountDetailsPage_CapabilityDescription, Mode=OneTime}"
                     Header="{x:Bind domain:Translator.AccountDetailsPage_CapabilityTitle, Mode=OneTime}"
-                    Visibility="{x:Bind ViewModel.IsOAuthCapabilityEditable, Mode=OneWay}">
+                    Visibility="{x:Bind ViewModel.IsCapabilityEditable, Mode=OneWay}">
                     <controls:SettingsExpander.HeaderIcon>
                         <FontIcon Glyph="&#xE787;" />
                     </controls:SettingsExpander.HeaderIcon>
@@ -189,7 +189,7 @@
                         <muxc:InfoBar
                             AutomationProperties.AutomationId="AccountCapabilitiesReauthenticationInfo"
                             IsClosable="False"
-                            IsOpen="{x:Bind ViewModel.IsCapabilitySelectionChanged, Mode=OneWay}"
+                            IsOpen="{x:Bind ViewModel.IsCapabilityReauthenticationNoticeVisible, Mode=OneWay}"
                             Message="{x:Bind domain:Translator.AccountDetailsPage_CapabilityReauthenticationMessage, Mode=OneTime}"
                             Severity="Informational" />
                     </controls:SettingsExpander.ItemsHeader>
@@ -287,6 +287,24 @@
                         AutomationProperties.AutomationId="AccountDetailsPageButton2"
                         Command="{x:Bind ViewModel.EditImapCalDavSettingsCommand}"
                         Content="{x:Bind domain:Translator.SettingsEditAccountDetails_ImapCalDavSettings_Action}"
+                        Style="{ThemeResource AccentButtonStyle}" />
+                </controls:SettingsCard>
+
+                <!--  Exchange only: server URL, sign-in method and connection method.  -->
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCardExchange"
+                    Description="{x:Bind domain:Translator.SettingsEditAccountDetails_ExchangeServerSettings_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsEditAccountDetails_ExchangeServerSettings_Title, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsExchangeServer, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE968;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button
+                        Width="160"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.AutomationId="AccountDetailsPageButtonExchange"
+                        Command="{x:Bind ViewModel.EditExchangeServerSettingsCommand}"
+                        Content="{x:Bind domain:Translator.SettingsEditAccountDetails_ExchangeServerSettings_Action, Mode=OneTime}"
                         Style="{ThemeResource AccentButtonStyle}" />
                 </controls:SettingsCard>
 
@@ -465,6 +483,56 @@
                         <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8EC;" />
                     </controls:SettingsCard.HeaderIcon>
                 </controls:SettingsCard>
+
+                <!--  Junk email lists: safe and blocked senders (local for every provider; mirrored to Exchange over MAPI/HTTP).  -->
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCardJunkEmail"
+                    Command="{x:Bind ViewModel.EditJunkEmailListsCommand}"
+                    Description="{x:Bind domain:Translator.SettingsJunkEmail_Card_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsJunkEmail_Title, Mode=OneTime}"
+                    IsClickEnabled="True"
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsPop3Server), Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8F8;" />
+                    </controls:SettingsCard.HeaderIcon>
+                </controls:SettingsCard>
+
+                <!--  Exchange only: server-side inbox rules (Rules and Alerts).  -->
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsCardInboxRules"
+                    Description="{x:Bind domain:Translator.Rules_Card_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.Rules_Title, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsExchangeServer, Mode=OneWay}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE71C;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <Button
+                        Width="160"
+                        HorizontalAlignment="Right"
+                        AutomationProperties.AutomationId="AccountDetailsPageButtonInboxRules"
+                        Command="{x:Bind ViewModel.ManageInboxRulesCommand}"
+                        Content="{x:Bind domain:Translator.Rules_Card_Action, Mode=OneTime}"
+                        Style="{ThemeResource AccentButtonStyle}" />
+                </controls:SettingsCard>
+
+                <!--  Exchange only: read-only browsing of public folders and the online archive in the folder list.  -->
+                <controls:SettingsExpander
+                    AutomationProperties.AutomationId="AccountDetailsPageSettingsExpanderRemoteFolders"
+                    Description="{x:Bind domain:Translator.AccountDetailsPage_RemoteFolders_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.AccountDetailsPage_RemoteFolders_Title, Mode=OneTime}"
+                    Visibility="{x:Bind ViewModel.IsExchangeServer, Mode=OneWay}">
+                    <controls:SettingsExpander.HeaderIcon>
+                        <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8B7;" />
+                    </controls:SettingsExpander.HeaderIcon>
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountDetailsPageShowPublicFoldersCard" Header="{x:Bind domain:Translator.AccountDetailsPage_ShowPublicFolders_Title, Mode=OneTime}">
+                            <ToggleSwitch AutomationProperties.AutomationId="AccountDetailsPageShowPublicFoldersToggle" IsOn="{x:Bind ViewModel.ArePublicFoldersVisible, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard AutomationProperties.AutomationId="AccountDetailsPageShowOnlineArchiveCard" Header="{x:Bind domain:Translator.AccountDetailsPage_ShowOnlineArchive_Title, Mode=OneTime}">
+                            <ToggleSwitch AutomationProperties.AutomationId="AccountDetailsPageShowOnlineArchiveToggle" IsOn="{x:Bind ViewModel.AreOnlineArchivesVisible, Mode=TwoWay}" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
 
 
 

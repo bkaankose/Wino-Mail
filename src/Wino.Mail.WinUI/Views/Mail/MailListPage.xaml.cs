@@ -387,6 +387,13 @@ public sealed partial class MailListPage : MailListPageAbstract,
                 return;
             }
 
+            if (operation == MailOperation.CreateRule)
+            {
+                // Quick server-side rule from the sender: opens the inbox-rule editor prefilled.
+                await ViewModel.CreateRuleFromMailAsync(targetItems.FirstOrDefault());
+                return;
+            }
+
             var prepRequest = new MailOperationPreperationRequest(
                 operation,
                 targetItems.Select(a => a.MailCopy),

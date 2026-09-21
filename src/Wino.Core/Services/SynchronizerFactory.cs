@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Wino.Authentication.Exchange;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
+using Wino.Core.Synchronizers.Exchange;
 using Wino.Core.Synchronizers.ImapSync;
 using Wino.Core.Synchronizers.Mail;
 
@@ -21,6 +23,8 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
     private readonly IGmailChangeProcessor _gmailChangeProcessor;
     private readonly IImapChangeProcessor _imapChangeProcessor;
+    private readonly IExchangeChangeProcessor _exchangeChangeProcessor;
+    private readonly IExchangeSynchronizerErrorHandlerFactory _exchangeSynchronizerErrorHandlerFactory;
     private readonly IAuthenticationProvider _authenticationProvider;
     private readonly UnifiedImapSynchronizer _unifiedImapSynchronizer;
     private readonly ICalDavClient _calDavClient;
@@ -45,6 +49,8 @@ public class SynchronizerFactory : ISynchronizerFactory
     public SynchronizerFactory(IOutlookChangeProcessor outlookChangeProcessor,
                                IGmailChangeProcessor gmailChangeProcessor,
                                IImapChangeProcessor imapChangeProcessor,
+                               IExchangeChangeProcessor exchangeChangeProcessor,
+                               IExchangeSynchronizerErrorHandlerFactory exchangeSynchronizerErrorHandlerFactory,
                                IAuthenticationProvider authenticationProvider,
                                IAccountService accountService,
                                IApplicationConfiguration applicationConfiguration,
@@ -72,6 +78,8 @@ public class SynchronizerFactory : ISynchronizerFactory
         _outlookChangeProcessor = outlookChangeProcessor;
         _gmailChangeProcessor = gmailChangeProcessor;
         _imapChangeProcessor = imapChangeProcessor;
+        _exchangeChangeProcessor = exchangeChangeProcessor;
+        _exchangeSynchronizerErrorHandlerFactory = exchangeSynchronizerErrorHandlerFactory;
         _authenticationProvider = authenticationProvider;
         _accountService = accountService;
         _applicationConfiguration = applicationConfiguration;
@@ -145,6 +153,16 @@ public class SynchronizerFactory : ISynchronizerFactory
                     _contactService,
                     _taskService,
                     _smtpTransport);
+            case Domain.Enums.MailProviderType.Exchange:
+                // Native MAPI/HTTP is the primary transport; EWS stays for servers that do not advertise
+                // it (before Exchange 2013 SP1, or MAPI/HTTP disabled) and for accounts the user pins to
+                // it. The MAPI synchronizer records a missing protocol on the account, and the next
+                // synchronizer build lands here on the EWS branch.
+                var exchangeAuthenticator = _authenticationProvider.GetAuthenticator(Domain.Enums.MailProviderType.Exchange) as IExchangeAuthenticator;
+                if (mailAccount.ServerInformation?.EffectiveExchangeTransport == Domain.Enums.ExchangeTransport.Ews)
+                    return new ExchangeSynchronizer(mailAccount, exchangeAuthenticator, _exchangeChangeProcessor, _exchangeSynchronizerErrorHandlerFactory, _contactService, _contactPictureFileService, _taskService);
+
+                return new Synchronizers.Mapi.MapiExchangeSynchronizer(mailAccount, exchangeAuthenticator, _exchangeChangeProcessor, _exchangeSynchronizerErrorHandlerFactory, _contactService, _contactPictureFileService, _taskService);
             case Domain.Enums.MailProviderType.POP3:
                 return new Pop3Synchronizer(
                     mailAccount,
@@ -165,6 +183,11 @@ public class SynchronizerFactory : ISynchronizerFactory
     public IWinoSynchronizerBase CreateNewSynchronizer(MailAccount account)
     {
         var synchronizer = CreateIntegratorWithDefaultProcessor(account);
+
+        // Unknown provider types produce no synchronizer; a null cache entry would crash every
+        // later Find over the list.
+        if (synchronizer == null)
+            return null;
 
         if (synchronizer is IImapSynchronizer imapSynchronizer)
         {

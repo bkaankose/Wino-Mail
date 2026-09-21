@@ -22,6 +22,18 @@ public interface IAccountNavigationMenuItem : IMenuItem, INotifyPropertyChanged
     double SynchronizationProgressValue { get; }
     bool IsAttentionRequired { get; }
     bool SupportsMailAccountActions { get; }
+
+    /// <summary>
+    /// Whether the account context menu offers the Exchange-only entries: inbox rules and the
+    /// public folder and online archive visibility switches.
+    /// </summary>
+    bool SupportsExchangeAccountActions => false;
+
+    /// <summary>
+    /// Whether the account context menu offers the junk email lists. Follows the account details
+    /// card, which has no junk lists for POP3 accounts.
+    /// </summary>
+    bool SupportsJunkEmailSettings => false;
     AccountDetailsTab AccountDetailsTab { get; }
     bool SupportsAccountSynchronization { get; }
 

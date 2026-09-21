@@ -289,6 +289,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         {
             var result = await synchronizer.SynchronizeMailsAsync(options, linkedCancellationTokenSource.Token);
 
+            ThrowIfInteractiveSignInRequired(synchronizer.Account, result.Exception);
+
             _logger.Information("Mail synchronization completed for account {AccountId} with state {State}",
                               options.AccountId, result.CompletedState);
 
@@ -1089,6 +1091,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         try
         {
             var result = await synchronizer.SynchronizeCalendarEventsAsync(options, linkedCancellationTokenSource.Token);
+
+            ThrowIfInteractiveSignInRequired(synchronizer.Account, result.Exception);
             var downloadedEventCount = result.DownloadedEvents?.Count() ?? 0;
 
             _logger.Information("Calendar synchronization completed for account {AccountId} with state {State}",
@@ -1575,7 +1579,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (_synchronizerCache.TryGetValue(accountId, out var existingSynchronizer))
         {
             var currentAccount = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-            if (currentAccount != null && RequiresSynchronizerRefresh(existingSynchronizer.Account, currentAccount))
+            if (currentAccount != null && (RequiresSynchronizerRefresh(existingSynchronizer.Account, currentAccount) || TransportChanged(existingSynchronizer, currentAccount)))
             {
                 await DestroySynchronizerAsync(accountId).ConfigureAwait(false);
                 return CreateSynchronizerForAccount(currentAccount);
@@ -1596,6 +1600,19 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     public static bool CanSynchronizeCalendar(MailAccount account)
         => account?.IsCalendarAccessGranted == true;
+
+    /// <summary>
+    /// An Exchange account whose effective transport (MAPI/HTTP or EWS) no longer matches the cached
+    /// synchronizer's kind: the setting was changed, or a MAPI attempt learned the protocol is not offered.
+    /// </summary>
+    private static bool TransportChanged(IWinoSynchronizerBase existing, MailAccount currentAccount)
+    {
+        if (currentAccount.ProviderType != MailProviderType.Exchange || currentAccount.ServerInformation == null)
+            return false;
+
+        var wantsMapi = currentAccount.ServerInformation.EffectiveExchangeTransport != ExchangeTransport.Ews;
+        return wantsMapi != (existing is Synchronizers.Mapi.MapiExchangeSynchronizer);
+    }
 
     public static bool RequiresSynchronizerRefresh(MailAccount cachedAccount, MailAccount currentAccount)
         => cachedAccount == null ||
@@ -1740,6 +1757,22 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         persistedAccount.AttentionReason = reason;
         await _accountService.UpdateAccountAsync(persistedAccount).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// A synchronizer that cannot get a token reports an ordinary failure, because the token is
+    /// fetched while opening its session, outside the per-folder error handlers. Left like that,
+    /// the account is never marked, so every timer tick tries again, fails again and reports the
+    /// failure again. Turning it into the attention exception routes it through the handling
+    /// below: the account is marked once, and later passes are skipped until the user signs in.
+    /// </summary>
+    internal static void ThrowIfInteractiveSignInRequired(MailAccount account, Exception exception)
+    {
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (current is Wino.Authentication.Exchange.ExchangeInteractiveSignInRequiredException)
+                throw new AuthenticationAttentionException(account, current.Message, current);
+        }
     }
 
     private async Task<bool> IsSynchronizationBlockedByAttentionAsync(Guid accountId)

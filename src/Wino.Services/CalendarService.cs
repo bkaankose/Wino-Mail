@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Itenso.TimePeriod;
 using Serilog;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
@@ -229,6 +230,11 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     /// <param name="calendar">The calendar to retrieve events from.</param>
     /// <param name="period">The time period to query events for.</param>
     /// <returns>List of calendar items that fall within the requested period.</returns>
+    public Task<List<CalendarItem>> GetRecurringMastersAsync(Guid accountCalendarId)
+        => Connection.Table<CalendarItem>()
+            .Where(c => c.CalendarId == accountCalendarId && c.Recurrence != null && c.Recurrence != "" && c.RecurringCalendarItemId == null)
+            .ToListAsync();
+
     public async Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period)
     {
         // Fetch all non-hidden events for this calendar
@@ -287,6 +293,95 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         await LoadAssignedCalendarAsync(calendarItem);
 
         return calendarItem;
+    }
+
+    public async Task<CalendarItem> GetInvitationCalendarItemAsync(Guid accountId, string mailCopyId, InvitationDetails invitation)
+    {
+        if (accountId == Guid.Empty)
+            return null;
+
+        var calendarItem = await FindMappedInvitationItemAsync(accountId, mailCopyId, invitation?.Uid).ConfigureAwait(false)
+                           ?? await FindInvitationItemByScheduleAsync(accountId, invitation).ConfigureAwait(false);
+
+        await LoadAssignedCalendarAsync(calendarItem).ConfigureAwait(false);
+
+        return calendarItem;
+    }
+
+    /// <summary>The item the synchronizers mapped for this mail, or for any mail carrying the same UID.</summary>
+    private async Task<CalendarItem> FindMappedInvitationItemAsync(Guid accountId, string mailCopyId, string invitationUid)
+    {
+        var mappings = new List<MailInvitationCalendarMapping>();
+
+        if (!string.IsNullOrWhiteSpace(mailCopyId))
+        {
+            mappings.AddRange(await Connection.Table<MailInvitationCalendarMapping>()
+                .Where(x => x.AccountId == accountId && x.MailCopyId == mailCopyId)
+                .ToListAsync().ConfigureAwait(false));
+        }
+
+        if (!string.IsNullOrWhiteSpace(invitationUid))
+        {
+            mappings.AddRange(await Connection.Table<MailInvitationCalendarMapping>()
+                .Where(x => x.AccountId == accountId && x.InvitationUid == invitationUid)
+                .OrderByDescending(x => x.UpdatedAtUtc)
+                .ToListAsync().ConfigureAwait(false));
+        }
+
+        foreach (var mapping in mappings)
+        {
+            var item = await Connection.FindWithQueryAsync<CalendarItem>(
+                "SELECT * FROM CalendarItem WHERE Id = ? AND IsHidden = 0", mapping.CalendarItemId).ConfigureAwait(false);
+
+            if (item != null)
+                return item;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// The schedule match for mail synced before the mapping existed: same title in one of the account's
+    /// calendars, starting within a minute of the invitation. Series masters are skipped so the response
+    /// goes to what the calendar shows.
+    /// </summary>
+    private async Task<CalendarItem> FindInvitationItemByScheduleAsync(Guid accountId, InvitationDetails invitation)
+    {
+        if (invitation?.Start is not { } start || string.IsNullOrWhiteSpace(invitation.Summary))
+            return null;
+
+        var candidates = await Connection.QueryAsync<CalendarItem>(
+            "SELECT ci.* FROM CalendarItem ci JOIN AccountCalendar ac ON ac.Id = ci.CalendarId WHERE ac.AccountId = ? AND ci.Title = ? AND ci.IsHidden = 0 AND (ci.Recurrence IS NULL OR ci.Recurrence = '' OR ci.RecurringCalendarItemId IS NOT NULL)",
+            accountId, invitation.Summary).ConfigureAwait(false);
+
+        var startUtc = invitation.IsAllDay ? start.Date : start.UtcDateTime;
+
+        return candidates
+            .Select(item => (Item: item, Distance: Math.Abs((ToUtc(item) - startUtc).TotalMinutes)))
+            .Where(candidate => candidate.Distance <= 1)
+            .OrderBy(candidate => candidate.Distance)
+            .Select(candidate => candidate.Item)
+            .FirstOrDefault();
+
+        static DateTime ToUtc(CalendarItem item)
+        {
+            if (string.IsNullOrEmpty(item.StartTimeZone))
+                return DateTime.SpecifyKind(item.StartDate, DateTimeKind.Utc);
+
+            try
+            {
+                var zone = TimeZoneInfo.FindSystemTimeZoneById(item.StartTimeZone);
+                return TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(item.StartDate, DateTimeKind.Unspecified), zone);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                return DateTime.SpecifyKind(item.StartDate, DateTimeKind.Utc);
+            }
+            catch (InvalidTimeZoneException)
+            {
+                return DateTime.SpecifyKind(item.StartDate, DateTimeKind.Utc);
+            }
+        }
     }
 
     public Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken)

@@ -10,6 +10,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Core.Domain.Models.PublicFolders;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -18,7 +19,10 @@ public enum ContactFilterKind
     All,
     Favorites,
     AddressBook,
-    List
+    List,
+
+    /// <summary>A pinned Exchange public contact folder: read live, never stored, read-only.</summary>
+    PublicFolder
 }
 
 /// <summary>
@@ -40,6 +44,9 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     internal Action<ContactFilterViewModel> DeleteRequested { get; set; }
     internal Func<Guid, Task> SynchronizeAccountRequested { get; set; }
 
+    /// <summary>Raised when a pinned public contact folder is asked to leave the pane.</summary>
+    internal Action<ContactFilterViewModel> UnpinRequested { get; set; }
+
     public ContactFilterKind Kind { get; }
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(AccountName))]
@@ -50,6 +57,9 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public MailAccount Account { get; init; }
     public ContactList List { get; init; }
     public ContactAddressBook AddressBook { get; init; }
+
+    /// <summary>The provider's id of the pinned public contact folder this entry reads from.</summary>
+    public string PublicFolderId { get; init; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UnreadItemCount))]
@@ -84,6 +94,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     #endregion
 
     public bool IsList => Kind == ContactFilterKind.List;
+    public bool IsPublicFolder => Kind == ContactFilterKind.PublicFolder;
     public bool CanManageRemoteAddressBook => AddressBook?.SourceKind == ContactSourceKind.CardDav && !AddressBook.IsReadOnly;
     public bool CanRenameOrDelete => IsList || CanManageRemoteAddressBook;
     public bool HasAccountIcon => Kind == ContactFilterKind.AddressBook && Account is not null;
@@ -111,6 +122,21 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public static ContactFilterViewModel CreateList(ContactList list)
         => new(ContactFilterKind.List) { Name = list.Name, Glyph = "", List = list };
 
+    /// <summary>
+    /// A pinned public contact folder. It carries its account, so the pane draws the account's icon next
+    /// to the folder name and the entry reads as belonging to that Exchange account.
+    /// </summary>
+    public static ContactFilterViewModel CreatePublicFolder(PublicFolderFavorite favorite, MailAccount account)
+        => new(ContactFilterKind.PublicFolder)
+        {
+            Name = favorite.DisplayName,
+            Glyph = "",
+            AccountId = favorite.AccountId,
+            Account = account,
+            PublicFolderId = favorite.FolderId
+        };
+
+    // A public folder entry never reaches the contact store: its contacts are fetched live.
     public ContactQueryFilter ToQueryFilter(string searchQuery) => Kind switch
     {
         ContactFilterKind.Favorites => new ContactQueryFilter(FavoritesOnly: true, SearchQuery: searchQuery, ExcludeRootContacts: true),
@@ -155,6 +181,11 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
 
     [RelayCommand(CanExecute = nameof(CanModifyList))]
     private void DeleteList() => DeleteRequested?.Invoke(this);
+
+    private bool CanUnpin() => IsPublicFolder;
+
+    [RelayCommand(CanExecute = nameof(CanUnpin))]
+    private void Unpin() => UnpinRequested?.Invoke(this);
 
     #endregion
 }

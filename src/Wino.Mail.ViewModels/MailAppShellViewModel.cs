@@ -45,6 +45,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     IRecipient<AccountSynchronizationProgressUpdatedMessage>,
     IRecipient<NavigateAppPreferencesRequested>,
     IRecipient<AccountFolderConfigurationUpdated>,
+    IRecipient<PublicFolderFavoritesChanged>,
     IRecipient<AccountRemovedMessage>,
     IRecipient<AccountUpdatedMessage>
 {
@@ -129,8 +130,15 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IConfigurationService configurationService,
                              IStartupBehaviorService startupBehaviorService,
                              IWebView2RuntimeValidatorService webView2RuntimeValidatorService,
-                             IShareActivationService shareActivationService)
+                             IShareActivationService shareActivationService,
+                             IPublicFolderService publicFolderService = null,
+                             IOnlineArchiveService onlineArchiveService = null,
+                             IPublicFolderFavoriteService publicFolderFavoriteService = null)
     {
+        _publicFolderService = publicFolderService;
+        _onlineArchiveService = onlineArchiveService;
+        _publicFolderFavoriteService = publicFolderFavoriteService;
+
         StatePersistenceService = statePersistanceService;
 
         PreferencesService = preferencesService;
@@ -986,6 +994,15 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         {
             await HandleCreateNewMailAsync();
         }
+        else if (clickedMenuItem is RemoteFolderMenuItem remoteFolderMenuItem)
+        {
+            // Read-only remote folders are never move targets, but a mail folder among them still opens in
+            // the list; containers, roots and placeholder rows only expand or do nothing.
+            if (remoteFolderMenuItem.CanOpen)
+            {
+                await NavigateFolderAsync(remoteFolderMenuItem);
+            }
+        }
         else if (clickedMenuItem is IBaseFolderMenuItem baseFolderMenuItem &&
                  (clickedMenuItem is IMailCategoryMenuItem or IMergedMailCategoryMenuItem || baseFolderMenuItem.HandlingFolders.All(a => a.IsMoveTarget)))
         {
@@ -1030,6 +1047,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         var folders = await _folderService
             .GetAccountFoldersForDisplayAsync(clickedBaseAccountMenuItem)
             .ConfigureAwait(false);
+
+        AttachRemoteFolderHandlers(folders);
 
         await ExecuteUIThread(() =>
         {
@@ -1580,6 +1599,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             .GetAccountFoldersForDisplayAsync(loadedAccountMenuItem)
             .ConfigureAwait(false);
 
+        AttachRemoteFolderHandlers(folders);
+
         await MenuItems.ReplaceFoldersAsync(folders).ConfigureAwait(false);
         await UpdateUnreadItemCountAsync().ConfigureAwait(false);
 
@@ -1746,6 +1767,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Register<AccountSynchronizationProgressUpdatedMessage>(this);
         Messenger.Register<NavigateAppPreferencesRequested>(this);
         Messenger.Register<AccountFolderConfigurationUpdated>(this);
+        Messenger.Register<PublicFolderFavoritesChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -1765,6 +1787,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         Messenger.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
         Messenger.Unregister<NavigateAppPreferencesRequested>(this);
         Messenger.Unregister<AccountFolderConfigurationUpdated>(this);
+        Messenger.Unregister<PublicFolderFavoritesChanged>(this);
     }
 
     public async void Receive(AccountRemovedMessage message)

@@ -31,7 +31,8 @@ public sealed class CalendarEventComposeImportTests
             Mock.Of<IContactService>(),
             preferences.Object,
             Mock.Of<IUnderlyingThemeService>(),
-            delegator.Object);
+            delegator.Object,
+            Mock.Of<IGlobalAddressListService>());
         var args = new CalendarEventComposeNavigationArgs
         {
             Title = "Imported meeting",

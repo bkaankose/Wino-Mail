@@ -63,6 +63,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private string _spellCheckLanguageCode = string.Empty;
     private CancellationTokenSource? _editorLifecycleCancellationSource;
     private readonly Dictionary<TokenizingTextBox, List<IContactDisplayItem>> _recipientSuggestions = [];
+    private readonly Dictionary<TokenizingTextBox, CancellationTokenSource> _recipientSuggestionQueries = [];
 
     public bool SupportsPopOut => !_isPoppedOut;
     public bool HasEditorKeyboardFocus => WebViewEditor.FocusState != FocusState.Unfocused;
@@ -153,6 +154,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             }
             else
             {
+                RestartSuggestionQuery(box);
                 _recipientSuggestions[box] = [];
             }
         });
@@ -302,6 +304,8 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private void DisposeDisposables()
     {
+        CancelSuggestionQueries();
+
         if (_disposables.Count == 0)
             return;
 
@@ -406,23 +410,70 @@ public sealed partial class ComposePage : ComposePageAbstract,
     }
 
     /// <summary>
-    /// Suggests matching contacts, and local contact lists ahead of them. Both render through
-    /// the shared <c>ContactSuggestionTemplate</c> because both are <see cref="IContactDisplayItem"/>.
+    /// Suggests matching contacts (local plus the Exchange directory), and local contact lists ahead
+    /// of them. Both render through the shared <c>ContactSuggestionTemplate</c> because both are
+    /// <see cref="IContactDisplayItem"/>. Each new query cancels the previous one for the same box so
+    /// a slow directory never blocks typing, and a superseded result is dropped instead of shown.
     /// </summary>
     private async Task ResolveRecipientSuggestionsAsync(TokenizingTextBox box, AutoSuggestBox senderBox, string query)
     {
-        var contacts = await ViewModel.ContactService.ResolveRecipientCandidatesAsync(ViewModel.ComposingAccount?.Id, query).ConfigureAwait(false) ?? [];
-        var lists = await ViewModel.ContactService.ResolveRecipientListsAsync(query).ConfigureAwait(false) ?? [];
+        var queryCancellation = RestartSuggestionQuery(box);
+        var cancellationToken = queryCancellation.Token;
 
-        var suggestions = new List<IContactDisplayItem>(lists.Count + contacts.Count);
-        suggestions.AddRange(lists);
-        suggestions.AddRange(contacts);
-
-        await ViewModel.ExecuteUIThread(() =>
+        try
         {
-            _recipientSuggestions[box] = suggestions;
-            senderBox.ItemsSource = suggestions;
-        });
+            var contacts = await ViewModel.GetRecipientSuggestionsAsync(query, cancellationToken).ConfigureAwait(false) ?? [];
+            var lists = await ViewModel.ContactService.ResolveRecipientListsAsync(query).ConfigureAwait(false) ?? [];
+
+            if (cancellationToken.IsCancellationRequested)
+                return;
+
+            var suggestions = new List<IContactDisplayItem>(lists.Count + contacts.Count);
+            suggestions.AddRange(lists);
+            suggestions.AddRange(contacts);
+
+            await ViewModel.ExecuteUIThread(() =>
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
+                _recipientSuggestions[box] = suggestions;
+                senderBox.ItemsSource = suggestions;
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            // A newer query for this box superseded this one.
+        }
+        catch (Exception ex)
+        {
+            _logger.CaptureException(ex, "ComposePage.ResolveRecipientSuggestions");
+        }
+    }
+
+    /// <summary>Cancels the in-flight suggestion query for <paramref name="box"/> and starts a new one.</summary>
+    private CancellationTokenSource RestartSuggestionQuery(TokenizingTextBox box)
+    {
+        if (_recipientSuggestionQueries.TryGetValue(box, out var previous))
+        {
+            previous.Cancel();
+            previous.Dispose();
+        }
+
+        var next = new CancellationTokenSource();
+        _recipientSuggestionQueries[box] = next;
+        return next;
+    }
+
+    private void CancelSuggestionQueries()
+    {
+        foreach (var query in _recipientSuggestionQueries.Values)
+        {
+            query.Cancel();
+            query.Dispose();
+        }
+
+        _recipientSuggestionQueries.Clear();
     }
 
     /// <summary>

@@ -109,6 +109,27 @@ public sealed class CalendarItemTimeZoneDisplayTests
         storedStart.Should().Be(new DateTime(2026, 4, 23, 12, 0, 0));
     }
 
+    [Fact]
+    public void EditingAZonelessTimedEvent_RoundTripsThroughUtc()
+    {
+        // A row without a zone stores UTC (Exchange occurrences the platform cannot place in a zone), and
+        // ToLocalTimeFromTimeZone reads it as such; the inverse used by the editor must store UTC too.
+        var calendarItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Standup",
+            StartDate = new DateTime(2026, 9, 7, 13, 0, 0),
+            DurationInSeconds = TimeSpan.FromHours(1).TotalSeconds
+        };
+        var viewModel = new CalendarItemViewModel(calendarItem);
+        var shownStart = viewModel.StartDate;
+
+        viewModel.StartDate = shownStart.AddHours(2);
+
+        calendarItem.StartDate.Should().Be(new DateTime(2026, 9, 7, 15, 0, 0));
+        viewModel.StartDate.Should().Be(shownStart.AddHours(2));
+    }
+
     private static string GetTurkeyTimeZoneId()
     {
         try

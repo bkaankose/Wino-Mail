@@ -29,6 +29,7 @@ public class ProviderService(IKnownImapProviderCatalog catalog) : IProviderServi
 
         providerList.AddRange(catalog.SetupProviders.Select(provider =>
             new ProviderDetail(MailProviderType.IMAP4, provider.SpecialImapProvider)));
+        providerList.Add(new ProviderDetail(MailProviderType.Exchange, SpecialImapProvider.None));
         providerList.Add(new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None));
         providerList.Add(new ProviderDetail(MailProviderType.POP3, SpecialImapProvider.None));
 

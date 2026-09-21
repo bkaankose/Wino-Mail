@@ -210,6 +210,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     #endregion
 
     private readonly ICalendarService _calendarService;
+    private readonly IPublicFolderService _publicFolderService;
     private readonly INavigationService _navigationService;
     private readonly INativeAppService _nativeAppService;
     private readonly INotificationBuilder _notificationBuilder;
@@ -252,8 +253,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         IMailDialogService dialogService,
         IDateContextProvider dateContextProvider,
         ICalendarRangeTextFormatter calendarRangeTextFormatter,
-        ICalendarShellClient shellMenuProvider)
+        ICalendarShellClient shellMenuProvider,
+        IPublicFolderService publicFolderService = null)
     {
+        _publicFolderService = publicFolderService;
         ShellMenuProvider = shellMenuProvider;
         StatePersistanceService = statePersistanceService;
         AccountCalendarStateService = accountCalendarStateService;
@@ -905,7 +908,10 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             if (!IsPageActive(lifetimeVersion))
                 return [];
 
-            var events = await _calendarService.GetCalendarEventsAsync(calendarViewModel, loadPeriod).ConfigureAwait(false);
+            // A pinned public calendar has no stored events; its occurrences are read live for the window.
+            var events = calendarViewModel.IsPublicFolder
+                ? await LoadPublicFolderEventsAsync(calendarViewModel, loadedDateWindow).ConfigureAwait(false)
+                : await _calendarService.GetCalendarEventsAsync(calendarViewModel, loadPeriod).ConfigureAwait(false);
             foreach (var calendarItem in events)
             {
                 if (calendarItem.IsRecurringParent || calendarItem.IsHidden)
@@ -925,6 +931,46 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
             .ThenBy(item => item.EndDate)
             .ThenBy(item => item.Id)
             .ToList();
+    }
+
+    /// <summary>
+    /// Reads a pinned public calendar's events for the loaded window and ties each to the overlay calendar,
+    /// so they group, colour and refuse edits like the events of any read-only calendar. A folder that
+    /// cannot be read costs its own events only, never the rest of the view.
+    /// </summary>
+    private async Task<List<CalendarItem>> LoadPublicFolderEventsAsync(AccountCalendarViewModel calendarViewModel, DateRange loadedDateWindow)
+    {
+        if (_publicFolderService == null)
+            return [];
+
+        try
+        {
+            var events = await _publicFolderService.GetAppointmentsAsync(
+                calendarViewModel.AccountId,
+                calendarViewModel.RemoteCalendarId,
+                loadedDateWindow.StartDate.ToUniversalTime(),
+                loadedDateWindow.EndDate.ToUniversalTime()).ConfigureAwait(false);
+
+            var items = new List<CalendarItem>(events.Count);
+
+            foreach (var calendarItem in events)
+            {
+                if (calendarItem == null)
+                    continue;
+
+                calendarItem.CalendarId = calendarViewModel.Id;
+                calendarItem.AssignedCalendar = calendarViewModel;
+                calendarItem.IsLocked = true;
+                items.Add(calendarItem);
+            }
+
+            return items;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to load the public calendar {Calendar}.", calendarViewModel.Name);
+            return [];
+        }
     }
 
     private static bool IsSameVisibleRange(VisibleDateRange current, VisibleDateRange next)

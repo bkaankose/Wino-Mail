@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -12,6 +13,7 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
+using Wino.Calendar.ViewModels.Data;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
@@ -27,6 +29,7 @@ using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
 using Wino.MenuFlyouts;
 using Wino.MenuFlyouts.Context;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.WinUI.Styles.ShellMenu;
 
@@ -44,6 +47,38 @@ public sealed partial class ShellMenuTemplates
 
     private void UngroupedCalendarCheckBoxTapped(object sender, TappedRoutedEventArgs e)
         => e.Handled = true;
+
+    // Exchange only. Calendar rows carry a context menu whose single entry unpins a public calendar, so
+    // for every other calendar the request is swallowed and no menu opens.
+
+    private static AccountCalendarViewModel? ResolveCalendar(object sender)
+        => (sender as FrameworkElement)?.DataContext switch
+        {
+            AccountCalendarViewModel calendar => calendar,
+            UngroupedCalendarMenuItem { Parameter: { } calendar } => calendar,
+            _ => null
+        };
+
+    // Exchange only: a pinned public calendar can be unpinned; every other calendar has no menu. The
+    // favourite service announces the change, and the calendar pane drops the calendar and reloads.
+    private void CalendarContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement target || ResolveCalendar(sender) is not { IsPublicFolder: true } calendar)
+        {
+            args.Handled = true;
+            return;
+        }
+
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            CreateContextCommand(
+                Translator.PublicFolders_Unpin,
+                WinoIconGlyph.UnPin,
+                "CalendarUnpinPublicCalendar",
+                new RelayCommand(() => WinoApplication.Current.Services.GetService<IPublicFolderFavoriteService>()?
+                    .RemoveFavorite(calendar.AccountId, calendar.RemoteCalendarId)))
+        ]);
+    }
 
     private static IMailShellClient MailClient
         => WinoApplication.Current.Services.GetRequiredService<IMailShellClient>();
@@ -177,13 +212,130 @@ public sealed partial class ShellMenuTemplates
                 new AsyncRelayCommand(() => MailClient.CreateRootFolderAsync(mailAccount))));
         }
 
+        AddExchangeAccountEntries(items, account);
+
         WinoContextFlyoutHelper.Show(target, args, items);
+    }
+
+    // Exchange only: inbox rules, the junk email lists, and the two switches for the read-only remote
+    // trees. The switches are app-wide (the same values as on the account details page), and a change
+    // rebuilds the account's folder list.
+    private static void AddExchangeAccountEntries(List<ContextFlyoutMenuEntry> items, IAccountNavigationMenuItem accountMenuItem)
+    {
+        if (accountMenuItem.Account is not { } account ||
+            !(accountMenuItem.SupportsExchangeAccountActions || accountMenuItem.SupportsJunkEmailSettings))
+        {
+            return;
+        }
+
+        items.Add(ContextFlyoutSeparatorEntry.Instance);
+
+        if (accountMenuItem.SupportsExchangeAccountActions)
+        {
+            items.Add(new ContextFlyoutCommandEntry
+            {
+                Text = Translator.Rules_Title,
+                Icon = new ContextFlyoutIcon("\uE71C"),
+                Command = new AsyncRelayCommand(() => WinoApplication.Current.Services.GetRequiredService<IMailDialogService>().ShowInboxRulesManagerAsync(account)),
+                AutomationId = "AccountContextInboxRules"
+            });
+        }
+
+        if (accountMenuItem.SupportsJunkEmailSettings)
+        {
+            items.Add(CreateContextCommand(
+                Translator.SettingsJunkEmail_Title,
+                WinoIconGlyph.SpecialFolderJunk,
+                "AccountContextJunkEmail",
+                new RelayCommand(() => OpenJunkEmailSettings(account))));
+        }
+
+        if (accountMenuItem.SupportsExchangeAccountActions &&
+            WinoApplication.Current.Services.GetService<IPublicFolderFavoriteService>() is { } remoteFolders)
+        {
+            items.Add(new ContextFlyoutToggleEntry
+            {
+                Text = Translator.AccountDetailsPage_ShowPublicFolders_Title,
+                Icon = CreateContextIcon(WinoIconGlyph.Folder),
+                IsChecked = remoteFolders.ArePublicFoldersVisible,
+                Command = new RelayCommand(() =>
+                {
+                    remoteFolders.ArePublicFoldersVisible = !remoteFolders.ArePublicFoldersVisible;
+                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(account.Id));
+                }),
+                AutomationId = "AccountContextShowPublicFolders"
+            });
+
+            items.Add(new ContextFlyoutToggleEntry
+            {
+                Text = Translator.AccountDetailsPage_ShowOnlineArchive_Title,
+                Icon = CreateContextIcon(WinoIconGlyph.SpecialFolderArchive),
+                IsChecked = remoteFolders.AreOnlineArchivesVisible,
+                Command = new RelayCommand(() =>
+                {
+                    remoteFolders.AreOnlineArchivesVisible = !remoteFolders.AreOnlineArchivesVisible;
+                    WeakReferenceMessenger.Default.Send(new AccountFolderConfigurationUpdated(account.Id));
+                }),
+                AutomationId = "AccountContextShowOnlineArchive"
+            });
+        }
+    }
+
+    // Opens the junk email lists of the account inside Settings, with manage accounts and the
+    // account itself as breadcrumb parents so Back behaves as if the user had walked there.
+    private static void OpenJunkEmailSettings(Wino.Core.Domain.Entities.Shared.MailAccount account)
+    {
+        var route = SettingsNavigationRoute.ForAccountSubpage(
+            account,
+            Translator.SettingsJunkEmail_Title,
+            WinoPage.JunkEmailSettingsPage,
+            AccountDetailsTab.Mail);
+
+        NavigationService.ChangeApplicationMode(
+            WinoApplicationMode.Settings,
+            new ShellModeActivationContext
+            {
+                Parameter = new SettingsPageActivationContext(WinoPage.JunkEmailSettingsPage, account.Id, route),
+                SuppressStartupFlows = true
+            });
+    }
+
+    // Exchange only: a public mail, contact or calendar folder can be pinned and unpinned.
+    private void RemoteFolderContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: RemoteFolderMenuItem { CanPin: true } folder } target)
+        {
+            args.Handled = true;
+            return;
+        }
+
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            CreateContextCommand(
+                folder.PinActionText,
+                folder.IsPinned ? WinoIconGlyph.UnPin : WinoIconGlyph.Pin,
+                "RemoteFolderContextPin",
+                folder.TogglePinCommand)
+        ]);
     }
 
     private void ContactListContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {
         if (sender is not FrameworkElement { DataContext: ContactFilterViewModel contactList } target)
             return;
+
+        if (contactList.IsPublicFolder)
+        {
+            WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+            [
+                CreateContextCommand(
+                    Translator.PublicFolders_Unpin,
+                    WinoIconGlyph.UnPin,
+                    "ContactsPaneUnpinPublicFolder",
+                    contactList.UnpinCommand)
+            ]);
+            return;
+        }
 
         if (!contactList.CanRenameOrDelete)
         {
@@ -261,7 +413,7 @@ public sealed partial class ShellMenuTemplates
             return;
 
         var items = new List<ContextFlyoutMenuEntry>();
-        if (list.RenameRequested is not null)
+        if (list.CanRename && list.RenameRequested is not null)
         {
             items.Add(CreateContextCommand(
                 Translator.ToDoPage_RenameList,

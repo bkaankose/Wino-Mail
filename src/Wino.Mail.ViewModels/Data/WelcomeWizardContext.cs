@@ -71,6 +71,8 @@ public partial class WelcomeWizardContext : ObservableObject
 
     public bool IsGenericCustomMail => IsGenericImap || SelectedProvider?.Type == MailProviderType.POP3;
 
+    public bool IsExchange => SelectedProvider?.Type == MailProviderType.Exchange;
+
     public SpecialImapProviderDetails BuildSpecialImapProviderDetails()
     {
         if (!IsSpecialImapProvider) return null;

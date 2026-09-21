@@ -48,6 +48,7 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
     public DataTemplate? MailCategoryMenuTemplate { get; set; }
     public DataTemplate? MergedMailCategoryMenuTemplate { get; set; }
     public DataTemplate? FolderMenuTemplate { get; set; }
+    public DataTemplate? RemoteFolderMenuTemplate { get; set; }
     public DataTemplate? FixMissingFolderConfigTemplate { get; set; }
     public DataTemplate? FixAuthenticationIssueTemplate { get; set; }
 
@@ -96,6 +97,8 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
         MergedAccountFolderMenuItem => MergedAccountFolderMenuItemTemplate,
         MailCategoryMenuItem => MailCategoryMenuTemplate,
         MergedMailCategoryMenuItem => MergedMailCategoryMenuTemplate,
+        // RemoteFolderMenuItem derives from FolderMenuItem, so it must be matched first.
+        RemoteFolderMenuItem => RemoteFolderMenuTemplate,
         FolderMenuItem => FolderMenuTemplate,
         FixAccountIssuesMenuItem fixAccountIssuesMenuItem =>
             fixAccountIssuesMenuItem.Account.AttentionReason == AccountAttentionReason.MissingSystemFolderConfiguration

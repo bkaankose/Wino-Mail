@@ -26,3 +26,4 @@ public interface ISynchronizerErrorHandler
 public interface IOutlookSynchronizerErrorHandlerFactory : ISynchronizerErrorHandlerFactory;
 public interface IGmailSynchronizerErrorHandlerFactory : ISynchronizerErrorHandlerFactory;
 public interface IImapSynchronizerErrorHandlerFactory : ISynchronizerErrorHandlerFactory;
+public interface IExchangeSynchronizerErrorHandlerFactory : ISynchronizerErrorHandlerFactory;

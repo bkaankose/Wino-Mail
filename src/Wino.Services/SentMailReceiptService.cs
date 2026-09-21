@@ -121,7 +121,8 @@ public class SentMailReceiptService(
         if (targetMail == null)
             return;
 
-        var state = await Connection.FindAsync<SentMailReceiptState>(targetMail.UniqueId).ConfigureAwait(false)
+        var existingState = await Connection.FindAsync<SentMailReceiptState>(targetMail.UniqueId).ConfigureAwait(false);
+        var state = existingState
             ?? new SentMailReceiptState
             {
                 MailUniqueId = targetMail.UniqueId,
@@ -139,7 +140,7 @@ public class SentMailReceiptService(
         state.AcknowledgedAtUtc = parsedReceipt.AcknowledgedAtUtc ?? DateTime.UtcNow;
         state.ReceiptMessageUniqueId = receiptMail.UniqueId;
 
-        if (await Connection.FindAsync<SentMailReceiptState>(state.MailUniqueId).ConfigureAwait(false) == null)
+        if (existingState == null)
             await Connection.InsertAsync(state, typeof(SentMailReceiptState)).ConfigureAwait(false);
         else
             await Connection.UpdateAsync(state, typeof(SentMailReceiptState)).ConfigureAwait(false);

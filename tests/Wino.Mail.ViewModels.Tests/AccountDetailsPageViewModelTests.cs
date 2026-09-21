@@ -1,7 +1,9 @@
+using FluentAssertions;
 using Moq;
 using Wino.Core.Diagnostics;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Mail.ViewModels;
 using Xunit;
@@ -66,6 +68,35 @@ public class AccountDetailsPageViewModelTests
 
         synchronizationManager.Verify(service => service.DestroySynchronizerAsync(It.IsAny<Guid>()), Times.Never);
         accountService.Verify(service => service.DeleteAccountAsync(It.IsAny<MailAccount>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(MailProviderType.Outlook, true, true)]
+    [InlineData(MailProviderType.Gmail, true, true)]
+    [InlineData(MailProviderType.Exchange, true, false)]
+    [InlineData(MailProviderType.IMAP4, false, false)]
+    public void Capabilities_AreEditableForServerProviders_AndOnlyOAuthAsksForSignIn(
+        MailProviderType providerType,
+        bool isEditable,
+        bool showsReauthenticationNotice)
+    {
+        var viewModel = CreateViewModel(
+            Mock.Of<IMailDialogService>(),
+            Mock.Of<IAccountService>(),
+            Mock.Of<ISynchronizationManager>());
+        viewModel.Account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Account",
+            ProviderType = providerType,
+            IsMailAccessGranted = true
+        };
+
+        viewModel.IsContactsCapabilitySelected = true;
+
+        viewModel.IsCapabilityEditable.Should().Be(isEditable);
+        viewModel.IsCapabilityReauthenticationNoticeVisible.Should().Be(showsReauthenticationNotice);
+        viewModel.ApplyCapabilitiesCommand.CanExecute(null).Should().BeTrue();
     }
 
     private static AccountDetailsPageViewModel CreateViewModel(

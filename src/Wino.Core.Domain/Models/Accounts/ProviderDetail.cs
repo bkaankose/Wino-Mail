@@ -28,7 +28,7 @@ public class ProviderDetail : IProviderDetail
         }
     }
 
-    public bool IsSupported => Type is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.IMAP4 or MailProviderType.POP3;
+    public bool IsSupported => Type is MailProviderType.Outlook or MailProviderType.Gmail or MailProviderType.IMAP4 or MailProviderType.POP3 or MailProviderType.Exchange;
 
     public ProviderDetail(MailProviderType type, SpecialImapProvider specialImapProvider)
     {
@@ -68,6 +68,10 @@ public class ProviderDetail : IProviderDetail
             case MailProviderType.POP3:
                 Name = Translator.ProviderDetail_POP3_Title;
                 Description = Translator.ProviderDetail_POP3_Description;
+                break;
+            case MailProviderType.Exchange:
+                Name = Translator.ProviderDetail_Exchange_Title;
+                Description = Translator.ProviderDetail_Exchange_Description;
                 break;
         }
     }

@@ -10,6 +10,7 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:editor="using:Wino.Editor"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
+    xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:intelligenceControls="using:Wino.Mail.Controls.IntelligenceHeader"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
@@ -180,6 +181,7 @@
             </Border.Shadow>
             <Grid Margin="8">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -533,6 +535,146 @@
                             Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverterWithThreshold(ViewModel.Attachments.Count, 1), Mode=OneWay}" />
                     </StackPanel>
                 </Grid>
+
+                <!--  Invitation card: a meeting request, cancellation or response  -->
+                <Border
+                    x:Name="InvitationCard"
+                    Grid.Row="6"
+                    Margin="5,4,5,8"
+                    Padding="14,12"
+                    x:Load="{x:Bind ViewModel.HasInvitation, Mode=OneWay}"
+                    AutomationProperties.AutomationId="MailRenderingInvitationCard"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="2">
+                                <TextBlock
+                                    AutomationProperties.AutomationId="MailRenderingInvitationTitle"
+                                    FontSize="16"
+                                    FontWeight="SemiBold"
+                                    Text="{x:Bind ViewModel.InvitationTitle, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                                <TextBlock
+                                    AutomationProperties.AutomationId="MailRenderingInvitationStatus"
+                                    FontWeight="SemiBold"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Text="{x:Bind ViewModel.InvitationStatus, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel
+                                x:Name="InvitationResponseButtons"
+                                Grid.Column="1"
+                                VerticalAlignment="Top"
+                                x:Load="{x:Bind ViewModel.CanRespondToInvitation, Mode=OneWay}"
+                                Orientation="Horizontal"
+                                Spacing="6">
+                                <Button
+                                    AutomationProperties.AutomationId="InvitationAcceptButton"
+                                    Command="{x:Bind ViewModel.RespondToInvitationCommand}"
+                                    CommandParameter="{x:Bind enums:AttendeeStatus.Accepted}"
+                                    Style="{StaticResource AccentButtonStyle}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <coreControls:WinoFontIcon FontSize="13" Icon="EventAccept" />
+                                        <TextBlock Text="{x:Bind domain:Translator.CalendarEventRsvpPanel_Accept, Mode=OneTime}" />
+                                    </StackPanel>
+                                </Button>
+                                <Button
+                                    AutomationProperties.AutomationId="InvitationTentativeButton"
+                                    Command="{x:Bind ViewModel.RespondToInvitationCommand}"
+                                    CommandParameter="{x:Bind enums:AttendeeStatus.Tentative}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <coreControls:WinoFontIcon FontSize="13" Icon="EventTentative" />
+                                        <TextBlock Text="{x:Bind domain:Translator.CalendarEventRsvpPanel_Tentative, Mode=OneTime}" />
+                                    </StackPanel>
+                                </Button>
+                                <Button
+                                    AutomationProperties.AutomationId="InvitationDeclineButton"
+                                    Command="{x:Bind ViewModel.RespondToInvitationCommand}"
+                                    CommandParameter="{x:Bind enums:AttendeeStatus.Declined}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <coreControls:WinoFontIcon FontSize="13" Icon="EventDecline" />
+                                        <TextBlock Text="{x:Bind domain:Translator.CalendarEventRsvpPanel_Decline, Mode=OneTime}" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid ColumnSpacing="10" RowSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <TextBlock
+                                Grid.Row="0"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind domain:Translator.Reader_Invitation_When, Mode=OneTime}" />
+                            <TextBlock
+                                Grid.Row="0"
+                                Grid.Column="1"
+                                AutomationProperties.AutomationId="MailRenderingInvitationWhen"
+                                Text="{x:Bind ViewModel.InvitationWhen, Mode=OneWay}"
+                                TextWrapping="Wrap" />
+                            <TextBlock
+                                Grid.Row="1"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind domain:Translator.Reader_Invitation_Location, Mode=OneTime}"
+                                Visibility="{x:Bind ViewModel.HasInvitationLocation, Mode=OneWay}" />
+                            <TextBlock
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                AutomationProperties.AutomationId="MailRenderingInvitationLocation"
+                                Text="{x:Bind ViewModel.InvitationLocation, Mode=OneWay}"
+                                TextWrapping="Wrap"
+                                Visibility="{x:Bind ViewModel.HasInvitationLocation, Mode=OneWay}" />
+                            <TextBlock
+                                Grid.Row="2"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind domain:Translator.Reader_Invitation_Organizer, Mode=OneTime}" />
+                            <TextBlock
+                                Grid.Row="2"
+                                Grid.Column="1"
+                                AutomationProperties.AutomationId="MailRenderingInvitationOrganizer"
+                                Text="{x:Bind ViewModel.InvitationOrganizer, Mode=OneWay}"
+                                TextWrapping="Wrap" />
+                            <TextBlock
+                                Grid.Row="3"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind domain:Translator.Reader_Invitation_Required, Mode=OneTime}" />
+                            <TextBlock
+                                Grid.Row="3"
+                                Grid.Column="1"
+                                AutomationProperties.AutomationId="MailRenderingInvitationRequired"
+                                Text="{x:Bind ViewModel.InvitationRequired, Mode=OneWay}"
+                                TextWrapping="Wrap" />
+                            <TextBlock
+                                Grid.Row="4"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Text="{x:Bind domain:Translator.Reader_Invitation_Optional, Mode=OneTime}"
+                                Visibility="{x:Bind ViewModel.HasInvitationOptional, Mode=OneWay}" />
+                            <TextBlock
+                                Grid.Row="4"
+                                Grid.Column="1"
+                                AutomationProperties.AutomationId="MailRenderingInvitationOptional"
+                                Text="{x:Bind ViewModel.InvitationOptional, Mode=OneWay}"
+                                TextWrapping="Wrap"
+                                Visibility="{x:Bind ViewModel.HasInvitationOptional, Mode=OneWay}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
 
                 <InfoBar
                     x:Name="ImageLoadingDisabledMessage"

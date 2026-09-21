@@ -92,8 +92,10 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
         INavigationService navigationService,
         Lazy<CalendarPageViewModel> calendarPageViewModel,
         IMailDialogService dialogService,
-        IDateContextProvider dateContextProvider)
+        IDateContextProvider dateContextProvider,
+        IPublicFolderFavoriteService publicFolderFavoriteService = null)
     {
+        _publicFolderFavoriteService = publicFolderFavoriteService;
         PreferencesService = preferencesService;
         StatePersistenceService = statePersistanceService;
         AccountCalendarStateService = accountCalendarStateService;
@@ -344,6 +346,9 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
             foreach (var calendar in e.AccountCalendars)
             {
+                if (TryPersistPublicFolderCalendarState(calendar))
+                    continue;
+
                 await _calendarService.UpdateAccountCalendarAsync(calendar.AccountCalendar).ConfigureAwait(false);
             }
         }
@@ -358,7 +363,12 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     }
 
     private async void UpdateAccountCalendarRequested(object sender, AccountCalendarViewModel e)
-        => await _calendarService.UpdateAccountCalendarAsync(e.AccountCalendar).ConfigureAwait(false);
+    {
+        if (TryPersistPublicFolderCalendarState(e))
+            return;
+
+        await _calendarService.UpdateAccountCalendarAsync(e.AccountCalendar).ConfigureAwait(false);
+    }
 
     private async Task InitializeAccountCalendarsAsync()
     {
@@ -390,6 +400,8 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
                     RefreshShellSynchronizationState();
                 });
             }
+
+            await AddPublicFolderCalendarsAsync(accounts).ConfigureAwait(false);
         }
         finally
         {
@@ -595,6 +607,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         Messenger.Register<CalendarDisplayTypeChangedMessage>(this);
         Messenger.Register<AccountRemovedMessage>(this);
+        Messenger.Register<PublicFolderFavoritesChanged>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -603,6 +616,7 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
 
         Messenger.Unregister<CalendarDisplayTypeChangedMessage>(this);
         Messenger.Unregister<AccountRemovedMessage>(this);
+        Messenger.Unregister<PublicFolderFavoritesChanged>(this);
     }
 
     private void UpdateDateNavigationHeaderItems()

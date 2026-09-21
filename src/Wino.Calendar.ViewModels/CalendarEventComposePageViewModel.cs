@@ -6,6 +6,7 @@ using System.ComponentModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -18,6 +19,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Validation;
@@ -37,6 +39,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly CalendarEventComposeResultValidator _composeResultValidator = new();
     private readonly IAttachmentFileService _attachmentFileService;
+    private readonly IGlobalAddressListService _globalAddressListService;
 
     public Func<Task<string>> GetHtmlNotesAsync { get; set; }
 
@@ -122,8 +125,10 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
                                              IPreferencesService preferencesService,
                                              IUnderlyingThemeService underlyingThemeService,
                                              IWinoRequestDelegator winoRequestDelegator,
+                                             IGlobalAddressListService globalAddressListService,
                                              IAttachmentFileService attachmentFileService = null)
     {
+        _globalAddressListService = globalAddressListService;
         _accountService = accountService;
         _calendarService = calendarService;
         _navigationService = navigationService;
@@ -345,12 +350,28 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
             });
     }
 
-    public async Task<List<AccountContact>> SearchContactsAsync(string queryText)
+    private const int GalSuggestionLimit = 15;
+
+    /// <summary>
+    /// Attendee autocomplete source: local contacts, plus the selected calendar account's Global
+    /// Address List when it is an Exchange account. Local contacts win on a duplicate address; the
+    /// directory degrades to nothing on failure, and a superseded query cancels.
+    /// </summary>
+    public async Task<List<AccountContact>> SearchContactsAsync(string queryText, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(queryText) || queryText.Length < 2)
             return [];
 
-        return await _contactService.ResolveRecipientCandidatesAsync(SelectedCalendar?.Account?.Id, queryText).ConfigureAwait(false) ?? [];
+        var account = SelectedCalendar?.Account;
+        var local = await _contactService.ResolveRecipientCandidatesAsync(account?.Id, queryText).ConfigureAwait(false) ?? [];
+
+        if (account == null || _globalAddressListService == null || !_globalAddressListService.SupportsGlobalAddressList(account))
+            return local;
+
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var directory = await _globalAddressListService.SearchAsync(account.Id, queryText, GalSuggestionLimit, cancellationToken).ConfigureAwait(false);
+        return RecipientSuggestionMerge.Merge(local, directory);
     }
 
     public async Task<CalendarComposeAttendeeViewModel> GetAttendeeAsync(string tokenText)

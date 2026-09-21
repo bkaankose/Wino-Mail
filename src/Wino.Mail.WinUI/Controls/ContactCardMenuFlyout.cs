@@ -39,7 +39,9 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
         if (target.XamlRoot is null)
             return;
 
-        BuildItems(viewModel, contact, assignableLists);
+        // A read-only contact without an address has no action at all; do not open an empty menu.
+        if (BuildItems(viewModel, contact, assignableLists) == 0)
+            return;
 
         if (position is Point targetPosition)
         {
@@ -54,7 +56,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
         }
     }
 
-    private void BuildItems(
+    private int BuildItems(
         ContactsPageViewModel viewModel,
         AccountContactViewModel contact,
         IReadOnlyList<ContactList> assignableLists)
@@ -71,12 +73,16 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
                 contact));
         }
 
-        items.Add(CreateCommandItem(
-            contact.FavoriteActionText,
-            WinoIconGlyph.Star,
-            "ContactCardContextFavorite",
-            viewModel.ToggleFavoriteCommand,
-            contact));
+        // A contact read live from a public folder has no stored row to mark.
+        if (contact.CanFavorite)
+        {
+            items.Add(CreateCommandItem(
+                contact.FavoriteActionText,
+                WinoIconGlyph.Star,
+                "ContactCardContextFavorite",
+                viewModel.ToggleFavoriteCommand,
+                contact));
+        }
 
         if (contact.CanSendMail)
         {
@@ -135,6 +141,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
         }
 
         ItemsSource = items;
+        return items.Count;
     }
 
     private static ContextFlyoutCommandEntry CreateCommandItem(

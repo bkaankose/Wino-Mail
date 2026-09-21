@@ -23,10 +23,20 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public Guid Id => SourceContact.Id;
     public string SecondaryValue => SourceContact.PrimaryEmailAddress ?? SourceContact.PrimaryPhoneNumber ?? string.Empty;
     public string SourceLabel { get; }
-    public bool IsEditable { get; }
+    private readonly bool _isEditable;
+    public bool IsEditable => _isEditable && !IsReadOnlySource;
     public bool CanEdit => IsEditable;
     public bool CanDelete => IsEditable;
     public bool CanSendMail => !string.IsNullOrWhiteSpace(SourceContact.PrimaryEmailAddress);
+
+    /// <summary>
+    /// The contact was read live from a read-only source (a pinned public contact folder) and has no row
+    /// in the contact store, so nothing that writes to the store applies to it: no edit, delete, photo,
+    /// favorite or list membership. Sending mail to it still works.
+    /// </summary>
+    public bool IsReadOnlySource { get; init; }
+
+    public bool CanFavorite => !IsReadOnlySource;
     public string FavoriteActionText => IsFavorite ? Translator.ContactAction_Unfavorite : Translator.ContactAction_Favorite;
 
     [ObservableProperty]
@@ -113,7 +123,7 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
         IsRootContact = contact.IsRootContact;
         IsOverridden = contact.IsOverridden;
         SourceLabel = string.IsNullOrWhiteSpace(accountName) ? contact.SourceKind.ToString() : $"{accountName} · {contact.SourceKind}";
-        IsEditable = contact.SourceKind == ContactSourceKind.Local || isAuthorized;
+        _isEditable = contact.SourceKind == ContactSourceKind.Local || isAuthorized;
     }
 
     /// <summary>Replaces the presentation snapshot and raises the dependent binding notifications.</summary>

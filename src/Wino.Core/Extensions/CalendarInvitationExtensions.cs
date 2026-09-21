@@ -33,7 +33,7 @@ public static class CalendarInvitationExtensions
             : null;
     }
 
-    private static string GetCalendarContent(MimeMessage message)
+    public static string GetCalendarContent(this MimeMessage message)
     {
         var textPart = message.BodyParts
             .OfType<TextPart>()

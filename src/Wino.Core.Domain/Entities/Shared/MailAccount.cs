@@ -157,6 +157,21 @@ public class MailAccount
     public bool IsProtocolLogEnabled { get; set; }
 
     /// <summary>
+    /// Whether this Exchange account has an online archive (in-place archive mailbox) provisioned. Probed
+    /// during folder synchronization. When true, the client Archive action is dropped (the in-place archive
+    /// is populated server-side by retention policy, and moving messages into the local Archive folder would
+    /// diverge from the server archive). Default false; Exchange only.
+    /// </summary>
+    public bool HasOnlineArchive { get; set; }
+
+    /// <summary>
+    /// Whether the client Archive action should be suppressed for this account: an Exchange account with an
+    /// <see cref="HasOnlineArchive">online archive</see> is archived server-side by retention policy.
+    /// </summary>
+    [Ignore]
+    public bool SuppressLocalArchive => ProviderType == MailProviderType.Exchange && HasOnlineArchive;
+
+    /// <summary>
     /// Contains the merged inbox this account belongs to.
     /// Ignored for all SQLite operations.
     /// </summary>

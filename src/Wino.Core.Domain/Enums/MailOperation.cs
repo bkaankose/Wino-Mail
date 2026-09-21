@@ -79,5 +79,8 @@ public enum MailOperation
     ViewMessageSource,
     DiscardLocalDraft,
     Navigate, // For toast activation
-    RetryDraftUpload
+    RetryDraftUpload,
+    BlockSender,
+    NeverBlockSender,
+    CreateRule
 }

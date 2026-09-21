@@ -1,0 +1,254 @@
+﻿<abstract:JunkEmailSettingsPageAbstract
+    x:Class="Wino.Views.Settings.JunkEmailSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    x:Name="root"
+    mc:Ignorable="d">
+
+    <Page.Resources>
+        <DataTemplate x:Key="JunkSenderTemplate" x:DataType="mail:JunkSender">
+            <Grid Padding="0,6" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Style="{StaticResource BodyTextBlockStyle}"
+                    Text="{x:Bind Address}"
+                    TextTrimming="CharacterEllipsis" />
+
+                <Button
+                    Grid.Column="1"
+                    Padding="6"
+                    AutomationProperties.AutomationId="JunkEmailSettingsPageButton"
+                    Background="Transparent"
+                    BorderThickness="0"
+                    Click="RemoveSenderClicked"
+                    Tag="{x:Bind}">
+                    <FontIcon
+                        FontFamily="{StaticResource SymbolThemeFontFamily}"
+                        FontSize="14"
+                        Glyph="&#xE74D;" />
+                </Button>
+            </Grid>
+        </DataTemplate>
+    </Page.Resources>
+
+    <ScrollViewer Padding="16,0,24,24">
+        <StackPanel Spacing="16">
+
+            <!--  Intro note  -->
+            <Grid Style="{StaticResource InformationAreaGridStyle}">
+                <TextBlock HorizontalTextAlignment="Center" TextWrapping="WrapWholeWords">
+                    <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsJunkEmail_Title, Mode=OneTime}" />
+                    <LineBreak />
+                    <Run Text="{x:Bind domain:Translator.SettingsJunkEmail_HeaderNote, Mode=OneTime}" />
+                </TextBlock>
+            </Grid>
+
+            <!--  No accounts  -->
+            <TextBlock
+                HorizontalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource BodyTextBlockStyle}"
+                Text="{x:Bind domain:Translator.SettingsJunkEmail_NoAccounts, Mode=OneTime}"
+                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasAccounts), Mode=OneWay}" />
+
+            <!--  Account picker  -->
+            <StackPanel Spacing="6" Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.HasAccounts), Mode=OneWay}">
+                <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.SettingsJunkEmail_AccountPicker_Header, Mode=OneTime}" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind domain:Translator.SettingsJunkEmail_AccountPicker_Description, Mode=OneTime}" />
+                <ComboBox
+                    HorizontalAlignment="Stretch"
+                    AutomationProperties.AutomationId="JunkEmailSettingsPageComboBox"
+                    ItemsSource="{x:Bind ViewModel.Accounts, Mode=OneWay}"
+                    SelectedItem="{x:Bind ViewModel.SelectedAccount, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="entities:MailAccount">
+                            <StackPanel Padding="0,4">
+                                <TextBlock Text="{x:Bind Name}" />
+                                <TextBlock
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind Address}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+
+            <!--  Blocked senders  -->
+            <Border
+                Padding="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.HasAccounts), Mode=OneWay}">
+                <StackPanel Spacing="10">
+                    <StackPanel Spacing="2">
+                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsJunkEmail_BlockedSenders_Title, Mode=OneTime}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.SettingsJunkEmail_BlockedSenders_Description, Mode=OneTime}" />
+                    </StackPanel>
+
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox
+                            AutomationProperties.AutomationId="JunkEmailSettingsPageTextBox"
+                            PlaceholderText="{x:Bind domain:Translator.SettingsJunkEmail_AddPlaceholder, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.NewBlockedSender, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button
+                            Grid.Column="1"
+                            AutomationProperties.AutomationId="JunkEmailSettingsPageButton2"
+                            Command="{x:Bind ViewModel.AddBlockedSenderCommand}"
+                            Style="{StaticResource AccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    FontSize="14"
+                                    Glyph="&#xE710;" />
+                                <TextBlock Text="{x:Bind domain:Translator.Buttons_Add, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <ListView
+                        MaxHeight="260"
+                        AutomationProperties.AutomationId="JunkEmailSettingsPageListView"
+                        ItemTemplate="{StaticResource JunkSenderTemplate}"
+                        ItemsSource="{x:Bind ViewModel.BlockedSenders, Mode=OneWay}"
+                        SelectionMode="None" />
+
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.SettingsJunkEmail_EmptyBlocked, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasBlockedSenders), Mode=OneWay}" />
+
+                    <StackPanel
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <Button AutomationProperties.AutomationId="JunkEmailSettingsPageButton3" Command="{x:Bind ViewModel.ImportBlockedCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    FontSize="14"
+                                    Glyph="&#xE896;" />
+                                <TextBlock Text="{x:Bind domain:Translator.SettingsJunkEmail_Import, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                        <Button AutomationProperties.AutomationId="JunkEmailSettingsPageButton4" Command="{x:Bind ViewModel.ExportBlockedCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    FontSize="14"
+                                    Glyph="&#xE898;" />
+                                <TextBlock Text="{x:Bind domain:Translator.SettingsJunkEmail_Export, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!--  Safe senders  -->
+            <Border
+                Padding="16"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.HasAccounts), Mode=OneWay}">
+                <StackPanel Spacing="10">
+                    <StackPanel Spacing="2">
+                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.SettingsJunkEmail_SafeSenders_Title, Mode=OneTime}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind domain:Translator.SettingsJunkEmail_SafeSenders_Description, Mode=OneTime}" />
+                    </StackPanel>
+
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox
+                            AutomationProperties.AutomationId="JunkEmailSettingsPageTextBox2"
+                            PlaceholderText="{x:Bind domain:Translator.SettingsJunkEmail_AddPlaceholder, Mode=OneTime}"
+                            Text="{x:Bind ViewModel.NewSafeSender, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <Button
+                            Grid.Column="1"
+                            AutomationProperties.AutomationId="JunkEmailSettingsPageButton5"
+                            Command="{x:Bind ViewModel.AddSafeSenderCommand}"
+                            Style="{StaticResource AccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    FontSize="14"
+                                    Glyph="&#xE710;" />
+                                <TextBlock Text="{x:Bind domain:Translator.Buttons_Add, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+
+                    <ListView
+                        MaxHeight="260"
+                        AutomationProperties.AutomationId="JunkEmailSettingsPageListView2"
+                        ItemTemplate="{StaticResource JunkSenderTemplate}"
+                        ItemsSource="{x:Bind ViewModel.SafeSenders, Mode=OneWay}"
+                        SelectionMode="None" />
+
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.SettingsJunkEmail_EmptySafe, Mode=OneTime}"
+                        Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasSafeSenders), Mode=OneWay}" />
+
+                    <StackPanel
+                        HorizontalAlignment="Right"
+                        Orientation="Horizontal"
+                        Spacing="8">
+                        <Button AutomationProperties.AutomationId="JunkEmailSettingsPageButton6" Command="{x:Bind ViewModel.ImportSafeCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    FontSize="14"
+                                    Glyph="&#xE896;" />
+                                <TextBlock Text="{x:Bind domain:Translator.SettingsJunkEmail_Import, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                        <Button AutomationProperties.AutomationId="JunkEmailSettingsPageButton7" Command="{x:Bind ViewModel.ExportSafeCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon
+                                    FontFamily="{StaticResource SymbolThemeFontFamily}"
+                                    FontSize="14"
+                                    Glyph="&#xE898;" />
+                                <TextBlock Text="{x:Bind domain:Translator.SettingsJunkEmail_Export, Mode=OneTime}" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</abstract:JunkEmailSettingsPageAbstract>

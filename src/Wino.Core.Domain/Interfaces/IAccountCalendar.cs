@@ -18,4 +18,10 @@ public interface IAccountCalendar
     CalendarItemShowAs DefaultShowAs { get; set; }
     Guid Id { get; set; }
     MailAccount MailAccount { get; set; }
+
+    /// <summary>
+    /// Whether this is a pinned Exchange public calendar folder: transient, read-only, and with events that
+    /// exist only in memory, so nothing about it or its events may be looked up in or written to the store.
+    /// </summary>
+    bool IsPublicFolder => false;
 }
