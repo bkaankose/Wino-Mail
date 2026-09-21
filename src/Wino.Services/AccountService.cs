@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Diagnostics;
 using CommunityToolkit.Mvvm.Messaging;
@@ -757,111 +758,198 @@ public class AccountService : BaseDatabaseService, IAccountService
     private static string NormalizeHost(string host) => host?.Trim().ToLowerInvariant() ?? string.Empty;
     private static int ParsePort(string port) => int.TryParse(port, out var value) ? value : 0;
 
+    // Address comparisons are done on the trimmed, lowercased form. Stored rows keep whatever
+    // they were written with, so normalizing here never rewrites data the user already has.
+    private static string NormalizeAliasAddress(string address)
+        => address?.Trim().ToLowerInvariant() ?? string.Empty;
+
+    private readonly SemaphoreSlim _aliasWriteLock = new(1, 1);
+
     public async Task UpdateAccountAliasesAsync(Guid accountId, List<MailAccountAlias> aliases)
     {
-        // Delete existing ones.
-        await Connection.Table<MailAccountAlias>().DeleteAsync(a => a.AccountId == accountId).ConfigureAwait(false);
-
-        // Insert new ones.
-        foreach (var alias in aliases)
+        // One transaction: a failed insert must not leave the account with its aliases deleted.
+        await Connection.RunInTransactionAsync(connection =>
         {
+            connection.Table<MailAccountAlias>().Delete(a => a.AccountId == accountId);
+
+            foreach (var alias in aliases)
+            {
+                connection.Insert(alias, typeof(MailAccountAlias));
+            }
+        }).ConfigureAwait(false);
+    }
+
+    public async Task<bool> AddAccountAliasAsync(Guid accountId, MailAccountAlias alias)
+    {
+        Guard.IsNotNull(alias);
+
+        var normalizedAddress = NormalizeAliasAddress(alias.AliasAddress);
+        if (string.IsNullOrEmpty(normalizedAddress))
+            return false;
+
+        // Check and insert under one lock, so two adds of the same address cannot both pass.
+        await _aliasWriteLock.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            var existing = await GetAccountAliasesAsync(accountId).ConfigureAwait(false);
+            if (existing.Any(a => NormalizeAliasAddress(a.AliasAddress) == normalizedAddress))
+                return false;
+
+            alias.AccountId = accountId;
+            alias.AliasAddress = normalizedAddress;
+            if (alias.Id == Guid.Empty) alias.Id = Guid.NewGuid();
+
             await Connection.InsertAsync(alias, typeof(MailAccountAlias)).ConfigureAwait(false);
+            return true;
         }
+        finally
+        {
+            _aliasWriteLock.Release();
+        }
+    }
+
+    public async Task SetDefaultAccountAliasAsync(Guid accountId, Guid aliasId)
+    {
+        var aliases = await GetAccountAliasesAsync(accountId).ConfigureAwait(false);
+        var target = aliases.Find(a => a.Id == aliasId)
+            ?? throw new InvalidOperationException($"Alias {aliasId} does not belong to account {accountId}.");
+
+        // Only the primary flag moves. Root aliases and everything else stay as they are.
+        foreach (var alias in aliases.Where(a => a.IsPrimary && a.Id != target.Id))
+        {
+            alias.IsPrimary = false;
+            await Connection.UpdateAsync(alias, typeof(MailAccountAlias)).ConfigureAwait(false);
+        }
+
+        if (!target.IsPrimary)
+        {
+            target.IsPrimary = true;
+            await Connection.UpdateAsync(target, typeof(MailAccountAlias)).ConfigureAwait(false);
+        }
+    }
+
+    public async Task SetAliasSigningCertificateAsync(Guid accountId, Guid aliasId, string thumbprint)
+    {
+        var alias = await GetOwnedAliasAsync(accountId, aliasId).ConfigureAwait(false);
+
+        alias.SelectedSigningCertificateThumbprint = string.IsNullOrWhiteSpace(thumbprint) ? null : thumbprint;
+        await Connection.UpdateAsync(alias, typeof(MailAccountAlias)).ConfigureAwait(false);
+    }
+
+    public async Task SetAliasEncryptionAsync(Guid accountId, Guid aliasId, bool isEnabled)
+    {
+        var alias = await GetOwnedAliasAsync(accountId, aliasId).ConfigureAwait(false);
+
+        alias.IsSmimeEncryptionEnabled = isEnabled;
+        await Connection.UpdateAsync(alias, typeof(MailAccountAlias)).ConfigureAwait(false);
+    }
+
+    private async Task<MailAccountAlias> GetOwnedAliasAsync(Guid accountId, Guid aliasId)
+    {
+        var aliases = await GetAccountAliasesAsync(accountId).ConfigureAwait(false);
+
+        return aliases.Find(a => a.Id == aliasId)
+            ?? throw new InvalidOperationException($"Alias {aliasId} does not belong to account {accountId}.");
     }
 
     public async Task UpdateRemoteAliasInformationAsync(MailAccount account, List<RemoteAccountAlias> remoteAccountAliases)
     {
         var localAliases = await GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
+        var knownBeforeRefresh = localAliases.Select(a => a.Id).ToHashSet();
         var normalizedRemoteAliases = remoteAccountAliases ?? [];
 
-        foreach (var remoteAlias in normalizedRemoteAliases)
+        // The whole refresh commits or none of it does: a failed insert must not leave earlier
+        // rows carrying half of the provider's answer.
+        await Connection.RunInTransactionAsync(connection =>
         {
-            if (string.IsNullOrWhiteSpace(remoteAlias?.AliasAddress))
-                continue;
-
-            var existingAlias = localAliases.Find(a =>
-                a.AccountId == account.Id &&
-                a.AliasAddress.Equals(remoteAlias.AliasAddress, StringComparison.OrdinalIgnoreCase));
-
-            if (existingAlias == null)
+            foreach (var remoteAlias in normalizedRemoteAliases)
             {
-                // Create new alias.
-                var newAlias = new MailAccountAlias()
+                if (string.IsNullOrWhiteSpace(remoteAlias?.AliasAddress))
+                    continue;
+
+                var normalizedAddress = NormalizeAliasAddress(remoteAlias.AliasAddress);
+                var existingAlias = localAliases.Find(a => NormalizeAliasAddress(a.AliasAddress) == normalizedAddress);
+
+                if (existingAlias == null)
+                {
+                    // A new alias never arrives as the default. Which alias is the default is a
+                    // local choice, and the provider's answer must not silently replace it.
+                    var newAlias = new MailAccountAlias()
+                    {
+                        AccountId = account.Id,
+                        AliasAddress = remoteAlias.AliasAddress,
+                        IsPrimary = false,
+                        IsRootAlias = false,
+                        IsVerified = remoteAlias.IsVerified,
+                        ReplyToAddress = remoteAlias.ReplyToAddress,
+                        Id = Guid.NewGuid(),
+                        AliasSenderName = remoteAlias.AliasSenderName,
+                        Source = remoteAlias.Source,
+                        SendCapability = remoteAlias.SendCapability
+                    };
+
+                    connection.Insert(newAlias, typeof(MailAccountAlias));
+                    localAliases.Add(newAlias);
+                }
+                else
+                {
+                    // Provider-owned fields only. The primary and root flags belong to this
+                    // device, so a refresh leaves them exactly as it found them.
+                    existingAlias.IsVerified = remoteAlias.IsVerified;
+                    existingAlias.ReplyToAddress = remoteAlias.ReplyToAddress;
+                    existingAlias.AliasSenderName = remoteAlias.AliasSenderName;
+                    existingAlias.Source = remoteAlias.Source;
+                    existingAlias.SendCapability = ResolveSendCapability(existingAlias.SendCapability, remoteAlias.SendCapability);
+
+                    connection.Update(existingAlias, typeof(MailAccountAlias));
+                }
+            }
+
+            if (localAliases.Count == 0 && !string.IsNullOrWhiteSpace(account.Address))
+            {
+                var fallbackAddress = account.Address.Trim();
+                var fallbackAlias = new MailAccountAlias()
                 {
                     AccountId = account.Id,
-                    AliasAddress = remoteAlias.AliasAddress,
-                    IsPrimary = remoteAlias.IsPrimary,
-                    IsVerified = remoteAlias.IsVerified,
-                    ReplyToAddress = remoteAlias.ReplyToAddress,
+                    AliasAddress = fallbackAddress,
+                    IsPrimary = true,
+                    IsRootAlias = true,
+                    IsVerified = true,
+                    ReplyToAddress = fallbackAddress,
                     Id = Guid.NewGuid(),
-                    IsRootAlias = remoteAlias.IsRootAlias,
-                    AliasSenderName = remoteAlias.AliasSenderName,
-                    Source = remoteAlias.Source,
-                    SendCapability = remoteAlias.SendCapability
+                    Source = AliasSource.ProviderDiscovered,
+                    SendCapability = AliasSendCapability.Confirmed
                 };
 
-                await Connection.InsertAsync(newAlias, typeof(MailAccountAlias));
-                localAliases.Add(newAlias);
+                connection.Insert(fallbackAlias, typeof(MailAccountAlias));
+                localAliases.Add(fallbackAlias);
             }
-            else
-            {
-                // Update existing alias.
-                existingAlias.IsPrimary = remoteAlias.IsPrimary;
-                existingAlias.IsVerified = remoteAlias.IsVerified;
-                existingAlias.ReplyToAddress = remoteAlias.ReplyToAddress;
-                existingAlias.AliasSenderName = remoteAlias.AliasSenderName;
-                existingAlias.Source = remoteAlias.Source;
-                existingAlias.SendCapability = remoteAlias.SendCapability;
 
-                await Connection.UpdateAsync(existingAlias, typeof(MailAccountAlias));
+            // Only the complete absence of a default is repaired here. Several rows flagged
+            // primary is a legacy shape, and picking a winner for the user would be a guess;
+            // it is resolved the moment they choose one.
+            if (!localAliases.Any(a => a.IsPrimary))
+            {
+                // An alias that was already here outranks one this refresh just added.
+                var candidates = localAliases.Where(a => knownBeforeRefresh.Contains(a.Id)).ToList();
+                if (candidates.Count == 0) candidates = localAliases;
+
+                var idealPrimaryAlias = candidates.Find(a =>
+                    NormalizeAliasAddress(a.AliasAddress) == NormalizeAliasAddress(account.Address)) ?? candidates[0];
+
+                idealPrimaryAlias.IsPrimary = true;
+                connection.Update(idealPrimaryAlias, typeof(MailAccountAlias));
             }
-        }
-
-        if (localAliases.Count == 0 && !string.IsNullOrWhiteSpace(account.Address))
-        {
-            var fallbackAddress = account.Address.Trim();
-            var fallbackAlias = new MailAccountAlias()
-            {
-                AccountId = account.Id,
-                AliasAddress = fallbackAddress,
-                IsPrimary = true,
-                IsRootAlias = true,
-                IsVerified = true,
-                ReplyToAddress = fallbackAddress,
-                Id = Guid.NewGuid(),
-                Source = AliasSource.ProviderDiscovered,
-                SendCapability = AliasSendCapability.Confirmed
-            };
-
-            await Connection.InsertAsync(fallbackAlias, typeof(MailAccountAlias)).ConfigureAwait(false);
-            localAliases.Add(fallbackAlias);
-        }
-
-        // Make sure there is only 1 root alias and 1 primary alias selected.
-
-        bool shouldUpdatePrimary = localAliases.Count(a => a.IsPrimary) != 1;
-        bool shouldUpdateRoot = localAliases.Count(a => a.IsRootAlias) != 1;
-
-        if (shouldUpdatePrimary)
-        {
-            localAliases.ForEach(a => a.IsPrimary = false);
-
-            var idealPrimaryAlias = localAliases.Find(a => a.AliasAddress == account.Address) ?? localAliases.First();
-
-            idealPrimaryAlias.IsPrimary = true;
-            await Connection.UpdateAsync(idealPrimaryAlias, typeof(MailAccountAlias)).ConfigureAwait(false);
-        }
-
-        if (shouldUpdateRoot)
-        {
-            localAliases.ForEach(a => a.IsRootAlias = false);
-
-            var idealRootAlias = localAliases.Find(a => a.AliasAddress == account.Address) ?? localAliases.First();
-
-            idealRootAlias.IsRootAlias = true;
-            await Connection.UpdateAsync(idealRootAlias, typeof(MailAccountAlias)).ConfigureAwait(false);
-        }
+        }).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// A provider that cannot say keeps the answer it gave before. Losing a recorded denial to
+    /// "unknown" would make Wino offer a sender the provider already refused.
+    /// </summary>
+    private static AliasSendCapability ResolveSendCapability(AliasSendCapability local, AliasSendCapability remote)
+        => remote == AliasSendCapability.Unknown ? local : remote;
 
     public async Task UpdateAliasSendCapabilityAsync(Guid accountId, string aliasAddress, AliasSendCapability capability)
     {

@@ -151,6 +151,29 @@ public interface IAccountService
     Task DeleteAccountAliasAsync(Guid aliasId);
 
     /// <summary>
+    /// Adds one alias to an account, normalizing its address first.
+    /// Existing rows are left exactly as they are, including legacy duplicates of the same
+    /// address, because consolidating them here would silently change what the user sees.
+    /// </summary>
+    /// <returns>False when the account already has that address; the alias is not inserted.</returns>
+    Task<bool> AddAccountAliasAsync(Guid accountId, MailAccountAlias alias);
+
+    /// <summary>
+    /// Makes one alias the account default. Only the primary flag changes, so a refresh that
+    /// disagrees with the user cannot undo the choice.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The alias does not belong to that account.</exception>
+    Task SetDefaultAccountAliasAsync(Guid accountId, Guid aliasId);
+
+    /// <summary>Sets, or with a null thumbprint clears, the signing certificate of one alias.</summary>
+    /// <exception cref="InvalidOperationException">The alias does not belong to that account.</exception>
+    Task SetAliasSigningCertificateAsync(Guid accountId, Guid aliasId, string thumbprint);
+
+    /// <summary>Turns S/MIME encryption on or off for one alias.</summary>
+    /// <exception cref="InvalidOperationException">The alias does not belong to that account.</exception>
+    Task SetAliasEncryptionAsync(Guid accountId, Guid aliasId, bool isEnabled);
+
+    /// <summary>
     /// Updated profile information of the account.
     /// </summary>
     /// <param name="accountId">Account id to update info for.</param>

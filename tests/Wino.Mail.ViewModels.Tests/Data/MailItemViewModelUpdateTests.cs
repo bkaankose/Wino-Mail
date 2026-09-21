@@ -134,8 +134,8 @@ public class MailItemViewModelUpdateTests
             WinoIntelligenceTileKind.SmartLabel,
             WinoIntelligenceTileKind.SmartLabel);
         sut.IntelligenceTiles.Select(static tile => tile.Text).Should().Equal(
-            "IntelligenceTile_LabelTravel",
-            "IntelligenceTile_LabelFinance");
+            "Travel",
+            "Finance");
     }
 
     [Fact]
@@ -213,7 +213,7 @@ public class MailItemViewModelUpdateTests
         sut.AddEmail(new MailItemViewModel(newest));
 
         sut.IntelligenceTiles.Where(static tile => tile.Kind == WinoIntelligenceTileKind.Priority)
-            .Should().ContainSingle().Which.Text.Should().Be("IntelligenceTile_PriorityHigh");
+            .Should().ContainSingle().Which.Text.Should().Be("High priority");
     }
 
     private static MailIntelligenceMetadata CreatePriorityMetadata(MailPriority priority)

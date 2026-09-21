@@ -54,6 +54,12 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public ObservableCollection<WinoIntelligenceMailboxItemViewModel> IntelligenceMailboxes { get; } = [];
 
     /// <summary>
+    /// Every quota bucket the server reports, in a fixed order. Counts, because a
+    /// percentage of a budget the user was never shown is not something they can act on.
+    /// </summary>
+    public ObservableCollection<IntelligenceUsageItem> IntelligenceUsageItems { get; } = [];
+
+    /// <summary>
     /// The signed-out offer grid. Fixed content, seeded once in the constructor.
     /// </summary>
     public ObservableCollection<WinoAccountBenefitItemViewModel> Benefits { get; } = [];
@@ -1065,9 +1071,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             {
                 IntelligenceMailboxes.Add(item);
             }
-            IsIntelligenceUsageAvailable = usage is not null;
-            IntelligenceUsagePercentage = usage is null ? 0 : (double)usage.UsagePercentage;
-            IntelligenceUsageSummary = usage is null ? Translator.WinoAccount_Management_IntelligenceUsageUnavailable : string.Format(Translator.WinoAccount_Management_IntelligenceUsageSummary, usage.UsagePercentage, usage.RemainingPercentage);
+            ApplyIntelligenceUsage(usage);
             IntelligenceResetText = usage?.ResetsAtUtc is DateTimeOffset reset ? string.Format(Translator.WinoAccount_Management_IntelligenceResets, reset.LocalDateTime) : string.Empty;
             IntelligenceStorageSummary = string.Format(Translator.WinoAccount_Management_IntelligenceStorageSummary, mailboxItems.Count(item => item.HasServerIntelligence), FormatStorageSize(mailboxItems.Sum(item => item.StorageSizeBytes)));
             IntelligenceLastUpdatedText = snapshot.LastSuccessfulRefreshUtc is DateTimeOffset updated ? updated.LocalDateTime.ToString("g") : string.Empty;
@@ -1384,14 +1388,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 IntelligenceMailboxes.Add(item);
             }
 
-            IsIntelligenceUsageAvailable = usage != null;
-            IntelligenceUsagePercentage = usage == null ? 0 : (double)usage.UsagePercentage;
-            IntelligenceUsageSummary = usage == null
-                ? Translator.WinoAccount_Management_IntelligenceUsageUnavailable
-                : string.Format(
-                    Translator.WinoAccount_Management_IntelligenceUsageSummary,
-                    usage.UsagePercentage,
-                    usage.RemainingPercentage);
+            ApplyIntelligenceUsage(usage);
             IntelligenceResetText = usage?.ResetsAtUtc is DateTimeOffset resetsAtUtc
                 ? string.Format(Translator.WinoAccount_Management_IntelligenceResets, resetsAtUtc.LocalDateTime)
                 : string.Empty;
@@ -1433,11 +1430,34 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             ToggleEnabledCommand = ToggleIntelligenceMailboxCommand,
         };
 
+    /// <summary>
+    /// Renders one usage response: every bucket in the list, and the mail-message bucket as
+    /// the headline, because that is the one indexing spends and the one a user hits first.
+    /// </summary>
+    private void ApplyIntelligenceUsage(AiUsageStatusDto? usage)
+    {
+        var items = IntelligenceUsage.Describe(usage);
+
+        IntelligenceUsageItems.Clear();
+        foreach (var item in items)
+        {
+            IntelligenceUsageItems.Add(item);
+        }
+
+        IsIntelligenceUsageAvailable = items.Count > 0;
+
+        var headline = IntelligenceUsage.Headline(usage);
+        IntelligenceUsagePercentage = headline?.Percentage ?? 0;
+        IntelligenceUsageSummary = headline is null
+            ? Translator.WinoAccount_Management_IntelligenceUsageUnavailable
+            : string.Format(
+                Translator.WinoAccount_Management_IntelligenceUsageSummary, headline.Used, headline.Limit);
+    }
+
     private Task ResetIntelligenceDataAsync() => ExecuteUIThread(() =>
     {
         HasIntelligenceAccess = false;
-        IsIntelligenceUsageAvailable = false;
-        IntelligenceUsagePercentage = 0;
+        ApplyIntelligenceUsage(null);
         IntelligenceUsageSummary = string.Empty;
         IntelligenceResetText = string.Empty;
         IntelligenceStorageSummary = string.Empty;

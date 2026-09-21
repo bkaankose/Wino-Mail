@@ -12,7 +12,7 @@ namespace Wino.Mail.WinUI.Controls;
 
 /// <summary>
 /// Presentation helpers for the briefing panel.
-/// A card shows sender and date, labels, priority, the Luna headline and its one-line
+/// A card shows sender and date, labels, priority, the Summarization headline and its one-line
 /// summary. There is nothing here for due dates, actions or statuses, because the
 /// decision model does not produce them.
 /// </summary>
@@ -23,7 +23,7 @@ public static class DailyBriefingPanelPresentation
            (string.Equals(fact.Priority, "urgent", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(fact.Priority, "high", StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>The Luna headline, falling back to the subject when Luna has not run yet.</summary>
+    /// <summary>The Summarization headline, falling back to the subject when Summarization has not run yet.</summary>
     public static string Headline(DailyBriefingFact fact)
         => string.IsNullOrWhiteSpace(fact.Headline) ? fact.Subject : fact.Headline;
 

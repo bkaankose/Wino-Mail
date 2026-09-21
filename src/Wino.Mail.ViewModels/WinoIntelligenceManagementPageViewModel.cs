@@ -13,6 +13,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
+using Wino.Mail.Api.Contracts.Common;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.SemanticIndexing;
@@ -220,13 +221,13 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial int ActiveJobCount { get; set; }
 
-    /// <summary>Progress of the Jev decision stage, reported separately from Luna.</summary>
+    /// <summary>Progress of the Classification decision stage, reported separately from Summarization.</summary>
     [ObservableProperty]
-    public partial string JevStageText { get; set; } = string.Empty;
+    public partial string ClassificationStageText { get; set; } = string.Empty;
 
-    /// <summary>Progress of the Luna generation stage.</summary>
+    /// <summary>Progress of the Summarization generation stage.</summary>
     [ObservableProperty]
-    public partial string LunaStageText { get; set; } = string.Empty;
+    public partial string SummarizationStageText { get; set; } = string.Empty;
 
     /// <summary>Jobs still in flight, so the screen can show, retry and cancel each one.</summary>
     public ObservableCollection<MailIntelligenceJobState> ActiveJobs { get; } = [];
@@ -810,16 +811,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         {
             SemanticMailboxId = access is { MailboxId: var cachedId } && cachedId != Guid.Empty ? cachedId : null;
             HasAccountConsent = currentConsent;
-            IsQuotaAvailable = snapshot.Usage is not null;
-            QuotaUsagePercentage = snapshot.Usage is null ? 0 : (double)snapshot.Usage.UsagePercentage;
-            QuotaSummary = snapshot.Usage is null
-                ? Translator.Intelligence_QuotaUnavailable
-                : string.Format(
-                    Translator.Intelligence_QuotaUsage,
-                    snapshot.Usage.UsagePercentage,
-                    snapshot.Usage.ResetsAtUtc is { } resetsAtUtc
-                        ? resetsAtUtc.LocalDateTime.ToString("d MMMM")
-                        : string.Empty);
+            ApplyQuota(snapshot.Usage);
         });
         return true;
     }
@@ -858,16 +850,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                 {
                     SemanticMailboxId = access is { MailboxId: var refreshedId } && refreshedId != Guid.Empty ? refreshedId : null;
                     HasAccountConsent = currentConsent;
-                    IsQuotaAvailable = result.Snapshot.Usage is not null;
-                    QuotaUsagePercentage = result.Snapshot.Usage is null ? 0 : (double)result.Snapshot.Usage.UsagePercentage;
-                    QuotaSummary = result.Snapshot.Usage is null
-                        ? Translator.Intelligence_QuotaUnavailable
-                        : string.Format(
-                            Translator.Intelligence_QuotaUsage,
-                            result.Snapshot.Usage.UsagePercentage,
-                            result.Snapshot.Usage.ResetsAtUtc is { } resetsAtUtc
-                                ? resetsAtUtc.LocalDateTime.ToString("d MMMM")
-                                : string.Empty);
+                    ApplyQuota(result.Snapshot.Usage);
                     if (!string.IsNullOrWhiteSpace(result.Error))
                     {
                         RemoteRefreshError = string.Format(
@@ -915,13 +898,29 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         await ApplyAccessChangeAsync(account).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// The quota line shows the mail-message bucket: it is the one indexing spends, and it
+    /// is counted in messages rather than in a share of a budget the user never sees.
+    /// </summary>
+    private void ApplyQuota(AiUsageStatusDto? usage)
+    {
+        var headline = IntelligenceUsage.Headline(usage);
+
+        IsQuotaAvailable = headline is not null;
+        QuotaUsagePercentage = headline?.Percentage ?? 0;
+        QuotaSummary = headline is null
+            ? Translator.Intelligence_QuotaUnavailable
+            : string.Format(
+                Translator.Intelligence_QuotaUsage,
+                headline.Value,
+                usage?.ResetsAtUtc is { } resetsAtUtc ? resetsAtUtc.LocalDateTime.ToString("d MMMM") : string.Empty);
+    }
+
     private Task ResetAccountAccessAsync() => ExecuteUIThread(() =>
     {
         HasAccountConsent = false;
         SemanticMailboxId = null;
-        IsQuotaAvailable = false;
-        QuotaUsagePercentage = 0;
-        QuotaSummary = Translator.Intelligence_QuotaUnavailable;
+        ApplyQuota(null);
         PurchaseStatusMessage = string.Empty;
         RemoteRefreshError = string.Empty;
         HasIndexData = false;
@@ -1256,13 +1255,13 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         ProgressValue = snapshot.ProcessedMessageCount;
         ProgressMaximum = Math.Max(1, snapshot.SelectedMessageCount);
 
-        // Jev and Luna advance independently, so they are reported separately rather than
+        // Classification and Summarization advance independently, so they are reported separately rather than
         // blended into one percentage.
-        JevStageText = FormatStage(Translator.SemanticIndex_EmbeddingProgress, snapshot.Jev, snapshot);
-        LunaStageText = FormatStage(Translator.SemanticIndex_MetadataProgress, snapshot.Luna, snapshot);
-        ProgressText = JevStageText;
+        ClassificationStageText = FormatStage(Translator.SemanticIndex_EmbeddingProgress, snapshot.Classification, snapshot);
+        SummarizationStageText = FormatStage(Translator.SemanticIndex_MetadataProgress, snapshot.Summarization, snapshot);
+        ProgressText = ClassificationStageText;
         MetadataProgressValue = snapshot.ProcessedMessageCount;
-        MetadataProgressText = LunaStageText;
+        MetadataProgressText = SummarizationStageText;
 
         var remainingMessageCount = Math.Max(snapshot.SelectedMessageCount - snapshot.ProcessedMessageCount, 0);
         ProgressSummary = snapshot.SelectedMessageCount == 0
@@ -1639,14 +1638,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             var usage = response?.IsSuccess == true ? response.Result : null;
             await ExecuteUIThread(() =>
             {
-                IsQuotaAvailable = usage is not null;
-                QuotaUsagePercentage = usage is null ? 0 : (double)usage.UsagePercentage;
-                QuotaSummary = usage is null
-                    ? Translator.Intelligence_QuotaUnavailable
-                    : string.Format(
-                        Translator.Intelligence_QuotaUsage,
-                        usage.UsagePercentage,
-                        usage.ResetsAtUtc is { } resetsAtUtc ? resetsAtUtc.LocalDateTime.ToString("d MMMM") : string.Empty);
+                ApplyQuota(usage);
             });
         }
         catch

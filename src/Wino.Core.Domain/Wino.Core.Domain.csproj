@@ -37,6 +37,7 @@
 		<None Remove="Translations\ru_RU\resources.json" />
 		<None Remove="Translations\sk_SK\resources.json" />
 		<None Remove="Translations\uk_UA\resources.json" />
+		<None Remove="Translations\vi_VN\resources.json" />
 		<None Remove="Translations\zh_CN\resources.json" />
 	</ItemGroup>
 	<ItemGroup>
@@ -65,6 +66,7 @@
 		<EmbeddedResource Include="Translations\sk_SK\resources.json" />
 		<EmbeddedResource Include="Translations\tr_TR\resources.json" />
 		<EmbeddedResource Include="Translations\uk_UA\resources.json" />
+		<EmbeddedResource Include="Translations\vi_VN\resources.json" />
 		<EmbeddedResource Include="Translations\zh_CN\resources.json" />
 	</ItemGroup>
 	<ItemGroup>

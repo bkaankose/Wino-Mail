@@ -21,9 +21,9 @@ namespace Wino.Mail.ViewModels;
 
 /// <summary>
 /// Drives the daily briefing panel.
-/// The briefing is a flat, reverse-chronological list of the messages Jev included,
+/// The briefing is a flat, reverse-chronological list of the messages Classification included,
 /// grouped by the day each one was received. There is no date picker, no upcoming
-/// window and no per-card action: Jev cannot produce dates or actions, so the panel
+/// window and no per-card action: Classification cannot produce dates or actions, so the panel
 /// never pretends it can.
 /// </summary>
 public sealed partial class DailyBriefingPanelViewModel : ObservableObject,

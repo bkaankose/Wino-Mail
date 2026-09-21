@@ -22,6 +22,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly ISmimeCertificateService _smimeCertificateService;
+    private readonly IWinoLogger _logger;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronizeAliases))]
@@ -34,11 +35,13 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 
     public AliasManagementPageViewModel(IMailDialogService dialogService,
                                         IAccountService accountService,
-                                        ISmimeCertificateService smimeCertificateService)
+                                        ISmimeCertificateService smimeCertificateService,
+                                        IWinoLogger logger)
     {
         _dialogService = dialogService;
         _accountService = accountService;
         _smimeCertificateService = smimeCertificateService;
+        _logger = logger;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -74,18 +77,10 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     }
 
     [RelayCommand]
-    private async Task SetAliasPrimaryAsync(MailAccountAlias alias)
-    {
-        if (alias.IsPrimary) return;
-
-        AccountAliases.ForEach(a =>
-        {
-            a.IsPrimary = a == alias;
-        });
-
-        await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
-        await LoadAliasesAsync();
-    }
+    private Task SetAliasPrimaryAsync(MailAccountAlias alias)
+        // A targeted write, not a resubmitted list: the copy this page holds may already be
+        // behind an alias sync, and writing it back would undo whatever that sync brought in.
+        => WriteAliasSettingAsync(() => _accountService.SetDefaultAccountAliasAsync(Account.Id, alias.Id));
 
     [RelayCommand]
     private async Task SyncAliasesAsync()
@@ -135,10 +130,20 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 
         newAlias.AccountId = Account.Id;
 
-        AccountAliases.Add(newAlias);
+        // The service decides: another window, or an alias sync, may have added this address
+        // between the check above and this call.
+        var isCreated = await _accountService.AddAccountAliasAsync(Account.Id, newAlias);
 
-        await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
-        _dialogService.InfoBarMessage(Translator.DialogMessage_AliasCreatedTitle, Translator.DialogMessage_AliasCreatedMessage, InfoBarMessageType.Success);
+        if (isCreated)
+        {
+            _dialogService.InfoBarMessage(Translator.DialogMessage_AliasCreatedTitle, Translator.DialogMessage_AliasCreatedMessage, InfoBarMessageType.Success);
+        }
+        else
+        {
+            await _dialogService.ShowMessageAsync(Translator.DialogMessage_AliasExistsTitle,
+                                                 Translator.DialogMessage_AliasExistsMessage,
+                                                 WinoCustomMessageDialogIcon.Warning);
+        }
 
         await LoadAliasesAsync();
     }
@@ -168,19 +173,30 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
         await LoadAliasesAsync();
     }
 
-    public async Task SetAliasSmimeEncryption(MailAccountAlias alias, bool value)
-    {
-        alias.IsSmimeEncryptionEnabled = value;
-        await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
-        await LoadAliasesAsync();
-    }
+    public Task SetAliasSmimeEncryption(MailAccountAlias alias, bool value)
+        => WriteAliasSettingAsync(() => _accountService.SetAliasEncryptionAsync(Account.Id, alias.Id, value));
 
-    public async Task SetSelectedSigningCertificate(MailAccountAlias alias, X509Certificate2 cert)
-    {
-        alias.SelectedSigningCertificate = cert;
-        alias.SelectedSigningCertificateThumbprint = cert?.Thumbprint;
+    public Task SetSelectedSigningCertificate(MailAccountAlias alias, X509Certificate2 cert)
+        => WriteAliasSettingAsync(() => _accountService.SetAliasSigningCertificateAsync(Account.Id, alias.Id, cert?.Thumbprint));
 
-        await _accountService.UpdateAccountAliasesAsync(Account.Id, AccountAliases);
-        await LoadAliasesAsync();
+    /// <summary>
+    /// Runs one targeted alias write and then reloads, whether it succeeded or not, so the page
+    /// shows what is stored rather than the change the user attempted.
+    /// </summary>
+    private async Task WriteAliasSettingAsync(Func<Task> write)
+    {
+        try
+        {
+            await write();
+        }
+        catch (Exception exception)
+        {
+            _logger?.CaptureException(exception, nameof(WriteAliasSettingAsync));
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, exception.Message, InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await LoadAliasesAsync();
+        }
     }
 }

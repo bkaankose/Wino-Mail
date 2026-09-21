@@ -75,7 +75,7 @@ public static class MailIntelligenceTileFactory
     public static string GetSmartLabelGlyph(MailSmartLabel label) => label switch
     {
         MailSmartLabel.Important => "",     // Star
-        MailSmartLabel.Action => "",        // Lightning bolt
+        MailSmartLabel.ActionRequired => "",        // Lightning bolt
         MailSmartLabel.Finance => "",       // Payment card
         MailSmartLabel.Travel => "",        // Airplane
         MailSmartLabel.Social => "",        // People
@@ -87,7 +87,7 @@ public static class MailIntelligenceTileFactory
     public static string GetSmartLabelText(MailSmartLabel label) => label switch
     {
         MailSmartLabel.Important => Translator.IntelligenceTile_LabelImportant,
-        MailSmartLabel.Action => Translator.IntelligenceTile_LabelAction,
+        MailSmartLabel.ActionRequired => Translator.IntelligenceTile_LabelActionRequired,
         MailSmartLabel.Finance => Translator.IntelligenceTile_LabelFinance,
         MailSmartLabel.Travel => Translator.IntelligenceTile_LabelTravel,
         MailSmartLabel.Social => Translator.IntelligenceTile_LabelSocial,

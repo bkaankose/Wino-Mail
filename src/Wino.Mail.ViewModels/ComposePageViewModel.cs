@@ -561,6 +561,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         CurrentMailDraftItem.Subject = CurrentMimeMessage.Subject;
         CurrentMailDraftItem.PreviewText = CurrentMimeMessage.TextBody;
         CurrentMailDraftItem.FromAddress = SelectedAlias.AliasAddress;
+
+        // The local copy takes its sender from the MIME that was just written, so the list and
+        // the message can never disagree about who the draft is from.
+        CurrentMailDraftItem.FromName = CurrentMimeMessage.From.Mailboxes.FirstOrDefault()?.Name
+            ?? SelectedAlias.AliasSenderName
+            ?? ComposingAccount?.SenderName;
         CurrentMailDraftItem.HasAttachments = CurrentMimeMessage.Attachments.Any();
     }
 
@@ -769,25 +775,26 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         if (aliases == null || !aliases.Any()) return false;
 
-        // MailAccountAlias primaryAlias = aliases.Find(a => a.IsPrimary) ?? aliases.First();
+        // The alias comes from the message itself where the draft names one, matched on the
+        // normalized address so stored casing or stray spaces still find it.
+        MailAccountAlias selectedAlias = null;
 
-        // Auto-select the correct alias from the message itself.
-        // If can't, fallback to primary alias.
-
-        MailAccountAlias primaryAlias = null;
-
-        if (!string.IsNullOrEmpty(CurrentMailDraftItem.FromAddress))
+        if (!string.IsNullOrWhiteSpace(CurrentMailDraftItem.FromAddress))
         {
-            primaryAlias = aliases.Find(a => a.AliasAddress == CurrentMailDraftItem.FromAddress);
+            var draftAddress = CurrentMailDraftItem.FromAddress.Trim();
+            selectedAlias = aliases.Find(a =>
+                string.Equals(a.AliasAddress?.Trim(), draftAddress, StringComparison.OrdinalIgnoreCase));
         }
 
-        primaryAlias ??= await _accountService.GetPrimaryAccountAliasAsync(composingAccount.Id).ConfigureAwait(false);
+        // The fallback is taken from this same list rather than re-read from the service, so the
+        // selection is always one of the objects the picker is bound to.
+        selectedAlias ??= aliases.Find(a => a.IsPrimary) ?? aliases[0];
 
         await ExecuteUIThread(() =>
         {
             ComposingAccount = composingAccount;
             AvailableAliases = aliases;
-            SelectedAlias = primaryAlias;
+            SelectedAlias = selectedAlias;
         });
 
         return true;
