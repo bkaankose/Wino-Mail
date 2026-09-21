@@ -492,7 +492,7 @@ public sealed class MailIntelligenceStore(
             .FirstOrDefaultAsync()
             .ConfigureAwait(false) ?? new BriefingViewStateRow { LocalAccountId = localAccountId };
         mutate(row);
-        await lease.Connection.InsertOrReplaceAsync(row, typeof(MailIntelligenceJobRow)).ConfigureAwait(false);
+        await lease.Connection.InsertOrReplaceAsync(row, typeof(BriefingViewStateRow)).ConfigureAwait(false);
     }
 
     // ---- access --------------------------------------------------------------------

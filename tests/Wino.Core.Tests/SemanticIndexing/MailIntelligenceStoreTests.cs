@@ -191,6 +191,22 @@ public sealed class MailIntelligenceStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task BriefingOpenAndViewStatePersistForTheAccount()
+    {
+        await _store.MarkBriefingOpenedAsync(AccountId);
+
+        var (openedUtc, viewedUtc) = await _store.GetBriefingViewStateAsync(AccountId);
+        openedUtc.Should().NotBeNull();
+        viewedUtc.Should().BeNull();
+
+        await _store.MarkBriefingViewedAsync(AccountId);
+
+        var (persistedOpenedUtc, persistedViewedUtc) = await _store.GetBriefingViewStateAsync(AccountId);
+        persistedOpenedUtc.Should().Be(openedUtc);
+        persistedViewedUtc.Should().NotBeNull();
+    }
+
+    [Fact]
     public async Task DeleteAccountRemovesEverythingForThatAccountOnly()
     {
         var otherAccount = Guid.NewGuid();
