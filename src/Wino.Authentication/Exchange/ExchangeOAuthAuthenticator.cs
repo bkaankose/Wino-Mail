@@ -70,13 +70,21 @@ public sealed class ExchangeOAuthAuthenticator
             if (_tokenCache.TryGet(accountId, out var fresh) && fresh.IsAccessTokenValid(ExpirySkew))
                 return fresh.AccessToken;
 
+            // Spend the refresh token that is on disk, not the one in the caller's copy of the account.
+            // The synchronizer and the notification listeners each hold their own copy, and a refresh
+            // updates only the copy that made it. With an issuer that rotates refresh tokens, a stale
+            // copy would present a token that has already been replaced, which such issuers treat as
+            // theft and answer by revoking the whole token family.
+            var refreshToken = await GetPersistedRefreshTokenAsync(accountId).ConfigureAwait(false) ?? server.OAuthRefreshToken;
+            server.OAuthRefreshToken = refreshToken;
+
             var configuration = BuildConfiguration(server);
             var discovery = await _oidcTokenClient.GetDiscoveryDocumentAsync(configuration.Authority).ConfigureAwait(false);
 
             OidcTokenSet refreshed;
             try
             {
-                refreshed = await _oidcTokenClient.RefreshAsync(discovery, configuration, server.OAuthRefreshToken).ConfigureAwait(false);
+                refreshed = await _oidcTokenClient.RefreshAsync(discovery, configuration, refreshToken).ConfigureAwait(false);
             }
             catch (OidcTokenException ex)
             {
@@ -104,5 +112,16 @@ public sealed class ExchangeOAuthAuthenticator
         {
             refreshLock.Release();
         }
+    }
+
+    /// <summary>Null for an account that is not stored (the setup page probes with a transient one).</summary>
+    private async Task<string> GetPersistedRefreshTokenAsync(Guid accountId)
+    {
+        if (_serviceProvider.GetService(typeof(IAccountService)) is not IAccountService accountService)
+            return null;
+
+        var persisted = await accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+        var token = persisted?.ServerInformation?.OAuthRefreshToken;
+        return string.IsNullOrEmpty(token) ? null : token;
     }
 }
