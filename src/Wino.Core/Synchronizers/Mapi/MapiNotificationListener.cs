@@ -45,9 +45,12 @@ internal sealed class MapiNotificationListener : IAccountNotificationListener
     private CancellationTokenSource? _loop;
     private MapiEndpointInfo? _endpoint;
     private volatile bool _connected;
+    private volatile bool _running;
     private int _interruptionCount;
 
     public bool IsConnected => _connected;
+
+    public bool IsRunning => _running;
     public int InterruptionCount => Volatile.Read(ref _interruptionCount);
 
     public MapiNotificationListener(MailAccount account, IExchangeAuthenticator authenticator, Func<IReadOnlyCollection<StreamingChange>, Task> dispatch)
@@ -62,17 +65,34 @@ internal sealed class MapiNotificationListener : IAccountNotificationListener
     {
         _loop?.Cancel();
         _loop = new CancellationTokenSource();
+        _running = true;
         _ = RunAsync(_loop.Token);
         return Task.CompletedTask;
     }
 
     public void Stop()
     {
+        _running = false;
         _loop?.Cancel();
         _debounceTimer.Dispose();
     }
 
     private async Task RunAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await ListenLoopAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // However this loop ends, the channel is closed for good; say so, or a later start would
+            // decide this listener was still trying and leave a dead one in place.
+            _running = false;
+            _connected = false;
+        }
+    }
+
+    private async Task ListenLoopAsync(CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {

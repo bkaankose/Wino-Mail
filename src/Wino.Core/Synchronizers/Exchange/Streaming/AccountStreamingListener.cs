@@ -49,6 +49,9 @@ internal sealed class AccountStreamingListener : IAccountNotificationListener
     private int _interruptionCount;
 
     public bool IsConnected => _connected && !_stopped;
+
+    /// <summary>Still trying until it is stopped; a closed subscription reconnects on its own timer.</summary>
+    public bool IsRunning => !_stopped;
     public int InterruptionCount => Volatile.Read(ref _interruptionCount);
 
     public AccountStreamingListener(

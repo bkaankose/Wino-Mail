@@ -53,13 +53,30 @@ public sealed class ExchangeStreamingNotificationService : IExchangeStreamingNot
         if (account == null || account.ProviderType != MailProviderType.Exchange || account.ServerInformation == null)
             return;
 
+        // A listener that ended itself stays in the map as a dead entry: the MAPI one returns for good
+        // when the sign-in was rejected or the server advertises no MAPI/HTTP. Starting the account
+        // again therefore has to replace a dead one, or push stays down until the next app start. One
+        // that is still trying is left exactly as it is, because an account is started again on paths
+        // that have nothing to do with its health, and a channel between reconnect attempts is fine.
+        if (_listeners.TryGetValue(account.Id, out var previous))
+        {
+            if (previous.IsRunning)
+                return;
+
+            _listeners.TryRemove(account.Id, out _);
+            previous.Stop();
+        }
+
         var useEws = account.ServerInformation.EffectiveExchangeTransport == ExchangeTransport.Ews;
         IAccountNotificationListener listener = useEws
             ? new AccountStreamingListener(account, _authenticator, changes => DispatchAsync(account.Id, changes))
             : new MapiNotificationListener(account, _authenticator, changes => DispatchAsync(account.Id, changes));
 
         if (!_listeners.TryAdd(account.Id, listener))
+        {
+            listener.Stop();
             return;
+        }
 
         try
         {
