@@ -21,6 +21,9 @@ public sealed partial class DailyBriefingPanel : UserControl
 {
     private const double SlideDurationMilliseconds = 300;
 
+    /// <summary>Height above the shell, so the panel's ThemeShadow actually casts.</summary>
+    private const float PanelElevation = 32;
+
     private readonly UISettings _uiSettings = new();
     private bool _isOpen;
     private CompositionScopedBatch? _closingBatch;
@@ -119,7 +122,7 @@ public sealed partial class DailyBriefingPanel : UserControl
     {
         var visual = GetVisual();
         visual.Properties.StopAnimation("Translation");
-        visual.Properties.InsertVector3("Translation", new Vector3(x, 0, 0));
+        visual.Properties.InsertVector3("Translation", new Vector3(x, 0, PanelElevation));
     }
 
     private void AnimateTranslation(float targetX)
@@ -133,7 +136,7 @@ public sealed partial class DailyBriefingPanel : UserControl
         var visual = GetVisual();
         var compositor = visual.Compositor;
         var animation = compositor.CreateVector3KeyFrameAnimation();
-        animation.InsertKeyFrame(1, new Vector3(targetX, 0, 0),
+        animation.InsertKeyFrame(1, new Vector3(targetX, 0, PanelElevation),
             compositor.CreateCubicBezierEasingFunction(new Vector2(0.1f, 0.9f), new Vector2(0.2f, 1f)));
         animation.Duration = TimeSpan.FromMilliseconds(SlideDurationMilliseconds);
         visual.Properties.StartAnimation("Translation", animation);
@@ -141,10 +144,10 @@ public sealed partial class DailyBriefingPanel : UserControl
 
     private void CloseClicked(object sender, RoutedEventArgs e) => Close();
 
-    private void OpenItemClicked(object sender, RoutedEventArgs e)
+    private void PrimaryActionClicked(object sender, RoutedEventArgs e)
     {
         if (sender is Button { Tag: DailyBriefingItem item })
-            ViewModel.OpenItemCommand.Execute(item);
+            ViewModel.ExecutePrimaryActionCommand.Execute(item);
     }
 
     private void IgnoreClicked(object sender, RoutedEventArgs e)
@@ -159,8 +162,14 @@ public sealed partial class DailyBriefingPanel : UserControl
             UpdateBriefingCollectionViewSource();
     }
 
+    /// <summary>
+    /// Rebinds the grouped view to the day collection. A grouped CollectionViewSource bound while
+    /// its collection was still empty never picks up the groups added later, so the view is rebuilt
+    /// after every load instead of being left to track the collection.
+    /// </summary>
     private void UpdateBriefingCollectionViewSource()
     {
+        BriefingCollectionViewSource.Source = null;
         BriefingCollectionViewSource.Source = ViewModel.Days;
     }
 

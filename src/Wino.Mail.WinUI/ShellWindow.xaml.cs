@@ -41,6 +41,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<WinoAccountProfileUpdatedMessage>,
     IRecipient<WinoAccountProfileDeletedMessage>,
     IRecipient<DailyBriefingStateChanged>,
+    IRecipient<IntelligenceMetadataChanged>,
     IRecipient<WinoIntelligenceAccessChanged>,
     IRecipient<WinoIntelligenceEntitlementChanged>,
     IRecipient<AccountSynchronizationProgressUpdatedMessage>
@@ -297,6 +298,9 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     }
 
     public async void Receive(DailyBriefingStateChanged message) => await RefreshDailyBriefingStateAsync();
+
+    /// <summary>Freshly imported artifacts can make the briefing unseen again, so the badge is re-evaluated.</summary>
+    public async void Receive(IntelligenceMetadataChanged message) => await RefreshDailyBriefingStateAsync();
 
     public async void Receive(WinoIntelligenceAccessChanged message) => await RefreshDailyBriefingStateAsync();
 
@@ -928,6 +932,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Register<WinoAccountProfileUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Register<WinoAccountProfileDeletedMessage>(this);
         WeakReferenceMessenger.Default.Register<DailyBriefingStateChanged>(this);
+        WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
         WeakReferenceMessenger.Default.Register<AccountSynchronizationProgressUpdatedMessage>(this);
@@ -941,6 +946,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<WinoAccountProfileUpdatedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<WinoAccountProfileDeletedMessage>(this);
         WeakReferenceMessenger.Default.Unregister<DailyBriefingStateChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
         WeakReferenceMessenger.Default.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);

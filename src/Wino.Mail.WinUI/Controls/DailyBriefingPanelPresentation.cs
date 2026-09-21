@@ -1,5 +1,7 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Globalization;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain;
@@ -34,28 +36,6 @@ public static class DailyBriefingPanelPresentation
     public static Visibility SummaryVisibility(DailyBriefingFact fact)
         => HasSummary(fact) ? Visibility.Visible : Visibility.Collapsed;
 
-    /// <summary>Sender, plus the subject when the headline does not already say it.</summary>
-    public static string Source(DailyBriefingFact fact)
-    {
-        var sender = string.IsNullOrWhiteSpace(fact.SenderName) ? fact.SenderAddress : fact.SenderName;
-        var headline = Headline(fact);
-        var hasSubject = !string.IsNullOrWhiteSpace(fact.Subject) &&
-            !headline.Contains(fact.Subject, StringComparison.OrdinalIgnoreCase) &&
-            !string.Equals(fact.Subject, headline, StringComparison.OrdinalIgnoreCase);
-
-        if (string.IsNullOrWhiteSpace(sender))
-        {
-            return hasSubject ? fact.Subject : string.Empty;
-        }
-
-        return hasSubject ? $"{sender} · {fact.Subject}" : sender;
-    }
-
-    public static bool HasSource(DailyBriefingFact fact) => !string.IsNullOrWhiteSpace(Source(fact));
-
-    public static Visibility SourceVisibility(DailyBriefingFact fact)
-        => HasSource(fact) ? Visibility.Visible : Visibility.Collapsed;
-
     /// <summary>Time the message was received. The only date the briefing states.</summary>
     public static string When(DailyBriefingFact fact)
         => TimeZoneInfo.ConvertTime(fact.ReceivedAt, TimeZoneInfo.Local).ToString("t", CultureInfo.CurrentCulture);
@@ -81,6 +61,19 @@ public static class DailyBriefingPanelPresentation
     public static string LabelGlyph(string label) => DailyBriefingIcons.Label(label);
 
     public static Visibility NewBadgeVisibility(bool isNew) => isNew ? Visibility.Visible : Visibility.Collapsed;
+
+    /// <summary>
+    /// The chips that fit on the card's last line beside its command. A priority chip takes one of
+    /// the two places, so the labels give way to it rather than running under the button.
+    /// </summary>
+    public static IReadOnlyList<BriefingLabelChip> TopLabelChips(IReadOnlyList<BriefingLabelChip> chips, DailyBriefingFact fact)
+    {
+        var room = HasUrgency(fact) ? MaxChipsPerRow - 1 : MaxChipsPerRow;
+        return chips.Count <= room ? chips : [.. chips.Take(room)];
+    }
+
+    /// <summary>How many chips fit beside the longest action wording at the panel's width.</summary>
+    private const int MaxChipsPerRow = 2;
 
     public static DailyBriefingTone Tone(DailyBriefingFact fact) => fact.Priority.ToLowerInvariant() switch
     {

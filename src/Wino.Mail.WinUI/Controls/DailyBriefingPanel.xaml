@@ -30,8 +30,10 @@
         </Style>
 
         <!--
-            A card states only what Jev and Luna produce: sender and time, labels,
-            priority, the headline and a one-line summary. No action, status or due date.
+            A card carries three lines and nothing else: Luna's headline with the arrival time
+            opposite it, her one-line summary, and Jev's labels beside the one action Jev chose.
+            Neither the subject nor the sender is among them - the headline says what the message
+            is about, and the card is a briefing entry rather than a second message list.
         -->
         <DataTemplate x:Key="BriefingItemTemplate" x:DataType="vm:DailyBriefingItem">
             <SwipeControl Tag="{x:Bind}">
@@ -45,121 +47,148 @@
                 </SwipeControl.RightItems>
 
                 <Border
-                    Margin="12,4"
-                    Padding="12"
+                    Margin="4,3"
+                    Padding="12,10"
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                     BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="{ThemeResource ControlCornerRadius}">
-                    <StackPanel Spacing="6">
+                    <StackPanel Spacing="4">
 
-                        <!--  Sender, time, and a marker for cards that arrived since the last view.  -->
+                        <!--
+                            The headline leads the card, with the arrival time opposite it. The time
+                            hugs the top so a headline that wraps to a second line does not drag it
+                            down the card. A dot marks what arrived since the last view.
+                        -->
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
+                            <!--  Summarization headline, falling back to the subject before Summarization has run.  -->
                             <TextBlock
-                                VerticalAlignment="Center"
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind presentation:DailyBriefingPanelPresentation.Source(Fact)}"
-                                TextTrimming="CharacterEllipsis" />
+                                MaxLines="2"
+                                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                Text="{x:Bind presentation:DailyBriefingPanelPresentation.Headline(Fact)}"
+                                TextTrimming="CharacterEllipsis"
+                                TextWrapping="Wrap" />
 
-                            <Border
+                            <StackPanel
                                 Grid.Column="1"
-                                Padding="6,1"
-                                VerticalAlignment="Center"
-                                Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                CornerRadius="8"
-                                Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.NewBadgeVisibility(IsNew), Mode=OneWay}">
+                                VerticalAlignment="Top"
+                                Orientation="Horizontal"
+                                Spacing="6">
+                                <Ellipse
+                                    Width="6"
+                                    Height="6"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="DailyBriefingNewMarker"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.DailyBriefing_New, Mode=OneTime}"
+                                    Fill="{ThemeResource AccentFillColorDefaultBrush}"
+                                    Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.NewBadgeVisibility(IsNew), Mode=OneWay}" />
                                 <TextBlock
-                                    FontSize="10"
-                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                    Text="{x:Bind domain:Translator.DailyBriefing_New, Mode=OneTime}" />
-                            </Border>
-
-                            <TextBlock
-                                Grid.Column="2"
-                                VerticalAlignment="Center"
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind presentation:DailyBriefingPanelPresentation.When(Fact)}" />
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind presentation:DailyBriefingPanelPresentation.When(Fact)}" />
+                            </StackPanel>
                         </Grid>
 
-                        <!--  Luna headline, falling back to the subject before Luna has run.  -->
-                        <TextBlock
-                            Style="{StaticResource BodyStrongTextBlockStyle}"
-                            Text="{x:Bind presentation:DailyBriefingPanelPresentation.Headline(Fact)}"
-                            TextWrapping="Wrap" />
-
-                        <!--  Luna one-line summary.  -->
+                        <!--  Summarization one-line summary.  -->
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            MaxLines="2"
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind presentation:DailyBriefingPanelPresentation.Summary(Fact)}"
+                            TextTrimming="CharacterEllipsis"
                             TextWrapping="Wrap"
                             Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.SummaryVisibility(Fact)}" />
 
-                        <!--  Priority, then one chip per smart label Jev applied.  -->
-                        <ItemsControl ItemsSource="{x:Bind LabelChips}" Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.LabelsVisibility(Fact)}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" Spacing="4" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:BriefingLabelChip">
-                                    <Border
-                                        Padding="6,2"
-                                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                        CornerRadius="10">
-                                        <StackPanel Orientation="Horizontal" Spacing="4">
-                                            <FontIcon FontSize="10" Glyph="{x:Bind Glyph}" />
-                                            <TextBlock FontSize="11" Text="{x:Bind Text}" />
-                                        </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <!--
+                            Labels and the command share the last line. Priority is the first chip
+                            rather than a line of its own, so an urgent card costs no extra height.
+                        -->
+                        <Grid Margin="0,4,0,0" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                        <StackPanel
-                            Orientation="Horizontal"
-                            Spacing="4"
-                            Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.UrgencyVisibility(Fact)}">
-                            <FontIcon
-                                FontSize="11"
-                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                Glyph="{x:Bind vm:DailyBriefingIcons.PriorityGlyph, Mode=OneTime}" />
-                            <TextBlock
-                                FontSize="11"
-                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                Text="{x:Bind presentation:DailyBriefingPanelPresentation.UrgencyText(Fact)}" />
-                        </StackPanel>
+                            <StackPanel
+                                VerticalAlignment="Center"
+                                Orientation="Horizontal"
+                                Spacing="4">
+                                <Border
+                                    Padding="6,2"
+                                    VerticalAlignment="Center"
+                                    Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                                    CornerRadius="10"
+                                    Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.UrgencyVisibility(Fact)}">
+                                    <TextBlock
+                                        FontSize="11"
+                                        Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                        Text="{x:Bind presentation:DailyBriefingPanelPresentation.UrgencyText(Fact)}" />
+                                </Border>
 
-                        <!--  Open is the only action a card offers.  -->
-                        <StackPanel
-                            Margin="0,4,0,0"
-                            Orientation="Horizontal"
-                            Spacing="6">
-                            <Button
-                                AutomationProperties.AutomationId="{x:Bind OpenActionAutomationId}"
-                                Click="OpenItemClicked"
-                                Content="{x:Bind domain:Translator.DailyBriefing_ActionOpen, Mode=OneTime}"
-                                Tag="{x:Bind}" />
-                            <Button
-                                AutomationProperties.AutomationId="{x:Bind IgnoreActionAutomationId, Mode=OneWay}"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Click="IgnoreClicked"
-                                IsEnabled="{x:Bind CanToggleIgnore, Mode=OneWay}"
-                                Tag="{x:Bind}"
-                                ToolTipService.ToolTip="{x:Bind IgnoreActionText, Mode=OneWay}">
-                                <FontIcon FontSize="13" Glyph="{x:Bind IgnoreActionGlyph, Mode=OneWay}" />
-                            </Button>
-                        </StackPanel>
+                                <ItemsControl
+                                    VerticalAlignment="Center"
+                                    ItemsSource="{x:Bind presentation:DailyBriefingPanelPresentation.TopLabelChips(LabelChips, Fact)}"
+                                    Visibility="{x:Bind presentation:DailyBriefingPanelPresentation.LabelsVisibility(Fact)}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="4" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:BriefingLabelChip">
+                                            <Border
+                                                Padding="6,2"
+                                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                                CornerRadius="10">
+                                                <TextBlock
+                                                    MaxWidth="110"
+                                                    FontSize="11"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Text="{x:Bind Text}"
+                                                    TextTrimming="CharacterEllipsis"
+                                                    TextWrapping="NoWrap" />
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+
+                            <!--  One command, worded by the action Classification chose for this message.  -->
+                            <StackPanel
+                                Grid.Column="1"
+                                Orientation="Horizontal"
+                                Spacing="4">
+                                <Button
+                                    Padding="10,3"
+                                    AutomationProperties.AutomationId="{x:Bind PrimaryActionAutomationId}"
+                                    Click="PrimaryActionClicked"
+                                    Tag="{x:Bind}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon FontSize="12" Glyph="{x:Bind PrimaryActionGlyph}" />
+                                        <TextBlock FontSize="12" Text="{x:Bind PrimaryActionText}" />
+                                    </StackPanel>
+                                </Button>
+                                <Button
+                                    Width="30"
+                                    Height="28"
+                                    Padding="0"
+                                    AutomationProperties.AutomationId="{x:Bind IgnoreActionAutomationId, Mode=OneWay}"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Click="IgnoreClicked"
+                                    IsEnabled="{x:Bind CanToggleIgnore, Mode=OneWay}"
+                                    Tag="{x:Bind}"
+                                    ToolTipService.ToolTip="{x:Bind IgnoreActionText, Mode=OneWay}">
+                                    <FontIcon FontSize="12" Glyph="{x:Bind IgnoreActionGlyph, Mode=OneWay}" />
+                                </Button>
+                            </StackPanel>
+                        </Grid>
                     </StackPanel>
                 </Border>
             </SwipeControl>
@@ -167,7 +196,7 @@
 
         <!--  One header per received day.  -->
         <DataTemplate x:Key="BriefingDayHeaderTemplate" x:DataType="vm:DailyBriefingDateItem">
-            <Border Padding="16,10,16,6" Background="{ThemeResource SolidBackgroundFillColorBaseBrush}">
+            <Border Padding="16,10,16,6" Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind DisplayName}" />
                     <TextBlock
@@ -182,10 +211,10 @@
 
     <Grid
         x:Name="PanelRoot"
-        Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
-        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-        BorderThickness="1,1,1,0"
-        CornerRadius="{ThemeResource ControlCornerRadius}"
+        Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}"
+        BorderBrush="{ThemeResource SurfaceStrokeColorDefaultBrush}"
+        BorderThickness="1,1,0,0"
+        CornerRadius="8,0,0,0"
         DataContext="{x:Bind ViewModel, Mode=OneWay}">
         <Grid.Shadow>
             <ThemeShadow x:Name="shadow" />

@@ -46,6 +46,7 @@ public sealed record DailyBriefingFact(
     DateTimeOffset ReceivedAt,
     IReadOnlyList<string> Labels,
     string Priority,
+    string Action,
     string Headline,
     string Summary,
     DateTime FirstImportedUtc,

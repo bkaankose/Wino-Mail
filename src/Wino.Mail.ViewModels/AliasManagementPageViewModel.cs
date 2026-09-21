@@ -14,6 +14,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
+using Wino.Mail.ViewModels.Data;
 
 namespace Wino.Mail.ViewModels;
 
@@ -29,9 +30,64 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     public partial MailAccount Account { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AliasItems))]
+    [NotifyPropertyChangedFor(nameof(HasAliases))]
+    [NotifyPropertyChangedFor(nameof(IsEmptyStateVisible))]
+    [NotifyPropertyChangedFor(nameof(AliasSummary))]
     public partial List<MailAccountAlias> AccountAliases { get; set; } = [];
 
+    /// <summary>Set only around the first load, so a reload after a write never blanks the list.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEmptyStateVisible))]
+    public partial bool IsLoading { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsSynchronizing { get; set; }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSynchronizationError))]
+    public partial string SynchronizationError { get; set; }
+
     public bool CanSynchronizeAliases => Account?.IsAliasSyncSupported ?? false;
+
+    public IReadOnlyList<AliasManagementItem> AliasItems => AliasManagementItem.Create(AccountAliases);
+
+    public bool HasAliases => AccountAliases.Count > 0;
+
+    /// <summary>The empty state replaces the list only once loading has settled; otherwise it would flash on every open.</summary>
+    public bool IsEmptyStateVisible => !IsLoading && AccountAliases.Count == 0;
+
+    public bool HasSynchronizationError => !string.IsNullOrEmpty(SynchronizationError);
+
+    /// <summary>
+    /// The one-line count above the list. It names the two states a user has to act on, and stays
+    /// silent about them when every alias is fine.
+    /// </summary>
+    public string AliasSummary
+    {
+        get
+        {
+            var aliases = AccountAliases;
+            if (aliases.Count == 0) return string.Empty;
+
+            var parts = new List<string>
+            {
+                aliases.Count == 1
+                    ? Translator.AccountAlias_Summary_AliasCountSingle
+                    : string.Format(Translator.AccountAlias_Summary_AliasCountPlural, aliases.Count)
+            };
+
+            var confirmed = aliases.Count(alias => alias.IsCapabilityConfirmed);
+            var unknown = aliases.Count(alias => alias.IsCapabilityUnknown);
+            var denied = aliases.Count(alias => alias.IsCapabilityDenied);
+
+            if (confirmed > 0) parts.Add(string.Format(Translator.AccountAlias_Summary_Confirmed, confirmed));
+            if (unknown > 0) parts.Add(string.Format(Translator.AccountAlias_Summary_Unknown, unknown));
+            if (denied > 0) parts.Add(string.Format(Translator.AccountAlias_Summary_Denied, denied));
+
+            return string.Join(" • ", parts);
+        }
+    }
 
     public AliasManagementPageViewModel(IMailDialogService dialogService,
                                         IAccountService accountService,
@@ -53,7 +109,16 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 
         if (Account == null) return;
 
-        await LoadAliasesAsync();
+        IsLoading = AccountAliases.Count == 0;
+
+        try
+        {
+            await LoadAliasesAsync();
+        }
+        finally
+        {
+            IsLoading = false;
+        }
     }
 
     private async Task LoadAliasesAsync()
@@ -87,18 +152,28 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     {
         if (!CanSynchronizeAliases) return;
 
-        var aliasSyncOptions = new MailSynchronizationOptions()
+        // The failure lands in the page's own InfoBar next to the list it affects, not in a transient message.
+        SynchronizationError = string.Empty;
+        IsSynchronizing = true;
+
+        try
         {
-            AccountId = Account.Id,
-            Type = MailSynchronizationType.Alias
-        };
+            var aliasSyncResult = await SynchronizationManager.Instance.SynchronizeAliasesAsync(Account.Id);
 
-        var aliasSyncResult = await SynchronizationManager.Instance.SynchronizeAliasesAsync(Account.Id);
-
-        if (aliasSyncResult.CompletedState == SynchronizationCompletedState.Success)
-            await LoadAliasesAsync();
-        else
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.Exception_FailedToSynchronizeAliases, InfoBarMessageType.Error);
+            if (aliasSyncResult.CompletedState == SynchronizationCompletedState.Success)
+                await LoadAliasesAsync();
+            else
+                SynchronizationError = Translator.Exception_FailedToSynchronizeAliases;
+        }
+        catch (Exception ex)
+        {
+            _logger.CaptureException(ex, "SynchronizeAccountAliases");
+            SynchronizationError = ex.Message;
+        }
+        finally
+        {
+            IsSynchronizing = false;
+        }
     }
 
     [RelayCommand]

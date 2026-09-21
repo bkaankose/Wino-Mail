@@ -11,9 +11,8 @@ namespace Wino.Mail.ViewModels;
 
 /// <summary>
 /// One briefing card. It shows only what Classification and Summarization produce: sender and date, smart
-/// labels, priority, a headline, a one-line summary, and Open.
-/// There is no action button, status or due date, because the decision model cannot
-/// produce those reliably.
+/// labels, priority, a headline, a one-line summary, and the single action Classification chose.
+/// There is still no status or due date, because the decision model does not produce them.
 /// </summary>
 public sealed partial class DailyBriefingItem : ObservableObject
 {
@@ -84,6 +83,21 @@ public sealed partial class DailyBriefingItem : ObservableObject
 
     public bool CanOpen => MailUniqueId != Guid.Empty;
 
+    /// <summary>The action Classification chose for this message, lowercase, "none" when it chose none.</summary>
+    public string Action => Fact.Action;
+
+    /// <summary>
+    /// The card's one command. Its wording comes from Classification's action, so a card says what the
+    /// message asks for instead of always saying Open.
+    /// </summary>
+    public DailyBriefingActionPresentation PrimaryAction => DailyBriefingActionPresentationFactory.Create(Action);
+
+    public string PrimaryActionText => PrimaryAction.Label;
+
+    public string PrimaryActionGlyph => PrimaryAction.Glyph;
+
+    public string PrimaryActionAutomationId => PrimaryAction.AutomationId;
+
     [ObservableProperty]
     public partial bool IsIgnored { get; set; }
 
@@ -97,8 +111,6 @@ public sealed partial class DailyBriefingItem : ObservableObject
     public string IgnoreActionAutomationId => IsIgnored ? "DailyBriefingUnignoreButton" : "DailyBriefingIgnoreButton";
 
     public string IgnoreActionGlyph => IsIgnored ? DailyBriefingIcons.Show : DailyBriefingIcons.Hide;
-
-    public string OpenActionAutomationId => "DailyBriefingOpenButton";
 
     /// <summary>Set by the panel when the card arrived after the briefing was last viewed.</summary>
     [ObservableProperty]

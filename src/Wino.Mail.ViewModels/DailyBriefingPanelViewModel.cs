@@ -14,6 +14,9 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Intelligence;
+using Wino.Core.Domain.Models.MailItem;
+using Wino.Core.Domain.Models.Requests;
+using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.UI;
 
@@ -22,9 +25,9 @@ namespace Wino.Mail.ViewModels;
 /// <summary>
 /// Drives the daily briefing panel.
 /// The briefing is a flat, reverse-chronological list of the messages Classification included,
-/// grouped by the day each one was received. There is no date picker, no upcoming
-/// window and no per-card action: Classification cannot produce dates or actions, so the panel
-/// never pretends it can.
+/// grouped by the day each one was received. There is no date picker and no upcoming window,
+/// because Classification produces no dates. It does produce one action per message, and the card's
+/// command follows it.
 /// </summary>
 public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
     IRecipient<IntelligenceVisibilityChanged>,
@@ -37,6 +40,10 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
     private readonly IDispatcher _dispatcher;
     private readonly IPreferencesService _preferencesService;
     private readonly IMailDialogService _dialogService;
+    private readonly IMailService _mailService;
+    private readonly IMimeFileService _mimeFileService;
+    private readonly IWinoRequestDelegator _requestDelegator;
+    private readonly IClipboardService _clipboardService;
 
     private CancellationTokenSource? _loadCancellation;
     private IReadOnlyList<DailyBriefingAccount> _eligibleAccounts = [];
@@ -78,13 +85,21 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
         IDateContextProvider dateContext,
         IDispatcher dispatcher,
         IPreferencesService preferencesService,
-        IMailDialogService dialogService)
+        IMailDialogService dialogService,
+        IMailService mailService,
+        IMimeFileService mimeFileService,
+        IWinoRequestDelegator requestDelegator,
+        IClipboardService clipboardService)
     {
         _localService = localService;
         _dateContext = dateContext;
         _dispatcher = dispatcher;
         _preferencesService = preferencesService;
         _dialogService = dialogService;
+        _mailService = mailService;
+        _mimeFileService = mimeFileService;
+        _requestDelegator = requestDelegator;
+        _clipboardService = clipboardService;
         IsShowingIgnored = preferencesService.IsDailyBriefingShowingIgnored;
         WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(this);
         WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
@@ -212,6 +227,11 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
                 IsUnavailable = false;
                 IsLoading = false;
                 UpdateEmptyState();
+
+                // The grouped view is rebuilt from the repopulated collection rather than left to
+                // track it: a grouped CollectionViewSource that was bound while the collection was
+                // still empty does not pick up the groups added afterwards.
+                OnPropertyChanged(nameof(Days));
             }).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -247,6 +267,148 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
         return date == today.AddDays(-1)
             ? Translator.DailyBriefing_Yesterday
             : date.ToString("dddd, MMMM d", CultureInfo.CurrentCulture);
+    }
+
+    /// <summary>
+    /// Runs the card's own command. Reply and Copy code are completed here; every other action
+    /// names what the message asks for and opens it, because nothing local can complete them.
+    /// </summary>
+    [RelayCommand]
+    private async Task ExecutePrimaryActionAsync(DailyBriefingItem? item)
+    {
+        if (item is null)
+        {
+            return;
+        }
+
+        switch (item.PrimaryAction.Execution)
+        {
+            case DailyBriefingActionExecution.Reply:
+                await ReplyAsync(item).ConfigureAwait(false);
+                break;
+            case DailyBriefingActionExecution.CopyVerificationCode:
+                await CopyVerificationCodeAsync(item).ConfigureAwait(false);
+                break;
+            default:
+                await _dispatcher.ExecuteOnUIThread(() => OpenItem(item)).ConfigureAwait(false);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Starts a reply draft for the card's message, the same way the message list does.
+    /// </summary>
+    private async Task ReplyAsync(DailyBriefingItem item)
+    {
+        if (item.MailUniqueId == Guid.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            var mailCopy = await _mailService.GetSingleMailItemAsync(item.MailUniqueId).ConfigureAwait(false);
+            if (mailCopy?.AssignedAccount is null || mailCopy.FileId == Guid.Empty)
+            {
+                await _dispatcher.ExecuteOnUIThread(() => OpenItem(item)).ConfigureAwait(false);
+                return;
+            }
+
+            var mimeInformation = await _mimeFileService
+                .GetMimeMessageInformationAsync(mailCopy.FileId, mailCopy.AssignedAccount.Id)
+                .ConfigureAwait(false);
+            if (mimeInformation?.MimeMessage is null)
+            {
+                await _dispatcher.ExecuteOnUIThread(() => OpenItem(item)).ConfigureAwait(false);
+                return;
+            }
+
+            var options = new DraftCreationOptions
+            {
+                Reason = DraftCreationReason.Reply,
+                ReferencedMessage = new ReferencedMessage
+                {
+                    MimeMessage = mimeInformation.MimeMessage,
+                    MailCopy = mailCopy,
+                },
+            };
+
+            var (draftMailCopy, draftBase64MimeMessage) = await _mailService
+                .CreateDraftAsync(mailCopy.AssignedAccount.Id, options)
+                .ConfigureAwait(false);
+
+            await _dispatcher.ExecuteOnUIThread(() => CloseRequested?.Invoke(this, EventArgs.Empty)).ConfigureAwait(false);
+            await _requestDelegator.ExecuteAsync(new DraftPreparationRequest(
+                mailCopy.AssignedAccount, draftMailCopy, draftBase64MimeMessage, options.Reason, mailCopy))
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            await _dispatcher.ExecuteOnUIThread(() => _dialogService.InfoBarMessage(
+                Translator.Info_DraftCreationFailed, exception.Message, InfoBarMessageType.Error))
+                .ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Classification reports that a message carries a one-time code but not the code itself, so the
+    /// body is read here. A message whose code cannot be found opens instead of failing silently.
+    /// </summary>
+    private async Task CopyVerificationCodeAsync(DailyBriefingItem item)
+    {
+        if (item.MailUniqueId == Guid.Empty)
+        {
+            return;
+        }
+
+        try
+        {
+            var mailCopy = await _mailService.GetSingleMailItemAsync(item.MailUniqueId).ConfigureAwait(false);
+            var code = mailCopy is { FileId: var fileId } && fileId != Guid.Empty && mailCopy.AssignedAccount is not null
+                ? ExtractCode(await _mimeFileService
+                    .GetMimeMessageInformationAsync(fileId, mailCopy.AssignedAccount.Id)
+                    .ConfigureAwait(false))
+                : null;
+
+            if (string.IsNullOrEmpty(code))
+            {
+                await _dispatcher.ExecuteOnUIThread(() =>
+                {
+                    _dialogService.InfoBarMessage(
+                        Translator.DailyBriefing_Title,
+                        Translator.DailyBriefing_CodeNotFound,
+                        InfoBarMessageType.Information);
+                    OpenItem(item);
+                }).ConfigureAwait(false);
+                return;
+            }
+
+            await _clipboardService.CopyClipboardAsync(code).ConfigureAwait(false);
+            await _dispatcher.ExecuteOnUIThread(() => _dialogService.InfoBarMessage(
+                Translator.DailyBriefing_Title,
+                Translator.DailyBriefing_CodeCopied,
+                InfoBarMessageType.Success)).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            await _dispatcher.ExecuteOnUIThread(() => _dialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                $"{Translator.DailyBriefing_LocalActionError} {exception.Message}",
+                InfoBarMessageType.Error)).ConfigureAwait(false);
+        }
+    }
+
+    private static string? ExtractCode(MimeMessageInformation? mimeInformation)
+    {
+        var message = mimeInformation?.MimeMessage;
+        if (message is null)
+        {
+            return null;
+        }
+
+        return VerificationCodeExtractor.TryExtract(message.TextBody)
+            ?? VerificationCodeExtractor.TryExtract(VerificationCodeExtractor.ToPlainText(message.HtmlBody))
+            ?? VerificationCodeExtractor.TryExtract(message.Subject);
     }
 
     [RelayCommand]
@@ -339,6 +501,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
     public async Task MarkViewedAsync()
     {
         await _localService.MarkViewedAsync().ConfigureAwait(false);
+        _lastViewedUtc = DateTime.UtcNow;
         await _dispatcher.ExecuteOnUIThread(() =>
         {
             NewItemCount = 0;
@@ -350,6 +513,9 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
                 }
             }
         }).ConfigureAwait(false);
+
+        // The title-bar badge is the same unseen state, so it has to be told the briefing was read.
+        WeakReferenceMessenger.Default.Send(new DailyBriefingStateChanged());
     }
 
     internal static string GetInitials(string name)
