@@ -32,7 +32,7 @@ public sealed record DailyBriefingIndicatorState(
 }
 
 /// <summary>
-/// One briefing entry: a message Jev included, described only in terms Jev and Luna can
+/// One briefing entry: a message Classification included, described only in terms Classification and Summarization can
 /// actually support.
 /// </summary>
 public sealed record DailyBriefingFact(

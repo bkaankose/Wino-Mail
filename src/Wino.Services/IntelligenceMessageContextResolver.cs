@@ -240,7 +240,11 @@ public sealed class IntelligenceMessageContextResolver(
                 .Select(static part => new SemanticMailAttachment(
                     part.FileName ?? string.Empty,
                     part.ContentType.MimeType ?? string.Empty))
-                .ToArray());
+                .ToArray(),
+            // Read from the header rather than inferred from the body. Whether a message
+            // can be unsubscribed from is a fact, and the classifier uses it to decide
+            // whether an Unsubscribe action can be offered at all.
+            message.Headers.Contains(MimeKit.HeaderId.ListUnsubscribe));
     }
 
     private class AvailabilityRow

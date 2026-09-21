@@ -41,8 +41,8 @@ public interface IWinoAccountApiClient
         Guid mailboxId, Guid jobId, string checksum, byte[] upload, CancellationToken cancellationToken = default);
     Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(CancellationToken cancellationToken = default);
     Task<MailIntelligenceJobDto?> GetMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);
-    Task<JevResultPageDto> GetJevResultPageAsync(Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default);
-    Task<LunaResultPageDto> GetLunaResultPageAsync(Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default);
+    Task<ClassificationResultPageDto> GetClassificationResultPageAsync(Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default);
+    Task<SummaryResultPageDto> GetSummaryResultPageAsync(Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default);
     Task<MailIntelligenceStageAckResultDto> AcknowledgeMailIntelligenceStageAsync(
         Guid mailboxId, Guid jobId, string stage, string digest, CancellationToken cancellationToken = default);
     Task CancelMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);

@@ -4,13 +4,13 @@ using SQLite;
 namespace Wino.Core.Domain.Entities.Intelligence;
 
 /// <summary>
-/// The Jev decision for one message.
+/// The Classification decision for one message.
 /// Keyed by account, remote message id and content hash: an artifact whose hash no longer
 /// matches the locally desired content is stale and is ignored rather than merged.
 /// There is no revision column - results are device-local and immutable.
 /// </summary>
-[Table("JevArtifact")]
-public sealed class JevArtifactRow
+[Table("ClassificationArtifact")]
+public sealed class ClassificationArtifactRow
 {
     /// <summary>"{localAccountId:D}|{remoteMessageId}".</summary>
     [PrimaryKey]
@@ -29,8 +29,22 @@ public sealed class JevArtifactRow
 
     public string Priority { get; set; } = "normal";
 
+    /// <summary>
+    /// The one action the briefing offers for this message, lowercase. Decided during
+    /// classification, so the briefing never has to parse it out of generated text.
+    /// </summary>
+    public string Action { get; set; } = "none";
+
     [Indexed]
     public bool IncludeInBriefing { get; set; }
+
+    /// <summary>
+    /// The raw probabilities behind the decision, as JSON. Stored because retuning a
+    /// threshold should read these back rather than re-submit the mailbox: the evidence
+    /// and the questions did not change, only the policy did.
+    /// Empty for rows imported before signals were sent.
+    /// </summary>
+    public string SignalsJson { get; set; } = string.Empty;
 
     public DateTime CompletedUtc { get; set; }
 
@@ -45,9 +59,9 @@ public sealed class JevArtifactRow
         => $"{localAccountId:D}|{remoteMessageId}";
 }
 
-/// <summary>The Luna headline and summary for one briefing-included message.</summary>
-[Table("LunaArtifact")]
-public sealed class LunaArtifactRow
+/// <summary>The Summarization headline and summary for one briefing-included message.</summary>
+[Table("SummaryArtifact")]
+public sealed class SummaryArtifactRow
 {
     [PrimaryKey]
     public string Key { get; set; } = string.Empty;
@@ -86,17 +100,17 @@ public sealed class MailIntelligenceJobRow
 
     public string Status { get; set; } = "pending";
 
-    public string JevStatus { get; set; } = "pending";
-    public int JevPageCount { get; set; }
-    public string? JevDigest { get; set; }
-    public bool IsJevImported { get; set; }
-    public bool IsJevAcknowledged { get; set; }
+    public string ClassificationStatus { get; set; } = "pending";
+    public int ClassificationPageCount { get; set; }
+    public string? ClassificationDigest { get; set; }
+    public bool IsClassificationImported { get; set; }
+    public bool IsClassificationAcknowledged { get; set; }
 
-    public string LunaStatus { get; set; } = "pending";
-    public int LunaPageCount { get; set; }
-    public string? LunaDigest { get; set; }
-    public bool IsLunaImported { get; set; }
-    public bool IsLunaAcknowledged { get; set; }
+    public string SummarizationStatus { get; set; } = "pending";
+    public int SummarizationPageCount { get; set; }
+    public string? SummarizationDigest { get; set; }
+    public bool IsSummarizationImported { get; set; }
+    public bool IsSummarizationAcknowledged { get; set; }
 
     public int FailedCount { get; set; }
     public string? LastError { get; set; }
@@ -104,7 +118,7 @@ public sealed class MailIntelligenceJobRow
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
 
-    public bool IsComplete => IsJevAcknowledged && IsLunaAcknowledged;
+    public bool IsComplete => IsClassificationAcknowledged && IsSummarizationAcknowledged;
 }
 
 /// <summary>

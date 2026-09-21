@@ -51,7 +51,12 @@ public sealed class MailIntelligenceCoordinator(
     private readonly ConcurrentDictionary<Guid, List<string>> _synchronizedQueues = new();
     private readonly ConcurrentDictionary<string, Task> _singleMessageRuns = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _lifecycle = new();
+    private readonly Lock _resumeLoopGate = new();
+    private Task? _resumeLoop;
     private volatile bool _acceptingWork = true;
+
+    /// <summary>How often an unfinished job is re-checked while the app is running.</summary>
+    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(20);
 
     public Task InitializeAsync()
     {
@@ -64,7 +69,73 @@ public sealed class MailIntelligenceCoordinator(
         messenger.Register<WinoAccountSignedInMessage>(this, static (recipient, _) =>
             ((MailIntelligenceCoordinator)recipient).ResumeWork());
 
+        // A job submitted in an earlier session is still waiting on the server. Nothing
+        // else will ask about it: the only other poll happens at the end of a submission,
+        // so without this a quiet mailbox never collects its results, never acknowledges
+        // the stages, and the server therefore never deletes the job's blobs.
+        _resumeLoop = Task.Run(() => ResumePendingJobsAsync(_lifecycle.Token));
+
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Polls unfinished jobs until none remain. Runs at launch and whenever a submission
+    /// adds work, so a job outlives the session that created it.
+    /// </summary>
+    private async Task ResumePendingJobsAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                var jobs = await store.GetUnfinishedJobsAsync(cancellationToken).ConfigureAwait(false);
+                if (jobs.Count == 0)
+                {
+                    return;
+                }
+
+                await PollAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch
+            {
+                // Intelligence must never break the app. The next tick tries again.
+            }
+
+            try
+            {
+                await Task.Delay(PollInterval, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Restarts the poll loop if it has finished because nothing was outstanding. Called
+    /// after a submission so newly created jobs are followed to completion.
+    /// </summary>
+    private void EnsureResumeLoopRunning()
+    {
+        if (_lifecycle.IsCancellationRequested)
+        {
+            return;
+        }
+
+        lock (_resumeLoopGate)
+        {
+            if (_resumeLoop is { IsCompleted: false })
+            {
+                return;
+            }
+
+            _resumeLoop = Task.Run(() => ResumePendingJobsAsync(_lifecycle.Token));
+        }
     }
 
     // ---- submission ----------------------------------------------------------------
@@ -132,6 +203,10 @@ public sealed class MailIntelligenceCoordinator(
 
             SetSnapshot(localMailAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Waiting });
             await PollAsync(cancellationToken).ConfigureAwait(false);
+
+            // Whatever this poll did not finish is followed by the resume loop, so results
+            // arrive even if the app is closed and reopened before the server is done.
+            EnsureResumeLoopRunning();
         }
         catch (OperationCanceledException)
         {
@@ -271,6 +346,7 @@ public sealed class MailIntelligenceCoordinator(
             HasLaterOutgoingReply = candidate.HasLaterOutgoingReply,
             ProviderImportance = candidate.ProviderImportance,
             RemoteFolderIds = candidate.RemoteFolderIds,
+            HasListUnsubscribe = content.HasListUnsubscribe,
         };
     }
 
@@ -318,30 +394,30 @@ public sealed class MailIntelligenceCoordinator(
         var updated = job with
         {
             Status = remote.Status,
-            Jev = job.Jev with { Status = remote.Jev.Status, PageCount = remote.Jev.PageCount, Digest = remote.Jev.ResultDigest },
-            Luna = job.Luna with { Status = remote.Luna.Status, PageCount = remote.Luna.PageCount, Digest = remote.Luna.ResultDigest },
-            FailedCount = remote.Jev.FailedCount + remote.Luna.FailedCount,
+            Classification = job.Classification with { Status = remote.Classification.Status, PageCount = remote.Classification.PageCount, Digest = remote.Classification.ResultDigest },
+            Summarization = job.Summarization with { Status = remote.Summarization.Status, PageCount = remote.Summarization.PageCount, Digest = remote.Summarization.ResultDigest },
+            FailedCount = remote.Classification.FailedCount + remote.Summarization.FailedCount,
         };
         await store.UpsertJobAsync(updated, cancellationToken).ConfigureAwait(false);
 
         SetSnapshot(job.LocalAccountId, snapshot => snapshot with
         {
             Status = MailIntelligenceJobStatus.Downloading,
-            Jev = new MailIntelligenceStageProgress(remote.Jev.Status, remote.Jev.PageCount, updated.Jev.IsImported, remote.Jev.IsAcknowledged),
-            Luna = new MailIntelligenceStageProgress(remote.Luna.Status, remote.Luna.PageCount, updated.Luna.IsImported, remote.Luna.IsAcknowledged),
+            Classification = new MailIntelligenceStageProgress(remote.Classification.Status, remote.Classification.PageCount, updated.Classification.IsImported, remote.Classification.IsAcknowledged),
+            Summarization = new MailIntelligenceStageProgress(remote.Summarization.Status, remote.Summarization.PageCount, updated.Summarization.IsImported, remote.Summarization.IsAcknowledged),
             FailedMessageCount = updated.FailedCount,
         });
 
-        // Jev is published first and imported first, so labels and priority appear before
+        // Classification is published first and imported first, so labels and priority appear before
         // any headline exists.
-        if (remote.Jev.Status == MailIntelligenceStageStatuses.Published && !updated.Jev.IsAcknowledged)
+        if (remote.Classification.Status == MailIntelligenceStageStatuses.Published && !updated.Classification.IsAcknowledged)
         {
-            await ImportJevStageAsync(updated, remote, cancellationToken).ConfigureAwait(false);
+            await ImportClassificationStageAsync(updated, remote, cancellationToken).ConfigureAwait(false);
         }
 
-        if (remote.Luna.Status == MailIntelligenceStageStatuses.Published && !updated.Luna.IsAcknowledged)
+        if (remote.Summarization.Status == MailIntelligenceStageStatuses.Published && !updated.Summarization.IsAcknowledged)
         {
-            await ImportLunaStageAsync(updated, remote, cancellationToken).ConfigureAwait(false);
+            await ImportSummarizationStageAsync(updated, remote, cancellationToken).ConfigureAwait(false);
         }
 
         var latest = await store.GetJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
@@ -354,38 +430,40 @@ public sealed class MailIntelligenceCoordinator(
         }
     }
 
-    private async Task ImportJevStageAsync(
+    private async Task ImportClassificationStageAsync(
         MailIntelligenceJobState job, MailIntelligenceJobDto remote, CancellationToken cancellationToken)
     {
         var imported = 0;
-        for (var page = 0; page < remote.Jev.PageCount; page++)
+        for (var page = 0; page < remote.Classification.PageCount; page++)
         {
             var dto = await apiClient
-                .GetJevResultPageAsync(job.MailboxId, job.JobId, page, cancellationToken)
+                .GetClassificationResultPageAsync(job.MailboxId, job.JobId, page, cancellationToken)
                 .ConfigureAwait(false);
 
             var artifacts = dto.Items
-                .Select(item => new JevArtifact(
+                .Select(item => new ClassificationArtifact(
                     new MailArtifactKey(item.Identity.RemoteMessageId, item.Identity.ContentHash),
                     [.. item.Labels.Select(static label => label.ToString().ToLowerInvariant())],
                     item.Priority.ToString().ToLowerInvariant(),
+                    item.Action.ToString().ToLowerInvariant(),
                     item.IncludeInBriefing,
-                    item.CompletedUtc.UtcDateTime))
+                    item.CompletedUtc.UtcDateTime,
+                    MapSignals(item.Signals)))
                 .ToArray();
 
             var desired = await ResolveDesiredHashesAsync(
                 job.LocalAccountId, artifacts.Select(static x => x.Key.RemoteMessageId), cancellationToken).ConfigureAwait(false);
 
-            var result = await store.ImportJevPageAsync(
+            var result = await store.ImportClassificationPageAsync(
                 job.LocalAccountId, artifacts, MapFailures(dto.Failures), desired, cancellationToken).ConfigureAwait(false);
             imported += result.Imported;
         }
 
         // The import has committed, so the stage can be acknowledged.
-        await store.MarkStageImportedAsync(job.JobId, MailIntelligenceStageKind.Jev, cancellationToken).ConfigureAwait(false);
+        await store.MarkStageImportedAsync(job.JobId, MailIntelligenceStageKind.Classification, cancellationToken).ConfigureAwait(false);
         await apiClient.AcknowledgeMailIntelligenceStageAsync(
-            job.MailboxId, job.JobId, "jev", remote.Jev.ResultDigest ?? string.Empty, cancellationToken).ConfigureAwait(false);
-        await store.MarkStageAcknowledgedAsync(job.JobId, MailIntelligenceStageKind.Jev, cancellationToken).ConfigureAwait(false);
+            job.MailboxId, job.JobId, "classification", remote.Classification.ResultDigest ?? string.Empty, cancellationToken).ConfigureAwait(false);
+        await store.MarkStageAcknowledgedAsync(job.JobId, MailIntelligenceStageKind.Classification, cancellationToken).ConfigureAwait(false);
 
         SetSnapshot(job.LocalAccountId, snapshot => snapshot with
         {
@@ -395,17 +473,17 @@ public sealed class MailIntelligenceCoordinator(
             job.LocalAccountId, new HashSet<string>(StringComparer.Ordinal), IntelligenceMetadataChangeScope.Messages));
     }
 
-    private async Task ImportLunaStageAsync(
+    private async Task ImportSummarizationStageAsync(
         MailIntelligenceJobState job, MailIntelligenceJobDto remote, CancellationToken cancellationToken)
     {
-        for (var page = 0; page < remote.Luna.PageCount; page++)
+        for (var page = 0; page < remote.Summarization.PageCount; page++)
         {
             var dto = await apiClient
-                .GetLunaResultPageAsync(job.MailboxId, job.JobId, page, cancellationToken)
+                .GetSummaryResultPageAsync(job.MailboxId, job.JobId, page, cancellationToken)
                 .ConfigureAwait(false);
 
             var artifacts = dto.Items
-                .Select(item => new LunaArtifact(
+                .Select(item => new SummaryArtifact(
                     new MailArtifactKey(item.Identity.RemoteMessageId, item.Identity.ContentHash),
                     item.Headline,
                     item.Summary,
@@ -415,14 +493,14 @@ public sealed class MailIntelligenceCoordinator(
             var desired = await ResolveDesiredHashesAsync(
                 job.LocalAccountId, artifacts.Select(static x => x.Key.RemoteMessageId), cancellationToken).ConfigureAwait(false);
 
-            await store.ImportLunaPageAsync(
+            await store.ImportSummaryPageAsync(
                 job.LocalAccountId, artifacts, MapFailures(dto.Failures), desired, cancellationToken).ConfigureAwait(false);
         }
 
-        await store.MarkStageImportedAsync(job.JobId, MailIntelligenceStageKind.Luna, cancellationToken).ConfigureAwait(false);
+        await store.MarkStageImportedAsync(job.JobId, MailIntelligenceStageKind.Summarization, cancellationToken).ConfigureAwait(false);
         await apiClient.AcknowledgeMailIntelligenceStageAsync(
-            job.MailboxId, job.JobId, "luna", remote.Luna.ResultDigest ?? string.Empty, cancellationToken).ConfigureAwait(false);
-        await store.MarkStageAcknowledgedAsync(job.JobId, MailIntelligenceStageKind.Luna, cancellationToken).ConfigureAwait(false);
+            job.MailboxId, job.JobId, "summarization", remote.Summarization.ResultDigest ?? string.Empty, cancellationToken).ConfigureAwait(false);
+        await store.MarkStageAcknowledgedAsync(job.JobId, MailIntelligenceStageKind.Summarization, cancellationToken).ConfigureAwait(false);
 
         messenger.Send(new IntelligenceMetadataChanged(
             job.LocalAccountId, new HashSet<string>(StringComparer.Ordinal), IntelligenceMetadataChangeScope.Messages));
@@ -474,10 +552,31 @@ public sealed class MailIntelligenceCoordinator(
     private static IReadOnlyList<MailIntelligenceItemFailure> MapFailures(IReadOnlyList<MailIntelligenceFailureDto> failures)
         => [.. failures.Select(failure => new MailIntelligenceItemFailure(
             new MailArtifactKey(failure.Identity.RemoteMessageId, failure.Identity.ContentHash),
-            string.Equals(failure.Stage, "luna", StringComparison.Ordinal)
-                ? MailIntelligenceStageKind.Luna
-                : MailIntelligenceStageKind.Jev,
+            string.Equals(failure.Stage, "summarization", StringComparison.Ordinal)
+                ? MailIntelligenceStageKind.Summarization
+                : MailIntelligenceStageKind.Classification,
             failure.ErrorCode))];
+
+    /// <summary>
+    /// Keeps the raw probabilities the server sent, in the lowercase names the rest of the
+    /// app uses. They are stored rather than dropped so a threshold change can be applied
+    /// to mail that has already been classified.
+    /// </summary>
+    private static ClassificationSignals MapSignals(MailClassificationSignalsDto signals)
+        => new(
+            signals.LabelProbabilities.ToDictionary(
+                static entry => entry.Key.ToString().ToLowerInvariant(),
+                static entry => entry.Value,
+                StringComparer.Ordinal),
+            signals.BriefingProbability,
+            signals.PriorityScore,
+            signals.PriorityProbabilities.ToDictionary(
+                static entry => entry.Key.ToString().ToLowerInvariant(),
+                static entry => entry.Value,
+                StringComparer.Ordinal),
+            signals.TopAction.ToString().ToLowerInvariant(),
+            signals.TopActionProbability,
+            signals.ActionConfidence);
 
     // ---- single message ------------------------------------------------------------
 
@@ -524,27 +623,29 @@ public sealed class MailIntelligenceCoordinator(
             };
 
             // Both artifacts are imported before the caller's UI action completes.
-            await store.ImportJevPageAsync(
+            await store.ImportClassificationPageAsync(
                 localMailAccountId,
-                [new JevArtifact(
-                    new MailArtifactKey(response.Jev.Identity.RemoteMessageId, response.Jev.Identity.ContentHash),
-                    [.. response.Jev.Labels.Select(static label => label.ToString().ToLowerInvariant())],
-                    response.Jev.Priority.ToString().ToLowerInvariant(),
-                    response.Jev.IncludeInBriefing,
-                    response.Jev.CompletedUtc.UtcDateTime)],
+                [new ClassificationArtifact(
+                    new MailArtifactKey(response.Classification.Identity.RemoteMessageId, response.Classification.Identity.ContentHash),
+                    [.. response.Classification.Labels.Select(static label => label.ToString().ToLowerInvariant())],
+                    response.Classification.Priority.ToString().ToLowerInvariant(),
+                    response.Classification.Action.ToString().ToLowerInvariant(),
+                    response.Classification.IncludeInBriefing,
+                    response.Classification.CompletedUtc.UtcDateTime,
+                    MapSignals(response.Classification.Signals))],
                 [],
                 desired,
                 cancellationToken).ConfigureAwait(false);
 
-            if (response.Luna is { } luna)
+            if (response.Summary is { } summary)
             {
-                await store.ImportLunaPageAsync(
+                await store.ImportSummaryPageAsync(
                     localMailAccountId,
-                    [new LunaArtifact(
-                        new MailArtifactKey(luna.Identity.RemoteMessageId, luna.Identity.ContentHash),
-                        luna.Headline,
-                        luna.Summary,
-                        luna.CompletedUtc.UtcDateTime)],
+                    [new SummaryArtifact(
+                        new MailArtifactKey(summary.Identity.RemoteMessageId, summary.Identity.ContentHash),
+                        summary.Headline,
+                        summary.Summary,
+                        summary.CompletedUtc.UtcDateTime)],
                     [],
                     desired,
                     cancellationToken).ConfigureAwait(false);
@@ -649,7 +750,7 @@ public sealed class MailIntelligenceCoordinator(
         }
 
         var artifacts = await store
-            .GetJevArtifactsAsync(localMailAccountId, [candidate.RemoteMessageId], cancellationToken)
+            .GetClassificationArtifactsAsync(localMailAccountId, [candidate.RemoteMessageId], cancellationToken)
             .ConfigureAwait(false);
         if (artifacts.ContainsKey(candidate.RemoteMessageId))
         {
@@ -808,6 +909,18 @@ public sealed class MailIntelligenceCoordinator(
         _acceptingWork = false;
         messenger.UnregisterAll(this);
         await _lifecycle.CancelAsync().ConfigureAwait(false);
+
+        if (_resumeLoop is { } loop)
+        {
+            try
+            {
+                await loop.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
         _lifecycle.Dispose();
     }
 }

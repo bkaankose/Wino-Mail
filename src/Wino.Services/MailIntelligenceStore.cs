@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using SQLite;
@@ -51,8 +53,8 @@ public sealed class MailIntelligenceStore(
                 GetDatabasePath(),
                 SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex);
 
-            await connection.CreateTableAsync<JevArtifactRow>().ConfigureAwait(false);
-            await connection.CreateTableAsync<LunaArtifactRow>().ConfigureAwait(false);
+            await connection.CreateTableAsync<ClassificationArtifactRow>().ConfigureAwait(false);
+            await connection.CreateTableAsync<SummaryArtifactRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<MailIntelligenceJobRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<BriefingIgnoreRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<BriefingViewStateRow>().ConfigureAwait(false);
@@ -92,16 +94,16 @@ public sealed class MailIntelligenceStore(
             MailboxId = job.MailboxId,
             MessageCount = job.MessageCount,
             Status = job.Status,
-            JevStatus = job.Jev.Status,
-            JevPageCount = job.Jev.PageCount,
-            JevDigest = job.Jev.Digest,
-            IsJevImported = job.Jev.IsImported,
-            IsJevAcknowledged = job.Jev.IsAcknowledged,
-            LunaStatus = job.Luna.Status,
-            LunaPageCount = job.Luna.PageCount,
-            LunaDigest = job.Luna.Digest,
-            IsLunaImported = job.Luna.IsImported,
-            IsLunaAcknowledged = job.Luna.IsAcknowledged,
+            ClassificationStatus = job.Classification.Status,
+            ClassificationPageCount = job.Classification.PageCount,
+            ClassificationDigest = job.Classification.Digest,
+            IsClassificationImported = job.Classification.IsImported,
+            IsClassificationAcknowledged = job.Classification.IsAcknowledged,
+            SummarizationStatus = job.Summarization.Status,
+            SummarizationPageCount = job.Summarization.PageCount,
+            SummarizationDigest = job.Summarization.Digest,
+            IsSummarizationImported = job.Summarization.IsImported,
+            IsSummarizationAcknowledged = job.Summarization.IsAcknowledged,
             FailedCount = job.FailedCount,
             LastError = job.LastError,
             CreatedUtc = job.CreatedUtc,
@@ -123,7 +125,7 @@ public sealed class MailIntelligenceStore(
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         var rows = await lease.Connection.Table<MailIntelligenceJobRow>()
-            .Where(x => !x.IsJevAcknowledged || !x.IsLunaAcknowledged)
+            .Where(x => !x.IsClassificationAcknowledged || !x.IsSummarizationAcknowledged)
             .OrderBy(x => x.CreatedUtc)
             .ToListAsync()
             .ConfigureAwait(false);
@@ -150,16 +152,16 @@ public sealed class MailIntelligenceStore(
 
     // ---- imports -------------------------------------------------------------------
 
-    public async Task<MailIntelligenceImportResult> ImportJevPageAsync(
+    public async Task<MailIntelligenceImportResult> ImportClassificationPageAsync(
         Guid localAccountId,
-        IReadOnlyList<JevArtifact> artifacts,
+        IReadOnlyList<ClassificationArtifact> artifacts,
         IReadOnlyList<MailIntelligenceItemFailure> failures,
         IReadOnlyDictionary<string, string> desiredHashes,
         CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
 
-        var fresh = new List<JevArtifact>();
+        var fresh = new List<ClassificationArtifact>();
         var stale = 0;
         foreach (var artifact in artifacts)
         {
@@ -173,7 +175,7 @@ public sealed class MailIntelligenceStore(
         }
 
         var now = DateTime.UtcNow;
-        var existing = await LoadFirstImportedAsync<JevArtifactRow>(
+        var existing = await LoadFirstImportedAsync<ClassificationArtifactRow>(
             lease.Connection, localAccountId, fresh.Select(x => x.Key.RemoteMessageId)).ConfigureAwait(false);
 
         // One transaction per page. The stage is only acknowledged after this commits.
@@ -181,8 +183,8 @@ public sealed class MailIntelligenceStore(
         {
             foreach (var artifact in fresh)
             {
-                var key = JevArtifactRow.BuildKey(localAccountId, artifact.Key.RemoteMessageId);
-                connection.InsertOrReplace(new JevArtifactRow
+                var key = ClassificationArtifactRow.BuildKey(localAccountId, artifact.Key.RemoteMessageId);
+                connection.InsertOrReplace(new ClassificationArtifactRow
                 {
                     Key = key,
                     LocalAccountId = localAccountId,
@@ -190,28 +192,30 @@ public sealed class MailIntelligenceStore(
                     ContentHash = artifact.Key.ContentHash,
                     Labels = string.Join(',', artifact.Labels),
                     Priority = artifact.Priority,
+                    Action = artifact.Action,
                     IncludeInBriefing = artifact.IncludeInBriefing,
+                    SignalsJson = SerializeSignals(artifact.Signals),
                     CompletedUtc = artifact.CompletedUtc,
                     // Re-importing the same identity keeps the original arrival time, so a
                     // duplicate result never makes an old card look new.
                     FirstImportedUtc = existing.TryGetValue(artifact.Key.RemoteMessageId, out var first) ? first : now,
-                }, typeof(JevArtifactRow));
+                }, typeof(ClassificationArtifactRow));
             }
         }).ConfigureAwait(false);
 
         return new MailIntelligenceImportResult(fresh.Count, stale, failures.Count);
     }
 
-    public async Task<MailIntelligenceImportResult> ImportLunaPageAsync(
+    public async Task<MailIntelligenceImportResult> ImportSummaryPageAsync(
         Guid localAccountId,
-        IReadOnlyList<LunaArtifact> artifacts,
+        IReadOnlyList<SummaryArtifact> artifacts,
         IReadOnlyList<MailIntelligenceItemFailure> failures,
         IReadOnlyDictionary<string, string> desiredHashes,
         CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
 
-        var fresh = new List<LunaArtifact>();
+        var fresh = new List<SummaryArtifact>();
         var stale = 0;
         foreach (var artifact in artifacts)
         {
@@ -225,16 +229,16 @@ public sealed class MailIntelligenceStore(
         }
 
         var now = DateTime.UtcNow;
-        var existing = await LoadFirstImportedAsync<LunaArtifactRow>(
+        var existing = await LoadFirstImportedAsync<SummaryArtifactRow>(
             lease.Connection, localAccountId, fresh.Select(x => x.Key.RemoteMessageId)).ConfigureAwait(false);
 
         await lease.Connection.RunInTransactionAsync(connection =>
         {
             foreach (var artifact in fresh)
             {
-                connection.InsertOrReplace(new LunaArtifactRow
+                connection.InsertOrReplace(new SummaryArtifactRow
                 {
-                    Key = LunaArtifactRow.BuildKey(localAccountId, artifact.Key.RemoteMessageId),
+                    Key = SummaryArtifactRow.BuildKey(localAccountId, artifact.Key.RemoteMessageId),
                     LocalAccountId = localAccountId,
                     RemoteMessageId = artifact.Key.RemoteMessageId,
                     ContentHash = artifact.Key.ContentHash,
@@ -242,7 +246,7 @@ public sealed class MailIntelligenceStore(
                     Summary = artifact.Summary,
                     CompletedUtc = artifact.CompletedUtc,
                     FirstImportedUtc = existing.TryGetValue(artifact.Key.RemoteMessageId, out var first) ? first : now,
-                }, typeof(LunaArtifactRow));
+                }, typeof(SummaryArtifactRow));
             }
         }).ConfigureAwait(false);
 
@@ -272,7 +276,7 @@ public sealed class MailIntelligenceStore(
             return result;
         }
 
-        var table = typeof(TRow) == typeof(JevArtifactRow) ? "JevArtifact" : "LunaArtifact";
+        var table = typeof(TRow) == typeof(ClassificationArtifactRow) ? "ClassificationArtifact" : "SummaryArtifact";
         foreach (var chunk in ids.Chunk(400))
         {
             var parameters = new object[chunk.Length + 1];
@@ -305,26 +309,26 @@ public sealed class MailIntelligenceStore(
     public async Task MarkStageImportedAsync(Guid jobId, MailIntelligenceStageKind stage, CancellationToken cancellationToken = default)
         => await UpdateJobRowAsync(jobId, row =>
         {
-            if (stage == MailIntelligenceStageKind.Jev)
+            if (stage == MailIntelligenceStageKind.Classification)
             {
-                row.IsJevImported = true;
+                row.IsClassificationImported = true;
             }
             else
             {
-                row.IsLunaImported = true;
+                row.IsSummarizationImported = true;
             }
         }, cancellationToken).ConfigureAwait(false);
 
     public async Task MarkStageAcknowledgedAsync(Guid jobId, MailIntelligenceStageKind stage, CancellationToken cancellationToken = default)
         => await UpdateJobRowAsync(jobId, row =>
         {
-            if (stage == MailIntelligenceStageKind.Jev)
+            if (stage == MailIntelligenceStageKind.Classification)
             {
-                row.IsJevAcknowledged = true;
+                row.IsClassificationAcknowledged = true;
             }
             else
             {
-                row.IsLunaAcknowledged = true;
+                row.IsSummarizationAcknowledged = true;
             }
         }, cancellationToken).ConfigureAwait(false);
 
@@ -347,14 +351,14 @@ public sealed class MailIntelligenceStore(
 
     // ---- artifacts -----------------------------------------------------------------
 
-    public async Task<IReadOnlyDictionary<string, JevArtifact>> GetJevArtifactsAsync(
+    public async Task<IReadOnlyDictionary<string, ClassificationArtifact>> GetClassificationArtifactsAsync(
         Guid localAccountId, IReadOnlyCollection<string> remoteMessageIds, CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var result = new Dictionary<string, JevArtifact>(StringComparer.Ordinal);
+        var result = new Dictionary<string, ClassificationArtifact>(StringComparer.Ordinal);
         foreach (var chunk in remoteMessageIds.Distinct(StringComparer.Ordinal).Chunk(400))
         {
-            var rows = await QueryByIdsAsync<JevArtifactRow>(lease.Connection, "JevArtifact", localAccountId, chunk).ConfigureAwait(false);
+            var rows = await QueryByIdsAsync<ClassificationArtifactRow>(lease.Connection, "ClassificationArtifact", localAccountId, chunk).ConfigureAwait(false);
             foreach (var row in rows)
             {
                 result[row.RemoteMessageId] = Map(row);
@@ -364,14 +368,14 @@ public sealed class MailIntelligenceStore(
         return result;
     }
 
-    public async Task<IReadOnlyDictionary<string, LunaArtifact>> GetLunaArtifactsAsync(
+    public async Task<IReadOnlyDictionary<string, SummaryArtifact>> GetSummaryArtifactsAsync(
         Guid localAccountId, IReadOnlyCollection<string> remoteMessageIds, CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var result = new Dictionary<string, LunaArtifact>(StringComparer.Ordinal);
+        var result = new Dictionary<string, SummaryArtifact>(StringComparer.Ordinal);
         foreach (var chunk in remoteMessageIds.Distinct(StringComparer.Ordinal).Chunk(400))
         {
-            var rows = await QueryByIdsAsync<LunaArtifactRow>(lease.Connection, "LunaArtifact", localAccountId, chunk).ConfigureAwait(false);
+            var rows = await QueryByIdsAsync<SummaryArtifactRow>(lease.Connection, "SummaryArtifact", localAccountId, chunk).ConfigureAwait(false);
             foreach (var row in rows)
             {
                 result[row.RemoteMessageId] = Map(row);
@@ -384,15 +388,15 @@ public sealed class MailIntelligenceStore(
     public async Task<IReadOnlySet<string>> GetProcessedMessageIdsAsync(
         Guid localAccountId, IReadOnlyCollection<string> remoteMessageIds, CancellationToken cancellationToken = default)
     {
-        var artifacts = await GetJevArtifactsAsync(localAccountId, remoteMessageIds, cancellationToken).ConfigureAwait(false);
+        var artifacts = await GetClassificationArtifactsAsync(localAccountId, remoteMessageIds, cancellationToken).ConfigureAwait(false);
         return artifacts.Keys.ToHashSet(StringComparer.Ordinal);
     }
 
-    public async Task<IReadOnlyList<JevArtifact>> GetBriefingCandidatesAsync(
+    public async Task<IReadOnlyList<ClassificationArtifact>> GetBriefingCandidatesAsync(
         Guid localAccountId, CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var rows = await lease.Connection.Table<JevArtifactRow>()
+        var rows = await lease.Connection.Table<ClassificationArtifactRow>()
             .Where(x => x.LocalAccountId == localAccountId && x.IncludeInBriefing)
             .ToListAsync()
             .ConfigureAwait(false);
@@ -403,7 +407,7 @@ public sealed class MailIntelligenceStore(
         Guid localAccountId, string remoteMessageId, CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var row = await lease.Connection.Table<JevArtifactRow>()
+        var row = await lease.Connection.Table<ClassificationArtifactRow>()
             .Where(x => x.LocalAccountId == localAccountId && x.RemoteMessageId == remoteMessageId)
             .FirstOrDefaultAsync()
             .ConfigureAwait(false);
@@ -555,8 +559,8 @@ public sealed class MailIntelligenceStore(
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         await lease.Connection.RunInTransactionAsync(connection =>
         {
-            connection.Execute("DELETE FROM JevArtifact WHERE LocalAccountId = ?", localAccountId);
-            connection.Execute("DELETE FROM LunaArtifact WHERE LocalAccountId = ?", localAccountId);
+            connection.Execute("DELETE FROM ClassificationArtifact WHERE LocalAccountId = ?", localAccountId);
+            connection.Execute("DELETE FROM SummaryArtifact WHERE LocalAccountId = ?", localAccountId);
             connection.Execute("DELETE FROM MailIntelligenceJob WHERE LocalAccountId = ?", localAccountId);
             connection.Execute("DELETE FROM BriefingIgnore WHERE LocalAccountId = ?", localAccountId);
             connection.Execute("DELETE FROM BriefingViewState WHERE LocalAccountId = ?", localAccountId);
@@ -616,21 +620,49 @@ public sealed class MailIntelligenceStore(
         row.MailboxId,
         row.MessageCount,
         row.Status,
-        new MailIntelligenceStageState(row.JevStatus, row.JevPageCount, row.JevDigest, row.IsJevImported, row.IsJevAcknowledged),
-        new MailIntelligenceStageState(row.LunaStatus, row.LunaPageCount, row.LunaDigest, row.IsLunaImported, row.IsLunaAcknowledged),
+        new MailIntelligenceStageState(row.ClassificationStatus, row.ClassificationPageCount, row.ClassificationDigest, row.IsClassificationImported, row.IsClassificationAcknowledged),
+        new MailIntelligenceStageState(row.SummarizationStatus, row.SummarizationPageCount, row.SummarizationDigest, row.IsSummarizationImported, row.IsSummarizationAcknowledged),
         row.FailedCount,
         row.LastError,
         row.CreatedUtc,
         row.UpdatedUtc);
 
-    private static JevArtifact Map(JevArtifactRow row) => new(
+    private static ClassificationArtifact Map(ClassificationArtifactRow row) => new(
         new MailArtifactKey(row.RemoteMessageId, row.ContentHash),
         string.IsNullOrEmpty(row.Labels) ? [] : row.Labels.Split(',', StringSplitOptions.RemoveEmptyEntries),
         row.Priority,
+        row.Action,
         row.IncludeInBriefing,
-        row.CompletedUtc);
+        row.CompletedUtc,
+        DeserializeSignals(row.SignalsJson));
 
-    private static LunaArtifact Map(LunaArtifactRow row) => new(
+    private static string SerializeSignals(ClassificationSignals signals)
+        => JsonSerializer.Serialize(signals, MailIntelligenceSignalsJsonContext.Default.ClassificationSignals);
+
+    /// <summary>
+    /// Reads the stored signals back. A row written before signals existed, or one whose
+    /// payload cannot be read, falls back to empty rather than failing the import: the
+    /// decision itself is in its own columns and stands on its own.
+    /// </summary>
+    private static ClassificationSignals DeserializeSignals(string json)
+    {
+        if (string.IsNullOrEmpty(json))
+        {
+            return ClassificationSignals.Empty;
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(json, MailIntelligenceSignalsJsonContext.Default.ClassificationSignals)
+                ?? ClassificationSignals.Empty;
+        }
+        catch (JsonException)
+        {
+            return ClassificationSignals.Empty;
+        }
+    }
+
+    private static SummaryArtifact Map(SummaryArtifactRow row) => new(
         new MailArtifactKey(row.RemoteMessageId, row.ContentHash),
         row.Headline,
         row.Summary,
@@ -661,3 +693,7 @@ public sealed class MailIntelligenceStore(
         public void Dispose() => operationLock.Release();
     }
 }
+
+[JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
+[JsonSerializable(typeof(ClassificationSignals))]
+internal sealed partial class MailIntelligenceSignalsJsonContext : JsonSerializerContext;

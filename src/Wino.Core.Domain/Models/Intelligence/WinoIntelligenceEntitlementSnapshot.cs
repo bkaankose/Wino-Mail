@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using Wino.Mail.Api.Contracts.Billing;
+using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Contracts.Intelligence;
 
 namespace Wino.Core.Domain.Models.Intelligence;
@@ -51,8 +52,9 @@ public sealed record WinoIntelligenceEntitlementSnapshot(
         if (!aiPack.HasAccess)
             return new(WinoIntelligenceEntitlementState.NoSubscription, accountId, now);
 
-        var quotaExhausted = usage is not null &&
-            (usage.IsExhausted || usage.RemainingPercentage <= 0 || usage.UsagePercentage >= 100);
+        // Only the mail-message bucket gates intelligence. A reader feature running out of
+        // rewrites says nothing about whether this mailbox can still be processed.
+        var quotaExhausted = usage?.Find(AiQuotaBucketIds.Intelligence)?.IsExhausted == true;
         return new(
             quotaExhausted ? WinoIntelligenceEntitlementState.QuotaExhausted : WinoIntelligenceEntitlementState.Active,
             accountId,

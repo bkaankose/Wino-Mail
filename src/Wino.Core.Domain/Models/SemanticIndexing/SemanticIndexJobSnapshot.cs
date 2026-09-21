@@ -16,7 +16,7 @@ public enum MailIntelligenceJobStatus
 }
 
 /// <summary>
-/// Progress of one stage, as this device sees it. Jev and Luna advance independently, so
+/// Progress of one stage, as this device sees it. Classification and Summarization advance independently, so
 /// the UI reports them separately rather than as one blended percentage.
 /// </summary>
 public sealed record MailIntelligenceStageProgress(
@@ -41,8 +41,8 @@ public sealed record MailIntelligenceJobSnapshot(
     int ProcessedMessageCount,
     int FailedMessageCount,
     int ActiveJobCount,
-    MailIntelligenceStageProgress Jev,
-    MailIntelligenceStageProgress Luna,
+    MailIntelligenceStageProgress Classification,
+    MailIntelligenceStageProgress Summarization,
     string? ErrorCode = null)
 {
     public static MailIntelligenceJobSnapshot Idle(Guid localAccountId) => new(

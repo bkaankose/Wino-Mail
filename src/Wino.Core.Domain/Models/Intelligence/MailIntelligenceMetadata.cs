@@ -7,8 +7,8 @@ namespace Wino.Core.Domain.Models.Intelligence;
 
 /// <summary>
 /// What this device knows about one message after processing.
-/// Jev supplies the labels, the priority and the briefing decision; Luna supplies the
-/// headline and summary, and only for messages Jev included. There is deliberately no
+/// Classification supplies the labels, the priority and the briefing decision; Summarization supplies the
+/// headline and summary, and only for messages Classification included. There is deliberately no
 /// deadline, due date, action or status here: those were the least reliable outputs of
 /// the previous design and the decision model cannot produce them.
 /// </summary>
@@ -30,7 +30,7 @@ public sealed record MailIntelligenceMetadata(
         string.Equals(Priority, "high", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(Priority, "urgent", StringComparison.OrdinalIgnoreCase);
 
-    public static MailIntelligenceMetadata From(JevArtifact jev, LunaArtifact? luna = null) => new(
+    public static MailIntelligenceMetadata From(ClassificationArtifact jev, SummaryArtifact? luna = null) => new(
         jev.Key.RemoteMessageId,
         jev.Labels,
         jev.Priority,

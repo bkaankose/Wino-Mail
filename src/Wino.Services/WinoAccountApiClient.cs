@@ -399,15 +399,25 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             "Reading the intelligence job failed.");
     }
 
-    public async Task<JevResultPageDto> GetJevResultPageAsync(
+    public async Task<ClassificationResultPageDto> GetClassificationResultPageAsync(
         Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default)
         => await GetResultPageAsync(
-            mailboxId, jobId, "jev", page, WinoAccountApiJsonContext.Default.JevResultPageDto, cancellationToken).ConfigureAwait(false);
+            mailboxId,
+            jobId,
+            MailIntelligenceStageIds.Classification,
+            page,
+            WinoAccountApiJsonContext.Default.ClassificationResultPageDto,
+            cancellationToken).ConfigureAwait(false);
 
-    public async Task<LunaResultPageDto> GetLunaResultPageAsync(
+    public async Task<SummaryResultPageDto> GetSummaryResultPageAsync(
         Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default)
         => await GetResultPageAsync(
-            mailboxId, jobId, "luna", page, WinoAccountApiJsonContext.Default.LunaResultPageDto, cancellationToken).ConfigureAwait(false);
+            mailboxId,
+            jobId,
+            MailIntelligenceStageIds.Summarization,
+            page,
+            WinoAccountApiJsonContext.Default.SummaryResultPageDto,
+            cancellationToken).ConfigureAwait(false);
 
     /// <summary>Result pages are served as plain JSON rather than wrapped in an envelope.</summary>
     private async Task<T> GetResultPageAsync<T>(
@@ -450,8 +460,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     }
 
     /// <summary>
-    /// Processes one mail synchronously. The response carries the Jev artifact always and
-    /// the Luna artifact whenever Jev selected the message for the briefing.
+    /// Processes one mail synchronously. The response carries the Classification artifact always and
+    /// the Summarization artifact whenever Classification selected the message for the briefing.
     /// </summary>
     public async Task<AnalyzeMailResponseDto> AnalyzeMailAsync(
         Guid mailboxId,
@@ -997,10 +1007,11 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(MailIntelligenceStageAckRequest))]
 [JsonSerializable(typeof(MailIntelligenceJobDto))]
 [JsonSerializable(typeof(MailIntelligenceStageStatusDto))]
-[JsonSerializable(typeof(JevResultPageDto))]
-[JsonSerializable(typeof(LunaResultPageDto))]
-[JsonSerializable(typeof(JevMailArtifactDto))]
-[JsonSerializable(typeof(LunaMailArtifactDto))]
+[JsonSerializable(typeof(ClassificationResultPageDto))]
+[JsonSerializable(typeof(SummaryResultPageDto))]
+[JsonSerializable(typeof(MailClassificationArtifactDto))]
+[JsonSerializable(typeof(MailSummaryArtifactDto))]
+[JsonSerializable(typeof(MailClassificationSignalsDto))]
 [JsonSerializable(typeof(MailArtifactIdentityDto))]
 [JsonSerializable(typeof(MailIntelligenceFailureDto))]
 [JsonSerializable(typeof(AnalyzeMailResponseDto))]

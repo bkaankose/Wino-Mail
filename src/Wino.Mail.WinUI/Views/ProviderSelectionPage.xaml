@@ -41,60 +41,6 @@
             CornerRadius="8"
             Visibility="{x:Bind ViewModel.IsProviderStepVisible, Mode=OneWay}">
             <StackPanel Spacing="12">
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <TextBox
-                        AutomationProperties.AutomationId="ProviderSelectionAccountName"
-                        Header="{x:Bind domain:Translator.ProviderSelection_AccountNameHeader, Mode=OneTime}"
-                        PlaceholderText="{x:Bind domain:Translator.ProviderSelection_AccountNamePlaceholder, Mode=OneTime}"
-                        Text="{x:Bind ViewModel.AccountName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-
-                    <Button
-                        Grid.Column="1"
-                        Padding="12,8"
-                        VerticalAlignment="Bottom"
-                        AutomationProperties.AutomationId="ProviderSelectionAccountColor"
-                        AutomationProperties.HelpText="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Description, Mode=OneTime}"
-                        AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
-                        ToolTipService.ToolTip="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}">
-                        <Grid>
-                            <FontIcon
-                                FontSize="16"
-                                Glyph="&#xE771;"
-                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
-                            <Ellipse
-                                Width="16"
-                                Height="16"
-                                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
-                                Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
-                        </Grid>
-                        <Button.Flyout>
-                            <Flyout x:Name="AccountColorFlyout" Placement="TopEdgeAlignedLeft">
-                                <StackPanel Spacing="8">
-                                    <GridView
-                                        x:Name="AccountColorGridView"
-                                        Width="150"
-                                        AutomationProperties.AutomationId="AccountColorGridView"
-                                        AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
-                                        ItemTemplate="{StaticResource AccountColorTemplate}"
-                                        ItemsSource="{x:Bind ViewModel.AvailableColors, Mode=OneWay}"
-                                        SelectedItem="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}" />
-                                    <HyperlinkButton
-                                        HorizontalAlignment="Center"
-                                        AutomationProperties.AutomationId="ProviderSelectionClearColor"
-                                        Command="{x:Bind ViewModel.ClearColorCommand}"
-                                        Content="{x:Bind domain:Translator.ProviderSelection_ClearColor, Mode=OneTime}"
-                                        Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
-                                </StackPanel>
-                            </Flyout>
-                        </Button.Flyout>
-                    </Button>
-                </Grid>
-
                 <StackPanel Spacing="2">
                     <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_ProviderSectionTitle, Mode=OneTime}" />
                     <TextBlock
@@ -146,43 +92,122 @@
             </StackPanel>
         </Border>
 
+        <!--  Chosen provider, kept in view on every step after the provider step  -->
+        <Border
+            x:Name="AccountSummaryPanel"
+            Padding="12"
+            Background="{ThemeResource LayerFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{x:Bind ViewModel.IsAccountSummaryVisible, Mode=OneWay}">
+            <Grid
+                AutomationProperties.AutomationId="ProviderSelectionAccountSummary"
+                AutomationProperties.Name="{x:Bind ViewModel.SelectedProviderName, Mode=OneWay}"
+                ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="4" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Border Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}" CornerRadius="2" />
+
+                <Image
+                    Grid.Column="1"
+                    Width="28"
+                    Height="28"
+                    VerticalAlignment="Center"
+                    Source="{x:Bind helpers:XamlHelpers.StringToBitmapImage(ViewModel.SelectedProviderImage), Mode=OneWay}" />
+
+                <StackPanel
+                    Grid.Column="2"
+                    VerticalAlignment="Center"
+                    Spacing="2">
+                    <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectedProviderName, Mode=OneWay}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind ViewModel.SelectedProviderSummaryDetail, Mode=OneWay}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!--  Account identity step  -->
+        <Border
+            x:Name="IdentityStepPanel"
+            Padding="12"
+            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Visibility="{x:Bind ViewModel.IsIdentityStepVisible, Mode=OneWay}">
+            <StackPanel Spacing="16">
+                <StackPanel Spacing="6">
+                    <TextBox
+                        AutomationProperties.AutomationId="ProviderSelectionAccountName"
+                        Header="{x:Bind domain:Translator.ProviderSelection_AccountNameHeader, Mode=OneTime}"
+                        PlaceholderText="{x:Bind domain:Translator.ProviderSelection_AccountNamePlaceholder, Mode=OneTime}"
+                        Text="{x:Bind ViewModel.AccountName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.ProviderSelection_AccountNameDescription, Mode=OneTime}"
+                        TextWrapping="WrapWholeWords" />
+                </StackPanel>
+
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="ProviderSelectionAccountColorCard"
+                    Description="{x:Bind domain:Translator.ProviderSelection_AccountColorDescription, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.ProviderSelection_AccountColorHeader, Mode=OneTime}">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xE790;" />
+                    </controls:SettingsCard.HeaderIcon>
+
+                    <Button
+                        Padding="12,8"
+                        AutomationProperties.AutomationId="ProviderSelectionAccountColor"
+                        AutomationProperties.HelpText="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Description, Mode=OneTime}"
+                        AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}">
+                        <Grid>
+                            <FontIcon
+                                FontSize="16"
+                                Glyph="&#xE771;"
+                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
+                            <Ellipse
+                                Width="16"
+                                Height="16"
+                                Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
+                        </Grid>
+                        <Button.Flyout>
+                            <Flyout x:Name="AccountColorFlyout" Placement="TopEdgeAlignedLeft">
+                                <StackPanel Spacing="8">
+                                    <GridView
+                                        x:Name="AccountColorGridView"
+                                        Width="150"
+                                        AutomationProperties.AutomationId="AccountColorGridView"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
+                                        ItemTemplate="{StaticResource AccountColorTemplate}"
+                                        ItemsSource="{x:Bind ViewModel.AvailableColors, Mode=OneWay}"
+                                        SelectedItem="{x:Bind ViewModel.SelectedColor, Mode=TwoWay}" />
+                                    <HyperlinkButton
+                                        HorizontalAlignment="Center"
+                                        AutomationProperties.AutomationId="ProviderSelectionClearColor"
+                                        Command="{x:Bind ViewModel.ClearColorCommand}"
+                                        Content="{x:Bind domain:Translator.ProviderSelection_ClearColor, Mode=OneTime}"
+                                        Visibility="{x:Bind ViewModel.IsColorSelected, Mode=OneWay}" />
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+                </controls:SettingsCard>
+            </StackPanel>
+        </Border>
+
         <StackPanel Spacing="20" Visibility="{x:Bind ViewModel.IsCapabilityStepVisible, Mode=OneWay}">
-            <Border
-                Padding="12"
-                Background="{ThemeResource LayerFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="4" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-
-                    <Border Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedColor.Hex), Mode=OneWay}" CornerRadius="2" />
-
-                    <Image
-                        Grid.Column="1"
-                        Width="28"
-                        Height="28"
-                        VerticalAlignment="Center"
-                        Source="{x:Bind helpers:XamlHelpers.StringToBitmapImage(ViewModel.SelectedProviderImage), Mode=OneWay}" />
-
-                    <StackPanel
-                        Grid.Column="2"
-                        VerticalAlignment="Center"
-                        Spacing="2">
-                        <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.SelectedProviderName, Mode=OneWay}" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind ViewModel.AccountName, Mode=OneWay}"
-                            TextWrapping="WrapWholeWords" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-
             <StackPanel Spacing="4">
                 <StackPanel Margin="0,0,0,12" Spacing="4">
                     <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_CapabilitySectionTitle, Mode=OneTime}" />

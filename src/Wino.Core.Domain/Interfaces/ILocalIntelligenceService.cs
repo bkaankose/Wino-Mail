@@ -12,7 +12,7 @@ public interface ILocalIntelligenceService
     Task<IReadOnlyList<DailyBriefingAccount>> GetEligibleAccountsAsync(CancellationToken cancellationToken = default);
     /// <summary>
     /// Briefing entries grouped by the day each message was received, newest day first.
-    /// Only messages Jev included are returned.
+    /// Only messages Classification included are returned.
     /// </summary>
     Task<DailyBriefingFactsResult> GetBriefingFactsAsync(
         TimeZoneInfo timeZone,

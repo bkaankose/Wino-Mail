@@ -952,9 +952,9 @@ public class MailService : BaseDatabaseService, IMailService
                 continue;
 
             var remoteIds = mailsByRemoteId.Keys.ToArray();
-            var jevByRemoteId = await _localIntelligenceStore.GetJevArtifactsAsync(
+            var jevByRemoteId = await _localIntelligenceStore.GetClassificationArtifactsAsync(
                 accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
-            var lunaByRemoteId = await _localIntelligenceStore.GetLunaArtifactsAsync(
+            var lunaByRemoteId = await _localIntelligenceStore.GetSummaryArtifactsAsync(
                 accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
 
             foreach (var (remoteId, matchingMails) in mailsByRemoteId)
@@ -968,8 +968,8 @@ public class MailService : BaseDatabaseService, IMailService
 
     internal static MailIntelligenceMetadata CreateIntelligenceMetadata(
         string remoteMessageId,
-        IReadOnlyDictionary<string, JevArtifact> jevArtifacts,
-        IReadOnlyDictionary<string, LunaArtifact> lunaArtifacts)
+        IReadOnlyDictionary<string, ClassificationArtifact> jevArtifacts,
+        IReadOnlyDictionary<string, SummaryArtifact> lunaArtifacts)
     {
         if (!jevArtifacts.TryGetValue(remoteMessageId, out var jev))
         {

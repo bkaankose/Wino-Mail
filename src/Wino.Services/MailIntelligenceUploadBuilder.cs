@@ -28,6 +28,13 @@ public sealed class MailIntelligenceUploadEnvelopeDto
     public bool HasLaterOutgoingReply { get; init; }
     public string? ProviderImportance { get; init; }
     public IReadOnlyList<string>? RemoteFolderIds { get; init; }
+
+    /// <summary>
+    /// Whether the message carried a List-Unsubscribe header. Sent as a fact so the server
+    /// never has to guess at it, and so an Unsubscribe button is only ever offered for a
+    /// message that has something to unsubscribe from.
+    /// </summary>
+    public bool HasListUnsubscribe { get; init; }
 }
 
 [JsonSerializable(typeof(MailIntelligenceUploadEnvelopeDto))]

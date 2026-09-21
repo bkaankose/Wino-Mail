@@ -14,7 +14,7 @@ namespace Wino.Services;
 
 /// <summary>
 /// Builds the daily briefing from locally imported artifacts.
-/// Only messages Jev included appear, grouped by the day they were received. Nothing here
+/// Only messages Classification included appear, grouped by the day they were received. Nothing here
 /// infers a due date, an action or a status: those were the least reliable parts of the
 /// previous design and the decision model cannot produce them.
 /// </summary>
@@ -117,8 +117,8 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
             }
 
             var remoteIds = distinct.Select(static x => x.RemoteMessageId!).ToArray();
-            var jevArtifacts = await _store.GetJevArtifactsAsync(accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
-            var lunaArtifacts = await _store.GetLunaArtifactsAsync(accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
+            var jevArtifacts = await _store.GetClassificationArtifactsAsync(accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
+            var lunaArtifacts = await _store.GetSummaryArtifactsAsync(accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
             var ignored = await _store.GetIgnoredAsync(accountGroup.Key, cancellationToken).ConfigureAwait(false);
 
             var enabledLabels = ResolveEnabledLabels(account);
@@ -132,7 +132,7 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
                 var remoteMessageId = candidate.RemoteMessageId!;
                 if (!jevArtifacts.TryGetValue(remoteMessageId, out var jev) || !jev.IncludeInBriefing)
                 {
-                    // Only messages Jev selected reach the briefing.
+                    // Only messages Classification selected reach the briefing.
                     continue;
                 }
 

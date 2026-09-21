@@ -6,21 +6,48 @@ namespace Wino.Core.Domain.Models.Intelligence;
 
 public enum MailIntelligenceStageKind
 {
-    Jev,
-    Luna,
+    Classification,
+    Summarization,
 }
 
 /// <summary>Identity of one artifact. The hash is the freshness key.</summary>
 public sealed record MailArtifactKey(string RemoteMessageId, string ContentHash);
 
-public sealed record JevArtifact(
+/// <summary>
+/// The raw judgments behind a classification, before any threshold was applied. Kept on
+/// the device so a threshold change can be applied to results that are already here,
+/// rather than by re-submitting the mailbox and paying for it a second time.
+/// Keys are the lowercase label and priority names the rest of the app uses.
+/// </summary>
+public sealed record ClassificationSignals(
+    IReadOnlyDictionary<string, double> LabelProbabilities,
+    double BriefingProbability,
+    double PriorityScore,
+    IReadOnlyDictionary<string, double> PriorityProbabilities,
+    string TopAction,
+    double TopActionProbability,
+    double ActionConfidence)
+{
+    public static ClassificationSignals Empty { get; } = new(
+        new Dictionary<string, double>(),
+        0d,
+        0d,
+        new Dictionary<string, double>(),
+        "none",
+        0d,
+        0d);
+}
+
+public sealed record ClassificationArtifact(
     MailArtifactKey Key,
     IReadOnlyList<string> Labels,
     string Priority,
+    string Action,
     bool IncludeInBriefing,
-    DateTime CompletedUtc);
+    DateTime CompletedUtc,
+    ClassificationSignals Signals);
 
-public sealed record LunaArtifact(
+public sealed record SummaryArtifact(
     MailArtifactKey Key,
     string Headline,
     string Summary,
@@ -44,14 +71,14 @@ public sealed record MailIntelligenceJobState(
     Guid MailboxId,
     int MessageCount,
     string Status,
-    MailIntelligenceStageState Jev,
-    MailIntelligenceStageState Luna,
+    MailIntelligenceStageState Classification,
+    MailIntelligenceStageState Summarization,
     int FailedCount,
     string? LastError,
     DateTime CreatedUtc,
     DateTime UpdatedUtc)
 {
-    public bool IsFinished => Jev.IsAcknowledged && Luna.IsAcknowledged;
+    public bool IsFinished => Classification.IsAcknowledged && Summarization.IsAcknowledged;
 }
 
 public sealed record MailIntelligenceStageState(
@@ -61,7 +88,7 @@ public sealed record MailIntelligenceStageState(
     bool IsImported,
     bool IsAcknowledged);
 
-/// <summary>One card in the briefing. Only Jev-included messages become cards.</summary>
+/// <summary>One card in the briefing. Only Classification-included messages become cards.</summary>
 public sealed record BriefingCard(
     Guid LocalAccountId,
     Guid MailUniqueId,
@@ -73,6 +100,7 @@ public sealed record BriefingCard(
     DateTime ReceivedUtc,
     IReadOnlyList<string> Labels,
     string Priority,
+    string Action,
     string? Headline,
     string? Summary,
     DateTime FirstImportedUtc,

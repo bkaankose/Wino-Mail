@@ -19,7 +19,8 @@ namespace Wino.Mail.ViewModels;
 public enum ProviderSelectionWizardStep
 {
     Provider = 0,
-    Capabilities = 1
+    Identity = 1,
+    Capabilities = 2
 }
 
 public partial class ProviderSelectionPageViewModel : MailBaseViewModel
@@ -127,9 +128,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public bool IsMailSynchronizationRangeVisible => IsMailAccessEnabled;
 
     /// <summary>
-    /// Provider and identity together, then every capability on one screen.
+    /// The provider on its own, then the account identity, then every capability on one screen.
     /// </summary>
-    public const int TotalStepCount = 2;
+    public const int TotalStepCount = 3;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CurrentStepNumber))]
@@ -138,7 +139,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     [NotifyPropertyChangedFor(nameof(PageTitle))]
     [NotifyPropertyChangedFor(nameof(PageSubtitle))]
     [NotifyPropertyChangedFor(nameof(IsProviderStepVisible))]
+    [NotifyPropertyChangedFor(nameof(IsIdentityStepVisible))]
     [NotifyPropertyChangedFor(nameof(IsCapabilityStepVisible))]
+    [NotifyPropertyChangedFor(nameof(IsAccountSummaryVisible))]
     [NotifyPropertyChangedFor(nameof(ContinueButtonText))]
     [NotifyPropertyChangedFor(nameof(CanGoBack))]
     [NotifyCanExecuteChangedFor(nameof(ContinueCommand))]
@@ -149,17 +152,29 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public double StepProgressValue => CurrentStepNumber;
     public string StepProgressText => string.Format(Translator.ProviderSelection_StepProgressOf, CurrentStepNumber, TotalStepCount);
     public bool IsProviderStepVisible => CurrentStep == ProviderSelectionWizardStep.Provider;
+    public bool IsIdentityStepVisible => CurrentStep == ProviderSelectionWizardStep.Identity;
     public bool IsCapabilityStepVisible => CurrentStep == ProviderSelectionWizardStep.Capabilities;
+
+    /// <summary>
+    /// The chosen provider stays on screen after its step, so the later steps keep their context.
+    /// </summary>
+    public bool IsAccountSummaryVisible => CurrentStep != ProviderSelectionWizardStep.Provider;
 
     public bool CanGoBack => CurrentStep != ProviderSelectionWizardStep.Provider;
 
-    public string PageTitle => IsCapabilityStepVisible
-        ? Translator.ProviderSelection_CapabilityStepTitle
-        : Translator.ProviderSelection_Title;
+    public string PageTitle => CurrentStep switch
+    {
+        ProviderSelectionWizardStep.Identity => Translator.ProviderSelection_IdentityTitle,
+        ProviderSelectionWizardStep.Capabilities => Translator.ProviderSelection_CapabilityStepTitle,
+        _ => Translator.ProviderSelection_Title
+    };
 
-    public string PageSubtitle => IsCapabilityStepVisible
-        ? Translator.ProviderSelection_CapabilityStepSubtitle
-        : Translator.ProviderSelection_Subtitle;
+    public string PageSubtitle => CurrentStep switch
+    {
+        ProviderSelectionWizardStep.Identity => Translator.ProviderSelection_IdentityDescription,
+        ProviderSelectionWizardStep.Capabilities => Translator.ProviderSelection_CapabilityStepSubtitle,
+        _ => Translator.ProviderSelection_Subtitle
+    };
 
     public string ContinueButtonText => IsCapabilityStepVisible
         ? Translator.ProviderSelection_AddAccountButton
@@ -228,6 +243,14 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public string SelectedProviderName => SelectedProvider?.Name ?? string.Empty;
     public string SelectedProviderDescription => SelectedProvider?.Description ?? string.Empty;
     public string SelectedProviderImage => SelectedProvider?.ProviderImage ?? string.Empty;
+
+    /// <summary>
+    /// The account name once it exists, and the provider description until then.
+    /// </summary>
+    public string SelectedProviderSummaryDetail => string.IsNullOrWhiteSpace(AccountName)
+        ? SelectedProviderDescription
+        : AccountName;
+
     public string SelectedProviderCapabilityDescription => GetSelectedProviderCapabilityDescription();
     public bool IsOAuthProvider => SelectedProvider?.Type is MailProviderType.Outlook or MailProviderType.Gmail;
     public bool IsImapFamily => SelectedProvider?.Type == MailProviderType.IMAP4;
@@ -315,6 +338,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         OnPropertyChanged(nameof(SelectedProviderName));
         OnPropertyChanged(nameof(SelectedProviderDescription));
         OnPropertyChanged(nameof(SelectedProviderImage));
+        OnPropertyChanged(nameof(SelectedProviderSummaryDetail));
         OnPropertyChanged(nameof(SelectedProviderCapabilityDescription));
         OnPropertyChanged(nameof(IsOAuthProvider));
         OnPropertyChanged(nameof(IsImapFamily));
@@ -333,7 +357,11 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         ContinueCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnAccountNameChanged(string value) => ContinueCommand.NotifyCanExecuteChanged();
+    partial void OnAccountNameChanged(string value)
+    {
+        OnPropertyChanged(nameof(SelectedProviderSummaryDetail));
+        ContinueCommand.NotifyCanExecuteChanged();
+    }
 
     partial void OnMailModeChanged(AccountCapabilityMode value)
     {
@@ -429,7 +457,8 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     {
         return CurrentStep switch
         {
-            ProviderSelectionWizardStep.Provider => SelectedProvider != null && !string.IsNullOrWhiteSpace(AccountName),
+            ProviderSelectionWizardStep.Provider => SelectedProvider != null,
+            ProviderSelectionWizardStep.Identity => !string.IsNullOrWhiteSpace(AccountName),
             ProviderSelectionWizardStep.Capabilities => !IsCapabilitySelectionMissing,
             _ => false
         };
@@ -450,6 +479,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         switch (CurrentStep)
         {
             case ProviderSelectionWizardStep.Provider:
+                CurrentStep = ProviderSelectionWizardStep.Identity;
+                return;
+            case ProviderSelectionWizardStep.Identity:
                 if (await _accountService.AccountNameExistsAsync(AccountName?.Trim()))
                 {
                     await _dialogService.ShowMessageAsync(

@@ -8,7 +8,7 @@ using Wino.Core.Domain.Models.Intelligence;
 namespace Wino.Core.Domain.Interfaces;
 
 /// <summary>
-/// Device-local intelligence storage. Holds Jev and Luna artifacts keyed by account,
+/// Device-local intelligence storage. Holds Classification and Summarization artifacts keyed by account,
 /// remote message id and content hash, plus the jobs this device is waiting on.
 /// It never stores mail bodies or embeddings.
 /// </summary>
@@ -24,20 +24,20 @@ public interface IMailIntelligenceStore : IInitializeAsync
     Task DeleteJobAsync(Guid jobId, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Imports one Jev page in a single transaction. An artifact whose hash does not match
+    /// Imports one Classification page in a single transaction. An artifact whose hash does not match
     /// the caller's desired hash for that message is skipped rather than stored.
     /// </summary>
-    Task<MailIntelligenceImportResult> ImportJevPageAsync(
+    Task<MailIntelligenceImportResult> ImportClassificationPageAsync(
         Guid localAccountId,
-        IReadOnlyList<JevArtifact> artifacts,
+        IReadOnlyList<ClassificationArtifact> artifacts,
         IReadOnlyList<MailIntelligenceItemFailure> failures,
         IReadOnlyDictionary<string, string> desiredHashes,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Imports one Luna page in its own transaction, separate from Jev.</summary>
-    Task<MailIntelligenceImportResult> ImportLunaPageAsync(
+    /// <summary>Imports one Summarization page in its own transaction, separate from Classification.</summary>
+    Task<MailIntelligenceImportResult> ImportSummaryPageAsync(
         Guid localAccountId,
-        IReadOnlyList<LunaArtifact> artifacts,
+        IReadOnlyList<SummaryArtifact> artifacts,
         IReadOnlyList<MailIntelligenceItemFailure> failures,
         IReadOnlyDictionary<string, string> desiredHashes,
         CancellationToken cancellationToken = default);
@@ -46,16 +46,16 @@ public interface IMailIntelligenceStore : IInitializeAsync
     Task MarkStageAcknowledgedAsync(Guid jobId, MailIntelligenceStageKind stage, CancellationToken cancellationToken = default);
 
     // Artifacts.
-    Task<IReadOnlyDictionary<string, JevArtifact>> GetJevArtifactsAsync(
+    Task<IReadOnlyDictionary<string, ClassificationArtifact>> GetClassificationArtifactsAsync(
         Guid localAccountId, IReadOnlyCollection<string> remoteMessageIds, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyDictionary<string, LunaArtifact>> GetLunaArtifactsAsync(
+    Task<IReadOnlyDictionary<string, SummaryArtifact>> GetSummaryArtifactsAsync(
         Guid localAccountId, IReadOnlyCollection<string> remoteMessageIds, CancellationToken cancellationToken = default);
 
     Task<IReadOnlySet<string>> GetProcessedMessageIdsAsync(
         Guid localAccountId, IReadOnlyCollection<string> remoteMessageIds, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<JevArtifact>> GetBriefingCandidatesAsync(Guid localAccountId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ClassificationArtifact>> GetBriefingCandidatesAsync(Guid localAccountId, CancellationToken cancellationToken = default);
 
     Task<DateTime?> GetFirstImportedUtcAsync(Guid localAccountId, string remoteMessageId, CancellationToken cancellationToken = default);
 
