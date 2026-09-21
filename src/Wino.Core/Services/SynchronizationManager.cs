@@ -289,6 +289,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         {
             var result = await synchronizer.SynchronizeMailsAsync(options, linkedCancellationTokenSource.Token);
 
+            ThrowIfInteractiveSignInRequired(synchronizer.Account, result.Exception);
+
             _logger.Information("Mail synchronization completed for account {AccountId} with state {State}",
                               options.AccountId, result.CompletedState);
 
@@ -1089,6 +1091,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         try
         {
             var result = await synchronizer.SynchronizeCalendarEventsAsync(options, linkedCancellationTokenSource.Token);
+
+            ThrowIfInteractiveSignInRequired(synchronizer.Account, result.Exception);
             var downloadedEventCount = result.DownloadedEvents?.Count() ?? 0;
 
             _logger.Information("Calendar synchronization completed for account {AccountId} with state {State}",
@@ -1753,6 +1757,22 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         persistedAccount.AttentionReason = reason;
         await _accountService.UpdateAccountAsync(persistedAccount).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// A synchronizer that cannot get a token reports an ordinary failure, because the token is
+    /// fetched while opening its session, outside the per-folder error handlers. Left like that,
+    /// the account is never marked, so every timer tick tries again, fails again and reports the
+    /// failure again. Turning it into the attention exception routes it through the handling
+    /// below: the account is marked once, and later passes are skipped until the user signs in.
+    /// </summary>
+    internal static void ThrowIfInteractiveSignInRequired(MailAccount account, Exception exception)
+    {
+        for (var current = exception; current != null; current = current.InnerException)
+        {
+            if (current is Wino.Authentication.Exchange.ExchangeInteractiveSignInRequiredException)
+                throw new AuthenticationAttentionException(account, current.Message, current);
+        }
     }
 
     private async Task<bool> IsSynchronizationBlockedByAttentionAsync(Guid accountId)

@@ -14,5 +14,12 @@ public class AuthenticationAttentionException : Exception
         Account = account;
     }
 
+    /// <summary>Keeps the reason, so whoever reports the failure can say what was rejected.</summary>
+    public AuthenticationAttentionException(MailAccount account, string message, Exception innerException)
+        : base(message, innerException)
+    {
+        Account = account;
+    }
+
     public MailAccount Account { get; }
 }
