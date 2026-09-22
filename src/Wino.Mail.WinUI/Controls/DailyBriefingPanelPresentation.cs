@@ -69,7 +69,7 @@ public static class DailyBriefingPanelPresentation
     public static IReadOnlyList<BriefingLabelChip> TopLabelChips(IReadOnlyList<BriefingLabelChip> chips, DailyBriefingFact fact)
     {
         var room = HasUrgency(fact) ? MaxChipsPerRow - 1 : MaxChipsPerRow;
-        return chips.Count <= room ? chips : [.. chips.Take(room)];
+        return chips.Count <= room ? chips : chips.Take(room).ToList();
     }
 
     /// <summary>How many chips fit beside the longest action wording at the panel's width.</summary>
