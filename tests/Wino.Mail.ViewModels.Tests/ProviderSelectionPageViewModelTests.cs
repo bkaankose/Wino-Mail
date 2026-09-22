@@ -253,6 +253,95 @@ public sealed class ProviderSelectionPageViewModelTests
     }
 
     [Fact]
+    public async Task CustomServerWithOnlyLocalCapabilities_SkipsServerPageWithLocalSetupResult()
+    {
+        var wizardContext = new WelcomeWizardContext();
+        var viewModel = new ProviderSelectionPageViewModel(
+            Mock.Of<IAccountService>(),
+            Mock.Of<IDialogServiceBase>(),
+            Mock.Of<IProviderService>(),
+            Mock.Of<INewThemeService>(),
+            wizardContext)
+        {
+            SelectedProvider = new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None),
+            AccountName = "Tasks only"
+        };
+        viewModel.CurrentStep = ProviderSelectionWizardStep.Capabilities;
+
+        viewModel.MailMode = AccountCapabilityMode.Off;
+        viewModel.CalendarMode = AccountCapabilityMode.Off;
+        viewModel.ContactMode = AccountCapabilityMode.Off;
+        viewModel.TaskMode = AccountCapabilityMode.Local;
+
+        viewModel.IsLocalOnlyHintVisible.Should().BeTrue();
+        viewModel.ContinueButtonText.Should().Be(Translator.ProviderSelection_AddAccountButton);
+
+        await viewModel.ContinueCommand.ExecuteAsync(null);
+
+        var result = wizardContext.ImapCalDavSetupResult;
+        result.Should().NotBeNull();
+        result!.IsMailAccessGranted.Should().BeFalse();
+        result.IsCalendarAccessGranted.Should().BeFalse();
+        result.EmailAddress.Should().BeEmpty();
+        result.ServerInformation.CalendarSupportMode.Should().Be(ImapCalendarSupportMode.Disabled);
+        result.ServerInformation.IncomingServer.Should().BeNullOrEmpty();
+        wizardContext.IsTaskAccessEnabled.Should().BeTrue();
+        wizardContext.TaskIntegrationSource.Should().Be(AccountIntegrationSource.Local);
+    }
+
+    [Fact]
+    public async Task CustomServerWithLocalCalendar_KeepsLocalCalendarInSetupResult()
+    {
+        var wizardContext = new WelcomeWizardContext();
+        var viewModel = new ProviderSelectionPageViewModel(
+            Mock.Of<IAccountService>(),
+            Mock.Of<IDialogServiceBase>(),
+            Mock.Of<IProviderService>(),
+            Mock.Of<INewThemeService>(),
+            wizardContext)
+        {
+            SelectedProvider = new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None),
+            AccountName = "Family"
+        };
+        viewModel.CurrentStep = ProviderSelectionWizardStep.Capabilities;
+
+        viewModel.MailMode = AccountCapabilityMode.Off;
+        viewModel.CalendarMode = AccountCapabilityMode.Local;
+        viewModel.ContactMode = AccountCapabilityMode.Local;
+
+        await viewModel.ContinueCommand.ExecuteAsync(null);
+
+        wizardContext.ImapCalDavSetupResult!.IsCalendarAccessGranted.Should().BeTrue();
+        wizardContext.ImapCalDavSetupResult.ServerInformation.CalendarSupportMode.Should().Be(ImapCalendarSupportMode.LocalOnly);
+    }
+
+    [Fact]
+    public void CustomServerWithServerCapability_ContinuesToSignIn()
+    {
+        var viewModel = CreateViewModel(MailProviderType.IMAP4, SpecialImapProvider.None);
+        viewModel.CurrentStep = ProviderSelectionWizardStep.Capabilities;
+
+        viewModel.MailMode = AccountCapabilityMode.Off;
+        viewModel.CalendarMode = AccountCapabilityMode.Provider;
+
+        viewModel.IsLocalOnlyHintVisible.Should().BeFalse();
+        viewModel.ContinueButtonText.Should().Be(Translator.ProviderSelection_ContinueButton);
+    }
+
+    [Fact]
+    public void CapabilityPickerChanges_ReachTheWizardModes()
+    {
+        var viewModel = CreateViewModel(MailProviderType.IMAP4, SpecialImapProvider.None);
+
+        viewModel.Capabilities.IsCalendarLocalSelected = true;
+        viewModel.Capabilities.IsMailEnabled = false;
+
+        viewModel.CalendarMode.Should().Be(AccountCapabilityMode.Local);
+        viewModel.IsMailAccessEnabled.Should().BeFalse();
+        viewModel.IsCalendarChoiceLocal.Should().BeTrue();
+    }
+
+    [Fact]
     public void ChangingProvider_RestoresRecommendedCapabilityChoices()
     {
         var viewModel = CreateViewModel(MailProviderType.Outlook, SpecialImapProvider.None);

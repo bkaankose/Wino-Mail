@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
@@ -73,17 +74,34 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     #region Capability modes
 
-    [ObservableProperty]
-    public partial AccountCapabilityMode MailMode { get; set; } = AccountCapabilityMode.Provider;
+    /// <summary>
+    /// The capability choices, shared with the AccountCapabilityPicker control.
+    /// </summary>
+    public AccountCapabilitySelection Capabilities { get; } = new();
 
-    [ObservableProperty]
-    public partial AccountCapabilityMode CalendarMode { get; set; }
+    public AccountCapabilityMode MailMode
+    {
+        get => Capabilities.MailMode;
+        set => Capabilities.MailMode = value;
+    }
 
-    [ObservableProperty]
-    public partial AccountCapabilityMode ContactMode { get; set; }
+    public AccountCapabilityMode CalendarMode
+    {
+        get => Capabilities.CalendarMode;
+        set => Capabilities.CalendarMode = value;
+    }
 
-    [ObservableProperty]
-    public partial AccountCapabilityMode TaskMode { get; set; }
+    public AccountCapabilityMode ContactMode
+    {
+        get => Capabilities.ContactMode;
+        set => Capabilities.ContactMode = value;
+    }
+
+    public AccountCapabilityMode TaskMode
+    {
+        get => Capabilities.TaskMode;
+        set => Capabilities.TaskMode = value;
+    }
 
     // The old boolean surface is kept so WelcomeWizardContext and callers stay unchanged.
     public bool IsMailAccessEnabled => MailMode != AccountCapabilityMode.Off;
@@ -176,9 +194,16 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         _ => Translator.ProviderSelection_Subtitle
     };
 
-    public string ContinueButtonText => IsCapabilityStepVisible
+    public string ContinueButtonText => IsCapabilityStepVisible && !IsSignInStepNext
         ? Translator.ProviderSelection_AddAccountButton
         : Translator.ProviderSelection_ContinueButton;
+
+    /// <summary>
+    /// IMAP-family providers continue to a sign-in page unless every capability stays on this PC.
+    /// </summary>
+    private bool IsSignInStepNext =>
+        (IsImapFamily || IsPop3) &&
+        (SelectedProvider?.SpecialImapProvider != SpecialImapProvider.None || Capabilities.RequiresRemoteService);
 
     #region Capability answers
 
@@ -260,10 +285,20 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public string DavContactAvailabilityMessage => Translator.ProviderSelection_CardDavSetupGuidance;
     public bool IsCapabilitySelectionMissing => !IsMailAccessEnabled && !IsCalendarAccessEnabled &&
         !IsContactAccessEnabled && !IsTaskAccessEnabled;
+    /// <summary>
+    /// A custom-server account whose capabilities all stay on this PC skips the server page.
+    /// </summary>
+    public bool IsLocalOnlyHintVisible =>
+        IsImapFamily &&
+        SelectedProvider?.SpecialImapProvider == SpecialImapProvider.None &&
+        Capabilities.HasAnyCapability &&
+        !Capabilities.RequiresRemoteService;
+
+    // Only a CalDAV calendar leads to the server page; a local one skips it.
     public bool IsCalendarOnlyServerHintVisible =>
         SelectedProvider?.Type == MailProviderType.IMAP4 &&
         !IsMailAccessEnabled &&
-        IsCalendarAccessEnabled;
+        CalendarMode == AccountCapabilityMode.Provider;
 
     public ProviderSelectionPageViewModel(
         IAccountService accountService,
@@ -278,6 +313,31 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         _themeService = themeService;
         WizardContext = wizardContext;
         SelectedInitialSynchronizationRange = InitialSynchronizationRanges.First(option => option.Range == InitialSynchronizationRange.SixMonths);
+
+        Capabilities.PropertyChanged += OnCapabilitiesPropertyChanged;
+    }
+
+    private void OnCapabilitiesPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        switch (e.PropertyName)
+        {
+            case nameof(AccountCapabilitySelection.MailMode):
+                OnPropertyChanged(nameof(MailMode));
+                OnMailModeChanged();
+                break;
+            case nameof(AccountCapabilitySelection.CalendarMode):
+                OnPropertyChanged(nameof(CalendarMode));
+                OnCalendarModeChanged();
+                break;
+            case nameof(AccountCapabilitySelection.ContactMode):
+                OnPropertyChanged(nameof(ContactMode));
+                OnContactModeChanged();
+                break;
+            case nameof(AccountCapabilitySelection.TaskMode):
+                OnPropertyChanged(nameof(TaskMode));
+                OnTaskModeChanged();
+                break;
+        }
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -363,7 +423,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         ContinueCommand.NotifyCanExecuteChanged();
     }
 
-    partial void OnMailModeChanged(AccountCapabilityMode value)
+    private void OnMailModeChanged()
     {
         OnPropertyChanged(nameof(MailModeIndex));
         OnPropertyChanged(nameof(IsMailAccessEnabled));
@@ -375,7 +435,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         NotifyCapabilitySelectionChanged();
     }
 
-    partial void OnCalendarModeChanged(AccountCapabilityMode value)
+    private void OnCalendarModeChanged()
     {
         OnPropertyChanged(nameof(CalendarModeIndex));
         OnPropertyChanged(nameof(IsCalendarAccessEnabled));
@@ -386,7 +446,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         NotifyCapabilitySelectionChanged();
     }
 
-    partial void OnContactModeChanged(AccountCapabilityMode value)
+    private void OnContactModeChanged()
     {
         OnPropertyChanged(nameof(ContactModeIndex));
         OnPropertyChanged(nameof(IsContactAccessEnabled));
@@ -397,7 +457,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         NotifyCapabilitySelectionChanged();
     }
 
-    partial void OnTaskModeChanged(AccountCapabilityMode value)
+    private void OnTaskModeChanged()
     {
         OnPropertyChanged(nameof(TaskModeIndex));
         OnPropertyChanged(nameof(IsTaskAccessEnabled));
@@ -410,6 +470,8 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     private void NotifyCapabilitySelectionChanged()
     {
         OnPropertyChanged(nameof(IsCapabilitySelectionMissing));
+        OnPropertyChanged(nameof(ContinueButtonText));
+        OnPropertyChanged(nameof(IsLocalOnlyHintVisible));
         ContinueCommand.NotifyCanExecuteChanged();
     }
 
@@ -523,7 +585,16 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
                 ? ImapCalendarSupportMode.LocalOnly
                 : ImapCalendarSupportMode.CalDav;
 
-        if (WizardContext.IsGenericCustomMail)
+        if (WizardContext.IsGenericCustomMail && !Capabilities.RequiresRemoteService)
+        {
+            // Everything stays on this PC, so there is no server to sign in to.
+            WizardContext.ImapCalDavSetupResult = CreateLocalOnlySetupResult();
+
+            Messenger.Send(new BreadcrumbNavigationRequested(
+                Translator.WelcomeWizard_Step3Title,
+                WinoPage.AccountSetupProgressPage));
+        }
+        else if (WizardContext.IsGenericCustomMail)
         {
             var context = _hostMode == ProviderSelectionHostMode.SettingsAddAccount
                 ? ImapCalDavSettingsNavigationContext.CreateForAddAccountMode(
@@ -552,10 +623,26 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         }
     }
 
-    partial void OnSelectedProviderChanging(IProviderDetail value)
+    /// <summary>
+    /// A local-only account still carries server information so the IMAP-family account model
+    /// stays whole, but no endpoint is set and nothing is validated.
+    /// </summary>
+    private ImapCalDavSetupResult CreateLocalOnlySetupResult() => new()
     {
-
-    }
+        DisplayName = WizardContext.AccountName,
+        EmailAddress = string.Empty,
+        IsMailAccessGranted = false,
+        IsCalendarAccessGranted = WizardContext.CalendarSupportMode != ImapCalendarSupportMode.Disabled,
+        ShouldAppendMessagesToSentFolder = false,
+        ServerInformation = new CustomServerInformation
+        {
+            Id = Guid.NewGuid(),
+            IncomingServerType = CustomIncomingServerType.IMAP4,
+            CalendarSupportMode = WizardContext.CalendarSupportMode,
+            MaxConcurrentClients = 5,
+            ConnectionPolicyVersion = ImapConnectionPolicyVersion.Corrected
+        }
+    };
 
     private static AccountCapabilityMode ToCapabilityMode(bool isEnabled, AccountIntegrationSource source)
     {
@@ -584,7 +671,9 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     private AccountIntegrationSource ToIntegrationSource(AccountCapabilityMode mode)
     {
-        if (mode == AccountCapabilityMode.Local) return AccountIntegrationSource.Local;
+        // A capability that is off has no provider source; reporting one made later pages
+        // treat a disabled CardDAV as enabled.
+        if (mode != AccountCapabilityMode.Provider) return AccountIntegrationSource.Local;
 
         return IsOAuthProvider ? AccountIntegrationSource.Provider : AccountIntegrationSource.Dav;
     }
@@ -621,14 +710,13 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     /// </summary>
     private void CoerceUnavailableModes()
     {
-        if (!IsCalendarProviderModeAvailable && CalendarMode == AccountCapabilityMode.Provider)
-            CalendarMode = AccountCapabilityMode.Local;
-
-        if (!IsContactProviderModeAvailable && ContactMode == AccountCapabilityMode.Provider)
-            ContactMode = AccountCapabilityMode.Local;
-
-        if (!IsTaskProviderModeAvailable && TaskMode == AccountCapabilityMode.Provider)
-            TaskMode = AccountCapabilityMode.Local;
+        Capabilities.ConfigureProvider(
+            IsCalendarProviderModeAvailable,
+            IsContactProviderModeAvailable,
+            IsTaskProviderModeAvailable,
+            CalendarProviderModeLabel,
+            ContactProviderModeLabel,
+            TaskProviderModeLabel);
 
         OnPropertyChanged(nameof(IsCalendarProviderModeAvailable));
         OnPropertyChanged(nameof(IsContactProviderModeAvailable));

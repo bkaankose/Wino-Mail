@@ -33,6 +33,21 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
 
     public ObservableCollection<UnreadBadgeFolderViewModel> Folders { get; } = [];
 
+    /// <summary>
+    /// The account itself, for the shared account identity row.
+    /// </summary>
+    [ObservableProperty]
+    public partial MailAccount Account { get; set; }
+
+    /// <summary>
+    /// Up to three folders for the folder-badge illustration, badge-enabled ones first.
+    /// </summary>
+    [ObservableProperty]
+    public partial List<UnreadBadgeFolderViewModel> IllustrationFolders { get; set; } = [];
+
+    [ObservableProperty]
+    public partial string FolderSummary { get; set; } = string.Empty;
+
     [ObservableProperty]
     public partial string AccountName { get; set; }
 
@@ -52,6 +67,7 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
     public partial bool IsTaskbarBadgeEnabled { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFolderBadgesOffHintVisible))]
     public partial bool AreFolderBadgesEnabled { get; set; }
 
     /// <summary>
@@ -62,6 +78,14 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
     public partial bool IsInboxOnlySource { get; set; }
 
     public bool IsSelectedFoldersSource => !IsInboxOnlySource;
+
+    public bool IsFolderBadgesOffHintVisible => !AreFolderBadgesEnabled;
+
+    [RelayCommand]
+    private void UseSelectedFolders() => IsInboxOnlySource = false;
+
+    [RelayCommand]
+    private void TurnOnFolderBadges() => AreFolderBadgesEnabled = true;
 
     public AccountUnreadBadgePageViewModel(IAccountService accountService,
                                           IFolderService folderService,
@@ -93,6 +117,7 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
         if (_account == null)
             return;
 
+        Account = _account;
         AccountName = _account.Name;
         AccountAddress = _account.Address;
 
@@ -158,7 +183,24 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
 
                 folder.IsBadgeEditable = AreFolderBadgesEnabled;
             }
+
+            UpdateFolderOverview();
         });
+    }
+
+    /// <summary>
+    /// Refreshes the Folders summary and the folders the illustration draws.
+    /// </summary>
+    private void UpdateFolderOverview()
+    {
+        var countedCount = Folders.Count(folder => folder.IsCounted);
+        var badgeCount = AreFolderBadgesEnabled ? Folders.Count(folder => folder.ShowBadge) : 0;
+
+        FolderSummary = string.Format(Translator.UnreadBadges_Folders_SummaryFormat, countedCount, badgeCount);
+        IllustrationFolders = Folders
+            .OrderByDescending(folder => folder.ShowBadge)
+            .Take(3)
+            .ToList();
     }
 
     private async Task OnFolderCountedChangedAsync(UnreadBadgeFolderViewModel folder)
@@ -177,6 +219,7 @@ public partial class AccountUnreadBadgePageViewModel : MailBaseViewModel
 
         // Badge visibility never changes a total, so only the navigation needs refreshing.
         await _folderService.ChangeFolderShowUnreadCountStateAsync(folder.FolderId, folder.ShowBadge);
+        await ExecuteUIThread(UpdateFolderOverview);
         RequestUnreadCountRefresh();
     }
 
@@ -291,13 +334,29 @@ public partial class UnreadBadgeFolderViewModel : ObservableObject
     public partial bool IsCounted { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsIllustrationBadgeVisible))]
+    [NotifyPropertyChangedFor(nameof(IsIllustrationBadgeHidden))]
     public partial bool ShowBadge { get; set; }
 
     [ObservableProperty]
     public partial bool IsCountedEditable { get; set; }
 
+    /// <summary>
+    /// False while the account's folder badges are turned off; the row keeps its own choice.
+    /// </summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsIllustrationBadgeVisible))]
+    [NotifyPropertyChangedFor(nameof(IsIllustrationBadgeHidden))]
     public partial bool IsBadgeEditable { get; set; }
+
+    /// <summary>
+    /// Whether the folder-badge illustration draws a number for this folder.
+    /// </summary>
+    public bool IsIllustrationBadgeVisible => ShowBadge && IsBadgeEditable;
+    public bool IsIllustrationBadgeHidden => !IsIllustrationBadgeVisible;
+
+    public string CountAutomationName => string.Format(Translator.UnreadBadges_Folders_CountAutomationName, FolderName);
+    public string BadgeAutomationName => string.Format(Translator.UnreadBadges_Folders_BadgeAutomationName, FolderName);
 
     public UnreadBadgeFolderViewModel(IMailItemFolder folder,
                                       Func<UnreadBadgeFolderViewModel, Task> countedChanged,

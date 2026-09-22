@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Hosting;
+using Microsoft.UI.Xaml.Input;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.Controls.IntelligenceTileBar;
@@ -35,6 +36,13 @@ public sealed partial class WinoIntelligenceHeader : Control
 
     private Grid? _layoutRoot;
     private Button? _headerToggleButton;
+    private FrameworkElement? _headerRow;
+    private UIElement? _headerHoverBackground;
+    private UIElement? _headerPressedBackground;
+    private bool _isHeaderRowPointerOver;
+    private bool _isHeaderRowPressed;
+    private PointerEventHandler? _headerRowPointerPressedHandler;
+    private PointerEventHandler? _headerRowPointerReleasedHandler;
     private FrameworkElement? _headerContentRoot;
     private TextBlock? _titleTextBlock;
     private TextBlock? _subtitleTextBlock;
@@ -403,6 +411,11 @@ public sealed partial class WinoIntelligenceHeader : Control
 
         _layoutRoot = GetTemplateChild(PartLayoutRootName) as Grid;
         _headerToggleButton = GetTemplateChild(PartHeaderToggleButtonName) as Button;
+        _headerRow = GetTemplateChild(PartHeaderRowName) as FrameworkElement;
+        _headerHoverBackground = GetTemplateChild(PartHeaderHoverBackgroundName) as UIElement;
+        _headerPressedBackground = GetTemplateChild(PartHeaderPressedBackgroundName) as UIElement;
+        _isHeaderRowPointerOver = false;
+        _isHeaderRowPressed = false;
         _headerContentRoot = GetTemplateChild(PartHeaderContentRootName) as FrameworkElement;
         _titleTextBlock = GetTemplateChild(PartTitleTextBlockName) as TextBlock;
         _subtitleTextBlock = GetTemplateChild(PartSubtitleTextBlockName) as TextBlock;
@@ -485,6 +498,19 @@ public sealed partial class WinoIntelligenceHeader : Control
     private void AttachTemplateHandlers()
     {
         if (_headerToggleButton is not null) _headerToggleButton.Click += OnHeaderToggleClicked;
+        if (_headerRow is not null)
+        {
+            _headerRow.PointerEntered += OnHeaderRowPointerEntered;
+            _headerRow.PointerExited += OnHeaderRowPointerExited;
+            _headerRow.PointerCanceled += OnHeaderRowPointerExited;
+            _headerRow.PointerCaptureLost += OnHeaderRowPointerReleased;
+
+            // The toggle button marks the press handled, so the row asks for handled events too.
+            _headerRowPointerPressedHandler ??= new PointerEventHandler(OnHeaderRowPointerPressed);
+            _headerRowPointerReleasedHandler ??= new PointerEventHandler(OnHeaderRowPointerReleased);
+            _headerRow.AddHandler(PointerPressedEvent, _headerRowPointerPressedHandler, handledEventsToo: true);
+            _headerRow.AddHandler(PointerReleasedEvent, _headerRowPointerReleasedHandler, handledEventsToo: true);
+        }
         if (_processButton is not null) _processButton.Click += OnProcessClicked;
         if (_copyCodeButton is not null) _copyCodeButton.Click += OnCopyCodeClicked;
         AttachFeatureHandlers(_summaryParts, OnSummaryClicked, OnSummaryCancelClicked);
@@ -510,6 +536,15 @@ public sealed partial class WinoIntelligenceHeader : Control
     private void DetachTemplateHandlers()
     {
         if (_headerToggleButton is not null) _headerToggleButton.Click -= OnHeaderToggleClicked;
+        if (_headerRow is not null)
+        {
+            _headerRow.PointerEntered -= OnHeaderRowPointerEntered;
+            _headerRow.PointerExited -= OnHeaderRowPointerExited;
+            _headerRow.PointerCanceled -= OnHeaderRowPointerExited;
+            _headerRow.PointerCaptureLost -= OnHeaderRowPointerReleased;
+            _headerRow.RemoveHandler(PointerPressedEvent, _headerRowPointerPressedHandler);
+            _headerRow.RemoveHandler(PointerReleasedEvent, _headerRowPointerReleasedHandler);
+        }
         if (_processButton is not null) _processButton.Click -= OnProcessClicked;
         if (_copyCodeButton is not null) _copyCodeButton.Click -= OnCopyCodeClicked;
         DetachFeatureHandlers(_summaryParts, OnSummaryClicked, OnSummaryCancelClicked);
@@ -723,6 +758,7 @@ public sealed partial class WinoIntelligenceHeader : Control
         if (_headerContentRoot is not null) _headerContentRoot.Opacity = CanExpand ? 1 : 0.6;
         if (_headerToggleButton is not null) _headerToggleButton.IsEnabled = CanExpand;
         if (_chevronIcon is not null) _chevronIcon.Visibility = ToVisibility(CanExpand);
+        UpdateHeaderRowPointerVisual();
         UpdateHeaderAutomationName(hasBriefingFact);
     }
 
@@ -1040,6 +1076,46 @@ public sealed partial class WinoIntelligenceHeader : Control
     }
 
     private void OnHeaderToggleClicked(object sender, RoutedEventArgs e) { if (CanExpand) IsExpanded = !IsExpanded; }
+
+    private void OnHeaderRowPointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        _isHeaderRowPointerOver = true;
+        UpdateHeaderRowPointerVisual();
+    }
+
+    private void OnHeaderRowPointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        _isHeaderRowPointerOver = false;
+        _isHeaderRowPressed = false;
+        UpdateHeaderRowPointerVisual();
+    }
+
+    private void OnHeaderRowPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        _isHeaderRowPressed = true;
+        UpdateHeaderRowPointerVisual();
+    }
+
+    private void OnHeaderRowPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        _isHeaderRowPressed = false;
+        UpdateHeaderRowPointerVisual();
+    }
+
+    /// <summary>
+    /// Lights the full header row, action column included. A header that cannot expand is not
+    /// interactive, so it gets no pointer feedback.
+    /// </summary>
+    private void UpdateHeaderRowPointerVisual()
+    {
+        var isInteractive = CanExpand;
+
+        if (_headerHoverBackground is not null)
+            _headerHoverBackground.Opacity = isInteractive && _isHeaderRowPointerOver && !_isHeaderRowPressed ? 1 : 0;
+
+        if (_headerPressedBackground is not null)
+            _headerPressedBackground.Opacity = isInteractive && _isHeaderRowPressed ? 1 : 0;
+    }
     private void OnProcessClicked(object sender, RoutedEventArgs e) { if (CanRequestProcessing) ProcessRequested?.Invoke(this, EventArgs.Empty); }
     private void OnCopyCodeClicked(object sender, RoutedEventArgs e)
     {

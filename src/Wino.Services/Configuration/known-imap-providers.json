@@ -62,5 +62,19 @@
     { "role": "Junk", "value": "Spam" },
     { "role": "Archive", "value": "Archive" },
     { "role": "Archive", "value": "Archives" }
+  ],
+  "appPasswordHelp": [
+    {
+      "id": "fastmail",
+      "displayName": "Fastmail",
+      "emailDomains": [ "fastmail.com", "fastmail.fm" ],
+      "helpUrl": "https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords"
+    },
+    {
+      "id": "aol",
+      "displayName": "AOL",
+      "emailDomains": [ "aol.com", "aim.com" ],
+      "helpUrl": "https://help.aol.com/articles/create-and-manage-app-password"
+    }
   ]
 }

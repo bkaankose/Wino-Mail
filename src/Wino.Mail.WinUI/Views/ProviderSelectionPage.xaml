@@ -10,12 +10,9 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:winoControls="using:Wino.Controls"
     x:Name="root"
     mc:Ignorable="d">
-
-    <Page.Resources>
-        <x:Double x:Key="SettingsCardHeaderIconMaxSize">36</x:Double>
-    </Page.Resources>
 
     <StackPanel
         MaxWidth="880"
@@ -210,206 +207,52 @@
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
 
-                <controls:SettingsExpander
-                    AutomationProperties.AutomationId="ProviderSelectionMailExpander"
-                    Description="{x:Bind domain:Translator.ProviderSelection_MailStepDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
-                    IsExpanded="True">
-                    <controls:SettingsExpander.HeaderIcon>
-                        <ImageIcon
-                            Width="36"
-                            Height="36"
-                            Source="ms-appx:///Assets/AppEntries/Mail.svg" />
-                    </controls:SettingsExpander.HeaderIcon>
+                <!--  The same picker edits an existing IMAP account's capabilities in its server settings.  -->
+                <winoControls:AccountCapabilityPicker
+                    AutomationProperties.AutomationId="ProviderSelectionCapabilityPicker"
+                    Selection="{x:Bind ViewModel.Capabilities}"
+                    ShowMailOptions="True">
+                    <winoControls:AccountCapabilityPicker.MailOptionsContent>
+                        <StackPanel Spacing="12">
+                            <Grid ColumnSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel VerticalAlignment="Center" Spacing="2">
+                                    <TextBlock Text="{x:Bind domain:Translator.ProviderSelection_MailRangeHeader, Mode=OneTime}" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind domain:Translator.ProviderSelection_MailRangeDescription, Mode=OneTime}"
+                                        TextWrapping="WrapWholeWords" />
+                                </StackPanel>
+                                <ComboBox
+                                    Grid.Column="1"
+                                    MinWidth="160"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="ProviderSelectionMailSynchronizationRange"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title, Mode=OneTime}"
+                                    ItemsSource="{x:Bind ViewModel.InitialSynchronizationRanges, Mode=OneWay}"
+                                    SelectedItem="{x:Bind ViewModel.SelectedInitialSynchronizationRange, Mode=TwoWay}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="accounts:InitialSynchronizationRangeOption">
+                                            <TextBlock Text="{x:Bind DisplayText}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </Grid>
 
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <ComboBox
-                            MinWidth="120"
-                            AutomationProperties.AutomationId="ProviderSelectionMailMode"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForMail, Mode=OneTime}"
-                            SelectedIndex="{x:Bind ViewModel.MailModeIndex, Mode=TwoWay}">
-                            <ComboBoxItem Content="{x:Bind domain:Translator.ProviderSelection_Option_Yes, Mode=OneTime}" />
-                            <ComboBoxItem Content="{x:Bind domain:Translator.ProviderSelection_Option_No, Mode=OneTime}" />
-                        </ComboBox>
-                        <FontIcon
-                            AutomationProperties.HelpText="{x:Bind domain:Translator.ProviderSelection_OptionsHelpLabel, Mode=OneTime}"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_OptionsHelpLabel, Mode=OneTime}"
-                            FontSize="14"
-                            Glyph="&#xE946;">
-                            <ToolTipService.ToolTip>
-                                <ToolTip MaxWidth="360">
-                                    <StackPanel Spacing="8">
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_Option_Yes, Mode=OneTime}" />
-                                        <TextBlock Text="{x:Bind ViewModel.MailProviderChoiceDescription, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_Option_No, Mode=OneTime}" />
-                                        <TextBlock Text="{x:Bind ViewModel.MailOffConsequenceText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                    </StackPanel>
-                                </ToolTip>
-                            </ToolTipService.ToolTip>
-                        </FontIcon>
-                    </StackPanel>
-
-                    <controls:SettingsExpander.Items>
-                        <controls:SettingsCard
-                            AutomationProperties.AutomationId="ProviderSelectionMailSynchronizationRangeCard"
-                            Description="{x:Bind domain:Translator.ProviderSelection_MailRangeDescription, Mode=OneTime}"
-                            Header="{x:Bind domain:Translator.ProviderSelection_MailRangeHeader, Mode=OneTime}"
-                            Visibility="{x:Bind ViewModel.IsMailSynchronizationRangeVisible, Mode=OneWay}">
-                            <ComboBox
-                                MinWidth="160"
-                                AutomationProperties.AutomationId="ProviderSelectionMailSynchronizationRange"
-                                AutomationProperties.Name="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_Title, Mode=OneTime}"
-                                ItemsSource="{x:Bind ViewModel.InitialSynchronizationRanges, Mode=OneWay}"
-                                SelectedItem="{x:Bind ViewModel.SelectedInitialSynchronizationRange, Mode=TwoWay}">
-                                <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="accounts:InitialSynchronizationRangeOption">
-                                        <TextBlock Text="{x:Bind DisplayText}" />
-                                    </DataTemplate>
-                                </ComboBox.ItemTemplate>
-                            </ComboBox>
-                        </controls:SettingsCard>
-
-                        <controls:SettingsCard
-                            HorizontalContentAlignment="Stretch"
-                            AutomationProperties.AutomationId="ProviderSelectionMailSynchronizationWarningCard"
-                            ContentAlignment="Vertical"
-                            Visibility="{x:Bind ViewModel.IsInitialSynchronizationWarningVisible, Mode=OneWay}">
                             <InfoBar
                                 Title="{x:Bind domain:Translator.GeneralTitle_Warning, Mode=OneTime}"
                                 AutomationProperties.AutomationId="ProviderSelectionMailSynchronizationWarning"
                                 IsClosable="False"
-                                IsOpen="True"
+                                IsOpen="{x:Bind ViewModel.IsInitialSynchronizationWarningVisible, Mode=OneWay}"
                                 Message="{x:Bind domain:Translator.AccountCreation_InitialSynchronization_EverythingWarning, Mode=OneTime}"
                                 Severity="Warning" />
-                        </controls:SettingsCard>
-                    </controls:SettingsExpander.Items>
-                </controls:SettingsExpander>
-
-                <controls:SettingsCard
-                    AutomationProperties.AutomationId="ProviderSelectionCalendarCard"
-                    Description="{x:Bind domain:Translator.ProviderSelection_CalendarStepDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}">
-                    <controls:SettingsCard.HeaderIcon>
-                        <ImageIcon
-                            Width="36"
-                            Height="36"
-                            Source="ms-appx:///Assets/AppEntries/Calendar.svg" />
-                    </controls:SettingsCard.HeaderIcon>
-
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <ComboBox
-                            MinWidth="120"
-                            AutomationProperties.AutomationId="ProviderSelectionCalendarMode"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForCalendar, Mode=OneTime}"
-                            SelectedIndex="{x:Bind ViewModel.CalendarModeIndex, Mode=TwoWay}">
-                            <ComboBoxItem Content="{x:Bind domain:Translator.ProviderSelection_Option_Yes, Mode=OneTime}" Visibility="{x:Bind ViewModel.IsCalendarProviderModeAvailable, Mode=OneWay}" />
-                            <ComboBoxItem Content="{x:Bind domain:Translator.ProviderSelection_Option_ThisPC, Mode=OneTime}" />
-                            <ComboBoxItem Content="{x:Bind domain:Translator.ProviderSelection_Option_No, Mode=OneTime}" />
-                        </ComboBox>
-                        <FontIcon
-                            AutomationProperties.HelpText="{x:Bind domain:Translator.ProviderSelection_OptionsHelpLabel, Mode=OneTime}"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_OptionsHelpLabel, Mode=OneTime}"
-                            FontSize="14"
-                            Glyph="&#xE946;">
-                            <ToolTipService.ToolTip>
-                                <ToolTip MaxWidth="360">
-                                    <StackPanel Spacing="8">
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_Option_Yes, Mode=OneTime}" />
-                                        <TextBlock Text="{x:Bind ViewModel.CalendarProviderChoiceDescription, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_Option_ThisPC, Mode=OneTime}" />
-                                        <TextBlock Text="{x:Bind domain:Translator.ProviderSelection_Why_CalendarLocal, Mode=OneTime}" TextWrapping="WrapWholeWords" />
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_Option_No, Mode=OneTime}" />
-                                        <TextBlock Text="{x:Bind ViewModel.CalendarOffConsequenceText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                    </StackPanel>
-                                </ToolTip>
-                            </ToolTipService.ToolTip>
-                        </FontIcon>
-                    </StackPanel>
-                </controls:SettingsCard>
-
-                <controls:SettingsCard
-                    AutomationProperties.AutomationId="ProviderSelectionContactsCard"
-                    Description="{x:Bind domain:Translator.ProviderSelection_ContactsStepDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}">
-                    <controls:SettingsCard.HeaderIcon>
-                        <ImageIcon
-                            Width="36"
-                            Height="36"
-                            Source="ms-appx:///Assets/AppEntries/People.svg" />
-                    </controls:SettingsCard.HeaderIcon>
-
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <ComboBox
-                            MinWidth="120"
-                            AutomationProperties.AutomationId="ProviderSelectionContactMode"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForContacts, Mode=OneTime}"
-                            SelectedIndex="{x:Bind ViewModel.ContactModeIndex, Mode=TwoWay}">
-                            <ComboBoxItem Content="{x:Bind domain:Translator.ProviderSelection_Option_Yes, Mode=OneTime}" Visibility="{x:Bind ViewModel.IsContactProviderModeAvailable, Mode=OneWay}" />
-                            <ComboBoxItem Content="{x:Bind domain:Translator.ProviderSelection_Option_ThisPC, Mode=OneTime}" />
-                            <ComboBoxItem Content="{x:Bind domain:Translator.ProviderSelection_Option_No, Mode=OneTime}" />
-                        </ComboBox>
-                        <FontIcon
-                            AutomationProperties.HelpText="{x:Bind domain:Translator.ProviderSelection_OptionsHelpLabel, Mode=OneTime}"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_OptionsHelpLabel, Mode=OneTime}"
-                            FontSize="14"
-                            Glyph="&#xE946;">
-                            <ToolTipService.ToolTip>
-                                <ToolTip MaxWidth="360">
-                                    <StackPanel Spacing="8">
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_Option_Yes, Mode=OneTime}" />
-                                        <TextBlock Text="{x:Bind ViewModel.ContactProviderChoiceDescription, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_Option_ThisPC, Mode=OneTime}" />
-                                        <TextBlock Text="{x:Bind domain:Translator.ProviderSelection_Why_ContactsLocal, Mode=OneTime}" TextWrapping="WrapWholeWords" />
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_Option_No, Mode=OneTime}" />
-                                        <TextBlock Text="{x:Bind ViewModel.ContactOffConsequenceText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                    </StackPanel>
-                                </ToolTip>
-                            </ToolTipService.ToolTip>
-                        </FontIcon>
-                    </StackPanel>
-                </controls:SettingsCard>
-
-                <controls:SettingsCard
-                    AutomationProperties.AutomationId="ProviderSelectionTasksCard"
-                    Description="{x:Bind domain:Translator.ProviderSelection_TasksStepDescription, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}">
-                    <controls:SettingsCard.HeaderIcon>
-                        <ImageIcon
-                            Width="36"
-                            Height="36"
-                            Source="ms-appx:///Assets/AppEntries/ToDo.svg" />
-                    </controls:SettingsCard.HeaderIcon>
-
-                    <StackPanel Orientation="Horizontal" Spacing="12">
-                        <ComboBox
-                            MinWidth="120"
-                            AutomationProperties.AutomationId="ProviderSelectionTaskMode"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_UseForTasks, Mode=OneTime}"
-                            SelectedIndex="{x:Bind ViewModel.TaskModeIndex, Mode=TwoWay}">
-                            <ComboBoxItem Content="{x:Bind domain:Translator.ProviderSelection_Option_Yes, Mode=OneTime}" Visibility="{x:Bind ViewModel.IsTaskProviderModeAvailable, Mode=OneWay}" />
-                            <ComboBoxItem Content="{x:Bind domain:Translator.ProviderSelection_Option_ThisPC, Mode=OneTime}" />
-                            <ComboBoxItem Content="{x:Bind domain:Translator.ProviderSelection_Option_No, Mode=OneTime}" />
-                        </ComboBox>
-                        <FontIcon
-                            AutomationProperties.HelpText="{x:Bind domain:Translator.ProviderSelection_OptionsHelpLabel, Mode=OneTime}"
-                            AutomationProperties.Name="{x:Bind domain:Translator.ProviderSelection_OptionsHelpLabel, Mode=OneTime}"
-                            FontSize="14"
-                            Glyph="&#xE946;">
-                            <ToolTipService.ToolTip>
-                                <ToolTip MaxWidth="360">
-                                    <StackPanel Spacing="8">
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_Option_Yes, Mode=OneTime}" />
-                                        <TextBlock Text="{x:Bind ViewModel.TaskProviderChoiceDescription, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_Option_ThisPC, Mode=OneTime}" />
-                                        <TextBlock Text="{x:Bind domain:Translator.ProviderSelection_Why_TasksLocal, Mode=OneTime}" TextWrapping="WrapWholeWords" />
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.ProviderSelection_Option_No, Mode=OneTime}" />
-                                        <TextBlock Text="{x:Bind ViewModel.TaskOffConsequenceText, Mode=OneWay}" TextWrapping="WrapWholeWords" />
-                                    </StackPanel>
-                                </ToolTip>
-                            </ToolTipService.ToolTip>
-                        </FontIcon>
-                    </StackPanel>
-                </controls:SettingsCard>
+                        </StackPanel>
+                    </winoControls:AccountCapabilityPicker.MailOptionsContent>
+                </winoControls:AccountCapabilityPicker>
             </StackPanel>
 
             <StackPanel Spacing="12">
@@ -422,20 +265,20 @@
                     Visibility="{x:Bind ViewModel.IsCalendarOnlyServerHintVisible, Mode=OneWay}" />
 
                 <InfoBar
+                    AutomationProperties.AutomationId="ProviderSelectionLocalOnlyHint"
+                    IsClosable="False"
+                    IsOpen="True"
+                    Message="{x:Bind domain:Translator.ProviderSelection_LocalOnlyHint, Mode=OneTime}"
+                    Severity="Informational"
+                    Visibility="{x:Bind ViewModel.IsLocalOnlyHintVisible, Mode=OneWay}" />
+
+                <InfoBar
                     AutomationProperties.AutomationId="ProviderSelectionCardDavDiscoveryHint"
                     IsClosable="False"
                     IsOpen="True"
                     Message="{x:Bind ViewModel.DavContactAvailabilityMessage, Mode=OneWay}"
                     Severity="Informational"
                     Visibility="{x:Bind ViewModel.IsCardDavDiscoveryHintVisible, Mode=OneWay}" />
-
-                <InfoBar
-                    AutomationProperties.AutomationId="ProviderSelectionTasksProviderUnavailableHint"
-                    IsClosable="False"
-                    IsOpen="True"
-                    Message="{x:Bind domain:Translator.ProviderSelection_TaskProviderUnavailable, Mode=OneTime}"
-                    Severity="Informational"
-                    Visibility="{x:Bind ViewModel.IsTaskProviderUnavailableHintVisible, Mode=OneWay}" />
 
                 <TextBlock
                     Margin="2,0"

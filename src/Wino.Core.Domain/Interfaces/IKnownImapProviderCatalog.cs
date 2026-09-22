@@ -14,4 +14,9 @@ public interface IKnownImapProviderCatalog
     KnownImapProviderDefinition GetBySpecialProvider(SpecialImapProvider provider);
     KnownImapProviderDefinition Match(string emailAddress, string incomingHost, SpecialImapProvider preferredProvider = SpecialImapProvider.None);
     string ResolveUsername(ImapUsernamePolicy policy, string emailAddress);
+
+    /// <summary>
+    /// Finds app-password guidance for the address's domain, or null when the catalog has none.
+    /// </summary>
+    KnownAppPasswordHelp FindAppPasswordHelp(string emailAddress);
 }

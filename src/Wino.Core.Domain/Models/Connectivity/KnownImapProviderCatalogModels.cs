@@ -8,7 +8,26 @@ public sealed record KnownImapProviderCatalogDocument
     public int SchemaVersion { get; init; }
     public IReadOnlyList<KnownImapProviderDefinition> Providers { get; init; } = [];
     public IReadOnlyList<KnownImapFolderAlias> GenericFolderAliases { get; init; } = [];
+
+    /// <summary>
+    /// App-password guidance for providers that need no special setup of their own. A provider
+    /// listed here only changes the hint under the password field; its servers are discovered.
+    /// </summary>
+    public IReadOnlyList<KnownAppPasswordHelpDefinition> AppPasswordHelp { get; init; } = (KnownAppPasswordHelpDefinition[])[];
 }
+
+public sealed record KnownAppPasswordHelpDefinition
+{
+    public string Id { get; init; } = string.Empty;
+    public string DisplayName { get; init; } = string.Empty;
+    public IReadOnlyList<string> EmailDomains { get; init; } = (string[])[];
+    public string HelpUrl { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Where to learn how to create an app password for an email address.
+/// </summary>
+public sealed record KnownAppPasswordHelp(string ProviderName, string HelpUrl);
 
 public sealed record KnownImapProviderDefinition
 {

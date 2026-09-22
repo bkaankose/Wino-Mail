@@ -8,18 +8,55 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mailViewModels="using:Wino.Mail.ViewModels"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:winoControls="using:Wino.Controls"
     x:Name="PageRoot"
     mc:Ignorable="d">
 
+    <Page.Resources>
+        <!--  One folder: its unread number, and whether it counts and shows a badge.  -->
+        <DataTemplate x:Key="UnreadBadgeFolderTemplate" x:DataType="mailViewModels:UnreadBadgeFolderViewModel">
+            <controls:SettingsCard
+                AutomationProperties.AutomationId="AccountUnreadBadgeFolderCard"
+                AutomationProperties.Name="{x:Bind FolderName}"
+                Description="{x:Bind CountDescription, Mode=OneWay}"
+                Header="{x:Bind FolderName}">
+                <controls:SettingsCard.HeaderIcon>
+                    <FontIcon Glyph="&#xE8B7;" />
+                </controls:SettingsCard.HeaderIcon>
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <CheckBox
+                        MinWidth="0"
+                        AutomationProperties.AutomationId="AccountUnreadBadgeFolderCountCheckBox"
+                        AutomationProperties.Name="{x:Bind CountAutomationName}"
+                        Content="{x:Bind domain:Translator.UnreadBadges_Folders_CountColumn}"
+                        IsChecked="{x:Bind IsCounted, Mode=TwoWay}"
+                        IsEnabled="{x:Bind IsCountedEditable, Mode=OneWay}" />
+                    <CheckBox
+                        MinWidth="0"
+                        AutomationProperties.AutomationId="AccountUnreadBadgeFolderBadgeCheckBox"
+                        AutomationProperties.Name="{x:Bind BadgeAutomationName}"
+                        Content="{x:Bind domain:Translator.UnreadBadges_Folders_BadgeColumn}"
+                        IsChecked="{x:Bind ShowBadge, Mode=TwoWay}"
+                        IsEnabled="{x:Bind IsBadgeEditable, Mode=OneWay}" />
+                </StackPanel>
+            </controls:SettingsCard>
+        </DataTemplate>
+
+        <Style
+            x:Key="UnreadBadgeLocationDescriptionStyle"
+            BasedOn="{StaticResource CaptionTextBlockStyle}"
+            TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Setter Property="TextWrapping" Value="WrapWholeWords" />
+        </Style>
+    </Page.Resources>
+
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
-        <!--  Headline totals. Both read the same snapshot the taskbar badge is drawn from.  -->
-        <controls:SettingsCard
-            AutomationProperties.AutomationId="AccountUnreadBadgePageTotalsCard"
-            Description="{x:Bind ViewModel.AccountAddress, Mode=OneWay}"
-            Header="{x:Bind ViewModel.AccountName, Mode=OneWay}">
-            <controls:SettingsCard.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xEA8F;" />
-            </controls:SettingsCard.HeaderIcon>
+        <!--  The account, with the two totals. Both read the same snapshot the taskbar badge is drawn from.  -->
+        <controls:SettingsCard AutomationProperties.AutomationId="AccountUnreadBadgePageTotalsCard" AutomationProperties.Name="{x:Bind ViewModel.AccountName, Mode=OneWay}">
+            <controls:SettingsCard.Header>
+                <winoControls:AccountIdentityRowControl Account="{x:Bind ViewModel.Account, Mode=OneWay}" Description="{x:Bind ViewModel.AccountAddress, Mode=OneWay}" />
+            </controls:SettingsCard.Header>
             <StackPanel Orientation="Horizontal" Spacing="24">
                 <StackPanel>
                     <TextBlock
@@ -29,6 +66,7 @@
                         FontWeight="SemiBold"
                         Text="{x:Bind ViewModel.AccountUnreadCount, Mode=OneWay}" />
                     <TextBlock
+                        HorizontalAlignment="Center"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{StaticResource CaptionTextBlockStyle}"
                         Text="{x:Bind domain:Translator.UnreadBadges_AccountBadgeCaption, Mode=OneTime}" />
@@ -41,6 +79,7 @@
                         FontWeight="SemiBold"
                         Text="{x:Bind ViewModel.TaskbarUnreadCount, Mode=OneWay}" />
                     <TextBlock
+                        HorizontalAlignment="Center"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Style="{StaticResource CaptionTextBlockStyle}"
                         Text="{x:Bind domain:Translator.UnreadBadges_TaskbarBadgeCaption, Mode=OneTime}" />
@@ -48,7 +87,10 @@
             </StackPanel>
         </controls:SettingsCard>
 
-        <!--  Where badges appear. Three independent locations.  -->
+        <!--
+            Where badges appear. Each place has a drawing of itself with the live number, so the
+            switch next to it shows what it changes.
+        -->
         <controls:SettingsExpander
             AutomationProperties.AutomationId="AccountUnreadBadgePageLocationsExpander"
             Description="{x:Bind domain:Translator.UnreadBadges_Locations_Description, Mode=OneTime}"
@@ -58,23 +100,82 @@
                 <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7E7;" />
             </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
-                <controls:SettingsCard
-                    AutomationProperties.AutomationId="AccountUnreadBadgePageAccountBadgeCard"
-                    Description="{x:Bind domain:Translator.UnreadBadges_AccountBadge_Description, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.UnreadBadges_AccountBadge_Title, Mode=OneTime}">
-                    <ToggleSwitch AutomationProperties.AutomationId="AccountUnreadBadgePageAccountBadgeToggle" IsOn="{x:Bind ViewModel.IsAccountBadgeEnabled, Mode=TwoWay}" />
+                <controls:SettingsCard AutomationProperties.AutomationId="AccountUnreadBadgePageAccountBadgeCard" AutomationProperties.Name="{x:Bind domain:Translator.UnreadBadges_AccountBadge_Title, Mode=OneTime}">
+                    <controls:SettingsCard.Header>
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <winoControls:UnreadBadgeLocationIllustration
+                                Count="{x:Bind ViewModel.AccountUnreadCount, Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.IsAccountBadgeEnabled, Mode=OneWay}"
+                                Kind="AccountBadge" />
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock Text="{x:Bind domain:Translator.UnreadBadges_AccountBadge_Title, Mode=OneTime}" />
+                                <TextBlock Style="{StaticResource UnreadBadgeLocationDescriptionStyle}" Text="{x:Bind domain:Translator.UnreadBadges_AccountBadge_Description, Mode=OneTime}" />
+                            </StackPanel>
+                        </Grid>
+                    </controls:SettingsCard.Header>
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="AccountUnreadBadgePageAccountBadgeToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.UnreadBadges_AccountBadge_Title, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.IsAccountBadgeEnabled, Mode=TwoWay}" />
                 </controls:SettingsCard>
-                <controls:SettingsCard
-                    AutomationProperties.AutomationId="AccountUnreadBadgePageTaskbarBadgeCard"
-                    Description="{x:Bind domain:Translator.UnreadBadges_TaskbarBadge_Description, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.UnreadBadges_TaskbarBadge_Title, Mode=OneTime}">
-                    <ToggleSwitch AutomationProperties.AutomationId="AccountUnreadBadgePageTaskbarBadgeToggle" IsOn="{x:Bind ViewModel.IsTaskbarBadgeEnabled, Mode=TwoWay}" />
+
+                <controls:SettingsCard AutomationProperties.AutomationId="AccountUnreadBadgePageTaskbarBadgeCard" AutomationProperties.Name="{x:Bind domain:Translator.UnreadBadges_TaskbarBadge_Title, Mode=OneTime}">
+                    <controls:SettingsCard.Header>
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <winoControls:UnreadBadgeLocationIllustration
+                                Count="{x:Bind ViewModel.TaskbarUnreadCount, Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.IsTaskbarBadgeEnabled, Mode=OneWay}"
+                                Kind="TaskbarBadge" />
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock Text="{x:Bind domain:Translator.UnreadBadges_TaskbarBadge_Title, Mode=OneTime}" />
+                                <TextBlock Style="{StaticResource UnreadBadgeLocationDescriptionStyle}" Text="{x:Bind domain:Translator.UnreadBadges_TaskbarBadge_Description, Mode=OneTime}" />
+                            </StackPanel>
+                        </Grid>
+                    </controls:SettingsCard.Header>
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="AccountUnreadBadgePageTaskbarBadgeToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.UnreadBadges_TaskbarBadge_Title, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.IsTaskbarBadgeEnabled, Mode=TwoWay}" />
                 </controls:SettingsCard>
-                <controls:SettingsCard
-                    AutomationProperties.AutomationId="AccountUnreadBadgePageFolderBadgesCard"
-                    Description="{x:Bind domain:Translator.UnreadBadges_FolderBadges_Description, Mode=OneTime}"
-                    Header="{x:Bind domain:Translator.UnreadBadges_FolderBadges_Title, Mode=OneTime}">
-                    <ToggleSwitch AutomationProperties.AutomationId="AccountUnreadBadgePageFolderBadgesToggle" IsOn="{x:Bind ViewModel.AreFolderBadgesEnabled, Mode=TwoWay}" />
+
+                <controls:SettingsCard AutomationProperties.AutomationId="AccountUnreadBadgePageFolderBadgesCard" AutomationProperties.Name="{x:Bind domain:Translator.UnreadBadges_FolderBadges_Title, Mode=OneTime}">
+                    <controls:SettingsCard.Header>
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <winoControls:UnreadBadgeLocationIllustration
+                                Folders="{x:Bind ViewModel.IllustrationFolders, Mode=OneWay}"
+                                IsOn="{x:Bind ViewModel.AreFolderBadgesEnabled, Mode=OneWay}"
+                                Kind="FolderBadges" />
+                            <StackPanel
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Spacing="2">
+                                <TextBlock Text="{x:Bind domain:Translator.UnreadBadges_FolderBadges_Title, Mode=OneTime}" />
+                                <TextBlock Style="{StaticResource UnreadBadgeLocationDescriptionStyle}" Text="{x:Bind domain:Translator.UnreadBadges_FolderBadges_Description, Mode=OneTime}" />
+                            </StackPanel>
+                        </Grid>
+                    </controls:SettingsCard.Header>
+                    <ToggleSwitch
+                        AutomationProperties.AutomationId="AccountUnreadBadgePageFolderBadgesToggle"
+                        AutomationProperties.Name="{x:Bind domain:Translator.UnreadBadges_FolderBadges_Title, Mode=OneTime}"
+                        IsOn="{x:Bind ViewModel.AreFolderBadgesEnabled, Mode=TwoWay}" />
                 </controls:SettingsCard>
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
@@ -112,88 +213,58 @@
             </controls:SettingsExpander.Items>
         </controls:SettingsExpander>
 
-        <!--  Per folder Count and Badge columns.  -->
-        <TextBlock
-            Margin="0,8,0,0"
-            Style="{StaticResource BodyStrongTextBlockStyle}"
-            Text="{x:Bind domain:Translator.UnreadBadges_Folders_Title, Mode=OneTime}" />
-        <TextBlock
-            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-            Text="{x:Bind domain:Translator.UnreadBadges_Folders_Description, Mode=OneTime}"
-            TextWrapping="Wrap" />
-
-        <Grid Margin="16,4,16,0" ColumnSpacing="8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="96" />
-                <ColumnDefinition Width="96" />
-            </Grid.ColumnDefinitions>
+        <!--  Folders: one card per folder, each with its own Count and Badge choice.  -->
+        <controls:SettingsExpander
+            AutomationProperties.AutomationId="AccountUnreadBadgePageFoldersExpander"
+            Description="{x:Bind domain:Translator.UnreadBadges_Folders_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.UnreadBadges_Folders_Title, Mode=OneTime}"
+            IsExpanded="True"
+            ItemTemplate="{StaticResource UnreadBadgeFolderTemplate}"
+            ItemsSource="{x:Bind ViewModel.Folders, Mode=OneWay}">
+            <controls:SettingsExpander.HeaderIcon>
+                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8F1;" />
+            </controls:SettingsExpander.HeaderIcon>
             <TextBlock
-                Grid.Column="1"
-                HorizontalAlignment="Center"
-                FontWeight="SemiBold"
+                AutomationProperties.AutomationId="AccountUnreadBadgePageFolderSummary"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource CaptionTextBlockStyle}"
-                Text="{x:Bind domain:Translator.UnreadBadges_Folders_CountColumn, Mode=OneTime}" />
-            <TextBlock
-                Grid.Column="2"
-                HorizontalAlignment="Center"
-                FontWeight="SemiBold"
-                Style="{StaticResource CaptionTextBlockStyle}"
-                Text="{x:Bind domain:Translator.UnreadBadges_Folders_BadgeColumn, Mode=OneTime}" />
-        </Grid>
-
-        <ListView
-            AutomationProperties.AutomationId="AccountUnreadBadgePageFolderList"
-            ItemsSource="{x:Bind ViewModel.Folders, Mode=OneWay}"
-            SelectionMode="None">
-            <ListView.ItemContainerStyle>
-                <Style TargetType="ListViewItem">
-                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                    <Setter Property="Padding" Value="16,0" />
-                </Style>
-            </ListView.ItemContainerStyle>
-            <ListView.ItemTemplate>
-                <DataTemplate x:DataType="mailViewModels:UnreadBadgeFolderViewModel">
-                    <Grid Height="56" ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="96" />
-                            <ColumnDefinition Width="96" />
-                        </Grid.ColumnDefinitions>
-
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="{x:Bind FolderName}" />
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind CountDescription, Mode=OneWay}" />
-                        </StackPanel>
-
-                        <ToggleSwitch
-                            Grid.Column="1"
-                            MinWidth="0"
-                            HorizontalAlignment="Center"
-                            AutomationProperties.AutomationId="AccountUnreadBadgeFolderCountToggle"
-                            AutomationProperties.Name="{x:Bind FolderName}"
-                            IsEnabled="{x:Bind IsCountedEditable, Mode=OneWay}"
-                            IsOn="{x:Bind IsCounted, Mode=TwoWay}"
-                            OffContent=""
-                            OnContent="" />
-
-                        <ToggleSwitch
-                            Grid.Column="2"
-                            MinWidth="0"
-                            HorizontalAlignment="Center"
-                            AutomationProperties.AutomationId="AccountUnreadBadgeFolderBadgeToggle"
-                            AutomationProperties.Name="{x:Bind FolderName}"
-                            IsEnabled="{x:Bind IsBadgeEditable, Mode=OneWay}"
-                            IsOn="{x:Bind ShowBadge, Mode=TwoWay}"
-                            OffContent=""
-                            OnContent="" />
-                    </Grid>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
+                Text="{x:Bind ViewModel.FolderSummary, Mode=OneWay}" />
+            <controls:SettingsExpander.ItemsHeader>
+                <StackPanel>
+                    <!--  Why a column is disabled, with the way to enable it.  -->
+                    <InfoBar
+                        AutomationProperties.AutomationId="AccountUnreadBadgePageInboxOnlyHint"
+                        BorderThickness="0"
+                        CornerRadius="0"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.IsInboxOnlySource, Mode=OneWay}"
+                        Message="{x:Bind domain:Translator.UnreadBadges_Folders_InboxOnlyHint, Mode=OneTime}"
+                        Severity="Informational">
+                        <InfoBar.ActionButton>
+                            <HyperlinkButton
+                                AutomationProperties.AutomationId="AccountUnreadBadgePageUseSelectedFoldersButton"
+                                Command="{x:Bind ViewModel.UseSelectedFoldersCommand}"
+                                Content="{x:Bind domain:Translator.UnreadBadges_Folders_UseSelectedFolders, Mode=OneTime}" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
+                    <InfoBar
+                        AutomationProperties.AutomationId="AccountUnreadBadgePageFolderBadgesOffHint"
+                        BorderThickness="0"
+                        CornerRadius="0"
+                        IsClosable="False"
+                        IsOpen="{x:Bind ViewModel.IsFolderBadgesOffHintVisible, Mode=OneWay}"
+                        Message="{x:Bind domain:Translator.UnreadBadges_Folders_BadgesOffHint, Mode=OneTime}"
+                        Severity="Informational">
+                        <InfoBar.ActionButton>
+                            <HyperlinkButton
+                                AutomationProperties.AutomationId="AccountUnreadBadgePageTurnOnFolderBadgesButton"
+                                Command="{x:Bind ViewModel.TurnOnFolderBadgesCommand}"
+                                Content="{x:Bind domain:Translator.UnreadBadges_Folders_TurnOnBadges, Mode=OneTime}" />
+                        </InfoBar.ActionButton>
+                    </InfoBar>
+                </StackPanel>
+            </controls:SettingsExpander.ItemsHeader>
+        </controls:SettingsExpander>
 
         <Button
             HorizontalAlignment="Right"

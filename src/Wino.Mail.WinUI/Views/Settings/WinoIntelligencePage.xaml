@@ -30,21 +30,6 @@
                     <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account, ProviderType, SpecialProvider)}" IconSize="28" />
                 </controls:SettingsCard.HeaderIcon>
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <ProgressRing
-                        Width="18"
-                        Height="18"
-                        IsActive="{x:Bind IsChangingEnabled, Mode=OneWay}"
-                        Visibility="{x:Bind IsChangingEnabled, Mode=OneWay}" />
-                    <CheckBox
-                        AutomationProperties.AutomationId="{x:Bind ToggleAutomationId}"
-                        AutomationProperties.Name="{x:Bind domain:Translator.WinoIntelligence_EnableMailbox, Mode=OneTime}"
-                        Command="{x:Bind ToggleEnabledCommand}"
-                        CommandParameter="{x:Bind}"
-                        Content="{x:Bind domain:Translator.WinoIntelligence_MailboxEnabled, Mode=OneTime}"
-                        IsChecked="{x:Bind IsEnabled, Mode=OneWay}"
-                        IsEnabled="{x:Bind CanToggle, Mode=OneWay}"
-                        ToolTipService.ToolTip="{x:Bind ToggleUnavailableTooltip}"
-                        Visibility="{x:Bind CanManage, Mode=OneWay}" />
                     <Button
                         AutomationProperties.AutomationId="{x:Bind ManageAutomationId}"
                         Command="{x:Bind ManageCommand}"

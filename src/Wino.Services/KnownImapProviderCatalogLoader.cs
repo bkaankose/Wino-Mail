@@ -28,7 +28,11 @@ public sealed class KnownImapProviderCatalogLoader : IKnownImapProviderCatalogLo
         }
 
         Validate(document);
-        return document;
+
+        // The help list is optional; an absent one reads as empty rather than null.
+        return document.AppPasswordHelp == null
+            ? document with { AppPasswordHelp = (KnownAppPasswordHelpDefinition[])[] }
+            : document;
     }
 
     internal static void Validate(KnownImapProviderCatalogDocument document)
@@ -83,6 +87,35 @@ public sealed class KnownImapProviderCatalogLoader : IKnownImapProviderCatalogLo
         }
 
         ValidateAliases(document.GenericFolderAliases, "generic aliases", allowFullPath: false);
+        ValidateAppPasswordHelp(document.AppPasswordHelp, ids, domains);
+    }
+
+    private static void ValidateAppPasswordHelp(
+        IReadOnlyList<KnownAppPasswordHelpDefinition> entries,
+        HashSet<string> providerIds,
+        HashSet<string> providerDomains)
+    {
+        // The list is optional so catalogs written before it existed still load.
+        foreach (var entry in entries ?? [])
+        {
+            if (entry == null || entry.EmailDomains == null)
+                throw new InvalidDataException("An app-password help entry contains null values.");
+
+            if (string.IsNullOrWhiteSpace(entry.Id) || !providerIds.Add(entry.Id.Trim()))
+                throw new InvalidDataException($"App-password help ID '{entry.Id}' is empty or duplicated.");
+
+            if (string.IsNullOrWhiteSpace(entry.DisplayName) || entry.EmailDomains.Count == 0)
+                throw new InvalidDataException($"App-password help '{entry.Id}' needs a display name and at least one email domain.");
+
+            // Domains are shared with the provider list, so one address resolves to one entry.
+            foreach (var domain in entry.EmailDomains)
+                ValidateMatcher(domain, providerDomains, "email domain", entry.Id);
+
+            if (string.IsNullOrWhiteSpace(entry.HelpUrl))
+                throw new InvalidDataException($"App-password help '{entry.Id}' has no help URL.");
+
+            ValidateOptionalAbsoluteUrl(entry.HelpUrl, "app-password help", entry.Id);
+        }
     }
 
     private static void ValidateMatcher(string value, HashSet<string> seen, string kind, string providerId)

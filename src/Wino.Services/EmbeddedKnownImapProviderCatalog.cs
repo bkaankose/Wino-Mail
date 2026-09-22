@@ -28,7 +28,10 @@ public class KnownImapProviderCatalog : IKnownImapProviderCatalog
             .OrderBy(provider => provider.SetupOrder)
             .ToArray());
         GenericFolderAliases = Array.AsReadOnly(document.GenericFolderAliases.ToArray());
+        _appPasswordHelp = (document.AppPasswordHelp ?? []).ToArray();
     }
+
+    private readonly KnownAppPasswordHelpDefinition[] _appPasswordHelp;
 
     public int SchemaVersion => _schemaVersion;
     public IReadOnlyList<KnownImapProviderDefinition> Providers { get; }
@@ -74,6 +77,33 @@ public class KnownImapProviderCatalog : IKnownImapProviderCatalog
         var atIndex = normalized.IndexOf('@');
         return atIndex > 0 ? normalized[..atIndex] : normalized;
     }
+
+    public KnownAppPasswordHelp FindAppPasswordHelp(string emailAddress)
+    {
+        var domain = GetDomain(emailAddress);
+        if (string.IsNullOrEmpty(domain))
+            return null;
+
+        // A full provider definition wins: it also carries the servers the help refers to.
+        var provider = Providers.FirstOrDefault(candidate =>
+            !string.IsNullOrWhiteSpace(candidate.AppPasswordHelpUrl) &&
+            candidate.EmailDomains.Any(candidateDomain => string.Equals(candidateDomain, domain, StringComparison.OrdinalIgnoreCase)));
+
+        if (provider != null)
+            return new KnownAppPasswordHelp(GetProviderDisplayName(provider.SpecialImapProvider), provider.AppPasswordHelpUrl);
+
+        var help = _appPasswordHelp.FirstOrDefault(candidate => candidate.EmailDomains.Any(
+            candidateDomain => string.Equals(candidateDomain, domain, StringComparison.OrdinalIgnoreCase)));
+
+        return help == null ? null : new KnownAppPasswordHelp(help.DisplayName, help.HelpUrl);
+    }
+
+    private static string GetProviderDisplayName(SpecialImapProvider provider) => provider switch
+    {
+        SpecialImapProvider.iCloud => "iCloud",
+        SpecialImapProvider.Yahoo => "Yahoo",
+        _ => provider.ToString()
+    };
 
     private static string GetDomain(string emailAddress)
     {

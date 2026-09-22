@@ -939,11 +939,29 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <Grid>
+                        <!--
+                            The whole row reacts to the pointer, not only the toggle button: the action
+                            column on the right would otherwise stay unlit while the rest of the row
+                            changes colour. The button's own hover and pressed fills are cleared so the
+                            two backgrounds below are the only feedback.
+                        -->
+                        <Grid x:Name="PART_HeaderRow" Background="Transparent">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
+                            <Border
+                                x:Name="PART_HeaderHoverBackground"
+                                Grid.ColumnSpan="2"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                IsHitTestVisible="False"
+                                Opacity="0" />
+                            <Border
+                                x:Name="PART_HeaderPressedBackground"
+                                Grid.ColumnSpan="2"
+                                Background="{ThemeResource SubtleFillColorTertiaryBrush}"
+                                IsHitTestVisible="False"
+                                Opacity="0" />
                             <Button
                                 x:Name="PART_HeaderToggleButton"
                                 MinHeight="40"
@@ -954,6 +972,11 @@
                                 Background="Transparent"
                                 BorderThickness="0"
                                 CornerRadius="0">
+                                <Button.Resources>
+                                    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="Transparent" />
+                                    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="Transparent" />
+                                    <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="Transparent" />
+                                </Button.Resources>
                                 <!--
                                     Everything the collapsed header shows lives on this one row: title,
                                     the optional briefing fact text, and whichever status text applies.

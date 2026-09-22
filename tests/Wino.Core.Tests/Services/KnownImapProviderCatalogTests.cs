@@ -92,6 +92,89 @@ public class KnownImapProviderCatalogTests
         action.Should().Throw<InvalidDataException>().WithMessage("*duplicated*");
     }
 
+    [Theory]
+    [InlineData("person@icloud.com", "iCloud", "https://support.apple.com/102654")]
+    [InlineData("person@ymail.com", "Yahoo", "https://help.yahoo.com/kb/generate-manage-third-party-passwords-sln15241.html")]
+    [InlineData("person@FASTMAIL.com", "Fastmail", "https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords")]
+    [InlineData("person@aol.com", "AOL", "https://help.aol.com/articles/create-and-manage-app-password")]
+    public void FindAppPasswordHelp_ResolvesProvidersAndHelpOnlyEntries(string address, string providerName, string helpUrl)
+    {
+        var help = CreateCatalog().FindAppPasswordHelp(address);
+
+        help.Should().NotBeNull();
+        help!.ProviderName.Should().Be(providerName);
+        help.HelpUrl.Should().Be(helpUrl);
+    }
+
+    [Theory]
+    [InlineData("person@example.org")]
+    [InlineData("not-an-address")]
+    [InlineData("")]
+    [InlineData(null)]
+    public void FindAppPasswordHelp_ReturnsNullWithoutKnownDomain(string? address)
+        => CreateCatalog().FindAppPasswordHelp(address!).Should().BeNull();
+
+    [Fact]
+    public void HelpOnlyEntries_DoNotBecomeSetupProviders()
+    {
+        var catalog = CreateCatalog();
+
+        catalog.Match("person@fastmail.com", null).Should().BeNull();
+        catalog.SetupProviders.Should().NotContain(provider => provider.Id == "fastmail");
+    }
+
+    [Fact]
+    public void Loader_RejectsHelpDomainOwnedByProvider()
+    {
+        const string json = """
+            {
+              "schemaVersion": 1,
+              "providers": [
+                { "id":"icloud", "specialImapProvider":"iCloud", "emailDomains":["a.test"], "incomingHosts":["imap.a.test"], "incoming":{"host":"imap.a.test","port":993,"security":"Auto","authentication":"Auto","usernamePolicy":"FullAddress"}, "outgoing":{"host":"smtp.a.test","port":587,"security":"Auto","authentication":"Auto","usernamePolicy":"FullAddress"}, "maxConcurrentClients":5, "folderAliases":[] }
+              ],
+              "genericFolderAliases": [],
+              "appPasswordHelp": [
+                { "id":"other", "displayName":"Other", "emailDomains":["A.test"], "helpUrl":"https://help.a.test/" }
+              ]
+            }
+            """;
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var action = () => new KnownImapProviderCatalogLoader().Load(stream);
+
+        action.Should().Throw<InvalidDataException>().WithMessage("*duplicated email domain*");
+    }
+
+    [Fact]
+    public void Loader_RejectsHelpEntryWithoutAbsoluteUrl()
+    {
+        const string json = """
+            {
+              "schemaVersion": 1,
+              "providers": [],
+              "genericFolderAliases": [],
+              "appPasswordHelp": [
+                { "id":"other", "displayName":"Other", "emailDomains":["b.test"], "helpUrl":"help/app-passwords" }
+              ]
+            }
+            """;
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var action = () => new KnownImapProviderCatalogLoader().Load(stream);
+
+        action.Should().Throw<InvalidDataException>();
+    }
+
+    [Fact]
+    public void Loader_AcceptsCatalogWithoutHelpList()
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes("""{ "schemaVersion": 1, "providers": [], "genericFolderAliases": [] }"""));
+
+        var document = new KnownImapProviderCatalogLoader().Load(stream);
+
+        document.AppPasswordHelp.Should().BeEmpty();
+    }
+
     [Fact]
     public void Loader_RejectsUnsupportedSchema()
     {

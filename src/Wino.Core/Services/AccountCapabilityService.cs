@@ -32,6 +32,17 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
         _authenticationProvider = authenticationProvider;
     }
 
+    public async Task EnsureLocalCapabilityStoresAsync(MailAccount account, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(account);
+
+        if (account.IsTaskAccessEnabled && account.TaskIntegrationSource == AccountIntegrationSource.Local)
+            await _taskService.EnsureLocalTaskListAsync(account.Id, account.Name).ConfigureAwait(false);
+
+        if (account.IsContactAccessEnabled && account.ContactIntegrationSource == AccountIntegrationSource.Local)
+            await _contactService.EnsureLocalAddressBookAsync(account.Id, account.Name).ConfigureAwait(false);
+    }
+
     public async Task<MailAccount> ApplyAsync(
         MailAccount account,
         bool includeMail,

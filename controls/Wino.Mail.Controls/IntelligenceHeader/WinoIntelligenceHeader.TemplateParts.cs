@@ -7,6 +7,9 @@ namespace Wino.Mail.Controls.IntelligenceHeader;
 
 [TemplatePart(Name = PartLayoutRootName, Type = typeof(Grid))]
 [TemplatePart(Name = PartHeaderToggleButtonName, Type = typeof(Button))]
+[TemplatePart(Name = PartHeaderRowName, Type = typeof(FrameworkElement))]
+[TemplatePart(Name = PartHeaderHoverBackgroundName, Type = typeof(UIElement))]
+[TemplatePart(Name = PartHeaderPressedBackgroundName, Type = typeof(UIElement))]
 [TemplatePart(Name = PartHeaderContentRootName, Type = typeof(FrameworkElement))]
 [TemplatePart(Name = PartTitleTextBlockName, Type = typeof(TextBlock))]
 [TemplatePart(Name = PartSubtitleTextBlockName, Type = typeof(TextBlock))]
@@ -85,6 +88,9 @@ public sealed partial class WinoIntelligenceHeader
 {
     private const string PartLayoutRootName = "PART_LayoutRoot";
     private const string PartHeaderToggleButtonName = "PART_HeaderToggleButton";
+    private const string PartHeaderRowName = "PART_HeaderRow";
+    private const string PartHeaderHoverBackgroundName = "PART_HeaderHoverBackground";
+    private const string PartHeaderPressedBackgroundName = "PART_HeaderPressedBackground";
     private const string PartHeaderContentRootName = "PART_HeaderContentRoot";
     private const string PartTitleTextBlockName = "PART_TitleTextBlock";
     private const string PartSubtitleTextBlockName = "PART_SubtitleTextBlock";
