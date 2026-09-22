@@ -4,14 +4,17 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.WinUI;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
 using Wino.Editor;
+using Wino.Mail.WinUI;
 
 namespace Wino.Mail.Controls;
 
@@ -46,6 +49,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     private readonly List<ICommandBarElement> _injectedInsertCommands = [];
     private readonly List<ICommandBarElement> _injectedOptionsCommands = [];
     private string _selectedSpellCheckLanguageCode = string.Empty;
+    private bool _areSpellCheckLanguagesConfigured;
 
     public event EventHandler<SpellCheckEnabledChangedEventArgs>? SpellCheckEnabledChanged;
     public event EventHandler<SpellCheckLanguageChangedEventArgs>? SpellCheckLanguageChanged;
@@ -159,7 +163,34 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         AttachCommandTarget(CommandTarget);
+        EnsureSpellCheckLanguages();
     }
+
+    // Hosts may configure the languages themselves. Every other host gets the saved composer choice,
+    // so the split button menu is never empty.
+    private void EnsureSpellCheckLanguages()
+    {
+        if (_areSpellCheckLanguagesConfigured)
+        {
+            return;
+        }
+
+        var services = WinoApplication.Current?.Services;
+        var translationService = services?.GetService<ITranslationService>();
+        var preferencesService = services?.GetService<IPreferencesService>();
+
+        if (translationService == null || preferencesService == null)
+        {
+            return;
+        }
+
+        ConfigureSpellCheckLanguages(
+            translationService.GetAvailableLanguages(),
+            preferencesService.ComposerSpellCheckLanguageCode);
+    }
+
+    private static IPreferencesService? GetPreferencesService()
+        => WinoApplication.Current?.Services?.GetService<IPreferencesService>();
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
@@ -507,6 +538,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         string selectedLanguageCode)
     {
         _selectedSpellCheckLanguageCode = selectedLanguageCode;
+        _areSpellCheckLanguagesConfigured = true;
         SpellCheckLanguageFlyout.Items.Clear();
 
         foreach (var language in languages)
@@ -565,6 +597,13 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
     {
         var isEnabled = SpellCheckButton.IsChecked == true;
         await ExecuteAsync(EditorCommand.ToggleSpellCheck(isEnabled));
+
+        var preferencesService = GetPreferencesService();
+        if (preferencesService != null)
+        {
+            preferencesService.IsComposerSpellCheckEnabled = isEnabled;
+        }
+
         SpellCheckEnabledChanged?.Invoke(this, new SpellCheckEnabledChangedEventArgs(isEnabled));
     }
 
@@ -578,6 +617,13 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
 
         _selectedSpellCheckLanguageCode = languageCode;
         await ExecuteAsync(EditorCommand.SetSpellCheckLanguage(languageCode));
+
+        var preferencesService = GetPreferencesService();
+        if (preferencesService != null)
+        {
+            preferencesService.ComposerSpellCheckLanguageCode = languageCode;
+        }
+
         SpellCheckLanguageChanged?.Invoke(this, new SpellCheckLanguageChangedEventArgs(languageCode));
     }
 

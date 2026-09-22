@@ -4147,6 +4147,12 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 if (string.IsNullOrWhiteSpace(createdEventId))
                     return;
 
+                var joinUrl = json?["onlineMeeting"]?["joinUrl"]?.GetValue<string>();
+                if (!string.IsNullOrWhiteSpace(joinUrl))
+                {
+                    createCalendarEventRequest.PreparedItem.DirectJoinLink = joinUrl;
+                }
+
                 var trackedRemoteEventId = createdEventId.WithClientTrackingId(createCalendarEventRequest.PreparedItem.Id);
                 await _outlookChangeProcessor.PersistCreatedCalendarEventAsync(
                     createCalendarEventRequest.PreparedItem,
@@ -4894,6 +4900,17 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             },
             TransactionId = calendarItem.Id.ToString("N")
         };
+
+        if (calendarItem.Visibility == CalendarItemVisibility.Private)
+        {
+            outlookEvent.Sensitivity = Microsoft.Graph.Models.Sensitivity.Private;
+        }
+
+        if (request.ComposeResult.IsOnlineMeeting)
+        {
+            // Graph picks the calendar's default provider: Teams for work accounts, Skype or Teams for consumer accounts.
+            outlookEvent.IsOnlineMeeting = true;
+        }
 
         if (calendarItem.IsAllDayEvent)
         {

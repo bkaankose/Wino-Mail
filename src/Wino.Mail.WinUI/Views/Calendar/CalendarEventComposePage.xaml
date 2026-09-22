@@ -6,7 +6,6 @@
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:calendarViewModels="using:Wino.Calendar.ViewModels"
     xmlns:contactControls="using:Wino.Mail.Controls.ContactPicture"
-    xmlns:controls="using:Wino.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
@@ -15,55 +14,72 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mailControls="using:Wino.Mail.Controls"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:shared="using:Wino.Core.Domain.Entities.Shared"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     Style="{StaticResource PageStyle}"
     mc:Ignorable="d">
 
     <Page.Resources>
         <Style
-            x:Key="FieldToggleButtonStyle"
-            BasedOn="{StaticResource DefaultToggleButtonStyle}"
-            TargetType="ToggleButton">
-            <Setter Property="Padding" Value="12,6" />
-            <Setter Property="MinWidth" Value="0" />
-            <Setter Property="MinHeight" Value="0" />
-            <Setter Property="CornerRadius" Value="4" />
+            x:Key="ComposeFieldLabelStyle"
+            BasedOn="{StaticResource CaptionTextBlockStyle}"
+            TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
         </Style>
 
+        <Style x:Key="ComposeRowIconStyle" TargetType="FontIcon">
+            <Setter Property="Width" Value="20" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Style>
+
+        <Style
+            x:Key="ComposeToggleButtonStyle"
+            BasedOn="{StaticResource DefaultToggleButtonStyle}"
+            TargetType="ToggleButton">
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="MinHeight" Value="32" />
+        </Style>
+
+        <Style x:Key="SidePaneListViewItemStyle" TargetType="ListViewItem">
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
     </Page.Resources>
 
-    <Grid>
+    <Grid x:Name="RootGrid">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <!--  Top Bar  -->
+        <!--  Command bar: event-wide settings on the left, one primary action on the right  -->
         <Border
             Background="{ThemeResource WinoContentZoneBackgroud}"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
             CornerRadius="7">
-            <Grid Padding="12,6" ColumnSpacing="12">
+            <Grid Padding="12,8" ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <!--  Left: Calendar, Show As, Reminder  -->
-                <StackPanel Orientation="Horizontal" Spacing="12">
-
-                    <!--  Calendar  -->
-                    <StackPanel
-                        VerticalAlignment="Center"
-                        Orientation="Horizontal"
-                        Spacing="8">
-                        <coreControls:WinoFontIcon FontSize="14" Icon="Calendar" />
+                <ScrollViewer
+                    HorizontalScrollBarVisibility="Auto"
+                    HorizontalScrollMode="Auto"
+                    VerticalScrollBarVisibility="Disabled"
+                    VerticalScrollMode="Disabled">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button
-                            Padding="10,6"
+                            Padding="10,4"
+                            VerticalAlignment="Center"
                             HorizontalContentAlignment="Left"
                             AutomationProperties.AutomationId="CalendarEventComposePageButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_SelectCalendar, Mode=OneTime}"
                             Style="{StaticResource DefaultButtonStyle}">
                             <Button.Flyout>
                                 <Flyout x:Name="CalendarSelectionFlyout" Placement="BottomEdgeAlignedLeft">
@@ -117,13 +133,13 @@
                                     </ScrollViewer>
                                 </Flyout>
                             </Button.Flyout>
-                            <StackPanel Orientation="Horizontal" Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="10">
                                 <Ellipse
                                     Width="10"
                                     Height="10"
                                     VerticalAlignment="Center"
                                     Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ViewModel.SelectedCalendar.BackgroundColorHex), Mode=OneWay}" />
-                                <StackPanel Spacing="0">
+                                <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{x:Bind ViewModel.SelectedCalendarDisplayText, Mode=OneWay}" />
                                     <TextBlock
                                         FontSize="11"
@@ -131,512 +147,749 @@
                                         Text="{x:Bind ViewModel.SelectedCalendarAccountText, Mode=OneWay}"
                                         Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ViewModel.SelectedCalendarAccountText), Mode=OneWay}" />
                                 </StackPanel>
-                                <FontIcon Glyph="&#xE70D;" />
+                                <FontIcon FontSize="12" Glyph="&#xE70D;" />
                             </StackPanel>
                         </Button>
-                    </StackPanel>
 
-                    <!--  Show As  -->
-                    <StackPanel
-                        VerticalAlignment="Center"
-                        Orientation="Horizontal"
-                        Spacing="8">
-                        <coreControls:WinoFontIcon FontSize="14" Icon="CalendarShowAs" />
+                        <AppBarSeparator VerticalAlignment="Center" />
+
                         <ComboBox
+                            MinWidth="140"
                             VerticalAlignment="Center"
                             AutomationProperties.AutomationId="CalendarEventComposePageComboBox"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventDetails_ShowAs, Mode=OneTime}"
                             ItemsSource="{x:Bind ViewModel.ShowAsOptions}"
-                            SelectedItem="{x:Bind ViewModel.SelectedShowAsOption, Mode=TwoWay}">
+                            SelectedItem="{x:Bind ViewModel.SelectedShowAsOption, Mode=TwoWay}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventDetails_ShowAs, Mode=OneTime}">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate x:DataType="calendarViewModels:ShowAsOption">
-                                    <TextBlock Text="{x:Bind DisplayText}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <coreControls:WinoFontIcon FontSize="14" Icon="CalendarShowAs" />
+                                        <TextBlock Text="{x:Bind DisplayText}" />
+                                    </StackPanel>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                    </StackPanel>
 
-                    <!--  Reminder  -->
-                    <StackPanel
-                        VerticalAlignment="Center"
-                        Orientation="Horizontal"
-                        Spacing="8">
-                        <coreControls:WinoFontIcon FontSize="14" Icon="Reminder" />
                         <ComboBox
+                            MinWidth="160"
                             VerticalAlignment="Center"
                             AutomationProperties.AutomationId="CalendarEventComposePageComboBox2"
+                            AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventDetails_Reminder, Mode=OneTime}"
                             ItemsSource="{x:Bind ViewModel.ReminderOptions}"
-                            SelectedItem="{x:Bind ViewModel.SelectedReminderOption, Mode=TwoWay}">
+                            SelectedItem="{x:Bind ViewModel.SelectedReminderOption, Mode=TwoWay}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventDetails_Reminder, Mode=OneTime}">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate x:DataType="calendarViewModels:ReminderOption">
-                                    <TextBlock Text="{x:Bind DisplayText}" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <coreControls:WinoFontIcon FontSize="14" Icon="Reminder" />
+                                        <TextBlock Text="{x:Bind DisplayText}" />
+                                    </StackPanel>
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
+
+                        <ToggleButton
+                            VerticalAlignment="Center"
+                            AutomationProperties.AutomationId="CalendarEventComposePrivateToggle"
+                            IsChecked="{x:Bind ViewModel.IsPrivate, Mode=TwoWay}"
+                            Style="{StaticResource ComposeToggleButtonStyle}"
+                            ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_PrivateTooltip, Mode=OneTime}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon FontSize="14" Glyph="&#xE72E;" />
+                                <TextBlock Text="{x:Bind domain:Translator.CalendarEventCompose_Private, Mode=OneTime}" />
+                            </StackPanel>
+                        </ToggleButton>
                     </StackPanel>
-                </StackPanel>
+                </ScrollViewer>
 
                 <StackPanel
                     Grid.Column="1"
+                    VerticalAlignment="Center"
                     Orientation="Horizontal"
-                    Spacing="4">
-                    <AppBarButton
+                    Spacing="8">
+                    <Button
                         AutomationProperties.AutomationId="CalendarEventComposePageAppBarButton"
                         Command="{x:Bind ViewModel.CancelCommand}"
-                        Label="{x:Bind domain:Translator.Buttons_Discard}">
-                        <AppBarButton.Icon>
-                            <coreControls:WinoFontIcon Icon="Delete" />
-                        </AppBarButton.Icon>
-                    </AppBarButton>
-                    <AppBarButton
+                        Style="{StaticResource DefaultButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon FontSize="14" Icon="Delete" />
+                            <TextBlock Text="{x:Bind domain:Translator.Buttons_Discard, Mode=OneTime}" />
+                        </StackPanel>
+                    </Button>
+                    <Button
+                        MinWidth="96"
                         AutomationProperties.AutomationId="CalendarEventComposePageAppBarButton2"
+                        AutomationProperties.Name="{x:Bind ViewModel.SaveButtonText, Mode=OneWay}"
                         Command="{x:Bind ViewModel.CreateCommand}"
-                        Label="{x:Bind domain:Translator.Buttons_Save}">
-                        <AppBarButton.Icon>
-                            <coreControls:WinoFontIcon Icon="Save" />
-                        </AppBarButton.Icon>
-                    </AppBarButton>
+                        Style="{StaticResource AccentButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon FontSize="14" Icon="Send" />
+                            <TextBlock Text="{x:Bind ViewModel.SaveButtonText, Mode=OneWay}" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </Grid>
         </Border>
 
-        <!--  Scrollable Content  -->
-        <ScrollViewer Grid.Row="1" MaxWidth="1200">
-            <StackPanel
-                Padding="40,24,40,40"
-                HorizontalAlignment="Stretch"
-                Spacing="0">
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="SidePaneColumn" Width="340" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
-                <!--  Title  -->
-                <TextBox
-                    AutomationProperties.AutomationId="CalendarEventComposePageTextBox"
-                    FontSize="24"
-                    PlaceholderText="{x:Bind domain:Translator.CalendarEventCompose_TitlePlaceholder}"
-                    Text="{x:Bind ViewModel.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                    <TextBox.Style>
-                        <Style BasedOn="{StaticResource DefaultTextBoxStyle}" TargetType="TextBox">
-                            <Setter Property="Background" Value="Transparent" />
-                            <Setter Property="BorderThickness" Value="0" />
-                            <Setter Property="BorderBrush" Value="Transparent" />
-                            <!--<Setter Property="Padding" Value="0,8" />-->
-                        </Style>
-                    </TextBox.Style>
-                </TextBox>
-
-                <!--  Divider  -->
-                <Border
-                    Height="1"
-                    Margin="0,0,0,20"
-                    Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
-
-                <!--  Date Row  -->
+            <!--  Event form  -->
+            <ScrollViewer>
                 <StackPanel
-                    Margin="0,0,0,12"
-                    Orientation="Horizontal"
-                    Spacing="12">
-                    <DatePicker
-                        AutomationProperties.AutomationId="CalendarEventComposePageDatePicker"
-                        Date="{x:Bind ViewModel.StartDate, Mode=TwoWay}"
-                        Header="{x:Bind domain:Translator.CalendarEventCompose_StartDate}" />
+                    x:Name="ComposeFormPanel"
+                    MaxWidth="960"
+                    Padding="32,24,32,32"
+                    Spacing="20">
 
-                    <ToggleButton
-                        VerticalAlignment="Bottom"
-                        AutomationProperties.AutomationId="CalendarEventComposePageToggleButton"
-                        Content="{x:Bind domain:Translator.CalendarEventCompose_AllDay}"
-                        IsChecked="{x:Bind ViewModel.IsAllDay, Mode=TwoWay}"
-                        Style="{StaticResource FieldToggleButtonStyle}" />
-                </StackPanel>
+                    <TextBox
+                        AutomationProperties.AutomationId="CalendarEventComposePageTextBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_Title, Mode=OneTime}"
+                        FontSize="24"
+                        FontWeight="SemiBold"
+                        PlaceholderText="{x:Bind domain:Translator.CalendarEventCompose_TitlePlaceholder, Mode=OneTime}"
+                        Text="{x:Bind ViewModel.Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                        <TextBox.Style>
+                            <Style BasedOn="{StaticResource DefaultTextBoxStyle}" TargetType="TextBox">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                                <Setter Property="Padding" Value="0,6,0,10" />
+                            </Style>
+                        </TextBox.Style>
+                    </TextBox>
 
-                <!--  Time Row  -->
-                <StackPanel
-                    Margin="0,0,0,8"
-                    Orientation="Horizontal"
-                    Spacing="12"
-                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}">
-                    <TimePicker
-                        AutomationProperties.AutomationId="CalendarEventComposePageTimePicker"
-                        ClockIdentifier="{x:Bind ViewModel.TimePickerClockIdentifier, Mode=OneWay}"
-                        Header="{x:Bind domain:Translator.CalendarEventCompose_StartTime}"
-                        SelectedTime="{x:Bind ViewModel.StartTime, Mode=TwoWay}" />
+                    <!--  When  -->
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                    <TextBlock
-                        Margin="0,28,0,0"
-                        VerticalAlignment="Center"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Text="—" />
+                        <FontIcon Glyph="&#xE823;" Style="{StaticResource ComposeRowIconStyle}" />
 
-                    <TimePicker
-                        AutomationProperties.AutomationId="CalendarEventComposePageTimePicker2"
-                        ClockIdentifier="{x:Bind ViewModel.TimePickerClockIdentifier, Mode=OneWay}"
-                        Header="{x:Bind domain:Translator.CalendarEventCompose_EndTime}"
-                        SelectedTime="{x:Bind ViewModel.EndTime, Mode=TwoWay}" />
-                </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="8">
+                            <Grid ColumnSpacing="8" RowSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" MinWidth="48" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
 
-                <!--  All Day End Date  -->
-                <DatePicker
-                    Margin="0,0,0,8"
-                    AutomationProperties.AutomationId="CalendarEventComposePageDatePicker2"
-                    Date="{x:Bind ViewModel.AllDayEndDate, Mode=TwoWay}"
-                    Header="{x:Bind domain:Translator.CalendarEventCompose_EndDate}"
-                    Visibility="{x:Bind ViewModel.IsAllDay, Mode=OneWay}" />
+                                <TextBlock Style="{StaticResource ComposeFieldLabelStyle}" Text="{x:Bind domain:Translator.CalendarEventCompose_Starts, Mode=OneTime}" />
+                                <CalendarDatePicker
+                                    Grid.Column="1"
+                                    MinWidth="150"
+                                    AutomationProperties.AutomationId="CalendarEventComposeStartDatePicker"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_StartDate, Mode=OneTime}"
+                                    Date="{x:Bind ViewModel.StartDateValue, Mode=TwoWay}" />
+                                <TimePicker
+                                    Grid.Column="2"
+                                    MinWidth="0"
+                                    AutomationProperties.AutomationId="CalendarEventComposePageTimePicker"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_StartTime, Mode=OneTime}"
+                                    ClockIdentifier="{x:Bind ViewModel.TimePickerClockIdentifier, Mode=OneWay}"
+                                    SelectedTime="{x:Bind ViewModel.StartTime, Mode=TwoWay}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}" />
 
-                <!--  Date/Time Summary  -->
-                <TextBlock
-                    Margin="0,0,0,16"
-                    FontSize="13"
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Text="{x:Bind ViewModel.RecurrenceSummary, Mode=OneWay}"
-                    TextWrapping="Wrap" />
+                                <TextBlock
+                                    Grid.Row="1"
+                                    Style="{StaticResource ComposeFieldLabelStyle}"
+                                    Text="{x:Bind domain:Translator.CalendarEventCompose_Ends, Mode=OneTime}" />
+                                <CalendarDatePicker
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    MinWidth="150"
+                                    AutomationProperties.AutomationId="CalendarEventComposeEndDatePicker"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_EndDate, Mode=OneTime}"
+                                    Date="{x:Bind ViewModel.EndDateValue, Mode=TwoWay}" />
+                                <TimePicker
+                                    Grid.Row="1"
+                                    Grid.Column="2"
+                                    MinWidth="0"
+                                    AutomationProperties.AutomationId="CalendarEventComposePageTimePicker2"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_EndTime, Mode=OneTime}"
+                                    ClockIdentifier="{x:Bind ViewModel.TimePickerClockIdentifier, Mode=OneWay}"
+                                    SelectedTime="{x:Bind ViewModel.EndTime, Mode=TwoWay}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}" />
+                                <Border
+                                    Grid.Row="1"
+                                    Grid.Column="3"
+                                    Padding="8,2"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="CalendarEventComposeEndDayOffset"
+                                    AutomationProperties.Name="{x:Bind ViewModel.EndDayOffsetText, Mode=OneWay}"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    CornerRadius="10"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_EndsDayOffsetTooltip, Mode=OneTime}"
+                                    Visibility="{x:Bind ViewModel.HasEndDayOffset, Mode=OneWay}">
+                                    <TextBlock
+                                        FontSize="12"
+                                        FontWeight="SemiBold"
+                                        Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                        Text="{x:Bind ViewModel.EndDayOffsetText, Mode=OneWay}" />
+                                </Border>
+                            </Grid>
 
-                <!--  Location  -->
-                <TextBox
-                    Margin="0,0,0,12"
-                    AutomationProperties.AutomationId="CalendarEventComposePageTextBox2"
-                    PlaceholderText="{x:Bind domain:Translator.CalendarEventCompose_LocationPlaceholder}"
-                    Text="{x:Bind ViewModel.Location, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <StackPanel
+                                AutomationProperties.AutomationId="CalendarEventComposeDateRangeError"
+                                AutomationProperties.LiveSetting="Assertive"
+                                Orientation="Horizontal"
+                                Spacing="6"
+                                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsDateRangeValid), Mode=OneWay}">
+                                <FontIcon
+                                    FontSize="14"
+                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                    Glyph="&#xE783;" />
+                                <TextBlock
+                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                    Text="{x:Bind ViewModel.DateRangeErrorText, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
 
-                <!--  Recurring Toggle  -->
-                <ToggleButton
-                    Margin="0,0,0,4"
-                    AutomationProperties.AutomationId="CalendarEventComposePageToggleButton2"
-                    IsChecked="{x:Bind ViewModel.IsRecurring, Mode=TwoWay}"
-                    Style="{StaticResource FieldToggleButtonStyle}">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <coreControls:WinoFontIcon FontSize="14" Icon="CalendarEventRepeat" />
-                        <TextBlock Text="{x:Bind domain:Translator.CalendarEventCompose_Recurring}" />
-                    </StackPanel>
-                </ToggleButton>
-
-                <!--  Recurrence Panel  -->
-                <Border
-                    Margin="0,8,0,4"
-                    Padding="16"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    CornerRadius="{StaticResource ControlCornerRadius}"
-                    Visibility="{x:Bind ViewModel.IsRecurring, Mode=OneWay}">
-                    <StackPanel Spacing="12">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
-                            <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventCompose_RepeatEvery}" />
-                            <ComboBox
-                                Grid.Column="1"
-                                AutomationProperties.AutomationId="CalendarEventComposePageComboBox3"
-                                ItemsSource="{x:Bind ViewModel.RecurrenceIntervalOptions}"
-                                SelectedItem="{x:Bind ViewModel.SelectedRecurrenceInterval, Mode=TwoWay}" />
                             <TextBlock
-                                Grid.Column="2"
-                                VerticalAlignment="Center"
-                                Text="{x:Bind domain:Translator.CalendarEventCompose_Every}" />
+                                AutomationProperties.AutomationId="CalendarEventComposeSummary"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                TextWrapping="Wrap"
+                                Visibility="{x:Bind ViewModel.IsDateRangeValid, Mode=OneWay}">
+                                <Run Text="{x:Bind ViewModel.RecurrenceSummary, Mode=OneWay}" />
+                                <Run Text=" · " />
+                                <Run Text="{x:Bind ViewModel.DurationText, Mode=OneWay}" />
+                            </TextBlock>
+
+                            <StackPanel Orientation="Horizontal" Spacing="16">
+                                <CheckBox
+                                    MinWidth="0"
+                                    AutomationProperties.AutomationId="CalendarEventComposePageToggleButton"
+                                    Content="{x:Bind domain:Translator.CalendarEventCompose_AllDay, Mode=OneTime}"
+                                    IsChecked="{x:Bind ViewModel.IsAllDay, Mode=TwoWay}" />
+
+                                <ComboBox
+                                    Width="320"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="CalendarEventComposeTimeZoneComboBox"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_TimeZone, Mode=OneTime}"
+                                    ItemsSource="{x:Bind ViewModel.TimeZoneOptions}"
+                                    SelectedItem="{x:Bind ViewModel.SelectedTimeZoneOption, Mode=TwoWay}"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_TimeZone, Mode=OneTime}"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsAllDay), Mode=OneWay}">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate x:DataType="calendarViewModels:CalendarComposeTimeZoneOption">
+                                            <TextBlock Text="{x:Bind DisplayText}" TextTrimming="CharacterEllipsis" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
+                                </ComboBox>
+                            </StackPanel>
+
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.LocalTimeHintText, Mode=OneWay}"
+                                TextWrapping="Wrap"
+                                Visibility="{x:Bind ViewModel.HasLocalTimeHint, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!--  Repeat  -->
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <coreControls:WinoFontIcon
+                            Height="32"
+                            VerticalAlignment="Top"
+                            FontSize="16"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Icon="CalendarEventRepeat" />
+
+                        <StackPanel Grid.Column="1" Spacing="8">
                             <ComboBox
-                                Grid.Column="3"
-                                AutomationProperties.AutomationId="CalendarEventComposePageComboBox4"
-                                ItemsSource="{x:Bind ViewModel.RecurrenceFrequencyOptions}"
-                                SelectedItem="{x:Bind ViewModel.SelectedRecurrenceFrequencyOption, Mode=TwoWay}">
+                                MinWidth="260"
+                                AutomationProperties.AutomationId="CalendarEventComposeRepeatComboBox"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_Repeat, Mode=OneTime}"
+                                ItemsSource="{x:Bind ViewModel.RepeatOptions}"
+                                SelectedItem="{x:Bind ViewModel.SelectedRepeatOption, Mode=TwoWay}">
                                 <ComboBox.ItemTemplate>
-                                    <DataTemplate x:DataType="calendarViewModels:CalendarComposeFrequencyOption">
-                                        <TextBlock Text="{x:Bind DisplayText}" />
+                                    <DataTemplate x:DataType="calendarViewModels:CalendarComposeRepeatOption">
+                                        <TextBlock Text="{x:Bind DisplayText, Mode=OneWay}" />
                                     </DataTemplate>
                                 </ComboBox.ItemTemplate>
                             </ComboBox>
-                            <TextBlock
-                                Grid.Column="4"
-                                VerticalAlignment="Center"
-                                Text="{x:Bind domain:Translator.CalendarEventCompose_ForWeekdays}"
-                                Visibility="{x:Bind ViewModel.IsDailyRecurrenceSelected, Mode=OneWay}" />
-                            <ItemsControl
-                                Grid.Column="5"
-                                IsEnabled="{x:Bind ViewModel.IsDailyRecurrenceSelected, Mode=OneWay}"
-                                ItemsSource="{x:Bind ViewModel.WeekdayOptions}"
-                                Visibility="{x:Bind ViewModel.IsDailyRecurrenceSelected, Mode=OneWay}">
-                                <ItemsControl.ItemsPanel>
-                                    <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" Spacing="4" />
-                                    </ItemsPanelTemplate>
-                                </ItemsControl.ItemsPanel>
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="calendarViewModels:CalendarComposeWeekdayOption">
-                                        <ToggleButton
-                                            Width="32"
-                                            Height="32"
-                                            Padding="0"
-                                            AutomationProperties.AutomationId="CalendarEventComposePageToggleButton3"
-                                            IsChecked="{x:Bind IsSelected, Mode=TwoWay}">
-                                            <TextBlock HorizontalAlignment="Center" Text="{x:Bind Label}" />
-                                        </ToggleButton>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <TextBlock
-                                Grid.Column="6"
-                                VerticalAlignment="Center"
-                                Text="{x:Bind domain:Translator.CalendarEventCompose_Until}" />
-                            <CalendarDatePicker
-                                Grid.Column="7"
-                                Date="{x:Bind ViewModel.RecurrenceEndDate, Mode=TwoWay}"
-                                PlaceholderText="{x:Bind domain:Translator.CalendarEventCompose_NoEndDate}" />
-                            <Button
-                                Grid.Column="8"
-                                AutomationProperties.AutomationId="CalendarEventComposePageButton2"
-                                Command="{x:Bind ViewModel.ClearRecurrenceEndDateCommand}"
-                                Style="{StaticResource TransparentActionButtonStyle}">
-                                <coreControls:WinoFontIcon FontSize="14" Icon="Dismiss" />
-                            </Button>
-                        </Grid>
-                    </StackPanel>
-                </Border>
 
-                <!--  People & Attachments Toggle Row  -->
-                <StackPanel
-                    Margin="0,12,0,4"
-                    Orientation="Horizontal"
-                    Spacing="8">
-                    <ToggleButton
-                        x:Name="PeopleToggle"
-                        AutomationProperties.AutomationId="PeopleToggle"
-                        Style="{StaticResource FieldToggleButtonStyle}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <coreControls:WinoFontIcon FontSize="14" Icon="People" />
-                            <TextBlock Text="{x:Bind domain:Translator.CalendarEventDetails_People}" />
-                        </StackPanel>
-                    </ToggleButton>
+                            <Border
+                                Padding="16,12"
+                                HorizontalAlignment="Left"
+                                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                BorderThickness="1"
+                                CornerRadius="{StaticResource ControlCornerRadius}"
+                                Visibility="{x:Bind ViewModel.IsCustomRecurrence, Mode=OneWay}">
+                                <StackPanel Spacing="12">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventCompose_RepeatEvery, Mode=OneTime}" />
+                                        <ComboBox
+                                            AutomationProperties.AutomationId="CalendarEventComposePageComboBox3"
+                                            AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_RepeatEvery, Mode=OneTime}"
+                                            ItemsSource="{x:Bind ViewModel.RecurrenceIntervalOptions}"
+                                            SelectedItem="{x:Bind ViewModel.SelectedRecurrenceInterval, Mode=TwoWay}" />
+                                        <ComboBox
+                                            AutomationProperties.AutomationId="CalendarEventComposePageComboBox4"
+                                            ItemsSource="{x:Bind ViewModel.RecurrenceFrequencyOptions}"
+                                            SelectedItem="{x:Bind ViewModel.SelectedRecurrenceFrequencyOption, Mode=TwoWay}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate x:DataType="calendarViewModels:CalendarComposeFrequencyOption">
+                                                    <TextBlock Text="{x:Bind DisplayText}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+                                    </StackPanel>
 
-                    <ToggleButton
-                        x:Name="AttachmentsToggle"
-                        AutomationProperties.AutomationId="AttachmentsToggle"
-                        Style="{StaticResource FieldToggleButtonStyle}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <coreControls:WinoFontIcon FontSize="14" Icon="Attachment" />
-                            <TextBlock Text="{x:Bind domain:Translator.CalendarEventDetails_Attachments}" />
-                        </StackPanel>
-                    </ToggleButton>
-                </StackPanel>
-
-                <!--  People Pane  -->
-                <Border
-                    Margin="0,8,0,0"
-                    Padding="16"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    CornerRadius="{StaticResource ControlCornerRadius}"
-                    Visibility="{x:Bind PeopleToggle.IsChecked, Mode=OneWay}">
-                    <StackPanel Spacing="8">
-                        <toolkit:TokenizingTextBox
-                            x:Name="AttendeeBox"
-                            BorderThickness="0"
-                            ItemsSource="{x:Bind ViewModel.Attendees, Mode=OneWay}"
-                            LostFocus="AddressBoxLostFocus"
-                            PlaceholderText="{x:Bind domain:Translator.CalendarEventDetails_InviteSomeone}"
-                            SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
-                            TokenDelimiter=";"
-                            TokenItemAdding="TokenItemAdding"
-                            TokenItemTemplate="{StaticResource ContactTokenTemplate}" />
-
-                        <ListView
-                            Margin="-8,0,-8,-8"
-                            AutomationProperties.AutomationId="CalendarEventComposePageListView2"
-                            ItemsSource="{x:Bind ViewModel.Attendees, Mode=OneWay}"
-                            SelectionMode="None">
-                            <ListView.ItemContainerStyle>
-                                <Style TargetType="ListViewItem">
-                                    <Setter Property="Padding" Value="8,4" />
-                                    <Setter Property="MinHeight" Value="0" />
-                                </Style>
-                            </ListView.ItemContainerStyle>
-                            <ListView.ItemTemplate>
-                                <DataTemplate x:DataType="data:CalendarComposeAttendeeViewModel">
-                                    <Grid ColumnSpacing="10">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <contactControls:WinoContactPicture
-                                            Width="32"
-                                            Height="32"
-                                            ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ResolvedContact, DisplayName, Email), Mode=OneTime}"
-                                            IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
-                                            IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
-
-                                        <StackPanel
-                                            Grid.Column="1"
+                                    <StackPanel
+                                        Orientation="Horizontal"
+                                        Spacing="8"
+                                        Visibility="{x:Bind ViewModel.IsWeeklyCustomRecurrence, Mode=OneWay}">
+                                        <TextBlock
+                                            MinWidth="24"
                                             VerticalAlignment="Center"
-                                            Spacing="1">
-                                            <TextBlock
-                                                FontSize="13"
-                                                Text="{x:Bind DisplayName}"
-                                                TextTrimming="CharacterEllipsis" />
-                                            <TextBlock
-                                                FontSize="11"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Text="{x:Bind Email}"
-                                                TextTrimming="CharacterEllipsis"
-                                                Visibility="{x:Bind HasDistinctDisplayName}" />
-                                        </StackPanel>
+                                            Text="{x:Bind domain:Translator.CalendarEventCompose_RepeatOn, Mode=OneTime}" />
+                                        <ItemsControl ItemsSource="{x:Bind ViewModel.WeekdayOptions}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <StackPanel Orientation="Horizontal" Spacing="4" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="calendarViewModels:CalendarComposeWeekdayOption">
+                                                    <ToggleButton
+                                                        Width="36"
+                                                        Height="36"
+                                                        Padding="0"
+                                                        AutomationProperties.AutomationId="CalendarEventComposePageToggleButton3"
+                                                        AutomationProperties.Name="{x:Bind FullDayName}"
+                                                        CornerRadius="18"
+                                                        IsChecked="{x:Bind IsSelected, Mode=TwoWay}"
+                                                        ToolTipService.ToolTip="{x:Bind FullDayName}">
+                                                        <TextBlock
+                                                            HorizontalAlignment="Center"
+                                                            FontSize="12"
+                                                            Text="{x:Bind Label}" />
+                                                    </ToggleButton>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
 
-                                        <Button
-                                            Grid.Column="2"
-                                            Padding="6,4"
-                                            VerticalAlignment="Center"
-                                            AutomationProperties.AutomationId="CalendarEventComposePageButton3"
-                                            Click="RemoveAttendeeClicked"
-                                            Style="{StaticResource TransparentActionButtonStyle}"
-                                            Tag="{x:Bind}">
-                                            <coreControls:WinoFontIcon FontSize="12" Icon="Delete" />
-                                        </Button>
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-                    </StackPanel>
-                </Border>
-
-                <!--  Attachments Pane  -->
-                <Border
-                    x:Name="AttachmentsPane"
-                    Margin="0,8,0,0"
-                    Padding="16"
-                    AllowDrop="True"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    CornerRadius="{StaticResource ControlCornerRadius}"
-                    DragLeave="AttachmentsPane_DragLeave"
-                    DragOver="AttachmentsPane_DragOver"
-                    Drop="AttachmentsPane_Drop"
-                    ToolTipService.ToolTip="{x:Bind ViewModel.AttachmentsDisabledTooltipText, Mode=OneWay}"
-                    Visibility="{x:Bind AttachmentsToggle.IsChecked, Mode=OneWay}">
-                    <StackPanel Spacing="8">
-                        <Button
-                            HorizontalAlignment="Left"
-                            AutomationProperties.AutomationId="CalendarEventComposePageButton4"
-                            Command="{x:Bind ViewModel.AddAttachmentsCommand}"
-                            IsEnabled="{x:Bind ViewModel.CanAddAttachments, Mode=OneWay}"
-                            Style="{StaticResource TransparentActionButtonStyle}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <coreControls:WinoFontIcon FontSize="14" Icon="AttachmentNew" />
-                                <TextBlock
-                                    FontSize="18"
-                                    FontWeight="SemiBold"
-                                    Text="+" />
+                            <StackPanel
+                                Orientation="Horizontal"
+                                Spacing="8"
+                                Visibility="{x:Bind ViewModel.IsRecurring, Mode=OneWay}">
+                                <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.CalendarEventCompose_RepeatEnds, Mode=OneTime}" />
+                                <CalendarDatePicker
+                                    MinWidth="150"
+                                    AutomationProperties.AutomationId="CalendarEventComposeRecurrenceEndDatePicker"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_RepeatEnds, Mode=OneTime}"
+                                    Date="{x:Bind ViewModel.RecurrenceEndDate, Mode=TwoWay}"
+                                    PlaceholderText="{x:Bind domain:Translator.CalendarEventCompose_NoEndDate, Mode=OneTime}" />
+                                <Button
+                                    AutomationProperties.AutomationId="CalendarEventComposePageButton2"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_ClearRecurrenceEndDate, Mode=OneTime}"
+                                    Command="{x:Bind ViewModel.ClearRecurrenceEndDateCommand}"
+                                    Style="{StaticResource TransparentActionButtonStyle}"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_ClearRecurrenceEndDate, Mode=OneTime}">
+                                    <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                </Button>
                             </StackPanel>
-                        </Button>
+                        </StackPanel>
+                    </Grid>
 
-                        <GridView
-                            Margin="-8,0,-8,-8"
-                            AutomationProperties.AutomationId="CalendarEventComposePageGridView"
-                            ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
-                            SelectionMode="None">
-                            <!--<ListView.ItemContainerStyle>
-                                <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
-                                    <Setter Property="Padding" Value="8,4" />
-                                    <Setter Property="MinHeight" Value="0" />
-                                </Style>
-                            </ListView.ItemContainerStyle>-->
-                            <GridView.ItemTemplate>
-                                <DataTemplate x:DataType="data:CalendarComposeAttachmentViewModel">
-                                    <Grid Height="44" ColumnSpacing="8">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="32" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
+                    <!--  Location and online meeting  -->
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
 
-                                        <ContentControl
-                                            VerticalAlignment="Center"
-                                            Content="{x:Bind AttachmentType}"
-                                            ContentTemplateSelector="{StaticResource FileTypeIconSelector}" />
+                        <FontIcon Glyph="&#xE707;" Style="{StaticResource ComposeRowIconStyle}" />
 
-                                        <StackPanel
-                                            Grid.Column="1"
-                                            VerticalAlignment="Center"
-                                            Spacing="1">
-                                            <TextBlock
-                                                FontSize="13"
-                                                Text="{x:Bind FileName}"
-                                                TextTrimming="CharacterEllipsis" />
-                                            <TextBlock
-                                                FontSize="11"
-                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Text="{x:Bind ReadableSize}" />
-                                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="8">
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
 
-                                        <SymbolIcon
-                                            Grid.Column="2"
-                                            Margin="8,0,0,0"
-                                            VerticalAlignment="Center"
-                                            AutomationProperties.AutomationId="CalendarComposeAttachmentContentTypeWarning"
-                                            AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
-                                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                            Symbol="Important"
-                                            ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
-                                            Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
+                                <TextBox
+                                    AutomationProperties.AutomationId="CalendarEventComposePageTextBox2"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_Location, Mode=OneTime}"
+                                    PlaceholderText="{x:Bind domain:Translator.CalendarEventCompose_LocationPlaceholder, Mode=OneTime}"
+                                    Text="{x:Bind ViewModel.Location, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                                        <Button
-                                            Grid.Column="3"
-                                            Padding="6,4"
-                                            VerticalAlignment="Center"
-                                            AutomationProperties.AutomationId="CalendarEventComposePageButton5"
-                                            Click="RemoveAttachmentClicked"
-                                            Style="{StaticResource TransparentActionButtonStyle}"
-                                            Tag="{x:Bind}">
-                                            <coreControls:WinoFontIcon
-                                                FontSize="20"
-                                                Foreground="{ThemeResource DeleteBrush}"
-                                                Icon="Delete" />
-                                        </Button>
-                                    </Grid>
-                                </DataTemplate>
-                            </GridView.ItemTemplate>
-                        </GridView>
+                                <ToggleButton
+                                    Grid.Column="1"
+                                    AutomationProperties.AutomationId="CalendarEventComposeOnlineMeetingToggle"
+                                    IsChecked="{x:Bind ViewModel.IsOnlineMeeting, Mode=TwoWay}"
+                                    Style="{StaticResource ComposeToggleButtonStyle}"
+                                    Visibility="{x:Bind ViewModel.CanAddOnlineMeeting, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <coreControls:WinoFontIcon FontSize="14" Icon="EventJoinOnline" />
+                                        <TextBlock Text="{x:Bind ViewModel.OnlineMeetingProviderText, Mode=OneWay}" />
+                                    </StackPanel>
+                                </ToggleButton>
+                            </Grid>
+
+                            <Grid
+                                Padding="12,10"
+                                AutomationProperties.AutomationId="CalendarEventComposeOnlineMeetingInfo"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                ColumnSpacing="12"
+                                CornerRadius="{StaticResource ControlCornerRadius}"
+                                Visibility="{x:Bind ViewModel.IsOnlineMeeting, Mode=OneWay}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <coreControls:WinoFontIcon
+                                    VerticalAlignment="Center"
+                                    FontSize="18"
+                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                    Icon="EventJoinOnline" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.OnlineMeetingProviderText, Mode=OneWay}" />
+                                    <TextBlock
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind domain:Translator.CalendarEventCompose_OnlineMeetingInfo, Mode=OneTime}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                                <Button
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="CalendarEventComposeRemoveOnlineMeeting"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_RemoveOnlineMeeting, Mode=OneTime}"
+                                    Command="{x:Bind ViewModel.RemoveOnlineMeetingCommand}"
+                                    Style="{StaticResource TransparentActionButtonStyle}"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_RemoveOnlineMeeting, Mode=OneTime}">
+                                    <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+
+                    <!--  Notes  -->
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <coreControls:WinoFontIcon
+                                FontSize="14"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Icon="Draft" />
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.CalendarEventCompose_Notes, Mode=OneTime}" />
+                        </StackPanel>
+
+                        <Border
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            BorderThickness="1"
+                            CornerRadius="{StaticResource ControlCornerRadius}">
+                            <StackPanel>
+                                <mailControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind NotesEditor}">
+                                    <mailControls:EditorTabbedCommandBarControl.PaneCustomContent>
+                                        <toolkit:TabbedCommandBarItem
+                                            CommandAlignment="Right"
+                                            IsDynamicOverflowEnabled="True"
+                                            OverflowButtonAlignment="Left">
+                                            <AppBarButton
+                                                AutomationProperties.AutomationId="CalendarEventComposePageAppBarButton3"
+                                                Click="ToggleNotesEditorThemeClicked"
+                                                ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(NotesEditor.IsEditorDarkMode), Mode=OneWay}">
+                                                <AppBarButton.Icon>
+                                                    <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(NotesEditor.IsEditorDarkMode), Mode=OneWay}" />
+                                                </AppBarButton.Icon>
+                                            </AppBarButton>
+                                        </toolkit:TabbedCommandBarItem>
+                                    </mailControls:EditorTabbedCommandBarControl.PaneCustomContent>
+                                </mailControls:EditorTabbedCommandBarControl>
+                                <editor:WinoMailEditor
+                                    x:Name="NotesEditor"
+                                    MinHeight="360"
+                                    AutomationProperties.AutomationId="CalendarEventNotesEditor"
+                                    IsEditorDarkMode="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=OneWay}"
+                                    IsEditorWebViewEditor="False" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
-                </Border>
-
-                <!--  Notes Header  -->
-                <StackPanel
-                    Margin="0,20,0,8"
-                    Orientation="Horizontal"
-                    Spacing="8">
-                    <coreControls:WinoFontIcon
-                        FontSize="14"
-                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Icon="Draft" />
-                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.CalendarEventCompose_Notes}" />
                 </StackPanel>
-                <!--  Notes Editor  -->
-                <mailControls:EditorTabbedCommandBarControl CommandTarget="{x:Bind NotesEditor}">
-                    <mailControls:EditorTabbedCommandBarControl.PaneCustomContent>
-                        <toolkit:TabbedCommandBarItem
-                            CommandAlignment="Right"
-                            IsDynamicOverflowEnabled="True"
-                            OverflowButtonAlignment="Left">
-                            <AppBarButton
-                                AutomationProperties.AutomationId="CalendarEventComposePageAppBarButton3"
-                                Click="ToggleNotesEditorThemeClicked"
-                                ToolTipService.ToolTip="{x:Bind GetEditorThemeToolTip(NotesEditor.IsEditorDarkMode), Mode=OneWay}">
-                                <AppBarButton.Icon>
-                                    <coreControls:WinoFontIcon Icon="{x:Bind GetEditorThemeIcon(NotesEditor.IsEditorDarkMode), Mode=OneWay}" />
-                                </AppBarButton.Icon>
-                            </AppBarButton>
-                        </toolkit:TabbedCommandBarItem>
-                    </mailControls:EditorTabbedCommandBarControl.PaneCustomContent>
-                </mailControls:EditorTabbedCommandBarControl>
-                <editor:WinoMailEditor
-                    x:Name="NotesEditor"
-                    MinHeight="500"
-                    AutomationProperties.AutomationId="CalendarEventNotesEditor"
-                    IsEditorDarkMode="{x:Bind ViewModel.IsDarkWebviewRenderer, Mode=OneWay}"
-                    IsEditorWebViewEditor="False" />
-            </StackPanel>
-        </ScrollViewer>
+            </ScrollViewer>
+
+            <!--  Attendees and attachments. Each list scrolls inside its own capped area.  -->
+            <Border
+                x:Name="SidePane"
+                Grid.Column="1"
+                Background="{ThemeResource LayerFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1,0,0,0">
+                <ScrollViewer>
+                    <StackPanel Padding="20" Spacing="24">
+                        <StackPanel Spacing="10">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <coreControls:WinoFontIcon FontSize="16" Icon="CalendarAttendees" />
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}">
+                                    <Run Text="{x:Bind domain:Translator.CalendarEventCompose_Attendees, Mode=OneTime}" />
+                                    <Run Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.AttendeeCount, Mode=OneWay}" />
+                                </TextBlock>
+                            </StackPanel>
+
+                            <AutoSuggestBox
+                                x:Name="InviteBox"
+                                AutomationProperties.AutomationId="CalendarEventComposeInviteBox"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventDetails_InviteSomeone, Mode=OneTime}"
+                                ItemTemplate="{StaticResource ContactSuggestionTemplate}"
+                                LostFocus="InviteBoxLostFocus"
+                                PlaceholderText="{x:Bind domain:Translator.CalendarEventDetails_InviteSomeone, Mode=OneTime}"
+                                QueryIcon="Add"
+                                QuerySubmitted="InviteBoxQuerySubmitted"
+                                UpdateTextOnSelect="False" />
+
+                            <Grid Padding="6,4" ColumnSpacing="10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <contactControls:WinoContactPicture
+                                    Width="32"
+                                    Height="32"
+                                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(x:Null, ViewModel.OrganizerDisplayName, ViewModel.OrganizerAddress), Mode=OneWay}"
+                                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock
+                                        FontSize="13"
+                                        Text="{x:Bind ViewModel.OrganizerDisplayName, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis" />
+                                    <TextBlock
+                                        FontSize="11"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Bind ViewModel.OrganizerAddress, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                                <TextBlock
+                                    Grid.Column="2"
+                                    VerticalAlignment="Center"
+                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind domain:Translator.CalendarEventCompose_Organizer, Mode=OneTime}" />
+                            </Grid>
+
+                            <ListView
+                                MaxHeight="420"
+                                AutomationProperties.AutomationId="CalendarEventComposePageListView2"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_Attendees, Mode=OneTime}"
+                                ItemContainerStyle="{StaticResource SidePaneListViewItemStyle}"
+                                ItemsSource="{x:Bind ViewModel.Attendees, Mode=OneWay}"
+                                SelectionMode="None"
+                                Visibility="{x:Bind ViewModel.HasAttendees, Mode=OneWay}">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="data:CalendarComposeAttendeeViewModel">
+                                        <Grid ColumnSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <contactControls:WinoContactPicture
+                                                Width="32"
+                                                Height="32"
+                                                ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(ResolvedContact, DisplayName, Email), Mode=OneTime}"
+                                                IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                                                IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock
+                                                    FontSize="13"
+                                                    Text="{x:Bind DisplayName}"
+                                                    TextTrimming="CharacterEllipsis" />
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Text="{x:Bind Email}"
+                                                    TextTrimming="CharacterEllipsis"
+                                                    Visibility="{x:Bind HasDistinctDisplayName}" />
+                                            </StackPanel>
+
+                                            <Button
+                                                Grid.Column="2"
+                                                MinHeight="0"
+                                                Padding="8,2"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AutomationId="CalendarEventComposeAttendeeTypeButton"
+                                                Click="ToggleAttendeeOptionalClicked"
+                                                CornerRadius="12"
+                                                FontSize="12"
+                                                Tag="{x:Bind}"
+                                                ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_AttendeeTypeTooltip, Mode=OneTime}">
+                                                <TextBlock Text="{x:Bind AttendanceTypeText, Mode=OneWay}" />
+                                            </Button>
+
+                                            <Button
+                                                Grid.Column="3"
+                                                Padding="6,4"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AutomationId="CalendarEventComposePageButton3"
+                                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_RemoveAttendee, Mode=OneTime}"
+                                                Click="RemoveAttendeeClicked"
+                                                Style="{StaticResource TransparentActionButtonStyle}"
+                                                Tag="{x:Bind}"
+                                                ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_RemoveAttendee, Mode=OneTime}">
+                                                <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </StackPanel>
+
+                        <StackPanel
+                            x:Name="AttachmentsPane"
+                            AllowDrop="True"
+                            DragOver="AttachmentsPane_DragOver"
+                            Drop="AttachmentsPane_Drop"
+                            Spacing="10"
+                            ToolTipService.ToolTip="{x:Bind ViewModel.AttachmentsDisabledTooltipText, Mode=OneWay}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <coreControls:WinoFontIcon FontSize="16" Icon="Attachment" />
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}">
+                                    <Run Text="{x:Bind domain:Translator.CalendarEventDetails_Attachments, Mode=OneTime}" />
+                                    <Run Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.AttachmentCount, Mode=OneWay}" />
+                                </TextBlock>
+                            </StackPanel>
+
+                            <Button
+                                Padding="12"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                AutomationProperties.AutomationId="CalendarEventComposePageButton4"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_AddAttachment, Mode=OneTime}"
+                                BorderBrush="{ThemeResource ControlStrokeColorSecondaryBrush}"
+                                Command="{x:Bind ViewModel.AddAttachmentsCommand}"
+                                IsEnabled="{x:Bind ViewModel.CanAddAttachments, Mode=OneWay}"
+                                Style="{StaticResource DefaultButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="10">
+                                    <coreControls:WinoFontIcon FontSize="18" Icon="AttachmentNew" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Text="{x:Bind domain:Translator.CalendarEventCompose_AttachmentsDropHint, Mode=OneTime}"
+                                        TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Button>
+
+                            <ListView
+                                MaxHeight="320"
+                                AutomationProperties.AutomationId="CalendarEventComposePageGridView"
+                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventDetails_Attachments, Mode=OneTime}"
+                                ItemContainerStyle="{StaticResource SidePaneListViewItemStyle}"
+                                ItemsSource="{x:Bind ViewModel.Attachments, Mode=OneWay}"
+                                SelectionMode="None"
+                                Visibility="{x:Bind ViewModel.HasAttachments, Mode=OneWay}">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate x:DataType="data:CalendarComposeAttachmentViewModel">
+                                        <Grid Height="44" ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="32" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <ContentControl
+                                                VerticalAlignment="Center"
+                                                Content="{x:Bind AttachmentType}"
+                                                ContentTemplateSelector="{StaticResource FileTypeIconSelector}" />
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock
+                                                    FontSize="13"
+                                                    Text="{x:Bind FileName}"
+                                                    TextTrimming="CharacterEllipsis" />
+                                                <TextBlock
+                                                    FontSize="11"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                    Text="{x:Bind ReadableSize}" />
+                                            </StackPanel>
+
+                                            <SymbolIcon
+                                                Grid.Column="2"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AutomationId="CalendarComposeAttachmentContentTypeWarning"
+                                                AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                                Symbol="Important"
+                                                ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                                Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
+
+                                            <Button
+                                                Grid.Column="3"
+                                                Padding="6,4"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AutomationId="CalendarEventComposePageButton5"
+                                                AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_RemoveAttachment, Mode=OneTime}"
+                                                Click="RemoveAttachmentClicked"
+                                                Style="{StaticResource TransparentActionButtonStyle}"
+                                                Tag="{x:Bind}"
+                                                ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_RemoveAttachment, Mode=OneTime}">
+                                                <coreControls:WinoFontIcon FontSize="14" Icon="Delete" />
+                                            </Button>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
+                            </ListView>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="LayoutStates">
+                <VisualState x:Name="WideLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1008" />
+                    </VisualState.StateTriggers>
+                </VisualState>
+                <VisualState x:Name="NarrowLayout">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="SidePaneColumn.Width" Value="0" />
+                        <Setter Target="SidePane.(Grid.Column)" Value="0" />
+                        <Setter Target="SidePane.(Grid.Row)" Value="1" />
+                        <Setter Target="SidePane.MaxHeight" Value="360" />
+                        <Setter Target="SidePane.BorderThickness" Value="0,1,0,0" />
+                        <Setter Target="ComposeFormPanel.Padding" Value="20,16,20,24" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
     </Grid>
 </abstract:CalendarEventComposePageAbstract>
-

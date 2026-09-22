@@ -32,6 +32,21 @@ public static class CalendarRecurrenceSummaryFormatter
         DateTimeOffset? recurrenceEndDate)
     {
         var culture = settings?.CultureInfo ?? CultureInfo.CurrentCulture;
+        var timeDisplayType = settings?.DayHeaderDisplayType ?? DateTimeDisplayFormatter.GetDefaultTimeDisplayType(culture);
+
+        if (!isRecurring && SpansMultipleDays(effectiveStart, effectiveEnd, isAllDay))
+        {
+            // All-day ends are exclusive, so the last visible day is the day before the end.
+            var startText = isAllDay
+                ? effectiveStart.ToString("dddd yyyy-MM-dd", culture)
+                : $"{effectiveStart.ToString("dddd yyyy-MM-dd", culture)} {DateTimeDisplayFormatter.FormatTime(effectiveStart.DateTime, timeDisplayType, culture)}";
+            var endText = isAllDay
+                ? effectiveEnd.AddDays(-1).ToString("dddd yyyy-MM-dd", culture)
+                : $"{effectiveEnd.ToString("dddd yyyy-MM-dd", culture)} {DateTimeDisplayFormatter.FormatTime(effectiveEnd.DateTime, timeDisplayType, culture)}";
+
+            return string.Format(culture, Translator.CalendarEventCompose_MultiDayOccurrenceSummary, startText, endText);
+        }
+
         var timeSummary = isAllDay
             ? Translator.CalendarItemAllDay
             : string.Format(
@@ -83,6 +98,19 @@ public static class CalendarRecurrenceSummaryFormatter
             timeSummary,
             effectiveStart.ToString("dddd yyyy-MM-dd", culture),
             untilSummary).Trim();
+    }
+
+    private static bool SpansMultipleDays(DateTimeOffset effectiveStart, DateTimeOffset effectiveEnd, bool isAllDay)
+    {
+        if (effectiveEnd <= effectiveStart)
+            return false;
+
+        if (isAllDay)
+            return (effectiveEnd.Date - effectiveStart.Date).TotalDays > 1;
+
+        // An evening event that ends at midnight still belongs to its start day.
+        var lastDay = effectiveEnd.TimeOfDay == TimeSpan.Zero ? effectiveEnd.Date.AddDays(-1) : effectiveEnd.Date;
+        return lastDay > effectiveStart.Date;
     }
 
     private static IReadOnlyList<DayOfWeek> NormalizeDays(IReadOnlyCollection<DayOfWeek> daysOfWeek)

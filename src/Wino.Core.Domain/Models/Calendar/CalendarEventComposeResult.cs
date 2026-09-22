@@ -17,6 +17,12 @@ public class CalendarEventComposeResult
     public bool IsAllDay { get; set; }
     public string TimeZoneId { get; set; } = string.Empty;
     public CalendarItemShowAs ShowAs { get; set; }
+    public CalendarItemVisibility Visibility { get; set; } = CalendarItemVisibility.Public;
+
+    /// <summary>
+    /// Asks the provider to create a Teams or Google Meet conference for the new event.
+    /// </summary>
+    public bool IsOnlineMeeting { get; set; }
     public List<Reminder> SelectedReminders { get; set; } = [];
     public List<CalendarEventAttendee> Attendees { get; set; } = [];
     public List<CalendarEventComposeAttachmentDraft> Attachments { get; set; } = [];

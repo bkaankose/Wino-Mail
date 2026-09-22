@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Net.Http;
 using Google.Apis.Calendar.v3.Data;
 using Wino.Core.Google;
@@ -162,12 +163,18 @@ namespace Google.Apis.Calendar.v3
                 RequestUriFactory = () => GoogleUrl.AddQuery(
                     EventsUri(_calendarId),
                     ("sendUpdates", SendUpdatesValue(SendUpdates)),
-                    ("supportsAttachments", GoogleUrl.Boolean(SupportsAttachments)));
+                    ("supportsAttachments", GoogleUrl.Boolean(SupportsAttachments)),
+                    ("conferenceDataVersion", ConferenceDataVersion?.ToString(CultureInfo.InvariantCulture)));
             }
 
             public SendUpdatesEnum SendUpdates { get; set; } = SendUpdatesEnum.None;
 
             public bool? SupportsAttachments { get; set; }
+
+            /// <summary>
+            /// Google ignores conferenceData.createRequest unless this is 1.
+            /// </summary>
+            public int? ConferenceDataVersion { get; set; }
 
             public enum SendUpdatesEnum
             {

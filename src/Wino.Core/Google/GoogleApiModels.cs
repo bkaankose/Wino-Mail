@@ -422,7 +422,21 @@ namespace Google.Apis.Calendar.v3.Data
 
     public sealed class ConferenceData
     {
+        public CreateConferenceRequest CreateRequest { get; set; }
+
         public IList<EntryPoint> EntryPoints { get; set; }
+    }
+
+    public sealed class CreateConferenceRequest
+    {
+        public ConferenceSolutionKey ConferenceSolutionKey { get; set; }
+
+        public string RequestId { get; set; }
+    }
+
+    public sealed class ConferenceSolutionKey
+    {
+        public string Type { get; set; }
     }
 
     public sealed class EntryPoint

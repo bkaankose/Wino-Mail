@@ -10,7 +10,7 @@ namespace Wino.Mail.WinUI.Helpers;
 /// </summary>
 public sealed partial class SuggestionBoxTextDebouncer : IDisposable
 {
-    private readonly TokenizingTextBox _box;
+    private readonly Action _unsubscribe;
     private readonly Action<AutoSuggestBox, AutoSuggestBoxTextChangedEventArgs> _onTextChanged;
     private readonly DispatcherQueueTimer _timer;
     private AutoSuggestBoxTextChangedEventArgs _pendingArgs;
@@ -20,14 +20,32 @@ public sealed partial class SuggestionBoxTextDebouncer : IDisposable
         TokenizingTextBox box,
         TimeSpan dueTime,
         Action<AutoSuggestBox, AutoSuggestBoxTextChangedEventArgs> onTextChanged)
+        : this(box.DispatcherQueue, dueTime, onTextChanged)
     {
-        _box = box;
+        box.TextChanged += OnBoxTextChanged;
+        _unsubscribe = () => box.TextChanged -= OnBoxTextChanged;
+    }
+
+    public SuggestionBoxTextDebouncer(
+        AutoSuggestBox box,
+        TimeSpan dueTime,
+        Action<AutoSuggestBox, AutoSuggestBoxTextChangedEventArgs> onTextChanged)
+        : this(box.DispatcherQueue, dueTime, onTextChanged)
+    {
+        box.TextChanged += OnBoxTextChanged;
+        _unsubscribe = () => box.TextChanged -= OnBoxTextChanged;
+    }
+
+    private SuggestionBoxTextDebouncer(
+        DispatcherQueue dispatcherQueue,
+        TimeSpan dueTime,
+        Action<AutoSuggestBox, AutoSuggestBoxTextChangedEventArgs> onTextChanged)
+    {
         _onTextChanged = onTextChanged;
-        _timer = box.DispatcherQueue.CreateTimer();
+        _timer = dispatcherQueue.CreateTimer();
         _timer.Interval = dueTime;
         _timer.IsRepeating = false;
         _timer.Tick += OnTimerTick;
-        box.TextChanged += OnBoxTextChanged;
     }
 
     private void OnBoxTextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
@@ -51,7 +69,7 @@ public sealed partial class SuggestionBoxTextDebouncer : IDisposable
 
     public void Dispose()
     {
-        _box.TextChanged -= OnBoxTextChanged;
+        _unsubscribe?.Invoke();
         _timer.Stop();
         _timer.Tick -= OnTimerTick;
         _pendingSender = null;

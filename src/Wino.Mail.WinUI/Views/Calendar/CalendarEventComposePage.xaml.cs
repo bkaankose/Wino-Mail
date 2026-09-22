@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
-using CommunityToolkit.WinUI.Controls;
 using EmailValidation;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -11,6 +11,7 @@ using Windows.ApplicationModel.DataTransfer;
 using Windows.Foundation;
 using Windows.Storage;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Messaging.Client.Shell;
 using Wino.Calendar.ViewModels.Data;
@@ -43,11 +44,17 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
     {
         base.OnNavigatedTo(e);
 
-        _disposables.Add(GetSuggestionBoxDisposable(AttendeeBox));
+        _disposables.Add(GetSuggestionBoxDisposable(InviteBox));
         _disposables.Add(NotesEditor);
 
         ViewModel.GetHtmlNotesAsync = async () => await NotesEditor.GetHtmlBodyAsync() ?? string.Empty;
         var args = e.Parameter as CalendarEventComposeNavigationArgs;
+
+        // Notes use the same spell-check choice as the mail composer.
+        await NotesEditor.ConfigureSpellCheckAsync(
+            ViewModel.IsComposerSpellCheckEnabled,
+            ViewModel.ComposerSpellCheckLanguageCode);
+
         await NotesEditor.RenderHtmlAsync(string.IsNullOrWhiteSpace(args?.NotesHtml) ? " " : args.NotesHtml);
     }
 
@@ -63,7 +70,7 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         _disposables.Clear();
     }
 
-    private IDisposable GetSuggestionBoxDisposable(TokenizingTextBox box)
+    private IDisposable GetSuggestionBoxDisposable(AutoSuggestBox box)
     {
         return new SuggestionBoxTextDebouncer(box, TimeSpan.FromMilliseconds(120), async (senderBox, args) =>
         {
@@ -77,56 +84,83 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         });
     }
 
-    private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)
+    private async void InviteBoxQuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
     {
-        if (!EmailValidator.Validate(args.TokenText))
+        if (args.ChosenSuggestion is AccountContact contact)
         {
-            args.Cancel = true;
-            ViewModel.NotifyInvalidEmail(args.TokenText);
+            if (!await TryAddAttendeeAsync(contact.Address, notifyErrors: true))
+                return;
+
+            sender.Text = string.Empty;
+            sender.ItemsSource = null;
             return;
         }
 
-        var deferral = args.GetDeferral();
+        await AddTypedAttendeesAsync(sender, notifyErrors: true);
+    }
 
-        try
+    private async void InviteBoxLostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is AutoSuggestBox box)
         {
-            var attendee = await ViewModel.GetAttendeeAsync(args.TokenText);
-            if (attendee == null)
-            {
-                args.Cancel = true;
-                ViewModel.NotifyAddressExists();
-                return;
-            }
-
-            args.Item = attendee;
-        }
-        finally
-        {
-            deferral.Complete();
+            await AddTypedAttendeesAsync(box, notifyErrors: false);
         }
     }
 
-    private async void AddressBoxLostFocus(object sender, RoutedEventArgs e)
+    // Accepts one address or a pasted list separated by semicolons, commas, or spaces.
+    private async Task AddTypedAttendeesAsync(AutoSuggestBox box, bool notifyErrors)
     {
-        if (sender is not TokenizingTextBox tokenizingTextBox)
+        var addresses = (box.Text ?? string.Empty)
+            .Split([';', ',', ' ', '\t', '\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (addresses.Length == 0)
             return;
 
-        if (tokenizingTextBox.Items.LastOrDefault() is not ITokenStringContainer info)
-            return;
+        var rejected = new List<string>();
 
-        var currentText = info.Text;
-        if (string.IsNullOrWhiteSpace(currentText) || !EmailValidator.Validate(currentText))
-            return;
+        foreach (var address in addresses)
+        {
+            if (!await TryAddAttendeeAsync(address, notifyErrors))
+            {
+                rejected.Add(address);
+            }
+        }
 
-        var attendee = await ViewModel.GetAttendeeAsync(currentText);
+        // Keep what could not be added so the user can correct it.
+        box.Text = string.Join("; ", rejected);
+        box.ItemsSource = null;
+    }
+
+    private async Task<bool> TryAddAttendeeAsync(string address, bool notifyErrors)
+    {
+        if (!EmailValidator.Validate(address))
+        {
+            if (notifyErrors)
+                ViewModel.NotifyInvalidEmail(address);
+
+            return false;
+        }
+
+        var attendee = await ViewModel.GetAttendeeAsync(address);
         if (attendee == null)
         {
-            tokenizingTextBox.Text = string.Empty;
-            return;
+            // The address is already in the list, so there is nothing left to correct.
+            if (notifyErrors)
+                ViewModel.NotifyAddressExists();
+
+            return true;
         }
 
         ViewModel.AddAttendee(attendee);
-        tokenizingTextBox.Text = string.Empty;
+        return true;
+    }
+
+    private void ToggleAttendeeOptionalClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: CalendarComposeAttendeeViewModel attendee })
+        {
+            ViewModel.ToggleAttendeeOptionalCommand.Execute(attendee);
+        }
     }
 
     private void RemoveAttendeeClicked(object sender, RoutedEventArgs e)
@@ -173,10 +207,6 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
             e.DragUIOverride.IsGlyphVisible = true;
             e.DragUIOverride.IsContentVisible = true;
         }
-    }
-
-    private void AttachmentsPane_DragLeave(object sender, DragEventArgs e)
-    {
     }
 
     private async void AttachmentsPane_Drop(object sender, DragEventArgs e)

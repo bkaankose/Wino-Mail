@@ -43,7 +43,7 @@ public static class CalendarEventComposeMapper
             OrganizerDisplayName = assignedCalendar.MailAccount?.SenderName ?? string.Empty,
             OrganizerEmail = assignedCalendar.MailAccount?.Address ?? string.Empty,
             Status = CalendarItemStatus.Accepted,
-            Visibility = CalendarItemVisibility.Public,
+            Visibility = composeResult.Visibility,
             ShowAs = composeResult.ShowAs,
             IsHidden = false,
             IsLocked = false

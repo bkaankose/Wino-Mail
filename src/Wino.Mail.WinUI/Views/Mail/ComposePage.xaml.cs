@@ -388,14 +388,13 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     private void EditorCommandBar_SpellCheckEnabledChanged(object? sender, SpellCheckEnabledChangedEventArgs e)
     {
+        // The command bar saves the preference; the page keeps the value for the next editor render.
         _isSpellCheckEnabled = e.IsEnabled;
-        ViewModel.PreferencesService.IsComposerSpellCheckEnabled = e.IsEnabled;
     }
 
     private void EditorCommandBar_SpellCheckLanguageChanged(object? sender, SpellCheckLanguageChangedEventArgs e)
     {
         _spellCheckLanguageCode = e.LanguageCode;
-        ViewModel.PreferencesService.ComposerSpellCheckLanguageCode = e.LanguageCode;
     }
 
     private static void CopyContactAddress(string address)

@@ -68,10 +68,12 @@ public sealed class CalendarEventComposeImportTests
         viewModel.SelectedReminderOption.Minutes.Should().Be(17);
         viewModel.SelectedReminderOption.IsCustom.Should().BeTrue();
         viewModel.IsRecurring.Should().BeTrue();
+        viewModel.SelectedRepeatOption.Kind.Should().Be(CalendarComposeRepeatKind.Custom);
         viewModel.SelectedRecurrenceFrequencyOption.Frequency.Should().Be(CalendarItemRecurrenceFrequency.Daily);
         viewModel.SelectedRecurrenceInterval.Should().Be(2);
-        viewModel.WeekdayOptions.Where(day => day.IsSelected).Select(day => day.DayOfWeek)
-            .Should().BeEquivalentTo([DayOfWeek.Monday, DayOfWeek.Wednesday]);
+
+        // "Every 2 days" cannot keep a weekday filter: Outlook ignores BYDAY on daily rules.
+        viewModel.WeekdayOptions.Should().NotContain(day => day.IsSelected);
         viewModel.RecurrenceEndDate!.Value.Date.Should().Be(new DateTime(2026, 9, 30));
         delegator.Verify(service => service.ExecuteAsync(It.IsAny<CalendarOperationPreparationRequest>()), Times.Never);
     }
