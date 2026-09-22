@@ -17,7 +17,7 @@ public class ProviderFeatureAuthorizationService(
 {
     public bool IsSupported(MailAccount account, ProviderFeature feature)
         => feature == ProviderFeature.MailFilters
-           && account?.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook;
+           && account?.ProviderType == MailProviderType.Outlook;
 
     public Task<AccountProviderFeature> GetFeatureAsync(
         Guid accountId,

@@ -11,6 +11,41 @@ namespace Wino.Core.Tests.Services;
 
 public sealed class ProviderFeatureAuthorizationServiceTests
 {
+    [Theory]
+    [InlineData(MailProviderType.Gmail, false)]
+    [InlineData(MailProviderType.IMAP4, false)]
+    [InlineData(MailProviderType.POP3, false)]
+    [InlineData(MailProviderType.Outlook, true)]
+    public void IsSupported_OnlyOutlookAllowsProviderMailFilters(MailProviderType providerType, bool expected)
+    {
+        var service = new ProviderFeatureAuthorizationService(
+            Mock.Of<IAccountProviderFeatureService>(),
+            Mock.Of<IAccountService>(),
+            Mock.Of<IAuthenticationProvider>(),
+            Mock.Of<ISynchronizerFactory>(),
+            Mock.Of<IMailFilterService>());
+
+        Assert.Equal(expected, service.IsSupported(new MailAccount { ProviderType = providerType }, ProviderFeature.MailFilters));
+    }
+
+    [Fact]
+    public async Task EnableAsync_GmailRejectsProviderMailFiltersBeforeAuthentication()
+    {
+        var account = new MailAccount { Id = Guid.NewGuid(), ProviderType = MailProviderType.Gmail };
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountAsync(account.Id)).ReturnsAsync(account);
+        var authenticationProvider = new Mock<IAuthenticationProvider>(MockBehavior.Strict);
+        var service = new ProviderFeatureAuthorizationService(
+            Mock.Of<IAccountProviderFeatureService>(),
+            accountService.Object,
+            authenticationProvider.Object,
+            Mock.Of<ISynchronizerFactory>(),
+            Mock.Of<IMailFilterService>());
+
+        await Assert.ThrowsAsync<NotSupportedException>(() => service.EnableAsync(account.Id, ProviderFeature.MailFilters));
+        authenticationProvider.VerifyNoOtherCalls();
+    }
+
     [Fact]
     public async Task EnableAsync_VerifiesPermissionBeforePersisting_AndPreservesDeltaTokens()
     {

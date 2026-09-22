@@ -36,24 +36,26 @@ internal sealed class WinoGmailCodeReceiver(INativeAppService nativeAppService, 
         var context = await listener.GetContextAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
         var query = context.Request.QueryString;
 
-        await WriteBrowserResponseAsync(context.Response, query["error"]).ConfigureAwait(false);
+        if (!string.Equals(query["state"], state, StringComparison.Ordinal))
+        {
+            await WriteBrowserResponseAsync(context.Response, "invalid_state").ConfigureAwait(false);
+            throw new InvalidOperationException("Google authorization returned an invalid state value.");
+        }
 
         if (!string.IsNullOrWhiteSpace(query["error"]))
         {
+            await WriteBrowserResponseAsync(context.Response, query["error"]).ConfigureAwait(false);
             throw new InvalidOperationException($"Google authorization failed: {query["error"]}");
-        }
-
-        if (!string.Equals(query["state"], state, StringComparison.Ordinal))
-        {
-            throw new InvalidOperationException("Google authorization returned an invalid state value.");
         }
 
         var code = query["code"];
         if (string.IsNullOrWhiteSpace(code))
         {
+            await WriteBrowserResponseAsync(context.Response, "invalid_code").ConfigureAwait(false);
             throw new InvalidOperationException("Google authorization returned no authorization code.");
         }
 
+        await WriteBrowserResponseAsync(context.Response, null).ConfigureAwait(false);
         return new GoogleAuthorizationCode(code, redirectUri, codeVerifier);
     }
 

@@ -10,7 +10,7 @@ namespace Wino.Core.Tests.Services;
 public sealed class MailFilterProviderAuthorizationTests
 {
     [Fact]
-    public async Task GetFiltersAsync_WithoutOptIn_DoesNotCreateOrCallSynchronizer()
+    public async Task GetFiltersAsync_Gmail_DoesNotCreateOrCallSynchronizer()
     {
         var account = new MailAccount
         {
@@ -29,9 +29,13 @@ public sealed class MailFilterProviderAuthorizationTests
             featureStore.Object,
             Mock.Of<IProviderFeatureAuthorizationService>());
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GetFiltersAsync(account));
+        Assert.False(service.SupportsProviderFilters(account));
+        await Assert.ThrowsAsync<NotSupportedException>(() => service.GetFiltersAsync(account));
         synchronizerFactory.Verify(
             factory => factory.GetAccountSynchronizerAsync(It.IsAny<Guid>()),
+            Times.Never);
+        featureStore.Verify(
+            store => store.IsEnabledAsync(It.IsAny<Guid>(), It.IsAny<ProviderFeature>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 }

@@ -65,6 +65,7 @@ Format changed XAML before building. The pinned XAML Styler check must pass.
 
 - Use WinApp CLI 0.6+ project mode with the checked-in manifest and existing Debug package family.
 - Before deployment, compare the installed package name and publisher with the manifest. Stop on a mismatch.
+- Immediately before each live app test, force-stop any running process for the checked-in Debug app after the doctor and package identity checks, then launch the current Debug build with WinApp CLI project mode. Do not wait for a graceful shutdown or ask for confirmation.
 - Preserve application data. Never create another identity, use folder mode, clean, or unregister the package.
 - Never launch the packaged executable directly. Never deploy, launch, or UI-test Release.
 - Use only `winapp ui` for application interaction and visual evidence, including the playground.

@@ -31,6 +31,7 @@ public partial class MailFiltersPageViewModel(
     private readonly IProviderFeatureAuthorizationService _featureAuthorizationService = featureAuthorizationService;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsGmailAccount))]
     public partial MailAccount Account { get; set; }
 
     [ObservableProperty]
@@ -53,6 +54,7 @@ public partial class MailFiltersPageViewModel(
 
     public bool IsProviderFiltersConnectVisible => IsProviderFiltersSupported && !IsProviderFiltersEnabled;
     public bool IsProviderFiltersConnectedVisible => IsProviderFiltersSupported && IsProviderFiltersEnabled;
+    public bool IsGmailAccount => Account?.ProviderType == MailProviderType.Gmail;
 
     public ObservableCollection<MailFilterListItemViewModel> Filters { get; } = [];
 
@@ -78,7 +80,8 @@ public partial class MailFiltersPageViewModel(
                 .GetFeatureAsync(accountId, ProviderFeature.MailFilters)
                 .ConfigureAwait(false);
             var providerSupported = _featureAuthorizationService.IsSupported(account, ProviderFeature.MailFilters);
-            var providerEnabled = providerFeature?.AuthorizationState == ProviderFeatureAuthorizationState.Active;
+            var providerEnabled = providerSupported
+                && providerFeature?.AuthorizationState == ProviderFeatureAuthorizationState.Active;
             await ExecuteUIThread(() =>
             {
                 Account = account;

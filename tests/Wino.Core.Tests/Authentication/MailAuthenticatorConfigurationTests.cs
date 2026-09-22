@@ -35,12 +35,13 @@ public sealed class MailAuthenticatorConfigurationTests
     }
 
     [Fact]
-    public void GetGmailScopes_MailFilters_RequestsOnlyFeaturePermissionInAdditionToBaseScopes()
+    public void GetGmailScopes_MailFilters_DoesNotRequestMailFilterPermission()
     {
         var scopes = _configuration.GetGmailScopes(
             new ProviderAuthorizationRequest(true, false, [ProviderFeature.MailFilters]));
 
-        scopes.Should().Contain("https://www.googleapis.com/auth/gmail.settings.basic");
+        scopes.Should().Contain("https://mail.google.com/");
+        scopes.Should().NotContain("https://www.googleapis.com/auth/gmail.settings.basic");
     }
 
     [Fact]

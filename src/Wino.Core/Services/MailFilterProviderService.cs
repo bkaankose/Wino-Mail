@@ -24,7 +24,7 @@ public class MailFilterProviderService(
     IProviderFeatureAuthorizationService featureAuthorizationService) : IMailFilterProviderService
 {
     public bool SupportsProviderFilters(MailAccount account)
-        => account?.ProviderType is MailProviderType.Outlook or MailProviderType.Gmail;
+        => account?.ProviderType == MailProviderType.Outlook;
 
     public Task<bool> IsProviderFiltersEnabledAsync(
         Guid accountId,
