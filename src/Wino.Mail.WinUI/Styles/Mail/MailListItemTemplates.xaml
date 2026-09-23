@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:intelligenceCore="using:Wino.Mail.Controls.Core.IntelligenceTileBar"
@@ -56,7 +57,7 @@
             CornerRadius="4"
             ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <FontIcon
+                <coreControls:WinoFontIcon
                     x:Name="DetailedIntelligenceTileGlyph"
                     VerticalAlignment="Center"
                     AutomationProperties.AccessibilityView="Raw"
@@ -96,7 +97,7 @@
             CornerRadius="9"
             ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
             <Grid>
-                <FontIcon
+                <coreControls:WinoFontIcon
                     x:Name="CompactIntelligenceTileGlyph"
                     AutomationProperties.AccessibilityView="Raw"
                     FontSize="10"
@@ -128,11 +129,11 @@
             AutomationProperties.AutomationId="MailThreadChevron"
             Background="Transparent"
             PointerPressed="ThreadChevronPointerPressed">
-            <FontIcon
+            <coreControls:WinoFontIcon
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 FontSize="10"
-                Glyph="{x:Bind helpers:XamlHelpers.GetThreadChevronGlyph(IsExpanded), Mode=OneWay}" />
+                Icon="{x:Bind helpers:XamlHelpers.GetThreadChevronGlyph(IsExpanded), Mode=OneWay}" />
         </Grid>
     </DataTemplate>
 

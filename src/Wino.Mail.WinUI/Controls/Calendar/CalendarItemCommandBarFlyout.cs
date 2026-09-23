@@ -91,9 +91,9 @@ public partial class CalendarItemCommandBarFlyout : WinoContextFlyout
     }
 
     private static ContextFlyoutIcon? CreateIcon(WinoIconGlyph icon)
-        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
-            ? new ContextFlyoutIcon(glyph)
-            : null;
+        => icon == WinoIconGlyph.None
+            ? null
+            : new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(icon));
 
     private static string GetActionLabel(CalendarContextMenuAction action)
     {

@@ -49,7 +49,7 @@ public sealed partial class ApplicationThemeGalleryPage : ApplicationThemeGaller
             new ContextFlyoutCommandEntry
             {
                 Text = Translator.Buttons_Edit,
-                Icon = new ContextFlyoutIcon("\uE70F"),
+                Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Edit)),
                 Command = ViewModel.EditThemeCommand,
                 CommandParameter = theme,
                 AutomationId = "ApplicationThemeGalleryEdit"
@@ -57,7 +57,7 @@ public sealed partial class ApplicationThemeGalleryPage : ApplicationThemeGaller
             new ContextFlyoutCommandEntry
             {
                 Text = Translator.Buttons_Delete,
-                Icon = new ContextFlyoutIcon("\uE74D"),
+                Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Delete)),
                 Command = ViewModel.RemoveThemeCommand,
                 CommandParameter = theme,
                 IsDestructive = true,

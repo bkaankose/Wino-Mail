@@ -6,11 +6,11 @@ internal static class AccountIconGlyphs
 {
     public static string GetGlyph(AccountIconProvider provider) => provider switch
     {
-        AccountIconProvider.Microsoft => "\uE904",
-        AccountIconProvider.Google => "\uE905",
-        AccountIconProvider.ICloud => "\uE92B",
-        AccountIconProvider.Yahoo => "\uE92C",
-        AccountIconProvider.Imap => "\uE715",
-        _ => "\uE715",
+        AccountIconProvider.Microsoft => WinoIconCodes.Microsoft,
+        AccountIconProvider.Google => WinoIconCodes.Google,
+        AccountIconProvider.ICloud => WinoIconCodes.Apple,
+        AccountIconProvider.Yahoo => WinoIconCodes.Yahoo,
+        AccountIconProvider.Imap => WinoIconCodes.IMAP,
+        _ => WinoIconCodes.IMAP,
     };
 }

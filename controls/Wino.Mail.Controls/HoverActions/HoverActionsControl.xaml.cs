@@ -5,6 +5,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
+using Wino.Mail.Controls.AccountIcon;
 
 namespace Wino.Mail.Controls.HoverActions;
 
@@ -113,11 +114,11 @@ public sealed partial class HoverActionsControl : UserControl
 
     private static string GetGlyph(HoverActionKind action) => action switch
     {
-        HoverActionKind.Archive => "\uE066",
-        HoverActionKind.Delete => "\uEEA6",
-        HoverActionKind.ToggleFlag => "\uF40C",
-        HoverActionKind.ToggleRead => "\uF522",
-        HoverActionKind.MoveToJunk => "\uF140",
+        HoverActionKind.Archive => WinoIconCodes.Archive,
+        HoverActionKind.Delete => WinoIconCodes.Delete,
+        HoverActionKind.ToggleFlag => WinoIconCodes.Flag,
+        HoverActionKind.ToggleRead => WinoIconCodes.MarkRead,
+        HoverActionKind.MoveToJunk => WinoIconCodes.Blocked,
         _ => string.Empty,
     };
 }

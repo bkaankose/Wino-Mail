@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:hotKey="using:Wino.Mail.Controls.HotKeyInput"
@@ -53,7 +54,7 @@
             Description="{x:Bind domain:Translator.CompanionSettings_Enable_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.CompanionSettings_Enable_Title, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon Glyph="&#xE7F4;" />
+                <coreControls:WinoFontIcon Icon="Desktop" />
             </controls:SettingsCard.HeaderIcon>
             <ToggleSwitch
                 AutomationProperties.AutomationId="CompanionSettingsEnableToggle"
@@ -68,7 +69,7 @@
             Description="{x:Bind domain:Translator.CompanionSettings_Content_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.CompanionSettings_Content_Title, Mode=OneTime}">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE8A0;" />
+                <coreControls:WinoFontIcon Icon="PanelLeftExpand" />
             </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
                 <controls:SettingsCard AutomationProperties.AutomationId="CompanionSettingsShowCalendarCard" Header="{x:Bind domain:Translator.CompanionSettings_ShowCalendar_Title, Mode=OneTime}">
@@ -129,7 +130,7 @@
             Header="{x:Bind domain:Translator.CompanionSettings_HotKey_Title, Mode=OneTime}"
             IsExpanded="True">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE92E;" />
+                <coreControls:WinoFontIcon Icon="Keyboard" />
             </controls:SettingsExpander.HeaderIcon>
             <ToggleSwitch
                 x:Name="HotKeyEnabledToggle"

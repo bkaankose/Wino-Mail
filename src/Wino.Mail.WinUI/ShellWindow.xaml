@@ -189,7 +189,7 @@
                                         Width="22"
                                         Height="22"
                                         Margin="0,0,4,0">
-                                        <PathIcon Data="M8 2.25h8a0.75 0.75 0 0 1 0 1.5H8a0.75 0.75 0 0 1 0-1.5ZM5.5 5.25h13a0.75 0.75 0 0 1 0 1.5h-13a0.75 0.75 0 0 1 0-1.5ZM5.5 8.25h13a3.25 3.25 0 0 1 3.25 3.25v7a3.25 3.25 0 0 1-3.25 3.25h-13a3.25 3.25 0 0 1-3.25-3.25v-7A3.25 3.25 0 0 1 5.5 8.25ZM5.5 9.75a1.75 1.75 0 0 0-1.75 1.75v7a1.75 1.75 0 0 0 1.75 1.75h13a1.75 1.75 0 0 0 1.75-1.75v-7a1.75 1.75 0 0 0-1.75-1.75h-13ZM6.5 12.75h11a0.75 0.75 0 0 1 0 1.5h-11a0.75 0.75 0 0 1 0-1.5ZM6.5 16.25h6a0.75 0.75 0 0 1 0 1.5h-6a0.75 0.75 0 0 1 0-1.5Z" />
+                                        <coreControls:WinoFontIcon Icon="DailyBriefing" />
                                     </Viewbox>
                                     <InfoBadge
                                         x:Name="DailyBriefingUnseenBadge"
@@ -255,12 +255,12 @@
                                                                 Background="{ThemeResource AccentFillColorDefaultBrush}"
                                                                 CornerRadius="8"
                                                                 Opacity="0.15" />
-                                                            <FontIcon
+                                                            <coreControls:WinoFontIcon
                                                                 HorizontalAlignment="Center"
                                                                 VerticalAlignment="Center"
                                                                 FontSize="14"
                                                                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                                Glyph="&#xE8D7;" />
+                                                                Icon="Key" />
                                                             <StackPanel Grid.Column="1" Spacing="2">
                                                                 <TextBlock
                                                                     FontWeight="SemiBold"
@@ -289,12 +289,12 @@
                                                                 Background="{ThemeResource AccentFillColorDefaultBrush}"
                                                                 CornerRadius="8"
                                                                 Opacity="0.15" />
-                                                            <FontIcon
+                                                            <coreControls:WinoFontIcon
                                                                 HorizontalAlignment="Center"
                                                                 VerticalAlignment="Center"
                                                                 FontSize="14"
                                                                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                                Glyph="&#xE946;" />
+                                                                Icon="Info" />
                                                             <StackPanel Grid.Column="1" Spacing="2">
                                                                 <TextBlock
                                                                     FontWeight="SemiBold"

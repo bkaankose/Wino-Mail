@@ -153,7 +153,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <FontIcon
+            <accountIcon:WinoFontIcon
                 VerticalAlignment="Center"
                 AutomationProperties.AccessibilityView="Raw"
                 FontSize="14"
@@ -532,13 +532,13 @@
                                     HorizontalAlignment="Left"
                                     Canvas.ZIndex="1"
                                     Orientation="Horizontal">
-                                    <FontIcon
+                                    <accountIcon:WinoFontIcon
                                         Margin="0,0,10,0"
                                         VerticalAlignment="Center"
                                         AutomationProperties.AccessibilityView="Raw"
                                         FontSize="14"
                                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Glyph="&#xE721;"
+                                        Glyph="&#xEA7D;"
                                         IsHitTestVisible="False" />
                                     <StackPanel
                                         x:Name="PART_HeaderHost"
@@ -556,11 +556,11 @@
                                                     Style="{StaticResource CaptionTextBlockStyle}"
                                                     Text="{TemplateBinding SelectedHeaderButtonTitle}"
                                                     TextTrimming="CharacterEllipsis" />
-                                                <FontIcon
+                                                <accountIcon:WinoFontIcon
                                                     VerticalAlignment="Center"
                                                     AutomationProperties.AccessibilityView="Raw"
                                                     FontSize="8"
-                                                    Glyph="&#xE70D;" />
+                                                    Glyph="&#xE02A;" />
                                             </StackPanel>
                                         </Button>
                                         <Rectangle
@@ -588,10 +588,10 @@
                                         AutomationProperties.AutomationId="WinoSearchBarClearButton"
                                         Style="{StaticResource WinoSearchBarInlineIconButtonStyle}"
                                         Visibility="Collapsed">
-                                        <FontIcon
+                                        <accountIcon:WinoFontIcon
                                             AutomationProperties.AccessibilityView="Raw"
                                             FontSize="10"
-                                            Glyph="&#xE711;" />
+                                            Glyph="&#xF008;" />
                                     </Button>
                                     <ToggleButton
                                         x:Name="PART_ReachButton"
@@ -599,7 +599,7 @@
                                         AutomationProperties.AutomationId="WinoSearchBarReachButton"
                                         Style="{StaticResource WinoSearchBarReachToggleStyle}">
                                         <StackPanel Orientation="Horizontal" Spacing="5">
-                                            <FontIcon
+                                            <accountIcon:WinoFontIcon
                                                 x:Name="PART_ReachIcon"
                                                 VerticalAlignment="Center"
                                                 AutomationProperties.AccessibilityView="Raw"
@@ -644,10 +644,10 @@
                             Style="{StaticResource WinoSearchBarInlineIconButtonStyle}"
                             ToolTipService.ToolTip="{TemplateBinding SearchButtonText}"
                             Visibility="Collapsed">
-                            <FontIcon
+                            <accountIcon:WinoFontIcon
                                 AutomationProperties.AccessibilityView="Raw"
                                 FontSize="16"
-                                Glyph="&#xE721;" />
+                                Glyph="&#xEA7D;" />
                         </Button>
                         <Popup
                             x:Name="PART_SearchPopup"
@@ -785,12 +785,12 @@
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <PathIcon
+                                    <accountIcon:WinoFontIcon
                                         Width="16"
                                         Height="16"
                                         VerticalAlignment="Center"
-                                        Data="{StaticResource WinoIntelligenceBrandSparklePathData}"
-                                        Foreground="{StaticResource WinoIntelligenceHeaderSparkleBrush}" />
+                                        Foreground="{StaticResource WinoIntelligenceHeaderSparkleBrush}"
+                                        Glyph="&#xE076;" />
                                     <TextBlock
                                         x:Name="PART_TitleTextBlock"
                                         Grid.Column="1"
@@ -835,14 +835,14 @@
                                                 Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}" />
                                         </StackPanel>
                                     </Grid>
-                                    <FontIcon
+                                    <accountIcon:WinoFontIcon
                                         x:Name="PART_ChevronIcon"
                                         Grid.Column="4"
                                         VerticalAlignment="Center"
                                         AutomationProperties.AccessibilityView="Raw"
                                         FontSize="10"
                                         Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                                        Glyph="&#xE70D;" />
+                                        Glyph="&#xE02A;" />
                                 </Grid>
                             </Button>
                             <StackPanel
@@ -894,10 +894,10 @@
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <FontIcon
+                                            <accountIcon:WinoFontIcon
                                                 FontSize="14"
                                                 Foreground="{ThemeResource WinoIntelligenceHeaderDeadlinePillForegroundBrush}"
-                                                Glyph="&#xE823;" />
+                                                Glyph="&#xE063;" />
                                             <TextBlock
                                                 x:Name="PART_DeadlineFactTextBlock"
                                                 Grid.Column="1"
@@ -923,10 +923,10 @@
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
-                                            <FontIcon
+                                            <accountIcon:WinoFontIcon
                                                 FontSize="14"
                                                 Foreground="{ThemeResource WinoIntelligenceHeaderNeedsReplyPillForegroundBrush}"
-                                                Glyph="&#xE97A;" />
+                                                Glyph="&#xF176;" />
                                             <TextBlock
                                                 x:Name="PART_NeedsReplyFactTextBlock"
                                                 Grid.Column="1"
@@ -977,10 +977,9 @@
                                                 Width="16"
                                                 Height="16"
                                                 VerticalAlignment="Center">
-                                                <FontIcon
+                                                <accountIcon:WinoFontIcon
                                                     x:Name="TranslateChipGlyph"
                                                     AutomationProperties.AccessibilityView="Raw"
-                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                     FontSize="14"
                                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                                     Glyph="&#xF2B7;" />
@@ -1023,13 +1022,12 @@
                                                 Width="16"
                                                 Height="16"
                                                 VerticalAlignment="Center">
-                                                <FontIcon
+                                                <accountIcon:WinoFontIcon
                                                     x:Name="SummaryChipGlyph"
                                                     AutomationProperties.AccessibilityView="Raw"
-                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                     FontSize="14"
                                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                    Glyph="&#xE8A5;" />
+                                                    Glyph="&#xE07C;" />
                                             </Grid>
                                             <TextBlock
                                                 x:Name="PART_SummaryChipLabel"
@@ -1069,13 +1067,12 @@
                                                 Width="16"
                                                 Height="16"
                                                 VerticalAlignment="Center">
-                                                <FontIcon
+                                                <accountIcon:WinoFontIcon
                                                     x:Name="RepliesChipGlyph"
                                                     AutomationProperties.AccessibilityView="Raw"
-                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                     FontSize="14"
                                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                    Glyph="&#xE97A;" />
+                                                    Glyph="&#xF176;" />
                                             </Grid>
                                             <TextBlock
                                                 x:Name="PART_RepliesChipLabel"
@@ -1115,13 +1112,12 @@
                                                 Width="16"
                                                 Height="16"
                                                 VerticalAlignment="Center">
-                                                <FontIcon
+                                                <accountIcon:WinoFontIcon
                                                     x:Name="SimilarChipGlyph"
                                                     AutomationProperties.AccessibilityView="Raw"
-                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                     FontSize="14"
                                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                    Glyph="&#xE721;" />
+                                                    Glyph="&#xEA7D;" />
                                             </Grid>
                                             <TextBlock
                                                 x:Name="PART_SimilarChipLabel"
@@ -1175,21 +1171,21 @@
                                                         AutomationProperties.AutomationId="WinoIntelligenceHeaderSummaryCopyButton"
                                                         AutomationProperties.Name="{TemplateBinding CopyText}"
                                                         Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
-                                                        <FontIcon FontSize="13" Glyph="&#xE8C8;" />
+                                                        <accountIcon:WinoFontIcon FontSize="13" Glyph="&#xE01F;" />
                                                     </Button>
                                                     <Button
                                                         x:Name="PART_SummaryRegenerateButton"
                                                         AutomationProperties.AutomationId="WinoIntelligenceHeaderSummaryRegenerateButton"
                                                         AutomationProperties.Name="{TemplateBinding RegenerateText}"
                                                         Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
-                                                        <FontIcon FontSize="13" Glyph="&#xE72C;" />
+                                                        <accountIcon:WinoFontIcon FontSize="13" Glyph="&#xE060;" />
                                                     </Button>
                                                     <Button
                                                         x:Name="PART_SummaryCloseButton"
                                                         AutomationProperties.AutomationId="WinoIntelligenceHeaderSummaryCloseButton"
                                                         AutomationProperties.Name="{TemplateBinding ClosePanelText}"
                                                         Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
-                                                        <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                                        <accountIcon:WinoFontIcon FontSize="12" Glyph="&#xF008;" />
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>
@@ -1254,14 +1250,14 @@
                                                         AutomationProperties.AutomationId="WinoIntelligenceHeaderRepliesRegenerateButton"
                                                         AutomationProperties.Name="{TemplateBinding RegenerateText}"
                                                         Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
-                                                        <FontIcon FontSize="13" Glyph="&#xE72C;" />
+                                                        <accountIcon:WinoFontIcon FontSize="13" Glyph="&#xE060;" />
                                                     </Button>
                                                     <Button
                                                         x:Name="PART_RepliesCloseButton"
                                                         AutomationProperties.AutomationId="WinoIntelligenceHeaderRepliesCloseButton"
                                                         AutomationProperties.Name="{TemplateBinding ClosePanelText}"
                                                         Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
-                                                        <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                                        <accountIcon:WinoFontIcon FontSize="12" Glyph="&#xF008;" />
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>
@@ -1331,10 +1327,7 @@
                                                     AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslateCloseButton"
                                                     AutomationProperties.Name="{TemplateBinding ClosePanelText}"
                                                     Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
-                                                    <FontIcon
-                                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                                        FontSize="12"
-                                                        Glyph="&#xE711;" />
+                                                    <accountIcon:WinoFontIcon FontSize="12" Glyph="&#xF008;" />
                                                 </Button>
                                             </Grid>
 
@@ -1352,13 +1345,12 @@
                                                         </DataTemplate>
                                                     </ComboBox.ItemTemplate>
                                                 </ComboBox>
-                                                <FontIcon
+                                                <accountIcon:WinoFontIcon
                                                     VerticalAlignment="Center"
                                                     AutomationProperties.AccessibilityView="Raw"
-                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                     FontSize="12"
                                                     Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                                                    Glyph="&#xE72A;" />
+                                                    Glyph="&#xE00E;" />
                                                 <ComboBox
                                                     x:Name="PART_TranslationTargetComboBox"
                                                     MinWidth="140"
@@ -1404,13 +1396,12 @@
                                                     Orientation="Horizontal"
                                                     Spacing="6"
                                                     Visibility="Collapsed">
-                                                    <FontIcon
+                                                    <accountIcon:WinoFontIcon
                                                         VerticalAlignment="Center"
                                                         AutomationProperties.AccessibilityView="Raw"
-                                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                                         FontSize="12"
                                                         Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                                        Glyph="&#xE73E;" />
+                                                        Glyph="&#xE00B;" />
                                                     <TextBlock
                                                         x:Name="PART_TranslationStatusTextBlock"
                                                         MaxWidth="180"
@@ -1445,14 +1436,14 @@
                                                         AutomationProperties.AutomationId="WinoIntelligenceHeaderSimilarRegenerateButton"
                                                         AutomationProperties.Name="{TemplateBinding RegenerateText}"
                                                         Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
-                                                        <FontIcon FontSize="13" Glyph="&#xE72C;" />
+                                                        <accountIcon:WinoFontIcon FontSize="13" Glyph="&#xE060;" />
                                                     </Button>
                                                     <Button
                                                         x:Name="PART_SimilarCloseButton"
                                                         AutomationProperties.AutomationId="WinoIntelligenceHeaderSimilarCloseButton"
                                                         AutomationProperties.Name="{TemplateBinding ClosePanelText}"
                                                         Style="{StaticResource WinoIntelligencePanelIconButtonStyle}">
-                                                        <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                                        <accountIcon:WinoFontIcon FontSize="12" Glyph="&#xF008;" />
                                                     </Button>
                                                 </StackPanel>
                                             </Grid>
@@ -1751,7 +1742,7 @@
                                         <TranslateTransform X="-8" />
                                     </Button.RenderTransform>
                                     <Viewbox Width="12" Height="12">
-                                        <SymbolIcon Symbol="Back" />
+                                        <accountIcon:WinoFontIcon Glyph="&#xE00D;" />
                                     </Viewbox>
                                 </Button>
                                 <TextBox

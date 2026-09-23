@@ -92,16 +92,16 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     private ContactFilterViewModel(ContactFilterKind kind) => Kind = kind;
 
     public static ContactFilterViewModel CreateAll(string name)
-        => new(ContactFilterKind.All) { Name = name, Glyph = "" };
+        => new(ContactFilterKind.All) { Name = name, Glyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.People) };
 
     public static ContactFilterViewModel CreateFavorites(string name)
-        => new(ContactFilterKind.Favorites) { Name = name, Glyph = "" };
+        => new(ContactFilterKind.Favorites) { Name = name, Glyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.Star) };
 
     public static ContactFilterViewModel CreateAddressBook(ContactAddressBook book, MailAccount account)
         => new(ContactFilterKind.AddressBook)
         {
             Name = string.IsNullOrWhiteSpace(book.DisplayName) ? account?.Name ?? book.SourceKind.ToString() : book.DisplayName,
-            Glyph = "",
+            Glyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.Library),
             AddressBookId = book.Id,
             AccountId = book.MailAccountId,
             Account = account,
@@ -109,7 +109,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
         };
 
     public static ContactFilterViewModel CreateList(ContactList list)
-        => new(ContactFilterKind.List) { Name = list.Name, Glyph = "", List = list };
+        => new(ContactFilterKind.List) { Name = list.Name, Glyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.List), List = list };
 
     public ContactQueryFilter ToQueryFilter(string searchQuery) => Kind switch
     {

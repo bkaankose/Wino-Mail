@@ -1,7 +1,8 @@
-<UserControl
+﻿<UserControl
     x:Class="Wino.Editor.WinoMailEditor"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:local="using:Wino.Editor"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     x:Name="Root"
@@ -61,7 +62,7 @@
                         Label="Bold"
                         Tag="bold">
                         <AppBarToggleButton.Icon>
-                            <FontIcon Glyph="&#xE8DD;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE010;" />
                         </AppBarToggleButton.Icon>
                     </AppBarToggleButton>
                     <AppBarToggleButton
@@ -70,7 +71,7 @@
                         Label="Italic"
                         Tag="italic">
                         <AppBarToggleButton.Icon>
-                            <FontIcon Glyph="&#xE8DB;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE011;" />
                         </AppBarToggleButton.Icon>
                     </AppBarToggleButton>
                     <AppBarToggleButton
@@ -79,7 +80,7 @@
                         Label="Underline"
                         Tag="underline">
                         <AppBarToggleButton.Icon>
-                            <FontIcon Glyph="&#xE8DC;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE012;" />
                         </AppBarToggleButton.Icon>
                     </AppBarToggleButton>
                     <AppBarToggleButton
@@ -88,12 +89,12 @@
                         Label="Strikethrough"
                         Tag="strikeThrough">
                         <AppBarToggleButton.Icon>
-                            <FontIcon Glyph="&#xEDE0;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE013;" />
                         </AppBarToggleButton.Icon>
                     </AppBarToggleButton>
                     <AppBarButton x:Name="ColorButton" Label="Text color">
                         <AppBarButton.Icon>
-                            <FontIcon Glyph="&#xE8D3;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE092;" />
                         </AppBarButton.Icon>
                         <AppBarButton.Flyout>
                             <MenuFlyout>
@@ -134,7 +135,7 @@
                         Label="Bullets"
                         Tag="insertUnorderedList">
                         <AppBarToggleButton.Icon>
-                            <FontIcon Glyph="&#xE8FD;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE014;" />
                         </AppBarToggleButton.Icon>
                     </AppBarToggleButton>
                     <AppBarToggleButton
@@ -143,7 +144,7 @@
                         Label="Numbering"
                         Tag="insertOrderedList">
                         <AppBarToggleButton.Icon>
-                            <FontIcon Glyph="&#xE8EF;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE015;" />
                         </AppBarToggleButton.Icon>
                     </AppBarToggleButton>
                     <AppBarButton
@@ -152,7 +153,7 @@
                         Label="Outdent"
                         Tag="outdent">
                         <AppBarButton.Icon>
-                            <FontIcon Glyph="&#xE89B;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE016;" />
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarButton
@@ -161,12 +162,12 @@
                         Label="Indent"
                         Tag="indent">
                         <AppBarButton.Icon>
-                            <FontIcon Glyph="&#xE89C;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE017;" />
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarButton x:Name="AlignmentButton" Label="Alignment">
                         <AppBarButton.Icon>
-                            <FontIcon Glyph="&#xE8E4;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE018;" />
                         </AppBarButton.Icon>
                         <AppBarButton.Flyout>
                             <MenuFlyout>
@@ -195,7 +196,7 @@
                         Label="Undo"
                         Tag="undo">
                         <AppBarButton.Icon>
-                            <SymbolIcon Symbol="Undo" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE062;" />
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarButton
@@ -204,7 +205,7 @@
                         Label="Redo"
                         Tag="redo">
                         <AppBarButton.Icon>
-                            <SymbolIcon Symbol="Redo" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE093;" />
                         </AppBarButton.Icon>
                     </AppBarButton>
                 </CommandBar.PrimaryCommands>
@@ -220,7 +221,7 @@
                         Click="AttachmentButton_Click"
                         Label="Attach files">
                         <AppBarButton.Icon>
-                            <FontIcon Glyph="&#xE723;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE723;" />
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarButton
@@ -228,12 +229,12 @@
                         Click="InlineImageButton_Click"
                         Label="Inline image">
                         <AppBarButton.Icon>
-                            <FontIcon Glyph="&#xEB9F;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE021;" />
                         </AppBarButton.Icon>
                     </AppBarButton>
                     <AppBarButton x:Name="LinkButton" Label="Insert link">
                         <AppBarButton.Icon>
-                            <FontIcon Glyph="&#xE71B;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE023;" />
                         </AppBarButton.Icon>
                         <AppBarButton.Flyout>
                             <Flyout>
@@ -257,7 +258,7 @@
                         Label="Remove link"
                         Tag="unlink">
                         <AppBarButton.Icon>
-                            <FontIcon Glyph="&#xE71C;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE71C;" />
                         </AppBarButton.Icon>
                     </AppBarButton>
                 </CommandBar.PrimaryCommands>
@@ -270,7 +271,7 @@
                 <CommandBar.PrimaryCommands>
                     <AppBarButton x:Name="InsertTableButton" Label="Insert table">
                         <AppBarButton.Icon>
-                            <FontIcon Glyph="&#xE80A;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE026;" />
                         </AppBarButton.Icon>
                         <AppBarButton.Flyout>
                             <Flyout>
@@ -331,7 +332,7 @@
                         Click="SmimeSignButton_Click"
                         Label="Digitally sign">
                         <AppBarToggleButton.Icon>
-                            <FontIcon Glyph="&#xE73E;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE00B;" />
                         </AppBarToggleButton.Icon>
                     </AppBarToggleButton>
                     <AppBarToggleButton
@@ -339,7 +340,7 @@
                         Click="SmimeEncryptButton_Click"
                         Label="Encrypt with S/MIME">
                         <AppBarToggleButton.Icon>
-                            <FontIcon Glyph="&#xE72E;" />
+                            <accountIcon:WinoFontIcon Glyph="&#xE034;" />
                         </AppBarToggleButton.Icon>
                     </AppBarToggleButton>
                 </CommandBar.PrimaryCommands>

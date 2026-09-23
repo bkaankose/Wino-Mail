@@ -13,6 +13,7 @@ using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Mail.WinUI.Controls;
 
@@ -157,7 +158,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
         };
 
     private static ContextFlyoutIcon? CreateIcon(WinoIconGlyph icon)
-        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
-            ? new ContextFlyoutIcon(glyph)
-            : null;
+        => icon == WinoIconGlyph.None
+            ? null
+            : new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(icon));
 }

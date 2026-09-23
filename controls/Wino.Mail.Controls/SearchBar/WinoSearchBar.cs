@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.System;
 using Wino.Mail.Controls.Core.SearchBar;
+using Wino.Mail.Controls.AccountIcon;
 
 namespace Wino.Mail.Controls.SearchBar;
 
@@ -338,7 +339,7 @@ public sealed partial class WinoSearchBar : Control, IDisposable
             ToolTipService.SetToolTip(_reachButton, reachText);
         }
 
-        if (_reachIcon is not null) _reachIcon.Glyph = online ? "" : "";
+        if (_reachIcon is not null) _reachIcon.Glyph = online ? WinoIconCodes.Globe : WinoIconCodes.Desktop;
         if (_reachLabel is not null) _reachLabel.Text = reachText;
 
         if (_filterButton is not null)

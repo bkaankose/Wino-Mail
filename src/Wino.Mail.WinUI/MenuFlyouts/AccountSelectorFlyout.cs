@@ -6,6 +6,8 @@ using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.ContextFlyout;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.MenuFlyouts;
 
@@ -23,7 +25,7 @@ public partial class AccountSelectorFlyout : WinoContextFlyout, IDisposable
             .Select(account => (ContextFlyoutMenuEntry)new ContextFlyoutCommandEntry
             {
                 Text = $"{account.Name} ({account.Address})",
-                Icon = new ContextFlyoutIcon("\uE77B"),
+                Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Person)),
                 Command = new AsyncRelayCommand(() => SelectAccountAsync(account)),
                 AutomationId = $"AccountSelector_{account.Id:N}"
             })

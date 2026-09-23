@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
@@ -68,10 +69,10 @@
                 Spacing="8">
                 <Grid Width="22" Height="22">
                     <Ellipse Fill="{ThemeResource AccentFillColorDefaultBrush}" />
-                    <FontIcon
+                    <coreControls:WinoFontIcon
                         FontSize="11"
                         Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                        Glyph="&#xE73E;" />
+                        Icon="Checkmark" />
                 </Grid>
                 <TextBlock
                     VerticalAlignment="Center"
@@ -96,10 +97,10 @@
                         Style="{StaticResource ImapSetupStepNumberStyle}"
                         Text="2"
                         Visibility="{x:Bind ViewModel.IsSignInStepCurrent, Mode=OneWay}" />
-                    <FontIcon
+                    <coreControls:WinoFontIcon
                         FontSize="11"
                         Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                        Glyph="&#xE73E;"
+                        Icon="Checkmark"
                         Visibility="{x:Bind ViewModel.IsSignInStepDone, Mode=OneWay}" />
                 </Grid>
                 <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.ImapSetup_StepSignIn, Mode=OneTime}" />
@@ -210,7 +211,7 @@
                 Header="{x:Bind domain:Translator.ImapSetup_YourName, Mode=OneTime}"
                 Visibility="{x:Bind ViewModel.IsSignInSenderNameVisible, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE77B;" />
+                    <coreControls:WinoFontIcon Icon="Person" />
                 </controls:SettingsCard.HeaderIcon>
                 <TextBox
                     Width="280"
@@ -220,7 +221,7 @@
             </controls:SettingsCard>
             <controls:SettingsCard AutomationProperties.AutomationId="ImapSetupAddressCard" Header="{x:Bind ViewModel.SignInAddressHeader, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE715;" />
+                    <coreControls:WinoFontIcon Icon="Mail" />
                 </controls:SettingsCard.HeaderIcon>
                 <TextBox
                     Width="280"
@@ -233,7 +234,7 @@
                 Description="{x:Bind ViewModel.AppPasswordHelpText, Mode=OneWay}"
                 Header="{x:Bind domain:Translator.IMAPSetupDialog_Password, Mode=OneTime}">
                 <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE8D7;" />
+                    <coreControls:WinoFontIcon Icon="Key" />
                 </controls:SettingsCard.HeaderIcon>
                 <PasswordBox
                     Width="280"
@@ -284,7 +285,7 @@
                 IsExpanded="{x:Bind ViewModel.IsIncomingExpanded, Mode=TwoWay}"
                 Visibility="{x:Bind ViewModel.IsMailSupportEnabled, Mode=OneWay}">
                 <controls:SettingsExpander.HeaderIcon>
-                    <FontIcon Glyph="&#xE896;" />
+                    <coreControls:WinoFontIcon Icon="ArrowDownload" />
                 </controls:SettingsExpander.HeaderIcon>
                 <winoControls:ConnectionStatusPill State="{x:Bind ViewModel.MailConnectionState, Mode=OneWay}" />
                 <controls:SettingsExpander.Items>
@@ -360,7 +361,7 @@
                 IsExpanded="{x:Bind ViewModel.IsOutgoingExpanded, Mode=TwoWay}"
                 Visibility="{x:Bind ViewModel.IsMailSupportEnabled, Mode=OneWay}">
                 <controls:SettingsExpander.HeaderIcon>
-                    <FontIcon Glyph="&#xE898;" />
+                    <coreControls:WinoFontIcon Icon="ArrowUpload" />
                 </controls:SettingsExpander.HeaderIcon>
                 <winoControls:ConnectionStatusPill State="{x:Bind ViewModel.MailConnectionState, Mode=OneWay}" />
                 <controls:SettingsExpander.Items>
@@ -436,7 +437,7 @@
                 IsExpanded="{x:Bind ViewModel.IsCalDavExpanded, Mode=TwoWay}"
                 Visibility="{x:Bind ViewModel.IsCalDavSettingsVisible, Mode=OneWay}">
                 <controls:SettingsExpander.HeaderIcon>
-                    <FontIcon Glyph="&#xE787;" />
+                    <coreControls:WinoFontIcon Icon="Calendar" />
                 </controls:SettingsExpander.HeaderIcon>
                 <winoControls:ConnectionStatusPill State="{x:Bind ViewModel.CalDavConnectionState, Mode=OneWay}" />
                 <controls:SettingsExpander.Items>
@@ -489,7 +490,7 @@
                 IsExpanded="{x:Bind ViewModel.IsCardDavExpanded, Mode=TwoWay}"
                 Visibility="{x:Bind ViewModel.IsCardDavSettingsVisible, Mode=OneWay}">
                 <controls:SettingsExpander.HeaderIcon>
-                    <FontIcon Glyph="&#xE716;" />
+                    <coreControls:WinoFontIcon Icon="People" />
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard
@@ -537,7 +538,7 @@
                 Description="{x:Bind domain:Translator.ImapSetup_AdvancedDescription, Mode=OneTime}"
                 Header="{x:Bind domain:Translator.ImapSetup_AdvancedTitle, Mode=OneTime}">
                 <controls:SettingsExpander.HeaderIcon>
-                    <FontIcon Glyph="&#xE713;" />
+                    <coreControls:WinoFontIcon Icon="Settings" />
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard

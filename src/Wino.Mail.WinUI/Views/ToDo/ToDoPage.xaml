@@ -3,6 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
@@ -87,10 +88,10 @@
                                             Orientation="Horizontal"
                                             Spacing="4"
                                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasDueDate), Mode=OneWay}">
-                                            <FontIcon
+                                            <coreControls:WinoFontIcon
                                                 FontSize="11"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                Glyph="&#xE787;" />
+                                                Icon="Calendar" />
                                             <TextBlock
                                                 AutomationProperties.AutomationId="ToDoTaskRowDueDate"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -115,20 +116,20 @@
                                             Orientation="Horizontal"
                                             Spacing="4"
                                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsInMyDay), Mode=OneWay}">
-                                            <FontIcon
+                                            <coreControls:WinoFontIcon
                                                 FontSize="11"
                                                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                Glyph="&#xE706;" />
+                                                Icon="WeatherSunny" />
                                             <TextBlock
                                                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                                 Style="{StaticResource CaptionTextBlockStyle}"
                                                 Text="{x:Bind domain:Translator.ToDoPage_MyDay, Mode=OneTime}" />
                                         </StackPanel>
 
-                                        <FontIcon
+                                        <coreControls:WinoFontIcon
                                             FontSize="11"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Glyph="&#xE70B;"
+                                            Icon="Note"
                                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasNote), Mode=OneWay}" />
                                     </StackPanel>
                                 </StackPanel>
@@ -143,15 +144,15 @@
                                     Style="{StaticResource TransparentActionButtonStyle}"
                                     ToolTipService.ToolTip="{x:Bind ImportanceActionText, Mode=OneWay}">
                                     <Grid>
-                                        <FontIcon
+                                        <coreControls:WinoFontIcon
                                             FontSize="15"
                                             Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                            Glyph="&#xE735;"
+                                            Icon="Star"
                                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsImportant), Mode=OneWay}" />
-                                        <FontIcon
+                                        <coreControls:WinoFontIcon
                                             FontSize="15"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Glyph="&#xE734;"
+                                            Icon="Star"
                                             Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsImportant), Mode=OneWay}" />
                                     </Grid>
                                 </Button>
@@ -175,12 +176,12 @@
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     Grid.Column="0"
                                     VerticalAlignment="Top"
                                     FontSize="14"
                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                    Glyph="&#xE710;" />
+                                    Icon="Add" />
                                 <StackPanel Grid.Column="1" Spacing="2">
                                     <TextBlock
                                         Text="{x:Bind Title, Mode=OneTime}"
@@ -240,7 +241,7 @@
                                 IsEnabled="{x:Bind IsEditable, Mode=OneTime}"
                                 Style="{StaticResource TransparentActionButtonStyle}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_DeleteStep, Mode=OneTime}">
-                                <FontIcon FontSize="13" Glyph="&#xE711;" />
+                                <coreControls:WinoFontIcon FontSize="13" Icon="Dismiss" />
                             </Button>
                         </Grid>
                     </DataTemplate>
@@ -286,10 +287,10 @@
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
-                                        <FontIcon
+                                        <coreControls:WinoFontIcon
                                             Grid.Column="0"
                                             FontSize="14"
-                                            Glyph="&#xE8B7;" />
+                                            Icon="Folder" />
                                         <TextBlock
                                             Grid.Column="1"
                                             Text="{x:Bind Title, Mode=OneTime}"
@@ -351,7 +352,7 @@
                             Style="{StaticResource TransparentActionButtonStyle}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_RenameList, Mode=OneTime}"
                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanEditSelectedList), Mode=OneWay}">
-                            <FontIcon FontSize="12" Glyph="&#xE70F;" />
+                            <coreControls:WinoFontIcon FontSize="12" Icon="Edit" />
                         </Button>
                     </StackPanel>
 
@@ -401,7 +402,7 @@
                                 AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_ShowScope, Mode=OneTime}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_ShowScope, Mode=OneTime}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon FontSize="14" Glyph="&#xE8FD;" />
+                                    <coreControls:WinoFontIcon FontSize="14" Icon="List" />
                                     <TextBlock Text="{x:Bind ViewModel.CompletionScopeDisplayText, Mode=OneWay}" />
                                 </StackPanel>
                                 <DropDownButton.Flyout>
@@ -435,7 +436,7 @@
                                 IsChecked="{x:Bind ViewModel.IsImportantTasksFilterSelected, Mode=TwoWay}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon FontSize="14" Glyph="{x:Bind helpers:XamlHelpers.GetTaskImportanceGlyph(ViewModel.IsImportantTasksFilterSelected), Mode=OneWay}" />
+                                    <coreControls:WinoFontIcon FontSize="14" Icon="{x:Bind helpers:XamlHelpers.GetTaskImportanceGlyph(ViewModel.IsImportantTasksFilterSelected), Mode=OneWay}" />
                                     <TextBlock Text="{x:Bind domain:Translator.ToDoPage_Important, Mode=OneTime}" />
                                 </StackPanel>
                             </ToggleButton>
@@ -447,7 +448,7 @@
                                 AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_SortBy, Mode=OneTime}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_SortBy, Mode=OneTime}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon FontSize="14" Glyph="&#xE8CB;" />
+                                    <coreControls:WinoFontIcon FontSize="14" Icon="ArrowSort" />
                                     <TextBlock Text="{x:Bind ViewModel.SortDisplayText, Mode=OneWay}" />
                                 </StackPanel>
                                 <DropDownButton.Flyout>
@@ -489,7 +490,7 @@
                                 Command="{x:Bind ViewModel.ClearFiltersCommand}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_ClearFilters, Mode=OneTime}">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <FontIcon FontSize="14" Glyph="&#xE894;" />
+                                    <coreControls:WinoFontIcon FontSize="14" Icon="Dismiss" />
                                     <TextBlock Text="{x:Bind domain:Translator.ToDoPage_Clear, Mode=OneTime}" />
                                 </StackPanel>
                             </Button>
@@ -507,7 +508,7 @@
                             AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_FilterOptions, Mode=OneTime}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_FilterOptions, Mode=OneTime}"
                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsCompactLayout), Mode=OneWay}">
-                            <FontIcon FontSize="14" Glyph="&#xE71C;" />
+                            <coreControls:WinoFontIcon FontSize="14" Icon="Filter" />
                             <DropDownButton.Flyout>
                                 <MenuFlyout Placement="BottomEdgeAlignedRight">
                                     <MenuFlyoutSubItem Text="{x:Bind domain:Translator.ToDoPage_ShowScope, Mode=OneTime}">
@@ -570,7 +571,7 @@
                                         Command="{x:Bind ViewModel.ClearFiltersCommand}"
                                         Text="{x:Bind domain:Translator.ToDoPage_ClearFilters, Mode=OneTime}">
                                         <MenuFlyoutItem.Icon>
-                                            <FontIcon Glyph="&#xE894;" />
+                                            <coreControls:WinoFontIcon Icon="Dismiss" />
                                         </MenuFlyoutItem.Icon>
                                     </MenuFlyoutItem>
                                 </MenuFlyout>
@@ -591,7 +592,7 @@
                         Style="{StaticResource TransparentActionButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_Suggestions, Mode=OneTime}"
                         Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsMyDaySelected), Mode=OneWay}">
-                        <FontIcon FontSize="15" Glyph="&#xEA80;" />
+                        <coreControls:WinoFontIcon FontSize="15" Icon="Lightbulb" />
                         <Button.Flyout>
                             <Flyout Placement="BottomEdgeAlignedRight">
                                 <Grid Width="320" RowSpacing="8">
@@ -643,7 +644,7 @@
                         Style="{StaticResource TransparentActionButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_ListOptions, Mode=OneTime}"
                         Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsNamedListSelected), Mode=OneWay}">
-                        <FontIcon FontSize="15" Glyph="&#xE712;" />
+                        <coreControls:WinoFontIcon FontSize="15" Icon="More" />
                         <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
                                 <MenuFlyoutItem
@@ -651,7 +652,7 @@
                                     Command="{x:Bind ViewModel.RenameSelectedListCommand}"
                                     Text="{x:Bind domain:Translator.ToDoPage_RenameList, Mode=OneTime}">
                                     <MenuFlyoutItem.Icon>
-                                        <FontIcon Glyph="&#xE8AC;" />
+                                        <coreControls:WinoFontIcon Icon="Rename" />
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
 
@@ -662,7 +663,7 @@
                                     Command="{x:Bind ViewModel.PrintListCommand}"
                                     Text="{x:Bind domain:Translator.ToDoPage_PrintList, Mode=OneTime}">
                                     <MenuFlyoutItem.Icon>
-                                        <FontIcon Glyph="&#xE749;" />
+                                        <coreControls:WinoFontIcon Icon="Print" />
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
                                 <MenuFlyoutItem
@@ -670,7 +671,7 @@
                                     Command="{x:Bind ViewModel.EmailListCommand}"
                                     Text="{x:Bind domain:Translator.ToDoPage_EmailList, Mode=OneTime}">
                                     <MenuFlyoutItem.Icon>
-                                        <FontIcon Glyph="&#xE715;" />
+                                        <coreControls:WinoFontIcon Icon="Mail" />
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
 
@@ -682,7 +683,7 @@
                                     Text="{x:Bind domain:Translator.ToDoPage_DeleteList, Mode=OneTime}"
                                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanDeleteSelectedList), Mode=OneWay}">
                                     <MenuFlyoutItem.Icon>
-                                        <FontIcon Foreground="{ThemeResource SystemFillColorCriticalBrush}" Glyph="&#xE74D;" />
+                                        <coreControls:WinoFontIcon Foreground="{ThemeResource SystemFillColorCriticalBrush}" Icon="Delete" />
                                     </MenuFlyoutItem.Icon>
                                 </MenuFlyoutItem>
                             </MenuFlyout>
@@ -788,12 +789,12 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <FontIcon
+                    <coreControls:WinoFontIcon
                         Grid.Column="0"
                         VerticalAlignment="Center"
                         FontSize="14"
                         Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                        Glyph="&#xE710;" />
+                        Icon="Add" />
                     <TextBox
                         x:Name="ComposerTextBox"
                         Grid.Column="1"
@@ -911,15 +912,15 @@
                         Style="{StaticResource TransparentActionButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind ViewModel.SelectedTask.ImportanceActionText, Mode=OneWay}">
                         <Grid>
-                            <FontIcon
+                            <coreControls:WinoFontIcon
                                 FontSize="15"
                                 Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                Glyph="&#xE735;"
+                                Icon="Star"
                                 Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedTask.IsImportant), Mode=OneWay}" />
-                            <FontIcon
+                            <coreControls:WinoFontIcon
                                 FontSize="15"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Glyph="&#xE734;"
+                                Icon="Star"
                                 Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.SelectedTask.IsImportant), Mode=OneWay}" />
                         </Grid>
                     </Button>
@@ -933,7 +934,7 @@
                         Command="{x:Bind ViewModel.CloseDetailCommand}"
                         Style="{StaticResource TransparentActionButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_CloseDetails, Mode=OneTime}">
-                        <FontIcon FontSize="13" Glyph="&#xE8BB;" />
+                        <coreControls:WinoFontIcon FontSize="13" Icon="Dismiss" />
                     </Button>
 
                     <!--  Status summary. Repeats the schedule section so it survives a scrolled body.  -->
@@ -1031,10 +1032,10 @@
                             IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
                             Style="{StaticResource TransparentActionButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="10">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     FontSize="13"
                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                    Glyph="&#xE710;" />
+                                    Icon="Add" />
                                 <TextBlock Text="{x:Bind domain:Translator.ToDoPage_AddStep, Mode=OneTime}" />
                             </StackPanel>
                         </Button>
@@ -1054,10 +1055,10 @@
                             IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
                             Style="{StaticResource TransparentActionButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="10">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     FontSize="14"
                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                    Glyph="&#xE706;" />
+                                    Icon="WeatherSunny" />
                                 <TextBlock Text="{x:Bind ViewModel.SelectedTask.MyDayActionText, Mode=OneWay}" />
                             </StackPanel>
                         </Button>
@@ -1070,10 +1071,10 @@
                             IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
                             Style="{StaticResource TransparentActionButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="10">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     FontSize="14"
                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                    Glyph="&#xE787;" />
+                                    Icon="Calendar" />
                                 <TextBlock Text="{x:Bind domain:Translator.ToDoPage_AddDueDate, Mode=OneTime}" Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.SelectedTask.HasDueDate), Mode=OneWay}" />
                                 <TextBlock
                                     AutomationProperties.AutomationId="ToDoDueDateText"
@@ -1122,11 +1123,11 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <FontIcon
+                            <coreControls:WinoFontIcon
                                 Grid.Column="0"
                                 FontSize="14"
                                 Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                Glyph="&#xE7ED;" />
+                                Icon="AlertOff" />
                             <TextBlock
                                 Grid.Column="1"
                                 Foreground="{ThemeResource TextFillColorDisabledBrush}"
@@ -1147,11 +1148,11 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <FontIcon
+                            <coreControls:WinoFontIcon
                                 Grid.Column="0"
                                 FontSize="14"
                                 Foreground="{ThemeResource TextFillColorDisabledBrush}"
-                                Glyph="&#xE8EE;" />
+                                Icon="ArrowRepeatAll" />
                             <TextBlock
                                 Grid.Column="1"
                                 Foreground="{ThemeResource TextFillColorDisabledBrush}"
@@ -1178,10 +1179,10 @@
                             IsEnabled="{x:Bind ViewModel.CanEditSelectedTask, Mode=OneWay}"
                             Style="{StaticResource TransparentActionButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="10">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     FontSize="14"
                                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                    Glyph="&#xE74D;" />
+                                    Icon="Delete" />
                                 <TextBlock Foreground="{ThemeResource SystemFillColorCriticalBrush}" Text="{x:Bind domain:Translator.ToDoPage_DeleteTask, Mode=OneTime}" />
                             </StackPanel>
                         </Button>
@@ -1214,10 +1215,10 @@
                         Style="{StaticResource TransparentActionButtonStyle}"
                         Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanCreateCalendarEvent), Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <FontIcon
+                            <coreControls:WinoFontIcon
                                 FontSize="14"
                                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                Glyph="&#xE787;" />
+                                Icon="Calendar" />
                             <TextBlock Text="{x:Bind domain:Translator.ToDoPage_CreateCalendarEvent, Mode=OneTime}" />
                         </StackPanel>
                     </Button>
@@ -1277,7 +1278,7 @@
                     Command="{x:Bind ViewModel.CloseDetailCommand}"
                     Style="{StaticResource TransparentActionButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_CloseDetails, Mode=OneTime}">
-                    <FontIcon FontSize="13" Glyph="&#xE8BB;" />
+                    <coreControls:WinoFontIcon FontSize="13" Icon="Dismiss" />
                 </Button>
             </Grid>
 
@@ -1290,12 +1291,12 @@
                     MaxWidth="320"
                     HorizontalAlignment="Stretch"
                     Spacing="12">
-                    <FontIcon
+                    <coreControls:WinoFontIcon
                         Margin="0,12,0,4"
                         HorizontalAlignment="Center"
                         FontSize="36"
                         Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                        Glyph="&#xE762;" />
+                        Icon="MultiSelect" />
                     <TextBlock
                         HorizontalAlignment="Center"
                         Style="{StaticResource SubtitleTextBlockStyle}"
@@ -1317,7 +1318,7 @@
                         Command="{x:Bind ViewModel.CompleteSelectedTasksCommand}"
                         IsEnabled="{x:Bind ViewModel.CanEditSelectedTasks, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <FontIcon Glyph="&#xE73E;" />
+                            <coreControls:WinoFontIcon Icon="Checkmark" />
                             <TextBlock Text="{x:Bind domain:Translator.ToDoPage_CompleteSelectedTasks, Mode=OneTime}" />
                         </StackPanel>
                     </Button>
@@ -1328,7 +1329,7 @@
                         Command="{x:Bind ViewModel.ReopenSelectedTasksCommand}"
                         IsEnabled="{x:Bind ViewModel.CanEditSelectedTasks, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <FontIcon Glyph="&#xE777;" />
+                            <coreControls:WinoFontIcon Icon="ArrowReset" />
                             <TextBlock Text="{x:Bind domain:Translator.ToDoPage_ReopenSelectedTasks, Mode=OneTime}" />
                         </StackPanel>
                     </Button>
@@ -1339,7 +1340,7 @@
                         Command="{x:Bind ViewModel.MarkSelectedTasksImportantCommand}"
                         IsEnabled="{x:Bind ViewModel.CanEditSelectedTasks, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <FontIcon Glyph="&#xE734;" />
+                            <coreControls:WinoFontIcon Icon="Star" />
                             <TextBlock Text="{x:Bind domain:Translator.ToDoPage_MarkSelectedTasksImportant, Mode=OneTime}" />
                         </StackPanel>
                     </Button>
@@ -1351,7 +1352,7 @@
                         Command="{x:Bind ViewModel.DeleteSelectedTasksCommand}"
                         IsEnabled="{x:Bind ViewModel.CanEditSelectedTasks, Mode=OneWay}">
                         <StackPanel Orientation="Horizontal" Spacing="10">
-                            <FontIcon Foreground="{ThemeResource SystemFillColorCriticalBrush}" Glyph="&#xE74D;" />
+                            <coreControls:WinoFontIcon Foreground="{ThemeResource SystemFillColorCriticalBrush}" Icon="Delete" />
                             <TextBlock Text="{x:Bind domain:Translator.ToDoPage_DeleteSelectedTasks, Mode=OneTime}" />
                         </StackPanel>
                     </Button>

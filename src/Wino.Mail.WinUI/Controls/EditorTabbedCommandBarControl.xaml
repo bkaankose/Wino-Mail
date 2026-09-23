@@ -145,7 +145,7 @@
                     Label="{x:Bind domain:Translator.Composer_Bold, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind BoldTooltip, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource BoldPathIcon}" />
+                        <controls:WinoFontIcon Icon="TextBold" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
@@ -156,7 +156,7 @@
                     Label="{x:Bind domain:Translator.Composer_Italic, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind ItalicTooltip, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource ItalicPathIcon}" />
+                        <controls:WinoFontIcon Icon="TextItalic" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
@@ -167,7 +167,7 @@
                     Label="{x:Bind domain:Translator.Composer_Underline, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind UnderlineTooltip, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource UnderlinePathIcon}" />
+                        <controls:WinoFontIcon Icon="TextUnderline" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
@@ -178,7 +178,7 @@
                     Label="{x:Bind domain:Translator.Composer_Strikethrough, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_Strikethrough, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource StrikePathIcon}" />
+                        <controls:WinoFontIcon Icon="TextStrikethrough" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
@@ -281,7 +281,7 @@
                     Label="{x:Bind domain:Translator.Composer_ClearFormatting, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_ClearFormattingShortcut, Mode=OneTime}">
                     <AppBarButton.Icon>
-                        <SymbolIcon Symbol="Clear" />
+                        <controls:WinoFontIcon Icon="TextClearFormatting" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -309,7 +309,7 @@
                     Label="{x:Bind domain:Translator.Composer_BulletList, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_BulletList, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource BulletedListPathIcon}" />
+                        <controls:WinoFontIcon Icon="TextBulletList" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
@@ -320,7 +320,7 @@
                     Label="{x:Bind domain:Translator.Composer_OrderedList, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_OrderedList, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource OrderedListPathIcon}" />
+                        <controls:WinoFontIcon Icon="TextNumberList" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
@@ -331,7 +331,7 @@
                     Label="{x:Bind domain:Translator.Composer_Outdent, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_Outdent, Mode=OneTime}">
                     <AppBarButton.Icon>
-                        <PathIcon Data="{StaticResource DecreaseIndentPathIcon}" />
+                        <controls:WinoFontIcon Icon="TextIndentDecrease" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -342,7 +342,7 @@
                     Label="{x:Bind domain:Translator.Composer_Indent, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_Indent, Mode=OneTime}">
                     <AppBarButton.Icon>
-                        <PathIcon Data="{StaticResource IncreaseIndentPathIcon}" />
+                        <controls:WinoFontIcon Icon="TextIndentIncrease" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -354,7 +354,7 @@
                     Label="{x:Bind domain:Translator.Composer_AlignLeft, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AlignLeft, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource AlignLeftPathIcon}" />
+                        <controls:WinoFontIcon Icon="TextAlignLeft" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
@@ -365,7 +365,7 @@
                     Label="{x:Bind domain:Translator.Composer_AlignCenter, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AlignCenter, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource AlignCenterPathIcon}" />
+                        <controls:WinoFontIcon Icon="TextAlignCenter" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
@@ -376,7 +376,7 @@
                     Label="{x:Bind domain:Translator.Composer_AlignRight, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AlignRight, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource AlignRightPathIcon}" />
+                        <controls:WinoFontIcon Icon="TextAlignRight" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
@@ -387,7 +387,7 @@
                     Label="{x:Bind domain:Translator.Composer_AlignJustify, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AlignJustify, Mode=OneTime}">
                     <AppBarToggleButton.Icon>
-                        <PathIcon Data="{StaticResource AlignJustifyPathIcon}" />
+                        <controls:WinoFontIcon Icon="TextAlignJustify" />
                     </AppBarToggleButton.Icon>
                 </AppBarToggleButton>
 
@@ -397,7 +397,7 @@
                     Label="{x:Bind domain:Translator.Composer_LineSpacing, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_LineSpacing, Mode=OneTime}">
                     <AppBarButton.Icon>
-                        <PathIcon Data="{StaticResource LineSpacingPathIcon}" />
+                        <controls:WinoFontIcon Icon="TextLineSpacing" />
                     </AppBarButton.Icon>
                     <AppBarButton.Flyout>
                         <MenuFlyout x:Name="LineSpacingMenuFlyout" Placement="Bottom" />
@@ -420,7 +420,7 @@
                     Label="{x:Bind domain:Translator.Composer_InsertPicture, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_InsertPictureDescription, Mode=OneTime}">
                     <AppBarButton.Icon>
-                        <PathIcon Data="{StaticResource AddPhotoPathIcon}" />
+                        <controls:WinoFontIcon Icon="ImageAdd" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -431,7 +431,7 @@
                     Label="{x:Bind domain:Translator.Emoji, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_InsertEmojiDescription, Mode=OneTime}">
                     <AppBarButton.Icon>
-                        <PathIcon Data="{StaticResource EmojiPathIcon}" />
+                        <controls:WinoFontIcon Icon="Emoji" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -442,7 +442,7 @@
                     Label="{x:Bind domain:Translator.Composer_Table, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_InsertTable, Mode=OneTime}">
                     <AppBarButton.Icon>
-                        <PathIcon Data="{StaticResource TablePathIcon}" />
+                        <controls:WinoFontIcon Icon="Table" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -456,7 +456,7 @@
                     Label="{x:Bind domain:Translator.Composer_Link, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind LinkTooltip, Mode=OneTime}">
                     <AppBarButton.Icon>
-                        <PathIcon Data="{StaticResource AddLinkPathIcon}" />
+                        <controls:WinoFontIcon Icon="Link" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -468,7 +468,7 @@
                     Label="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_RemoveLink, Mode=OneTime}">
                     <AppBarButton.Icon>
-                        <SymbolIcon Symbol="Remove" />
+                        <controls:WinoFontIcon Icon="LinkDismiss" />
                     </AppBarButton.Icon>
                 </AppBarButton>
 
@@ -480,7 +480,7 @@
                     Label="{x:Bind domain:Translator.Composer_ImageProperties, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_ImagePropertiesDescription, Mode=OneTime}">
                     <AppBarButton.Icon>
-                        <SymbolIcon Symbol="Edit" />
+                        <controls:WinoFontIcon Icon="Edit" />
                     </AppBarButton.Icon>
                 </AppBarButton>
             </toolkit:TabbedCommandBarItem>
@@ -503,7 +503,7 @@
                         Click="SpellCheckButton_Click"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_SpellCheckDescription, Mode=OneTime}">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xEA53;" />
+                            <controls:WinoFontIcon Icon="TextProofingTools" />
                             <TextBlock Text="{x:Bind domain:Translator.Composer_SpellCheck, Mode=OneTime}" />
                         </StackPanel>
                         <ToggleSplitButton.Flyout>

@@ -6,6 +6,7 @@
     xmlns:appControls="using:Wino.Controls"
     xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -66,7 +67,7 @@
                             IsCheckedChanged="SnoozeToggle_IsCheckedChanged"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.NotificationSettings_SnoozeAll, Mode=OneTime}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon FontSize="14" Glyph="&#xE7ED;" />
+                                <coreControls:WinoFontIcon FontSize="14" Icon="AlertOff" />
                                 <TextBlock Text="{x:Bind ViewModel.SelectedSnoozePresetText, Mode=OneWay}" />
                             </StackPanel>
                             <ToggleSplitButton.Flyout>
@@ -124,7 +125,7 @@
             Description="{x:Bind ViewModel.QuietHoursSummary, Mode=OneWay}"
             Header="{x:Bind domain:Translator.NotificationSettings_QuietHours_Title, Mode=OneTime}">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE823;" />
+                <coreControls:WinoFontIcon Icon="Clock" />
             </controls:SettingsExpander.HeaderIcon>
 
             <ToggleSwitch
@@ -202,7 +203,7 @@
             Description="{x:Bind ViewModel.MailSummary, Mode=OneWay}"
             Header="{x:Bind domain:Translator.NotificationSettings_Mail_Title, Mode=OneTime}">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE715;" />
+                <coreControls:WinoFontIcon Icon="Mail" />
             </controls:SettingsExpander.HeaderIcon>
 
             <ToggleSwitch
@@ -297,7 +298,7 @@
                             Click="PlayMailNotificationSoundButton_Click"
                             Style="{StaticResource SubtleButtonStyle}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.NotificationSound_Play, Mode=OneTime}">
-                            <FontIcon FontSize="14" Glyph="&#xE768;" />
+                            <coreControls:WinoFontIcon FontSize="14" Icon="Play" />
                         </Button>
                     </StackPanel>
                 </controls:SettingsCard>
@@ -310,7 +311,7 @@
             Description="{x:Bind ViewModel.CalendarSummary, Mode=OneWay}"
             Header="{x:Bind domain:Translator.NotificationSettings_Calendar_Title, Mode=OneTime}">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE787;" />
+                <coreControls:WinoFontIcon Icon="Calendar" />
             </controls:SettingsExpander.HeaderIcon>
 
             <ToggleSwitch
@@ -361,7 +362,7 @@
                             Click="PlayCalendarNotificationSoundButton_Click"
                             Style="{StaticResource SubtleButtonStyle}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.NotificationSound_Play, Mode=OneTime}">
-                            <FontIcon FontSize="14" Glyph="&#xE768;" />
+                            <coreControls:WinoFontIcon FontSize="14" Icon="Play" />
                         </Button>
                     </StackPanel>
                 </controls:SettingsCard>
@@ -374,7 +375,7 @@
             Description="{x:Bind ViewModel.TaskSummary, Mode=OneWay}"
             Header="{x:Bind domain:Translator.NotificationSettings_Tasks_Title, Mode=OneTime}">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE9D5;" />
+                <coreControls:WinoFontIcon Icon="TaskList" />
             </controls:SettingsExpander.HeaderIcon>
 
             <ToggleSwitch
@@ -431,7 +432,7 @@
                             Click="PlayTaskNotificationSoundButton_Click"
                             Style="{StaticResource SubtleButtonStyle}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.NotificationSound_Play, Mode=OneTime}">
-                            <FontIcon FontSize="14" Glyph="&#xE768;" />
+                            <coreControls:WinoFontIcon FontSize="14" Icon="Play" />
                         </Button>
                     </StackPanel>
                 </controls:SettingsCard>
@@ -556,7 +557,7 @@
                                         Click="PlayAccountNotificationSoundButton_Click"
                                         Style="{StaticResource SubtleButtonStyle}"
                                         ToolTipService.ToolTip="{x:Bind domain:Translator.NotificationSound_Play, Mode=OneTime}">
-                                        <FontIcon FontSize="14" Glyph="&#xE768;" />
+                                        <coreControls:WinoFontIcon FontSize="14" Icon="Play" />
                                     </Button>
                                 </StackPanel>
                             </controls:SettingsCard>
@@ -597,7 +598,7 @@
             Description="{x:Bind domain:Translator.NotificationSettings_Reset_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.NotificationSettings_Reset_Title, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon Glyph="&#xE777;" />
+                <coreControls:WinoFontIcon Icon="ArrowReset" />
             </controls:SettingsCard.HeaderIcon>
             <Button
                 AutomationProperties.AutomationId="NotificationSettingsResetButton"

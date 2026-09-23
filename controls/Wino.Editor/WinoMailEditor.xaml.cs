@@ -549,25 +549,27 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     private EditorCapabilities BuildCapabilities() => new()
     {
         Fonts = AvailableFonts,
-        FontSizes = [8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 48, 72],
-        TextColors =
+        // Concrete array types: CsWinRT (flowing in through the controls library) rejects
+        // collection expressions that target read-only interfaces in AOT builds.
+        FontSizes = (int[])[8, 9, 10, 11, 12, 14, 16, 18, 20, 24, 28, 32, 48, 72],
+        TextColors = (EditorColorOption[])
         [
             new("Default", string.Empty), new("Black", "#000000"), new("Gray", "#666666"),
             new("Red", "#c62828"), new("Orange", "#ef6c00"), new("Yellow", "#f9a825"),
             new("Green", "#2e7d32"), new("Blue", "#1565c0"), new("Purple", "#6a1b9a")
         ],
-        HighlightColors =
+        HighlightColors = (EditorColorOption[])
         [
             new("None", string.Empty), new("Yellow", "#fff59d"), new("Green", "#c8e6c9"),
             new("Blue", "#bbdefb"), new("Pink", "#f8bbd0"), new("Orange", "#ffe0b2")
         ],
-        ParagraphStyles =
+        ParagraphStyles = (EditorParagraphStyleOption[])
         [
             new("Normal", "p"), new("Heading 1", "h1"), new("Heading 2", "h2"),
             new("Heading 3", "h3"), new("Quote", "blockquote"), new("Preformatted", "pre"),
             new("Code", "code")
         ],
-        LineHeights = ["normal", "1", "1.15", "1.5", "2"],
+        LineHeights = (string[])["normal", "1", "1.15", "1.5", "2"],
         Alignments = Enum.GetValues<EditorTextAlignment>()
     };
 

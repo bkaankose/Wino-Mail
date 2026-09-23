@@ -170,7 +170,7 @@
                                     Click="PrimaryActionClicked"
                                     Tag="{x:Bind}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <FontIcon FontSize="12" Glyph="{x:Bind PrimaryActionGlyph}" />
+                                        <presentation:WinoFontIcon FontSize="12" Glyph="{x:Bind PrimaryActionGlyph}" />
                                         <TextBlock FontSize="12" Text="{x:Bind PrimaryActionText}" />
                                     </StackPanel>
                                 </Button>
@@ -185,7 +185,7 @@
                                     IsEnabled="{x:Bind CanToggleIgnore, Mode=OneWay}"
                                     Tag="{x:Bind}"
                                     ToolTipService.ToolTip="{x:Bind IgnoreActionText, Mode=OneWay}">
-                                    <FontIcon FontSize="12" Glyph="{x:Bind IgnoreActionGlyph, Mode=OneWay}" />
+                                    <presentation:WinoFontIcon FontSize="12" Glyph="{x:Bind IgnoreActionGlyph, Mode=OneWay}" />
                                 </Button>
                             </StackPanel>
                         </Grid>
@@ -249,7 +249,7 @@
                 BorderThickness="0"
                 IsChecked="{x:Bind ViewModel.IsShowingIgnored, Mode=TwoWay}"
                 ToolTipService.ToolTip="{x:Bind domain:Translator.DailyBriefing_ShowIgnored, Mode=OneTime}">
-                <FontIcon FontSize="14" Glyph="{x:Bind vm:DailyBriefingIcons.VisibilityGlyph, Mode=OneTime}" />
+                <presentation:WinoFontIcon FontSize="14" Glyph="{x:Bind vm:DailyBriefingIcons.VisibilityGlyph, Mode=OneTime}" />
             </ToggleButton>
             <Button
                 Grid.Column="2"
@@ -262,7 +262,7 @@
                 BorderThickness="0"
                 Click="CloseClicked"
                 ToolTipService.ToolTip="{x:Bind domain:Translator.DailyBriefing_ClosePane, Mode=OneTime}">
-                <FontIcon FontSize="13" Glyph="{x:Bind vm:DailyBriefingIcons.CloseGlyph, Mode=OneTime}" />
+                <presentation:WinoFontIcon FontSize="13" Glyph="{x:Bind vm:DailyBriefingIcons.CloseGlyph, Mode=OneTime}" />
             </Button>
         </Grid>
 
@@ -322,7 +322,7 @@
                 VerticalAlignment="Center"
                 Spacing="8"
                 Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay}">
-                <FontIcon FontSize="26" Glyph="{x:Bind vm:DailyBriefingIcons.InformationGlyph, Mode=OneTime}" />
+                <presentation:WinoFontIcon FontSize="26" Glyph="{x:Bind vm:DailyBriefingIcons.InformationGlyph, Mode=OneTime}" />
                 <TextBlock
                     HorizontalAlignment="Center"
                     Style="{StaticResource BodyStrongTextBlockStyle}"
@@ -341,7 +341,7 @@
                 VerticalAlignment="Center"
                 Spacing="8"
                 Visibility="{x:Bind ViewModel.ShowFilteredEmpty, Mode=OneWay}">
-                <FontIcon FontSize="26" Glyph="{x:Bind vm:DailyBriefingIcons.VisibilityGlyph, Mode=OneTime}" />
+                <presentation:WinoFontIcon FontSize="26" Glyph="{x:Bind vm:DailyBriefingIcons.VisibilityGlyph, Mode=OneTime}" />
                 <TextBlock
                     HorizontalAlignment="Center"
                     Style="{StaticResource BodyStrongTextBlockStyle}"
@@ -360,7 +360,7 @@
                 VerticalAlignment="Center"
                 Spacing="8"
                 Visibility="{x:Bind ViewModel.IsUnavailable, Mode=OneWay}">
-                <FontIcon FontSize="26" Glyph="{x:Bind vm:DailyBriefingIcons.InformationGlyph, Mode=OneTime}" />
+                <presentation:WinoFontIcon FontSize="26" Glyph="{x:Bind vm:DailyBriefingIcons.InformationGlyph, Mode=OneTime}" />
                 <TextBlock
                     HorizontalAlignment="Center"
                     Style="{StaticResource BodyStrongTextBlockStyle}"
@@ -379,7 +379,7 @@
                 VerticalAlignment="Center"
                 Spacing="8"
                 Visibility="{x:Bind ViewModel.HasLoadError, Mode=OneWay}">
-                <FontIcon
+                <presentation:WinoFontIcon
                     FontSize="26"
                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                     Glyph="{x:Bind vm:DailyBriefingIcons.WarningGlyph, Mode=OneTime}" />

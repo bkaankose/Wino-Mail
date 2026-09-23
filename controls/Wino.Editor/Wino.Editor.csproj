@@ -33,4 +33,9 @@
     </PackageReference>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Toolbar icons use the controls library's WinoFontIcon and its packaged WinoIcons.ttf. -->
+    <ProjectReference Include="..\Wino.Mail.Controls\Wino.Mail.Controls.csproj" />
+  </ItemGroup>
 </Project>

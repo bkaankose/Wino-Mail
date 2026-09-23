@@ -5,6 +5,7 @@
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:accounts="using:Wino.Core.Domain.Models.Accounts"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
@@ -139,9 +140,9 @@
                     AutomationProperties.Name="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.AccountDetailsPage_ColorPicker_Title, Mode=OneTime}">
                     <Grid>
-                        <FontIcon
+                        <coreControls:WinoFontIcon
                             FontSize="16"
-                            Glyph="&#xE771;"
+                            Icon="PaintBrush"
                             Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsColorSelected), Mode=OneWay}" />
                         <Ellipse
                             Width="16"

@@ -5,6 +5,7 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Mail.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
@@ -30,7 +31,7 @@
                 Description="{x:Bind DescriptionText}"
                 IsExpanded="False">
                 <controls:SettingsExpander.HeaderIcon>
-                    <FontIcon Glyph="&#xE715;" />
+                    <coreControls:WinoFontIcon Icon="Mail" />
                 </controls:SettingsExpander.HeaderIcon>
 
                 <controls:SettingsExpander.Header>
@@ -50,11 +51,11 @@
                             Style="{StaticResource AliasBadgeStyle}"
                             Visibility="{x:Bind IsPrimary}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     VerticalAlignment="Center"
                                     FontSize="11"
                                     Foreground="{ThemeResource SystemFillColorAttentionBrush}"
-                                    Glyph="&#xE735;" />
+                                    Icon="Star" />
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     FontWeight="SemiBold"
@@ -70,11 +71,11 @@
                             Style="{StaticResource AliasBadgeStyle}"
                             Visibility="{x:Bind IsCapabilityConfirmed}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     VerticalAlignment="Center"
                                     FontSize="11"
                                     Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                    Glyph="&#xE73E;" />
+                                    Icon="Checkmark" />
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     FontWeight="SemiBold"
@@ -90,11 +91,11 @@
                             Style="{StaticResource AliasBadgeStyle}"
                             Visibility="{x:Bind IsCapabilityUnknown}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     VerticalAlignment="Center"
                                     FontSize="11"
                                     Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                    Glyph="&#xE9CE;" />
+                                    Icon="QuestionCircle" />
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     FontWeight="SemiBold"
@@ -110,11 +111,11 @@
                             Style="{StaticResource AliasBadgeStyle}"
                             Visibility="{x:Bind IsCapabilityDenied}">
                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     VerticalAlignment="Center"
                                     FontSize="11"
                                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                    Glyph="&#xE711;" />
+                                    Icon="Dismiss" />
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     FontWeight="SemiBold"
@@ -135,7 +136,7 @@
                     AutomationProperties.Name="{x:Bind RowAutomationName}"
                     Style="{ThemeResource TransparentActionButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.AccountAlias_MoreActions, Mode=OneTime}">
-                    <FontIcon FontSize="14" Glyph="&#xE712;" />
+                    <coreControls:WinoFontIcon FontSize="14" Icon="More" />
                     <Button.Flyout>
                         <contextFlyout:WinoContextFlyout Placement="BottomEdgeAlignedRight">
                             <contextFlyout:WinoContextFlyoutItem
@@ -182,7 +183,7 @@
                         Description="{x:Bind domain:Translator.AccountAlias_Encryption_Description, Mode=OneTime}"
                         Header="{x:Bind domain:Translator.AccountAlias_Encryption_Title, Mode=OneTime}">
                         <controls:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xE72E;" />
+                            <coreControls:WinoFontIcon Icon="LockClosed" />
                         </controls:SettingsCard.HeaderIcon>
                         <ToggleSwitch
                             AutomationProperties.AutomationId="{x:Bind EncryptionAutomationId}"
@@ -198,7 +199,7 @@
                         Header="{x:Bind domain:Translator.SettingsSignatureAndEncryption_SigningCertificate, Mode=OneTime}"
                         IsEnabled="{x:Bind IsSmimeEncryptionEnabled}">
                         <controls:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xEB95;" />
+                            <coreControls:WinoFontIcon Icon="Certificate" />
                         </controls:SettingsCard.HeaderIcon>
                         <ComboBox
                             MinWidth="240"
@@ -223,7 +224,7 @@
                         Description="{x:Bind domain:Translator.AccountAlias_ReplyTo_Description, Mode=OneTime}"
                         Header="{x:Bind domain:Translator.AccountAlias_ReplyTo_Title, Mode=OneTime}">
                         <controls:SettingsCard.HeaderIcon>
-                            <FontIcon Glyph="&#xE97A;" />
+                            <coreControls:WinoFontIcon Icon="Reply" />
                         </controls:SettingsCard.HeaderIcon>
                         <TextBlock
                             VerticalAlignment="Center"
@@ -291,10 +292,10 @@
                     IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsSynchronizing), Mode=OneWay}"
                     Visibility="{x:Bind ViewModel.CanSynchronizeAliases, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon
+                        <coreControls:WinoFontIcon
                             VerticalAlignment="Center"
                             FontSize="14"
-                            Glyph="&#xE895;" />
+                            Icon="Sync" />
                         <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Buttons_SyncAliases, Mode=OneTime}" />
                     </StackPanel>
                 </Button>
@@ -305,10 +306,10 @@
                     Command="{x:Bind ViewModel.AddNewAliasCommand}"
                     Style="{ThemeResource AccentButtonStyle}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon
+                        <coreControls:WinoFontIcon
                             VerticalAlignment="Center"
                             FontSize="14"
-                            Glyph="&#xE710;" />
+                            Icon="Add" />
                         <TextBlock VerticalAlignment="Center" Text="{x:Bind domain:Translator.Buttons_AddNewAlias, Mode=OneTime}" />
                     </StackPanel>
                 </Button>
@@ -357,11 +358,11 @@
                 CornerRadius="{ThemeResource ControlCornerRadius}"
                 Visibility="{x:Bind ViewModel.IsEmptyStateVisible, Mode=OneWay}">
                 <StackPanel HorizontalAlignment="Center" Spacing="8">
-                    <FontIcon
+                    <coreControls:WinoFontIcon
                         HorizontalAlignment="Center"
                         FontSize="24"
                         Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                        Glyph="&#xE715;" />
+                        Icon="Mail" />
                     <TextBlock
                         HorizontalAlignment="Center"
                         Style="{ThemeResource BodyStrongTextBlockStyle}"

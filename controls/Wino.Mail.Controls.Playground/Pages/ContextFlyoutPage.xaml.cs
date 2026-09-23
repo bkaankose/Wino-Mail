@@ -1,19 +1,20 @@
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.Controls.Core.ContextFlyout;
+using Wino.Mail.Controls.AccountIcon;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
 public sealed partial class ContextFlyoutPage : Page
 {
-    private const string ReplyGlyph = "\uF176";
-    private const string ReplyAllGlyph = "\uF17A";
-    private const string ForwardGlyph = "\uE7AA";
-    private const string MoveGlyph = "\uE7B8";
-    private const string FolderGlyph = "\uE643";
-    private const string DeleteGlyph = "\uEEA6";
-    private const string CategoryGlyph = "\uF599";
-    private const string MarkReadGlyph = "\uF522";
+    private const string ReplyGlyph = WinoIconCodes.Reply;
+    private const string ReplyAllGlyph = WinoIconCodes.ReplyAll;
+    private const string ForwardGlyph = WinoIconCodes.Forward;
+    private const string MoveGlyph = WinoIconCodes.Move;
+    private const string FolderGlyph = WinoIconCodes.Folder;
+    private const string DeleteGlyph = WinoIconCodes.Delete;
+    private const string CategoryGlyph = WinoIconCodes.SpecialFolderCategory;
+    private const string MarkReadGlyph = WinoIconCodes.MarkRead;
 
     public ContextFlyoutPage()
     {

@@ -7,8 +7,7 @@ public partial class SettingsShellPageMenuItem(
     WinoPage pageType,
     string title,
     string description,
-    string glyph,
-    string iconPathData = "") : MenuItemBase
+    WinoIconGlyph icon) : MenuItemBase
 {
     public WinoPage PageType { get; } = pageType;
 
@@ -18,10 +17,6 @@ public partial class SettingsShellPageMenuItem(
     [ObservableProperty]
     public partial string Description { get; set; } = description;
 
-    [ObservableProperty]
-    public partial string Glyph { get; set; } = glyph;
-
-    public string IconPathData { get; } = iconPathData;
-
-    public bool HasIconPathData => !string.IsNullOrWhiteSpace(IconPathData);
+    // WinoIconGlyph is source-generated in this assembly, so [ObservableProperty] cannot resolve it.
+    public WinoIconGlyph Icon { get; } = icon;
 }

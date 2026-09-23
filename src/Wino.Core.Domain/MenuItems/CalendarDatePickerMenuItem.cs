@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Translations;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.MenuItems;
 
@@ -21,7 +22,7 @@ public sealed partial class CalendarDatePickerMenuItem : MenuItemBase<ICalendarS
         : Translator.CalendarPane_ExpandDatePicker;
 
     public string ExpansionToolTip => ExpansionAutomationName;
-    public string ExpansionGlyph => IsCalendarExpanded ? "\uE89F" : "\uE8A0";
+    public string ExpansionGlyph => IsCalendarExpanded ? WinoIconGlyphs.GetGlyph(WinoIconGlyph.PanelLeftContract) : WinoIconGlyphs.GetGlyph(WinoIconGlyph.PanelLeftExpand);
 
     public CalendarDatePickerMenuItem(ICalendarShellClient client, IPreferencesService preferencesService)
         : base(client, null)

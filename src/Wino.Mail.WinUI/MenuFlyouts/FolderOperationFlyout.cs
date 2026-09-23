@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Helpers;
@@ -41,7 +42,5 @@ public partial class FolderOperationFlyout : WinoOperationFlyout<FolderOperation
     }
 
     private static ContextFlyoutIcon? CreateIcon(FolderOperation operation)
-        => ControlConstants.WinoIconFontDictionary.TryGetValue(XamlHelpers.GetPathGeometry(operation), out var glyph)
-            ? new ContextFlyoutIcon(glyph)
-            : null;
+        => new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(XamlHelpers.GetPathGeometry(operation)));
 }

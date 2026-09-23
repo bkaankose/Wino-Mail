@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mailViewModels="using:Wino.Mail.ViewModels"
@@ -21,7 +22,7 @@
                 Description="{x:Bind CountDescription, Mode=OneWay}"
                 Header="{x:Bind FolderName}">
                 <controls:SettingsCard.HeaderIcon>
-                    <FontIcon Glyph="&#xE8B7;" />
+                    <coreControls:WinoFontIcon Icon="Folder" />
                 </controls:SettingsCard.HeaderIcon>
                 <StackPanel Orientation="Horizontal" Spacing="16">
                     <CheckBox
@@ -97,7 +98,7 @@
             Header="{x:Bind domain:Translator.UnreadBadges_Locations_Title, Mode=OneTime}"
             IsExpanded="True">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE7E7;" />
+                <coreControls:WinoFontIcon Icon="Message" />
             </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
                 <controls:SettingsCard AutomationProperties.AutomationId="AccountUnreadBadgePageAccountBadgeCard" AutomationProperties.Name="{x:Bind domain:Translator.UnreadBadges_AccountBadge_Title, Mode=OneTime}">
@@ -187,7 +188,7 @@
             Header="{x:Bind domain:Translator.UnreadBadges_CountSource_Title, Mode=OneTime}"
             IsExpanded="True">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8B7;" />
+                <coreControls:WinoFontIcon Icon="Folder" />
             </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
                 <controls:SettingsCard
@@ -222,7 +223,7 @@
             ItemTemplate="{StaticResource UnreadBadgeFolderTemplate}"
             ItemsSource="{x:Bind ViewModel.Folders, Mode=OneWay}">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8F1;" />
+                <coreControls:WinoFontIcon Icon="Library" />
             </controls:SettingsExpander.HeaderIcon>
             <TextBlock
                 AutomationProperties.AutomationId="AccountUnreadBadgePageFolderSummary"

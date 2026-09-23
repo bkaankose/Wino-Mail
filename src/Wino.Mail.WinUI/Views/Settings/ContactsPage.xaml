@@ -1,4 +1,4 @@
-<abstract:ContactsPageAbstract
+﻿<abstract:ContactsPageAbstract
     x:Class="Wino.Views.Settings.ContactsPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -8,9 +8,9 @@
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:illustrations="using:Wino.Controls.Illustrations"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
-    xmlns:illustrations="using:Wino.Controls.Illustrations"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:toolkitExt="using:CommunityToolkit.WinUI"
@@ -71,10 +71,10 @@
                     CommandParameter="{x:Bind}"
                     Style="{StaticResource SubtleButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind helpers:XamlHelpers.GetFavoriteTooltip(IsFavorite), Mode=OneWay}">
-                    <FontIcon
+                    <coreControls:WinoFontIcon
                         FontSize="15"
                         Foreground="{x:Bind helpers:XamlHelpers.GetFavoriteBrush(IsFavorite), Mode=OneWay}"
-                        Glyph="{x:Bind helpers:XamlHelpers.GetFavoriteGlyph(IsFavorite), Mode=OneWay}" />
+                        Icon="{x:Bind helpers:XamlHelpers.GetFavoriteGlyph(IsFavorite), Mode=OneWay}" />
                 </Button>
             </Grid>
         </DataTemplate>
@@ -86,13 +86,13 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <FontIcon
+                <coreControls:WinoFontIcon
                     Grid.Column="0"
                     Margin="0,2,0,0"
                     VerticalAlignment="Top"
                     FontSize="14"
                     Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                    Glyph="&#xE715;" />
+                    Icon="Mail" />
                 <StackPanel Grid.Column="1">
                     <TextBlock
                         IsTextSelectionEnabled="True"
@@ -113,13 +113,13 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <FontIcon
+                <coreControls:WinoFontIcon
                     Grid.Column="0"
                     Margin="0,2,0,0"
                     VerticalAlignment="Top"
                     FontSize="14"
                     Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                    Glyph="&#xE717;" />
+                    Icon="Phone" />
                 <StackPanel Grid.Column="1">
                     <TextBlock
                         IsTextSelectionEnabled="True"
@@ -152,9 +152,18 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock FontWeight="SemiBold" Text="{x:Bind FieldName, Mode=OneTime}" TextWrapping="Wrap" />
-                <TextBlock Grid.Column="1" Text="{x:Bind LocalValue, Mode=OneTime}" TextWrapping="Wrap" />
-                <TextBlock Grid.Column="2" Text="{x:Bind ServerValue, Mode=OneTime}" TextWrapping="Wrap" />
+                <TextBlock
+                    FontWeight="SemiBold"
+                    Text="{x:Bind FieldName, Mode=OneTime}"
+                    TextWrapping="Wrap" />
+                <TextBlock
+                    Grid.Column="1"
+                    Text="{x:Bind LocalValue, Mode=OneTime}"
+                    TextWrapping="Wrap" />
+                <TextBlock
+                    Grid.Column="2"
+                    Text="{x:Bind ServerValue, Mode=OneTime}"
+                    TextWrapping="Wrap" />
             </Grid>
         </DataTemplate>
     </Page.Resources>
@@ -178,11 +187,11 @@
                 Content="{x:Bind domain:Translator.ContactsPage_NewAddressBook, Mode=OneTime}"
                 Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanCreateCardDavAddressBook), Mode=OneWay}" />
             <muxc:InfoBar
+                Title="{x:Bind domain:Translator.ContactsPage_CardDavConflictsTitle, Mode=OneTime}"
                 AutomationProperties.AutomationId="ContactsCardDavConflictInfoBar"
                 IsOpen="{x:Bind ViewModel.HasUnresolvedConflicts, Mode=OneWay}"
                 Message="{x:Bind ViewModel.ConflictInfoMessage, Mode=OneWay}"
-                Severity="Warning"
-                Title="{x:Bind domain:Translator.ContactsPage_CardDavConflictsTitle, Mode=OneTime}">
+                Severity="Warning">
                 <muxc:InfoBar.ActionButton>
                     <Button
                         AutomationProperties.AutomationId="ContactsReviewCardDavConflicts"
@@ -195,7 +204,10 @@
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsConflictResolverOpen), Mode=OneWay}">
                 <StackPanel Spacing="10">
-                    <TextBlock FontWeight="SemiBold" Text="{x:Bind ViewModel.ConflictSummary, Mode=OneWay}" TextWrapping="Wrap" />
+                    <TextBlock
+                        FontWeight="SemiBold"
+                        Text="{x:Bind ViewModel.ConflictSummary, Mode=OneWay}"
+                        TextWrapping="Wrap" />
                     <TextBlock Text="{x:Bind domain:Translator.ContactsPage_ConflictResolutionHelp, Mode=OneTime}" TextWrapping="Wrap" />
                     <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
@@ -203,14 +215,29 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="{x:Bind domain:Translator.ContactsPage_LocalVersion, Mode=OneTime}" />
-                        <TextBlock Grid.Column="2" FontWeight="SemiBold" Text="{x:Bind domain:Translator.ContactsPage_ServerVersion, Mode=OneTime}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            FontWeight="SemiBold"
+                            Text="{x:Bind domain:Translator.ContactsPage_LocalVersion, Mode=OneTime}" />
+                        <TextBlock
+                            Grid.Column="2"
+                            FontWeight="SemiBold"
+                            Text="{x:Bind domain:Translator.ContactsPage_ServerVersion, Mode=OneTime}" />
                     </Grid>
                     <ItemsControl ItemTemplate="{StaticResource ConflictDifferenceTemplate}" ItemsSource="{x:Bind ViewModel.ConflictDifferences, Mode=OneWay}" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button AutomationProperties.AutomationId="ContactsConflictUseServer" Command="{x:Bind ViewModel.UseServerConflictCommand}" Content="{x:Bind domain:Translator.ContactsPage_UseServer, Mode=OneTime}" />
-                        <Button AutomationProperties.AutomationId="ContactsConflictUseMine" Command="{x:Bind ViewModel.UseMineConflictCommand}" Content="{x:Bind domain:Translator.ContactsPage_UseMine, Mode=OneTime}" />
-                        <Button AutomationProperties.AutomationId="ContactsConflictKeepBoth" Command="{x:Bind ViewModel.KeepBothConflictCommand}" Content="{x:Bind domain:Translator.ContactsPage_KeepBoth, Mode=OneTime}" />
+                        <Button
+                            AutomationProperties.AutomationId="ContactsConflictUseServer"
+                            Command="{x:Bind ViewModel.UseServerConflictCommand}"
+                            Content="{x:Bind domain:Translator.ContactsPage_UseServer, Mode=OneTime}" />
+                        <Button
+                            AutomationProperties.AutomationId="ContactsConflictUseMine"
+                            Command="{x:Bind ViewModel.UseMineConflictCommand}"
+                            Content="{x:Bind domain:Translator.ContactsPage_UseMine, Mode=OneTime}" />
+                        <Button
+                            AutomationProperties.AutomationId="ContactsConflictKeepBoth"
+                            Command="{x:Bind ViewModel.KeepBothConflictCommand}"
+                            Content="{x:Bind domain:Translator.ContactsPage_KeepBoth, Mode=OneTime}" />
                     </StackPanel>
                 </StackPanel>
             </Border>
@@ -372,10 +399,10 @@
                             CommandParameter="{x:Bind ViewModel.SelectedContact, Mode=OneWay}"
                             Style="{StaticResource SubtleButtonStyle}"
                             ToolTipService.ToolTip="{x:Bind helpers:XamlHelpers.GetFavoriteTooltip(ViewModel.SelectedContact.IsFavorite), Mode=OneWay}">
-                            <FontIcon
+                            <coreControls:WinoFontIcon
                                 FontSize="17"
                                 Foreground="{x:Bind helpers:XamlHelpers.GetFavoriteBrush(ViewModel.SelectedContact.IsFavorite), Mode=OneWay}"
-                                Glyph="{x:Bind helpers:XamlHelpers.GetFavoriteGlyph(ViewModel.SelectedContact.IsFavorite), Mode=OneWay}" />
+                                Icon="{x:Bind helpers:XamlHelpers.GetFavoriteGlyph(ViewModel.SelectedContact.IsFavorite), Mode=OneWay}" />
                         </Button>
 
                         <StackPanel
@@ -425,7 +452,7 @@
                             CommandParameter="{x:Bind ViewModel.SelectedContact, Mode=OneWay}"
                             Style="{StaticResource AccentButtonStyle}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon FontSize="14" Glyph="&#xE715;" />
+                                <coreControls:WinoFontIcon FontSize="14" Icon="Mail" />
                                 <TextBlock Text="{x:Bind domain:Translator.ContactAction_SendMail, Mode=OneTime}" />
                             </StackPanel>
                         </Button>
@@ -435,7 +462,7 @@
                             CommandParameter="{x:Bind ViewModel.SelectedContact, Mode=OneWay}"
                             IsEnabled="{x:Bind ViewModel.SelectedContact.IsEditable, Mode=OneWay}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_Edit, Mode=OneTime}">
-                            <FontIcon FontSize="14" Glyph="&#xE70F;" />
+                            <coreControls:WinoFontIcon FontSize="14" Icon="Edit" />
                         </Button>
                         <Button
                             AutomationProperties.AutomationId="ContactDetailRemoveFromList"
@@ -443,7 +470,7 @@
                             CommandParameter="{x:Bind ViewModel.SelectedContact, Mode=OneWay}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_RemoveFromList, Mode=OneTime}"
                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedFilter.IsList), Mode=OneWay}">
-                            <FontIcon FontSize="14" Glyph="&#xE8FD;" />
+                            <coreControls:WinoFontIcon FontSize="14" Icon="List" />
                         </Button>
                         <Button
                             AutomationProperties.AutomationId="ContactDetailDelete"
@@ -451,7 +478,7 @@
                             CommandParameter="{x:Bind ViewModel.SelectedContact, Mode=OneWay}"
                             IsEnabled="{x:Bind ViewModel.SelectedContact.IsEditable, Mode=OneWay}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_Delete, Mode=OneTime}">
-                            <FontIcon FontSize="14" Glyph="&#xE74D;" />
+                            <coreControls:WinoFontIcon FontSize="14" Icon="Delete" />
                         </Button>
                     </StackPanel>
 

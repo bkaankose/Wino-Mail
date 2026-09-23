@@ -56,6 +56,19 @@ If a change requires a new package, run the security audit and publish the new N
 - Use `{ThemeResource}` for visual resources and preserve Light, Dark, High Contrast, keyboard, pointer, touch, and automation behavior.
 - Follow `controls/AGENTS.md` for reusable control templates, parts, playground samples, automation peers, and lifecycle rules.
 
+### Icons
+
+Every icon comes from the WinoIcons fonts. Their source is `icons/manifest.json` plus `icons/svg`; see [icons/README.md](../../icons/README.md).
+
+- In app XAML, use `<coreControls:WinoFontIcon Icon="Name" />`. Use `WinoFontIconSource` where an `IconSource` is expected.
+- Never add `SymbolIcon`, `PathIcon`, a `FontIcon` with a Segoe glyph, or `Icon="Symbol"` shorthand on `AppBarButton`, `NavigationViewItem`, `SettingsCard` and similar hosts.
+- `WinoIconGlyph` is generated into `Wino.Core.Domain.Enums`. Models and ViewModels expose `WinoIconGlyph`, or a glyph string from `WinoIconGlyphs.GetGlyph(...)` when a controls-library API takes a string. Never expose Segoe codepoints.
+- Inside `Wino.Core.Domain`, do not put `[ObservableProperty]` on a `WinoIconGlyph` property. The enum is generated in that assembly, so the MVVM generator cannot resolve it. Use a plain property.
+- Do not set `FontSize` on a `WinoFontIcon` hosted in an `Icon` or `HeaderIcon` slot or a `Viewbox`. The host sizes it.
+- The icon style (monochrome or colorful) is applied by `NewThemeService`. It rewrites `WinoIconFontFamily` in the theme dictionaries of `Styles/WinoIcons.xaml`, the same way it applies accent colors. Do not set `FontFamily` on an individual `WinoFontIcon`.
+- To add an icon, run `python icons/tools/add_fluent_icon.py <fluent_name> <Name> [--accent <palette key>]`, then `python icons/tools/build_fonts.py`. Commit the manifest, the SVGs and every regenerated font. Only use `--accent` where color carries meaning. Toolbar and menu commands stay monochrome.
+- Check with `.\scripts\audit-xaml-icons.ps1` and `python icons/tools/build_fonts.py --check`.
+
 Format changed XAML with the repository-pinned XAML Styler before the build. Passive mode must pass before handoff:
 
 ```powershell

@@ -13,11 +13,11 @@ public partial class WinoAddOnItemViewModel : ObservableObject
     public string DescriptionKey => $"WinoAddOn_{ProductType}_Description";
     public string KeywordsKey => $"WinoAddOn_{ProductType}_Keywords";
 
-    public string IconGlyph => ProductType switch
+    public WinoIconGlyph Icon => ProductType switch
     {
-        WinoAddOnProductType.AI_PACK => "\uE945",
-        WinoAddOnProductType.UNLIMITED_ACCOUNTS => "\uE716",
-        _ => "\uE10F"
+        WinoAddOnProductType.AI_PACK => WinoIconGlyph.Sparkle,
+        WinoAddOnProductType.UNLIMITED_ACCOUNTS => WinoIconGlyph.People,
+        _ => WinoIconGlyph.Home
     };
 
     [ObservableProperty]

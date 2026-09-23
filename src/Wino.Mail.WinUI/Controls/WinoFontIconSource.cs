@@ -1,34 +1,26 @@
-using Microsoft.UI.Xaml;
-using Wino.Mail.WinUI.Controls;
+using CommunityToolkit.WinUI;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 
-namespace Wino.Controls;
+namespace Wino.Mail.WinUI.Controls;
 
-public partial class WinoFontIconSource : Microsoft.UI.Xaml.Controls.FontIconSource
+/// <summary>
+/// IconSource counterpart of <see cref="WinoFontIcon"/>. The FontIcon it creates is not a WinoFontIcon,
+/// so the implicit style does not reach it; it always uses the monochrome font.
+/// </summary>
+public partial class WinoFontIconSource : FontIconSource
 {
-    public WinoIconGlyph Icon
-    {
-        get { return (WinoIconGlyph)GetValue(IconProperty); }
-        set { SetValue(IconProperty, value); }
-    }
+    private static readonly FontFamily MonochromeFontFamily = new("ms-appx:///Assets/WinoIcons.ttf#WinoIcons");
 
-    public static readonly DependencyProperty IconProperty = DependencyProperty.Register(nameof(Icon), typeof(WinoIconGlyph), typeof(WinoFontIconSource), new PropertyMetadata(WinoIconGlyph.Flag, OnIconChanged));
+    [GeneratedDependencyProperty(DefaultValue = WinoIconGlyph.None)]
+    public partial WinoIconGlyph Icon { get; set; }
 
     public WinoFontIconSource()
     {
-        FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("ms-appx:///Assets/WinoIcons.ttf#WinoIcons");
-        FontSize = 32;
+        FontFamily = MonochromeFontFamily;
     }
 
-    private static void OnIconChanged(DependencyObject obj, DependencyPropertyChangedEventArgs args)
-    {
-        if (obj is WinoFontIconSource fontIcon)
-        {
-            fontIcon.UpdateGlyph();
-        }
-    }
-
-    private void UpdateGlyph()
-    {
-        Glyph = ControlConstants.WinoIconFontDictionary[Icon];
-    }
+    partial void OnIconChanged(WinoIconGlyph newValue) => Glyph = WinoIconGlyphs.GetGlyph(newValue);
 }

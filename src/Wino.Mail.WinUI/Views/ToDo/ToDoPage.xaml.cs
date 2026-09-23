@@ -24,6 +24,7 @@ using Wino.Mail.WinUI.Controls;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Views.Abstract;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Views.ToDo;
 
@@ -242,9 +243,9 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
         };
 
     private static ContextFlyoutIcon? CreateContextIcon(WinoIconGlyph icon)
-        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
-            ? new ContextFlyoutIcon(glyph)
-            : null;
+        => icon == WinoIconGlyph.None
+            ? null
+            : new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(icon));
 
     private async Task PickTaskDueDateAsync(TaskItemViewModel task)
     {

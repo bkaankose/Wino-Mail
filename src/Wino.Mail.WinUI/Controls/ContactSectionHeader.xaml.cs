@@ -1,5 +1,6 @@
 using CommunityToolkit.WinUI;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Controls;
 
@@ -8,8 +9,8 @@ namespace Wino.Controls;
 /// </summary>
 public sealed partial class ContactSectionHeader : UserControl
 {
-    [GeneratedDependencyProperty(DefaultValue = "")]
-    public partial string Glyph { get; set; }
+    [GeneratedDependencyProperty(DefaultValue = WinoIconGlyph.None)]
+    public partial WinoIconGlyph Icon { get; set; }
 
     [GeneratedDependencyProperty(DefaultValue = "")]
     public partial string Title { get; set; }

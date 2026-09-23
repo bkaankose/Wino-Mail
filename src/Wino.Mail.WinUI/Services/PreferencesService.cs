@@ -117,6 +117,19 @@ public partial class PreferencesService(IConfigurationService configurationServi
         return (appliedCount, failedCount);
     }
 
+    // Existing installs keep the monochrome icons they had; new installs opt into colorful in ApplyNewInstallDefaults.
+    public WinoIconStyle IconStyle
+    {
+        get => _configurationService.Get(nameof(IconStyle), WinoIconStyle.Monochrome);
+        set => SetPropertyAndSave(nameof(IconStyle), value);
+    }
+
+    public void ApplyNewInstallDefaults()
+    {
+        if (!_configurationService.Contains(nameof(IconStyle)))
+            IconStyle = WinoIconStyle.Colorful;
+    }
+
     public MailListDisplayMode MailItemDisplayMode
     {
         get => _configurationService.Get(nameof(MailItemDisplayMode), MailListDisplayMode.Spacious);

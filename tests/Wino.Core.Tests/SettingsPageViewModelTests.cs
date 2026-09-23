@@ -40,7 +40,7 @@ public class SettingsPageViewModelTests
     }
 
     [Fact]
-    public void SettingsMenu_CalendarGroupStartsWithPreferencesAndUsesRenderingPathIcon()
+    public void SettingsMenu_CalendarGroupStartsWithPreferencesAndUsesRenderingIcon()
     {
         var service = EntitlementService(Entitlement(WinoIntelligenceEntitlementState.Active));
         var provider = new SettingsMenuProvider(Mock.Of<INavigationService>(), service.Object)
@@ -55,8 +55,7 @@ public class SettingsPageViewModelTests
         calendarGroup.SubMenuItems.Select(item => item.PageType).Should().Equal(
             WinoPage.CalendarPreferenceSettingsPage,
             WinoPage.CalendarRenderingSettingsPage);
-        calendarGroup.SubMenuItems[1].HasIconPathData.Should().BeTrue();
-        calendarGroup.SubMenuItems[1].IconPathData.Should().StartWith("F1 M 15.078125 1.25");
+        calendarGroup.SubMenuItems[1].Icon.Should().Be(WinoIconGlyph.CalendarMonth);
     }
 
     [Fact]

@@ -78,6 +78,13 @@ public class NewThemeService : INewThemeService
     private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly IApplicationResourceManager<ResourceDictionary> _applicationResourceManager;
     private readonly IWinoWindowManager _windowManager;
+    private readonly IPreferencesService _preferencesService;
+
+    // Keys and fonts must match Styles/WinoIcons.xaml; the fonts come from icons/tools/build_fonts.py.
+    private const string IconFontFamilyKey = "WinoIconFontFamily";
+    private const string MonochromeIconFontFamily = "ms-appx:///Assets/WinoIcons.ttf#WinoIcons";
+    private const string LightIconFontFamily = "ms-appx:///Assets/WinoIconsColor-Light.ttf#WinoIconsColorLight";
+    private const string DarkIconFontFamily = "ms-appx:///Assets/WinoIconsColor-Dark.ttf#WinoIconsColorDark";
 
     private List<AppThemeBase> preDefinedThemes { get; set; } = new List<AppThemeBase>()
     {
@@ -110,12 +117,14 @@ public class NewThemeService : INewThemeService
     public NewThemeService(IConfigurationService configurationService,
                           IUnderlyingThemeService underlyingThemeService,
                           IApplicationResourceManager<ResourceDictionary> applicationResourceManager,
-                          IWinoWindowManager windowManager)
+                          IWinoWindowManager windowManager,
+                          IPreferencesService preferencesService)
     {
         _configurationService = configurationService;
         _underlyingThemeService = underlyingThemeService;
         _applicationResourceManager = applicationResourceManager;
         _windowManager = windowManager;
+        _preferencesService = preferencesService;
     }
 
     /// <summary>
@@ -251,6 +260,12 @@ public class NewThemeService : INewThemeService
 
         if (storedBackdropType != currentBackdropType)
             _configurationService.Set(WindowBackdropTypeKey, (int)currentBackdropType);
+
+        // Icon fonts are theme resources; set them before the theme refresh below re-evaluates everything.
+        ApplyIconStyle(refresh: false);
+
+        _preferencesService.PreferenceChanged -= PreferenceChanged;
+        _preferencesService.PreferenceChanged += PreferenceChanged;
 
         await ApplyCustomThemeAsync(true);
         ApplyBackdrop(currentBackdropType);
@@ -445,6 +460,52 @@ public class NewThemeService : INewThemeService
             (byte)Math.Round(source.R + ((target.R - source.R) * amount)),
             (byte)Math.Round(source.G + ((target.G - source.G) * amount)),
             (byte)Math.Round(source.B + ((target.B - source.B) * amount)));
+    }
+
+    private void PreferenceChanged(object? sender, string propertyName)
+    {
+        if (propertyName != nameof(IPreferencesService.IconStyle)) return;
+
+        var dispatcherQueue = GetThemeWindow()?.DispatcherQueue;
+        if (dispatcherQueue == null)
+        {
+            ApplyIconStyle(refresh: false);
+            return;
+        }
+
+        dispatcherQueue.TryEnqueue(() => ApplyIconStyle(refresh: true));
+    }
+
+    /// <summary>
+    /// Points WinoIconFontFamily in the Light/Dark theme dictionaries of Styles/WinoIcons.xaml at the
+    /// monochrome or the colorful fonts. HighContrast always keeps the monochrome font.
+    /// </summary>
+    private void ApplyIconStyle(bool refresh)
+    {
+        var isColorful = _preferencesService.IconStyle == WinoIconStyle.Colorful;
+
+        var iconDictionary = Application.Current.Resources.MergedDictionaries
+            .FirstOrDefault(d => d.ThemeDictionaries.TryGetValue("Light", out var light)
+                && light is ResourceDictionary lightDictionary
+                && lightDictionary.ContainsKey(IconFontFamilyKey));
+
+        if (iconDictionary == null)
+        {
+            Debug.WriteLine("WinoIcons theme dictionary was not found; icon style is not applied.");
+            return;
+        }
+
+        SetIconFontFamily(iconDictionary, "Light", isColorful ? LightIconFontFamily : MonochromeIconFontFamily);
+        SetIconFontFamily(iconDictionary, "Dark", isColorful ? DarkIconFontFamily : MonochromeIconFontFamily);
+
+        if (refresh)
+            RefreshThemeResource();
+    }
+
+    private static void SetIconFontFamily(ResourceDictionary dictionary, string themeKey, string fontFamily)
+    {
+        if (dictionary.ThemeDictionaries.TryGetValue(themeKey, out var theme) && theme is ResourceDictionary themeDictionary)
+            themeDictionary[IconFontFamilyKey] = new FontFamily(fontFamily);
     }
 
     private void RefreshThemeResource()

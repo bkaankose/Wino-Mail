@@ -152,7 +152,7 @@ public sealed partial class CompanionDashboardViewModel : ObservableObject, IDis
         Translator.Companion_TaskProgressFormat,
         Tasks.Count(static task => task.IsCompleted),
         Tasks.Count);
-    public string SnoozeGlyph => SnoozeNotifications ? "\uE7ED" : "\uEA8F";
+    public string SnoozeGlyph => SnoozeNotifications ? WinoIconGlyphs.GetGlyph(WinoIconGlyph.AlertOff) : WinoIconGlyphs.GetGlyph(WinoIconGlyph.Alert);
     public string SnoozeActionText => SnoozeNotifications
         ? Translator.Companion_ResumeNotifications
         : Translator.Companion_SnoozeNotifications;

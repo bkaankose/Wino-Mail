@@ -1,4 +1,5 @@
 using WinRT;
+using Wino.Mail.Controls.AccountIcon;
 
 namespace Wino.Mail.Controls.SearchBar;
 
@@ -25,9 +26,9 @@ public sealed partial class SearchBarHistoryEntry
     /// <summary>What the field shows while the row is highlighted. The clear action leaves it empty.</summary>
     public string QueryText => IsClearAction ? string.Empty : Text;
 
-    internal static SearchBarHistoryEntry Query(string text) => new(text, "", false);
+    internal static SearchBarHistoryEntry Query(string text) => new(text, WinoIconCodes.History, false);
 
-    internal static SearchBarHistoryEntry ClearAction(string text) => new(text, "", true);
+    internal static SearchBarHistoryEntry ClearAction(string text) => new(text, WinoIconCodes.Delete, true);
 
     public override string ToString() => Text;
 }

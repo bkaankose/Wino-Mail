@@ -105,14 +105,13 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <FontIcon
+            <accountIcon:WinoFontIcon
                 x:Name="ToggleCheckGlyph"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 x:Load="{x:Bind IsChecked, Mode=OneTime}"
-                FontFamily="{ThemeResource SymbolThemeFontFamily}"
                 FontSize="14"
-                Glyph="&#xE73E;" />
+                Glyph="&#xE00B;" />
             <accountIcon:WinoFontIcon
                 x:Name="ToggleThemedIcon"
                 Grid.Column="1"
@@ -159,14 +158,13 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <FontIcon
+            <accountIcon:WinoFontIcon
                 x:Name="RadioCheckGlyph"
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 x:Load="{x:Bind IsChecked, Mode=OneTime}"
-                FontFamily="{ThemeResource SymbolThemeFontFamily}"
                 FontSize="14"
-                Glyph="&#xE915;" />
+                Glyph="&#xE096;" />
             <accountIcon:WinoFontIcon
                 x:Name="RadioThemedIcon"
                 Grid.Column="1"
@@ -238,7 +236,7 @@
                 Width="12"
                 Height="12"
                 VerticalAlignment="Center">
-                <SymbolIcon Symbol="Forward" />
+                <accountIcon:WinoFontIcon Glyph="&#xE00E;" />
             </Viewbox>
         </Grid>
     </DataTemplate>

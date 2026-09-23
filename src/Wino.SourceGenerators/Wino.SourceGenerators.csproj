@@ -20,6 +20,12 @@
 		<PackageReference Include="System.Text.Encodings.Web" PrivateAssets="all" GeneratePathProperty="true" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<!-- Release tracking for diagnostics reported by the generators (RS2008). -->
+		<AdditionalFiles Include="AnalyzerReleases.Shipped.md" />
+		<AdditionalFiles Include="AnalyzerReleases.Unshipped.md" />
+	</ItemGroup>
+
 	<PropertyGroup>
 		<GetTargetPathDependsOn>$(GetTargetPathDependsOn);GetDependencyTargetPaths</GetTargetPathDependsOn>
 	</PropertyGroup>

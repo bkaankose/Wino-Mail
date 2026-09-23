@@ -1,4 +1,4 @@
-<ContentDialog
+﻿<ContentDialog
     x:Class="Wino.Dialogs.SystemFolderConfigurationDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -48,7 +48,7 @@
                     Description="{x:Bind domain:Translator.SystemFolderConfigDialog_SentFolderDescription}"
                     Header="{x:Bind domain:Translator.SystemFolderConfigDialog_SentFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
-                        <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderSent" />
+                        <coreControls:WinoFontIcon Icon="SpecialFolderSent" />
                     </controls1:SettingsCard.HeaderIcon>
                     <ComboBox
                         AutomationProperties.AutomationId="SystemFolderConfigurationDialogComboBox"
@@ -62,7 +62,7 @@
                     Description="{x:Bind domain:Translator.SystemFolderConfigDialog_DraftFolderDescription}"
                     Header="{x:Bind domain:Translator.SystemFolderConfigDialog_DraftFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
-                        <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderDraft" />
+                        <coreControls:WinoFontIcon Icon="SpecialFolderDraft" />
                     </controls1:SettingsCard.HeaderIcon>
                     <ComboBox
                         AutomationProperties.AutomationId="SystemFolderConfigurationDialogComboBox2"
@@ -76,7 +76,7 @@
                     Description="{x:Bind domain:Translator.SystemFolderConfigDialog_ArchiveFolderDescription}"
                     Header="{x:Bind domain:Translator.SystemFolderConfigDialog_ArchiveFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
-                        <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderArchive" />
+                        <coreControls:WinoFontIcon Icon="SpecialFolderArchive" />
                     </controls1:SettingsCard.HeaderIcon>
                     <ComboBox
                         AutomationProperties.AutomationId="SystemFolderConfigurationDialogComboBox3"
@@ -90,7 +90,7 @@
                     Description="{x:Bind domain:Translator.SystemFolderConfigDialog_DeletedFolderDescription}"
                     Header="{x:Bind domain:Translator.SystemFolderConfigDialog_DeletedFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
-                        <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderDeleted" />
+                        <coreControls:WinoFontIcon Icon="SpecialFolderDeleted" />
                     </controls1:SettingsCard.HeaderIcon>
                     <ComboBox
                         AutomationProperties.AutomationId="SystemFolderConfigurationDialogComboBox4"
@@ -104,7 +104,7 @@
                     Description="{x:Bind domain:Translator.SystemFolderConfigDialog_JunkFolderDescription}"
                     Header="{x:Bind domain:Translator.SystemFolderConfigDialog_JunkFolderHeader}">
                     <controls1:SettingsCard.HeaderIcon>
-                        <coreControls:WinoFontIcon FontSize="16" Icon="SpecialFolderJunk" />
+                        <coreControls:WinoFontIcon Icon="SpecialFolderJunk" />
                     </controls1:SettingsCard.HeaderIcon>
                     <ComboBox
                         AutomationProperties.AutomationId="SystemFolderConfigurationDialogComboBox5"

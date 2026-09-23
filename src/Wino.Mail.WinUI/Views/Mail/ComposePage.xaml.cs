@@ -380,7 +380,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             new ContextFlyoutCommandEntry
             {
                 Text = Translator.Buttons_Copy,
-                Icon = new ContextFlyoutIcon("\uE8C8"),
+                Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Copy)),
                 Command = new RelayCommand(() => CopyContactAddress(contact.Address)),
                 Shortcut = new ContextFlyoutShortcut("Ctrl+C", "C", Control: true),
                 AutomationId = "ComposeContactCopyAddress"
@@ -545,10 +545,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
         ViewModel.IsImportanceSelected = importance != MessageImportance.Normal;
 
         // Keep the toolbar icon in sync with the choice so the tab does not have to be opened to read it.
-        ImportanceButtonIcon.Symbol = importance switch
+        ImportanceButtonIcon.Icon = importance switch
         {
-            MessageImportance.Low => Symbol.Priority,
-            _ => Symbol.Important
+            MessageImportance.Low => WinoIconGlyph.ArrowDown,
+            _ => WinoIconGlyph.Important
         };
     }
 
@@ -703,9 +703,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
     ];
 
     private static ContextFlyoutIcon? CreateWinoIcon(WinoIconGlyph icon)
-        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
-            ? new ContextFlyoutIcon(glyph)
-            : null;
+        => icon == WinoIconGlyph.None
+            ? null
+            : new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(icon));
 
     private void AttachmentClicked(object sender, ItemClickEventArgs e)
     {

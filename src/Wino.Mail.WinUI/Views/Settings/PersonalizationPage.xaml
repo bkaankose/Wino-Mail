@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:data="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
@@ -17,7 +18,7 @@
             Header="{x:Bind domain:Translator.SettingsAccentColor_Title, Mode=OneTime}"
             IsExpanded="True">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE790;" />
+                <coreControls:WinoFontIcon Icon="Color" />
             </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
                 <controls:SettingsCard
@@ -53,7 +54,7 @@
             Description="{x:Bind domain:Translator.SettingsElementTheme_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsElementTheme_Title, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon Glyph="&#xE793;" />
+                <coreControls:WinoFontIcon Icon="DarkTheme" />
             </controls:SettingsCard.HeaderIcon>
             <ComboBox
                 AutomationProperties.AutomationId="PersonalizationElementThemeComboBox"
@@ -76,13 +77,32 @@
             TextWrapping="Wrap" />
 
         <controls:SettingsCard
+            AutomationProperties.AutomationId="PersonalizationIconStyleCard"
+            Description="{x:Bind domain:Translator.SettingsIconStyle_Description, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsIconStyle_Title, Mode=OneTime}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="IconStyle" />
+            </controls:SettingsCard.HeaderIcon>
+            <ComboBox
+                AutomationProperties.AutomationId="PersonalizationIconStyleComboBox"
+                ItemsSource="{x:Bind ViewModel.IconStyles}"
+                SelectedItem="{x:Bind ViewModel.SelectedIconStyle, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="personalization:IconStyleContainer">
+                        <TextBlock Text="{x:Bind Title}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
             AutomationProperties.AutomationId="PersonalizationApplicationThemesCard"
             Command="{x:Bind ViewModel.NavigateApplicationThemesCommand}"
             Description="{x:Bind domain:Translator.ApplicationThemeGallery_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.ApplicationThemeGallery_Title, Mode=OneTime}"
             IsClickEnabled="True">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon Glyph="&#xE771;" />
+                <coreControls:WinoFontIcon Icon="PaintBrush" />
             </controls:SettingsCard.HeaderIcon>
         </controls:SettingsCard>
 
@@ -92,7 +112,7 @@
             Header="{x:Bind domain:Translator.SettingsWindowBackdrop_Title, Mode=OneTime}"
             IsEnabled="{x:Bind ViewModel.CanSelectElementTheme, Mode=OneWay}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon Glyph="&#xE790;" />
+                <coreControls:WinoFontIcon Icon="Color" />
             </controls:SettingsCard.HeaderIcon>
             <ComboBox
                 Width="160"
@@ -112,7 +132,7 @@
             Description="{x:Bind domain:Translator.SettingsCompactAccountMenuItem_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsCompactAccountMenuItem_Title, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <SymbolIcon Symbol="List" />
+                <coreControls:WinoFontIcon Icon="List" />
             </controls:SettingsCard.HeaderIcon>
             <ToggleSwitch AutomationProperties.AutomationId="PersonalizationCompactAccountMenuToggle" IsOn="{x:Bind ViewModel.PreferencesService.IsCompactAccountMenuItemEnabled, Mode=TwoWay}" />
         </controls:SettingsCard>
@@ -122,7 +142,7 @@
             Description="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.SettingsAppPreferences_HideWinoAccountButton_Title, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <SymbolIcon Symbol="Contact" />
+                <coreControls:WinoFontIcon Icon="Person" />
             </controls:SettingsCard.HeaderIcon>
             <ToggleSwitch AutomationProperties.AutomationId="PersonalizationHideWinoAccountButtonToggle" IsOn="{x:Bind ViewModel.PreferencesService.IsWinoAccountButtonHidden, Mode=TwoWay}" />
         </controls:SettingsCard>

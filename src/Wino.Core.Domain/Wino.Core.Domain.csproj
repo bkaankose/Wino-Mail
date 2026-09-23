@@ -83,6 +83,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<AdditionalFiles Include="Translations\en_US\resources.json" />
+		<AdditionalFiles Include="..\..\icons\manifest.json" Link="Icons\manifest.json" />
 	</ItemGroup>
 	<ItemGroup>
 		<!-- Source Generators -->

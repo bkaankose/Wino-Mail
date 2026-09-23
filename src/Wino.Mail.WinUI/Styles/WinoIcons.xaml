@@ -1,0 +1,27 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Wino.Mail.WinUI.Controls">
+
+    <!--
+        Fonts are generated from icons/manifest.json by icons/tools/build_fonts.py.
+        WinoIconFontFamily is rewritten at runtime by NewThemeService when the icon style
+        preference changes; HighContrast always stays monochrome.
+    -->
+
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <FontFamily x:Key="WinoIconFontFamily">ms-appx:///Assets/WinoIcons.ttf#WinoIcons</FontFamily>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <FontFamily x:Key="WinoIconFontFamily">ms-appx:///Assets/WinoIcons.ttf#WinoIcons</FontFamily>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <FontFamily x:Key="WinoIconFontFamily">ms-appx:///Assets/WinoIcons.ttf#WinoIcons</FontFamily>
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <Style TargetType="controls:WinoFontIcon">
+        <Setter Property="FontFamily" Value="{ThemeResource WinoIconFontFamily}" />
+    </Style>
+</ResourceDictionary>

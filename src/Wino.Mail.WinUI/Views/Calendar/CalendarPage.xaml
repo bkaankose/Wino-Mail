@@ -114,11 +114,11 @@
                                     Text="{x:Bind ViewModel.SelectedQuickEventAccountCalendarName, Mode=OneWay}"
                                     TextTrimming="CharacterEllipsis" />
 
-                                <FontIcon
+                                <winoControls:WinoFontIcon
                                     Grid.Column="2"
                                     VerticalAlignment="Center"
                                     Foreground="{x:Bind helpers:XamlHelpers.GetReadableTextColor(ViewModel.SelectedQuickEventAccountCalendar.BackgroundColorHex), Mode=OneWay}"
-                                    Glyph="&#xE70D;" />
+                                    Icon="ChevronDown" />
                             </Grid>
                         </Button.Content>
                         <Button.Flyout>

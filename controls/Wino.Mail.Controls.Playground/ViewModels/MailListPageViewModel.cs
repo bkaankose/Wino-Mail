@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
 using Wino.Mail.Controls.Playground.Models;
+using Wino.Mail.Controls.AccountIcon;
 
 namespace Wino.Mail.Controls.Playground.ViewModels;
 
@@ -83,8 +84,8 @@ public sealed class MailListPageViewModel : INotifyPropertyChanged
         {
             item.IntelligenceTiles = new WinoIntelligenceTile[]
             {
-                new(WinoIntelligenceTileKind.Priority, "\uE7BA", "Urgent", "Urgent priority", isWarning: true),
-                new(WinoIntelligenceTileKind.SmartLabel, "\uE8EC", "Finance", "Finance"),
+                new(WinoIntelligenceTileKind.Priority, WinoIconCodes.Warning, "Urgent", "Urgent priority", isWarning: true),
+                new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Tag, "Finance", "Finance"),
             };
         }
     }
@@ -95,8 +96,8 @@ public sealed class MailListPageViewModel : INotifyPropertyChanged
         {
             item.IntelligenceTiles = new WinoIntelligenceTile[]
             {
-                new(WinoIntelligenceTileKind.SmartLabel, "\uE8EC", "Receipt", "Receipt"),
-                new(WinoIntelligenceTileKind.SmartLabel, "\uE8EC", "Travel", "Travel"),
+                new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Tag, "Receipt", "Receipt"),
+                new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Tag, "Travel", "Travel"),
             };
         }
     }
@@ -121,8 +122,8 @@ public sealed class MailListPageViewModel : INotifyPropertyChanged
         };
         items[1].IntelligenceTiles = new WinoIntelligenceTile[]
         {
-            new(WinoIntelligenceTileKind.Priority, "\uE7BA", "High priority", "High priority", isWarning: true),
-            new(WinoIntelligenceTileKind.SmartLabel, "\uE8EC", "Action", "Action"),
+            new(WinoIntelligenceTileKind.Priority, WinoIconCodes.Warning, "High priority", "High priority", isWarning: true),
+            new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Tag, "Action", "Action"),
         };
 
         var senders = new[] { "Avery Stone", "Jordan Blake", "Casey Morgan", "Robin Shah", "Drew Ellis", "Quinn Parker" };

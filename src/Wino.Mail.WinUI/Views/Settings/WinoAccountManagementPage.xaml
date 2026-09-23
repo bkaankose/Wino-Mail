@@ -5,6 +5,7 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
@@ -60,12 +61,11 @@
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="8">
-                        <PathIcon
-                            Width="20"
-                            Height="20"
+                        <coreControls:WinoFontIcon
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
-                            Data="{x:Bind helpers:XamlHelpers.GetGeometryFromPathMarkup(GlyphPathData)}" />
+                            FontSize="20"
+                            Icon="{x:Bind Icon}" />
                     </Border>
 
                     <StackPanel Grid.Column="1" Spacing="3">
@@ -125,12 +125,12 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <PathIcon
+                <coreControls:WinoFontIcon
                     Width="16"
                     Height="16"
                     VerticalAlignment="Top"
-                    Data="{StaticResource BenefitCheckPathData}"
-                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                    Icon="Checkmark" />
                 <TextBlock
                     Grid.Column="1"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -827,10 +827,10 @@
                                 Orientation="Horizontal"
                                 Spacing="24">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <PathIcon
+                                    <coreControls:WinoFontIcon
                                         VerticalAlignment="Center"
-                                        Data="M 8.5,1.5 L 10.2,6.8 L 15.5,8.5 L 10.2,10.2 L 8.5,15.5 L 6.8,10.2 L 1.5,8.5 L 6.8,6.8 Z M 15.5,10.5 L 16.6,13.9 L 20,15 L 16.6,16.1 L 15.5,19.5 L 14.4,16.1 L 11,15 L 14.4,13.9 Z"
-                                        Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                                        Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}"
+                                        Icon="Sparkle" />
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.WinoAddOn_AI_PACK_Name, Mode=OneTime}" />
                                         <TextBlock
@@ -841,12 +841,11 @@
                                 </StackPanel>
 
                                 <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <FontIcon
+                                    <coreControls:WinoFontIcon
                                         VerticalAlignment="Center"
-                                        FontFamily="{StaticResource SymbolThemeFontFamily}"
                                         FontSize="18"
                                         Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                        Glyph="&#xE715;" />
+                                        Icon="Mail" />
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.WinoAccount_Management_StatMailAccounts, Mode=OneTime}" />
                                         <TextBlock
@@ -887,7 +886,7 @@
                         IsClickEnabled="True"
                         Visibility="{x:Bind ViewModel.HasIntelligenceAccess, Mode=OneWay}">
                         <controls:SettingsCard.HeaderIcon>
-                            <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                            <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
                         </controls:SettingsCard.HeaderIcon>
                     </controls:SettingsCard>
 
@@ -898,7 +897,7 @@
                         IsExpanded="False"
                         Visibility="{x:Bind ViewModel.AiPackAddOn.IsNotPurchased, Mode=OneWay}">
                         <controls:SettingsExpander.HeaderIcon>
-                            <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                            <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
                         </controls:SettingsExpander.HeaderIcon>
 
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -1102,7 +1101,7 @@
                                 Description="{x:Bind domain:Translator.WinoAccount_ConsentNavigationDescription, Mode=OneTime}"
                                 Header="{x:Bind domain:Translator.WinoAccount_ConsentNavigationTitle, Mode=OneTime}">
                                 <controls:SettingsCard.HeaderIcon>
-                                    <FontIcon Glyph="&#xE72E;" />
+                                    <coreControls:WinoFontIcon Icon="LockClosed" />
                                 </controls:SettingsCard.HeaderIcon>
                                 <Button
                                     AutomationProperties.AutomationId="WinoAccountOpenConsentManagementButton"
@@ -1118,7 +1117,7 @@
                         Description="{x:Bind ViewModel.UnlimitedAccountsSubtitleText, Mode=OneWay}"
                         Header="{x:Bind domain:Translator.WinoAddOn_UNLIMITED_ACCOUNTS_Name, Mode=OneTime}">
                         <controls:SettingsCard.HeaderIcon>
-                            <PathIcon Data="M 4.5,6.5 A 3,3 0 1,1 10.5,6.5 A 3,3 0 1,1 4.5,6.5 Z M 2,16.5 C 2.4,13.7 4.6,12 7.5,12 C 10.4,12 12.6,13.7 13,16.5 Z M 12.5,7.8 A 2.3,2.3 0 1,1 17.1,7.8 A 2.3,2.3 0 1,1 12.5,7.8 Z M 11.8,16.5 C 12,14.2 13.3,12.9 15,12.9 C 16.7,12.9 17.9,14 18.3,16.5 Z" Foreground="{StaticResource UnlimitedAccountsMarkBrush}" />
+                            <coreControls:WinoFontIcon Foreground="{StaticResource UnlimitedAccountsMarkBrush}" Icon="People" />
                         </controls:SettingsCard.HeaderIcon>
 
                         <StackPanel Orientation="Horizontal" Spacing="8">
@@ -1154,10 +1153,7 @@
                         Description="{x:Bind domain:Translator.WinoAccount_Management_SyncPreferencesDescription, Mode=OneTime}"
                         Header="{x:Bind domain:Translator.WinoAccount_Management_SyncRowTitle, Mode=OneTime}">
                         <controls:SettingsCard.HeaderIcon>
-                            <FontIcon
-                                FontFamily="{StaticResource SymbolThemeFontFamily}"
-                                Foreground="{ThemeResource SystemFillColorAttentionBrush}"
-                                Glyph="&#xE895;" />
+                            <coreControls:WinoFontIcon Foreground="{ThemeResource SystemFillColorAttentionBrush}" Icon="Sync" />
                         </controls:SettingsCard.HeaderIcon>
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <Button

@@ -12,7 +12,6 @@
         <ResourceDictionary Source="/Styles/Colors.xaml" />
         <ResourceDictionary Source="/Styles/ContentPresenters.xaml" />
         <ResourceDictionary Source="/Styles/Converters.xaml" />
-        <ResourceDictionary Source="/Styles/FontIcons.xaml" />
         <ResourceDictionary Source="/Styles/WinoInfoBar.xaml" />
         <ResourceDictionary Source="/Styles/SharedStyles.xaml" />
         <ResourceDictionary Source="/Styles/IconTemplates.xaml" />

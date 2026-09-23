@@ -35,7 +35,7 @@
             Content="{x:Bind domain:Translator.ContactsPage_Title}"
             DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE716;" />
+                <coreControls:WinoFontIcon Icon="People" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
@@ -52,7 +52,7 @@
                         <animatedvisuals:AnimatedSettingsVisualSource />
                     </muxc:AnimatedIcon.Source>
                     <muxc:AnimatedIcon.FallbackIconSource>
-                        <muxc:SymbolIconSource Symbol="Setting" />
+                        <coreControls:WinoFontIconSource Icon="Settings" />
                     </muxc:AnimatedIcon.FallbackIconSource>
                 </muxc:AnimatedIcon>
             </coreControls:WinoNavigationViewItem.Icon>

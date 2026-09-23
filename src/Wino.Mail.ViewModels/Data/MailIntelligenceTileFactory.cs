@@ -4,6 +4,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -14,10 +15,10 @@ namespace Wino.Mail.ViewModels.Data;
 /// </summary>
 public static class MailIntelligenceTileFactory
 {
-    public const string PriorityGlyph = "";           // Warning
+    public static readonly string PriorityGlyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.Warning);
 
     /// <summary>Glyph used for a smart label that has no recognizable icon of its own.</summary>
-    public const string FallbackSmartLabelGlyph = ""; // Flag
+    public static readonly string FallbackSmartLabelGlyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.Flag);
 
     public static IReadOnlyList<WinoIntelligenceTile> Create(MailIntelligenceMetadata metadata)
         => Create(metadata, excludedIndicatorIds: null);
@@ -71,16 +72,16 @@ public static class MailIntelligenceTileFactory
             excludedIndicatorIds,
             new IntelligenceIndicatorId(indicatorId));
 
-    // Segoe Fluent Icons glyphs, one per label so a tile is recognizable before its text is read.
+    // WinoIcons glyphs, one per label so a tile is recognizable before its text is read.
     public static string GetSmartLabelGlyph(MailSmartLabel label) => label switch
     {
-        MailSmartLabel.Important => "",     // Star
-        MailSmartLabel.ActionRequired => "",        // Lightning bolt
-        MailSmartLabel.Finance => "",       // Payment card
-        MailSmartLabel.Travel => "",        // Airplane
-        MailSmartLabel.Social => "",        // People
-        MailSmartLabel.Newsletter => "",    // Newspaper
-        MailSmartLabel.Receipt => "",       // Shopping cart
+        MailSmartLabel.Important => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Star),
+        MailSmartLabel.ActionRequired => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Flash),
+        MailSmartLabel.Finance => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Payment),
+        MailSmartLabel.Travel => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Airplane),
+        MailSmartLabel.Social => WinoIconGlyphs.GetGlyph(WinoIconGlyph.People),
+        MailSmartLabel.Newsletter => WinoIconGlyphs.GetGlyph(WinoIconGlyph.News),
+        MailSmartLabel.Receipt => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Cart),
         _ => FallbackSmartLabelGlyph
     };
 

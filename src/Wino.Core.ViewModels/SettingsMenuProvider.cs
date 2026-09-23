@@ -205,7 +205,7 @@ public partial class SettingsMenuProvider(
                 continue;
             }
 
-            var group = new SettingsShellGroupMenuItem(node.Title, node.Glyph)
+            var group = new SettingsShellGroupMenuItem(node.Title, node.Icon)
             {
                 IsExpanded = expandedGroups.Contains(node.Title)
             };
@@ -222,7 +222,7 @@ public partial class SettingsMenuProvider(
     }
 
     private static SettingsShellPageMenuItem CreatePageMenuItem(SettingsNavigationItemInfo item)
-        => new(item.PageType.Value, item.Title, item.Description, item.Glyph, item.IconPathData);
+        => new(item.PageType.Value, item.Title, item.Description, item.Icon);
 
     private void SetSelectedRootPage(WinoPage pageType)
     {

@@ -147,7 +147,7 @@
                                         Text="{x:Bind ViewModel.SelectedCalendarAccountText, Mode=OneWay}"
                                         Visibility="{x:Bind helpers:XamlHelpers.StringToVisibilityConverter(ViewModel.SelectedCalendarAccountText), Mode=OneWay}" />
                                 </StackPanel>
-                                <FontIcon FontSize="12" Glyph="&#xE70D;" />
+                                <coreControls:WinoFontIcon FontSize="12" Icon="ChevronDown" />
                             </StackPanel>
                         </Button>
 
@@ -196,7 +196,7 @@
                             Style="{StaticResource ComposeToggleButtonStyle}"
                             ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_PrivateTooltip, Mode=OneTime}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon FontSize="14" Glyph="&#xE72E;" />
+                                <coreControls:WinoFontIcon FontSize="14" Icon="LockClosed" />
                                 <TextBlock Text="{x:Bind domain:Translator.CalendarEventCompose_Private, Mode=OneTime}" />
                             </StackPanel>
                         </ToggleButton>
@@ -273,7 +273,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <FontIcon Glyph="&#xE823;" Style="{StaticResource ComposeRowIconStyle}" />
+                        <coreControls:WinoFontIcon Icon="Clock" Style="{StaticResource ComposeRowIconStyle}" />
 
                         <StackPanel Grid.Column="1" Spacing="8">
                             <Grid ColumnSpacing="8" RowSpacing="8">
@@ -349,10 +349,10 @@
                                 Orientation="Horizontal"
                                 Spacing="6"
                                 Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsDateRangeValid), Mode=OneWay}">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     FontSize="14"
                                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                    Glyph="&#xE783;" />
+                                    Icon="AlertCircle" />
                                 <TextBlock
                                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                     Text="{x:Bind ViewModel.DateRangeErrorText, Mode=OneWay}"
@@ -512,7 +512,7 @@
                                     Command="{x:Bind ViewModel.ClearRecurrenceEndDateCommand}"
                                     Style="{StaticResource TransparentActionButtonStyle}"
                                     ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_ClearRecurrenceEndDate, Mode=OneTime}">
-                                    <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                    <coreControls:WinoFontIcon FontSize="12" Icon="Dismiss" />
                                 </Button>
                             </StackPanel>
                         </StackPanel>
@@ -525,7 +525,7 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
 
-                        <FontIcon Glyph="&#xE707;" Style="{StaticResource ComposeRowIconStyle}" />
+                        <coreControls:WinoFontIcon Icon="Location" Style="{StaticResource ComposeRowIconStyle}" />
 
                         <StackPanel Grid.Column="1" Spacing="8">
                             <Grid ColumnSpacing="8">
@@ -587,7 +587,7 @@
                                     Command="{x:Bind ViewModel.RemoveOnlineMeetingCommand}"
                                     Style="{StaticResource TransparentActionButtonStyle}"
                                     ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_RemoveOnlineMeeting, Mode=OneTime}">
-                                    <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                    <coreControls:WinoFontIcon FontSize="12" Icon="Dismiss" />
                                 </Button>
                             </Grid>
                         </StackPanel>
@@ -760,7 +760,7 @@
                                                 Style="{StaticResource TransparentActionButtonStyle}"
                                                 Tag="{x:Bind}"
                                                 ToolTipService.ToolTip="{x:Bind domain:Translator.CalendarEventCompose_RemoveAttendee, Mode=OneTime}">
-                                                <FontIcon FontSize="12" Glyph="&#xE711;" />
+                                                <coreControls:WinoFontIcon FontSize="12" Icon="Dismiss" />
                                             </Button>
                                         </Grid>
                                     </DataTemplate>
@@ -837,13 +837,13 @@
                                                     Text="{x:Bind ReadableSize}" />
                                             </StackPanel>
 
-                                            <SymbolIcon
+                                            <coreControls:WinoFontIcon
                                                 Grid.Column="2"
                                                 VerticalAlignment="Center"
                                                 AutomationProperties.AutomationId="CalendarComposeAttachmentContentTypeWarning"
                                                 AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
                                                 Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                                Symbol="Important"
+                                                Icon="Important"
                                                 ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
                                                 Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
 

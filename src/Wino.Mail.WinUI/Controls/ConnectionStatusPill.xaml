@@ -2,6 +2,7 @@
     x:Class="Wino.Controls.ConnectionStatusPill"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -47,10 +48,10 @@
             CornerRadius="10"
             Visibility="{x:Bind GetStateVisibility(State, 2), Mode=OneWay}">
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <FontIcon
+                <coreControls:WinoFontIcon
                     FontSize="12"
                     Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                    Glyph="&#xE73E;" />
+                    Icon="Checkmark" />
                 <TextBlock
                     Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                     Style="{StaticResource CaptionTextBlockStyle}"
@@ -64,10 +65,10 @@
             CornerRadius="10"
             Visibility="{x:Bind GetStateVisibility(State, 3), Mode=OneWay}">
             <StackPanel Orientation="Horizontal" Spacing="6">
-                <FontIcon
+                <coreControls:WinoFontIcon
                     FontSize="12"
                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                    Glyph="&#xE711;" />
+                    Icon="Dismiss" />
                 <TextBlock
                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                     Style="{StaticResource CaptionTextBlockStyle}"

@@ -19,6 +19,7 @@ using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Views.Abstract;
 using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.Client.Shell;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Calendar.Views;
 
@@ -154,7 +155,7 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
             new ContextFlyoutCommandEntry
             {
                 Text = Translator.Buttons_Open,
-                Icon = new ContextFlyoutIcon("\uE8E5"),
+                Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Open)),
                 Command = ViewModel.OpenAttachmentCommand,
                 CommandParameter = attachment,
                 AutomationId = "EventAttachmentOpen"
@@ -162,7 +163,7 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
             new ContextFlyoutCommandEntry
             {
                 Text = Translator.Buttons_Save,
-                Icon = new ContextFlyoutIcon("\uE74E"),
+                Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Save)),
                 Command = ViewModel.SaveAttachmentCommand,
                 CommandParameter = attachment,
                 Shortcut = new ContextFlyoutShortcut("Ctrl+S", "S", Control: true),

@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:calendar="using:Wino.Calendar.ViewModels.Data"
     xmlns:contextFlyout="using:Wino.Mail.Controls.ContextFlyout"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mail="using:Wino.Mail.ViewModels.Data"
@@ -49,9 +50,9 @@
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Spacing="12">
-                <FontIcon
+                <coreControls:WinoFontIcon
                     FontSize="48"
-                    Glyph="&#xE77B;"
+                    Icon="Person"
                     IsHitTestVisible="False" />
                 <TextBlock
                     HorizontalAlignment="Center"
@@ -80,9 +81,9 @@
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
                 Spacing="12">
-                <FontIcon
+                <coreControls:WinoFontIcon
                     FontSize="48"
-                    Glyph="&#xEA39;"
+                    Icon="DismissCircle"
                     IsHitTestVisible="False" />
                 <TextBlock
                     HorizontalAlignment="Center"
@@ -142,7 +143,7 @@
                     IsChecked="{x:Bind ViewModel.SnoozeNotifications, Mode=OneWay}"
                     IsCheckedChanged="SnoozeSplitButton_IsCheckedChanged"
                     ToolTipService.ToolTip="{x:Bind ViewModel.SnoozeActionText, Mode=OneWay}">
-                    <FontIcon FontSize="16" Glyph="{x:Bind ViewModel.SnoozeGlyph, Mode=OneWay}" />
+                    <coreControls:WinoFontIcon FontSize="16" Glyph="{x:Bind ViewModel.SnoozeGlyph, Mode=OneWay}" />
                     <ToggleSplitButton.Flyout>
                         <MenuFlyout Placement="Bottom">
                             <!--  Only shown while a custom snooze set in Settings is running.  -->
@@ -196,7 +197,7 @@
                     Command="{x:Bind ViewModel.OpenSettingsCommand}"
                     Style="{ThemeResource SubtleButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Settings, Mode=OneTime}">
-                    <FontIcon FontSize="16" Glyph="&#xE713;" />
+                    <coreControls:WinoFontIcon FontSize="16" Icon="Settings" />
                 </Button>
 
                 <!--
@@ -213,11 +214,11 @@
                     CornerRadius="4"
                     Visibility="{x:Bind ViewModel.SnoozeInfoVisibility, Mode=OneWay}">
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <FontIcon
+                        <coreControls:WinoFontIcon
                             VerticalAlignment="Center"
                             FontSize="13"
                             Foreground="{ThemeResource CompanionSecondaryTextBrush}"
-                            Glyph="&#xE7ED;" />
+                            Icon="AlertOff" />
                         <TextBlock
                             VerticalAlignment="Center"
                             FontSize="12"
@@ -339,10 +340,10 @@
                                         CornerRadius="11"
                                         Visibility="{x:Bind ViewModel.NextEventOnlineVisibility, Mode=OneWay}">
                                         <StackPanel Orientation="Horizontal" Spacing="5">
-                                            <FontIcon
+                                            <coreControls:WinoFontIcon
                                                 VerticalAlignment="Center"
                                                 FontSize="11"
-                                                Glyph="&#xE71B;" />
+                                                Icon="Link" />
                                             <TextBlock
                                                 FontSize="12"
                                                 FontWeight="SemiBold"
@@ -358,13 +359,13 @@
                                         AutomationProperties.Name="{x:Bind domain:Translator.Companion_EventMoreActions, Mode=OneTime}"
                                         Style="{ThemeResource SubtleButtonStyle}"
                                         ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_EventMoreActions, Mode=OneTime}">
-                                        <FontIcon FontSize="14" Glyph="&#xE712;" />
+                                        <coreControls:WinoFontIcon FontSize="14" Icon="More" />
                                         <Button.Flyout>
                                             <contextFlyout:WinoContextFlyout Placement="BottomEdgeAlignedRight">
                                                 <contextFlyout:WinoContextFlyoutItem
                                                     AutomationId="CompanionOpenEvent"
                                                     Click="OpenEvent_Click"
-                                                    IconGlyph="&#xE8A7;"
+                                                    IconGlyph="&#xE065;"
                                                     Text="{x:Bind domain:Translator.Companion_OpenEvent, Mode=OneTime}" />
                                                 <contextFlyout:WinoContextFlyoutItem
                                                     AutomationId="CompanionOpenCalendar"
@@ -444,10 +445,10 @@
                             AutomationProperties.AutomationId="CompanionMoreEventsButton"
                             Visibility="{x:Bind ViewModel.LaterEventsVisibility, Mode=OneWay}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     VerticalAlignment="Center"
                                     FontSize="12"
-                                    Glyph="&#xE76C;" />
+                                    Icon="ChevronRight" />
                                 <TextBlock
                                     FontSize="12.5"
                                     FontWeight="SemiBold"
@@ -577,7 +578,7 @@
                                                 CommandParameter="{x:Bind}"
                                                 Style="{ThemeResource SubtleButtonStyle}"
                                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Archive, Mode=OneTime}">
-                                                <FontIcon FontSize="14" Glyph="&#xE7B8;" />
+                                                <coreControls:WinoFontIcon FontSize="14" Icon="Archive" />
                                             </Button>
                                             <Button
                                                 Width="28"
@@ -589,7 +590,7 @@
                                                 CommandParameter="{x:Bind}"
                                                 Style="{ThemeResource SubtleButtonStyle}"
                                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_MarkRead, Mode=OneTime}">
-                                                <FontIcon FontSize="14" Glyph="&#xE8C3;" />
+                                                <coreControls:WinoFontIcon FontSize="14" Icon="MarkRead" />
                                             </Button>
                                         </StackPanel>
                                     </Grid>

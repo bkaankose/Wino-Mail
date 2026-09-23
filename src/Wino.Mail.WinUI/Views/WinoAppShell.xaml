@@ -46,7 +46,6 @@
             SeperatorTemplate="{StaticResource SeperatorTemplate}"
             SettingsShellGroupItemTemplate="{StaticResource SettingsShellGroupItemTemplate}"
             SettingsShellPageItemTemplate="{StaticResource SettingsShellPageItemTemplate}"
-            SettingsShellPathIconItemTemplate="{StaticResource SettingsShellPathIconItemTemplate}"
             SettingsShellSectionItemTemplate="{StaticResource SettingsShellSectionItemTemplate}"
             SettingsShellWinoAccountItemTemplate="{StaticResource SettingsShellWinoAccountItemTemplate}"
             SettingsShellWinoIntelligenceItemTemplate="{StaticResource SettingsShellWinoIntelligenceItemTemplate}"

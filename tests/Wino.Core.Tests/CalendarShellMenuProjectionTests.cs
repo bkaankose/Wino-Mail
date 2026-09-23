@@ -6,6 +6,8 @@ using Moq;
 using Wino.Calendar.ViewModels;
 using Wino.Calendar.ViewModels.Data;
 using Wino.Calendar.ViewModels.Interfaces;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
@@ -214,13 +216,13 @@ public sealed class CalendarShellMenuProjectionTests
 
         item.IsCalendarExpanded.Should().BeTrue();
         item.ExpansionAutomationName.Should().Contain("Collapse");
-        item.ExpansionGlyph.Should().Be("\uE89F");
+        item.ExpansionGlyph.Should().Be(WinoIconGlyphs.GetGlyph(WinoIconGlyph.PanelLeftContract));
 
         item.IsCalendarExpanded = false;
 
         preferences.Object.IsCalendarDatePickerExpanded.Should().BeFalse();
         item.ExpansionAutomationName.Should().Contain("Expand");
-        item.ExpansionGlyph.Should().Be("\uE8A0");
+        item.ExpansionGlyph.Should().Be(WinoIconGlyphs.GetGlyph(WinoIconGlyph.PanelLeftExpand));
     }
 
     private static CalendarAppShellViewModel CreateViewModel(

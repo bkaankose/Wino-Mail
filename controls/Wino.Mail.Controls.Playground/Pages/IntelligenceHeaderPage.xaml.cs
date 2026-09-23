@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Mail.Controls.Core.IntelligenceHeader;
 using Wino.Mail.Controls.Core.IntelligenceTileBar;
+using Wino.Mail.Controls.AccountIcon;
 
 namespace Wino.Mail.Controls.Playground.Pages;
 
@@ -83,8 +84,8 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
         IntelligenceHeader.ContentKey = Guid.NewGuid().ToString();
         IntelligenceHeader.IntelligenceTiles = new WinoIntelligenceTile[]
         {
-            new(WinoIntelligenceTileKind.Priority, "\uE7BA", "Urgent", "Urgent priority", isWarning: true),
-            new(WinoIntelligenceTileKind.SmartLabel, "\uE8EC", "Finance", "Finance"),
+            new(WinoIntelligenceTileKind.Priority, WinoIconCodes.Warning, "Urgent", "Urgent priority", isWarning: true),
+            new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Tag, "Finance", "Finance"),
         };
         ApplyVariant(VariantOptions[0]);
     }
@@ -339,13 +340,13 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
         IntelligenceHeader.IntelligenceTiles = _messageIndex % 2 == 0
             ? new WinoIntelligenceTile[]
             {
-                new(WinoIntelligenceTileKind.SmartLabel, "\uE8C7", "Finance", "Finance"),
-                new(WinoIntelligenceTileKind.SmartLabel, "\uE734", "Important", "Important"),
+                new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Payment, "Finance", "Finance"),
+                new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Star, "Important", "Important"),
             }
             : new WinoIntelligenceTile[]
             {
-                new(WinoIntelligenceTileKind.SmartLabel, "\uE709", "Travel", "Travel"),
-                new(WinoIntelligenceTileKind.SmartLabel, "\uE716", "Social", "Social"),
+                new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.Airplane, "Travel", "Travel"),
+                new(WinoIntelligenceTileKind.SmartLabel, WinoIconCodes.People, "Social", "Social"),
             };
 
         AddTrace($"Content swapped · variant {variant.Title}");

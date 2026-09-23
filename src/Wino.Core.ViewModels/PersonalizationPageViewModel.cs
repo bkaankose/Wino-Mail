@@ -57,6 +57,15 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     [ObservableProperty]
     public partial ElementThemeContainer SelectedElementTheme { get; set; }
 
+    public List<IconStyleContainer> IconStyles { get; } =
+    [
+        new IconStyleContainer(WinoIconStyle.Monochrome, Translator.IconStyle_Monochrome),
+        new IconStyleContainer(WinoIconStyle.Colorful, Translator.IconStyle_Colorful),
+    ];
+
+    [ObservableProperty]
+    public partial IconStyleContainer SelectedIconStyle { get; set; }
+
     private AppColorViewModel _selectedAppColor;
 
     public AppColorViewModel SelectedAppColor
@@ -185,6 +194,8 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         else
             SelectedAppColor = Colors.FirstOrDefault(a => a.Hex == currentAccentColor);
 
+        SelectedIconStyle = IconStyles.Find(a => a.IconStyle == PreferencesService.IconStyle) ?? IconStyles[0];
+
         // Set the current backdrop from service - backdrop should be independent of theme selection
         var currentBackdropType = _newThemeService.CurrentBackdropType;
         SelectedBackdropType = AvailableBackdropTypes?.FirstOrDefault(x => x.BackdropType == currentBackdropType);
@@ -270,6 +281,10 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         else if (e.PropertyName == nameof(SelectedBackdropType) && SelectedBackdropType != null)
         {
             _newThemeService.CurrentBackdropType = SelectedBackdropType.BackdropType;
+        }
+        else if (e.PropertyName == nameof(SelectedIconStyle) && SelectedIconStyle != null)
+        {
+            PreferencesService.IconStyle = SelectedIconStyle.IconStyle;
         }
         else
         {

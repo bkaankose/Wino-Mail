@@ -2,6 +2,7 @@
     x:Class="Wino.Mail.Controls.Playground.Pages.MailListPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:automation="using:Microsoft.UI.Xaml.Automation"
     xmlns:contact="using:Wino.Mail.Controls.ContactPicture"
     xmlns:controls="using:Wino.Mail.Controls.MailListView"
@@ -100,7 +101,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <FontIcon
+                        <accountIcon:WinoFontIcon
                             VerticalAlignment="Center"
                             FontSize="10"
                             Glyph="{x:Bind models:MailListPlaygroundFormat.ChevronGlyph(IsExpanded), Mode=OneWay}" />
@@ -230,24 +231,33 @@
                                 x:Name="RemoveSelectedMailItemsButton"
                                 AutomationProperties.AutomationId="RemoveSelectedMailItemsButton"
                                 Click="RemoveSelectedMailItems_Click"
-                                Icon="Delete"
                                 IsEnabled="False"
-                                Label="Remove selected mails" />
+                                Label="Remove selected mails">
+                                <AppBarButton.Icon>
+                                    <accountIcon:WinoFontIcon Glyph="&#xEEA6;" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
                             <AppBarButton
                                 x:Name="RemoveSelectedThreadsButton"
                                 AutomationProperties.AutomationId="RemoveSelectedThreadsButton"
                                 Click="RemoveSelectedThreads_Click"
-                                Icon="Clear"
                                 IsEnabled="False"
-                                Label="Remove selected threads" />
+                                Label="Remove selected threads">
+                                <AppBarButton.Icon>
+                                    <accountIcon:WinoFontIcon Glyph="&#xF008;" />
+                                </AppBarButton.Icon>
+                            </AppBarButton>
 
                             <AppBarToggleButton
                                 x:Name="MultiButton"
                                 AutomationProperties.AutomationId="MultiSelectButton"
                                 Checked="MultiSelectChecked"
                                 Content="MultiSelect"
-                                Icon="SelectAll"
-                                Unchecked="MultiSelectUnchecked" />
+                                Unchecked="MultiSelectUnchecked">
+                                <AppBarToggleButton.Icon>
+                                    <accountIcon:WinoFontIcon Glyph="&#xE095;" />
+                                </AppBarToggleButton.Icon>
+                            </AppBarToggleButton>
                         </CommandBar>
                     </Grid>
                     <controls:WinoMailListView

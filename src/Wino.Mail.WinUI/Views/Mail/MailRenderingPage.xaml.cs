@@ -457,7 +457,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             new ContextFlyoutCommandEntry
             {
                 Text = Translator.Buttons_Open,
-                Icon = new ContextFlyoutIcon("\uE8E5"),
+                Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Open)),
                 Command = ViewModel.OpenAttachmentCommand,
                 CommandParameter = attachment,
                 AutomationId = "MailRenderingAttachmentOpen"
@@ -465,7 +465,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             new ContextFlyoutCommandEntry
             {
                 Text = Translator.Buttons_Save,
-                Icon = new ContextFlyoutIcon("\uE74E"),
+                Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.Save)),
                 Command = ViewModel.SaveAttachmentCommand,
                 CommandParameter = attachment,
                 Shortcut = new ContextFlyoutShortcut("Ctrl+S", "S", Control: true),

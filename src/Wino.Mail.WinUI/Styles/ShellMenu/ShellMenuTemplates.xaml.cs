@@ -336,9 +336,9 @@ public sealed partial class ShellMenuTemplates
         };
 
     private static ContextFlyoutIcon? CreateContextIcon(WinoIconGlyph icon)
-        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
-            ? new ContextFlyoutIcon(glyph)
-            : null;
+        => icon == WinoIconGlyph.None
+            ? null
+            : new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(icon));
 
     private static void OpenAccountSettings(IAccountNavigationMenuItem accountMenuItem)
     {

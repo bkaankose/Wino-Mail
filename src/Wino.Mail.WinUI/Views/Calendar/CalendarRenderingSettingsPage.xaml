@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -15,7 +16,7 @@
             Description="{x:Bind domain:Translator.CalendarSettings_FirstDayOfWeek_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.CalendarSettings_FirstDayOfWeek_Header, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon Glyph="&#xE787;" />
+                <coreControls:WinoFontIcon Icon="Calendar" />
             </controls:SettingsCard.HeaderIcon>
             <ComboBox
                 AutomationProperties.AutomationId="CalendarRenderingSettingsPageComboBox"
@@ -28,7 +29,7 @@
             Description="{x:Bind domain:Translator.CalendarSettings_WorkingDays_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.CalendarSettings_WorkingDays_Header, Mode=OneTime}">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE8EF;" />
+                <coreControls:WinoFontIcon Icon="CalendarWorkWeek" />
             </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
                 <controls:SettingsCard
@@ -115,7 +116,7 @@
             Header="{x:Bind domain:Translator.CalendarSettings_CalendarRendering_Header, Mode=OneTime}"
             IsExpanded="True">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE9D2;" />
+                <coreControls:WinoFontIcon Icon="CalendarSettings" />
             </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
                 <controls:SettingsCard

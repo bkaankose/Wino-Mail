@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:interfaces="using:Wino.Core.Domain.Interfaces"
@@ -16,7 +17,7 @@
             Description="{x:Bind domain:Translator.SettingsStartupItem_Description}"
             Header="{x:Bind domain:Translator.SettingsStartupItem_Title}">
             <controls:SettingsCard.HeaderIcon>
-                <SymbolIcon Symbol="Home" />
+                <coreControls:WinoFontIcon Icon="Home" />
             </controls:SettingsCard.HeaderIcon>
             <ComboBox
                 MinWidth="180"
@@ -36,7 +37,7 @@
             Description="{x:Bind domain:Translator.SettingsAppPreferences_EmailSyncInterval_Description}"
             Header="{x:Bind domain:Translator.SettingsAppPreferences_EmailSyncInterval_Title}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE895;" />
+                <coreControls:WinoFontIcon Icon="Sync" />
             </controls:SettingsCard.HeaderIcon>
             <NumberBox
                 AutomationProperties.AutomationId="MailPreferencesEmailSyncIntervalNumberBox"
@@ -51,7 +52,7 @@
             Description="{x:Bind domain:Translator.SettingsAppPreferences_SearchMode_Description}"
             Header="{x:Bind domain:Translator.SettingsAppPreferences_SearchMode_Title}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE721;" />
+                <coreControls:WinoFontIcon Icon="Find" />
             </controls:SettingsCard.HeaderIcon>
             <ComboBox
                 MinWidth="180"
@@ -65,7 +66,7 @@
             Description="{x:Bind domain:Translator.SettingsAppPreferences_UndoActions_Description}"
             Header="{x:Bind domain:Translator.SettingsAppPreferences_UndoActions_Title}">
             <controls:SettingsExpander.HeaderIcon>
-                <SymbolIcon Symbol="Undo" />
+                <coreControls:WinoFontIcon Icon="ArrowUndo" />
             </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
                 <controls:SettingsCard
@@ -73,7 +74,7 @@
                     Description="{x:Bind domain:Translator.SettingsAppPreferences_UndoSendingDrafts_Description}"
                     Header="{x:Bind domain:Translator.SettingsAppPreferences_UndoSendingDrafts_Title}">
                     <controls:SettingsCard.HeaderIcon>
-                        <SymbolIcon Symbol="Send" />
+                        <coreControls:WinoFontIcon Icon="Send" />
                     </controls:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <ToggleSwitch AutomationProperties.AutomationId="MailPreferencesUndoSendingDraftsToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsUndoSendingDraftsEnabled, Mode=TwoWay}" />
@@ -92,7 +93,7 @@
                     Description="{x:Bind domain:Translator.SettingsAppPreferences_UndoDeletingMails_Description}"
                     Header="{x:Bind domain:Translator.SettingsAppPreferences_UndoDeletingMails_Title}">
                     <controls:SettingsCard.HeaderIcon>
-                        <SymbolIcon Symbol="Delete" />
+                        <coreControls:WinoFontIcon Icon="Delete" />
                     </controls:SettingsCard.HeaderIcon>
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <ToggleSwitch AutomationProperties.AutomationId="MailPreferencesUndoDeletingMailsToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsUndoDeletingMailsEnabled, Mode=TwoWay}" />
@@ -114,7 +115,7 @@
             Description="{x:Bind domain:Translator.SettingsMarkAsRead_Description}"
             Header="{x:Bind domain:Translator.SettingsMarkAsRead_Title}">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8C3;" />
+                <coreControls:WinoFontIcon Icon="MarkRead" />
             </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
                 <controls:SettingsCard
@@ -151,7 +152,7 @@
             Description="{x:Bind domain:Translator.SettingsAutoSelectNextItem_Description}"
             Header="{x:Bind domain:Translator.SettingsAutoSelectNextItem_Title}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FD;" />
+                <coreControls:WinoFontIcon Icon="List" />
             </controls:SettingsCard.HeaderIcon>
             <ToggleSwitch AutomationProperties.AutomationId="MailPreferencesAutoSelectNextItemToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.AutoSelectNextItem, Mode=TwoWay}" />
         </controls:SettingsCard>
@@ -161,7 +162,7 @@
             Description="{x:Bind domain:Translator.SettingsDeleteProtection_Description}"
             Header="{x:Bind domain:Translator.SettingsDeleteProtection_Title}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE730;" />
+                <coreControls:WinoFontIcon Icon="ShieldError" />
             </controls:SettingsCard.HeaderIcon>
             <ToggleSwitch AutomationProperties.AutomationId="MailPreferencesDeleteProtectionToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsHardDeleteProtectionEnabled, Mode=TwoWay}" />
         </controls:SettingsCard>
@@ -171,7 +172,7 @@
             Description="{x:Bind domain:Translator.SettingsEmptyJunkFolderCommand_Description}"
             Header="{x:Bind domain:Translator.SettingsEmptyJunkFolderCommand_Title}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE74D;" />
+                <coreControls:WinoFontIcon Icon="Delete" />
             </controls:SettingsCard.HeaderIcon>
             <ToggleSwitch AutomationProperties.AutomationId="MailPreferencesEmptyJunkToggleSwitch" IsOn="{x:Bind ViewModel.PreferencesService.IsShowEmptyJunkFolderEnabled, Mode=TwoWay}" />
         </controls:SettingsCard>

@@ -5,6 +5,7 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:appControls="using:Wino.Controls"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mailViewModels="using:Wino.Mail.ViewModels"
@@ -68,7 +69,7 @@
             Description="{x:Bind domain:Translator.UnreadBadges_Launch_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.UnreadBadges_Launch_Title, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8A7;" />
+                <coreControls:WinoFontIcon Icon="Open" />
             </controls:SettingsCard.HeaderIcon>
             <ToggleSwitch AutomationProperties.AutomationId="UnreadBadgeSettingsPageLaunchToggle" IsOn="{x:Bind ViewModel.IsLaunchNavigationEnabled, Mode=TwoWay}" />
         </controls:SettingsCard>

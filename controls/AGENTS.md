@@ -68,6 +68,10 @@ If the WinUI compiler reports only `XamlCompiler.exe exited with code 1`, rerun 
 - When using `x:Load`, always give the element an `x:Name`.
 - Wire XAML-backed `Loaded`, `Unloaded`, and input events in XAML, not in constructors.
 - Keep public APIs small and host-independent. Avoid references from a reusable control back to `Wino.Mail.WinUI`.
+- Icons use the library's `AccountIcon.WinoFontIcon` / `WinoFontIconSource`. They are backed by the monochrome WinoIcons font that `icons/tools/build_fonts.py` writes into `Wino.Mail.Controls/Assets`.
+  - In C#, use the generated `WinoIconCodes` constants, for example `WinoIconCodes.Delete`.
+  - In templates, use the codepoint from `icons/manifest.json`, for example `Glyph="&#xEEA6;"`.
+  - Never use Segoe glyphs, `SymbolIcon` or `PathIcon`. `Wino.Editor` references this library for the same icon.
 
 When a public control is added or its important states change, update `Wino.Mail.Controls.Playground` in the same change:
 

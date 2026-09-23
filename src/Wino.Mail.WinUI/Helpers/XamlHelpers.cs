@@ -40,30 +40,30 @@ public static class XamlHelpers
 
     #region Mail Filter Editor
 
-    public static string GetFilterFieldGlyph(MailFilterConditionField field) => field switch
+    public static WinoIconGlyph GetFilterFieldGlyph(MailFilterConditionField field) => field switch
     {
-        MailFilterConditionField.FromAddress => "\uE715",
-        MailFilterConditionField.FromName => "\uE77B",
-        MailFilterConditionField.Subject => "\uE8BD",
-        MailFilterConditionField.PreviewText => "\uE7C3",
-        MailFilterConditionField.HasAttachments => "\uE723",
-        MailFilterConditionField.Importance => "\uE8C9",
-        _ => "\uE71C"
+        MailFilterConditionField.FromAddress => WinoIconGlyph.Mail,
+        MailFilterConditionField.FromName => WinoIconGlyph.Person,
+        MailFilterConditionField.Subject => WinoIconGlyph.Message,
+        MailFilterConditionField.PreviewText => WinoIconGlyph.TextDescription,
+        MailFilterConditionField.HasAttachments => WinoIconGlyph.Attachment,
+        MailFilterConditionField.Importance => WinoIconGlyph.Important,
+        _ => WinoIconGlyph.Filter,
     };
 
-    public static string GetFilterActionGlyph(MailFilterActionType action) => action switch
+    public static WinoIconGlyph GetFilterActionGlyph(MailFilterActionType action) => action switch
     {
-        MailFilterActionType.Move => "\uE8DE",
-        MailFilterActionType.Archive => "\uE7B8",
-        MailFilterActionType.SoftDelete => "\uE74D",
-        MailFilterActionType.HardDelete => "\uE74D",
-        MailFilterActionType.MarkRead => "\uE8C3",
-        MailFilterActionType.MarkUnread => "\uE715",
-        MailFilterActionType.SetFlag => "\uE7C1",
-        MailFilterActionType.ClearFlag => "\uE894",
-        MailFilterActionType.MoveToJunk => "\uE730",
-        MailFilterActionType.MarkAsNotJunk => "\uE8FB",
-        _ => "\uE945"
+        MailFilterActionType.Move => WinoIconGlyph.Move,
+        MailFilterActionType.Archive => WinoIconGlyph.Archive,
+        MailFilterActionType.SoftDelete => WinoIconGlyph.Delete,
+        MailFilterActionType.HardDelete => WinoIconGlyph.Delete,
+        MailFilterActionType.MarkRead => WinoIconGlyph.MarkRead,
+        MailFilterActionType.MarkUnread => WinoIconGlyph.MarkUnread,
+        MailFilterActionType.SetFlag => WinoIconGlyph.Flag,
+        MailFilterActionType.ClearFlag => WinoIconGlyph.ClearFlag,
+        MailFilterActionType.MoveToJunk => WinoIconGlyph.Blocked,
+        MailFilterActionType.MarkAsNotJunk => WinoIconGlyph.Checkmark,
+        _ => WinoIconGlyph.Sparkle,
     };
 
     private static Brush GetThemeBrush(string key, string fallbackKey = "AccentFillColorDefaultBrush")
@@ -135,7 +135,7 @@ public static class XamlHelpers
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadChild ? new Thickness(24, 0, 0, 0) : new Thickness(0);
     public static bool IsThreadMessageHead(global::Wino.Mail.Controls.Core.MailListRowKind kind)
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadHead;
-    public static string GetThreadChevronGlyph(bool isExpanded) => isExpanded ? "\uE70D" : "\uE76C";
+    public static WinoIconGlyph GetThreadChevronGlyph(bool isExpanded) => isExpanded ? WinoIconGlyph.ChevronDown : WinoIconGlyph.ChevronRight;
     public static bool IsMultiple(int count) => count > 1;
     public static bool ReverseIsMultiple(int count) => count < 1;
     public static PopupPlacementMode GetPlaccementModeForCalendarType(CalendarDisplayType type)
@@ -165,18 +165,18 @@ public static class XamlHelpers
     public static string ConditionalString(bool condition, string trueValue, string falseValue) => condition ? trueValue : falseValue;
 
     // Contacts
-    public static string GetFavoriteGlyph(bool isFavorite) => isFavorite ? "\uE735" : "\uE734";
+    public static WinoIconGlyph GetFavoriteGlyph(bool isFavorite) => isFavorite ? WinoIconGlyph.StarFilled : WinoIconGlyph.Star;
     public static string GetFavoriteTooltip(bool isFavorite) => isFavorite ? Translator.ContactAction_Unfavorite : Translator.ContactAction_Favorite;
     public static Brush GetFavoriteBrush(bool isFavorite)
         => (Brush)Application.Current.Resources[isFavorite ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush"];
     public static bool HasText(string value) => !string.IsNullOrWhiteSpace(value);
     public static ContactPhoneKind[] GetPhoneKinds() => Enum.GetValues<ContactPhoneKind>();
     /// <summary>Each postal address slot is labelled with the glyph for its kind.</summary>
-    public static string GetPostalAddressKindGlyph(ContactPostalAddressKind kind) => kind switch
+    public static WinoIconGlyph GetPostalAddressKindGlyph(ContactPostalAddressKind kind) => kind switch
     {
-        ContactPostalAddressKind.Home => "",
-        ContactPostalAddressKind.Business => "",
-        _ => "",
+        ContactPostalAddressKind.Home => WinoIconGlyph.Home,
+        ContactPostalAddressKind.Business => WinoIconGlyph.Briefcase,
+        _ => WinoIconGlyph.Location,
     };
 
     /// <summary>Section header badges show how many entries a collapsed section holds.</summary>
@@ -184,7 +184,7 @@ public static class XamlHelpers
 
     // To Do
     // The star reuses the contacts favorite idiom: filled glyph when set, outline when not.
-    public static string GetTaskImportanceGlyph(bool isImportant) => isImportant ? "\uE735" : "\uE734";
+    public static WinoIconGlyph GetTaskImportanceGlyph(bool isImportant) => isImportant ? WinoIconGlyph.StarFilled : WinoIconGlyph.Star;
 
     /// <summary>
     /// Task state never resolves a brush here. A brush taken from the application dictionary
@@ -216,7 +216,7 @@ public static class XamlHelpers
     /// <summary>x:Bind will not widen the step counts to the double the ProgressBar expects.</summary>
     public static double GetTaskStepCountValue(int count) => count;
 
-    public static string GetCompletedGroupCaretGlyph(bool isExpanded) => isExpanded ? "\uE70E" : "\uE70D";
+    public static WinoIconGlyph GetCompletedGroupCaretGlyph(bool isExpanded) => isExpanded ? WinoIconGlyph.ChevronUp : WinoIconGlyph.ChevronDown;
     public static Visibility TextToVisibility(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility NotNullToVisibility(object value) => value is null ? Visibility.Collapsed : Visibility.Visible;
     public static Visibility CountToInvertedVisibility(int count) => count > 0 ? Visibility.Collapsed : Visibility.Visible;
@@ -255,7 +255,7 @@ public static class XamlHelpers
 
     public static IconElement GetAccountOrGlyphIcon(MailAccount? account, string glyph)
         => account is null
-            ? new FontIcon { FontSize = 15, Glyph = glyph }
+            ? new Wino.Mail.WinUI.Controls.WinoFontIcon { FontSize = 15, Glyph = glyph }
             : new WinoAccountIcon
             {
                 Account = GetAccountIconInfo(account),
@@ -370,12 +370,12 @@ public static class XamlHelpers
         };
     }
 
-    public static string InfoBarMessageTypeGlyph(InfoBarMessageType messageType) => messageType switch
+    public static WinoIconGlyph InfoBarMessageTypeGlyph(InfoBarMessageType messageType) => messageType switch
     {
-        InfoBarMessageType.Success => "",
-        InfoBarMessageType.Warning => "",
-        InfoBarMessageType.Error => "",
-        _ => "",
+        InfoBarMessageType.Success => WinoIconGlyph.CheckmarkCircle,
+        InfoBarMessageType.Warning => WinoIconGlyph.Warning,
+        InfoBarMessageType.Error => WinoIconGlyph.DismissCircle,
+        _ => WinoIconGlyph.Info,
     };
 
     public static Brush InfoBarMessageTypeBrush(InfoBarMessageType messageType)
@@ -758,10 +758,6 @@ public static class XamlHelpers
             _ => WinoIconGlyph.None,
         };
     }
-
-    // Segoe Fluent icon glyphs for the show/hide toggle on the folder
-    // customization page. E7B3 = "Hide" (eye with slash), E7B2 = "RedEye".
-    public static string GetHideGlyph(bool isHidden) => isHidden ? "\uE7B3" : "\uE7B2";
 
     public static WinoIconGlyph GetSpecialFolderPathIconGeometry(SpecialFolderType specialFolderType)
     {

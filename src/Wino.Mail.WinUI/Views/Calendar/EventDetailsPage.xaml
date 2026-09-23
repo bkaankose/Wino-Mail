@@ -610,14 +610,14 @@
                                                 Text="{x:Bind ReadableSize}" />
                                         </Grid>
 
-                                        <SymbolIcon
+                                        <coreControls:WinoFontIcon
                                             Grid.Column="2"
                                             Margin="8,0,0,0"
                                             VerticalAlignment="Center"
                                             AutomationProperties.AutomationId="CalendarAttachmentContentTypeWarning"
                                             AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
                                             Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                            Symbol="Important"
+                                            Icon="Important"
                                             ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
                                             Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
                                     </Grid>

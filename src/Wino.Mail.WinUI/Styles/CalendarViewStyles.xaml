@@ -325,7 +325,7 @@
                                     IsChecked="{TemplateBinding IsPaneExpanded}"
                                     Style="{StaticResource CalendarExpansionToggleButtonStyle}"
                                     ToolTipService.ToolTip="{TemplateBinding ExpansionToolTip}">
-                                    <FontIcon Glyph="{TemplateBinding ExpansionGlyph}" />
+                                    <controls:WinoFontIcon Glyph="{TemplateBinding ExpansionGlyph}" />
                                 </ToggleButton>
                             </Grid>
                             <Border

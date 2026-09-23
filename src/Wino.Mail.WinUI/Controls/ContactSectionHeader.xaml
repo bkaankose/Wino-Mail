@@ -1,7 +1,8 @@
-<UserControl
+﻿<UserControl
     x:Class="Wino.Controls.ContactSectionHeader"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:helpers="using:Wino.Helpers"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -25,11 +26,10 @@
             VerticalAlignment="Center"
             Background="{ThemeResource SubtleFillColorSecondaryBrush}"
             CornerRadius="6">
-            <FontIcon
-                FontFamily="{StaticResource SymbolThemeFontFamily}"
+            <coreControls:WinoFontIcon
                 FontSize="16"
                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                Glyph="{x:Bind Glyph}" />
+                Icon="{x:Bind Icon}" />
         </Border>
 
         <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -47,8 +47,8 @@
         <!--  Entry count, so a collapsed section still says what is inside it.  -->
         <Border
             Grid.Column="2"
-            MinWidth="20"
             Height="20"
+            MinWidth="20"
             Padding="7,0"
             VerticalAlignment="Center"
             Background="{ThemeResource SubtleFillColorSecondaryBrush}"

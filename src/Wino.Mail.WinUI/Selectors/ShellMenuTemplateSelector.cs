@@ -23,7 +23,6 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
     public DataTemplate? SettingsShellSectionItemTemplate { get; set; }
     public DataTemplate? SettingsShellGroupItemTemplate { get; set; }
     public DataTemplate? SettingsShellPageItemTemplate { get; set; }
-    public DataTemplate? SettingsShellPathIconItemTemplate { get; set; }
     public DataTemplate? SettingsShellWinoAccountItemTemplate { get; set; }
     public DataTemplate? SettingsShellWinoIntelligenceItemTemplate { get; set; }
     public DataTemplate? CalendarDatePickerTemplate { get; set; }
@@ -112,9 +111,6 @@ public sealed partial class ShellMenuTemplateSelector : DataTemplateSelector
 
         if (string.Equals(item.Title, Translator.WinoIntelligence_SettingsTitle, System.StringComparison.Ordinal))
             return SettingsShellWinoIntelligenceItemTemplate;
-
-        if (item.HasIconPathData)
-            return SettingsShellPathIconItemTemplate;
 
         return SettingsShellPageItemTemplate;
     }

@@ -360,7 +360,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
     {
         var button = (AppBarToggleButton)LoadCommandBarElementTemplate(
             AIActionsTemplateKey,
-            new OperationCommandBarAIActionsItemViewModel(Translator.Composer_AiActions, "\uE945"));
+            new OperationCommandBarAIActionsItemViewModel(Translator.Composer_AiActions, WinoIconGlyph.Sparkle));
 
         button.SetBinding(AppBarToggleButton.IsCheckedProperty, new Binding
         {
@@ -400,7 +400,7 @@ public sealed partial class OperationCommandBar : CommandBar, IRecipient<Languag
         var button = new AppBarToggleButton
         {
             Label = Translator.Reader_ReaderView,
-            Icon = new FontIcon { Glyph = "\uE8A5" },
+            Icon = new WinoFontIcon { Icon = WinoIconGlyph.Document },
         };
         AutomationProperties.SetName(button, Translator.Reader_ReaderView);
         button.SetBinding(AppBarToggleButton.IsCheckedProperty, new Binding
@@ -553,14 +553,14 @@ public sealed class OperationCommandBarMenuOperationItemViewModel
 
 public sealed class OperationCommandBarAIActionsItemViewModel
 {
-    public OperationCommandBarAIActionsItemViewModel(string toolTip, string glyph)
+    public OperationCommandBarAIActionsItemViewModel(string toolTip, WinoIconGlyph icon)
     {
         ToolTip = toolTip;
-        Glyph = glyph;
+        Icon = icon;
     }
 
     public string ToolTip { get; }
-    public string Glyph { get; }
+    public WinoIconGlyph Icon { get; }
 }
 
 public sealed class OperationCommandBarThemeItemViewModel

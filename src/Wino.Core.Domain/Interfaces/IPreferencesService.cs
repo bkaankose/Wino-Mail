@@ -193,6 +193,17 @@ public interface IPreferencesService : INotifyPropertyChanged
     #region Mail
 
     /// <summary>
+    /// Setting: Monochrome or colorful WinoIcons font. New installs start colorful, existing installs keep monochrome.
+    /// </summary>
+    WinoIconStyle IconStyle { get; set; }
+
+    /// <summary>
+    /// Applies defaults that only new installs get, such as the colorful icon style.
+    /// Settings the user has already stored are left alone.
+    /// </summary>
+    void ApplyNewInstallDefaults();
+
+    /// <summary>
     /// Setting: Preferred time format for mail list and reader display.
     /// </summary>
     TimeFormatPreference MailTimeFormatPreference { get; set; }

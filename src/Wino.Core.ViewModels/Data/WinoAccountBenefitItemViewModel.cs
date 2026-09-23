@@ -37,12 +37,9 @@ public partial class WinoAccountBenefitItemViewModel : ObservableObject
     public string CtaText { get; }
 
     /// <summary>
-    /// Filled path markup authored on the same 20x20 grid and at the same optical weight
-    /// as every other benefit glyph, which is what keeps the four tile icons reading as
-    /// one set. Rendered through XamlHelpers.GetPathGeometry so a single DataTemplate can
-    /// serve all four tiles.
+    /// Tile icon. The four benefit glyphs share one authoring grid and optical weight in WinoIcons.
     /// </summary>
-    public string GlyphPathData { get; }
+    public WinoIconGlyph Icon { get; }
 
     /// <summary>
     /// Automation identity for the tile. Derived from the type so UI tests do not depend
@@ -60,7 +57,7 @@ public partial class WinoAccountBenefitItemViewModel : ObservableObject
                                           string lede,
                                           IReadOnlyList<string> points,
                                           string ctaText,
-                                          string glyphPathData)
+                                          WinoIconGlyph icon)
     {
         Type = type;
         Title = title;
@@ -70,6 +67,6 @@ public partial class WinoAccountBenefitItemViewModel : ObservableObject
         Lede = lede;
         Points = points;
         CtaText = ctaText;
-        GlyphPathData = glyphPathData;
+        Icon = icon;
     }
 }

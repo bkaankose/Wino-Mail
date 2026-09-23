@@ -123,7 +123,7 @@
                     Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Info_AccountAttentionRequiredClickableMessage, Mode=OneTime}"
                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
-                    <FontIcon Glyph="&#xE90F;" />
+                    <coreControls:WinoFontIcon Icon="Wrench" />
                 </Button>
             </Grid>
         </controls:AccountNavigationItem>
@@ -194,7 +194,7 @@
                     Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Info_AccountAttentionRequiredClickableMessage, Mode=OneTime}"
                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
-                    <FontIcon Glyph="&#xE90F;" />
+                    <coreControls:WinoFontIcon Icon="Wrench" />
                 </Button>
             </Grid>
         </controls:AccountNavigationItem>
@@ -273,7 +273,7 @@
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon FontSize="86" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
+                <coreControls:WinoFontIcon Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
             </coreControls:WinoNavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -329,10 +329,7 @@
             SelectsOnInvoked="True"
             ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
-                <FontIcon
-                    FontFamily="{StaticResource SymbolThemeFontFamily}"
-                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
-                    Glyph="&#xE8EC;" />
+                <coreControls:WinoFontIcon Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" Icon="Tag" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -364,10 +361,7 @@
             SelectsOnInvoked="True"
             ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
-                <FontIcon
-                    FontFamily="{StaticResource SymbolThemeFontFamily}"
-                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
-                    Glyph="&#xE8EC;" />
+                <coreControls:WinoFontIcon Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}" Icon="Tag" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -437,7 +431,7 @@
                 </TransitionCollection>
             </coreControls:WinoNavigationViewItem.ContentTransitions>
             <coreControls:WinoNavigationViewItem.Icon>
-                <PathIcon Data="F1 M 4.4000 6.2750 L 11.6000 6.2750 A 1.9250 1.9250 0 0 1 13.5250 8.2000 L 13.5250 12.0000 A 1.9250 1.9250 0 0 1 11.6000 13.9250 L 4.4000 13.9250 A 1.9250 1.9250 0 0 1 2.4750 12.0000 L 2.4750 8.2000 A 1.9250 1.9250 0 0 1 4.4000 6.2750 Z M 4.4000 7.3250 A 0.8750 0.8750 0 0 0 3.5250 8.2000 L 3.5250 12.0000 A 0.8750 0.8750 0 0 0 4.4000 12.8750 L 11.6000 12.8750 A 0.8750 0.8750 0 0 0 12.4750 12.0000 L 12.4750 8.2000 A 0.8750 0.8750 0 0 0 11.6000 7.3250 Z M 3.8186 7.0989 L 8.2686 9.7489 A 0.5250 0.5250 0 0 1 7.7314 10.6511 L 3.2814 8.0011 A 0.5250 0.5250 0 0 1 3.8186 7.0989 Z M 7.7314 9.7489 L 12.1814 7.0989 A 0.5250 0.5250 0 0 1 12.7186 8.0011 L 8.2686 10.6511 A 0.5250 0.5250 0 0 1 7.7314 9.7489 Z M 4.8000 4.4750 L 11.2000 4.4750 A 0.5250 0.5250 0 0 1 11.2000 5.5250 L 4.8000 5.5250 A 0.5250 0.5250 0 0 1 4.8000 4.4750 Z M 6.4000 2.4750 L 9.6000 2.4750 A 0.5250 0.5250 0 0 1 9.6000 3.5250 L 6.4000 3.5250 A 0.5250 0.5250 0 0 1 6.4000 2.4750 Z" />
+                <coreControls:WinoFontIcon Icon="PeopleLink" />
             </coreControls:WinoNavigationViewItem.Icon>
 
             <Grid Height="50">
@@ -516,7 +510,7 @@
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(FolderType)}" />
+                <coreControls:WinoFontIcon Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(FolderType)}" />
             </coreControls:WinoNavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -556,7 +550,7 @@
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon FontSize="64" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(enums:SpecialFolderType.More)}" />
+                <coreControls:WinoFontIcon Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(enums:SpecialFolderType.More)}" />
             </coreControls:WinoNavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
@@ -763,7 +757,7 @@
             SelectsOnInvoked="False"
             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsEnabled), Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE8FA;" />
+                <coreControls:WinoFontIcon Icon="PersonAdd" />
             </muxc:NavigationViewItem.Icon>
             <TextBlock
                 VerticalAlignment="Center"
@@ -825,7 +819,7 @@
             DataContext="{x:Bind}"
             SelectsOnInvoked="False">
             <muxc:NavigationViewItem.Icon>
-                <SymbolIcon Symbol="Add" />
+                <coreControls:WinoFontIcon Icon="Add" />
             </muxc:NavigationViewItem.Icon>
             <Grid HorizontalAlignment="Stretch" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
@@ -846,7 +840,7 @@
                     Style="{StaticResource TransparentActionButtonStyle}"
                     Tag="{x:Bind}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_NewGroup, Mode=OneTime}">
-                    <FontIcon FontSize="14" Glyph="&#xE8B7;" />
+                    <coreControls:WinoFontIcon FontSize="14" Icon="Folder" />
                 </Button>
             </Grid>
         </coreControls:WinoNavigationViewItem>
@@ -861,7 +855,7 @@
             DataContext="{x:Bind}"
             SelectsOnInvoked="True">
             <muxc:NavigationViewItem.Icon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE706;" />
+                <coreControls:WinoFontIcon Icon="WeatherSunny" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -883,7 +877,7 @@
             DataContext="{x:Bind}"
             SelectsOnInvoked="True">
             <muxc:NavigationViewItem.Icon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE787;" />
+                <coreControls:WinoFontIcon Icon="Calendar" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -905,7 +899,7 @@
             DataContext="{x:Bind}"
             SelectsOnInvoked="True">
             <muxc:NavigationViewItem.Icon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE734;" />
+                <coreControls:WinoFontIcon Icon="Star" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -939,10 +933,10 @@
                 <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">16</x:Double>
             </coreControls:WinoNavigationViewItem.Resources>
             <muxc:NavigationViewItem.Icon>
-                <PathIcon
+                <coreControls:WinoFontIcon
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Data="F1 M 3.125 5 C 2.955729 5.000001 2.809245 5.06185 2.685547 5.185547 C 2.561849 5.309245 2.5 5.455729 2.5 5.625 C 2.5 5.794271 2.561849 5.940756 2.685547 6.064453 C 2.809245 6.188151 2.955729 6.25 3.125 6.25 L 4.375 6.25 C 4.544271 6.25 4.690755 6.188151 4.814453 6.064453 C 4.938151 5.940756 5 5.794271 5 5.625 C 5 5.455729 4.938151 5.309245 4.814453 5.185547 C 4.690755 5.06185 4.544271 5.000001 4.375 5 Z M 3.125 8.75 C 2.955729 8.75 2.809245 8.81185 2.685547 8.935547 C 2.561849 9.059245 2.5 9.205729 2.5 9.375 C 2.5 9.544271 2.561849 9.690756 2.685547 9.814453 C 2.809245 9.938151 2.955729 10 3.125 10 L 4.375 10 C 4.544271 10 4.690755 9.938151 4.814453 9.814453 C 4.938151 9.690756 5 9.544271 5 9.375 C 5 9.205729 4.938151 9.059245 4.814453 8.935547 C 4.690755 8.81185 4.544271 8.75 4.375 8.75 Z M 3.125 12.5 C 2.955729 12.5 2.809245 12.56185 2.685547 12.685547 C 2.561849 12.809245 2.5 12.955729 2.5 13.125 C 2.5 13.294271 2.561849 13.440756 2.685547 13.564453 C 2.809245 13.688151 2.955729 13.75 3.125 13.75 L 4.375 13.75 C 4.544271 13.75 4.690755 13.688151 4.814453 13.564453 C 4.938151 13.440756 5 13.294271 5 13.125 C 5 12.955729 4.938151 12.809245 4.814453 12.685547 C 4.690755 12.56185 4.544271 12.5 4.375 12.5 Z M 0 15 C 0 15.345053 0.065104 15.668945 0.195312 15.97168 C 0.325521 16.274414 0.504557 16.539715 0.732422 16.767578 C 0.960286 16.995443 1.225586 17.174479 1.52832 17.304688 C 1.831055 17.434896 2.154948 17.5 2.5 17.5 L 17.5 17.5 C 17.845051 17.5 18.168945 17.434896 18.47168 17.304688 C 18.774414 17.174479 19.039713 16.995443 19.267578 16.767578 C 19.495441 16.539715 19.674479 16.274414 19.804688 15.97168 C 19.934895 15.668945 20 15.345053 20 15 L 20 3.75 C 20 3.404949 19.934895 3.081055 19.804688 2.77832 C 19.674479 2.475586 19.495441 2.210287 19.267578 1.982422 C 19.039713 1.754559 18.774414 1.575521 18.47168 1.445312 C 18.168945 1.315105 17.845051 1.25 17.5 1.25 L 2.5 1.25 C 2.154948 1.25 1.831055 1.315105 1.52832 1.445312 C 1.225586 1.575521 0.960286 1.754559 0.732422 1.982422 C 0.504557 2.210287 0.325521 2.475586 0.195312 2.77832 C 0.065104 3.081055 0 3.404949 0 3.75 Z M 2.5 16.25 C 2.324219 16.25 2.161458 16.217449 2.011719 16.152344 C 1.861979 16.08724 1.730143 15.997722 1.616211 15.883789 C 1.502279 15.769857 1.41276 15.638021 1.347656 15.488281 C 1.282552 15.338542 1.25 15.175781 1.25 15 L 1.25 3.75 C 1.25 3.574219 1.282552 3.411459 1.347656 3.261719 C 1.41276 3.11198 1.502279 2.980145 1.616211 2.866211 C 1.730143 2.752279 1.861979 2.662762 2.011719 2.597656 C 2.161458 2.532553 2.324219 2.5 2.5 2.5 L 6.25 2.5 L 6.25 16.25 Z M 7.5 16.25 L 7.5 2.5 L 17.5 2.5 C 17.675781 2.5 17.838541 2.532553 17.988281 2.597656 C 18.13802 2.662762 18.269855 2.752279 18.383789 2.866211 C 18.497721 2.980145 18.587238 3.11198 18.652344 3.261719 C 18.717447 3.411459 18.75 3.574219 18.75 3.75 L 18.75 15 C 18.75 15.175781 18.717447 15.338542 18.652344 15.488281 C 18.587238 15.638021 18.497721 15.769857 18.383789 15.883789 C 18.269855 15.997722 18.13802 16.08724 17.988281 16.152344 C 17.838541 16.217449 17.675781 16.25 17.5 16.25 Z " />
+                    Icon="PanelLeft" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
@@ -964,10 +958,7 @@
                 <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">20</x:Double>
             </coreControls:WinoNavigationViewItem.Resources>
             <muxc:NavigationViewItem.Icon>
-                <FontIcon
-                    FontFamily="Segoe UI Symbol"
-                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ColorHex), Mode=OneWay}"
-                    Glyph="&#x25CF;" />
+                <coreControls:WinoFontIcon Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ColorHex), Mode=OneWay}" Icon="Dot" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -990,21 +981,11 @@
             Content="{x:Bind Title}"
             DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph}" />
+                <coreControls:WinoFontIcon Icon="{x:Bind Icon}" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 
-    <DataTemplate x:Key="SettingsShellPathIconItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
-        <coreControls:WinoNavigationViewItem
-            AutomationProperties.AutomationId="SettingsShellPathIconNavigationViewItem"
-            Content="{x:Bind Title}"
-            DataContext="{x:Bind}">
-            <muxc:NavigationViewItem.Icon>
-                <PathIcon Data="{x:Bind helpers:XamlHelpers.GetGeometryFromPathMarkup(IconPathData), Mode=OneTime}" />
-            </muxc:NavigationViewItem.Icon>
-        </coreControls:WinoNavigationViewItem>
-    </DataTemplate>
 
     <DataTemplate x:Key="SettingsShellWinoAccountItemTemplate" x:DataType="menu:SettingsShellPageMenuItem">
         <coreControls:WinoNavigationViewItem
@@ -1023,7 +1004,7 @@
             Content="{x:Bind Title}"
             DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
-                <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
+                <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
@@ -1038,7 +1019,7 @@
             MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
             SelectsOnInvoked="False">
             <muxc:NavigationViewItem.Icon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="{x:Bind Glyph}" />
+                <coreControls:WinoFontIcon Icon="{x:Bind Icon}" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
@@ -1065,13 +1046,12 @@
                     BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
                     BorderThickness="1"
                     CornerRadius="12">
-                    <FontIcon
+                    <coreControls:WinoFontIcon
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
-                        FontFamily="{StaticResource SymbolThemeFontFamily}"
                         FontSize="12"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                        Glyph="{x:Bind Glyph}" />
+                        Icon="{x:Bind Icon}" />
                 </Border>
 
                 <TextBlock
@@ -1101,10 +1081,10 @@
             DataContext="{x:Bind}"
             SelectsOnInvoked="False">
             <muxc:NavigationViewItem.Icon>
-                <PathIcon
+                <coreControls:WinoFontIcon
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    Data="F1 M 0 6.689453 C 0 5.940756 0.139974 5.237631 0.419922 4.580078 C 0.69987 3.922527 1.082357 3.346355 1.567383 2.851562 C 2.052409 2.356771 2.62207 1.966146 3.276367 1.679688 C 3.930664 1.39323 4.635417 1.25 5.390625 1.25 C 6.119792 1.25 6.814778 1.389975 7.475586 1.669922 C 8.136393 1.949871 8.723958 2.347006 9.238281 2.861328 C 9.368489 2.991537 9.493814 3.11849 9.614258 3.242188 C 9.7347 3.365887 9.860025 3.49284 9.990234 3.623047 C 10.113932 3.49284 10.236002 3.365887 10.356445 3.242188 C 10.476888 3.11849 10.602213 2.994793 10.732422 2.871094 C 11.240234 2.363281 11.822916 1.971029 12.480469 1.694336 C 13.138021 1.417645 13.828125 1.279297 14.550781 1.279297 C 15.305989 1.279297 16.015625 1.424154 16.679688 1.713867 C 17.34375 2.003582 17.921549 2.397461 18.413086 2.895508 C 18.904621 3.393555 19.291992 3.974609 19.575195 4.638672 C 19.858398 5.302734 20 6.01237 20 6.767578 C 20 7.483725 19.864908 8.178712 19.594727 8.852539 C 19.324543 9.526367 18.935547 10.117188 18.427734 10.625 L 10.625 18.505859 C 10.462239 18.668619 10.263672 18.75 10.029297 18.75 C 9.801432 18.75 9.606119 18.668619 9.443359 18.505859 L 1.591797 10.576172 C 1.077474 10.055339 0.683594 9.459636 0.410156 8.789062 C 0.136719 8.11849 0 7.418621 0 6.689453 Z M 18.75 6.767578 C 18.75 6.188151 18.640949 5.641276 18.422852 5.126953 C 18.204752 4.612631 17.905273 4.163412 17.524414 3.779297 C 17.143555 3.395184 16.699219 3.09082 16.191406 2.866211 C 15.683594 2.641602 15.136719 2.529297 14.550781 2.529297 C 13.997396 2.529297 13.468424 2.635092 12.963867 2.84668 C 12.45931 3.05827 12.011719 3.359375 11.621094 3.75 C 11.497396 3.873699 11.375325 4.000651 11.254883 4.130859 C 11.134439 4.261068 11.009114 4.384767 10.878906 4.501953 C 10.748697 4.625651 10.613606 4.716797 10.473633 4.775391 C 10.333658 4.833984 10.172525 4.863281 9.990234 4.863281 C 9.814453 4.863281 9.654947 4.832357 9.511719 4.770508 C 9.368489 4.70866 9.231771 4.619142 9.101562 4.501953 C 8.971354 4.378256 8.846028 4.25293 8.725586 4.125977 C 8.605143 3.999023 8.479817 3.870443 8.349609 3.740234 C 7.945963 3.3431 7.495117 3.037109 6.99707 2.822266 C 6.499023 2.607422 5.963542 2.5 5.390625 2.5 C 4.811198 2.5 4.269206 2.610678 3.764648 2.832031 C 3.260091 3.053387 2.822266 3.352865 2.451172 3.730469 C 2.080078 4.108074 1.787109 4.55241 1.572266 5.063477 C 1.357422 5.574545 1.25 6.116537 1.25 6.689453 C 1.25 7.24935 1.357422 7.791342 1.572266 8.31543 C 1.787109 8.839519 2.089844 9.300131 2.480469 9.697266 L 10.029297 17.324219 L 17.539062 9.746094 C 17.929688 9.348959 18.229166 8.891602 18.4375 8.374023 C 18.645832 7.856445 18.75 7.320964 18.75 6.767578 Z " />
+                    Icon="Heart" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>

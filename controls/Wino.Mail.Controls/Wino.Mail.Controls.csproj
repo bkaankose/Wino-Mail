@@ -37,6 +37,16 @@
     <ProjectReference Include="..\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
   </ItemGroup>
 
+  <!-- WinoIconCodes (string constants per icon) is generated from the shared icon manifest. -->
+  <PropertyGroup>
+    <WinoIconCodesNamespace>Wino.Mail.Controls.AccountIcon</WinoIconCodesNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <CompilerVisibleProperty Include="WinoIconCodesNamespace" />
+    <AdditionalFiles Include="..\..\icons\manifest.json" Link="Icons\manifest.json" />
+    <ProjectReference Include="..\..\src\Wino.SourceGenerators\Wino.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
   <ItemGroup>
     <Content Include="Assets\WinoIcons.ttf"
              TargetPath="Assets\WinoIcons.ttf"

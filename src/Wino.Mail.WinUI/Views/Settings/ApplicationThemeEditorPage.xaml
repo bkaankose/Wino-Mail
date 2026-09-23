@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:data="using:Wino.Core.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:helpers="using:Wino.Helpers"
@@ -76,19 +77,19 @@
                             Style="{StaticResource CaptionTextBlockStyle}"
                             Text="{x:Bind Value, Mode=OneWay}" />
 
-                        <FontIcon
+                        <coreControls:WinoFontIcon
                             Grid.Column="3"
                             VerticalAlignment="Center"
                             FontSize="12"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Glyph="&#xE76C;"
+                            Icon="ChevronRight"
                             Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsExpanded), Mode=OneWay}" />
-                        <FontIcon
+                        <coreControls:WinoFontIcon
                             Grid.Column="3"
                             VerticalAlignment="Center"
                             FontSize="12"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Glyph="&#xE70D;"
+                            Icon="ChevronDown"
                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsExpanded), Mode=OneWay}" />
                     </Grid>
                 </Button>
@@ -177,10 +178,10 @@
                                 Orientation="Horizontal"
                                 Spacing="8"
                                 Visibility="{x:Bind local:ApplicationThemeEditorPage.GetContrastPassVisibility(HasContrastReport, IsContrastSufficient), Mode=OneWay}">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     FontSize="14"
                                     Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                    Glyph="&#xE73E;" />
+                                    Icon="Checkmark" />
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     Foreground="{ThemeResource SystemFillColorSuccessBrush}"
@@ -192,10 +193,10 @@
                                 Orientation="Horizontal"
                                 Spacing="8"
                                 Visibility="{x:Bind local:ApplicationThemeEditorPage.GetContrastWarningVisibility(HasContrastReport, IsContrastSufficient), Mode=OneWay}">
-                                <FontIcon
+                                <coreControls:WinoFontIcon
                                     FontSize="14"
                                     Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                                    Glyph="&#xE7BA;" />
+                                    Icon="Warning" />
                                 <TextBlock
                                     VerticalAlignment="Center"
                                     Foreground="{ThemeResource SystemFillColorCautionBrush}"
@@ -223,7 +224,7 @@
             Description="{x:Bind domain:Translator.ApplicationThemeEditor_NameDescription, Mode=OneTime}"
             Header="{x:Bind domain:Translator.ApplicationThemeEditor_Name, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon Glyph="&#xE8AC;" />
+                <coreControls:WinoFontIcon Icon="Rename" />
             </controls:SettingsCard.HeaderIcon>
             <TextBox
                 Width="260"
@@ -237,7 +238,7 @@
             Description="{x:Bind domain:Translator.ApplicationThemeEditor_PaletteHint, Mode=OneTime}"
             Header="{x:Bind domain:Translator.ApplicationThemeEditor_EditingPalette, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon Glyph="&#xE793;" />
+                <coreControls:WinoFontIcon Icon="DarkTheme" />
             </controls:SettingsCard.HeaderIcon>
             <StackPanel Orientation="Horizontal" Spacing="8">
                 <controls:Segmented
@@ -283,7 +284,7 @@
             Header="{x:Bind domain:Translator.ApplicationThemeEditor_Wallpaper, Mode=OneTime}"
             IsExpanded="True">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xEB9F;" />
+                <coreControls:WinoFontIcon Icon="Image" />
             </controls:SettingsExpander.HeaderIcon>
             <TextBlock
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -550,7 +551,7 @@
             Header="{x:Bind domain:Translator.ApplicationThemeEditor_BaseAndAccent, Mode=OneTime}"
             IsExpanded="True">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE790;" />
+                <coreControls:WinoFontIcon Icon="Color" />
             </controls:SettingsExpander.HeaderIcon>
             <controls:SettingsExpander.Items>
                 <controls:SettingsCard
@@ -649,7 +650,7 @@
             Description="{x:Bind domain:Translator.ApplicationThemeEditor_SurfacesDescription, Mode=OneTime}"
             Header="{x:Bind domain:Translator.ApplicationThemeEditor_Surfaces, Mode=OneTime}">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE8A9;" />
+                <coreControls:WinoFontIcon Icon="Grid" />
             </controls:SettingsExpander.HeaderIcon>
             <TextBlock
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -674,7 +675,7 @@
             Description="{x:Bind domain:Translator.ApplicationThemeEditor_CalendarHoursDescription, Mode=OneTime}"
             Header="{x:Bind domain:Translator.ApplicationThemeEditor_CalendarHours, Mode=OneTime}">
             <controls:SettingsExpander.HeaderIcon>
-                <FontIcon Glyph="&#xE787;" />
+                <coreControls:WinoFontIcon Icon="Calendar" />
             </controls:SettingsExpander.HeaderIcon>
             <TextBlock
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"

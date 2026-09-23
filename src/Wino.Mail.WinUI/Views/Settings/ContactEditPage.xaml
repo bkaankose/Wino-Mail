@@ -5,6 +5,7 @@
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:contacts="using:Wino.Core.Domain.Entities.Shared"
     xmlns:controls="using:Wino.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:enums="using:Wino.Core.Domain.Enums"
     xmlns:helpers="using:Wino.Helpers"
@@ -83,7 +84,7 @@
                     AutomationProperties.AutomationId="ContactEditorPhotoOptions"
                     CornerRadius="14"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_PhotoOptions, Mode=OneTime}">
-                    <FontIcon FontSize="13" Glyph="&#xE712;" />
+                    <coreControls:WinoFontIcon FontSize="13" Icon="More" />
                     <Button.Flyout>
                         <MenuFlyout Placement="BottomEdgeAlignedLeft">
                             <MenuFlyoutItem
@@ -91,7 +92,7 @@
                                 Command="{x:Bind ViewModel.ChoosePhotoCommand}"
                                 Text="{x:Bind domain:Translator.ContactAction_ChangePhoto, Mode=OneTime}">
                                 <MenuFlyoutItem.Icon>
-                                    <FontIcon Glyph="&#xE722;" />
+                                    <coreControls:WinoFontIcon Icon="Camera" />
                                 </MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
                             <MenuFlyoutItem
@@ -99,7 +100,7 @@
                                 Command="{x:Bind ViewModel.RemovePhotoCommand}"
                                 Text="{x:Bind ViewModel.RemovePhotoLabel, Mode=OneWay}">
                                 <MenuFlyoutItem.Icon>
-                                    <FontIcon Glyph="&#xE74D;" />
+                                    <coreControls:WinoFontIcon Icon="Delete" />
                                 </MenuFlyoutItem.Icon>
                             </MenuFlyoutItem>
                         </MenuFlyout>
@@ -131,10 +132,10 @@
                     Command="{x:Bind ViewModel.ToggleFavoriteCommand}"
                     Style="{StaticResource SubtleButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind helpers:XamlHelpers.GetFavoriteTooltip(ViewModel.IsFavorite), Mode=OneWay}">
-                    <FontIcon
+                    <coreControls:WinoFontIcon
                         FontSize="17"
                         Foreground="{x:Bind helpers:XamlHelpers.GetFavoriteBrush(ViewModel.IsFavorite), Mode=OneWay}"
-                        Glyph="{x:Bind helpers:XamlHelpers.GetFavoriteGlyph(ViewModel.IsFavorite), Mode=OneWay}" />
+                        Icon="{x:Bind helpers:XamlHelpers.GetFavoriteGlyph(ViewModel.IsFavorite), Mode=OneWay}" />
                 </Button>
 
                 <Button
@@ -172,7 +173,7 @@
                     Content="{x:Bind domain:Translator.ContactEditor_CategoryContactInformation, Mode=OneTime}"
                     IsSelected="True">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE77B;" />
+                        <coreControls:WinoFontIcon Icon="Person" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
@@ -180,7 +181,7 @@
                     AutomationProperties.AutomationId="ContactEditorCategoryWorkNav"
                     Content="{x:Bind domain:Translator.ContactEditor_CategoryWork, Mode=OneTime}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE821;" />
+                        <coreControls:WinoFontIcon Icon="Briefcase" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
@@ -188,7 +189,7 @@
                     AutomationProperties.AutomationId="ContactEditorCategoryAddressNav"
                     Content="{x:Bind domain:Translator.ContactEditor_CategoryAddress, Mode=OneTime}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE707;" />
+                        <coreControls:WinoFontIcon Icon="Location" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
@@ -196,7 +197,7 @@
                     AutomationProperties.AutomationId="ContactEditorCategoryOtherNav"
                     Content="{x:Bind domain:Translator.ContactEditor_CategoryOther, Mode=OneTime}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE787;" />
+                        <coreControls:WinoFontIcon Icon="Calendar" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem
@@ -204,7 +205,7 @@
                     AutomationProperties.AutomationId="ContactEditorCategoryNotesNav"
                     Content="{x:Bind domain:Translator.ContactEditor_CategoryNotes, Mode=OneTime}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE70B;" />
+                        <coreControls:WinoFontIcon Icon="Note" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
@@ -250,7 +251,7 @@
                                     <controls:ContactSectionHeader
                                         Title="{x:Bind domain:Translator.ContactEditor_SaveTo, Mode=OneTime}"
                                         Description="{x:Bind domain:Translator.ContactEditor_SaveToDescription, Mode=OneTime}"
-                                        Glyph="&#xE753;" />
+                                        Icon="Cloud" />
                                     <ComboBox
                                         Margin="{StaticResource EditorSectionBodyMargin}"
                                         HorizontalAlignment="Stretch"
@@ -270,12 +271,12 @@
                                     <controls:ContactSectionHeader
                                         Title="{x:Bind domain:Translator.ContactEditor_Identity, Mode=OneTime}"
                                         Description="{x:Bind domain:Translator.ContactEditor_IdentityDescription, Mode=OneTime}"
-                                        Glyph="&#xE77B;" />
+                                        Icon="Person" />
                                     <StackPanel Margin="{StaticResource EditorSectionBodyMargin}" Spacing="10">
                                         <TextBox AutomationProperties.AutomationId="ContactEditorDisplayName" Text="{x:Bind ViewModel.DisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                             <TextBox.Header>
                                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <FontIcon Glyph="&#xE77B;" Style="{StaticResource EditorFieldIconStyle}" />
+                                                    <coreControls:WinoFontIcon Icon="Person" Style="{StaticResource EditorFieldIconStyle}" />
                                                     <TextBlock Text="{x:Bind domain:Translator.ContactEditor_DisplayName, Mode=OneTime}" />
                                                 </StackPanel>
                                             </TextBox.Header>
@@ -330,7 +331,7 @@
                                     <controls:ContactSectionHeader
                                         Title="{x:Bind domain:Translator.ContactEditor_Emails, Mode=OneTime}"
                                         Description="{x:Bind domain:Translator.ContactEditor_EmailsDescription, Mode=OneTime}"
-                                        Glyph="&#xE715;"
+                                        Icon="Mail"
                                         ItemCount="{x:Bind ViewModel.EmailAddresses.Count, Mode=OneWay}" />
                                     <StackPanel Margin="{StaticResource EditorSectionBodyMargin}" Spacing="10">
                                         <ItemsControl ItemsSource="{x:Bind ViewModel.EmailAddresses}">
@@ -344,7 +345,7 @@
                                                         <TextBox AutomationProperties.AutomationId="ContactEditorEmail" Text="{x:Bind Address, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                                             <TextBox.Header>
                                                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                                                    <FontIcon Glyph="&#xE715;" Style="{StaticResource EditorFieldIconStyle}" />
+                                                                    <coreControls:WinoFontIcon Icon="Mail" Style="{StaticResource EditorFieldIconStyle}" />
                                                                     <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Email, Mode=OneTime}" />
                                                                 </StackPanel>
                                                             </TextBox.Header>
@@ -355,7 +356,7 @@
                                                             Click="RemoveEmail_Click"
                                                             Style="{StaticResource SubtleButtonStyle}"
                                                             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
-                                                            <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                                            <coreControls:WinoFontIcon FontSize="14" Icon="Dismiss" />
                                                         </Button>
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -367,7 +368,7 @@
                                             Command="{x:Bind ViewModel.AddEmailCommand}"
                                             Style="{StaticResource SubtleButtonStyle}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <FontIcon FontSize="13" Glyph="&#xE710;" />
+                                                <coreControls:WinoFontIcon FontSize="13" Icon="Add" />
                                                 <TextBlock Text="{x:Bind domain:Translator.ContactEditor_AddEmail, Mode=OneTime}" />
                                             </StackPanel>
                                         </Button>
@@ -379,7 +380,7 @@
                                     <controls:ContactSectionHeader
                                         Title="{x:Bind domain:Translator.ContactEditor_Phones, Mode=OneTime}"
                                         Description="{x:Bind domain:Translator.ContactEditor_PhonesDescription, Mode=OneTime}"
-                                        Glyph="&#xE717;"
+                                        Icon="Phone"
                                         ItemCount="{x:Bind ViewModel.PhoneNumbers.Count, Mode=OneWay}" />
                                     <StackPanel Margin="{StaticResource EditorSectionBodyMargin}" Spacing="10">
                                         <ItemsControl ItemsSource="{x:Bind ViewModel.PhoneNumbers}">
@@ -395,7 +396,7 @@
                                                         <TextBox AutomationProperties.AutomationId="ContactEditorPhone" Text="{x:Bind Number, Mode=TwoWay}">
                                                             <TextBox.Header>
                                                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                                                    <FontIcon Glyph="&#xE717;" Style="{StaticResource EditorFieldIconStyle}" />
+                                                                    <coreControls:WinoFontIcon Icon="Phone" Style="{StaticResource EditorFieldIconStyle}" />
                                                                     <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Phone, Mode=OneTime}" />
                                                                 </StackPanel>
                                                             </TextBox.Header>
@@ -406,7 +407,7 @@
                                                             Click="RemovePhone_Click"
                                                             Style="{StaticResource SubtleButtonStyle}"
                                                             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
-                                                            <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                                            <coreControls:WinoFontIcon FontSize="14" Icon="Dismiss" />
                                                         </Button>
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -418,7 +419,7 @@
                                             Command="{x:Bind ViewModel.AddPhoneCommand}"
                                             Style="{StaticResource SubtleButtonStyle}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <FontIcon FontSize="13" Glyph="&#xE710;" />
+                                                <coreControls:WinoFontIcon FontSize="13" Icon="Add" />
                                                 <TextBlock Text="{x:Bind domain:Translator.ContactEditor_AddPhone, Mode=OneTime}" />
                                             </StackPanel>
                                         </Button>
@@ -430,7 +431,7 @@
                                     <controls:ContactSectionHeader
                                         Title="{x:Bind domain:Translator.ContactEditor_Lists, Mode=OneTime}"
                                         Description="{x:Bind domain:Translator.ContactEditor_ListsDescription, Mode=OneTime}"
-                                        Glyph="&#xE8FD;" />
+                                        Icon="List" />
                                     <ItemsControl Margin="{StaticResource EditorSectionBodyMargin}" ItemsSource="{x:Bind ViewModel.ListMemberships}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
@@ -472,12 +473,12 @@
                                 <controls:ContactSectionHeader
                                     Title="{x:Bind domain:Translator.ContactEditor_Work, Mode=OneTime}"
                                     Description="{x:Bind domain:Translator.ContactEditor_WorkDescription, Mode=OneTime}"
-                                    Glyph="&#xE821;" />
+                                    Icon="Briefcase" />
                                 <StackPanel Margin="{StaticResource EditorSectionBodyMargin}" Spacing="10">
                                     <TextBox AutomationProperties.AutomationId="ContactEditorCompany" Text="{x:Bind ViewModel.CompanyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
                                         <TextBox.Header>
                                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <FontIcon Glyph="&#xE821;" Style="{StaticResource EditorFieldIconStyle}" />
+                                                <coreControls:WinoFontIcon Icon="Briefcase" Style="{StaticResource EditorFieldIconStyle}" />
                                                 <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Company, Mode=OneTime}" />
                                             </StackPanel>
                                         </TextBox.Header>
@@ -505,7 +506,7 @@
                                     <TextBox AutomationProperties.AutomationId="ContactEditorOffice" Text="{x:Bind ViewModel.OfficeLocation, Mode=TwoWay}">
                                         <TextBox.Header>
                                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <FontIcon Glyph="&#xE707;" Style="{StaticResource EditorFieldIconStyle}" />
+                                                <coreControls:WinoFontIcon Icon="Location" Style="{StaticResource EditorFieldIconStyle}" />
                                                 <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Office, Mode=OneTime}" />
                                             </StackPanel>
                                         </TextBox.Header>
@@ -534,14 +535,14 @@
                                 <controls:ContactSectionHeader
                                     Title="{x:Bind domain:Translator.ContactEditor_Addresses, Mode=OneTime}"
                                     Description="{x:Bind domain:Translator.ContactEditor_AddressesDescription, Mode=OneTime}"
-                                    Glyph="&#xE707;" />
+                                    Icon="Location" />
                                 <ItemsControl Margin="{StaticResource EditorSectionBodyMargin}" ItemsSource="{x:Bind ViewModel.PostalAddresses}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="contacts:ContactPostalAddress">
                                             <Border Margin="0,0,0,12" Style="{StaticResource EditorAddressCardStyle}">
                                                 <StackPanel Spacing="10">
                                                     <StackPanel Orientation="Horizontal" Spacing="7">
-                                                        <FontIcon Glyph="{x:Bind helpers:XamlHelpers.GetPostalAddressKindGlyph(Kind)}" Style="{StaticResource EditorFieldIconStyle}" />
+                                                        <coreControls:WinoFontIcon Icon="{x:Bind helpers:XamlHelpers.GetPostalAddressKindGlyph(Kind)}" Style="{StaticResource EditorFieldIconStyle}" />
                                                         <TextBlock
                                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                             Style="{StaticResource BodyStrongTextBlockStyle}"
@@ -566,7 +567,7 @@
                                                     <TextBox AutomationProperties.AutomationId="ContactEditorCountry" Text="{x:Bind Country, Mode=TwoWay}">
                                                         <TextBox.Header>
                                                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                                                <FontIcon Glyph="&#xE774;" Style="{StaticResource EditorFieldIconStyle}" />
+                                                                <coreControls:WinoFontIcon Icon="Globe" Style="{StaticResource EditorFieldIconStyle}" />
                                                                 <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Country, Mode=OneTime}" />
                                                             </StackPanel>
                                                         </TextBox.Header>
@@ -601,11 +602,11 @@
                                     <controls:ContactSectionHeader
                                         Title="{x:Bind domain:Translator.ContactEditor_Personal, Mode=OneTime}"
                                         Description="{x:Bind domain:Translator.ContactEditor_PersonalDescription, Mode=OneTime}"
-                                        Glyph="&#xE787;" />
+                                        Icon="Calendar" />
                                     <StackPanel Margin="{StaticResource EditorSectionBodyMargin}" Spacing="10">
                                         <StackPanel Spacing="4">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
-                                                <FontIcon Glyph="&#xE787;" Style="{StaticResource EditorFieldIconStyle}" />
+                                                <coreControls:WinoFontIcon Icon="Calendar" Style="{StaticResource EditorFieldIconStyle}" />
                                                 <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Birthday, Mode=OneTime}" />
                                             </StackPanel>
                                             <Grid x:Name="BirthdayGrid" RowSpacing="8">
@@ -643,7 +644,7 @@
                                         <TextBox AutomationProperties.AutomationId="ContactEditorWebsite" Text="{x:Bind ViewModel.Website, Mode=TwoWay}">
                                             <TextBox.Header>
                                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <FontIcon Glyph="&#xE774;" Style="{StaticResource EditorFieldIconStyle}" />
+                                                    <coreControls:WinoFontIcon Icon="Globe" Style="{StaticResource EditorFieldIconStyle}" />
                                                     <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Website, Mode=OneTime}" />
                                                 </StackPanel>
                                             </TextBox.Header>
@@ -656,7 +657,7 @@
                                     <controls:ContactSectionHeader
                                         Title="{x:Bind domain:Translator.ContactEditor_InstantMessaging, Mode=OneTime}"
                                         Description="{x:Bind domain:Translator.ContactEditor_InstantMessagingDescription, Mode=OneTime}"
-                                        Glyph="&#xE8F2;"
+                                        Icon="Message"
                                         ItemCount="{x:Bind ViewModel.ImAddresses.Count, Mode=OneWay}" />
                                     <StackPanel Margin="{StaticResource EditorSectionBodyMargin}" Spacing="10">
                                         <ItemsControl ItemsSource="{x:Bind ViewModel.ImAddresses}">
@@ -674,7 +675,7 @@
                                                             Click="RemoveImAddress_Click"
                                                             Style="{StaticResource SubtleButtonStyle}"
                                                             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
-                                                            <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                                            <coreControls:WinoFontIcon FontSize="14" Icon="Dismiss" />
                                                         </Button>
                                                     </Grid>
                                                 </DataTemplate>
@@ -686,7 +687,7 @@
                                             Command="{x:Bind ViewModel.AddImAddressCommand}"
                                             Style="{StaticResource SubtleButtonStyle}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <FontIcon FontSize="13" Glyph="&#xE710;" />
+                                                <coreControls:WinoFontIcon FontSize="13" Icon="Add" />
                                                 <TextBlock Text="{x:Bind domain:Translator.ContactEditor_AddIm, Mode=OneTime}" />
                                             </StackPanel>
                                         </Button>
@@ -698,7 +699,7 @@
                                     <controls:ContactSectionHeader
                                         Title="{x:Bind domain:Translator.ContactEditor_Relations, Mode=OneTime}"
                                         Description="{x:Bind domain:Translator.ContactEditor_RelationsDescription, Mode=OneTime}"
-                                        Glyph="&#xE716;"
+                                        Icon="People"
                                         ItemCount="{x:Bind ViewModel.Relations.Count, Mode=OneWay}" />
                                     <StackPanel Margin="{StaticResource EditorSectionBodyMargin}" Spacing="10">
                                         <Grid x:Name="RelationsStaffGrid" RowSpacing="10">
@@ -724,7 +725,7 @@
                                         <TextBox AutomationProperties.AutomationId="ContactEditorSpouse" Text="{x:Bind ViewModel.SpouseName, Mode=TwoWay}">
                                             <TextBox.Header>
                                                 <StackPanel Orientation="Horizontal" Spacing="6">
-                                                    <FontIcon Glyph="&#xEB51;" Style="{StaticResource EditorFieldIconStyle}" />
+                                                    <coreControls:WinoFontIcon Icon="Heart" Style="{StaticResource EditorFieldIconStyle}" />
                                                     <TextBlock Text="{x:Bind domain:Translator.ContactEditor_Spouse, Mode=OneTime}" />
                                                 </StackPanel>
                                             </TextBox.Header>
@@ -748,7 +749,7 @@
                                                             Click="RemoveRelation_Click"
                                                             Style="{StaticResource SubtleButtonStyle}"
                                                             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
-                                                            <FontIcon FontSize="14" Glyph="&#xE711;" />
+                                                            <coreControls:WinoFontIcon FontSize="14" Icon="Dismiss" />
                                                         </Button>
                                                     </Grid>
                                                 </DataTemplate>
@@ -760,7 +761,7 @@
                                             Command="{x:Bind ViewModel.AddChildCommand}"
                                             Style="{StaticResource SubtleButtonStyle}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <FontIcon FontSize="13" Glyph="&#xE710;" />
+                                                <coreControls:WinoFontIcon FontSize="13" Icon="Add" />
                                                 <TextBlock Text="{x:Bind domain:Translator.ContactEditor_AddChild, Mode=OneTime}" />
                                             </StackPanel>
                                         </Button>
@@ -789,7 +790,7 @@
                                 <controls:ContactSectionHeader
                                     Title="{x:Bind domain:Translator.ContactEditor_Notes, Mode=OneTime}"
                                     Description="{x:Bind domain:Translator.ContactEditor_NotesDescription, Mode=OneTime}"
-                                    Glyph="&#xE70B;" />
+                                    Icon="Note" />
                                 <TextBox
                                     MinHeight="240"
                                     Margin="{StaticResource EditorSectionBodyMargin}"

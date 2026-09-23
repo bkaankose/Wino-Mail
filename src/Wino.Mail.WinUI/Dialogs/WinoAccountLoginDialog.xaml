@@ -1,7 +1,8 @@
-<ContentDialog
+﻿<ContentDialog
     x:Class="Wino.Dialogs.WinoAccountLoginDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:domain="using:Wino.Core.Domain"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -22,9 +23,7 @@
         <StackPanel Spacing="20">
 
             <!--  Hero illustration area  -->
-            <Border
-                Height="140"
-                CornerRadius="12">
+            <Border Height="140" CornerRadius="12">
                 <Border.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Offset="0" Color="#1A6EE7B7" />
@@ -64,9 +63,7 @@
                     <!--  Shield with lock illustration  -->
                     <Canvas Canvas.Left="190" Canvas.Top="16">
                         <!--  Shield shape  -->
-                        <Path
-                            Data="M46 4 L82 18 L82 48 C82 66 65 80 46 84 C27 80 10 66 10 48 L10 18 Z"
-                            Opacity="0.9">
+                        <Path Data="M46 4 L82 18 L82 48 C82 66 65 80 46 84 C27 80 10 66 10 48 L10 18 Z" Opacity="0.9">
                             <Path.Fill>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                                     <GradientStop Offset="0" Color="#6EE7B7" />
@@ -75,9 +72,7 @@
                             </Path.Fill>
                         </Path>
                         <!--  Inner shield  -->
-                        <Path
-                            Data="M46 12 L76 24 L76 48 C76 64 62 76 46 80 C30 76 16 64 16 48 L16 24 Z"
-                            Opacity="0.5">
+                        <Path Data="M46 12 L76 24 L76 48 C76 64 62 76 46 80 C30 76 16 64 16 48 L16 24 Z" Opacity="0.5">
                             <Path.Fill>
                                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
                                     <GradientStop Offset="0" Color="#A7F3D0" />
@@ -97,11 +92,11 @@
                         <!--  Lock shackle  -->
                         <Path
                             Data="M38 44 L38 38 A8 8 0 0 1 54 38 L54 44"
+                            Fill="Transparent"
                             Stroke="White"
                             StrokeEndLineCap="Round"
                             StrokeStartLineCap="Round"
-                            StrokeThickness="4"
-                            Fill="Transparent" />
+                            StrokeThickness="4" />
                         <!--  Keyhole  -->
                         <Ellipse
                             Canvas.Left="42"
@@ -152,9 +147,7 @@
             </Border>
 
             <!--  Benefits cards  -->
-            <StackPanel
-                x:Name="BenefitsPanel"
-                Spacing="8">
+            <StackPanel x:Name="BenefitsPanel" Spacing="8">
                 <Border
                     Padding="14"
                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
@@ -170,12 +163,12 @@
                             Background="{ThemeResource AccentFillColorDefaultBrush}"
                             CornerRadius="8"
                             Opacity="0.15" />
-                        <FontIcon
+                        <coreControls:WinoFontIcon
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             FontSize="16"
                             Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                            Glyph="&#xE8D7;" />
+                            Icon="Key" />
                         <StackPanel Grid.Column="1" Spacing="2">
                             <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_LoginDialog_BenefitsTitle}" />
                             <TextBlock
@@ -202,12 +195,12 @@
                             Background="{ThemeResource AccentFillColorDefaultBrush}"
                             CornerRadius="8"
                             Opacity="0.15" />
-                        <FontIcon
+                        <coreControls:WinoFontIcon
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
                             FontSize="16"
                             Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                            Glyph="&#xE946;" />
+                            Icon="Info" />
                         <StackPanel Grid.Column="1" Spacing="2">
                             <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.WinoAccount_LoginDialog_DifferenceTitle}" />
                             <TextBlock
@@ -223,8 +216,8 @@
             <!--  Input fields  -->
             <StackPanel Spacing="12">
                 <TextBox
-                    AutomationProperties.AutomationId="EmailTextBox"
                     x:Name="EmailTextBox"
+                    AutomationProperties.AutomationId="EmailTextBox"
                     Header="{x:Bind domain:Translator.WinoAccount_EmailLabel}"
                     KeyDown="EmailTextBox_KeyDown"
                     PlaceholderText="{x:Bind domain:Translator.WinoAccount_EmailPlaceholder}"
@@ -232,8 +225,8 @@
 
                 <StackPanel x:Name="PasswordPanel">
                     <PasswordBox
-                        AutomationProperties.AutomationId="PasswordBox"
                         x:Name="PasswordBox"
+                        AutomationProperties.AutomationId="PasswordBox"
                         Header="{x:Bind domain:Translator.WinoAccount_PasswordLabel}"
                         KeyDown="PasswordBox_KeyDown"
                         PasswordChanged="InputChanged" />
@@ -245,16 +238,14 @@
                     Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
                     CornerRadius="12"
                     Visibility="Collapsed">
-                    <TextBlock
-                        Text="{x:Bind domain:Translator.WinoAccount_ForgotPasswordDialog_Description}"
-                        TextWrapping="WrapWholeWords" />
+                    <TextBlock Text="{x:Bind domain:Translator.WinoAccount_ForgotPasswordDialog_Description}" TextWrapping="WrapWholeWords" />
                 </Border>
             </StackPanel>
 
             <HyperlinkButton
-                AutomationProperties.AutomationId="ModeToggleButton"
                 x:Name="ModeToggleButton"
                 HorizontalAlignment="Left"
+                AutomationProperties.AutomationId="ModeToggleButton"
                 Click="ModeToggleButton_Click"
                 Content="{x:Bind domain:Translator.WinoAccount_LoginDialog_ForgotPasswordLink}" />
 

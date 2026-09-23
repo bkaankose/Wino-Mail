@@ -5,6 +5,7 @@
     xmlns:abstract="using:Wino.Mail.WinUI.Views.Abstract"
     xmlns:calendarViewModels="using:Wino.Calendar.ViewModels"
     xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
@@ -140,7 +141,7 @@
             Description="{x:Bind domain:Translator.CalendarSettings_SyncInterval_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.CalendarSettings_SyncInterval_Title, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon FontFamily="{StaticResource SymbolThemeFontFamily}" Glyph="&#xE895;" />
+                <coreControls:WinoFontIcon Icon="Sync" />
             </controls:SettingsCard.HeaderIcon>
             <NumberBox
                 AutomationProperties.AutomationId="CalendarPreferenceSyncIntervalNumberBox"
@@ -156,7 +157,7 @@
             Description="{x:Bind domain:Translator.CalendarSettings_AccountGrouping_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.CalendarSettings_AccountGrouping_Header, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon Glyph="&#xE8B7;" />
+                <coreControls:WinoFontIcon Icon="Folder" />
             </controls:SettingsCard.HeaderIcon>
             <controls:SettingsCard.Content>
                 <StackPanel Spacing="12">
@@ -198,7 +199,7 @@
             Description="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Description, Mode=OneTime}"
             Header="{x:Bind domain:Translator.CalendarSettings_NewEventBehavior_Header, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
-                <FontIcon Glyph="&#xE163;" />
+                <coreControls:WinoFontIcon Icon="Calendar" />
             </controls:SettingsCard.HeaderIcon>
             <controls:SettingsCard.Content>
                 <StackPanel Spacing="12">

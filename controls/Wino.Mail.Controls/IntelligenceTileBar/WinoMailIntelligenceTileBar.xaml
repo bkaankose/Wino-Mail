@@ -1,7 +1,8 @@
-<UserControl
+﻿<UserControl
     x:Class="Wino.Mail.Controls.IntelligenceTileBar.WinoMailIntelligenceTileBar"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:accountIcon="using:Wino.Mail.Controls.AccountIcon"
     xmlns:core="using:Wino.Mail.Controls.Core.IntelligenceTileBar"
     xmlns:local="using:Wino.Mail.Controls.IntelligenceTileBar"
     xmlns:primitives="using:Wino.Mail.Controls.Primitives"
@@ -52,7 +53,7 @@
                     CornerRadius="10"
                     ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
                     <Grid>
-                        <FontIcon
+                        <accountIcon:WinoFontIcon
                             x:Name="CompactTileGlyph"
                             AutomationProperties.AccessibilityView="Raw"
                             FontSize="11"
@@ -81,7 +82,7 @@
                     CornerRadius="11"
                     ToolTipService.ToolTip="{x:Bind AccessibleText, Mode=OneTime}">
                     <StackPanel Orientation="Horizontal" Spacing="4">
-                        <FontIcon
+                        <accountIcon:WinoFontIcon
                             x:Name="DetailedTileGlyph"
                             VerticalAlignment="Center"
                             AutomationProperties.AccessibilityView="Raw"

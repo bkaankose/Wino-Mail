@@ -3,6 +3,7 @@ using System.Linq;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Reader;
 using Wino.Mail.WinUI.Controls;
 using Wino.Helpers;

@@ -1,0 +1,1851 @@
+{
+  "$comment": "Source of truth for WinoIcons. Edit with icons/tools, then run build_fonts.py. See icons/README.md.",
+  "unitsPerEm": 1024,
+  "ascent": 960,
+  "descent": 64,
+  "fluent": {
+    "package": "@fluentui/svg-icons",
+    "version": "1.1.341",
+    "size": 24
+  },
+  "fonts": {
+    "mono": {
+      "file": "WinoIcons.ttf",
+      "family": "WinoIcons",
+      "copies": [
+        "controls/Wino.Mail.Controls/Assets"
+      ]
+    },
+    "light": {
+      "file": "WinoIconsColor-Light.ttf",
+      "family": "WinoIconsColorLight",
+      "palette": "light"
+    },
+    "dark": {
+      "file": "WinoIconsColor-Dark.ttf",
+      "family": "WinoIconsColorDark",
+      "palette": "dark"
+    }
+  },
+  "palettes": {
+    "light": {
+      "blue": "#0F6CBD73",
+      "teal": "#03838773",
+      "green": "#107C1073",
+      "amber": "#EAA30073",
+      "orange": "#DA3B0173",
+      "red": "#D1343873",
+      "purple": "#8764B873",
+      "gray": "#73737366"
+    },
+    "dark": {
+      "blue": "#479EF5B3",
+      "teal": "#4FC3C7B3",
+      "green": "#54B054B3",
+      "amber": "#FFC83DB3",
+      "orange": "#F7894AB3",
+      "red": "#F1707BB3",
+      "purple": "#B696FFB3",
+      "gray": "#A0A0A099"
+    }
+  },
+  "icons": [
+    {
+      "name": "NewMail",
+      "codepoint": "F107",
+      "svg": "NewMail.svg"
+    },
+    {
+      "name": "Google",
+      "codepoint": "E905",
+      "svg": "Google.svg"
+    },
+    {
+      "name": "Microsoft",
+      "codepoint": "E904",
+      "svg": "Microsoft.svg"
+    },
+    {
+      "name": "CustomServer",
+      "codepoint": "F509",
+      "aliases": [
+        "Mail"
+      ],
+      "svg": "CustomServer.svg"
+    },
+    {
+      "name": "Archive",
+      "codepoint": "E066",
+      "svg": "Archive.svg"
+    },
+    {
+      "name": "UnArchive",
+      "codepoint": "E06C",
+      "svg": "UnArchive.svg"
+    },
+    {
+      "name": "Reply",
+      "codepoint": "F176",
+      "svg": "Reply.svg"
+    },
+    {
+      "name": "ReplyAll",
+      "codepoint": "F17A",
+      "svg": "ReplyAll.svg"
+    },
+    {
+      "name": "LightEditor",
+      "codepoint": "E1F6",
+      "svg": "LightEditor.svg"
+    },
+    {
+      "name": "DarkEditor",
+      "codepoint": "EE44",
+      "svg": "DarkEditor.svg"
+    },
+    {
+      "name": "Delete",
+      "codepoint": "EEA6",
+      "svg": "Delete.svg"
+    },
+    {
+      "name": "Move",
+      "codepoint": "E7B8",
+      "svg": "Move.svg"
+    },
+    {
+      "name": "Draft",
+      "codepoint": "F3BE",
+      "svg": "Draft.svg"
+    },
+    {
+      "name": "Flag",
+      "codepoint": "F40C",
+      "svg": "Flag.svg"
+    },
+    {
+      "name": "ClearFlag",
+      "codepoint": "F40F",
+      "svg": "ClearFlag.svg"
+    },
+    {
+      "name": "Folder",
+      "codepoint": "E643",
+      "svg": "Folder.svg"
+    },
+    {
+      "name": "Forward",
+      "codepoint": "E7AA",
+      "svg": "Forward.svg"
+    },
+    {
+      "name": "Inbox",
+      "codepoint": "F516",
+      "svg": "Inbox.svg"
+    },
+    {
+      "name": "MarkRead",
+      "codepoint": "F522",
+      "svg": "MarkRead.svg"
+    },
+    {
+      "name": "MarkUnread",
+      "codepoint": "F529",
+      "svg": "MarkUnread.svg"
+    },
+    {
+      "name": "Send",
+      "codepoint": "EA8E",
+      "svg": "Send.svg"
+    },
+    {
+      "name": "Save",
+      "codepoint": "EA43",
+      "svg": "Save.svg"
+    },
+    {
+      "name": "Sync",
+      "codepoint": "E895",
+      "svg": "Sync.svg"
+    },
+    {
+      "name": "MultiSelect",
+      "codepoint": "E84D",
+      "svg": "MultiSelect.svg"
+    },
+    {
+      "name": "Zoom",
+      "codepoint": "EE8E",
+      "svg": "Zoom.svg"
+    },
+    {
+      "name": "Pin",
+      "codepoint": "F5FF",
+      "svg": "Pin.svg"
+    },
+    {
+      "name": "UnPin",
+      "codepoint": "E985",
+      "svg": "UnPin.svg"
+    },
+    {
+      "name": "Ignore",
+      "codepoint": "F5D0",
+      "svg": "Ignore.svg"
+    },
+    {
+      "name": "Star",
+      "codepoint": "E734",
+      "svg": "Star.svg"
+    },
+    {
+      "name": "CreateFolder",
+      "codepoint": "E645",
+      "svg": "CreateFolder.svg"
+    },
+    {
+      "name": "More",
+      "codepoint": "E824",
+      "svg": "More.svg"
+    },
+    {
+      "name": "Find",
+      "codepoint": "EA7D",
+      "svg": "Find.svg"
+    },
+    {
+      "name": "SpecialFolderStarred",
+      "codepoint": "F70D",
+      "svg": "SpecialFolderStarred.svg",
+      "accent": {
+        "svg": "SpecialFolderStarred.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:star"
+    },
+    {
+      "name": "SpecialFolderImportant",
+      "codepoint": "E2F4",
+      "svg": "SpecialFolderImportant.svg",
+      "accent": {
+        "svg": "SpecialFolderImportant.accent.svg",
+        "color": "orange"
+      },
+      "source": "fluent:chat_warning"
+    },
+    {
+      "name": "SpecialFolderJunk",
+      "codepoint": "F140",
+      "svg": "SpecialFolderJunk.svg",
+      "accent": {
+        "svg": "SpecialFolderJunk.accent.svg",
+        "color": "orange"
+      },
+      "source": "fluent:prohibited"
+    },
+    {
+      "name": "SpecialFolderChat",
+      "codepoint": "E8BD",
+      "svg": "SpecialFolderChat.svg",
+      "accent": {
+        "svg": "SpecialFolderChat.accent.svg",
+        "color": "teal"
+      },
+      "source": "fluent:chat"
+    },
+    {
+      "name": "SpecialFolderCategory",
+      "codepoint": "F599",
+      "svg": "SpecialFolderCategory.svg"
+    },
+    {
+      "name": "SpecialFolderForums",
+      "codepoint": "F5B8",
+      "svg": "SpecialFolderForums.svg",
+      "accent": {
+        "svg": "SpecialFolderForums.accent.svg",
+        "color": "teal"
+      },
+      "source": "fluent:people_community"
+    },
+    {
+      "name": "SpecialFolderUpdated",
+      "codepoint": "F565",
+      "svg": "SpecialFolderUpdated.svg",
+      "accent": {
+        "svg": "SpecialFolderUpdated.accent.svg",
+        "color": "purple"
+      },
+      "source": "fluent:news"
+    },
+    {
+      "name": "SpecialFolderPersonal",
+      "codepoint": "E25A",
+      "svg": "SpecialFolderPersonal.svg"
+    },
+    {
+      "name": "SpecialFolderPromotions",
+      "codepoint": "F7B6",
+      "svg": "SpecialFolderPromotions.svg",
+      "accent": {
+        "svg": "SpecialFolderPromotions.accent.svg",
+        "color": "green"
+      },
+      "source": "fluent:tag"
+    },
+    {
+      "name": "SpecialFolderSocial",
+      "codepoint": "EEEB",
+      "svg": "SpecialFolderSocial.svg",
+      "accent": {
+        "svg": "SpecialFolderSocial.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:people"
+    },
+    {
+      "name": "SpecialFolderMore",
+      "codepoint": "F0F4",
+      "svg": "SpecialFolderMore.svg"
+    },
+    {
+      "name": "TurnOfNotifications",
+      "codepoint": "F11D",
+      "svg": "TurnOfNotifications.svg"
+    },
+    {
+      "name": "EmptyFolder",
+      "codepoint": "E47E",
+      "svg": "EmptyFolder.svg"
+    },
+    {
+      "name": "Rename",
+      "codepoint": "F668",
+      "svg": "Rename.svg"
+    },
+    {
+      "name": "Attachment",
+      "codepoint": "E723",
+      "svg": "Attachment.svg"
+    },
+    {
+      "name": "SortTextDesc",
+      "codepoint": "F3606",
+      "svg": "SortTextDesc.svg"
+    },
+    {
+      "name": "SortLinesDesc",
+      "codepoint": "F038A",
+      "svg": "SortLinesDesc.svg"
+    },
+    {
+      "name": "Certificate",
+      "codepoint": "EB95",
+      "svg": "Certificate.svg"
+    },
+    {
+      "name": "OpenInNewWindow",
+      "codepoint": "E8A7",
+      "svg": "OpenInNewWindow.svg"
+    },
+    {
+      "name": "New",
+      "codepoint": "F002A",
+      "svg": "New.svg"
+    },
+    {
+      "name": "IMAP",
+      "codepoint": "E715",
+      "svg": "IMAP.svg"
+    },
+    {
+      "name": "Print",
+      "codepoint": "E922",
+      "svg": "Print.svg"
+    },
+    {
+      "name": "Calendar",
+      "codepoint": "E912",
+      "svg": "Calendar.svg"
+    },
+    {
+      "name": "CalendarToday",
+      "codepoint": "E911",
+      "svg": "CalendarToday.svg",
+      "advance": 956
+    },
+    {
+      "name": "CalendarDay",
+      "codepoint": "E913",
+      "svg": "CalendarDay.svg"
+    },
+    {
+      "name": "CalendarWeek",
+      "codepoint": "E914",
+      "svg": "CalendarWeek.svg"
+    },
+    {
+      "name": "CalendarWorkWeek",
+      "codepoint": "E91E",
+      "svg": "CalendarWorkWeek.svg"
+    },
+    {
+      "name": "CalendarMonth",
+      "codepoint": "E91C",
+      "svg": "CalendarMonth.svg"
+    },
+    {
+      "name": "CalendarYear",
+      "codepoint": "E917",
+      "svg": "CalendarYear.svg"
+    },
+    {
+      "name": "WeatherBlow",
+      "codepoint": "E907",
+      "svg": "WeatherBlow.svg",
+      "accent": {
+        "svg": "WeatherBlow.accent.svg",
+        "color": "gray"
+      },
+      "source": "fluent:weather_squalls"
+    },
+    {
+      "name": "WeatherCloudy",
+      "codepoint": "E920",
+      "svg": "WeatherCloudy.svg",
+      "accent": {
+        "svg": "WeatherCloudy.accent.svg",
+        "color": "gray"
+      },
+      "source": "fluent:weather_cloudy"
+    },
+    {
+      "name": "WeatherSunny",
+      "codepoint": "E90E",
+      "svg": "WeatherSunny.svg",
+      "accent": {
+        "svg": "WeatherSunny.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:weather_sunny"
+    },
+    {
+      "name": "WeatherRainy",
+      "codepoint": "E908",
+      "svg": "WeatherRainy.svg",
+      "accent": {
+        "svg": "WeatherRainy.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:weather_rain"
+    },
+    {
+      "name": "WeatherSnowy",
+      "codepoint": "E90A",
+      "svg": "WeatherSnowy.svg",
+      "accent": {
+        "svg": "WeatherSnowy.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:weather_snow"
+    },
+    {
+      "name": "WeatherSnowShowerAtNight",
+      "codepoint": "E90C",
+      "svg": "WeatherSnowShowerAtNight.svg",
+      "accent": {
+        "svg": "WeatherSnowShowerAtNight.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:weather_snow_shower_night"
+    },
+    {
+      "name": "WeatherThunderstorm",
+      "codepoint": "E906",
+      "svg": "WeatherThunderstorm.svg",
+      "accent": {
+        "svg": "WeatherThunderstorm.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:weather_thunderstorm"
+    },
+    {
+      "name": "CalendarEventRepeat",
+      "codepoint": "E915",
+      "svg": "CalendarEventRepeat.svg"
+    },
+    {
+      "name": "CalendarEventMuiltiDay",
+      "codepoint": "E91B",
+      "svg": "CalendarEventMuiltiDay.svg"
+    },
+    {
+      "name": "CalendarError",
+      "codepoint": "E916",
+      "svg": "CalendarError.svg"
+    },
+    {
+      "name": "Reminder",
+      "codepoint": "E918",
+      "svg": "Reminder.svg"
+    },
+    {
+      "name": "CalendarAttendee",
+      "codepoint": "E91A",
+      "svg": "CalendarAttendee.svg"
+    },
+    {
+      "name": "CalendarAttendees",
+      "codepoint": "E929",
+      "svg": "CalendarAttendees.svg"
+    },
+    {
+      "name": "CalendarSync",
+      "codepoint": "E91D",
+      "svg": "CalendarSync.svg"
+    },
+    {
+      "name": "EventRespond",
+      "codepoint": "E924",
+      "svg": "EventRespond.svg"
+    },
+    {
+      "name": "EventAccept",
+      "codepoint": "E925",
+      "svg": "EventAccept.svg",
+      "accent": {
+        "svg": "EventAccept.accent.svg",
+        "color": "green"
+      },
+      "source": "fluent:checkmark_circle"
+    },
+    {
+      "name": "EventTentative",
+      "codepoint": "E928",
+      "svg": "EventTentative.svg",
+      "accent": {
+        "svg": "EventTentative.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:question_circle"
+    },
+    {
+      "name": "EventDecline",
+      "codepoint": "F000",
+      "svg": "EventDecline.svg",
+      "accent": {
+        "svg": "EventDecline.accent.svg",
+        "color": "red"
+      },
+      "source": "fluent:dismiss_circle"
+    },
+    {
+      "name": "EventReminder",
+      "codepoint": "E923",
+      "svg": "EventReminder.svg",
+      "accent": {
+        "svg": "EventReminder.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:alert"
+    },
+    {
+      "name": "EventEditSeries",
+      "codepoint": "E92A",
+      "svg": "EventEditSeries.svg"
+    },
+    {
+      "name": "EventJoinOnline",
+      "codepoint": "E926",
+      "svg": "EventJoinOnline.svg"
+    },
+    {
+      "name": "ViewMessageSource",
+      "codepoint": "E943",
+      "svg": "ViewMessageSource.svg"
+    },
+    {
+      "name": "Apple",
+      "codepoint": "E92B",
+      "svg": "Apple.svg",
+      "advance": 875
+    },
+    {
+      "name": "Yahoo",
+      "codepoint": "E92C",
+      "color": "#6001D1",
+      "svg": "Yahoo.svg"
+    },
+    {
+      "name": "People",
+      "codepoint": "F007",
+      "svg": "People.svg"
+    },
+    {
+      "name": "AttachmentNew",
+      "codepoint": "F006",
+      "svg": "AttachmentNew.svg"
+    },
+    {
+      "name": "CalendarSettings",
+      "codepoint": "F005",
+      "svg": "CalendarSettings.svg"
+    },
+    {
+      "name": "SettingsNew",
+      "codepoint": "F004",
+      "svg": "SettingsNew.svg"
+    },
+    {
+      "name": "ManageAccounts",
+      "codepoint": "F003",
+      "svg": "ManageAccounts.svg"
+    },
+    {
+      "name": "SendNew",
+      "codepoint": "F002",
+      "svg": "SendNew.svg"
+    },
+    {
+      "name": "CalendarShowAs",
+      "codepoint": "F001",
+      "svg": "CalendarShowAs.svg"
+    },
+    {
+      "name": "Dismiss",
+      "codepoint": "F008",
+      "svg": "Dismiss.svg"
+    },
+    {
+      "name": "AlertCircle",
+      "codepoint": "E5ED",
+      "svg": "AlertCircle.svg"
+    },
+    {
+      "name": "Filter",
+      "codepoint": "E71C",
+      "svg": "Filter.svg"
+    },
+    {
+      "name": "MailBlocked",
+      "codepoint": "E7D0",
+      "svg": "MailBlocked.svg"
+    },
+    {
+      "name": "PersonAdd",
+      "codepoint": "E8FA",
+      "svg": "PersonAdd.svg"
+    },
+    {
+      "name": "WeatherRainSnow",
+      "codepoint": "E909",
+      "svg": "WeatherRainSnow.svg",
+      "accent": {
+        "svg": "WeatherRainSnow.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:weather_rain_snow"
+    },
+    {
+      "name": "WeatherSnowflake",
+      "codepoint": "E90B",
+      "svg": "WeatherSnowflake.svg",
+      "accent": {
+        "svg": "WeatherSnowflake.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:weather_snowflake"
+    },
+    {
+      "name": "WeatherSnowShowerNight",
+      "codepoint": "E90D",
+      "svg": "WeatherSnowShowerNight.svg",
+      "accent": {
+        "svg": "WeatherSnowShowerNight.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:weather_snow_shower_night"
+    },
+    {
+      "name": "WeatherSunnyHigh",
+      "codepoint": "E90F",
+      "svg": "WeatherSunnyHigh.svg",
+      "accent": {
+        "svg": "WeatherSunnyHigh.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:weather_sunny_high"
+    },
+    {
+      "name": "WeatherSunnyLow",
+      "codepoint": "E910",
+      "svg": "WeatherSunnyLow.svg",
+      "accent": {
+        "svg": "WeatherSunnyLow.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:weather_sunny_low"
+    },
+    {
+      "name": "CalendarAgenda",
+      "codepoint": "E919",
+      "svg": "CalendarAgenda.svg"
+    },
+    {
+      "name": "WeatherCloudyNight",
+      "codepoint": "E91F",
+      "svg": "WeatherCloudyNight.svg",
+      "accent": {
+        "svg": "WeatherCloudyNight.accent.svg",
+        "color": "gray"
+      },
+      "source": "fluent:weather_partly_cloudy_night"
+    },
+    {
+      "name": "WeatherPartlyCloudy",
+      "codepoint": "E921",
+      "svg": "WeatherPartlyCloudy.svg",
+      "accent": {
+        "svg": "WeatherPartlyCloudy.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:weather_partly_cloudy_day"
+    },
+    {
+      "name": "PersonCall",
+      "codepoint": "E927",
+      "svg": "PersonCall.svg"
+    },
+    {
+      "name": "DocumentPdf",
+      "codepoint": "EA90",
+      "svg": "DocumentPdf.svg"
+    },
+    {
+      "name": "PeopleCommunity",
+      "codepoint": "EBDA",
+      "svg": "PeopleCommunity.svg"
+    },
+    {
+      "name": "Translate",
+      "codepoint": "F2B7",
+      "svg": "Translate.svg"
+    },
+    {
+      "name": "Edit",
+      "codepoint": "F3DC",
+      "svg": "Edit.svg"
+    },
+    {
+      "name": "Add",
+      "codepoint": "F598",
+      "svg": "Add.svg"
+    },
+    {
+      "name": "DontSync",
+      "codepoint": "F195",
+      "svg": "DontSync.svg",
+      "source": "fluent:arrow_sync_dismiss"
+    },
+    {
+      "name": "IconStyle",
+      "codepoint": "E000",
+      "svg": "IconStyle.svg",
+      "accent": {
+        "svg": "IconStyle.accent.svg",
+        "color": "purple"
+      },
+      "source": "fluent:icons"
+    },
+    {
+      "name": "SpecialFolderInbox",
+      "codepoint": "E001",
+      "svg": "SpecialFolderInbox.svg",
+      "accent": {
+        "svg": "SpecialFolderInbox.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:mail_inbox"
+    },
+    {
+      "name": "SpecialFolderSent",
+      "codepoint": "E002",
+      "svg": "SpecialFolderSent.svg",
+      "accent": {
+        "svg": "SpecialFolderSent.accent.svg",
+        "color": "teal"
+      },
+      "source": "fluent:send"
+    },
+    {
+      "name": "SpecialFolderDraft",
+      "codepoint": "E003",
+      "svg": "SpecialFolderDraft.svg",
+      "accent": {
+        "svg": "SpecialFolderDraft.accent.svg",
+        "color": "purple"
+      },
+      "source": "fluent:drafts"
+    },
+    {
+      "name": "SpecialFolderArchive",
+      "codepoint": "E004",
+      "svg": "SpecialFolderArchive.svg",
+      "accent": {
+        "svg": "SpecialFolderArchive.accent.svg",
+        "color": "green"
+      },
+      "source": "fluent:archive"
+    },
+    {
+      "name": "SpecialFolderDeleted",
+      "codepoint": "E005",
+      "svg": "SpecialFolderDeleted.svg",
+      "accent": {
+        "svg": "SpecialFolderDeleted.accent.svg",
+        "color": "red"
+      },
+      "source": "fluent:delete"
+    },
+    {
+      "name": "SpecialFolderUnread",
+      "codepoint": "E006",
+      "svg": "SpecialFolderUnread.svg",
+      "accent": {
+        "svg": "SpecialFolderUnread.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:mail_unread"
+    },
+    {
+      "name": "SpecialFolderOther",
+      "codepoint": "E007",
+      "svg": "SpecialFolderOther.svg",
+      "accent": {
+        "svg": "SpecialFolderOther.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:folder"
+    },
+    {
+      "name": "Person",
+      "codepoint": "E008",
+      "svg": "Person.svg",
+      "source": "fluent:person"
+    },
+    {
+      "name": "QuestionCircle",
+      "codepoint": "E009",
+      "svg": "QuestionCircle.svg",
+      "source": "fluent:question_circle"
+    },
+    {
+      "name": "Sparkle",
+      "codepoint": "E00A",
+      "svg": "Sparkle.svg",
+      "accent": {
+        "svg": "Sparkle.accent.svg",
+        "color": "purple"
+      },
+      "source": "fluent:sparkle"
+    },
+    {
+      "name": "Checkmark",
+      "codepoint": "E00B",
+      "svg": "Checkmark.svg",
+      "source": "fluent:checkmark"
+    },
+    {
+      "name": "CheckmarkCircle",
+      "codepoint": "E00C",
+      "svg": "CheckmarkCircle.svg",
+      "accent": {
+        "svg": "CheckmarkCircle.accent.svg",
+        "color": "green"
+      },
+      "source": "fluent:checkmark_circle"
+    },
+    {
+      "name": "ArrowLeft",
+      "codepoint": "E00D",
+      "svg": "ArrowLeft.svg",
+      "source": "fluent:arrow_left"
+    },
+    {
+      "name": "ArrowRight",
+      "codepoint": "E00E",
+      "svg": "ArrowRight.svg",
+      "source": "fluent:arrow_right"
+    },
+    {
+      "name": "ArrowDown",
+      "codepoint": "E00F",
+      "svg": "ArrowDown.svg",
+      "source": "fluent:arrow_down"
+    },
+    {
+      "name": "TextBold",
+      "codepoint": "E010",
+      "svg": "TextBold.svg",
+      "source": "fluent:text_bold"
+    },
+    {
+      "name": "TextItalic",
+      "codepoint": "E011",
+      "svg": "TextItalic.svg",
+      "source": "fluent:text_italic"
+    },
+    {
+      "name": "TextUnderline",
+      "codepoint": "E012",
+      "svg": "TextUnderline.svg",
+      "source": "fluent:text_underline"
+    },
+    {
+      "name": "TextStrikethrough",
+      "codepoint": "E013",
+      "svg": "TextStrikethrough.svg",
+      "source": "fluent:text_strikethrough"
+    },
+    {
+      "name": "TextBulletList",
+      "codepoint": "E014",
+      "svg": "TextBulletList.svg",
+      "source": "fluent:text_bullet_list_ltr"
+    },
+    {
+      "name": "TextNumberList",
+      "codepoint": "E015",
+      "svg": "TextNumberList.svg",
+      "source": "fluent:text_number_list_ltr"
+    },
+    {
+      "name": "TextIndentDecrease",
+      "codepoint": "E016",
+      "svg": "TextIndentDecrease.svg",
+      "source": "fluent:text_indent_decrease_ltr"
+    },
+    {
+      "name": "TextIndentIncrease",
+      "codepoint": "E017",
+      "svg": "TextIndentIncrease.svg",
+      "source": "fluent:text_indent_increase_ltr"
+    },
+    {
+      "name": "TextAlignLeft",
+      "codepoint": "E018",
+      "svg": "TextAlignLeft.svg",
+      "source": "fluent:text_align_left"
+    },
+    {
+      "name": "TextFont",
+      "codepoint": "E019",
+      "svg": "TextFont.svg",
+      "source": "fluent:text_font"
+    },
+    {
+      "name": "TextParagraphDirection",
+      "codepoint": "E01A",
+      "svg": "TextParagraphDirection.svg",
+      "source": "fluent:text_paragraph_direction"
+    },
+    {
+      "name": "TextProofingTools",
+      "codepoint": "E01B",
+      "svg": "TextProofingTools.svg",
+      "source": "fluent:text_proofing_tools"
+    },
+    {
+      "name": "TextLineSpacing",
+      "codepoint": "E01C",
+      "svg": "TextLineSpacing.svg",
+      "source": "fluent:text_line_spacing"
+    },
+    {
+      "name": "TextDescription",
+      "codepoint": "E01D",
+      "svg": "TextDescription.svg",
+      "source": "fluent:text_description"
+    },
+    {
+      "name": "TextBulletListTree",
+      "codepoint": "E01E",
+      "svg": "TextBulletListTree.svg",
+      "source": "fluent:text_bullet_list_tree"
+    },
+    {
+      "name": "Copy",
+      "codepoint": "E01F",
+      "svg": "Copy.svg",
+      "source": "fluent:copy"
+    },
+    {
+      "name": "ImageAdd",
+      "codepoint": "E020",
+      "svg": "ImageAdd.svg",
+      "source": "fluent:image_add"
+    },
+    {
+      "name": "Image",
+      "codepoint": "E021",
+      "svg": "Image.svg",
+      "source": "fluent:image"
+    },
+    {
+      "name": "Emoji",
+      "codepoint": "E022",
+      "svg": "Emoji.svg",
+      "source": "fluent:emoji"
+    },
+    {
+      "name": "Link",
+      "codepoint": "E023",
+      "svg": "Link.svg",
+      "source": "fluent:link"
+    },
+    {
+      "name": "LinkDismiss",
+      "codepoint": "E024",
+      "svg": "LinkDismiss.svg",
+      "source": "fluent:link_dismiss"
+    },
+    {
+      "name": "PeopleLink",
+      "codepoint": "E025",
+      "svg": "PeopleLink.svg",
+      "source": "fluent:people_link"
+    },
+    {
+      "name": "Table",
+      "codepoint": "E026",
+      "svg": "Table.svg",
+      "source": "fluent:table"
+    },
+    {
+      "name": "CalligraphyPen",
+      "codepoint": "E027",
+      "svg": "CalligraphyPen.svg",
+      "source": "fluent:calligraphy_pen"
+    },
+    {
+      "name": "Signature",
+      "codepoint": "E028",
+      "svg": "Signature.svg",
+      "accent": {
+        "svg": "Signature.accent.svg",
+        "color": "purple"
+      },
+      "source": "fluent:signature"
+    },
+    {
+      "name": "ChevronRight",
+      "codepoint": "E029",
+      "svg": "ChevronRight.svg",
+      "source": "fluent:chevron_right"
+    },
+    {
+      "name": "ChevronDown",
+      "codepoint": "E02A",
+      "svg": "ChevronDown.svg",
+      "source": "fluent:chevron_down"
+    },
+    {
+      "name": "ReOrderDotsVertical",
+      "codepoint": "E02B",
+      "svg": "ReOrderDotsVertical.svg",
+      "source": "fluent:re_order_dots_vertical"
+    },
+    {
+      "name": "ArrowSort",
+      "codepoint": "E02C",
+      "svg": "ArrowSort.svg",
+      "source": "fluent:arrow_sort"
+    },
+    {
+      "name": "Key",
+      "codepoint": "E02D",
+      "svg": "Key.svg",
+      "accent": {
+        "svg": "Key.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:key"
+    },
+    {
+      "name": "Info",
+      "codepoint": "E02E",
+      "svg": "Info.svg",
+      "accent": {
+        "svg": "Info.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:info"
+    },
+    {
+      "name": "Warning",
+      "codepoint": "E02F",
+      "svg": "Warning.svg",
+      "accent": {
+        "svg": "Warning.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:warning"
+    },
+    {
+      "name": "DismissCircle",
+      "codepoint": "E030",
+      "svg": "DismissCircle.svg",
+      "accent": {
+        "svg": "DismissCircle.accent.svg",
+        "color": "red"
+      },
+      "source": "fluent:dismiss_circle"
+    },
+    {
+      "name": "SubtractCircle",
+      "codepoint": "E031",
+      "svg": "SubtractCircle.svg",
+      "source": "fluent:subtract_circle"
+    },
+    {
+      "name": "Circle",
+      "codepoint": "E032",
+      "svg": "Circle.svg",
+      "source": "fluent:circle"
+    },
+    {
+      "name": "Shield",
+      "codepoint": "E033",
+      "svg": "Shield.svg",
+      "accent": {
+        "svg": "Shield.accent.svg",
+        "color": "green"
+      },
+      "source": "fluent:shield"
+    },
+    {
+      "name": "LockClosed",
+      "codepoint": "E034",
+      "svg": "LockClosed.svg",
+      "accent": {
+        "svg": "LockClosed.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:lock_closed"
+    },
+    {
+      "name": "PersonLock",
+      "codepoint": "E035",
+      "svg": "PersonLock.svg",
+      "source": "fluent:person_lock"
+    },
+    {
+      "name": "DocumentLock",
+      "codepoint": "E036",
+      "svg": "DocumentLock.svg",
+      "source": "fluent:document_lock"
+    },
+    {
+      "name": "Heart",
+      "codepoint": "E037",
+      "svg": "Heart.svg",
+      "accent": {
+        "svg": "Heart.accent.svg",
+        "color": "red"
+      },
+      "source": "fluent:heart"
+    },
+    {
+      "name": "Color",
+      "codepoint": "E038",
+      "svg": "Color.svg",
+      "accent": {
+        "svg": "Color.accent.svg",
+        "color": "purple"
+      },
+      "source": "fluent:color"
+    },
+    {
+      "name": "PaintBrush",
+      "codepoint": "E039",
+      "svg": "PaintBrush.svg",
+      "accent": {
+        "svg": "PaintBrush.accent.svg",
+        "color": "purple"
+      },
+      "source": "fluent:paint_brush"
+    },
+    {
+      "name": "Blur",
+      "codepoint": "E03A",
+      "svg": "Blur.svg",
+      "source": "fluent:blur"
+    },
+    {
+      "name": "Board",
+      "codepoint": "E03B",
+      "svg": "Board.svg",
+      "source": "fluent:board"
+    },
+    {
+      "name": "DocumentAdd",
+      "codepoint": "E03C",
+      "svg": "DocumentAdd.svg",
+      "source": "fluent:document_add"
+    },
+    {
+      "name": "Globe",
+      "codepoint": "E03D",
+      "svg": "Globe.svg",
+      "accent": {
+        "svg": "Globe.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:globe"
+    },
+    {
+      "name": "GlobeDesktop",
+      "codepoint": "E03E",
+      "svg": "GlobeDesktop.svg",
+      "source": "fluent:globe_desktop"
+    },
+    {
+      "name": "GlobeSearch",
+      "codepoint": "E03F",
+      "svg": "GlobeSearch.svg",
+      "source": "fluent:globe_search"
+    },
+    {
+      "name": "PersonSwap",
+      "codepoint": "E040",
+      "svg": "PersonSwap.svg",
+      "source": "fluent:person_swap"
+    },
+    {
+      "name": "PersonSquare",
+      "codepoint": "E041",
+      "svg": "PersonSquare.svg",
+      "source": "fluent:person_square"
+    },
+    {
+      "name": "PersonDelete",
+      "codepoint": "E042",
+      "svg": "PersonDelete.svg",
+      "source": "fluent:person_delete"
+    },
+    {
+      "name": "PersonTag",
+      "codepoint": "E043",
+      "svg": "PersonTag.svg",
+      "source": "fluent:person_tag"
+    },
+    {
+      "name": "PersonAccounts",
+      "codepoint": "E044",
+      "svg": "PersonAccounts.svg",
+      "source": "fluent:person_accounts"
+    },
+    {
+      "name": "PeopleTeam",
+      "codepoint": "E045",
+      "svg": "PeopleTeam.svg",
+      "source": "fluent:people_team"
+    },
+    {
+      "name": "ContactCard",
+      "codepoint": "E046",
+      "svg": "ContactCard.svg",
+      "source": "fluent:contact_card"
+    },
+    {
+      "name": "Tag",
+      "codepoint": "E047",
+      "svg": "Tag.svg",
+      "source": "fluent:tag"
+    },
+    {
+      "name": "FolderSync",
+      "codepoint": "E048",
+      "svg": "FolderSync.svg",
+      "source": "fluent:folder_sync"
+    },
+    {
+      "name": "FolderArrowUp",
+      "codepoint": "E049",
+      "svg": "FolderArrowUp.svg",
+      "source": "fluent:folder_arrow_up"
+    },
+    {
+      "name": "MailArrowUp",
+      "codepoint": "E04A",
+      "svg": "MailArrowUp.svg",
+      "source": "fluent:mail_arrow_up"
+    },
+    {
+      "name": "MailCheckmark",
+      "codepoint": "E04B",
+      "svg": "MailCheckmark.svg",
+      "source": "fluent:mail_checkmark"
+    },
+    {
+      "name": "MailInboxCheckmark",
+      "codepoint": "E04C",
+      "svg": "MailInboxCheckmark.svg",
+      "source": "fluent:mail_inbox_checkmark"
+    },
+    {
+      "name": "List",
+      "codepoint": "E04D",
+      "svg": "List.svg",
+      "accent": {
+        "svg": "List.accent.svg",
+        "color": "teal"
+      },
+      "source": "fluent:list"
+    },
+    {
+      "name": "GroupList",
+      "codepoint": "E04E",
+      "svg": "GroupList.svg",
+      "source": "fluent:group_list"
+    },
+    {
+      "name": "TaskList",
+      "codepoint": "E04F",
+      "svg": "TaskList.svg",
+      "source": "fluent:task_list_ltr"
+    },
+    {
+      "name": "Settings",
+      "codepoint": "E050",
+      "svg": "Settings.svg",
+      "accent": {
+        "svg": "Settings.accent.svg",
+        "color": "gray"
+      },
+      "source": "fluent:settings"
+    },
+    {
+      "name": "Home",
+      "codepoint": "E051",
+      "svg": "Home.svg",
+      "accent": {
+        "svg": "Home.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:home"
+    },
+    {
+      "name": "Keyboard",
+      "codepoint": "E052",
+      "svg": "Keyboard.svg",
+      "accent": {
+        "svg": "Keyboard.accent.svg",
+        "color": "gray"
+      },
+      "source": "fluent:keyboard"
+    },
+    {
+      "name": "Storage",
+      "codepoint": "E053",
+      "svg": "Storage.svg",
+      "accent": {
+        "svg": "Storage.accent.svg",
+        "color": "gray"
+      },
+      "source": "fluent:storage"
+    },
+    {
+      "name": "Desktop",
+      "codepoint": "E054",
+      "svg": "Desktop.svg",
+      "accent": {
+        "svg": "Desktop.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:desktop"
+    },
+    {
+      "name": "Laptop",
+      "codepoint": "E055",
+      "svg": "Laptop.svg",
+      "source": "fluent:laptop"
+    },
+    {
+      "name": "Phone",
+      "codepoint": "E056",
+      "svg": "Phone.svg",
+      "source": "fluent:phone"
+    },
+    {
+      "name": "Cloud",
+      "codepoint": "E057",
+      "svg": "Cloud.svg",
+      "source": "fluent:cloud"
+    },
+    {
+      "name": "CalendarCancel",
+      "codepoint": "E058",
+      "svg": "CalendarCancel.svg",
+      "source": "fluent:calendar_cancel"
+    },
+    {
+      "name": "Alert",
+      "codepoint": "E059",
+      "svg": "Alert.svg",
+      "accent": {
+        "svg": "Alert.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:alert"
+    },
+    {
+      "name": "AlertBadge",
+      "codepoint": "E05A",
+      "svg": "AlertBadge.svg",
+      "source": "fluent:alert_badge"
+    },
+    {
+      "name": "EyeOff",
+      "codepoint": "E05B",
+      "svg": "EyeOff.svg",
+      "source": "fluent:eye_off"
+    },
+    {
+      "name": "Eye",
+      "codepoint": "E05C",
+      "svg": "Eye.svg",
+      "source": "fluent:eye"
+    },
+    {
+      "name": "ArrowDownload",
+      "codepoint": "E05D",
+      "svg": "ArrowDownload.svg",
+      "source": "fluent:arrow_download"
+    },
+    {
+      "name": "ArrowUpload",
+      "codepoint": "E05E",
+      "svg": "ArrowUpload.svg",
+      "source": "fluent:arrow_upload"
+    },
+    {
+      "name": "ArrowSyncCircle",
+      "codepoint": "E05F",
+      "svg": "ArrowSyncCircle.svg",
+      "source": "fluent:arrow_sync_circle"
+    },
+    {
+      "name": "ArrowClockwise",
+      "codepoint": "E060",
+      "svg": "ArrowClockwise.svg",
+      "source": "fluent:arrow_clockwise"
+    },
+    {
+      "name": "ArrowSwap",
+      "codepoint": "E061",
+      "svg": "ArrowSwap.svg",
+      "source": "fluent:arrow_swap"
+    },
+    {
+      "name": "ArrowUndo",
+      "codepoint": "E062",
+      "svg": "ArrowUndo.svg",
+      "source": "fluent:arrow_undo"
+    },
+    {
+      "name": "Clock",
+      "codepoint": "E063",
+      "svg": "Clock.svg",
+      "accent": {
+        "svg": "Clock.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:clock"
+    },
+    {
+      "name": "Briefcase",
+      "codepoint": "E064",
+      "svg": "Briefcase.svg",
+      "source": "fluent:briefcase"
+    },
+    {
+      "name": "Open",
+      "codepoint": "E065",
+      "svg": "Open.svg",
+      "source": "fluent:open"
+    },
+    {
+      "name": "Bug",
+      "codepoint": "E067",
+      "svg": "Bug.svg",
+      "source": "fluent:bug"
+    },
+    {
+      "name": "Power",
+      "codepoint": "E068",
+      "svg": "Power.svg",
+      "source": "fluent:power"
+    },
+    {
+      "name": "CursorHover",
+      "codepoint": "E069",
+      "svg": "CursorHover.svg",
+      "source": "fluent:cursor_hover"
+    },
+    {
+      "name": "TapSingle",
+      "codepoint": "E06A",
+      "svg": "TapSingle.svg",
+      "source": "fluent:tap_single"
+    },
+    {
+      "name": "Window",
+      "codepoint": "E06B",
+      "svg": "Window.svg",
+      "source": "fluent:window"
+    },
+    {
+      "name": "ToggleLeft",
+      "codepoint": "E06D",
+      "svg": "ToggleLeft.svg",
+      "source": "fluent:toggle_left"
+    },
+    {
+      "name": "SignOut",
+      "codepoint": "E06E",
+      "svg": "SignOut.svg",
+      "source": "fluent:sign_out"
+    },
+    {
+      "name": "Important",
+      "codepoint": "E06F",
+      "svg": "Important.svg",
+      "accent": {
+        "svg": "Important.accent.svg",
+        "color": "red"
+      },
+      "source": "fluent:important"
+    },
+    {
+      "name": "MicrosoftStore",
+      "codepoint": "E070",
+      "svg": "MicrosoftStore.svg",
+      "source": "fluent:store_microsoft"
+    },
+    {
+      "name": "Message",
+      "codepoint": "E071",
+      "svg": "Message.svg",
+      "source": "fluent:chat"
+    },
+    {
+      "name": "Blocked",
+      "codepoint": "E072",
+      "svg": "Blocked.svg",
+      "source": "fluent:prohibited"
+    },
+    {
+      "name": "GitHub",
+      "codepoint": "E073",
+      "svg": "GitHub.svg",
+      "source": "brand logo (previous inline XAML path)"
+    },
+    {
+      "name": "Discord",
+      "codepoint": "E074",
+      "svg": "Discord.svg",
+      "source": "brand logo (previous inline XAML path)"
+    },
+    {
+      "name": "PayPal",
+      "codepoint": "E075",
+      "svg": "PayPal.svg",
+      "source": "brand logo (previous inline XAML path)"
+    },
+    {
+      "name": "WinoIntelligence",
+      "codepoint": "E076",
+      "svg": "WinoIntelligence.svg",
+      "source": "Wino Intelligence brand sparkle (WinoIntelligenceBrandSparklePathData)"
+    },
+    {
+      "name": "Companion",
+      "codepoint": "E077",
+      "svg": "Companion.svg",
+      "source": "companion flyout (previous settings path icon)"
+    },
+    {
+      "name": "AlertOff",
+      "codepoint": "E078",
+      "svg": "AlertOff.svg",
+      "source": "fluent:alert_off"
+    },
+    {
+      "name": "Wrench",
+      "codepoint": "E079",
+      "svg": "Wrench.svg",
+      "source": "fluent:wrench"
+    },
+    {
+      "name": "Pulse",
+      "codepoint": "E07A",
+      "svg": "Pulse.svg",
+      "source": "fluent:pulse"
+    },
+    {
+      "name": "Play",
+      "codepoint": "E07B",
+      "svg": "Play.svg",
+      "source": "fluent:play"
+    },
+    {
+      "name": "Document",
+      "codepoint": "E07C",
+      "svg": "Document.svg",
+      "source": "fluent:document"
+    },
+    {
+      "name": "Location",
+      "codepoint": "E07D",
+      "svg": "Location.svg",
+      "source": "fluent:location"
+    },
+    {
+      "name": "Library",
+      "codepoint": "E07E",
+      "svg": "Library.svg",
+      "source": "fluent:library"
+    },
+    {
+      "name": "DarkTheme",
+      "codepoint": "E07F",
+      "svg": "DarkTheme.svg",
+      "source": "fluent:dark_theme"
+    },
+    {
+      "name": "Grid",
+      "codepoint": "E080",
+      "svg": "Grid.svg",
+      "source": "fluent:grid"
+    },
+    {
+      "name": "PanelLeft",
+      "codepoint": "E081",
+      "svg": "PanelLeft.svg",
+      "source": "fluent:panel_left"
+    },
+    {
+      "name": "PanelLeftExpand",
+      "codepoint": "E082",
+      "svg": "PanelLeftExpand.svg",
+      "source": "fluent:panel_left_expand"
+    },
+    {
+      "name": "Camera",
+      "codepoint": "E083",
+      "svg": "Camera.svg",
+      "source": "fluent:camera"
+    },
+    {
+      "name": "Note",
+      "codepoint": "E084",
+      "svg": "Note.svg",
+      "source": "fluent:note"
+    },
+    {
+      "name": "NoteEdit",
+      "codepoint": "E085",
+      "svg": "NoteEdit.svg",
+      "source": "fluent:note_edit"
+    },
+    {
+      "name": "Devices",
+      "codepoint": "E086",
+      "svg": "Devices.svg",
+      "source": "fluent:phone_laptop"
+    },
+    {
+      "name": "Stop",
+      "codepoint": "E087",
+      "svg": "Stop.svg",
+      "source": "fluent:stop"
+    },
+    {
+      "name": "ChevronUp",
+      "codepoint": "E088",
+      "svg": "ChevronUp.svg",
+      "source": "fluent:chevron_up"
+    },
+    {
+      "name": "ShieldError",
+      "codepoint": "E089",
+      "svg": "ShieldError.svg",
+      "accent": {
+        "svg": "ShieldError.accent.svg",
+        "color": "red"
+      },
+      "source": "fluent:shield_error"
+    },
+    {
+      "name": "ArrowReset",
+      "codepoint": "E08A",
+      "svg": "ArrowReset.svg",
+      "source": "fluent:arrow_reset"
+    },
+    {
+      "name": "Speaker",
+      "codepoint": "E08B",
+      "svg": "Speaker.svg",
+      "source": "fluent:speaker_2"
+    },
+    {
+      "name": "Lightbulb",
+      "codepoint": "E08C",
+      "svg": "Lightbulb.svg",
+      "accent": {
+        "svg": "Lightbulb.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:lightbulb"
+    },
+    {
+      "name": "ArrowRepeatAll",
+      "codepoint": "E08D",
+      "svg": "ArrowRepeatAll.svg",
+      "source": "fluent:arrow_repeat_all"
+    },
+    {
+      "name": "TextClearFormatting",
+      "codepoint": "E08E",
+      "svg": "TextClearFormatting.svg",
+      "source": "fluent:text_clear_formatting"
+    },
+    {
+      "name": "TextAlignCenter",
+      "codepoint": "E08F",
+      "svg": "TextAlignCenter.svg",
+      "source": "fluent:text_align_center"
+    },
+    {
+      "name": "TextAlignRight",
+      "codepoint": "E090",
+      "svg": "TextAlignRight.svg",
+      "source": "fluent:text_align_right"
+    },
+    {
+      "name": "TextAlignJustify",
+      "codepoint": "E091",
+      "svg": "TextAlignJustify.svg",
+      "source": "fluent:text_align_justify"
+    },
+    {
+      "name": "TextColor",
+      "codepoint": "E092",
+      "svg": "TextColor.svg",
+      "source": "fluent:text_color"
+    },
+    {
+      "name": "ArrowRedo",
+      "codepoint": "E093",
+      "svg": "ArrowRedo.svg",
+      "source": "fluent:arrow_redo"
+    },
+    {
+      "name": "Highlight",
+      "codepoint": "E094",
+      "svg": "Highlight.svg",
+      "source": "fluent:highlight"
+    },
+    {
+      "name": "SelectAll",
+      "codepoint": "E095",
+      "svg": "SelectAll.svg",
+      "source": "fluent:select_all_on"
+    },
+    {
+      "name": "Dot",
+      "codepoint": "E096",
+      "svg": "Dot.svg",
+      "source": "fluent:circle_small"
+    },
+    {
+      "name": "DailyBriefing",
+      "codepoint": "E097",
+      "svg": "DailyBriefing.svg",
+      "source": "daily briefing (previous inline XAML path)"
+    },
+    {
+      "name": "BenefitDeviceTransfer",
+      "codepoint": "E098",
+      "svg": "BenefitDeviceTransfer.svg",
+      "source": "Wino account benefit tile (DeviceTransfer)"
+    },
+    {
+      "name": "BenefitEntitlements",
+      "codepoint": "E099",
+      "svg": "BenefitEntitlements.svg",
+      "source": "Wino account benefit tile (Entitlements)"
+    },
+    {
+      "name": "BenefitUnlimitedAccounts",
+      "codepoint": "E09A",
+      "svg": "BenefitUnlimitedAccounts.svg",
+      "source": "Wino account benefit tile (UnlimitedAccounts)"
+    },
+    {
+      "name": "Payment",
+      "codepoint": "E09B",
+      "svg": "Payment.svg",
+      "source": "fluent:payment"
+    },
+    {
+      "name": "Package",
+      "codepoint": "E09C",
+      "svg": "Package.svg",
+      "source": "fluent:box"
+    },
+    {
+      "name": "Flash",
+      "codepoint": "E09D",
+      "svg": "Flash.svg",
+      "source": "fluent:flash"
+    },
+    {
+      "name": "Airplane",
+      "codepoint": "E09E",
+      "svg": "Airplane.svg",
+      "source": "fluent:airplane"
+    },
+    {
+      "name": "News",
+      "codepoint": "E09F",
+      "svg": "News.svg",
+      "source": "fluent:news"
+    },
+    {
+      "name": "Cart",
+      "codepoint": "E0A0",
+      "svg": "Cart.svg",
+      "source": "fluent:cart"
+    },
+    {
+      "name": "History",
+      "codepoint": "E0A1",
+      "svg": "History.svg",
+      "source": "fluent:history"
+    },
+    {
+      "name": "PanelLeftContract",
+      "codepoint": "E0A2",
+      "svg": "PanelLeftContract.svg",
+      "source": "fluent:panel_left_contract"
+    },
+    {
+      "name": "StarFilled",
+      "codepoint": "E0A3",
+      "svg": "StarFilled.svg",
+      "source": "fluent:star"
+    }
+  ]
+}
