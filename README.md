@@ -24,14 +24,12 @@ Wino started before the current AI era. The project welcomes AI-assisted contrib
 
 ## Download
 
-Choose one distribution channel for Wino Mail. Install either the Microsoft Store version or the signed sideloaded version.
+Install Wino Mail from the Microsoft Store or directly with App Installer.
 
 | Distribution | Recommended for | Installation |
 | --- | --- | --- |
 | Microsoft Store | Most users | [Install Wino Mail from Microsoft Store](https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full) |
-| Signed sideloaded package | Users who want direct distribution outside Microsoft Store | [Install Wino Mail with App Installer](https://download.winomail.app/wino.appinstaller) |
-
-The developer signs the sideloaded package. The `.appinstaller` file gives Windows the package location and update information.
+| Direct download | Users who prefer to install outside Microsoft Store | [Install Wino Mail with App Installer](https://download.winomail.app/wino.appinstaller) |
 
 <a href="https://apps.microsoft.com/detail/Wino%20Mail/9NCRCVJC50WL?launch=true&mode=full">
   <img src="https://get.microsoft.com/images/en-us%20dark.svg" width="200" alt="Get Wino Mail from Microsoft Store">
@@ -40,18 +38,6 @@ The developer signs the sideloaded package. The `.appinstaller` file gives Windo
 ### Beta releases
 
 Beta releases are available from [GitHub Releases](https://github.com/bkaankose/Wino-Mail/releases). They can contain unfinished changes and are for testing.
-
-Beta and other sideloaded packages do not use Microsoft Store distribution. The project signs these packages with Azure Artifact Signing before publication.
-
-Each beta download contains the signed `.msixbundle` and its public certificate. Compare the package version with the repository version before installation.
-
-Follow the [Microsoft sideloading guide](https://learn.microsoft.com/en-us/windows/application-management/sideload-apps-in-windows) if Windows cannot open the App Installer link.
-
-## About Wino
-
-Wino is an open-source replacement for the retired Windows Mail and Calendar applications. It keeps their direct, native Windows experience.
-
-The active desktop application uses WinUI 3. Mail, Calendar, People, and To Do share one account and service architecture.
 
 ## Other features
 
@@ -64,13 +50,9 @@ The active desktop application uses WinUI 3. Mail, Calendar, People, and To Do s
 - EML and ICS file integration
 - `mailto`, `webcal`, `webcals`, and Wino protocol activation
 
-## Developer setup
-
-Read the [contribution guide](CONTRIBUTING.md) for requirements, build commands, project details, and contribution rules.
-
 ## Contributing
 
-Read the [contribution guide](CONTRIBUTING.md) before you start work or open a pull request. Discuss large features in an issue or proposal first.
+Read the [contribution guide](CONTRIBUTING.md) for developer setup, build commands, and contribution rules. Discuss large features in an issue or proposal first.
 
 Contributors remain responsible for every submitted change, including AI-assisted changes.
 

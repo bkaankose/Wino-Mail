@@ -166,7 +166,7 @@ Do not register all four notification identities in the main executable. Keep ea
 
 ## Data and application state
 
-[`WinoApplication`](src/Wino.Mail.WinUI/WinoApplication.cs) initializes application data paths. The SQLite database is `Wino200.db` in the publisher-shared `WinoShared` folder.
+[`WinoApplication`](src/Wino.Mail.WinUI/WinoApplication.cs) initializes application data paths. The SQLite database is `Wino200.db` in the app package's local data folder.
 
 The database stores mail and calendar metadata. [`MimeFileService`](src/Wino.Services/MimeFileService.cs) resolves downloaded MIME files from application-local storage.
 
@@ -190,11 +190,11 @@ Avoid new packages when the platform or repository already supplies the required
 
 ## Localization
 
-Developers must add or update source strings only in [`en_US/resources.json`](src/Wino.Core.Domain/Translations/en_US/resources.json).
+For new development, add or update translations manually only in [`en_US/resources.json`](src/Wino.Core.Domain/Translations/en_US/resources.json), the English (en-US) source file.
 
 Use the generated `Translator` properties in C# and XAML. Do not edit non-English resource files.
 
-Before a release, the project AI translation script updates other languages from the English source file. Contributors do not run or modify that release translation output for ordinary changes.
+The maintainer generates translations for other languages from the English source before each public release.
 
 ## Controls and XAML
 
