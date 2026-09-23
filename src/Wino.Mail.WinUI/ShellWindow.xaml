@@ -125,37 +125,23 @@
                     <TitleBar.Content>
                         <searchControls:WinoSearchBar
                             x:Name="TitleBarSearchBox"
-                            MaxWidth="400"
+                            MaxWidth="390"
                             Margin="12,0,16,0"
                             VerticalAlignment="Center"
-                            AttachmentsFilterText="{x:Bind domain:Translator.SearchBar_Attachments}"
                             AutomationProperties.AutomationId="TitleBarSearchBox"
                             AutomationProperties.Name="{x:Bind domain:Translator.SearchBarPlaceholder}"
                             ClearHistoryText="{x:Bind domain:Translator.SearchBar_ClearHistory}"
                             ClearSearchHistoryRequested="TitleBarClearSearchHistoryRequested"
                             ClearText="{x:Bind domain:Translator.SearchBar_Close}"
-                            DateLabelText="{x:Bind domain:Translator.SearchBar_Date}"
-                            EmptyHistoryText="{x:Bind domain:Translator.SearchBar_NoRecentSearches}"
-                            FlaggedFilterText="{x:Bind domain:Translator.SearchBar_Flagged}"
-                            MeaningToggleText="{x:Bind domain:Translator.SearchBar_Meaning}"
+                            FilterText="{x:Bind domain:Translator.SearchBar_SearchOptions}"
+                            LocalText="{x:Bind domain:Translator.SettingsAppPreferences_SearchMode_Local}"
+                            OnlineText="{x:Bind domain:Translator.SettingsAppPreferences_SearchMode_Online}"
                             PlaceholderText="{x:Bind domain:Translator.SearchBarPlaceholder}"
-                            ReachLabelText="{x:Bind domain:Translator.SearchBar_Reach}"
-                            RecentSearchesText="{x:Bind domain:Translator.SearchBar_RecentSearches}"
-                            RemoveSenderText="{x:Bind domain:Translator.SearchBar_RemoveSender}"
-                            ResetText="{x:Bind domain:Translator.SearchBar_ResetFilters}"
-                            ScopeLabelText="{x:Bind domain:Translator.SearchBar_Scope}"
                             SearchButtonText="{x:Bind domain:Translator.SearchBar_SearchButton}"
-                            SearchOptionsText="{x:Bind domain:Translator.SearchBar_SearchOptions}"
+                            SearchDismissed="TitleBarSearchDismissed"
                             SearchSubmitted="TitleBarSearchSubmitted"
                             SearchTextChanged="TitleBarSearchTextChanged"
-                            SemanticPlaceholderText="{x:Bind domain:Translator.SearchBar_SemanticPlaceholder}"
-                            SemanticSearchExplanationText="{x:Bind domain:Translator.SearchBar_SemanticExplanation}"
-                            SenderLabelText="{x:Bind domain:Translator.SearchBar_Sender}"
-                            SenderPlaceholderText="{x:Bind domain:Translator.SearchBar_SenderPlaceholder}"
-                            SenderSuggestionItemTemplate="{StaticResource TitleBarSenderSuggestionTemplate}"
-                            SenderSuggestionsRequested="TitleBarSenderSuggestionsRequested"
-                            TitleBar.IsDragRegion="False"
-                            UnreadFilterText="{x:Bind domain:Translator.SearchBar_Unread}">
+                            TitleBar.IsDragRegion="False">
                             <searchControls:WinoSearchBar.ItemTemplate>
                                 <DataTemplate x:DataType="searchModels:TitleBarSearchSuggestion">
                                     <Grid MinHeight="48" Padding="8,4">

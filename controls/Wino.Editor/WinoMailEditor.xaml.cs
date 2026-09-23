@@ -54,6 +54,9 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         new(TaskCreationOptions.RunContinuationsAsynchronously);
     private bool _updatingToolbar;
     private bool _disposed;
+    private bool _autoCorrectEnabled;
+    private bool _spellCheckEnabled = true;
+    private string _spellCheckLanguageCode = string.Empty;
 
     public WinoMailEditor()
     {
@@ -128,6 +131,16 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         await InitializeAsync();
         await _bridge!.SetSpellCheckLanguageAsync(languageCode);
         await _bridge.SetSpellCheckAsync(isEnabled);
+        _spellCheckEnabled = isEnabled;
+        _spellCheckLanguageCode = languageCode;
+        await _bridge.SetAutoCorrectAsync(isEnabled && _autoCorrectEnabled);
+    }
+
+    public async Task ConfigureAutoCorrectAsync(bool isEnabled)
+    {
+        _autoCorrectEnabled = isEnabled;
+        await InitializeAsync();
+        await _bridge!.SetAutoCorrectAsync(isEnabled && _spellCheckEnabled);
     }
 
     public async Task SetApplicationShortcutsAsync(IReadOnlyList<EditorApplicationShortcutGesture> shortcuts)
@@ -230,6 +243,7 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         _bridge = new EditorBridge(EditorWebView2);
         _bridge.SelectionStateChanged += Bridge_SelectionStateChanged;
         _bridge.ContentChanged += Bridge_ContentChanged;
+        _bridge.AutoCorrectRequested += Bridge_AutoCorrectRequested;
         _bridge.LinkNavigationRequested += Bridge_LinkNavigationRequested;
         _bridge.ShortcutRequested += Bridge_ShortcutRequested;
         _bridge.ApplicationShortcutRequested += Bridge_ApplicationShortcutRequested;
@@ -256,6 +270,7 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         if (_bridge is null) return;
         _bridge.SelectionStateChanged -= Bridge_SelectionStateChanged;
         _bridge.ContentChanged -= Bridge_ContentChanged;
+        _bridge.AutoCorrectRequested -= Bridge_AutoCorrectRequested;
         _bridge.LinkNavigationRequested -= Bridge_LinkNavigationRequested;
         _bridge.ShortcutRequested -= Bridge_ShortcutRequested;
         _bridge.ApplicationShortcutRequested -= Bridge_ApplicationShortcutRequested;
@@ -264,6 +279,23 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
     }
 
     private void Bridge_ContentChanged(object? sender, EventArgs e) => ContentChanged?.Invoke(this, EventArgs.Empty);
+
+    private async void Bridge_AutoCorrectRequested(object? sender, EditorMessage message)
+    {
+        if (!_autoCorrectEnabled || _disposed || message.Word is not { Length: >= 2 and <= 64 } word)
+            return;
+
+        try
+        {
+            string? replacement = await Task.Run(() => WindowsAutoCorrect.GetReplacement(_spellCheckLanguageCode, word));
+            if (replacement is not null && !_disposed && _bridge is not null)
+                await _bridge.ApplyAutoCorrectionAsync(message.RequestId, word, replacement);
+        }
+        catch (Exception)
+        {
+            // Missing Windows language providers leave normal spell checking available.
+        }
+    }
 
     private void Bridge_ApplicationShortcutRequested(object? sender, EditorApplicationShortcutGesture gesture)
         => ApplicationShortcutRequested?.Invoke(this, gesture);
@@ -396,8 +428,15 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
             case EditorCommandKind.InsertTable when command.Value is EditorTableCommandArgs table: await _bridge!.InsertTableAsync(table.Rows, table.Columns); break;
             case EditorCommandKind.ToggleTheme: IsEditorDarkMode = command.Value is true; break;
             case EditorCommandKind.ToggleBuiltInToolbar: IsEditorWebViewEditor = command.Value is true; break;
-            case EditorCommandKind.ToggleSpellCheck: await _bridge!.SetSpellCheckAsync(command.Value is true); break;
-            case EditorCommandKind.SetSpellCheckLanguage: await _bridge!.SetSpellCheckLanguageAsync(command.Value?.ToString() ?? string.Empty); break;
+            case EditorCommandKind.ToggleSpellCheck:
+                _spellCheckEnabled = command.Value is true;
+                await _bridge!.SetSpellCheckAsync(_spellCheckEnabled);
+                await _bridge.SetAutoCorrectAsync(_spellCheckEnabled && _autoCorrectEnabled);
+                break;
+            case EditorCommandKind.SetSpellCheckLanguage:
+                _spellCheckLanguageCode = command.Value?.ToString() ?? string.Empty;
+                await _bridge!.SetSpellCheckLanguageAsync(_spellCheckLanguageCode);
+                break;
         }
     }
 

@@ -23,6 +23,7 @@ public partial class WinoContextFlyout : FlyoutBase
 
     public WinoContextFlyout()
     {
+        AreOpenCloseAnimationsEnabled = false;
         Opened += OnOpened;
         Closed += OnClosed;
     }

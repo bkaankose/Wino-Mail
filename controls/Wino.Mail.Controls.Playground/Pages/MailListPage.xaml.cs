@@ -36,6 +36,12 @@ public sealed partial class MailListPage : Page, IDisposable
         RefreshSelectionInspector();
     }
 
+    private void SearchHeaderItemClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is RadioMenuFlyoutItem item)
+            ViewModel.SelectedHeaderButtonTitle = item.Text;
+    }
+
     private void InvokeHoverAction(HoverActionCommandRequest? request)
     {
         if (request is null)
@@ -139,6 +145,7 @@ public sealed partial class MailListPage : Page, IDisposable
         ViewModel.Items.CollectionChanged -= ItemsCollectionChanged;
         Bindings.StopTracking();
         MailList.Dispose();
+        MailSearchBar.Dispose();
         GC.SuppressFinalize(this);
     }
 }

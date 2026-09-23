@@ -1426,7 +1426,12 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                 // Look for subject and body.
                 var query = BuildOnlineSearchQuery(criteria);
 
-                var searchResultsInFolder = await remoteFolder.SearchAsync(query, cancellationToken).ConfigureAwait(false);
+                // A broad filter (read mail, or attachments alone, which the server cannot check)
+                // can match the whole folder. Only the newest results are downloaded, as with Outlook.
+                var searchResultsInFolder = (await remoteFolder.SearchAsync(query, cancellationToken).ConfigureAwait(false))
+                    .OrderByDescending(uid => uid.Id)
+                    .Take(MaxOnlineSearchResultsPerFolder)
+                    .ToList();
                 Dictionary<string, UniqueId> searchResultsIdsInFolder = [];
 
                 foreach (var searchResultId in searchResultsInFolder)
@@ -1469,17 +1474,26 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         }
     }
 
+    internal const int MaxOnlineSearchResultsPerFolder = 1000;
+
     internal static SearchQuery BuildOnlineSearchQuery(RemoteMailSearchCriteria criteria)
     {
         SearchQuery query = string.IsNullOrWhiteSpace(criteria.Query)
             ? SearchQuery.All
             : SearchQuery.BodyContains(criteria.Query).Or(SearchQuery.SubjectContains(criteria.Query));
-        if (!string.IsNullOrWhiteSpace(criteria.Sender)) query = query.And(SearchQuery.FromContains(criteria.Sender));
-        if (criteria.ReceivedAfterUtc is { } after) query = query.And(SearchQuery.DeliveredAfter(after.UtcDateTime));
-        if (criteria.ReceivedBeforeUtc is { } before) query = query.And(SearchQuery.DeliveredBefore(before.UtcDateTime));
-        if (criteria.HasAttachments) query = query.And(SearchQuery.HeaderContains("Content-Disposition", "attachment"));
-        if (criteria.IsUnread) query = query.And(SearchQuery.NotSeen);
+        if (!string.IsNullOrWhiteSpace(criteria.Sender)) query = query.And(SearchQuery.FromContains(criteria.Sender.Trim()));
+        if (!string.IsNullOrWhiteSpace(criteria.Subject)) query = query.And(SearchQuery.SubjectContains(criteria.Subject.Trim()));
+
+        // SINCE and BEFORE compare whole days in the server's time zone. The range is one day wider
+        // on each side here, and the exact range is applied to the downloaded results.
+        if (criteria.ReceivedAfterUtc is { } after) query = query.And(SearchQuery.DeliveredAfter(after.UtcDateTime.Date.AddDays(-1)));
+        if (criteria.ReceivedBeforeUtc is { } before) query = query.And(SearchQuery.DeliveredBefore(before.UtcDateTime.Date.AddDays(2)));
+        if (criteria.ReadStatus == MailReadStatusFilter.Unread) query = query.And(SearchQuery.NotSeen);
+        if (criteria.ReadStatus == MailReadStatusFilter.Read) query = query.And(SearchQuery.Seen);
         if (criteria.IsFlagged) query = query.And(SearchQuery.Flagged);
+
+        // SEARCH has no attachment key. Attachments are read from BODYSTRUCTURE at download and
+        // filtered afterwards.
         return query;
     }
 

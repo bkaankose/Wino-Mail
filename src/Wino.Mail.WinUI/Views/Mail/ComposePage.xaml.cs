@@ -11,6 +11,7 @@ using EmailValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
@@ -32,6 +33,7 @@ using Wino.Core.Domain.Models.Reader;
 using Wino.Editor;
 using Wino.Helpers;
 using Wino.Mail.Controls;
+using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.ContextFlyout;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
@@ -657,27 +659,53 @@ public sealed partial class ComposePage : ComposePageAbstract,
         if (sender is not FrameworkElement { DataContext: MailAttachmentViewModel attachment } target)
             return;
 
-        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
-        [
-            new ContextFlyoutCommandEntry
-            {
-                Text = Translator.Buttons_Open,
-                Icon = new ContextFlyoutIcon("\uE8E5"),
-                Command = ViewModel.OpenAttachmentCommand,
-                CommandParameter = attachment,
-                AutomationId = "ComposeAttachmentOpen"
-            },
-            new ContextFlyoutCommandEntry
-            {
-                Text = Translator.Buttons_Save,
-                Icon = new ContextFlyoutIcon("\uE74E"),
-                Command = ViewModel.SaveAttachmentCommand,
-                CommandParameter = attachment,
-                Shortcut = new ContextFlyoutShortcut("Ctrl+S", "S", Control: true),
-                AutomationId = "ComposeAttachmentSave"
-            }
-        ]);
+        WinoContextFlyoutHelper.Show(target, args, CreateAttachmentMenuEntries(attachment));
     }
+
+    private void AttachmentMoreButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: MailAttachmentViewModel attachment } button)
+            return;
+
+        new WinoContextFlyout { ItemsSource = CreateAttachmentMenuEntries(attachment) }
+            .ShowAt(button, new FlyoutShowOptions { Placement = FlyoutPlacementMode.BottomEdgeAlignedRight });
+    }
+
+    private ContextFlyoutMenuEntry[] CreateAttachmentMenuEntries(MailAttachmentViewModel attachment) =>
+    [
+        new ContextFlyoutCommandEntry
+        {
+            Text = Translator.Buttons_Open,
+            Icon = CreateWinoIcon(WinoIconGlyph.OpenInNewWindow),
+            Command = ViewModel.OpenAttachmentCommand,
+            CommandParameter = attachment,
+            AutomationId = "ComposeAttachmentOpen"
+        },
+        new ContextFlyoutCommandEntry
+        {
+            Text = Translator.Buttons_Save,
+            Icon = CreateWinoIcon(WinoIconGlyph.Save),
+            Command = ViewModel.SaveAttachmentCommand,
+            CommandParameter = attachment,
+            Shortcut = new ContextFlyoutShortcut("Ctrl+S", "S", Control: true),
+            AutomationId = "ComposeAttachmentSave"
+        },
+        ContextFlyoutSeparatorEntry.Instance,
+        new ContextFlyoutCommandEntry
+        {
+            Text = Translator.Buttons_Remove,
+            Icon = CreateWinoIcon(WinoIconGlyph.Dismiss),
+            Command = ViewModel.RemoveAttachmentCommand,
+            CommandParameter = attachment,
+            Shortcut = new ContextFlyoutShortcut("Delete", "Delete"),
+            AutomationId = "ComposeAttachmentRemove"
+        }
+    ];
+
+    private static ContextFlyoutIcon? CreateWinoIcon(WinoIconGlyph icon)
+        => ControlConstants.WinoIconFontDictionary.TryGetValue(icon, out var glyph)
+            ? new ContextFlyoutIcon(glyph)
+            : null;
 
     private void AttachmentClicked(object sender, ItemClickEventArgs e)
     {
@@ -687,12 +715,14 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
     }
 
-    private void RemoveAttachment_Click(object sender, RoutedEventArgs e)
+    private void AttachmentsListView_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (sender is Button button && button.CommandParameter is MailAttachmentViewModel attachment)
-        {
-            ViewModel.RemoveAttachmentCommand.Execute(attachment);
-        }
+        if (e.Key != VirtualKey.Delete ||
+            e.OriginalSource is not FrameworkElement { DataContext: MailAttachmentViewModel attachment })
+            return;
+
+        e.Handled = true;
+        ViewModel.RemoveAttachmentCommand.Execute(attachment);
     }
 
     protected override void RegisterRecipients()
@@ -802,6 +832,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
             await WebViewEditor.ConfigureSpellCheckAsync(
                 _isSpellCheckEnabled,
                 _spellCheckLanguageCode);
+            await WebViewEditor.ConfigureAutoCorrectAsync(ViewModel.PreferencesService.IsComposerAutoCorrectEnabled);
 
             await WebViewEditor.SetDefaultTypographyAsync(
                 ViewModel.PreferencesService.ComposerFont,

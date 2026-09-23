@@ -22,10 +22,11 @@ public record MailListInitializationOptions(IReadOnlyList<IMailItemFolder> Folde
 {
     public IReadOnlyList<Guid> CategoryIds { get; init; }
     public string Sender { get; init; } = string.Empty;
+    public string Subject { get; init; } = string.Empty;
     public DateTimeOffset? ReceivedAfterUtc { get; init; }
     public DateTimeOffset? ReceivedBeforeUtc { get; init; }
     public bool RequireAttachments { get; init; }
-    public bool RequireUnread { get; init; }
+    public MailReadStatusFilter ReadStatus { get; init; }
     public bool RequireFlagged { get; init; }
     public bool ExcludeDrafts { get; init; }
     public bool IsCategoryView => CategoryIds?.Count > 0;

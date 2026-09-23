@@ -8,6 +8,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Hosting;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -132,8 +134,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
         // The wide field contracts with the title bar before switching to the compact icon. The icon
         // is the whole control in compact mode, so the wide layout's width floor must then disappear.
-        TitleBarSearchBox.MinWidth = isCompact ? 0 : 280;
-        TitleBarSearchBox.MaxWidth = isCompact ? 48 : 520;
+        TitleBarSearchBox.MinWidth = isCompact ? 0 : 210;
+        TitleBarSearchBox.MaxWidth = isCompact ? 48 : 390;
         TitleBarSearchBox.HorizontalAlignment = isCompact ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
     }
 
@@ -317,8 +319,6 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
             RefreshDailyBriefingButtonVisibility();
             SynchronizeTitleBarSearchBox();
-            if (!message.Entitlement.CanAccessSurfaces)
-                TitleBarSearchBox.IsSemanticSearchEnabled = false;
         });
 
         if (message.Entitlement.CanAccessSurfaces)
@@ -385,25 +385,32 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void ApplyTitleBarSearchHost()
     {
-        if (_activeTitleBarSearchHost is IMailTitleBarSearchHost previousMailHost)
-            previousMailHost.SemanticSearchBusyChanged -= MailHostSemanticSearchBusyChanged;
-
+        if (ReferenceEquals(_activeTitleBarSearchHost, ResolveActiveTitleBarSearchHost()))
+        {
+            SynchronizeTitleBarSearchBox();
+            return;
+        }
+        ClearPageSearchBindings();
         _activeTitleBarSearchHost = ResolveActiveTitleBarSearchHost();
-
-        if (_activeTitleBarSearchHost is IMailTitleBarSearchHost mailHost)
-            mailHost.SemanticSearchBusyChanged += MailHostSemanticSearchBusyChanged;
-
-        SynchronizeTitleBarSearchBox(resetMeaning: true);
-
-        _ = RefreshSemanticAvailabilityAsync();
+        if (_activeTitleBarSearchHost is BasePage page)
+        {
+            TitleBarSearchBox.SetBinding(Wino.Mail.Controls.SearchBar.WinoSearchBar.HeaderFlyoutProperty,
+                new Binding { Source = page, Path = new PropertyPath(nameof(BasePage.HeaderFlyout)), Mode = BindingMode.OneWay });
+            TitleBarSearchBox.SetBinding(Wino.Mail.Controls.SearchBar.WinoSearchBar.FilterFlyoutProperty,
+                new Binding { Source = page, Path = new PropertyPath(nameof(BasePage.FilterFlyout)), Mode = BindingMode.OneWay });
+            TitleBarSearchBox.SetBinding(Wino.Mail.Controls.SearchBar.WinoSearchBar.SelectedHeaderButtonTitleProperty,
+                new Binding { Source = page, Path = new PropertyPath(nameof(BasePage.SelectedHeaderButtonTitle)), Mode = BindingMode.OneWay });
+        }
+        SynchronizeTitleBarSearchBox(resetReach: true);
     }
 
-    private void MailHostSemanticSearchBusyChanged(object? sender, bool isBusy)
+    private void ClearPageSearchBindings()
     {
-        if (!ReferenceEquals(sender, _activeTitleBarSearchHost))
-            return;
-
-        DispatcherQueue.TryEnqueue(() => TitleBarSearchBox.IsSemanticSearchBusy = isBusy);
+        TitleBarSearchBox.HeaderFlyout?.Hide();
+        TitleBarSearchBox.FilterFlyout?.Hide();
+        TitleBarSearchBox.ClearValue(Wino.Mail.Controls.SearchBar.WinoSearchBar.HeaderFlyoutProperty);
+        TitleBarSearchBox.ClearValue(Wino.Mail.Controls.SearchBar.WinoSearchBar.FilterFlyoutProperty);
+        TitleBarSearchBox.ClearValue(Wino.Mail.Controls.SearchBar.WinoSearchBar.SelectedHeaderButtonTitleProperty);
     }
 
     private void StatePersistenceServiceChanged(object? sender, string propertyName)
@@ -470,7 +477,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         return MainShellFrame.Content as ITitleBarSearchHost;
     }
 
-    private void SynchronizeTitleBarSearchBox(bool resetMeaning = false)
+    private void SynchronizeTitleBarSearchBox(bool resetReach = false)
     {
         _isSynchronizingTitleBarSearch = true;
         try
@@ -483,35 +490,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
             TitleBarSearchBox.SearchHistoryItemsSource = _activeTitleBarSearchHost is null
                 ? null
                 : SearchHistoryService.GetHistory(_activeTitleBarSearchHost.SearchMode);
-            TitleBarSearchBox.ReachOptionsSource = new SearchBarOptionItem[]
-            {
-                new((int)SearchBarReach.DownloadedOnly, Translator.SearchBar_ReachDownloaded),
-                new((int)SearchBarReach.IncludeServer, Translator.SearchBar_ReachServer),
-            };
-            TitleBarSearchBox.DateOptionsSource = new SearchBarOptionItem[]
-            {
-                new((int)SearchBarDateRange.AnyTime, Translator.SearchBar_DateAnyTime),
-                new((int)SearchBarDateRange.Today, Translator.SearchBar_DateToday),
-                new((int)SearchBarDateRange.LastSevenDays, Translator.SearchBar_DateLastSevenDays),
-                new((int)SearchBarDateRange.LastThirtyDays, Translator.SearchBar_DateLastThirtyDays),
-            };
-
-            if (_activeTitleBarSearchHost is IMailTitleBarSearchHost mailHost)
-            {
-                TitleBarSearchBox.ScopeOptionsSource = mailHost.ScopeOptions;
-                TitleBarSearchBox.IsSemanticSearchAvailable = mailHost.IsSemanticSearchAvailable;
-                TitleBarSearchBox.IsSemanticSearchBusy = mailHost.IsSemanticSearchBusy;
-                TitleBarSearchBox.SemanticUnavailableReasonText = mailHost.SemanticUnavailableReasonText;
-                TitleBarSearchBox.SenderSuggestions = mailHost.SenderSuggestions;
-                if (resetMeaning)
-                    ApplyDefaultSearchMode();
-            }
-            else
-            {
-                TitleBarSearchBox.IsSemanticSearchAvailable = false;
-                TitleBarSearchBox.IsSemanticSearchBusy = false;
-                TitleBarSearchBox.IsSemanticSearchEnabled = false;
-            }
+            if (resetReach && _activeTitleBarSearchHost is IMailTitleBarSearchHost)
+                ApplyDefaultSearchMode();
         }
         finally
         {
@@ -521,16 +501,11 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     /// <summary>
     /// Seeds the search bar from the user's default search mode. This only decides where a search
-    /// starts; changing the meaning toggle or the reach option during a search still wins, and the
-    /// reset button still returns to the neutral local defaults.
+    /// starts; changing the reach toggle during a search still wins.
     /// </summary>
     private void ApplyDefaultSearchMode()
     {
         var defaultSearchMode = PreferencesService.DefaultSearchMode;
-
-        // Semantic search can be unavailable for the active accounts, so never force the toggle on.
-        TitleBarSearchBox.IsSemanticSearchEnabled = defaultSearchMode == SearchMode.Semantic
-                                                    && TitleBarSearchBox.IsSemanticSearchAvailable;
 
         TitleBarSearchBox.SearchReach = defaultSearchMode == SearchMode.Online
             ? SearchBarReach.IncludeServer
@@ -555,36 +530,15 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         TitleBarSearchBox.SearchHistoryItemsSource = [];
     }
 
-    private async Task RefreshSemanticAvailabilityAsync(SearchBarFilterSnapshot? filters = null)
+    private void TitleBarSearchDismissed(object? sender, EventArgs args)
     {
-        if (_activeTitleBarSearchHost is not IMailTitleBarSearchHost mailHost)
-            return;
-        filters ??= new(
-            TitleBarSearchBox.SearchScope,
-            TitleBarSearchBox.SearchReach,
-            TitleBarSearchBox.SenderFilter,
-            TitleBarSearchBox.DateRange,
-            TitleBarSearchBox.HasAttachments,
-            TitleBarSearchBox.IsUnread,
-            TitleBarSearchBox.IsFlagged);
-        var availability = await mailHost.GetSemanticSearchAvailabilityAsync(filters).ConfigureAwait(false);
-        await DispatcherQueue.EnqueueAsync(() =>
+        if (_activeTitleBarSearchHost is BasePage page)
         {
-            if (!ReferenceEquals(mailHost, _activeTitleBarSearchHost)) return;
-            TitleBarSearchBox.IsSemanticSearchAvailable = availability.IsAvailable;
-            TitleBarSearchBox.SemanticUnavailableReasonText = availability.UnavailableReason;
-            if (!availability.IsAvailable) TitleBarSearchBox.IsSemanticSearchEnabled = false;
-        });
-    }
-
-    private async void TitleBarSenderSuggestionsRequested(object? sender, SearchBarSenderQueryEventArgs args)
-    {
-        if (_activeTitleBarSearchHost is not IMailTitleBarSearchHost mailHost)
-            return;
-
-        await mailHost.RequestSenderSuggestionsAsync(args.QueryText);
-        if (ReferenceEquals(mailHost, _activeTitleBarSearchHost))
-            TitleBarSearchBox.SenderSuggestions = mailHost.SenderSuggestions;
+            if (FocusManager.FindFirstFocusableElement(page) is Control first)
+                first.Focus(FocusState.Programmatic);
+            else
+                page.Focus(FocusState.Programmatic);
+        }
     }
 
     private async void TitleBarSearchSubmitted(object? sender, SearchBarSubmittedEventArgs args)
@@ -714,18 +668,10 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
 
     private void DetachTitleBarSearchHost()
     {
-        if (_activeTitleBarSearchHost is IMailTitleBarSearchHost mailHost)
-        {
-            mailHost.SemanticSearchBusyChanged -= MailHostSemanticSearchBusyChanged;
-        }
-
+        ClearPageSearchBindings();
         _activeTitleBarSearchHost = null;
         TitleBarSearchBox.ItemsSource = null;
         TitleBarSearchBox.SearchHistoryItemsSource = null;
-        TitleBarSearchBox.ScopeOptionsSource = null;
-        TitleBarSearchBox.ReachOptionsSource = null;
-        TitleBarSearchBox.DateOptionsSource = null;
-        TitleBarSearchBox.SenderSuggestions = null;
     }
 
     #region Title bar synchronization

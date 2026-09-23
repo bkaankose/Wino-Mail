@@ -42,22 +42,12 @@ public enum SearchBarSubmissionOrigin
     SearchPanel,
 }
 
-public sealed record SearchBarFilterSnapshot(
-    SearchBarScope Scope,
-    SearchBarReach Reach,
-    string Sender,
-    SearchBarDateRange DateRange,
-    bool HasAttachments,
-    bool IsUnread,
-    bool IsFlagged);
-
 public sealed class SearchBarSubmittedEventArgs(
     string queryText,
     object? chosenSuggestion,
     SearchBarSubmissionOrigin origin,
     SearchBarMode mode,
-    bool isSemanticSearchEnabled,
-    SearchBarFilterSnapshot filters) : EventArgs
+    SearchBarReach reach) : EventArgs
 {
     public string QueryText { get; } = queryText;
 
@@ -67,9 +57,7 @@ public sealed class SearchBarSubmittedEventArgs(
 
     public SearchBarMode Mode { get; } = mode;
 
-    public bool IsSemanticSearchEnabled { get; } = isSemanticSearchEnabled;
-
-    public SearchBarFilterSnapshot Filters { get; } = filters;
+    public SearchBarReach Reach { get; } = reach;
 }
 
 public sealed class SearchBarSuggestion
@@ -90,6 +78,8 @@ public sealed class SearchBarSuggestion
     public string Subtitle { get; set; } = string.Empty;
 
     public object? Tag { get; set; }
+
+    public override string ToString() => Title;
 }
 
 #if WINRT_EXPOSED
@@ -110,36 +100,9 @@ public sealed partial class SearchBarContactSuggestion
     public override string ToString() => string.IsNullOrWhiteSpace(DisplayName) ? Address : DisplayName;
 }
 
-#if WINRT_EXPOSED
-[GeneratedBindableCustomProperty]
-#endif
-public sealed partial class SearchBarOptionItem
-{
-    public SearchBarOptionItem()
-    {
-    }
-
-    public SearchBarOptionItem(int value, string title)
-    {
-        Value = value;
-        Title = title;
-    }
-
-    public int Value { get; set; }
-
-    public string Title { get; set; } = string.Empty;
-
-    public override string ToString() => Title;
-}
-
 public sealed class SearchBarTextChangedEventArgs(string text, bool isUserInput) : EventArgs
 {
     public string Text { get; } = text;
 
     public bool IsUserInput { get; } = isUserInput;
-}
-
-public sealed class SearchBarSenderQueryEventArgs(string queryText) : EventArgs
-{
-    public string QueryText { get; } = queryText;
 }

@@ -56,10 +56,10 @@
             <StaticResource x:Key="WinoSearchBarFieldFocusedBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
             <!--  A tint, not a fill. The accent at low alpha reads as "this query is different" while keeping the placeholder legible.  -->
             <SolidColorBrush
-                x:Key="WinoSearchBarSemanticBackgroundBrush"
+                x:Key="WinoSearchBarOnlineBackgroundBrush"
                 Opacity="0.10"
                 Color="{ThemeResource SystemAccentColor}" />
-            <StaticResource x:Key="WinoSearchBarSemanticBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
+            <StaticResource x:Key="WinoSearchBarOnlineBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
             <!--
                 The selection tile. Deliberately far lighter than a control fill: this strip is
                 on screen for the whole session, so the tile only has to be findable, not
@@ -102,10 +102,10 @@
             <StaticResource x:Key="WinoSearchBarFieldFocusedBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
             <!--  A tint, not a fill. The accent at low alpha reads as "this query is different" while keeping the placeholder legible.  -->
             <SolidColorBrush
-                x:Key="WinoSearchBarSemanticBackgroundBrush"
+                x:Key="WinoSearchBarOnlineBackgroundBrush"
                 Opacity="0.18"
                 Color="{ThemeResource SystemAccentColor}" />
-            <StaticResource x:Key="WinoSearchBarSemanticBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
+            <StaticResource x:Key="WinoSearchBarOnlineBorderBrush" ResourceKey="AccentFillColorDefaultBrush" />
             <!--  A touch more than Light takes: the same weight of ink reads lighter on a dark card.  -->
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
@@ -134,34 +134,35 @@
             <StaticResource x:Key="WinoSearchBarFieldBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
             <StaticResource x:Key="WinoSearchBarFieldFocusedBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
             <StaticResource x:Key="WinoSearchBarFieldFocusedBorderBrush" ResourceKey="SystemColorHighlightColorBrush" />
-            <StaticResource x:Key="WinoSearchBarSemanticBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
-            <StaticResource x:Key="WinoSearchBarSemanticBorderBrush" ResourceKey="SystemColorHighlightColorBrush" />
+            <StaticResource x:Key="WinoSearchBarOnlineBackgroundBrush" ResourceKey="SystemColorWindowColorBrush" />
+            <StaticResource x:Key="WinoSearchBarOnlineBorderBrush" ResourceKey="SystemColorHighlightColorBrush" />
             <!--  High contrast has no low-alpha tints, so the selected glyph sits on the highlight fill and must invert with it.  -->
         </ResourceDictionary>
     </ResourceDictionary.ThemeDictionaries>
 
     <StaticResource x:Key="WinoIntelligenceIconBrush" ResourceKey="WinoIntelligenceBrandIconBrush" />
-    <StaticResource x:Key="WinoSearchBarIntelligenceIconBrush" ResourceKey="WinoIntelligenceBrandIconBrush" />
     <StaticResource x:Key="WinoIntelligenceSparklePathData" ResourceKey="WinoIntelligenceBrandSparklePathData" />
 
+    <!--  A recent search, or the clear-history action that ends the list. Binds SearchBarHistoryEntry.  -->
     <DataTemplate x:Key="WinoSearchBarHistoryItemTemplate">
         <Grid
-            MinHeight="36"
-            Padding="8,4"
-            ColumnSpacing="10">
+            MinHeight="32"
+            Padding="0,4"
+            ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <FontIcon
-                FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                VerticalAlignment="Center"
+                AutomationProperties.AccessibilityView="Raw"
                 FontSize="14"
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Glyph="&#xE81C;" />
+                Glyph="{Binding Glyph}" />
             <TextBlock
                 Grid.Column="1"
                 VerticalAlignment="Center"
-                Text="{Binding}"
+                Text="{Binding Text}"
                 TextTrimming="CharacterEllipsis" />
         </Grid>
     </DataTemplate>
@@ -175,8 +176,7 @@
         <Setter Property="CornerRadius" Value="4" />
     </Style>
 
-    <!--  Reuses the search bar gradient so every intelligence affordance shares one identity.  -->
-    <StaticResource x:Key="WinoIntelligenceHeaderSparkleBrush" ResourceKey="WinoSearchBarIntelligenceIconBrush" />
+    <StaticResource x:Key="WinoIntelligenceHeaderSparkleBrush" ResourceKey="WinoIntelligenceBrandIconBrush" />
 
     <Style
         x:Key="WinoIntelligenceHeaderTriggerButtonStyle"
@@ -323,39 +323,161 @@
     </DataTemplate>
 
     <!--
-        The field is a Border wrapping a chrome-less AutoSuggestBox. The text box keeps its own
-        template but every border and background theme resource is overridden to transparent in its
-        Resources scope, so the Border alone paints the field. The FieldStates visual states in the
-        template paint that Border for focus and for the semantic ("Meaning") state.
+        A chrome-less text box for the AutoSuggestBox inside the field. The field Border paints the
+        background, border and focus line, and the control owns the clear button, so this template
+        keeps only the placeholder and the text host. Dropping the stock template also drops its
+        delete button, which its visual states would otherwise bring back next to ours.
     -->
-    <Style
-        x:Key="WinoSearchBarFieldTextBoxStyle"
-        BasedOn="{StaticResource DefaultTextBoxStyle}"
-        TargetType="TextBox">
+    <Style x:Key="WinoSearchBarFieldTextBoxStyle" TargetType="TextBox">
+        <Setter Property="Foreground" Value="{ThemeResource TextControlForeground}" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
         <Setter Property="MinHeight" Value="0" />
-        <Setter Property="Padding" Value="0,0,0,0" />
+        <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
+        <Setter Property="FontSize" Value="{ThemeResource ControlContentThemeFontSize}" />
+        <Setter Property="SelectionHighlightColor" Value="{ThemeResource TextControlSelectionHighlightColor}" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="ScrollViewer.HorizontalScrollMode" Value="Auto" />
+        <Setter Property="ScrollViewer.VerticalScrollMode" Value="Auto" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Hidden" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden" />
+        <Setter Property="ScrollViewer.IsDeferredScrollingEnabled" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Grid Background="{TemplateBinding Background}">
+                        <ContentPresenter
+                            x:Name="PlaceholderTextContentPresenter"
+                            Padding="{TemplateBinding Padding}"
+                            VerticalAlignment="Center"
+                            Content="{TemplateBinding PlaceholderText}"
+                            Foreground="{ThemeResource TextControlPlaceholderForeground}"
+                            IsHitTestVisible="False"
+                            TextWrapping="NoWrap" />
+                        <ScrollViewer
+                            x:Name="ContentElement"
+                            Padding="{TemplateBinding Padding}"
+                            VerticalAlignment="Center"
+                            AutomationProperties.AccessibilityView="Raw"
+                            HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                            HorizontalScrollMode="{TemplateBinding ScrollViewer.HorizontalScrollMode}"
+                            IsDeferredScrollingEnabled="{TemplateBinding ScrollViewer.IsDeferredScrollingEnabled}"
+                            IsTabStop="False"
+                            VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}"
+                            VerticalScrollMode="{TemplateBinding ScrollViewer.VerticalScrollMode}"
+                            ZoomMode="Disabled" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver" />
+                                <VisualState x:Name="Focused" />
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="ContentElement.Foreground" Value="{ThemeResource TextControlForegroundDisabled}" />
+                                        <Setter Target="PlaceholderTextContentPresenter.Foreground" Value="{ThemeResource TextControlPlaceholderForegroundDisabled}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+        The buttons inside the field. The stock button template paints a raised control fill and an
+        elevation border on hover, which reads as a second text box inside the field. Here hover and
+        press only lay a subtle fill over the button's own background.
+    -->
+    <Style x:Key="WinoSearchBarSubtleButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="FontFamily" Value="{ThemeResource ContentControlThemeFontFamily}" />
+        <Setter Property="FontSize" Value="{ThemeResource ControlContentThemeFontSize}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="FocusVisualMargin" Value="-2" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid>
+                        <Border Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" />
+                        <Border
+                            x:Name="StateOverlay"
+                            Background="Transparent"
+                            CornerRadius="{TemplateBinding CornerRadius}" />
+                        <ContentPresenter
+                            x:Name="ContentPresenter"
+                            Padding="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                            AutomationProperties.AccessibilityView="Raw"
+                            Content="{TemplateBinding Content}"
+                            ContentTemplate="{TemplateBinding ContentTemplate}"
+                            Foreground="{TemplateBinding Foreground}" />
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="StateOverlay.Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="StateOverlay.Background" Value="{ThemeResource SubtleFillColorTertiaryBrush}" />
+                                        <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="ContentPresenter.Foreground" Value="{ThemeResource TextFillColorDisabledBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--  The page-owned scope button at the left edge of the field. A soft chip, one step below a button.  -->
+    <Style
+        x:Key="WinoSearchBarChipButtonStyle"
+        BasedOn="{StaticResource WinoSearchBarSubtleButtonStyle}"
+        TargetType="Button">
+        <Setter Property="Height" Value="24" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="Padding" Value="10,0,8,0" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="Background" Value="{ThemeResource SubtleFillColorSecondaryBrush}" />
     </Style>
 
     <!--
         Sized to sit inside a 32px field. The border stays transparent in every state, checked
-        included: the field itself carries the semantic highlight, so outlining the pill as well
+        included: the field itself carries the online highlight, so outlining the pill as well
         states it twice.
     -->
     <Style
-        x:Key="WinoSearchBarMeaningToggleStyle"
+        x:Key="WinoSearchBarReachToggleStyle"
         BasedOn="{StaticResource DefaultToggleButtonStyle}"
         TargetType="ToggleButton">
         <Setter Property="Height" Value="24" />
         <Setter Property="MinHeight" Value="24" />
-        <Setter Property="MinWidth" Value="0" />
-        <Setter Property="Padding" Value="6,0,9,0" />
+        <Setter Property="MinWidth" Value="24" />
+        <Setter Property="Padding" Value="6,0" />
         <Setter Property="CornerRadius" Value="12" />
         <Setter Property="HorizontalContentAlignment" Value="Center" />
         <Setter Property="VerticalContentAlignment" Value="Center" />
-        <Setter Property="UseSystemFocusVisuals" Value="True" />
+        <Setter Property="VerticalAlignment" Value="Center" />
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="BorderBrush" Value="Transparent" />
@@ -363,161 +485,160 @@
 
     <Style
         x:Key="WinoSearchBarInlineIconButtonStyle"
-        BasedOn="{StaticResource DefaultButtonStyle}"
+        BasedOn="{StaticResource WinoSearchBarSubtleButtonStyle}"
         TargetType="Button">
         <Setter Property="Width" Value="28" />
         <Setter Property="Height" Value="28" />
-        <Setter Property="MinWidth" Value="28" />
-        <Setter Property="MinHeight" Value="28" />
         <Setter Property="Padding" Value="0" />
         <Setter Property="CornerRadius" Value="14" />
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="HorizontalContentAlignment" Value="Center" />
-        <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
 
+    <!--
+        Left to right the field reads: search glyph, page scope, query, clear, Local/Online reach,
+        page filters. Every part lives inside the field and keeps its place whether the field has
+        focus or not, so the query never moves under the pointer.
+    -->
     <Style TargetType="local:WinoSearchBar">
-        <Setter Property="MinWidth" Value="280" />
         <Setter Property="MinHeight" Value="32" />
-        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-        <Setter Property="VerticalContentAlignment" Value="Center" />
-        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="MinWidth" Value="280" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="HistoryItemTemplate" Value="{StaticResource WinoSearchBarHistoryItemTemplate}" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="local:WinoSearchBar">
                     <Grid x:Name="PART_LayoutRoot">
-                        <!--
-                            TextControlThemeMinHeight (32px) is the stock AutoSuggestBox height. The bar
-                            has to match it so it drops into the app TitleBar without growing the row.
-                            A 16px radius gives the field the fully rounded Windows Settings search shape;
-                            everything inside is sized to fit within that.
-                        -->
                         <Border
                             x:Name="PART_FieldBorder"
-                            Height="{ThemeResource TextControlThemeMinHeight}"
-                            Padding="9,0,2,0"
-                            VerticalAlignment="Center"
+                            Height="32"
                             Background="{ThemeResource WinoSearchBarFieldBackgroundBrush}"
                             BorderBrush="{ThemeResource WinoSearchBarFieldBorderBrush}"
                             BorderThickness="{ThemeResource WinoSearchBarFieldBorderThickness}"
                             CornerRadius="16">
-                            <Grid ColumnSpacing="2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
+                            <Grid>
+                                <Border
+                                    x:Name="PART_OnlineTint"
+                                    Background="{ThemeResource WinoSearchBarOnlineBackgroundBrush}"
+                                    CornerRadius="16"
+                                    IsHitTestVisible="False"
+                                    Visibility="Collapsed" />
                                 <!--
-                                    The query icon leads the field the way Windows Settings does. It is
-                                    decoration, not a button: submitting is Enter, so the icon is hit-test
-                                    invisible and its right margin is what keeps the caret clear of it.
+                                    The input spans the whole field so its suggestion list is as wide as the
+                                    field. The leading and trailing parts sit on top of it, and the control
+                                    pads the text box by their widths so the query runs between them.
                                 -->
-                                <ContentPresenter
-                                    x:Name="PART_QueryIconPresenter"
-                                    Width="16"
-                                    Height="16"
-                                    Margin="0,0,8,0"
-                                    VerticalAlignment="Center"
-                                    AutomationProperties.AccessibilityView="Raw"
-                                    IsHitTestVisible="False" />
-
+                                <StackPanel
+                                    x:Name="PART_LeadingHost"
+                                    Margin="12,0,0,0"
+                                    HorizontalAlignment="Left"
+                                    Canvas.ZIndex="1"
+                                    Orientation="Horizontal">
+                                    <FontIcon
+                                        Margin="0,0,10,0"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.AccessibilityView="Raw"
+                                        FontSize="14"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Glyph="&#xE721;"
+                                        IsHitTestVisible="False" />
+                                    <StackPanel
+                                        x:Name="PART_HeaderHost"
+                                        Margin="-4,0,0,0"
+                                        Orientation="Horizontal"
+                                        Visibility="Collapsed">
+                                        <Button
+                                            x:Name="PART_HeaderButton"
+                                            AutomationProperties.AutomationId="WinoSearchBarHeaderButton"
+                                            Style="{StaticResource WinoSearchBarChipButtonStyle}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <TextBlock
+                                                    MaxWidth="140"
+                                                    VerticalAlignment="Center"
+                                                    Style="{StaticResource CaptionTextBlockStyle}"
+                                                    Text="{TemplateBinding SelectedHeaderButtonTitle}"
+                                                    TextTrimming="CharacterEllipsis" />
+                                                <FontIcon
+                                                    VerticalAlignment="Center"
+                                                    AutomationProperties.AccessibilityView="Raw"
+                                                    FontSize="8"
+                                                    Glyph="&#xE70D;" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Rectangle
+                                            Width="1"
+                                            Height="16"
+                                            Margin="8,0,10,0"
+                                            VerticalAlignment="Center"
+                                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                                    </StackPanel>
+                                </StackPanel>
                                 <AutoSuggestBox
                                     x:Name="PART_AutoSuggestBox"
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
+                                    VerticalAlignment="Stretch"
                                     AutomationProperties.AutomationId="WinoSearchBarInput"
                                     AutomationProperties.Name="{TemplateBinding AutomationProperties.Name}"
-                                    TextBoxStyle="{StaticResource WinoSearchBarFieldTextBoxStyle}">
-                                    <!--
-                                        Theme resources resolve up the tree from the templated parent, so
-                                        overriding them here strips the inner field's chrome without
-                                        re-templating TextBox. TextControlBorderThemeThicknessFocused is the
-                                        one that matters: without it the focused state paints a 2px underline
-                                        inside our Border.
-                                    -->
-                                    <AutoSuggestBox.Resources>
-                                        <Thickness x:Key="TextControlBorderThemeThickness">0</Thickness>
-                                        <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
-                                        <SolidColorBrush x:Key="TextControlBackground" Color="Transparent" />
-                                        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="Transparent" />
-                                        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="Transparent" />
-                                        <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="Transparent" />
-                                        <SolidColorBrush x:Key="TextControlBorderBrush" Color="Transparent" />
-                                        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="Transparent" />
-                                        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="Transparent" />
-                                        <SolidColorBrush x:Key="TextControlBorderBrushDisabled" Color="Transparent" />
-                                    </AutoSuggestBox.Resources>
-                                </AutoSuggestBox>
-
-                                <!--
-                                    Meaning is a modifier on the single search action, not a second submit
-                                    button. Its checked state is what tells the user which kind of query
-                                    Enter will run, so it carries a label and not just the sparkle.
-                                -->
-                                <ToggleButton
-                                    x:Name="PART_MeaningToggleButton"
-                                    Grid.Column="2"
-                                    AutomationProperties.AutomationId="WinoSearchBarMeaningToggle"
-                                    AutomationProperties.Name="{TemplateBinding MeaningToggleText}"
-                                    Style="{StaticResource WinoSearchBarMeaningToggleStyle}">
-                                    <ToggleButton.Resources>
-                                        <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="SubtleFillColorSecondaryBrush" />
-                                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="SubtleFillColorTertiaryBrush" />
-                                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="SubtleFillColorSecondaryBrush" />
-                                        <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="TextFillColorPrimaryBrush" />
-                                        <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="TextFillColorPrimaryBrush" />
-                                        <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="TextFillColorPrimaryBrush" />
-                                        <SolidColorBrush x:Key="ToggleButtonBorderBrushChecked" Color="Transparent" />
-                                        <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPointerOver" Color="Transparent" />
-                                        <SolidColorBrush x:Key="ToggleButtonBorderBrushCheckedPressed" Color="Transparent" />
-                                    </ToggleButton.Resources>
-                                    <StackPanel
-                                        VerticalAlignment="Center"
-                                        Orientation="Horizontal"
-                                        Spacing="6">
-                                        <Grid
-                                            Width="16"
-                                            Height="16"
-                                            VerticalAlignment="Center">
-                                            <Viewbox x:Name="PART_MeaningSparkle" Stretch="Uniform">
-                                                <PathIcon
-                                                    AutomationProperties.AccessibilityView="Raw"
-                                                    Data="{StaticResource WinoIntelligenceBrandSparklePathData}"
-                                                    Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
-                                            </Viewbox>
-                                            <intelligenceProgress:WinoIntelligenceProgressRing
-                                                x:Name="PART_SemanticBusyRing"
-                                                Animation="Dots"
+                                    TextBoxStyle="{StaticResource WinoSearchBarFieldTextBoxStyle}" />
+                                <StackPanel
+                                    x:Name="PART_TrailingHost"
+                                    Margin="0,0,2,0"
+                                    HorizontalAlignment="Right"
+                                    Canvas.ZIndex="1"
+                                    Orientation="Horizontal">
+                                    <Button
+                                        x:Name="PART_ClearButton"
+                                        AutomationProperties.AutomationId="WinoSearchBarClearButton"
+                                        Style="{StaticResource WinoSearchBarInlineIconButtonStyle}"
+                                        Visibility="Collapsed">
+                                        <FontIcon
+                                            AutomationProperties.AccessibilityView="Raw"
+                                            FontSize="10"
+                                            Glyph="&#xE711;" />
+                                    </Button>
+                                    <ToggleButton
+                                        x:Name="PART_ReachButton"
+                                        Margin="2,0"
+                                        AutomationProperties.AutomationId="WinoSearchBarReachButton"
+                                        Style="{StaticResource WinoSearchBarReachToggleStyle}">
+                                        <StackPanel Orientation="Horizontal" Spacing="5">
+                                            <FontIcon
+                                                x:Name="PART_ReachIcon"
+                                                VerticalAlignment="Center"
                                                 AutomationProperties.AccessibilityView="Raw"
-                                                AutomationProperties.AutomationId="WinoSearchBarSemanticBusyRing"
-                                                IsActive="False"
-                                                Visibility="Collapsed" />
-                                        </Grid>
-                                        <TextBlock
-                                            x:Name="PART_MeaningToggleLabel"
-                                            VerticalAlignment="Center"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="{TemplateBinding MeaningToggleText}" />
-                                    </StackPanel>
-                                </ToggleButton>
+                                                FontSize="13" />
+                                            <TextBlock
+                                                x:Name="PART_ReachLabel"
+                                                VerticalAlignment="Center"
+                                                Style="{StaticResource CaptionTextBlockStyle}" />
+                                        </StackPanel>
+                                    </ToggleButton>
+                                    <Button
+                                        x:Name="PART_FilterButton"
+                                        Margin="4,0,0,0"
+                                        AutomationProperties.AutomationId="WinoSearchBarFilterButton"
+                                        Style="{StaticResource WinoSearchBarInlineIconButtonStyle}"
+                                        Visibility="Collapsed">
+                                        <!--  The filter glyph comes from the library's own WinoIcons.ttf copy.  -->
+                                        <accountIcon:WinoFontIcon
+                                            AutomationProperties.AccessibilityView="Raw"
+                                            FontSize="14"
+                                            Glyph="&#xE71C;" />
+                                    </Button>
+                                </StackPanel>
+                                <Border
+                                    x:Name="PART_FocusUnderline"
+                                    Height="1"
+                                    Margin="14,0"
+                                    VerticalAlignment="Bottom"
+                                    Background="{ThemeResource WinoSearchBarFieldFocusedBorderBrush}"
+                                    CornerRadius="1"
+                                    IsHitTestVisible="False"
+                                    Visibility="Collapsed" />
                             </Grid>
                         </Border>
-
-                        <!--
-                            Compact mode: the whole field collapses to this single icon, and the field
-                            itself is re-parented into the popup below it. One AutoSuggestBox serves both
-                            layouts, so text, focus and suggestions survive a window resize.
-                        -->
                         <Button
                             x:Name="PART_CompactButton"
                             Width="32"
                             Height="32"
-                            MinWidth="32"
-                            MinHeight="32"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center"
+                            HorizontalAlignment="Left"
                             AutomationProperties.AutomationId="WinoSearchBarCompactButton"
                             AutomationProperties.Name="{TemplateBinding SearchButtonText}"
                             Style="{StaticResource WinoSearchBarInlineIconButtonStyle}"
@@ -525,383 +646,58 @@
                             Visibility="Collapsed">
                             <FontIcon
                                 AutomationProperties.AccessibilityView="Raw"
-                                FontFamily="{ThemeResource SymbolThemeFontFamily}"
                                 FontSize="16"
                                 Glyph="&#xE721;" />
                         </Button>
-
-                        <Button
-                            x:Name="PART_SearchOptionsButton"
-                            Grid.Column="1"
-                            VerticalAlignment="Center"
-                            AutomationProperties.AutomationId="WinoSearchBarOptionsButton"
-                            AutomationProperties.Name="{TemplateBinding SearchOptionsText}"
-                            Style="{StaticResource WinoSearchBarInlineIconButtonStyle}"
-                            ToolTipService.ToolTip="{TemplateBinding SearchOptionsText}"
-                            Visibility="Collapsed">
-                            <FontIcon
-                                x:Name="PART_SearchOptionsChevronIcon"
-                                AutomationProperties.AccessibilityView="Raw"
-                                FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                FontSize="12"
-                                Glyph="&#xE70D;" />
-                        </Button>
-
                         <Popup
                             x:Name="PART_SearchPopup"
-                            IsLightDismissEnabled="False"
+                            DesiredPlacement="BottomEdgeAlignedLeft"
+                            IsLightDismissEnabled="True"
                             ShouldConstrainToRootBounds="True">
                             <Border
-                                x:Name="PART_SearchPopupRoot"
-                                Padding="12"
+                                Width="380"
+                                Padding="6"
                                 Background="{ThemeResource WinoSearchBarPopupBackgroundBrush}"
-                                BackgroundSizing="InnerBorderEdge"
                                 BorderBrush="{ThemeResource WinoSearchBarPopupBorderBrush}"
                                 BorderThickness="1"
-                                CornerRadius="{ThemeResource OverlayCornerRadius}"
-                                Translation="0,0,32">
-                                <Border.Shadow>
-                                    <ThemeShadow />
-                                </Border.Shadow>
-
-                                <Grid>
-                                    <ContentControl
-                                        x:Name="PART_CompactFieldHost"
-                                        HorizontalAlignment="Stretch"
-                                        HorizontalContentAlignment="Stretch"
-                                        IsTabStop="False"
-                                        Visibility="Collapsed" />
-
-                                    <StackPanel x:Name="PART_HistoryPanel" Spacing="4">
-                                        <Grid Padding="8,4">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <TextBlock
-                                                x:Name="PART_HistoryHeadingText"
-                                                VerticalAlignment="Center"
-                                                FontWeight="SemiBold"
-                                                Text="{TemplateBinding RecentSearchesText}" />
-                                            <Button
-                                                x:Name="PART_ClearHistoryButton"
-                                                Grid.Column="1"
-                                                AutomationProperties.AutomationId="WinoSearchBarClearHistoryButton"
-                                                Content="{TemplateBinding ClearHistoryText}"
-                                                Style="{StaticResource TextBlockButtonStyle}" />
-                                        </Grid>
-                                        <ListView
-                                            x:Name="PART_HistoryList"
-                                            MaxHeight="280"
-                                            AutomationProperties.AutomationId="WinoSearchBarHistoryList"
-                                            IsItemClickEnabled="True"
-                                            ItemTemplate="{StaticResource WinoSearchBarHistoryItemTemplate}"
-                                            SelectionMode="None" />
-                                        <!--
-                                            Only reachable when the list empties while the popup is open;
-                                            focus no longer opens an empty popup.
-                                        -->
-                                        <TextBlock
-                                            x:Name="PART_EmptyHistoryText"
-                                            Margin="8,10,8,14"
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Text="{TemplateBinding EmptyHistoryText}"
-                                            TextWrapping="Wrap"
-                                            Visibility="Collapsed" />
-                                    </StackPanel>
-
-                                    <StackPanel
-                                        x:Name="PART_OptionsPanel"
-                                        Spacing="12"
-                                        Visibility="Collapsed">
-                                        <Border
-                                            x:Name="PART_SemanticExplanationPanel"
-                                            Padding="10,8"
-                                            Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                            CornerRadius="4"
-                                            Visibility="Collapsed">
-                                            <Grid ColumnSpacing="8">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="Auto" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-                                                <Viewbox
-                                                    Width="16"
-                                                    Height="16"
-                                                    VerticalAlignment="Top"
-                                                    Stretch="Uniform">
-                                                    <PathIcon Data="{StaticResource WinoIntelligenceBrandSparklePathData}" Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" />
-                                                </Viewbox>
-                                                <TextBlock
-                                                    x:Name="PART_SemanticExplanationTextBlock"
-                                                    Grid.Column="1"
-                                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                                    Text="{TemplateBinding SemanticSearchExplanationText}"
-                                                    TextWrapping="WrapWholeWords" />
-                                            </Grid>
-                                        </Border>
-
-                                        <StackPanel x:Name="PART_MailOptionsPanel" Spacing="12">
-                                            <Grid ColumnSpacing="12" RowSpacing="10">
-                                                <Grid.RowDefinitions>
-                                                    <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
-                                                </Grid.RowDefinitions>
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
-
-                                                <StackPanel Spacing="4">
-                                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{TemplateBinding ScopeLabelText}" />
-                                                    <ComboBox
-                                                        x:Name="PART_ScopeComboBox"
-                                                        HorizontalAlignment="Stretch"
-                                                        AutomationProperties.AutomationId="WinoSearchBarScopeComboBox"
-                                                        AutomationProperties.Name="{TemplateBinding ScopeLabelText}">
-                                                        <ComboBox.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <TextBlock Text="{Binding Title}" />
-                                                            </DataTemplate>
-                                                        </ComboBox.ItemTemplate>
-                                                    </ComboBox>
-                                                </StackPanel>
-
-                                                <StackPanel Grid.Column="1" Spacing="4">
-                                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{TemplateBinding ReachLabelText}" />
-                                                    <ComboBox
-                                                        x:Name="PART_ReachComboBox"
-                                                        HorizontalAlignment="Stretch"
-                                                        AutomationProperties.AutomationId="WinoSearchBarReachComboBox"
-                                                        AutomationProperties.Name="{TemplateBinding ReachLabelText}">
-                                                        <ComboBox.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <TextBlock Text="{Binding Title}" />
-                                                            </DataTemplate>
-                                                        </ComboBox.ItemTemplate>
-                                                    </ComboBox>
-                                                </StackPanel>
-
-                                                <!--
-                                                    From resolves against the contact index. The token replaces
-                                                    the suggest box once a contact is chosen, so the row keeps a
-                                                    single height either way.
-                                                -->
-                                                <StackPanel Grid.Row="1" Spacing="4">
-                                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{TemplateBinding SenderLabelText}" />
-                                                    <Grid MinHeight="32">
-                                                        <AutoSuggestBox
-                                                            x:Name="PART_SenderSuggestBox"
-                                                            HorizontalAlignment="Stretch"
-                                                            AutomationProperties.AutomationId="WinoSearchBarSenderSuggestBox"
-                                                            AutomationProperties.Name="{TemplateBinding SenderLabelText}"
-                                                            ItemTemplate="{StaticResource WinoSearchBarContactSuggestionTemplate}"
-                                                            PlaceholderText="{TemplateBinding SenderPlaceholderText}" />
-                                                        <Border
-                                                            x:Name="PART_SenderToken"
-                                                            Padding="3,3,3,3"
-                                                            Background="{ThemeResource ControlFillColorDefaultBrush}"
-                                                            BorderBrush="{ThemeResource ControlElevationBorderBrush}"
-                                                            BorderThickness="1"
-                                                            CornerRadius="{ThemeResource ControlCornerRadius}"
-                                                            Visibility="Collapsed">
-                                                            <Grid ColumnSpacing="8">
-                                                                <Grid.ColumnDefinitions>
-                                                                    <ColumnDefinition Width="Auto" />
-                                                                    <ColumnDefinition Width="*" />
-                                                                    <ColumnDefinition Width="Auto" />
-                                                                </Grid.ColumnDefinitions>
-                                                                <Border
-                                                                    Width="24"
-                                                                    Height="24"
-                                                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
-                                                                    CornerRadius="12">
-                                                                    <TextBlock
-                                                                        x:Name="PART_SenderTokenInitials"
-                                                                        HorizontalAlignment="Center"
-                                                                        VerticalAlignment="Center"
-                                                                        FontSize="10" />
-                                                                </Border>
-                                                                <TextBlock
-                                                                    x:Name="PART_SenderTokenName"
-                                                                    Grid.Column="1"
-                                                                    VerticalAlignment="Center"
-                                                                    TextTrimming="CharacterEllipsis" />
-                                                                <Button
-                                                                    x:Name="PART_SenderTokenRemoveButton"
-                                                                    Grid.Column="2"
-                                                                    Width="24"
-                                                                    Height="24"
-                                                                    MinWidth="24"
-                                                                    MinHeight="24"
-                                                                    Padding="0"
-                                                                    AutomationProperties.AutomationId="WinoSearchBarSenderTokenRemoveButton"
-                                                                    AutomationProperties.Name="{TemplateBinding RemoveSenderText}"
-                                                                    Background="Transparent"
-                                                                    BorderThickness="0"
-                                                                    CornerRadius="12">
-                                                                    <FontIcon
-                                                                        FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                                                        FontSize="10"
-                                                                        Glyph="&#xE711;" />
-                                                                </Button>
-                                                            </Grid>
-                                                        </Border>
-                                                    </Grid>
-                                                </StackPanel>
-
-                                                <StackPanel
-                                                    Grid.Row="1"
-                                                    Grid.Column="1"
-                                                    Spacing="4">
-                                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{TemplateBinding DateLabelText}" />
-                                                    <ComboBox
-                                                        x:Name="PART_DateComboBox"
-                                                        HorizontalAlignment="Stretch"
-                                                        AutomationProperties.AutomationId="WinoSearchBarDateComboBox"
-                                                        AutomationProperties.Name="{TemplateBinding DateLabelText}">
-                                                        <ComboBox.ItemTemplate>
-                                                            <DataTemplate>
-                                                                <TextBlock Text="{Binding Title}" />
-                                                            </DataTemplate>
-                                                        </ComboBox.ItemTemplate>
-                                                    </ComboBox>
-                                                </StackPanel>
-                                            </Grid>
-
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <ToggleButton
-                                                    x:Name="PART_AttachmentsButton"
-                                                    AutomationProperties.AutomationId="WinoSearchBarAttachmentsButton"
-                                                    Content="{TemplateBinding AttachmentsFilterText}"
-                                                    Style="{StaticResource WinoSearchBarFilterButtonStyle}" />
-                                                <ToggleButton
-                                                    x:Name="PART_UnreadButton"
-                                                    AutomationProperties.AutomationId="WinoSearchBarUnreadButton"
-                                                    Content="{TemplateBinding UnreadFilterText}"
-                                                    Style="{StaticResource WinoSearchBarFilterButtonStyle}" />
-                                                <ToggleButton
-                                                    x:Name="PART_FlaggedButton"
-                                                    AutomationProperties.AutomationId="WinoSearchBarFlaggedButton"
-                                                    Content="{TemplateBinding FlaggedFilterText}"
-                                                    Style="{StaticResource WinoSearchBarFilterButtonStyle}" />
-                                            </StackPanel>
-                                        </StackPanel>
-
-                                        <Grid Margin="0,2,0,0">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <Button
-                                                x:Name="PART_ResetButton"
-                                                HorizontalAlignment="Left"
-                                                AutomationProperties.AutomationId="WinoSearchBarResetButton"
-                                                Content="{TemplateBinding ResetText}" />
-                                            <Button
-                                                x:Name="PART_PanelSearchButton"
-                                                Grid.Column="1"
-                                                AutomationProperties.AutomationId="WinoSearchBarPanelSearchButton"
-                                                Content="{TemplateBinding SearchButtonText}"
-                                                Style="{StaticResource AccentButtonStyle}" />
-                                        </Grid>
-                                    </StackPanel>
-                                </Grid>
+                                CornerRadius="{ThemeResource OverlayCornerRadius}">
+                                <ContentControl
+                                    x:Name="PART_CompactFieldHost"
+                                    HorizontalContentAlignment="Stretch"
+                                    IsTabStop="False" />
                             </Border>
                         </Popup>
-
-                        <!--
-                            The control only names the state it is in; every property that state
-                            implies is set here. Field chrome is one group of three mutually
-                            exclusive states rather than separate focus and semantic groups: two
-                            groups writing the same three properties would make the winner depend on
-                            which GoToState ran last, and Meaning has to win over focus.
-                        -->
                         <VisualStateManager.VisualStateGroups>
-                            <VisualStateGroup x:Name="FieldStates">
-                                <VisualState x:Name="FieldRest" />
-                                <VisualState x:Name="FieldFocused">
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="Disabled">
                                     <VisualState.Setters>
-                                        <!--  A focused Fluent text field thickens its bottom edge; here that edge is the whole border.  -->
+                                        <Setter Target="PART_FieldBorder.Opacity" Value="0.55" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="FocusStates">
+                                <VisualState x:Name="Unfocused" />
+                                <VisualState x:Name="Focused">
+                                    <VisualState.Setters>
                                         <Setter Target="PART_FieldBorder.Background" Value="{ThemeResource WinoSearchBarFieldFocusedBackgroundBrush}" />
-                                        <Setter Target="PART_FieldBorder.BorderBrush" Value="{ThemeResource WinoSearchBarFieldFocusedBorderBrush}" />
-                                        <Setter Target="PART_FieldBorder.BorderThickness" Value="{ThemeResource WinoSearchBarFieldFocusedBorderThickness}" />
+                                        <Setter Target="PART_FocusUnderline.Visibility" Value="Visible" />
                                     </VisualState.Setters>
                                 </VisualState>
-                                <VisualState x:Name="FieldMeaning">
+                                <!--  Online already outlines the whole field, so focus adds no underline on top of it.  -->
+                                <VisualState x:Name="FocusedOnline">
                                     <VisualState.Setters>
-                                        <Setter Target="PART_FieldBorder.Background" Value="{ThemeResource WinoSearchBarSemanticBackgroundBrush}" />
-                                        <Setter Target="PART_FieldBorder.BorderBrush" Value="{ThemeResource WinoSearchBarSemanticBorderBrush}" />
+                                        <Setter Target="PART_FieldBorder.Background" Value="{ThemeResource WinoSearchBarFieldFocusedBackgroundBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="ReachStates">
+                                <VisualState x:Name="Local" />
+                                <VisualState x:Name="Online">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_OnlineTint.Visibility" Value="Visible" />
+                                        <Setter Target="PART_FieldBorder.BorderBrush" Value="{ThemeResource WinoSearchBarOnlineBorderBrush}" />
                                         <Setter Target="PART_FieldBorder.BorderThickness" Value="1" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="LayoutStates">
-                                <VisualState x:Name="WideLayout" />
-                                <VisualState x:Name="CompactLayout">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_CompactButton.Visibility" Value="Visible" />
-                                        <Setter Target="PART_CompactFieldHost.Visibility" Value="Visible" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="ModeStates">
-                                <VisualState x:Name="MailMode" />
-                                <VisualState x:Name="SettingsMode">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_MailOptionsPanel.Visibility" Value="Collapsed" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="MeaningToggleStates">
-                                <VisualState x:Name="MeaningToggleVisible" />
-                                <VisualState x:Name="MeaningToggleCollapsed">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_MeaningToggleButton.Visibility" Value="Collapsed" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="SemanticBusyStates">
-                                <VisualState x:Name="SemanticIdle" />
-                                <VisualState x:Name="SemanticBusy">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_MeaningSparkle.Visibility" Value="Collapsed" />
-                                        <Setter Target="PART_SemanticBusyRing.Visibility" Value="Visible" />
-                                        <Setter Target="PART_SemanticBusyRing.IsActive" Value="True" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="SemanticExplanationStates">
-                                <VisualState x:Name="SemanticExplanationHidden" />
-                                <VisualState x:Name="SemanticExplanationVisible">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_SemanticExplanationPanel.Visibility" Value="Visible" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="SenderStates">
-                                <VisualState x:Name="NoSenderSelected" />
-                                <VisualState x:Name="SenderSelected">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_SenderToken.Visibility" Value="Visible" />
-                                        <Setter Target="PART_SenderSuggestBox.Visibility" Value="Collapsed" />
-                                    </VisualState.Setters>
-                                </VisualState>
-                            </VisualStateGroup>
-
-                            <VisualStateGroup x:Name="HistoryStates">
-                                <VisualState x:Name="HasHistory" />
-                                <VisualState x:Name="NoHistory">
-                                    <VisualState.Setters>
-                                        <Setter Target="PART_HistoryList.Visibility" Value="Collapsed" />
-                                        <Setter Target="PART_ClearHistoryButton.Visibility" Value="Collapsed" />
-                                        <Setter Target="PART_EmptyHistoryText.Visibility" Value="Visible" />
                                     </VisualState.Setters>
                                 </VisualState>
                             </VisualStateGroup>
@@ -1167,6 +963,52 @@
                                 -->
                                 <winoPrimitives:WinoWrapPanel HorizontalSpacing="6" VerticalSpacing="6">
                                     <Button
+                                        x:Name="PART_TranslateChipButton"
+                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslateChipButton"
+                                        Style="{StaticResource WinoIntelligenceChipButtonStyle}">
+                                        <Grid ColumnSpacing="8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid
+                                                Width="16"
+                                                Height="16"
+                                                VerticalAlignment="Center">
+                                                <FontIcon
+                                                    x:Name="TranslateChipGlyph"
+                                                    AutomationProperties.AccessibilityView="Raw"
+                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                                                    FontSize="14"
+                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                    Glyph="&#xF2B7;" />
+                                            </Grid>
+                                            <TextBlock
+                                                x:Name="PART_TranslateChipLabel"
+                                                Grid.Column="1"
+                                                VerticalAlignment="Center" />
+                                            <Ellipse
+                                                x:Name="PART_TranslateResultDot"
+                                                Grid.Column="2"
+                                                Width="6"
+                                                Height="6"
+                                                VerticalAlignment="Center"
+                                                AutomationProperties.AccessibilityView="Raw"
+                                                Fill="{ThemeResource SystemFillColorSuccessBrush}"
+                                                Visibility="Collapsed" />
+                                            <TextBlock
+                                                x:Name="PART_TranslateChipHint"
+                                                Grid.Column="3"
+                                                VerticalAlignment="Center"
+                                                Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
+                                                Style="{StaticResource CaptionTextBlockStyle}"
+                                                Visibility="Collapsed" />
+                                        </Grid>
+                                    </Button>
+
+                                    <Button
                                         x:Name="PART_SummaryChipButton"
                                         AutomationProperties.AutomationId="WinoIntelligenceHeaderSummarizeButton"
                                         Style="{StaticResource WinoIntelligenceChipButtonStyle}">
@@ -1250,52 +1092,6 @@
                                                 Visibility="Collapsed" />
                                             <TextBlock
                                                 x:Name="PART_RepliesChipHint"
-                                                Grid.Column="3"
-                                                VerticalAlignment="Center"
-                                                Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
-                                                Style="{StaticResource CaptionTextBlockStyle}"
-                                                Visibility="Collapsed" />
-                                        </Grid>
-                                    </Button>
-
-                                    <Button
-                                        x:Name="PART_TranslateChipButton"
-                                        AutomationProperties.AutomationId="WinoIntelligenceHeaderTranslateChipButton"
-                                        Style="{StaticResource WinoIntelligenceChipButtonStyle}">
-                                        <Grid ColumnSpacing="8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <Grid
-                                                Width="16"
-                                                Height="16"
-                                                VerticalAlignment="Center">
-                                                <FontIcon
-                                                    x:Name="TranslateChipGlyph"
-                                                    AutomationProperties.AccessibilityView="Raw"
-                                                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
-                                                    FontSize="14"
-                                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                                    Glyph="&#xF2B7;" />
-                                            </Grid>
-                                            <TextBlock
-                                                x:Name="PART_TranslateChipLabel"
-                                                Grid.Column="1"
-                                                VerticalAlignment="Center" />
-                                            <Ellipse
-                                                x:Name="PART_TranslateResultDot"
-                                                Grid.Column="2"
-                                                Width="6"
-                                                Height="6"
-                                                VerticalAlignment="Center"
-                                                AutomationProperties.AccessibilityView="Raw"
-                                                Fill="{ThemeResource SystemFillColorSuccessBrush}"
-                                                Visibility="Collapsed" />
-                                            <TextBlock
-                                                x:Name="PART_TranslateChipHint"
                                                 Grid.Column="3"
                                                 VerticalAlignment="Center"
                                                 Foreground="{ThemeResource WinoIntelligenceHeaderSecondaryTextBrush}"
@@ -1983,10 +1779,12 @@
                             <Grid Grid.Row="2">
                                 <ListView
                                     x:Name="PART_ItemsList"
+                                    MaxHeight="360"
                                     Padding="0"
                                     AutomationProperties.AutomationId="WinoContextFlyoutItemsList"
                                     IsItemClickEnabled="True"
                                     ItemTemplateSelector="{StaticResource WinoContextFlyoutTemplateSelector}"
+                                    ScrollViewer.VerticalScrollBarVisibility="Auto"
                                     SelectionMode="None">
                                     <ListView.ItemContainerStyle>
                                         <!--  Rows are commands, not a selection. The container adds no height; each item template owns its own metrics.  -->

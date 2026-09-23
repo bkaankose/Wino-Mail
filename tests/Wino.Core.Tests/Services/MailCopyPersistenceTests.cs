@@ -309,6 +309,41 @@ public class MailCopyPersistenceTests : IAsyncLifetime
         saved.Id.Should().Be("replacement"); saved.Subject.Should().Be("new local subject");
     }
 
+    [Fact]
+    public async Task Remote_draft_refresh_updates_list_metadata_only_for_current_unprotected_identity()
+    {
+        var registry = new DraftUpdateRegistry();
+        var service = BuildMailService(_databaseService, registry);
+        var draft = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(), Id = "replacement", DraftId = "draft", FileId = Guid.NewGuid(),
+            IsDraft = true, FolderId = _inboxFolder.Id, AssignedAccount = _account, AssignedFolder = _inboxFolder,
+            Subject = "old subject", PreviewText = "old body", CreationDate = DateTime.UtcNow
+        };
+        await _databaseService.Connection.InsertAsync(draft, typeof(MailCopy));
+
+        var remote = new MailCopy
+        {
+            Id = "replacement", Subject = "remote subject", PreviewText = "remote body",
+            HasAttachments = true, CreationDate = draft.CreationDate.AddMinutes(1)
+        };
+
+        registry.Protect(_account.Id, draft);
+        (await service.RefreshMappedDraftMetadataAsync(_account.Id, draft.UniqueId, remote)).Should().BeFalse();
+        registry.Release(_account.Id, draft.UniqueId);
+
+        remote.Id = "obsolete";
+        (await service.RefreshMappedDraftMetadataAsync(_account.Id, draft.UniqueId, remote)).Should().BeFalse();
+
+        remote.Id = "replacement";
+        (await service.RefreshMappedDraftMetadataAsync(_account.Id, draft.UniqueId, remote)).Should().BeTrue();
+        var saved = await service.GetSingleMailItemAsync(draft.UniqueId);
+        saved.Subject.Should().Be("remote subject");
+        saved.PreviewText.Should().Be("remote body");
+        saved.HasAttachments.Should().BeTrue();
+        saved.FileId.Should().Be(draft.FileId);
+    }
+
     private static MailService BuildMailService(InMemoryDatabaseService db, DraftUpdateRegistry? registry = null)
     {
         var signatureService = new Mock<ISignatureService>();

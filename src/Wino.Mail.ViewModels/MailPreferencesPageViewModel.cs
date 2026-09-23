@@ -44,8 +44,7 @@ public partial class MailPreferencesPageViewModel : MailBaseViewModel
         SearchModes =
         [
             Translator.SettingsAppPreferences_SearchMode_Local,
-            Translator.SettingsAppPreferences_SearchMode_Online,
-            Translator.SettingsAppPreferences_SearchMode_Semantic
+            Translator.SettingsAppPreferences_SearchMode_Online
         ];
 
         _selectedDefaultSearchMode = SearchModes[(int)PreferencesService.DefaultSearchMode];

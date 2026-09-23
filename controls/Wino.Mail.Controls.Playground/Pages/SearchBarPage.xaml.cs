@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Wino.Mail.Controls.Core.SearchBar;
 
 namespace Wino.Mail.Controls.Playground.Pages;
@@ -8,6 +9,9 @@ namespace Wino.Mail.Controls.Playground.Pages;
 public sealed partial class SearchBarPage : Page, IDisposable
 {
     private bool _disposed;
+    private int _eventCount;
+    private FlyoutBase? _headerFlyout;
+    private FlyoutBase? _filterFlyout;
     private readonly Dictionary<SearchBarMode, ObservableCollection<string>> _historyByMode = new()
     {
         [SearchBarMode.Mail] =
@@ -43,13 +47,6 @@ public sealed partial class SearchBarPage : Page, IDisposable
         new("Signatures", "Compose • Signatures for each account"),
     ];
 
-    private readonly SearchBarContactSuggestion[] _contacts =
-    [
-        new() { DisplayName = "Alex Morgan", Address = "alex@contoso.com", Initials = "AM" },
-        new() { DisplayName = "Ada Lovelace", Address = "ada@fabrikam.com", Initials = "AL" },
-        new() { DisplayName = "Wino Support", Address = "support@wino-mail.app", Initials = "WS" },
-    ];
-
     public ObservableCollection<SearchModeOption> ModeOptions { get; } =
     [
         new(SearchBarMode.Mail, "Mail"),
@@ -76,36 +73,56 @@ public sealed partial class SearchBarPage : Page, IDisposable
         if (ModeComboBox.SelectedItem is SearchModeOption option) ApplyMode(option.Mode);
     }
 
-    private void SemanticAvailabilityToggled(object sender, RoutedEventArgs e)
+    private void SearchHeaderItemClicked(object sender, RoutedEventArgs e)
     {
-        if (SearchBar is null) return;
-        SearchBar.IsSemanticSearchAvailable = SemanticAvailabilityToggle.IsOn;
-        AddTrace($"Intelligence availability: {SemanticAvailabilityToggle.IsOn}");
-    }
-
-    private void SemanticBusyToggled(object sender, RoutedEventArgs e)
-    {
-        if (SearchBar is null) return;
-        SearchBar.IsSemanticSearchBusy = SemanticBusyToggle.IsOn;
-        AddTrace($"Semantic busy: {SemanticBusyToggle.IsOn}");
-    }
-
-    private void SemanticEnabledToggled(object sender, RoutedEventArgs e)
-    {
-        if (SearchBar is null) return;
-        SearchBar.IsSemanticSearchEnabled = SemanticEnabledToggle.IsOn;
-        AddTrace($"Meaning enabled: {SearchBar.IsSemanticSearchEnabled}");
+        if (sender is not RadioMenuFlyoutItem item) return;
+        SearchBar.SelectedHeaderButtonTitle = item.Text;
+        AddTrace($"Header selection: {item.Text}");
     }
 
     private void CompactLayoutToggled(object sender, RoutedEventArgs e)
     {
         if (SearchBar is null) return;
-        SearchBar.IsCompact = CompactLayoutToggle.IsOn;
+        ApplyCompactLayout(CompactLayoutToggle.IsOn);
         AddTrace($"Compact layout: {CompactLayoutToggle.IsOn}");
+    }
+
+    // Mirrors the shell title bar: a centered field with room around it to grow into on focus, and
+    // only the icon, without the width floor, when compact.
+    private void ApplyCompactLayout(bool isCompact)
+    {
+        SearchBar.IsCompact = isCompact;
+        SearchBar.MinWidth = isCompact ? 0 : 280;
+        SearchBar.MaxWidth = isCompact ? double.PositiveInfinity : 360;
+        SearchBar.HorizontalAlignment = isCompact ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+    }
+
+    private void PageButtonsToggled(object sender, RoutedEventArgs e)
+    {
+        if (SearchBar is null) return;
+        _headerFlyout ??= SearchBar.HeaderFlyout;
+        _filterFlyout ??= SearchBar.FilterFlyout;
+        SearchBar.HeaderFlyout = PageButtonsToggle.IsOn ? _headerFlyout : null;
+        SearchBar.FilterFlyout = PageButtonsToggle.IsOn ? _filterFlyout : null;
+        AddTrace($"Page buttons: {PageButtonsToggle.IsOn}");
+    }
+
+    private void LightThemeToggled(object sender, RoutedEventArgs e)
+    {
+        RequestedTheme = LightThemeToggle.IsOn ? ElementTheme.Light : ElementTheme.Dark;
+        AddTrace($"Theme: {RequestedTheme}");
+    }
+
+    private void EnabledToggled(object sender, RoutedEventArgs e)
+    {
+        if (SearchBar is null) return;
+        SearchBar.IsEnabled = EnabledToggle.IsOn;
+        AddTrace($"Enabled: {EnabledToggle.IsOn}");
     }
 
     private void SearchBarTextChanged(object? sender, SearchBarTextChangedEventArgs e)
     {
+        QueryStateText.Text = $"Query: “{e.Text}” · {(e.IsUserInput ? "typed" : "set")}";
         if (!e.IsUserInput) return;
 
         Suggestions.Clear();
@@ -151,25 +168,15 @@ public sealed partial class SearchBarPage : Page, IDisposable
         }
 
         ResultSummary.Text = $"{Results.Count} simulated result(s) for “{e.QueryText}”.";
-        AddTrace($"Submitted · {e.Mode} · {e.Origin} · semantic={e.IsSemanticSearchEnabled} · {e.Filters}");
+        AddTrace($"Submitted · {e.Mode} · {e.Origin} · {e.Reach}");
     }
+
+    private void SearchBarDismissed(object? sender, EventArgs e) => AddTrace("Dismissed");
 
     private void SearchBarClearHistoryRequested(object? sender, EventArgs e)
     {
         _historyByMode[SearchBar.Mode].Clear();
         AddTrace($"Cleared {SearchBar.Mode} history");
-    }
-
-    private void SearchBarOptionsChanged(object? sender, SearchBarFilterSnapshot e)
-        => AddTrace($"Options · {e}");
-
-    private void SearchBarSenderSuggestionsRequested(object? sender, SearchBarSenderQueryEventArgs e)
-    {
-        SearchBar.SenderSuggestions = _contacts
-            .Where(contact => contact.DisplayName.Contains(e.QueryText, StringComparison.OrdinalIgnoreCase) ||
-                              contact.Address.Contains(e.QueryText, StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-        AddTrace($"Sender suggestions: {e.QueryText}");
     }
 
     private void ApplyMode(SearchBarMode mode)
@@ -180,28 +187,7 @@ public sealed partial class SearchBarPage : Page, IDisposable
         SearchBar.Text = string.Empty;
         SearchBar.SearchHistoryItemsSource = _historyByMode[mode];
         SearchBar.ItemsSource = Suggestions;
-        SearchBar.IsSemanticSearchAvailable = SemanticAvailabilityToggle?.IsOn == true;
-        SearchBar.IsSemanticSearchBusy = SemanticBusyToggle?.IsOn == true;
-        SearchBar.IsSemanticSearchEnabled = SemanticEnabledToggle?.IsOn == true;
-        SearchBar.IsCompact = CompactLayoutToggle?.IsOn == true;
-        SearchBar.ScopeOptionsSource = new SearchBarOptionItem[]
-        {
-            new((int)SearchBarScope.CurrentFolder, "Current folder"),
-            new((int)SearchBarScope.CurrentAccount, "Current account"),
-            new((int)SearchBarScope.AllAccounts, "All accounts"),
-        };
-        SearchBar.ReachOptionsSource = new SearchBarOptionItem[]
-        {
-            new((int)SearchBarReach.DownloadedOnly, "Downloaded only"),
-            new((int)SearchBarReach.IncludeServer, "Include mail server"),
-        };
-        SearchBar.DateOptionsSource = new SearchBarOptionItem[]
-        {
-            new((int)SearchBarDateRange.AnyTime, "Any time"),
-            new((int)SearchBarDateRange.Today, "Today"),
-            new((int)SearchBarDateRange.LastSevenDays, "Last 7 days"),
-            new((int)SearchBarDateRange.LastThirtyDays, "Last 30 days"),
-        };
+        ApplyCompactLayout(CompactLayoutToggle?.IsOn == true);
         SearchBar.PlaceholderText = mode switch
         {
             SearchBarMode.Mail => "Search mail",
@@ -224,6 +210,7 @@ public sealed partial class SearchBarPage : Page, IDisposable
 
     private void AddTrace(string message)
     {
+        LastEventText.Text = $"{++_eventCount}. {message}";
         EventTrace.Insert(0, $"{DateTime.Now:T}  {message}");
         while (EventTrace.Count > 12) EventTrace.RemoveAt(EventTrace.Count - 1);
     }
@@ -239,13 +226,12 @@ public sealed partial class SearchBarPage : Page, IDisposable
         SearchBar.SearchSubmitted -= SearchBarSubmitted;
         SearchBar.SearchTextChanged -= SearchBarTextChanged;
         SearchBar.ClearSearchHistoryRequested -= SearchBarClearHistoryRequested;
-        SearchBar.SearchOptionsChanged -= SearchBarOptionsChanged;
-        SearchBar.SenderSuggestionsRequested -= SearchBarSenderSuggestionsRequested;
+        SearchBar.SearchDismissed -= SearchBarDismissed;
         ModeComboBox.SelectionChanged -= ModeComboBoxSelectionChanged;
-        SemanticAvailabilityToggle.Toggled -= SemanticAvailabilityToggled;
-        SemanticBusyToggle.Toggled -= SemanticBusyToggled;
-        SemanticEnabledToggle.Toggled -= SemanticEnabledToggled;
         CompactLayoutToggle.Toggled -= CompactLayoutToggled;
+        PageButtonsToggle.Toggled -= PageButtonsToggled;
+        EnabledToggle.Toggled -= EnabledToggled;
+        LightThemeToggle.Toggled -= LightThemeToggled;
         Bindings.StopTracking();
         SearchBar.Dispose();
         ResultsList.ItemsSource = null;

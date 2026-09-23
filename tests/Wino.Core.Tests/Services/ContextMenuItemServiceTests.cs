@@ -40,13 +40,27 @@ public sealed class ContextMenuItemServiceTests
     }
 
     [Fact]
-    public void GetMailItemContextMenuActions_WhenAnySelectedItemIsDraftOrSent_DisablesMove()
+    public void GetMailItemContextMenuActions_WhenThreadContainsSentMail_EnablesMove()
     {
         var inboxMail = CreateMail(isRead: true);
         var sentMail = CreateMail(isRead: true);
         sentMail.AssignedFolder.SpecialFolderType = SpecialFolderType.Sent;
 
         var moveAction = _service.GetMailItemContextMenuActions([inboxMail, sentMail])
+            .Single(action => action.Operation == MailOperation.Move);
+
+        moveAction.IsEnabled.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(SpecialFolderType.Draft)]
+    [InlineData(SpecialFolderType.Sent)]
+    public void GetMailItemContextMenuActions_WhenAllItemsAreDraftOrSent_DisablesMove(SpecialFolderType folderType)
+    {
+        var mail = CreateMail(isRead: true);
+        mail.AssignedFolder.SpecialFolderType = folderType;
+
+        var moveAction = _service.GetMailItemContextMenuActions([mail])
             .Single(action => action.Operation == MailOperation.Move);
 
         moveAction.IsEnabled.Should().BeFalse();

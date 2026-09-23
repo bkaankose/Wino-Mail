@@ -21,6 +21,12 @@ public sealed record EditorMessage
 
     [JsonPropertyName("gesture")]
     public EditorApplicationShortcutGesture? Gesture { get; init; }
+
+    [JsonPropertyName("word")]
+    public string? Word { get; init; }
+
+    [JsonPropertyName("requestId")]
+    public int RequestId { get; init; }
 }
 
 public sealed record EditorSelectionState

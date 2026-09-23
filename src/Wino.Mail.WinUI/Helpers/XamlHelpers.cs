@@ -135,8 +135,7 @@ public static class XamlHelpers
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadChild ? new Thickness(24, 0, 0, 0) : new Thickness(0);
     public static bool IsThreadMessageHead(global::Wino.Mail.Controls.Core.MailListRowKind kind)
         => kind == global::Wino.Mail.Controls.Core.MailListRowKind.ThreadHead;
-    public static Thickness GetThreadExpanderContentMargin(global::Wino.Mail.Controls.Core.MailListRowKind kind)
-        => IsThreadMessageHead(kind) ? new Thickness(16, 0, 0, 0) : new Thickness(0);
+    public static string GetThreadChevronGlyph(bool isExpanded) => isExpanded ? "\uE70D" : "\uE76C";
     public static bool IsMultiple(int count) => count > 1;
     public static bool ReverseIsMultiple(int count) => count < 1;
     public static PopupPlacementMode GetPlaccementModeForCalendarType(CalendarDisplayType type)
@@ -157,6 +156,7 @@ public static class XamlHelpers
     public static bool AreEqual(int value1, int value2) => value1 == value2;
     public static bool ShouldDisplayPreview(string text) => text == null ? false : text.Any(x => char.IsLetter(x));
     public static bool CountToBooleanConverter(int value) => value > 0;
+    public static bool IsMailSearchScope(MailSearchScope scope, string expected) => scope.ToString() == expected;
     public static bool ObjectEquals(object obj1, object obj2) => object.Equals(obj1, obj2);
     public static Visibility CountToVisibilityConverter(int value) => value > 0 ? Visibility.Visible : Visibility.Collapsed;
     public static Visibility CountToVisibilityConverterWithThreshold(int value, int threshold) => value > threshold ? Visibility.Visible : Visibility.Collapsed;

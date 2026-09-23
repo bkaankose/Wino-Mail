@@ -9,7 +9,8 @@
     xmlns:hoverActions="using:Wino.Mail.Controls.HoverActions"
     xmlns:hoverCore="using:Wino.Mail.Controls.Core.HoverActions"
     xmlns:intelligenceTiles="using:Wino.Mail.Controls.IntelligenceTileBar"
-    xmlns:models="using:Wino.Mail.Controls.Playground.Models">
+    xmlns:models="using:Wino.Mail.Controls.Playground.Models"
+    xmlns:search="using:Wino.Mail.Controls.SearchBar">
     <Page.Resources>
         <!--  Mirrors the app template contract: a stretched host that owns hit testing and a named presenter the item animates.  -->
         <Style
@@ -86,7 +87,6 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <contact:WinoContactPicture
                     Width="36"
@@ -95,7 +95,21 @@
                     IsFaviconEnabled="False"
                     IsGravatarEnabled="False" />
                 <StackPanel Grid.Column="1" Spacing="2">
-                    <TextBlock FontWeight="SemiBold" Text="{x:Bind models:MailListPlaygroundFormat.Subject(SourceItem)}" />
+                    <Grid ColumnSpacing="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon
+                            VerticalAlignment="Center"
+                            FontSize="10"
+                            Glyph="{x:Bind models:MailListPlaygroundFormat.ChevronGlyph(IsExpanded), Mode=OneWay}" />
+                        <TextBlock
+                            Grid.Column="1"
+                            FontWeight="SemiBold"
+                            Text="{x:Bind models:MailListPlaygroundFormat.Subject(SourceItem)}"
+                            TextTrimming="CharacterEllipsis" />
+                    </Grid>
                     <TextBlock Style="{ThemeResource CaptionTextBlockStyle}" Text="{x:Bind models:MailListPlaygroundFormat.Sender(SourceItem)}" />
                     <intelligenceTiles:WinoMailIntelligenceTileBar
                         MaxWidth="180"
@@ -108,10 +122,6 @@
                         Text="{x:Bind models:MailListPlaygroundFormat.Preview(SourceItem)}"
                         TextTrimming="CharacterEllipsis" />
                 </StackPanel>
-                <FontIcon
-                    Grid.Column="2"
-                    VerticalAlignment="Center"
-                    Glyph="&#xE70D;" />
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="ThreadChildTemplate" x:DataType="core:MailListRow">
@@ -141,13 +151,57 @@
     <Grid Padding="24" RowSpacing="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
         <StackPanel Spacing="3">
             <TextBlock Style="{ThemeResource TitleTextBlockStyle}" Text="Threaded mail selection lab" />
             <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Virtualized rows, date grouping, and real extended selection. Use Ctrl or Shift to select more than one row." />
         </StackPanel>
-        <Grid Grid.Row="1" ColumnSpacing="20">
+        <search:WinoSearchBar
+            x:Name="MailSearchBar"
+            Grid.Row="1"
+            MaxWidth="540"
+            HorizontalAlignment="Left"
+            AutomationProperties.AutomationId="MailPlaygroundSearchBar"
+            AutomationProperties.Name="Search sample mail"
+            SelectedHeaderButtonTitle="{x:Bind ViewModel.SelectedHeaderButtonTitle, Mode=OneWay}">
+            <search:WinoSearchBar.HeaderFlyout>
+                <MenuFlyout>
+                    <RadioMenuFlyoutItem
+                        Click="SearchHeaderItemClicked"
+                        GroupName="SearchScope"
+                        Text="All folders" />
+                    <RadioMenuFlyoutItem
+                        Click="SearchHeaderItemClicked"
+                        GroupName="SearchScope"
+                        IsChecked="True"
+                        Text="Current folder" />
+                    <RadioMenuFlyoutItem
+                        Click="SearchHeaderItemClicked"
+                        GroupName="SearchScope"
+                        Text="Subfolders" />
+                    <MenuFlyoutSubItem Text="Pinned">
+                        <MenuFlyoutItem IsEnabled="False" Text="Account A" />
+                        <RadioMenuFlyoutItem
+                            Click="SearchHeaderItemClicked"
+                            GroupName="SearchScope"
+                            Text="Folder A" />
+                        <MenuFlyoutItem IsEnabled="False" Text="Account B" />
+                        <RadioMenuFlyoutItem
+                            Click="SearchHeaderItemClicked"
+                            GroupName="SearchScope"
+                            Text="Folder B" />
+                    </MenuFlyoutSubItem>
+                </MenuFlyout>
+            </search:WinoSearchBar.HeaderFlyout>
+            <search:WinoSearchBar.FilterFlyout>
+                <Flyout>
+                    <TextBlock Text="Advanced search filters are coming soon." />
+                </Flyout>
+            </search:WinoSearchBar.FilterFlyout>
+        </search:WinoSearchBar>
+        <Grid Grid.Row="2" ColumnSpacing="20">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" MinWidth="560" />
                 <ColumnDefinition Width="360" />

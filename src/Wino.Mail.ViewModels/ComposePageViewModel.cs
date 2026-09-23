@@ -143,7 +143,19 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public bool AreCertificatesAvailable => AvailableCertificates.Count > 0;
 
     public ObservableCollection<EmailTemplate> AvailableEmailTemplates { get; } = [];
-    public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; set; } = [];
+    public ObservableCollection<MailAttachmentViewModel> IncludedAttachments { get; } = [];
+
+    public string AttachmentsSummary
+    {
+        get
+        {
+            var totalSize = IncludedAttachments.Sum(a => (long)(a.Content?.Length ?? 0)).GetBytesReadable();
+
+            return IncludedAttachments.Count == 1
+                ? string.Format(Translator.Composer_AttachmentsSummarySingle, totalSize)
+                : string.Format(Translator.Composer_AttachmentsSummary, IncludedAttachments.Count, totalSize);
+        }
+    }
     public ObservableCollection<MailAccount> Accounts { get; set; } = [];
     public ObservableCollection<AccountContact> ToItems { get; set; } = [];
     public ObservableCollection<AccountContact> CCItems { get; set; } = [];
@@ -223,6 +235,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _draftRegistry = draftRegistry;
         _draftSaveService = draftSaveService;
         _attachmentFileService = attachmentFileService;
+
+        IncludedAttachments.CollectionChanged += (_, _) => OnPropertyChanged(nameof(AttachmentsSummary));
 
         foreach (var cert in _smimeCertificateService.GetCertificates(emailAddress: SelectedAlias?.AliasAddress))
         {
@@ -353,6 +367,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [RelayCommand]
     private void RemoveAttachment(MailAttachmentViewModel attachmentViewModel)
         => IncludedAttachments.Remove(attachmentViewModel);
+
+    [RelayCommand]
+    private void RemoveAllAttachments() => IncludedAttachments.Clear();
 
     [RelayCommand(CanExecute = nameof(canSendMail))]
     private async Task SendAsync()

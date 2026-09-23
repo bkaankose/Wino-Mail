@@ -30,8 +30,10 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Helpers;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.SearchBar;
+using Wino.Mail.Controls.SearchBar;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.ViewModels.Search;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls.ListView;
 using Wino.Mail.WinUI.Helpers;
@@ -76,7 +78,8 @@ public sealed partial class MailListPage : MailListPageAbstract,
         return Task.FromResult(true);
     }
 
-    public event EventHandler<bool> SemanticSearchBusyChanged;
+    // The search bar that opened the filter flyout, while it is open.
+    private WinoSearchBar? _filterFlyoutSearchBar;
     private const double RENDERING_COLUMN_MIN_WIDTH = 375;
     private const int SELECTION_SETTLE_DELAY_MS = 120;
     private const int RENDERING_FRAME_RELEASE_DELAY_MS = 2000;
@@ -102,7 +105,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     private IContactService ContactService { get; } = WinoApplication.Current.Services.GetRequiredService<IContactService>();
     private IFolderService FolderService { get; } = WinoApplication.Current.Services.GetRequiredService<IFolderService>();
-    private IAccountService AccountService { get; } = WinoApplication.Current.Services.GetRequiredService<IAccountService>();
     private IWinoIntelligenceEntitlementService EntitlementService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoIntelligenceEntitlementService>();
     private IMailDialogService MailDialogService { get; } = WinoApplication.Current.Services.GetRequiredService<IMailDialogService>();
     private IKeyboardShortcutService KeyboardShortcutService { get; } = WinoApplication.Current.Services.GetRequiredService<IKeyboardShortcutService>();
@@ -110,24 +112,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private IStatePersistanceService StatePersistenceService { get; } = WinoApplication.Current.Services.GetService<IStatePersistanceService>() ?? throw new Exception($"Can't resolve {nameof(IStatePersistanceService)}");
     public ObservableCollection<TitleBarSearchSuggestion> SearchSuggestions { get; } = [];
     public SearchBarMode SearchMode => SearchBarMode.Mail;
-    public IReadOnlyList<SearchBarContactSuggestion> SenderSuggestions { get; private set; } = [];
-    public bool IsSemanticSearchAvailable => ViewModel.IsSemanticSearchAvailable;
-    public bool IsSemanticSearchBusy => ViewModel.IsSemanticSearchBusy;
-    public string SemanticUnavailableReasonText => IsSemanticSearchAvailable ? string.Empty : Translator.WinoIntelligence_InsightsLocked;
-    public IReadOnlyList<SearchBarOptionItem> ScopeOptions
-    {
-        get
-        {
-            var options = new List<SearchBarOptionItem>
-            {
-                new((int)SearchBarScope.CurrentFolder, Translator.SearchBar_ScopeCurrentFolder),
-            };
-            if (ViewModel.ActiveFolder?.HandlingFolders.Select(folder => folder.MailAccountId).Distinct().Take(2).Count() == 1)
-                options.Add(new((int)SearchBarScope.CurrentAccount, Translator.SearchBar_ScopeCurrentAccount));
-            options.Add(new((int)SearchBarScope.AllAccounts, Translator.SearchBar_ScopeAllAccounts));
-            return options;
-        }
-    }
     public string SearchText
     {
         get => ViewModel.SearchQuery;
@@ -141,11 +125,6 @@ public sealed partial class MailListPage : MailListPageAbstract,
     public MailListPage()
     {
         InitializeComponent();
-        ViewModel.PropertyChanged += (_, args) =>
-        {
-            if (args.PropertyName == nameof(ViewModel.IsSemanticSearchBusy))
-                SemanticSearchBusyChanged?.Invoke(this, ViewModel.IsSemanticSearchBusy);
-        };
         MailListView.GroupedViewSource = MailCollectionViewSource;
         RenderingFrame.Navigated += RenderingFrame_Navigated;
     }
@@ -801,12 +780,22 @@ public sealed partial class MailListPage : MailListPageAbstract,
 
     public async Task OnTitleBarSearchTextChangedAsync()
     {
-        if (string.IsNullOrWhiteSpace(SearchText))
+        if (!string.IsNullOrWhiteSpace(SearchText))
+            return;
+
+        ViewModel.IsOnlineSearchButtonVisible = false;
+
+        // Clearing the text keeps a filtered search on screen. It now runs on the filters alone.
+        if (ViewModel.ActiveSearchFilterCount > 0)
         {
-            ViewModel.IsOnlineSearchButtonVisible = false;
-            ViewModel.SetSearchCriteria(MailSearchCriteria.Empty, []);
-            await ViewModel.PerformSearchAsync();
+            if (!string.IsNullOrWhiteSpace(ViewModel.SearchCriteria.Query))
+                await RunMailSearchAsync(string.Empty, GetCurrentSearchReach());
+
+            return;
         }
+
+        ViewModel.SetSearchCriteria(MailSearchCriteria.Empty, []);
+        await ViewModel.PerformSearchAsync();
     }
 
     public void Receive(DisposeRenderingFrameRequested message)
@@ -1028,47 +1017,39 @@ public sealed partial class MailListPage : MailListPageAbstract,
         return Task.CompletedTask;
     }
 
-    public async Task RequestSenderSuggestionsAsync(string query)
+    private async void SearchHeaderItemClicked(object sender, RoutedEventArgs e)
     {
-        var accountIds = ViewModel.ActiveFolder?.HandlingFolders.Select(folder => folder.MailAccountId).Distinct().ToList() ?? [];
-        var accountId = accountIds.Count == 1 ? accountIds[0] : (Guid?)null;
-        var contacts = await ContactService.ResolveRecipientCandidatesAsync(accountId, query).ConfigureAwait(false) ?? [];
-        var suggestions = contacts.Take(8).Select(contact => new SearchBarContactSuggestion
-        {
-            DisplayName = contact.DisplayName,
-            Address = contact.Address,
-            Initials = GetInitials(contact.DisplayName),
-            ContactPicture = XamlHelpers.GetContactPicture(contact, contact.DisplayName, contact.Address),
-            Tag = contact,
-        }).ToArray();
-        await DispatcherQueue.EnqueueAsync(() => SenderSuggestions = suggestions);
+        if (sender is not RadioMenuFlyoutItem { Tag: string tag } ||
+            !Enum.TryParse<MailSearchScope>(tag, out var scope) ||
+            scope == ViewModel.SearchScope)
+            return;
+
+        ViewModel.SearchScope = scope;
+
+        // A search on screen follows the new scope right away, with the reach it was run with.
+        if (ViewModel.IsInSearchMode && ViewModel.SearchCriteria.IsActive)
+            await RunMailSearchAsync(ViewModel.SearchCriteria.Query, GetCurrentSearchReach());
     }
 
-    /// <summary>
-    /// Meaning search is no longer offered. It was backed by embeddings, which the
-    /// intelligence rewrite removed, so the toggle stays unavailable.
-    /// </summary>
-    public Task<SemanticSearchAvailability> GetSemanticSearchAvailabilityAsync(SearchBarFilterSnapshot filters)
-        => Task.FromResult(new SemanticSearchAvailability(false, Translator.WinoIntelligence_InsightsLocked));
+    public Task OnMailSearchSubmittedAsync(SearchBarSubmittedEventArgs args)
+        => RunMailSearchAsync(args.QueryText, args.Reach);
 
-    public async Task OnMailSearchSubmittedAsync(SearchBarSubmittedEventArgs args)
+    private async Task RunMailSearchAsync(string query, SearchBarReach reach)
     {
-        IReadOnlyList<MailItemFolder> folders = await ResolveSearchFoldersAsync(args.Filters.Scope).ConfigureAwait(false);
-        var (afterUtc, beforeUtc) = ResolveUtcDateRange(args.Filters.DateRange, DateTime.Now);
-        var executionMode = args.Filters.Reach == SearchBarReach.IncludeServer
-            ? Wino.Core.Domain.Enums.SearchMode.Online
-            : Wino.Core.Domain.Enums.SearchMode.Local;
-        var criteria = new MailSearchCriteria(
-            args.QueryText.Trim(),
-            executionMode,
-            (MailSearchScope)(int)args.Filters.Scope,
-            (MailSearchReach)(int)args.Filters.Reach,
-            args.Filters.Sender.Trim(),
-            afterUtc,
-            beforeUtc,
-            args.Filters.HasAttachments,
-            args.Filters.IsUnread,
-            args.Filters.IsFlagged,
+        var scope = ViewModel.SearchScope;
+        var activeFolders = ViewModel.ActiveFolder?.HandlingFolders.ToArray() ?? [];
+
+        var folders = await MailSearchFolderResolver.ResolveAsync(
+            scope,
+            activeFolders,
+            async accountId => await FolderService.GetFoldersAsync(accountId).ConfigureAwait(false)).ConfigureAwait(false);
+
+        var criteria = MailSearchCriteriaFactory.Create(
+            query,
+            reach,
+            scope,
+            ViewModel.SearchFilters,
+            DateTime.Now,
             folders.Select(folder => folder.Id).ToArray(),
             folders.Select(folder => folder.MailAccountId).Distinct().ToArray());
 
@@ -1080,52 +1061,85 @@ public sealed partial class MailListPage : MailListPageAbstract,
         });
     }
 
-    private async Task<IReadOnlyList<MailItemFolder>> ResolveSearchFoldersAsync(SearchBarScope scope)
+    private SearchBarReach GetCurrentSearchReach()
+        => ViewModel.SearchCriteria.Reach == MailSearchReach.IncludeServer
+            ? SearchBarReach.IncludeServer
+            : SearchBarReach.DownloadedOnly;
+
+    private void SearchFilterFlyoutOpening(object sender, object e)
     {
-        var activeFolders = ViewModel.ActiveFolder?.HandlingFolders
-            .OfType<MailItemFolder>()
-            .Where(IsRealSearchableFolder)
-            .ToArray() ?? [];
-        if (scope == SearchBarScope.CurrentFolder)
-            return activeFolders;
+        // The search bar that opened the flyout holds the query text and the Local/Online choice.
+        _filterFlyoutSearchBar = (sender as FlyoutBase)?.Target?.FindAscendant<WinoSearchBar>();
 
-        var accountIds = scope == SearchBarScope.CurrentAccount
-            ? activeFolders.Select(folder => folder.MailAccountId).Distinct().Take(2).ToArray()
-            : (await AccountService.GetAccountsAsync().ConfigureAwait(false)).Select(account => account.Id).ToArray();
-        if (scope == SearchBarScope.CurrentAccount && accountIds.Length != 1)
-            return activeFolders;
-
-        var folders = new List<MailItemFolder>();
-        foreach (var accountId in accountIds)
-            folders.AddRange(await FolderService.GetFoldersAsync(accountId).ConfigureAwait(false));
-        return folders.Where(IsRealSearchableFolder).GroupBy(folder => folder.Id).Select(group => group.First()).ToArray();
+        var reach = _filterFlyoutSearchBar?.SearchReach ?? GetCurrentSearchReach();
+        ViewModel.SearchFilterEditor.Load(
+            ViewModel.SearchScope,
+            _filterFlyoutSearchBar?.Text ?? SearchText,
+            ViewModel.SearchFilters,
+            reach == SearchBarReach.DownloadedOnly);
     }
 
-    private static bool IsRealSearchableFolder(MailItemFolder folder)
-        => folder is not null && !string.IsNullOrWhiteSpace(folder.RemoteFolderId);
+    private void SearchFilterFlyoutClosed(object sender, object e) => _filterFlyoutSearchBar = null;
 
-    internal static (DateTimeOffset? AfterUtc, DateTimeOffset? BeforeUtc) ResolveUtcDateRange(
-        SearchBarDateRange range,
-        DateTime localNow)
+    private void SearchFilterCancelClicked(object sender, RoutedEventArgs e) => SearchFilterFlyout.Hide();
+
+    private async void SearchFilterSearchClicked(object sender, RoutedEventArgs e) => await ApplySearchFilterEditorAsync();
+
+    private async void SearchFilterPanelKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (range == SearchBarDateRange.AnyTime)
-            return (null, null);
+        // Enter in a text field searches, as it does in the search box. Esc closes the flyout itself.
+        if (e.Key != VirtualKey.Enter || e.OriginalSource is not TextBox)
+            return;
 
-        var end = localNow.Date.AddDays(1);
-        var start = range switch
+        e.Handled = true;
+        await ApplySearchFilterEditorAsync();
+    }
+
+    private async Task ApplySearchFilterEditorAsync()
+    {
+        var editor = ViewModel.SearchFilterEditor;
+        var searchBar = _filterFlyoutSearchBar;
+        var reach = searchBar?.SearchReach ?? GetCurrentSearchReach();
+        var keywords = (editor.Keywords ?? string.Empty).Trim();
+
+        ViewModel.SearchScope = editor.Scope;
+        ViewModel.SearchFilters = editor.ToFilters();
+        SearchFilterFlyout.Hide();
+
+        // The keywords field edits the search box text, so the box shows what was searched.
+        SearchText = keywords;
+        if (searchBar is not null && searchBar.Text != keywords)
+            searchBar.Text = keywords;
+
+        await RunSearchOrCloseAsync(keywords, reach);
+    }
+
+    private async void SearchFilterChipRemoveClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: MailSearchFilterChip chip })
+            return;
+
+        ViewModel.SearchFilters = MailSearchFilterChip.Remove(ViewModel.SearchFilters, chip.Kind);
+        await RunSearchOrCloseAsync(ViewModel.SearchCriteria.Query, GetCurrentSearchReach());
+    }
+
+    private async void SearchFilterClearAllClicked(object sender, RoutedEventArgs e)
+    {
+        ViewModel.SearchFilters = MailSearchFilters.Empty;
+        await RunSearchOrCloseAsync(ViewModel.SearchCriteria.Query, GetCurrentSearchReach());
+    }
+
+    /// <summary>Searches again, or returns to the folder when neither a query nor a filter is left.</summary>
+    private async Task RunSearchOrCloseAsync(string query, SearchBarReach reach)
+    {
+        if (!string.IsNullOrWhiteSpace(query) || ViewModel.ActiveSearchFilterCount > 0)
         {
-            SearchBarDateRange.Today => localNow.Date,
-            SearchBarDateRange.LastSevenDays => localNow.Date.AddDays(-6),
-            SearchBarDateRange.LastThirtyDays => localNow.Date.AddDays(-29),
-            _ => localNow.Date,
-        };
-        return (new DateTimeOffset(start).ToUniversalTime(), new DateTimeOffset(end).ToUniversalTime());
-    }
+            await RunMailSearchAsync(query, reach);
+            return;
+        }
 
-    private static string GetInitials(string value)
-    {
-        var words = (value ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        return string.Concat(words.Take(2).Select(word => char.ToUpperInvariant(word[0])));
+        ViewModel.SetSearchCriteria(MailSearchCriteria.Empty, []);
+        await ViewModel.PerformSearchAsync();
     }
 
     public bool CanPopOutCurrentContent()

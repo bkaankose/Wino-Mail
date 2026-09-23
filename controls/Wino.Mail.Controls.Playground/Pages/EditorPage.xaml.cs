@@ -77,6 +77,8 @@ public sealed partial class EditorPage : Page, IDisposable, IPlaygroundLifetimeA
 
     private async Task InitializeComposeEditorAsync()
     {
+        await ComposeEditor.ConfigureSpellCheckAsync(true, "en-US");
+        await ComposeEditor.ConfigureAutoCorrectAsync(true);
         await ComposeEditor.SetHtmlAsync("<p>Hi team,</p><p>Here is the latest design review summary. Please add comments before Friday.</p><p>Thanks,<br/>Avery</p>");
         await ComposeEditor.SetApplicationShortcutsAsync(
             new List<EditorApplicationShortcutGesture>

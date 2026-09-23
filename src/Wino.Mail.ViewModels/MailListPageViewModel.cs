@@ -31,6 +31,7 @@ using Wino.Core.Services;
 using Wino.Mail.ViewModels.Collections;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.ViewModels.Messages;
+using Wino.Mail.ViewModels.Search;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
 using Wino.Messaging.Client.Accounts;
@@ -176,14 +177,42 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public MailSearchCriteria SearchCriteria { get; private set; } = MailSearchCriteria.Empty;
     private IReadOnlyList<IMailItemFolder> SearchHandlingFolders { get; set; } = [];
 
-    /// <summary>
-    /// Meaning search is no longer offered: it was backed by embeddings, which the
-    /// intelligence rewrite removed.
-    /// </summary>
-    public bool IsSemanticSearchAvailable => false;
-
     [ObservableProperty]
-    public partial bool IsSemanticSearchBusy { get; set; }
+    public partial string SelectedHeaderButtonTitle { get; set; } = Translator.SearchBar_CurrentFolder;
+
+    /// <summary>The folders the next search covers. Kept across folder navigation.</summary>
+    [ObservableProperty]
+    public partial MailSearchScope SearchScope { get; set; } = MailSearchScope.CurrentFolder;
+
+    partial void OnSearchScopeChanged(MailSearchScope value)
+        => SelectedHeaderButtonTitle = value switch
+        {
+            MailSearchScope.Subfolders => Translator.SearchBar_Subfolders,
+            MailSearchScope.AllFolders => Translator.SearchBar_AllFolders,
+            _ => Translator.SearchBar_CurrentFolder,
+        };
+
+    /// <summary>The filters of the search on screen, applied with the query until the search closes.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ActiveSearchFilterCount))]
+    public partial MailSearchFilters SearchFilters { get; set; } = MailSearchFilters.Empty;
+
+    public int ActiveSearchFilterCount => SearchFilters.ActiveCount;
+
+    public ObservableCollection<MailSearchFilterChip> SearchFilterChips { get; } = [];
+
+    /// <summary>The flyout's editable copy of <see cref="SearchFilters"/>.</summary>
+    public MailSearchFilterEditor SearchFilterEditor { get; } = new();
+
+    partial void OnSearchFiltersChanged(MailSearchFilters value)
+    {
+        SearchFilterChips.Clear();
+        foreach (var chip in MailSearchFilterChip.From(value))
+            SearchFilterChips.Add(chip);
+    }
+
+    /// <summary>A query, a filter, or both put the list into search mode.</summary>
+    private bool IsSearchRequested => !string.IsNullOrWhiteSpace(SearchQuery) || SearchCriteria.HasFilters;
 
     public void SetSearchCriteria(MailSearchCriteria criteria, IReadOnlyList<IMailItemFolder> folders)
     {
@@ -193,19 +222,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         IsOnlineSearchEnabled = SearchCriteria.ExecutionMode == SearchMode.Online;
     }
 
-    public async Task ApplyIntelligenceEntitlementAsync(bool canAccess)
+    public Task ApplyIntelligenceEntitlementAsync(bool canAccess)
     {
         foreach (var item in MailCollection.Items)
             item.CanShowIntelligence = canAccess;
 
-        OnPropertyChanged(nameof(IsSemanticSearchAvailable));
-        if (canAccess || SearchCriteria.ExecutionMode != SearchMode.Semantic)
-            return;
-
-        CancelActiveMailLoad();
-        SearchCriteria = SearchCriteria with { ExecutionMode = SearchMode.Local };
-        IsSemanticSearchBusy = false;
-        await PerformSearchAsync();
+        return Task.CompletedTask;
     }
 
     [ObservableProperty]
@@ -773,7 +795,10 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         await ExecuteUIThread(() =>
         {
             isInSearchMode = IsInSearchMode;
-            selectedFocus = SelectedFolderPivot?.IsFocused;
+            // Focused/Other belongs to one inbox; a search across more folders must not filter by it.
+            selectedFocus = isInSearchMode && SearchCriteria.Scope != MailSearchScope.CurrentFolder
+                ? null
+                : SelectedFolderPivot?.IsFocused;
         }).ConfigureAwait(false);
 
         var pivots = new List<FolderPivotViewModel>();
@@ -1048,7 +1073,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         AreSearchResultsOnline = false;
         HasNoOnlineSearchResult = false;
         OnPropertyChanged(nameof(HasNoOnlineSearchResult));
-        IsInSearchMode = !string.IsNullOrEmpty(SearchQuery);
+        IsInSearchMode = IsSearchRequested;
 
         if (IsInSearchMode)
         {
@@ -1109,7 +1134,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
             isLoadingMore = true;
             cursor = nextMailCursor;
-            var handlingFolders = (!string.IsNullOrWhiteSpace(SearchQuery) && SearchHandlingFolders.Count > 0
+            var handlingFolders = (IsSearchRequested && SearchHandlingFolders.Count > 0
                     ? SearchHandlingFolders
                     : ActiveFolder.HandlingFolders)
                 .Where(folder => folder != null)
@@ -1632,6 +1657,19 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private bool IsMailMatchingLocalSearch(MailCopy mailItem)
     {
         if (!IsInSearchMode) return true;
+
+        var criteria = SearchCriteria;
+        if (!MailSearchFilterMatcher.Matches(
+                mailItem,
+                criteria.Sender,
+                criteria.Subject,
+                criteria.ReceivedAfterUtc,
+                criteria.ReceivedBeforeUtc,
+                criteria.ReadStatus,
+                criteria.HasAttachments,
+                criteria.IsFlagged))
+            return false;
+
         if (string.IsNullOrWhiteSpace(SearchQuery)) return true;
 
         var query = SearchQuery.Trim();
@@ -2559,7 +2597,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         }
 
         var folder = ActiveFolder;
-        var handlingFolders = (!string.IsNullOrWhiteSpace(SearchQuery) && SearchHandlingFolders.Count > 0
+        var handlingFolders = (IsSearchRequested && SearchHandlingFolders.Count > 0
                 ? SearchHandlingFolders
                 : folder.HandlingFolders)
             .Where(item => item != null)
@@ -2599,25 +2637,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         context != null &&
         context.Generation == Volatile.Read(ref mailLoadGeneration) &&
         !context.CancellationToken.IsCancellationRequested;
-
-    private static bool MatchesSemanticPostFilters(MailCopy item, MailSearchCriteria criteria)
-    {
-        if (!string.IsNullOrWhiteSpace(criteria.Sender) &&
-            !string.Equals(item.FromAddress, criteria.Sender, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        var receivedUtc = item.CreationDate.Kind == DateTimeKind.Utc
-            ? new DateTimeOffset(item.CreationDate)
-            : new DateTimeOffset(item.CreationDate.ToUniversalTime());
-        if (criteria.ReceivedAfterUtc is { } after && receivedUtc < after)
-            return false;
-        if (criteria.ReceivedBeforeUtc is { } before && receivedUtc >= before)
-            return false;
-
-        return (!criteria.HasAttachments || item.HasAttachments) &&
-               (!criteria.IsUnread || !item.IsRead) &&
-               (!criteria.IsFlagged || item.IsFlagged);
-    }
 
     private void CancelActiveMailLoad()
     {
@@ -2669,14 +2688,16 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                                         searchQuery,
                                                         existingUniqueIds,
                                                         preFetchedMailCopies,
-                                                        DeduplicateByServerId: deduplicateByServerId,
+                                                        DeduplicateByServerId: deduplicateByServerId ||
+                                                                               (context.IsSearchMode && context.HandlingFolders.Count > 1),
                                                         PreservePreFetchedOrder: preservePreFetchedOrder)
         {
             Sender = context.SearchCriteria.Sender,
+            Subject = context.SearchCriteria.Subject,
             ReceivedAfterUtc = context.SearchCriteria.ReceivedAfterUtc,
             ReceivedBeforeUtc = context.SearchCriteria.ReceivedBeforeUtc,
             RequireAttachments = context.SearchCriteria.HasAttachments,
-            RequireUnread = context.SearchCriteria.IsUnread,
+            ReadStatus = context.SearchCriteria.ReadStatus,
             RequireFlagged = context.SearchCriteria.IsFlagged,
         };
 
@@ -2751,10 +2772,11 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                 var remoteCriteria = new RemoteMailSearchCriteria(
                     criteria.Query,
                     criteria.Sender,
+                    criteria.Subject,
                     criteria.ReceivedAfterUtc,
                     criteria.ReceivedBeforeUtc,
                     criteria.HasAttachments,
-                    criteria.IsUnread,
+                    criteria.ReadStatus,
                     criteria.IsFlagged);
                 var accountResults = await synchronizer.OnlineSearchAsync(remoteCriteria, groupedFolders.ToList(), cancellationToken).ConfigureAwait(false);
                 return (Results: accountResults ?? new List<MailCopy>(), FailedAccount: string.Empty);
@@ -2845,7 +2867,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             // switch costs one atomic swap instead of a teardown followed by a rebuild.
             context.Trace?.Mark(MailListLoadStage.PivotsResolved);
 
-            var isDoingSearch = !string.IsNullOrWhiteSpace(context.Query);
+            var isDoingSearch = context.IsSearchMode &&
+                                (!string.IsNullOrWhiteSpace(context.Query) || context.SearchCriteria.HasFilters);
             var supportsOnlineSearch = true;
             if (isDoingSearch)
             {
@@ -3074,6 +3097,9 @@ public partial class MailListPageViewModel : MailBaseViewModel,
 
                 SelectedSortingOption = SortingOptions[0];
                 SearchQuery = string.Empty;
+                SearchCriteria = MailSearchCriteria.Empty;
+                SearchHandlingFolders = Array.Empty<IMailItemFolder>();
+                SearchFilters = MailSearchFilters.Empty;
                 IsInSearchMode = false;
                 IsOnlineSearchEnabled = false;
                 IsOnlineSearchButtonVisible = false;

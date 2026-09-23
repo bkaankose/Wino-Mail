@@ -119,6 +119,12 @@
                 <controls:SettingsCard AutomationProperties.AutomationId="ComposerSpellCheckEnabledSettingsCard" Header="{x:Bind domain:Translator.SettingsComposerSpellCheckEnabled_Title, Mode=OneTime}">
                     <ToggleSwitch AutomationProperties.AutomationId="ComposerSpellCheckEnabledToggle" IsOn="{x:Bind ViewModel.PreferencesService.IsComposerSpellCheckEnabled, Mode=TwoWay}" />
                 </controls:SettingsCard>
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="ComposerAutoCorrectSettingsCard"
+                    Description="{x:Bind domain:Translator.SettingsComposerAutoCorrect_Description, Mode=OneTime}"
+                    Header="{x:Bind domain:Translator.SettingsComposerAutoCorrect_Title, Mode=OneTime}">
+                    <ToggleSwitch AutomationProperties.AutomationId="ComposerAutoCorrectToggle" IsOn="{x:Bind ViewModel.PreferencesService.IsComposerAutoCorrectEnabled, Mode=TwoWay}" />
+                </controls:SettingsCard>
                 <controls:SettingsCard AutomationProperties.AutomationId="ComposerSpellCheckLanguageSettingsCard" Header="{x:Bind domain:Translator.SettingsComposerSpellCheckLanguage_Title, Mode=OneTime}">
                     <ComboBox
                         AutomationProperties.AutomationId="ComposerSpellCheckLanguageComboBox"

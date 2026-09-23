@@ -357,6 +357,73 @@ public class MailFetchingTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task FetchMailsAsync_SearchFilters_MatchPartOfSenderAndSubject()
+    {
+        var match = BuildMail(_inboxFolder.Id, DateTime.UtcNow, fromAddress: "elif.aydin@contoso.com");
+        match.FromName = "Elif Aydın";
+        match.Subject = "Q4 roadmap review";
+        match.IsRead = true;
+
+        var unread = BuildMail(_inboxFolder.Id, DateTime.UtcNow, fromAddress: "elif.aydin@contoso.com");
+        unread.Subject = "Q4 roadmap review";
+
+        var otherSender = BuildMail(_inboxFolder.Id, DateTime.UtcNow, fromAddress: "deniz@contoso.com");
+        otherSender.Subject = "Q4 roadmap review";
+        otherSender.IsRead = true;
+
+        var otherSubject = BuildMail(_inboxFolder.Id, DateTime.UtcNow, fromAddress: "elif.aydin@contoso.com");
+        otherSubject.IsRead = true;
+
+        await _databaseService.Connection.InsertAllAsync(new[] { match, unread, otherSender, otherSubject }, typeof(MailCopy));
+
+        var options = BuildOptions([_inboxFolder], createThreads: false) with
+        {
+            Sender = "ELIF",
+            Subject = "roadmap",
+            ReadStatus = MailReadStatusFilter.Read,
+        };
+
+        var result = await _mailService.FetchMailsAsync(options);
+
+        result.Select(mail => mail.UniqueId).Should().Equal(match.UniqueId);
+    }
+
+    [Fact]
+    public async Task FetchMailsAsync_PreFetchedOnlineSearch_AppliesFiltersTheServerCannot()
+    {
+        var match = BuildMail(_inboxFolder.Id, DateTime.UtcNow);
+        match.HasAttachments = true;
+        match.IsFlagged = true;
+
+        var read = BuildMail(_inboxFolder.Id, DateTime.UtcNow);
+        read.HasAttachments = true;
+        read.IsFlagged = true;
+        read.IsRead = true;
+
+        var noAttachment = BuildMail(_inboxFolder.Id, DateTime.UtcNow);
+        noAttachment.IsFlagged = true;
+
+        var tooOld = BuildMail(_inboxFolder.Id, DateTime.UtcNow.AddDays(-3));
+        tooOld.HasAttachments = true;
+        tooOld.IsFlagged = true;
+
+        // Outlook cannot search read state or flags, IMAP cannot search attachments, and both
+        // widen the date range to whole days. The downloaded results are filtered exactly.
+        var options = BuildOptions([_inboxFolder], createThreads: false, deduplicateByServerId: true) with
+        {
+            PreFetchMailCopies = [match, read, noAttachment, tooOld],
+            ReceivedAfterUtc = DateTimeOffset.UtcNow.AddDays(-1),
+            ReadStatus = MailReadStatusFilter.Unread,
+            RequireAttachments = true,
+            RequireFlagged = true,
+        };
+
+        var result = await _mailService.FetchMailsAsync(options);
+
+        result.Select(mail => mail.UniqueId).Should().Equal(match.UniqueId);
+    }
+
+    [Fact]
     public async Task FetchPinnedMailsAsync_ReturnsPinnedMailsOutsideRegularPage()
     {
         var oldPinned = BuildMail(_inboxFolder.Id, DateTime.UtcNow.AddDays(-5));
@@ -707,6 +774,56 @@ public class MailFetchingTests : IAsyncLifetime
         var count = await _mailService.CountMailsAsync(options);
 
         count.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task FetchMailsAsync_LocalSearchAcrossFolders_ListsOneCopyPerServerMailWithinAccount()
+    {
+        var starredFolder = await CreateFolderAsync(_testAccount, "Starred", "starred-search", SpecialFolderType.Starred);
+        var secondAccount = await CreateAccountAsync("Second Account", "second-search@test.local");
+        var secondInbox = await CreateFolderAsync(secondAccount, "Inbox", "second-inbox-search", SpecialFolderType.Inbox);
+        const string sharedId = "shared-search-server-id";
+        var now = DateTime.UtcNow;
+
+        var inboxCopy = BuildMail(_inboxFolder.Id, now, id: sharedId);
+        var starredCopy = BuildMail(starredFolder.Id, now, id: sharedId);
+        var otherAccountCopy = BuildMail(secondInbox.Id, now.AddMinutes(-1), id: sharedId);
+        var unrelated = BuildMail(starredFolder.Id, now.AddMinutes(-2));
+        foreach (var mail in new[] { inboxCopy, starredCopy, otherAccountCopy, unrelated })
+            mail.Subject = "Quarterly invoice";
+        await _databaseService.Connection.InsertAllAsync(new[] { inboxCopy, starredCopy, otherAccountCopy, unrelated }, typeof(MailCopy));
+
+        var options = BuildOptions([_inboxFolder, starredFolder, secondInbox], createThreads: false, deduplicateByServerId: true) with
+        {
+            SearchQuery = "invoice"
+        };
+
+        var result = await _mailService.FetchMailsAsync(options);
+        var count = await _mailService.CountMailsAsync(options);
+
+        result.Should().HaveCount(3, "the Gmail label copy collapses into one row, other accounts stay separate");
+        result.Count(mail => mail.Id == sharedId && mail.AssignedAccount!.Id == _testAccount.Id).Should().Be(1);
+        result.Should().Contain(mail => mail.UniqueId == otherAccountCopy.UniqueId);
+        result.Should().Contain(mail => mail.UniqueId == unrelated.UniqueId);
+        count.Should().Be(result.Count, "the list and its count must agree");
+    }
+
+    [Fact]
+    public async Task FetchMailsAsync_WithoutDeduplication_KeepsEveryFolderCopy()
+    {
+        var starredFolder = await CreateFolderAsync(_testAccount, "Starred", "starred-plain", SpecialFolderType.Starred);
+        const string sharedId = "shared-plain-server-id";
+        await _databaseService.Connection.InsertAllAsync(
+            new[]
+            {
+                BuildMail(_inboxFolder.Id, DateTime.UtcNow, id: sharedId),
+                BuildMail(starredFolder.Id, DateTime.UtcNow, id: sharedId)
+            },
+            typeof(MailCopy));
+
+        var result = await _mailService.FetchMailsAsync(BuildOptions([_inboxFolder, starredFolder], createThreads: false));
+
+        result.Should().HaveCount(2);
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

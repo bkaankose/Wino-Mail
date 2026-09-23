@@ -13,6 +13,8 @@ public static class MailListPlaygroundFormat
 
     public static string Preview(IMailListSourceItem item) => ((MailListPlaygroundItem)item).Preview;
 
+    public static string ChevronGlyph(bool isExpanded) => isExpanded ? "\uE96E" : "\uE76C";
+
     public static IReadOnlyList<WinoIntelligenceTile> IntelligenceTiles(IMailListSourceItem item)
         => ((MailListPlaygroundItem)item).IntelligenceTiles;
 }

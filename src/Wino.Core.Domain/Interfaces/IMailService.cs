@@ -65,6 +65,7 @@ public interface IMailService
     /// <param name="newThreadId">New message's thread/conversation id.</param>
     /// <returns>True if mapping is done. False if local copy doesn't exists.</returns>
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
+    Task<bool> RefreshMappedDraftMetadataAsync(Guid accountId, Guid uniqueId, MailCopy remoteCopy);
 
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity);
 

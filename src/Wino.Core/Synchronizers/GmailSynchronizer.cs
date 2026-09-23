@@ -2937,10 +2937,14 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         var terms = new List<string>();
         if (!string.IsNullOrWhiteSpace(criteria.Query)) terms.Add(criteria.Query.Trim());
         if (!string.IsNullOrWhiteSpace(criteria.Sender)) terms.Add($"from:({criteria.Sender.Trim()})");
-        if (criteria.ReceivedAfterUtc is { } after) terms.Add($"after:{after.UtcDateTime:yyyy/MM/dd}");
-        if (criteria.ReceivedBeforeUtc is { } before) terms.Add($"before:{before.UtcDateTime:yyyy/MM/dd}");
+        if (!string.IsNullOrWhiteSpace(criteria.Subject)) terms.Add($"subject:({criteria.Subject.Trim()})");
+
+        // A yyyy/MM/dd date means midnight Pacific time to Gmail. Epoch seconds are exact.
+        if (criteria.ReceivedAfterUtc is { } after) terms.Add($"after:{after.ToUnixTimeSeconds()}");
+        if (criteria.ReceivedBeforeUtc is { } before) terms.Add($"before:{before.ToUnixTimeSeconds()}");
         if (criteria.HasAttachments) terms.Add("has:attachment");
-        if (criteria.IsUnread) terms.Add("is:unread");
+        if (criteria.ReadStatus == MailReadStatusFilter.Unread) terms.Add("is:unread");
+        if (criteria.ReadStatus == MailReadStatusFilter.Read) terms.Add("is:read");
         if (criteria.IsFlagged) terms.Add("is:starred");
         return string.Join(' ', terms);
     }
@@ -3904,8 +3908,11 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
                     if (isMappingSuccessful)
                     {
+                        var refreshed = await _gmailChangeProcessor.RefreshMappedDraftMetadataAsync(
+                            Account.Id, localDraftCopyUniqueId, baseMailCopy).ConfigureAwait(false);
+
                         // Keep local draft MIME in sync with the fetched remote raw MIME if available.
-                        if (mimeMessage != null)
+                        if (refreshed && mimeMessage != null)
                         {
                             var mappedDraftCopies = await _gmailChangeProcessor.GetMailCopiesAsync([baseMailCopy.Id]).ConfigureAwait(false);
                             if (mappedDraftCopies != null)

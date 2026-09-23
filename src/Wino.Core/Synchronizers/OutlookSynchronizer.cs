@@ -4257,7 +4257,11 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
     public override async Task<List<MailCopy>> OnlineSearchAsync(RemoteMailSearchCriteria criteria, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
     {
-        var queryText = BuildOnlineSearchQuery(criteria);
+        // Keywords, sender and subject need $search. Without them $filter is used instead, which
+        // also handles read state and flags on the server and returns the newest mail first.
+        var useSearch = HasOnlineSearchText(criteria);
+        var searchParameter = useSearch ? ToGraphSearchParameter(BuildOnlineSearchQuery(criteria)) : null;
+        var filterQuery = useSearch ? null : BuildOnlineFilterQuery(criteria);
         var messagesById = new Dictionary<string, Message>(StringComparer.Ordinal);
 
         // Perform search for each folder separately.
@@ -4274,7 +4278,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 var mailQuery = _graphClient.Me.MailFolders[folderId].Messages
                     .GetAsync(requestConfig =>
                     {
-                        requestConfig.QueryParameters.Search = $"\"{queryText}\"";
+                        requestConfig.QueryParameters.Search = searchParameter;
+                        requestConfig.QueryParameters.Filter = filterQuery;
+                        requestConfig.QueryParameters.Orderby = useSearch ? null : ["receivedDateTime desc"];
                         requestConfig.QueryParameters.Select = ["Id, ParentFolderId"];
                         requestConfig.QueryParameters.Top = 1000;
                     }, cancellationToken);
@@ -4302,7 +4308,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             var mailQuery = _graphClient.Me.Messages
                 .GetAsync(requestConfig =>
                 {
-                    requestConfig.QueryParameters.Search = $"\"{queryText}\"";
+                    requestConfig.QueryParameters.Search = searchParameter;
+                    requestConfig.QueryParameters.Filter = filterQuery;
+                    requestConfig.QueryParameters.Orderby = useSearch ? null : ["receivedDateTime desc"];
                     requestConfig.QueryParameters.Select = ["Id, ParentFolderId"];
                     requestConfig.QueryParameters.Top = 1000;
                 }, cancellationToken);
@@ -4363,17 +4371,52 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         return await _outlookChangeProcessor.GetMailCopiesAsync(messageIdsWithKnownFolder).ConfigureAwait(false);
     }
 
+    internal static bool HasOnlineSearchText(RemoteMailSearchCriteria criteria)
+        => !string.IsNullOrWhiteSpace(criteria.Query) ||
+           !string.IsNullOrWhiteSpace(criteria.Sender) ||
+           !string.IsNullOrWhiteSpace(criteria.Subject);
+
+    /// <summary>
+    /// Builds the KQL for $search. Read state and flags are not searchable $search properties, so
+    /// they are applied to the downloaded results instead. Dates are whole days in an unknown time
+    /// zone, so the range is one day wider on each side and the exact range is applied afterwards.
+    /// </summary>
     internal static string BuildOnlineSearchQuery(RemoteMailSearchCriteria criteria)
     {
         var terms = new List<string>();
         if (!string.IsNullOrWhiteSpace(criteria.Query)) terms.Add(criteria.Query.Trim());
-        if (!string.IsNullOrWhiteSpace(criteria.Sender)) terms.Add($"from:{criteria.Sender.Trim()}");
-        if (criteria.ReceivedAfterUtc is { } after) terms.Add($"received>={after.UtcDateTime:yyyy-MM-dd}");
-        if (criteria.ReceivedBeforeUtc is { } before) terms.Add($"received<{before.UtcDateTime:yyyy-MM-dd}");
+        if (!string.IsNullOrWhiteSpace(criteria.Sender)) terms.Add($"from:{ToKqlValue(criteria.Sender)}");
+        if (!string.IsNullOrWhiteSpace(criteria.Subject)) terms.Add($"subject:{ToKqlValue(criteria.Subject)}");
+        if (criteria.ReceivedAfterUtc is { } after) terms.Add($"received>={after.UtcDateTime.Date.AddDays(-1):yyyy-MM-dd}");
+        if (criteria.ReceivedBeforeUtc is { } before) terms.Add($"received<{before.UtcDateTime.Date.AddDays(2):yyyy-MM-dd}");
         if (criteria.HasAttachments) terms.Add("hasAttachments:true");
-        if (criteria.IsUnread) terms.Add("isRead:false");
-        if (criteria.IsFlagged) terms.Add("flag:flagged");
         return string.Join(' ', terms);
+    }
+
+    /// <summary>
+    /// Builds the $filter used when there is nothing to $search for. $orderby must name the first
+    /// property of the filter, so the received date always leads.
+    /// </summary>
+    internal static string BuildOnlineFilterQuery(RemoteMailSearchCriteria criteria)
+    {
+        var after = criteria.ReceivedAfterUtc ?? DateTimeOffset.UnixEpoch;
+        var clauses = new List<string> { $"receivedDateTime ge {after.UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}" };
+        if (criteria.ReceivedBeforeUtc is { } before) clauses.Add($"receivedDateTime lt {before.UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}");
+        if (criteria.ReadStatus == MailReadStatusFilter.Unread) clauses.Add("isRead eq false");
+        if (criteria.ReadStatus == MailReadStatusFilter.Read) clauses.Add("isRead eq true");
+        if (criteria.IsFlagged) clauses.Add("flag/flagStatus eq 'flagged'");
+        if (criteria.HasAttachments) clauses.Add("hasAttachments eq true");
+        return string.Join(" and ", clauses);
+    }
+
+    /// <summary>Wraps the KQL in the quotes $search requires, escaping quotes and backslashes inside it.</summary>
+    internal static string ToGraphSearchParameter(string kql)
+        => $"\"{kql.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
+
+    private static string ToKqlValue(string value)
+    {
+        var trimmed = value.Trim();
+        return trimmed.Any(char.IsWhiteSpace) ? $"\"{trimmed.Replace("\"", string.Empty)}\"" : trimmed;
     }
 
     private async Task<MimeMessage> DownloadMimeMessageAsync(string messageId, CancellationToken cancellationToken = default)

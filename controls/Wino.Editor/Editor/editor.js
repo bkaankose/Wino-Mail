@@ -9,6 +9,11 @@
     let pasteAsPlainTextOnce = false;
     let darkMode = false;
     let spellCheck = true;
+    let autoCorrect = false;
+    let correctionRevision = 0;
+    let correctionRequestId = 0;
+    const pendingCorrections = new Map();
+    let correctionHighlightTimer = 0;
     let displayedLink = null;
     const codeBlockClass = "wino-code-block";
     const codeBlockStyles = {
@@ -841,7 +846,94 @@
         sendState();
         window.setTimeout(updateLinkBubble, 0);
     });
+    function rangeInBlock(block, start, length) {
+        const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+        let node;
+        let offset = 0;
+        let first = null;
+        let last = null;
+        while ((node = walker.nextNode())) {
+            const end = offset + node.length;
+            if (!first && start >= offset && start <= end) first = { node, offset: start - offset };
+            if (first && start + length >= offset && start + length <= end) {
+                last = { node, offset: start + length - offset };
+                break;
+            }
+            offset = end;
+        }
+        if (!first || !last) return null;
+        const range = document.createRange();
+        range.setStart(first.node, first.offset);
+        range.setEnd(last.node, last.offset);
+        return range;
+    }
+
+    function requestAutoCorrection() {
+        const selection = window.getSelection();
+        if (!selection || !selection.isCollapsed || selection.rangeCount === 0 ||
+            selection.anchorNode?.nodeType !== Node.TEXT_NODE) return;
+        const node = selection.anchorNode;
+        const before = node.textContent.slice(0, selection.anchorOffset);
+        const match = before.match(/([\p{L}][\p{L}\p{M}'’-]{1,63})[\s.,;:!?]$/u);
+        if (!match || node.parentElement?.closest("a, code, pre, [contenteditable='false']")) return;
+        const tokenBefore = before.slice(0, -1).split(/\s/).pop() || "";
+        if (/[@:/\\]/.test(tokenBefore)) return;
+        const block = node.parentElement?.closest("p, div, li, h1, h2, h3, blockquote") || editor;
+        if (!editor.contains(block) && block !== editor) return;
+        const prefix = document.createRange();
+        prefix.setStart(block, 0);
+        prefix.setEnd(node, selection.anchorOffset);
+        const caretOffset = prefix.toString().length;
+        const requestId = ++correctionRequestId;
+        pendingCorrections.clear();
+        pendingCorrections.set(requestId, { block, caretOffset, revision: correctionRevision, word: match[1] });
+        post({ type: "autoCorrect", requestId, word: match[1] });
+    }
+
+    function applyAutoCorrection(requestId, original, replacement) {
+        const pending = pendingCorrections.get(requestId);
+        pendingCorrections.delete(requestId);
+        if (!pending || !autoCorrect || !spellCheck || pending.revision !== correctionRevision ||
+            pending.word !== original || !pending.block.isConnected || !replacement ||
+            /[\r\n<>]/.test(replacement)) return false;
+        const selection = window.getSelection();
+        if (!selection || !selection.isCollapsed || !pending.block.contains(selection.anchorNode)) return false;
+        const wordStart = pending.caretOffset - original.length - 1;
+        const target = rangeInBlock(pending.block, wordStart, original.length);
+        if (!target || target.toString() !== original) return false;
+        if (target.startContainer.parentElement?.closest("a, code, pre")) return false;
+        const caretPrefix = document.createRange();
+        caretPrefix.setStart(pending.block, 0);
+        caretPrefix.setEnd(selection.anchorNode, selection.anchorOffset);
+        if (caretPrefix.toString().length !== pending.caretOffset) return false;
+        selection.removeAllRanges();
+        selection.addRange(target);
+        if (!document.execCommand("insertText", false, replacement)) return false;
+        const newCaret = rangeInBlock(pending.block, pending.caretOffset + replacement.length - original.length, 0);
+        if (newCaret) {
+            selection.removeAllRanges();
+            selection.addRange(newCaret);
+        }
+        correctionRevision++;
+        if (window.CSS?.highlights && window.Highlight) {
+            const painted = rangeInBlock(pending.block, wordStart, replacement.length);
+            if (painted) {
+                CSS.highlights.set("wino-auto-correction", new Highlight(painted));
+                clearTimeout(correctionHighlightTimer);
+                correctionHighlightTimer = window.setTimeout(() => CSS.highlights.delete("wino-auto-correction"), 850);
+            }
+        }
+        sendContentChanged();
+        return true;
+    }
+
+    editor.addEventListener("compositionstart", () => { correctionRevision++; });
     editor.addEventListener("input", event => {
+        correctionRevision++;
+        if (autoCorrect && spellCheck && event.inputType === "insertText" &&
+            /^[\s.,;:!?]$/.test(event.data || "") && !event.isComposing) {
+            requestAutoCorrection();
+        }
         const isLinkBoundary = event.inputType === "insertParagraph" ||
             event.inputType === "insertLineBreak" ||
             event.inputType === "insertFromPaste" ||
@@ -900,11 +992,14 @@
         setTheme,
         setTypography,
         setPasteAsHtml(value) { pasteAsHtml = Boolean(value); },
-        setSpellCheck(value) { spellCheck = Boolean(value); editor.spellcheck = spellCheck; sendState(); },
+        setSpellCheck(value) { spellCheck = Boolean(value); editor.spellcheck = spellCheck; correctionRevision++; sendState(); },
+        setAutoCorrect(value) { autoCorrect = Boolean(value); correctionRevision++; pendingCorrections.clear(); },
+        applyAutoCorrection,
         setSpellCheckLanguage(value) {
             const languageCode = String(value || "").trim();
             document.documentElement.lang = languageCode;
             editor.lang = languageCode;
+            correctionRevision++;
         },
         setApplicationShortcuts,
         setParagraphStyle,

@@ -162,6 +162,25 @@ public sealed class MailListStoreTests
     }
 
     [Fact]
+    public async Task RemoveLiveRangeAsync_DoesNotReplaceInboxMailWithOffFolderGmailCopy()
+    {
+        var store = CreateStore();
+        var account = CreateGmailAccount();
+        var inboxFolderId = Guid.NewGuid();
+        var inbox = CreateMailCopy("gmail-thread");
+        inbox.AssignedAccount = account;
+        inbox.FolderId = inboxFolderId;
+        var allMail = CreateLabelCopy(inbox, account, Guid.NewGuid());
+        await store.AddAsync(inbox);
+
+        await store.RemoveLiveRangeAsync(
+            [inbox], [allMail], mail => mail.FolderId == inboxFolderId);
+
+        store.Count.Should().Be(0);
+        store.Find(allMail.UniqueId).Should().BeNull();
+    }
+
+    [Fact]
     public async Task Projection_DoesNotMergeConversationsAcrossAccounts()
     {
         var store = CreateStore();

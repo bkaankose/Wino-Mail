@@ -19,6 +19,7 @@ internal sealed partial class EditorBridge : IDisposable
 
     public event EventHandler<EditorSelectionState>? SelectionStateChanged;
     public event EventHandler? ContentChanged;
+    public event EventHandler<EditorMessage>? AutoCorrectRequested;
     public event EventHandler<string>? LinkNavigationRequested;
     public event EventHandler<string>? ShortcutRequested;
     public event EventHandler<EditorApplicationShortcutGesture>? ApplicationShortcutRequested;
@@ -133,6 +134,16 @@ internal sealed partial class EditorBridge : IDisposable
     public Task SetSpellCheckLanguageAsync(string languageCode) =>
         ExecuteFunctionWithStringAsync("setSpellCheckLanguage", languageCode);
 
+    public Task SetAutoCorrectAsync(bool enabled) =>
+        ExecuteScriptAsync($"window.WinoEditor.setAutoCorrect({enabled.ToString().ToLowerInvariant()})");
+
+    public Task ApplyAutoCorrectionAsync(int requestId, string original, string replacement)
+    {
+        string originalJson = JsonSerializer.Serialize(original, EditorJsonContext.Default.String);
+        string replacementJson = JsonSerializer.Serialize(replacement, EditorJsonContext.Default.String);
+        return ExecuteScriptAsync($"window.WinoEditor.applyAutoCorrection({requestId}, {originalJson}, {replacementJson})");
+    }
+
     public Task SetParagraphStyleAsync(string tag) => ExecuteFunctionWithStringAsync("setParagraphStyle", tag);
     public Task SetLineHeightAsync(string value) => ExecuteFunctionWithStringAsync("setLineHeight", value);
     public Task InsertEmojiAsync(string value) => ExecuteFunctionWithStringAsync("insertEmoji", value);
@@ -188,6 +199,9 @@ internal sealed partial class EditorBridge : IDisposable
                 break;
             case "contentChanged":
                 ContentChanged?.Invoke(this, EventArgs.Empty);
+                break;
+            case "autoCorrect" when !string.IsNullOrWhiteSpace(message.Word):
+                AutoCorrectRequested?.Invoke(this, message);
                 break;
             case "openLink" when !string.IsNullOrWhiteSpace(message.Url):
                 LinkNavigationRequested?.Invoke(this, message.Url);

@@ -415,6 +415,9 @@ public interface IPreferencesService : INotifyPropertyChanged
     /// </summary>
     bool IsComposerSpellCheckEnabled { get; set; }
 
+    /// <summary>Automatically correct unambiguous spelling errors while composing.</summary>
+    bool IsComposerAutoCorrectEnabled { get; set; }
+
     /// <summary>
     /// Setting: BCP-47 language code used by the composer spellchecker.
     /// </summary>

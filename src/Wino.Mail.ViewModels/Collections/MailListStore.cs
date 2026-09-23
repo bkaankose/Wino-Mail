@@ -451,7 +451,8 @@ public sealed class MailListStore
                     if (!Items.ContainsId(mail.UniqueId))
                         continue;
 
-                    var replacement = survivors.Where(candidate => HasSameLogicalIdentity(mail, candidate))
+                    var replacement = survivors.Where(candidate => HasSameLogicalIdentity(mail, candidate) &&
+                        (isPreferred?.Invoke(candidate) ?? true))
                         .OrderByDescending(candidate => isPreferred?.Invoke(candidate) == true)
                         .ThenBy(MailConversationIdentity.CopyRank)
                         .ThenBy(candidate => candidate.UniqueId)

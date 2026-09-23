@@ -35,7 +35,9 @@ foreach ($name in $Accounts) {
         Invoke-MailAuditUi $RunDirectory $scenario $Window @('wait-for','wino-editor','--value',$fixture.body,'--contains','--timeout','10000') | Out-Null
         $scenario='ATTACH-001'
         Add-MailAuditAttachment $RunDirectory $scenario $Window
-        Invoke-MailAuditUi $RunDirectory $scenario $Window @('invoke','ComposeAttachmentDeleteButton') | Out-Null
+        Invoke-MailAuditUi $RunDirectory $scenario $Window @('invoke','ComposeAttachmentMoreButton') | Out-Null
+        Invoke-MailAuditUi $RunDirectory $scenario $Window @('wait-for','ComposeAttachmentRemove','--timeout','5000') | Out-Null
+        Invoke-MailAuditUi $RunDirectory $scenario $Window @('invoke','ComposeAttachmentRemove') | Out-Null
         Invoke-MailAuditUi $RunDirectory $scenario $Window @('wait-for',([IO.Path]::GetFileName($config.attachmentPath)),'--gone','--timeout','10000') | Out-Null
         Add-MailAuditAttachment $RunDirectory $scenario $Window
         $path="evidence/$name-draft-attachment.png"

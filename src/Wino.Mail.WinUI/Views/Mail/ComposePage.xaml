@@ -60,88 +60,85 @@
             </Grid>
         </DataTemplate>
 
-        <!--  Attachment Template  -->
-        <!--  Margin -8 0 is used to remove the padding from the ListViewItem  -->
+        <!--  Attachment tile. Remove lives in the item menu so no destructive icon repeats across the tray.  -->
         <DataTemplate x:Key="ComposerFileAttachmentTemplate" x:DataType="data:MailAttachmentViewModel">
             <Grid
-                Height="50"
-                Margin="-8,0"
-                Padding="0"
-                Background="Transparent"
-                ColumnSpacing="3"
-                ContextRequested="AttachmentContextRequested">
+                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                ContextRequested="AttachmentContextRequested"
+                CornerRadius="4">
                 <ToolTipService.ToolTip>
                     <ToolTip Content="{x:Bind FileName}" />
                 </ToolTipService.ToolTip>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="36" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
 
-                <!--  Icon  -->
-                <ContentControl
-                    VerticalAlignment="Center"
-                    Content="{x:Bind AttachmentType}"
-                    ContentTemplateSelector="{StaticResource FileTypeIconSelector}" />
+                <Grid Padding="8,5,2,5" ColumnSpacing="8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
 
-                <!--  Name && Size  -->
-                <Grid
-                    Grid.Column="1"
-                    MaxWidth="200"
-                    VerticalAlignment="Center">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
+                    <ContentControl
+                        Width="20"
+                        Height="20"
+                        VerticalAlignment="Center"
+                        Content="{x:Bind AttachmentType}"
+                        ContentTemplateSelector="{StaticResource FileTypeIconSelector}"
+                        IsTabStop="False" />
 
-                    <TextBlock
-                        MaxLines="2"
-                        Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind FileName}"
-                        TextTrimming="CharacterEllipsis" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <!--  The full name wraps; it only trims past two lines.  -->
+                        <TextBlock
+                            AutomationProperties.AutomationId="ComposeAttachmentName"
+                            MaxLines="2"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind FileName}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="Wrap" />
 
-                    <TextBlock
-                        Grid.Row="1"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Bottom"
-                        Foreground="Gray"
-                        Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind ReadableSize}" />
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <FontIcon
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ComposeAttachmentContentTypeWarning"
+                                AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                FontSize="12"
+                                Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                Glyph="&#xE7BA;"
+                                ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
+                            <TextBlock
+                                FontSize="11"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ReadableSize}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Button
+                        Grid.Column="2"
+                        Width="24"
+                        Height="24"
+                        Padding="0"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="ComposeAttachmentMoreButton"
+                        AutomationProperties.Name="{x:Bind domain:Translator.Composer_AttachmentMoreOptions, Mode=OneTime}"
+                        Click="AttachmentMoreButton_Click"
+                        Style="{StaticResource TransparentActionButtonStyle}"
+                        ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AttachmentMoreOptions, Mode=OneTime}">
+                        <FontIcon
+                            FontSize="14"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Glyph="&#xE712;" />
+                    </Button>
                 </Grid>
 
-                <SymbolIcon
-                    Grid.Column="2"
-                    Margin="8,0,0,0"
-                    VerticalAlignment="Center"
-                    AutomationProperties.AutomationId="ComposeAttachmentContentTypeWarning"
-                    AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
-                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                    Symbol="Important"
-                    ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                <!--  A content type mismatch outlines the whole tile, not only its icon.  -->
+                <Border
+                    BorderBrush="{ThemeResource SystemFillColorCautionBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    IsHitTestVisible="False"
+                    Opacity="0.6"
                     Visibility="{x:Bind HasContentTypeMismatch, Mode=OneWay}" />
-
-                <Button
-                    Grid.Column="3"
-                    Width="28"
-                    Height="28"
-                    Padding="4"
-                    HorizontalAlignment="Right"
-                    VerticalAlignment="Center"
-                    AutomationProperties.AutomationId="ComposeAttachmentDeleteButton"
-                    AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}"
-                    Click="RemoveAttachment_Click"
-                    CommandParameter="{x:Bind}"
-                    Style="{StaticResource TransparentActionButtonStyle}"
-                    ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}">
-                    <coreControls:WinoFontIcon
-                        VerticalAlignment="Center"
-                        FontSize="16"
-                        Foreground="{ThemeResource DeleteBrush}"
-                        Icon="Delete" />
-                </Button>
-
             </Grid>
         </DataTemplate>
     </Page.Resources>
@@ -628,23 +625,84 @@
                         Text="{x:Bind ViewModel.Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                     <!--  Attachments  -->
-                    <ListView
-                        x:Name="AttachmentsListView"
+                    <Grid
+                        x:Name="AttachmentsTray"
                         Grid.Row="6"
                         Grid.ColumnSpan="2"
+                        Margin="0,4,0,0"
+                        Padding="0,6,0,0"
                         x:Load="{x:Bind helpers:XamlHelpers.CountToBooleanConverter(ViewModel.IncludedAttachments.Count), Mode=OneWay}"
-                        AutomationProperties.AutomationId="AttachmentsListView"
-                        IsItemClickEnabled="True"
-                        ItemClick="AttachmentClicked"
-                        ItemTemplate="{StaticResource ComposerFileAttachmentTemplate}"
-                        ItemsSource="{x:Bind ViewModel.IncludedAttachments, Mode=OneWay}"
-                        SelectionMode="None">
-                        <ListView.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <customcontrols:CustomWrapPanel />
-                            </ItemsPanelTemplate>
-                        </ListView.ItemsPanel>
-                    </ListView>
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="0,1,0,0"
+                        RowSpacing="6">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <PathIcon
+                                Width="14"
+                                Height="14"
+                                VerticalAlignment="Center"
+                                Data="{StaticResource AttachPathIcon}"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                            <TextBlock
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ComposeAttachmentsSummary"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.AttachmentsSummary, Mode=OneWay}" />
+
+                            <HyperlinkButton
+                                Grid.Column="2"
+                                Padding="6,2"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ComposeRemoveAllAttachmentsButton"
+                                Command="{x:Bind ViewModel.RemoveAllAttachmentsCommand}"
+                                FontSize="12">
+                                <TextBlock Text="{x:Bind domain:Translator.Composer_RemoveAllAttachments, Mode=OneTime}" />
+                            </HyperlinkButton>
+                        </Grid>
+
+                        <ListView
+                            x:Name="AttachmentsListView"
+                            Grid.Row="1"
+                            AutomationProperties.AutomationId="AttachmentsListView"
+                            IsItemClickEnabled="True"
+                            ItemClick="AttachmentClicked"
+                            ItemTemplate="{StaticResource ComposerFileAttachmentTemplate}"
+                            ItemsSource="{x:Bind ViewModel.IncludedAttachments, Mode=OneWay}"
+                            KeyDown="AttachmentsListView_KeyDown"
+                            SelectionMode="None">
+                            <ListView.ItemContainerStyle>
+                                <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                                    <Setter Property="Margin" Value="0" />
+                                    <Setter Property="Padding" Value="0" />
+                                    <Setter Property="MinWidth" Value="0" />
+                                    <Setter Property="MinHeight" Value="0" />
+                                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                    <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                                </Style>
+                            </ListView.ItemContainerStyle>
+                            <ListView.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <customcontrols:UniformColumnPanel
+                                        ColumnSpacing="6"
+                                        MinColumnWidth="190"
+                                        RowSpacing="6" />
+                                </ItemsPanelTemplate>
+                            </ListView.ItemsPanel>
+                        </ListView>
+                    </Grid>
                 </Grid>
 
                 <!--  Dropzone  -->

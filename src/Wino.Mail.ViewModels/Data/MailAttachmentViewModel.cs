@@ -49,6 +49,9 @@ public partial class MailAttachmentViewModel : AttachmentViewModelBase
         ReadableSize = ((long)Content.Length).GetBytesReadable();
     }
 
+    // List containers announce the item's string form, so screen readers read the file name.
+    public override string ToString() => FileName;
+
     public AttachmentFileSource CreateFileSource(AttachmentFileOrigin origin) =>
         new(FileName, DeclaredMimeType, origin, OpenReadAsync, FilePath);
 

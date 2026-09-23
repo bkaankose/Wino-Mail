@@ -199,6 +199,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         : SelectedCalendar.Account.SenderName;
     public string OrganizerAddress => SelectedCalendar?.Account?.Address ?? string.Empty;
     public bool IsComposerSpellCheckEnabled => _preferencesService.IsComposerSpellCheckEnabled;
+    public bool IsComposerAutoCorrectEnabled => _preferencesService.IsComposerAutoCorrectEnabled;
     public string ComposerSpellCheckLanguageCode => _preferencesService.ComposerSpellCheckLanguageCode;
 
     public CalendarEventComposePageViewModel(IAccountService accountService,

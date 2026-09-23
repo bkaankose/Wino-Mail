@@ -8,6 +8,8 @@ namespace Wino.Mail.Controls.Playground.ViewModels;
 
 public sealed class MailListPageViewModel : INotifyPropertyChanged
 {
+    private string _selectedHeaderButtonTitle = "Current folder";
+    public string SelectedHeaderButtonTitle { get => _selectedHeaderButtonTitle; set => Set(ref _selectedHeaderButtonTitle, value); }
     private int _messageSequence = 1;
     private int _singleSequence = 1;
 

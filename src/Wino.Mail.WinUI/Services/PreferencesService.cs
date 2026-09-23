@@ -381,6 +381,12 @@ public partial class PreferencesService(IConfigurationService configurationServi
         set => SetPropertyAndSave(nameof(IsComposerSpellCheckEnabled), value);
     }
 
+    public bool IsComposerAutoCorrectEnabled
+    {
+        get => _configurationService.Get(nameof(IsComposerAutoCorrectEnabled), false);
+        set => SetPropertyAndSave(nameof(IsComposerAutoCorrectEnabled), value);
+    }
+
     public string ComposerSpellCheckLanguageCode
     {
         get
@@ -420,7 +426,11 @@ public partial class PreferencesService(IConfigurationService configurationServi
 
     public SearchMode DefaultSearchMode
     {
-        get => _configurationService.Get(nameof(DefaultSearchMode), SearchMode.Local);
+        get
+        {
+            var stored = _configurationService.Get(nameof(DefaultSearchMode), nameof(SearchMode.Local));
+            return SearchModePreference.Parse(stored);
+        }
         set => SaveProperty(propertyName: nameof(DefaultSearchMode), value);
     }
 

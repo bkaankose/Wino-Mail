@@ -1,4 +1,4 @@
-<Page
+﻿<Page
     x:Class="Wino.Mail.Controls.Playground.Pages.SearchBarPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -11,7 +11,10 @@
 
     <Page.Resources>
         <DataTemplate x:Key="SearchSuggestionTemplate" x:DataType="searchCore:SearchBarSuggestion">
-            <Grid MinHeight="48" Padding="8,5" RowSpacing="2">
+            <Grid
+                MinHeight="48"
+                Padding="8,5"
+                RowSpacing="2">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -30,8 +33,12 @@
     </Page.Resources>
 
     <ScrollViewer>
-        <Grid Padding="28" ColumnSpacing="24" RowSpacing="20">
+        <Grid
+            Padding="28"
+            ColumnSpacing="24"
+            RowSpacing="20">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
@@ -45,28 +52,75 @@
                 <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Wino Search Bar" />
                 <TextBlock
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Text="History, suggestion templates, semantic availability, and provider-neutral mail filters."
+                    Text="Recent searches, suggestion templates, Local/Online reach, and the page-owned scope and filter buttons inside the field."
                     TextWrapping="Wrap" />
             </StackPanel>
 
-            <Border
+            <!--
+                A title-bar strip, like the shell's. It has no rounded corners, which would clip the
+                field when it grows outward on focus to show the page's scope and filter buttons.
+            -->
+            <Grid
                 Grid.Row="1"
+                Grid.ColumnSpan="2"
+                Height="48"
+                Padding="12,0"
+                Background="{ThemeResource LayerOnMicaBaseAltFillColorDefaultBrush}">
+                <search:WinoSearchBar
+                    x:Name="SearchBar"
+                    AutomationProperties.AutomationId="SearchBarPlaygroundControl"
+                    AutomationProperties.Name="Playground search"
+                    ClearSearchHistoryRequested="SearchBarClearHistoryRequested"
+                    ItemTemplate="{StaticResource SearchSuggestionTemplate}"
+                    SearchDismissed="SearchBarDismissed"
+                    SearchSubmitted="SearchBarSubmitted"
+                    SearchTextChanged="SearchBarTextChanged"
+                    SelectedHeaderButtonTitle="Current folder">
+                    <search:WinoSearchBar.HeaderFlyout>
+                        <MenuFlyout>
+                            <RadioMenuFlyoutItem
+                                Click="SearchHeaderItemClicked"
+                                GroupName="SearchScope"
+                                Text="All folders" />
+                            <RadioMenuFlyoutItem
+                                Click="SearchHeaderItemClicked"
+                                GroupName="SearchScope"
+                                IsChecked="True"
+                                Text="Current folder" />
+                            <RadioMenuFlyoutItem
+                                Click="SearchHeaderItemClicked"
+                                GroupName="SearchScope"
+                                Text="Subfolders" />
+                            <MenuFlyoutSubItem Text="Pinned">
+                                <MenuFlyoutItem IsEnabled="False" Text="Account A" />
+                                <RadioMenuFlyoutItem
+                                    Click="SearchHeaderItemClicked"
+                                    GroupName="SearchScope"
+                                    Text="Folder A" />
+                            </MenuFlyoutSubItem>
+                        </MenuFlyout>
+                    </search:WinoSearchBar.HeaderFlyout>
+                    <search:WinoSearchBar.FilterFlyout>
+                        <Flyout>
+                            <StackPanel MinWidth="240" Spacing="8">
+                                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Filters" />
+                                <CheckBox AutomationProperties.AutomationId="SearchBarFilterUnread" Content="Unread" />
+                                <CheckBox AutomationProperties.AutomationId="SearchBarFilterAttachments" Content="Has attachments" />
+                                <CheckBox AutomationProperties.AutomationId="SearchBarFilterFlagged" Content="Flagged" />
+                            </StackPanel>
+                        </Flyout>
+                    </search:WinoSearchBar.FilterFlyout>
+                </search:WinoSearchBar>
+            </Grid>
+
+            <Border
+                Grid.Row="2"
                 Padding="24"
                 Background="{ThemeResource LayerFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                 BorderThickness="1"
                 CornerRadius="8">
                 <StackPanel Spacing="20">
-                    <search:WinoSearchBar
-                        x:Name="SearchBar"
-                        AutomationProperties.AutomationId="SearchBarPlaygroundControl"
-                        AutomationProperties.Name="Playground search"
-                        ClearSearchHistoryRequested="SearchBarClearHistoryRequested"
-                        ItemTemplate="{StaticResource SearchSuggestionTemplate}"
-                        SearchOptionsChanged="SearchBarOptionsChanged"
-                        SenderSuggestionsRequested="SearchBarSenderSuggestionsRequested"
-                        SearchSubmitted="SearchBarSubmitted"
-                        SearchTextChanged="SearchBarTextChanged" />
 
                     <StackPanel Spacing="8">
                         <TextBlock FontWeight="SemiBold" Text="Page response" />
@@ -76,54 +130,69 @@
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Text="Focus the empty search bar to view recent searches."
                             TextWrapping="Wrap" />
+                        <TextBlock
+                            x:Name="LastEventText"
+                            AutomationProperties.AutomationId="SearchBarLastEvent"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="No events yet." />
+                        <TextBlock
+                            x:Name="QueryStateText"
+                            AutomationProperties.AutomationId="SearchBarQueryState"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="Query: “”" />
                         <ListView
                             x:Name="ResultsList"
+                            MaxHeight="220"
                             AutomationProperties.AutomationId="SearchBarResultsList"
-                            ItemsSource="{x:Bind Results}"
-                            MaxHeight="220" />
+                            ItemsSource="{x:Bind Results}" />
                     </StackPanel>
                 </StackPanel>
             </Border>
 
-            <StackPanel Grid.Row="1" Grid.Column="1" Spacing="16">
+            <StackPanel
+                Grid.Row="2"
+                Grid.Column="1"
+                Spacing="16">
                 <StackPanel Spacing="5">
                     <TextBlock Text="Shell mode" />
                     <ComboBox
                         x:Name="ModeComboBox"
-                        AutomationProperties.AutomationId="SearchBarModeComboBox"
                         HorizontalAlignment="Stretch"
+                        AutomationProperties.AutomationId="SearchBarModeComboBox"
                         ItemTemplate="{StaticResource ModeOptionTemplate}"
                         ItemsSource="{x:Bind ModeOptions}"
                         SelectedIndex="0"
                         SelectionChanged="ModeComboBoxSelectionChanged" />
                 </StackPanel>
-                <ToggleSwitch
-                    x:Name="SemanticAvailabilityToggle"
-                    AutomationProperties.AutomationId="SearchBarSemanticAvailabilityToggle"
-                    Header="Wino Intelligence available"
-                    IsOn="True"
-                    Toggled="SemanticAvailabilityToggled" />
-                <ToggleSwitch
-                    x:Name="SemanticBusyToggle"
-                    AutomationProperties.AutomationId="SearchBarSemanticBusyToggle"
-                    Header="Semantic request busy"
-                    Toggled="SemanticBusyToggled" />
-                <!--  Drives the FieldMeaning visual state without having to click the pill.  -->
-                <ToggleSwitch
-                    x:Name="SemanticEnabledToggle"
-                    AutomationProperties.AutomationId="SearchBarSemanticEnabledToggle"
-                    Header="Meaning enabled"
-                    Toggled="SemanticEnabledToggled" />
                 <!--  The host normally drives this from its adaptive triggers.  -->
                 <ToggleSwitch
                     x:Name="CompactLayoutToggle"
                     AutomationProperties.AutomationId="SearchBarCompactLayoutToggle"
                     Header="Compact layout"
                     Toggled="CompactLayoutToggled" />
+                <ToggleSwitch
+                    x:Name="PageButtonsToggle"
+                    AutomationProperties.AutomationId="SearchBarPageButtonsToggle"
+                    Header="Page scope and filter buttons"
+                    IsOn="True"
+                    Toggled="PageButtonsToggled" />
+                <ToggleSwitch
+                    x:Name="LightThemeToggle"
+                    AutomationProperties.AutomationId="SearchBarLightThemeToggle"
+                    Header="Light theme"
+                    Toggled="LightThemeToggled" />
+                <ToggleSwitch
+                    x:Name="EnabledToggle"
+                    AutomationProperties.AutomationId="SearchBarEnabledToggle"
+                    Header="Enabled"
+                    IsOn="True"
+                    Toggled="EnabledToggled" />
             </StackPanel>
 
             <Border
-                Grid.Row="2"
+                Grid.Row="3"
                 Grid.ColumnSpan="2"
                 Padding="16"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -134,9 +203,9 @@
                     <TextBlock FontWeight="SemiBold" Text="Event trace" />
                     <ListView
                         x:Name="EventTraceList"
+                        MaxHeight="180"
                         AutomationProperties.AutomationId="SearchBarEventTraceList"
-                        ItemsSource="{x:Bind EventTrace}"
-                        MaxHeight="180" />
+                        ItemsSource="{x:Bind EventTrace}" />
                 </StackPanel>
             </Border>
         </Grid>

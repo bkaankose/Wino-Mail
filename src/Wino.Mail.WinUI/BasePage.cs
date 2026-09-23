@@ -1,8 +1,10 @@
 using System;
+using CommunityToolkit.WinUI;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.ViewModels;
 using Wino.Messaging.Client.Shell;
@@ -12,6 +14,14 @@ namespace Wino.Mail.WinUI;
 
 public partial class BasePage : Page, IRecipient<LanguageChanged>
 {
+    [GeneratedDependencyProperty]
+    public partial FlyoutBase? HeaderFlyout { get; set; }
+
+    [GeneratedDependencyProperty]
+    public partial FlyoutBase? FilterFlyout { get; set; }
+
+    [GeneratedDependencyProperty(DefaultValue = "")]
+    public partial string SelectedHeaderButtonTitle { get; set; }
     private bool _isPreparedForClose;
 
     public void Receive(LanguageChanged message)

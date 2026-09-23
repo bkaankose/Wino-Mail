@@ -338,10 +338,18 @@ public class MailService : BaseDatabaseService, IMailService
             parameters.Add(searchPattern);
         }
 
+        // Sender and subject match part of the text, like every provider's server search.
         if (!string.IsNullOrWhiteSpace(options.Sender))
         {
-            whereClauses.Add("MailCopy.FromAddress = ? COLLATE NOCASE");
-            parameters.Add(options.Sender.Trim());
+            var senderPattern = $"%{options.Sender.Trim()}%";
+            whereClauses.Add("(MailCopy.FromName LIKE ? OR MailCopy.FromAddress LIKE ?)");
+            parameters.Add(senderPattern);
+            parameters.Add(senderPattern);
+        }
+        if (!string.IsNullOrWhiteSpace(options.Subject))
+        {
+            whereClauses.Add("MailCopy.Subject LIKE ?");
+            parameters.Add($"%{options.Subject.Trim()}%");
         }
         if (options.ReceivedAfterUtc is { } receivedAfter)
         {
@@ -354,9 +362,27 @@ public class MailService : BaseDatabaseService, IMailService
             parameters.Add(receivedBefore.UtcDateTime);
         }
         if (options.RequireAttachments) whereClauses.Add("MailCopy.HasAttachments = 1");
-        if (options.RequireUnread) whereClauses.Add("MailCopy.IsRead = 0");
+        if (options.ReadStatus == MailReadStatusFilter.Unread) whereClauses.Add("MailCopy.IsRead = 0");
+        if (options.ReadStatus == MailReadStatusFilter.Read) whereClauses.Add("MailCopy.IsRead = 1");
         if (options.RequireFlagged) whereClauses.Add("MailCopy.IsFlagged = 1");
         if (options.ExcludeDrafts) whereClauses.Add("MailCopy.IsDraft = 0");
+
+        // A message that sits in several of the searched folders (Gmail labels) is stored once per
+        // folder. Within an account only one copy is listed: the newest, then the lowest UniqueId.
+        // The count query below groups by the same account and server id.
+        if (options.DeduplicateByServerId && !countOnly)
+        {
+            whereClauses.Add(
+                "(TRIM(COALESCE(MailCopy.Id, '')) = '' OR NOT EXISTS (" +
+                "SELECT 1 FROM MailCopy AS DuplicateCopy " +
+                "INNER JOIN MailItemFolder AS DuplicateFolder ON DuplicateFolder.Id = DuplicateCopy.FolderId " +
+                "WHERE DuplicateCopy.Id = MailCopy.Id " +
+                $"AND DuplicateCopy.FolderId IN ({folderPlaceholders}) " +
+                "AND DuplicateFolder.MailAccountId = (SELECT OwnFolder.MailAccountId FROM MailItemFolder AS OwnFolder WHERE OwnFolder.Id = MailCopy.FolderId) " +
+                "AND (DuplicateCopy.CreationDate > MailCopy.CreationDate OR " +
+                "(DuplicateCopy.CreationDate = MailCopy.CreationDate AND DuplicateCopy.UniqueId < MailCopy.UniqueId))))");
+            parameters.AddRange(options.Folders.Select(f => (object)f.Id));
+        }
 
         // Exclude existing items
         if (includeExistingUniqueIds && (options.ExistingUniqueIds?.Any() ?? false))
@@ -467,15 +493,17 @@ public class MailService : BaseDatabaseService, IMailService
                 || (!string.IsNullOrEmpty(m.FromAddress) && m.FromAddress.Contains(search, StringComparison.OrdinalIgnoreCase)));
         }
 
-        if (!string.IsNullOrWhiteSpace(options.Sender))
-            query = query.Where(m => string.Equals(m.FromAddress, options.Sender.Trim(), StringComparison.OrdinalIgnoreCase));
-        if (options.ReceivedAfterUtc is { } receivedAfter)
-            query = query.Where(m => m.CreationDate.ToUniversalTime() >= receivedAfter.UtcDateTime);
-        if (options.ReceivedBeforeUtc is { } receivedBefore)
-            query = query.Where(m => m.CreationDate.ToUniversalTime() < receivedBefore.UtcDateTime);
-        if (options.RequireAttachments) query = query.Where(m => m.HasAttachments);
-        if (options.RequireUnread) query = query.Where(m => !m.IsRead);
-        if (options.RequireFlagged) query = query.Where(m => m.IsFlagged);
+        // Online results come through here too: a filter a provider cannot apply on its server
+        // (Outlook read state and flags, IMAP attachments) is applied now.
+        query = query.Where(m => MailSearchFilterMatcher.Matches(
+            m,
+            options.Sender,
+            options.Subject,
+            options.ReceivedAfterUtc,
+            options.ReceivedBeforeUtc,
+            options.ReadStatus,
+            options.RequireAttachments,
+            options.RequireFlagged));
         if (options.ExcludeDrafts) query = query.Where(m => !m.IsDraft);
 
         if (options.ExistingUniqueIds?.Any() ?? false)
@@ -2497,6 +2525,41 @@ public class MailService : BaseDatabaseService, IMailService
 
     public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
         => await MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId, null, null).ConfigureAwait(false);
+
+    public async Task<bool> RefreshMappedDraftMetadataAsync(Guid accountId, Guid uniqueId, MailCopy remoteCopy)
+    {
+        var lifecycleLock = _draftUpdates?.Get(accountId, uniqueId).PersistenceLock
+                            ?? _draftLifecycleLocks.GetOrAdd(uniqueId, static _ => new SemaphoreSlim(1, 1));
+        await lifecycleLock.WaitAsync().ConfigureAwait(false);
+
+        try
+        {
+            var current = await GetSingleMailItemAsync(uniqueId).ConfigureAwait(false);
+            if (current?.AssignedAccount?.Id != accountId || !current.IsDraft ||
+                current.Id != remoteCopy.Id || _draftUpdates?.IsProtected(accountId, uniqueId) == true)
+                return false;
+
+            current.Subject = remoteCopy.Subject;
+            current.PreviewText = remoteCopy.PreviewText;
+            current.FromName = remoteCopy.FromName;
+            current.FromAddress = remoteCopy.FromAddress;
+            current.HasAttachments = remoteCopy.HasAttachments;
+            current.Importance = remoteCopy.Importance;
+            current.MessageId = remoteCopy.MessageId;
+            current.IsReadReceiptRequested = remoteCopy.IsReadReceiptRequested;
+            current.InReplyTo = remoteCopy.InReplyTo;
+            current.References = remoteCopy.References;
+            current.CreationDate = remoteCopy.CreationDate;
+
+            await Connection.UpdateAsync(current, typeof(MailCopy)).ConfigureAwait(false);
+            ReportUpdatedMails([current]);
+            return true;
+        }
+        finally
+        {
+            lifecycleLock.Release();
+        }
+    }
 
     public async Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity)
         => await MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId, (uint?)imapUid, imapUidValidity).ConfigureAwait(false);

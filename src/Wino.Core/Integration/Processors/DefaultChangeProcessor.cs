@@ -108,6 +108,7 @@ public interface IGmailChangeProcessor : IDefaultChangeProcessor
 {
     Task<bool> HasAccountAnyDraftAsync(Guid accountId);
     Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId);
+    Task<bool> RefreshMappedDraftMetadataAsync(Guid accountId, Guid uniqueId, MailCopy remoteCopy);
     Task CreateAssignmentAsync(Guid accountId, string mailCopyId, string remoteFolderId);
     Task ManageCalendarEventAsync(Event calendarEvent, AccountCalendar assignedCalendar, MailAccount organizerAccount);
     Task<GmailArchiveComparisonResult> GetGmailArchiveComparisonResultAsync(Guid archiveFolderId, List<string> onlineArchiveMailIds);
@@ -314,6 +315,9 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId)
         => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId);
+
+    public Task<bool> RefreshMappedDraftMetadataAsync(Guid accountId, Guid uniqueId, MailCopy remoteCopy)
+        => MailService.RefreshMappedDraftMetadataAsync(accountId, uniqueId, remoteCopy);
 
     public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity)
         => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId, imapUid, imapUidValidity);

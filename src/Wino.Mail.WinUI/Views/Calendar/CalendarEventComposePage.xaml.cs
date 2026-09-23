@@ -54,6 +54,7 @@ public sealed partial class CalendarEventComposePage : CalendarEventComposePageA
         await NotesEditor.ConfigureSpellCheckAsync(
             ViewModel.IsComposerSpellCheckEnabled,
             ViewModel.ComposerSpellCheckLanguageCode);
+        await NotesEditor.ConfigureAutoCorrectAsync(ViewModel.IsComposerAutoCorrectEnabled);
 
         await NotesEditor.RenderHtmlAsync(string.IsNullOrWhiteSpace(args?.NotesHtml) ? " " : args.NotesHtml);
     }
