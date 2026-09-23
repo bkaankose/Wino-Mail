@@ -794,19 +794,24 @@ function Copy-ReleaseSymbols {
         throw "The release symbol export directory is missing: $source"
     }
 
-    $versionRoot = Join-Path $Plan.OutputRoot $Plan.Version
-    $destination = Join-Path $versionRoot 'Symbols'
-    if (Test-Path -LiteralPath $destination) {
-        throw "The release symbol destination already exists: $destination"
+    $symbolFiles = @(Get-ChildItem -LiteralPath $source -Recurse -File -Filter '*.pdb')
+    if ($symbolFiles.Count -eq 0) {
+        throw "The release export contains no PDB files: $source"
     }
 
-    $null = New-Item -ItemType Directory -Path $versionRoot -Force
-    Copy-Item -LiteralPath $source -Destination $destination -Recurse
-    $symbolFiles = @(Get-ChildItem -LiteralPath $destination -Recurse -File -Include '*.pdb', '*.appxsym')
-    if ($symbolFiles.Count -eq 0) {
-        throw "The release export contains no PDB or appxsym files: $destination"
+    foreach ($releaseFolder in $Plan.Destinations) {
+        $destination = Resolve-ReleaseChildPath $Staging ("ready/$(Split-Path $releaseFolder -Leaf)/Symbols")
+        if (Test-Path -LiteralPath $destination) {
+            throw "The release symbol destination already exists: $destination"
+        }
+        foreach ($symbol in $symbolFiles) {
+            $relativePath = [IO.Path]::GetRelativePath($source, $symbol.FullName)
+            $target = Resolve-ReleaseChildPath $destination $relativePath
+            $null = New-Item -ItemType Directory -Path (Split-Path $target) -Force
+            Copy-Item -LiteralPath $symbol.FullName -Destination $target
+        }
     }
-    return $destination
+    return (Join-Path $Plan.Destinations[0] 'Symbols')
 }
 
 function Remove-ReleaseStaging {

@@ -85,6 +85,26 @@ try {
         Assert-True ((Get-FileHash -LiteralPath (Join-Path $folder "WinoMail_Store_$($plan.Version).msixupload")).Hash -eq (Get-FileHash -LiteralPath $upload).Hash) 'Store upload was changed.'
         Assert-True (Test-Path -LiteralPath (Join-Path $folder 'WinoMail_Store_TestCertificate.cer')) 'Store test certificate was not exported.'
     }
+    Test-Case 'Release symbols contain only PDBs inside selected channel folders' {
+        $plan = New-FixturePlan $true $true -Sideload $true
+        $staging = Join-Path $plan.OutputRoot ('.staging/' + [guid]::NewGuid().ToString('N'))
+        $export = Join-Path $staging 'exports/x64/payload'
+        $null = New-Item -ItemType Directory -Path $export -Force
+        foreach ($destination in $plan.Destinations) {
+            $null = New-Item -ItemType Directory -Path (Join-Path $staging "ready/$(Split-Path $destination -Leaf)") -Force
+        }
+        'pdb' | Set-Content -LiteralPath (Join-Path $export 'Wino.Mail.pdb')
+        'binary' | Set-Content -LiteralPath (Join-Path $export 'Wino.Mail.dll')
+        'resource' | Set-Content -LiteralPath (Join-Path $export 'resources.pri')
+        $path = Copy-ReleaseSymbols $plan $staging
+        Complete-ReleaseOutputs $plan $staging
+        Assert-True ($path -eq (Join-Path $plan.Destinations[0] 'Symbols')) 'Symbol upload path does not use a release folder.'
+        foreach ($destination in $plan.Destinations) {
+            $files = @(Get-ChildItem -LiteralPath (Join-Path $destination 'Symbols') -Recurse -File)
+            Assert-True ($files.Count -eq 1 -and $files[0].Name -eq 'Wino.Mail.pdb') 'Symbols contain missing or extra files.'
+        }
+        Assert-True (-not (Test-Path -LiteralPath (Join-Path $plan.OutputRoot $plan.Version))) 'Separate version folder was created.'
+    }
     Test-Case 'Profiles isolate all notification hosts and retain stable identities' {
         $plan = New-FixturePlan $true $true -Sideload $true
         $profiles = @('Store', 'Beta', 'Sideload') | ForEach-Object { Get-ReleaseProfile $plan $_ }
@@ -384,10 +404,10 @@ try {
             function New-SideloadAppInstaller { param($Bundle, $Plan, $Distribution) }
             function Copy-ReleaseSymbols {
                 param($Plan, $Staging)
-                $destination = Join-Path (Join-Path $Plan.OutputRoot $Plan.Version) 'Symbols'
+                $destination = Join-Path $Staging "ready/$(Split-Path $Plan.Destinations[0] -Leaf)/Symbols"
                 $null = New-Item -ItemType Directory -Path $destination -Force
                 'symbols fixture' | Set-Content -LiteralPath (Join-Path $destination 'Wino.Core.pdb')
-                return $destination
+                return (Join-Path $Plan.Destinations[0] 'Symbols')
             }
             Invoke-ReleaseBuild $plan ([pscustomobject]@{ MSBuild = 'dotnet'; MakeAppx = 'makeappx' }) @{ Distributions = @{ Beta = @{}; Sideload = @{} } }
             Assert-True (@($script:Commands | Where-Object { $_ -match '-t:Build' }).Count -eq 1) 'Compilation repeated.'
@@ -399,7 +419,7 @@ try {
             $expectedSigns = $plan.SideloadChannels.Count
             Assert-True ($script:SignCalls -eq $expectedSigns) 'Signing repeated or was skipped.'
             Assert-True ($script:PackageCalls -eq ($expectedSigns * $architectures.Count)) 'Sideload architecture packaging repeated.'
-            $outputFolders = @(Get-ChildItem -LiteralPath $plan.OutputRoot -Directory | Where-Object Name -ne $plan.Version)
+            $outputFolders = @(Get-ChildItem -LiteralPath $plan.OutputRoot -Directory)
             Assert-True ($outputFolders.Count -eq $plan.Destinations.Count) 'Unselected channel folder exists.'
             if ($plan.Selection.Sideload) {
                 $stableBundle = Join-Path $plan.OutputRoot 'WinoMail_SideloadRelease_2.53.0/WinoMail_SideloadRelease_2.53.0.msixbundle'

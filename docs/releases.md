@@ -143,25 +143,28 @@ WinoMail_Beta_2.0.55.0/
   WinoMail_Beta_2.0.55.0.msixbundle
   WinoMailBetaIsolated.appinstaller
   Dependencies/                         (when required)
+  Symbols/                              (PDB files only)
 WinoMail_SideloadRelease_2.0.55/
   WinoMail_SideloadRelease_2.0.55.msixbundle
   WinoMail.appinstaller
   Dependencies/                         (when required)
+  Symbols/                              (PDB files only)
 WinoMail_Store_2.0.55.0/
   WinoMail_Store_2.0.55.0.msixupload
   WinoMail_Store_2.0.55.0.msixbundle
   WinoMail_Store_TestCertificate.cer
+  Symbols/                              (PDB files only)
 ```
 
-The build also retains the exact symbols from the compilation under
-`<version>/Symbols/`. Symbol upload is intentionally opt-in: an interactive
+The build retains the PDB files from the compilation in each selected channel's
+`Symbols/` directory. Symbol upload is intentionally opt-in: an interactive
 build asks whether to upload them after packaging. Declining does not delete
 the symbols. Upload them later with:
 
 ```powershell
 pwsh -NoProfile -File .\scripts\upload-sentry-symbols.ps1 `
   -Version 2.1.1.0 `
-  -SymbolsPath .\src\Wino.Mail.WinUI\AppPackages\2.1.1.0\Symbols
+  -SymbolsPath .\src\Wino.Mail.WinUI\AppPackages\WinoMail_Beta_2.1.1.0\Symbols
 ```
 
 The upload script uses the `SENTRY_AUTH_TOKEN` environment variable and the
