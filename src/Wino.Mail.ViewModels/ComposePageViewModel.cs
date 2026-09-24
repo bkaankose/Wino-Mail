@@ -26,6 +26,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.Common;
 using Wino.Core.Domain.Models.Contacts;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
@@ -185,6 +186,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private readonly IDraftSaveService _draftSaveService;
     private readonly IAttachmentFileService _attachmentFileService;
     private readonly IGlobalAddressListService _globalAddressListService;
+    private readonly IRememberedRecipientService _rememberedRecipientService;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -204,11 +206,13 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IDraftUpdateCoordinator draftUpdates, DraftUpdateRegistry draftRegistry,
                                 IDraftSaveService draftSaveService,
                                 IGlobalAddressListService globalAddressListService,
+                                IRememberedRecipientService rememberedRecipientService,
                                 IAttachmentFileService attachmentFileService = null)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
         _globalAddressListService = globalAddressListService;
+        _rememberedRecipientService = rememberedRecipientService;
         FontService = fontService;
         PreferencesService = preferencesService;
 
@@ -461,6 +465,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             IsDraftBusy = true;
         });
+
+        RememberRecipients();
 
         await _worker.ExecuteAsync(draftSendPreparationRequest);
     }
@@ -1049,6 +1055,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     }
 
     private const int GalSuggestionLimit = 15;
+    private const int RememberedSuggestionLimit = 10;
 
     /// <summary>
     /// Recipient (To/Cc/Bcc) autocomplete source: the user's local contacts, plus matches from the
@@ -1058,16 +1065,70 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     /// </summary>
     public async Task<List<AccountContact>> GetRecipientSuggestionsAsync(string text, CancellationToken cancellationToken = default)
     {
-        var local = await ContactService.ResolveRecipientCandidatesAsync(ComposingAccount?.Id, text).ConfigureAwait(false) ?? [];
-
         var account = ComposingAccount;
-        if (account == null || _globalAddressListService == null || !_globalAddressListService.SupportsGlobalAddressList(account))
-            return local;
+
+        // All of them are started before any is awaited: they are independent, and the directory leg is
+        // a live round trip, so running them in turn would make a keystroke cost the sum of the three
+        // rather than the slowest of them.
+        var contacts = ContactService.ResolveRecipientCandidatesAsync(account?.Id, text);
+
+        if (account == null)
+            return await contacts.ConfigureAwait(false) ?? [];
+
+        var remembered = RememberedRecipientsAsync(account.Id, text, cancellationToken);
+
+        var directoryLookup = _globalAddressListService != null && _globalAddressListService.SupportsGlobalAddressList(account)
+            ? _globalAddressListService.SearchAsync(account.Id, text, GalSuggestionLimit, cancellationToken)
+            : Task.FromResult<IReadOnlyList<AccountContact>>([]);
+
+        var rememberedContacts = await remembered.ConfigureAwait(false);
+        var local = await contacts.ConfigureAwait(false) ?? [];
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        var directory = await _globalAddressListService.SearchAsync(account.Id, text, GalSuggestionLimit, cancellationToken).ConfigureAwait(false);
-        return RecipientSuggestionMerge.Merge(local, directory);
+        var directory = await directoryLookup.ConfigureAwait(false);
+
+        return RecipientSuggestionMerge.Merge(rememberedContacts, local, directory);
+    }
+
+    /// <summary>
+    /// Notes everyone this message is going to, which is what moves them up the list next time.
+    ///
+    /// Recorded when the send is dispatched rather than when it is confirmed, which is what Outlook
+    /// does too: the cost of remembering an address a failed send was going to is a row in a list,
+    /// and the cost of forgetting one is that it never rises. Not awaited, because nobody should
+    /// wait on a suggestion list to send a message.
+    /// </summary>
+    private void RememberRecipients()
+    {
+        var account = ComposingAccount;
+
+        if (account is null || _rememberedRecipientService is null)
+            return;
+
+        var everyone = ToItems.Concat(CCItems).Concat(BCCItems)
+            .Where(c => !string.IsNullOrWhiteSpace(c?.Address))
+            .Select(c => new RememberedRecipient(c.Address, c.Name, 0))
+            .ToList();
+
+        if (everyone.Count == 0)
+            return;
+
+        _ = _rememberedRecipientService.RecordAsync(account.Id, everyone);
+    }
+
+    private async Task<IReadOnlyList<AccountContact>> RememberedRecipientsAsync(Guid accountId, string text, CancellationToken cancellationToken)
+    {
+        if (_rememberedRecipientService == null)
+            return [];
+
+        var remembered = await _rememberedRecipientService
+            .SuggestAsync(accountId, text, RememberedSuggestionLimit, cancellationToken)
+            .ConfigureAwait(false);
+
+        return remembered
+            .Select(r => new AccountContact { Address = r.Address, Name = r.DisplayName })
+            .ToList();
     }
 
     public async Task<AccountContact> GetAddressInformationAsync(string tokenText, ObservableCollection<AccountContact> collection)

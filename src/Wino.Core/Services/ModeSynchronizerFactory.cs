@@ -139,7 +139,7 @@ public sealed class ModeSynchronizerFactory :
     private sealed class MailAdapter(MailAccount account, IWinoSynchronizerBase synchronizer, bool available, string reason)
         : AdapterBase(account, synchronizer, available, reason), IMailSynchronizer
     {
-        public MailSynchronizerCapabilities Capabilities { get; } = new(available, available);
+        public MailSynchronizerCapabilities Capabilities { get; } = new(available, available, available && synchronizer.RemembersRecipients);
 
         public Task<MailSynchronizationResult> SynchronizeAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
         {
@@ -151,6 +151,22 @@ public sealed class ModeSynchronizerFactory :
         {
             QueueRequests(requests);
             return Synchronizer.SynchronizeMailsAsync(new MailSynchronizationOptions { AccountId = Account.Id, Type = MailSynchronizationType.ExecuteRequests }, cancellationToken);
+        }
+
+        public Task<IReadOnlyList<RememberedRecipient>> GetRememberedRecipientsAsync(CancellationToken cancellationToken = default)
+        {
+            // No EnsureAvailable: a suggestion list is a convenience, and an account that cannot sync
+            // should leave the composer with its address book rather than throwing at a keystroke.
+            return Capabilities.CanRememberRecipients
+                ? Synchronizer.GetRememberedRecipientsAsync(cancellationToken)
+                : Task.FromResult<IReadOnlyList<RememberedRecipient>>([]);
+        }
+
+        public Task RememberRecipientsAsync(IReadOnlyList<RememberedRecipient> recipients, CancellationToken cancellationToken = default)
+        {
+            return Capabilities.CanRememberRecipients
+                ? Synchronizer.RememberRecipientsAsync(recipients, cancellationToken)
+                : Task.CompletedTask;
         }
     }
 

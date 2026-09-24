@@ -125,7 +125,10 @@ public static class PropertyTypes
 {
     public const ushort Short = 0x0002;
     public const ushort Long = 0x0003;
+    public const ushort Float = 0x0004;
     public const ushort Double = 0x0005;
+    public const ushort Currency = 0x0006;
+    public const ushort AppTime = 0x0007;
     public const ushort Boolean = 0x000B;
     public const ushort Object = 0x000D;
     public const ushort LongLong = 0x0014;
@@ -136,6 +139,8 @@ public static class PropertyTypes
     public const ushort Binary = 0x0102;
     public const ushort MultipleBinary = 0x1102;
     public const ushort MultipleUnicode = 0x101F;
+    public const ushort MultipleString8 = 0x101E;
+    public const ushort MultipleGuid = 0x1048;
     public const ushort ErrorCode = 0x000A;
     public const ushort ServerId = 0x00FB;
     public const ushort Restriction = 0x00FD;

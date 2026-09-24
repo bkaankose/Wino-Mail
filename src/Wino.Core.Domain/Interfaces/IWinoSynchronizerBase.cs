@@ -36,6 +36,22 @@ public interface IWinoSynchronizerBase : IBaseSynchronizer
     Task<DraftUpdateIdentity> UpdateDraftAsync(DraftUpdateSnapshot snapshot, MailCopy draft, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Whether this provider keeps a list of the addresses the mailbox has written to. False unless a
+    /// provider says otherwise, so the two methods below need no implementation to opt out.
+    /// </summary>
+    bool RemembersRecipients { get; }
+
+    /// <summary>The remembered addresses, heaviest first. Empty when the provider keeps none.</summary>
+    Task<IReadOnlyList<RememberedRecipient>> GetRememberedRecipientsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds these addresses to the remembered list and saves it. The provider keeps whatever it read
+    /// and applies the additions to that, so per-entry data this code does not interpret - another
+    /// client's, usually - is never dropped on the way back.
+    /// </summary>
+    Task RememberRecipientsAsync(IReadOnlyList<RememberedRecipient> recipients, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Downloads a single MIME message from the server and saves it to disk.
     /// </summary>
     /// <param name="mailItem">Mail item to download from server.</param>

@@ -62,6 +62,9 @@ public static class ServicesContainerSetup
         services.AddTransient<IJunkSenderService, JunkSenderService>();
         services.AddTransient<IServerJunkListService, ServerJunkListService>();
         services.AddTransient<IGlobalAddressListService, GlobalAddressListService>();
+
+        // Singleton: each account's list is read once and answered from memory for the rest of the run.
+        services.AddSingleton<IRememberedRecipientService, RememberedRecipientService>();
         services.AddTransient<IPublicFolderService, PublicFolderService>();
         services.AddTransient<IOnlineArchiveService, OnlineArchiveService>();
         services.AddSingleton<IPublicFolderFavoriteService, PublicFolderFavoriteService>();

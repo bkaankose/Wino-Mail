@@ -1026,6 +1026,17 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     #endregion
 
 
+    /// <inheritdoc />
+    public virtual bool RemembersRecipients => false;
+
+    /// <inheritdoc />
+    public virtual Task<IReadOnlyList<RememberedRecipient>> GetRememberedRecipientsAsync(CancellationToken cancellationToken = default)
+        => Task.FromResult<IReadOnlyList<RememberedRecipient>>([]);
+
+    /// <inheritdoc />
+    public virtual Task RememberRecipientsAsync(IReadOnlyList<RememberedRecipient> recipients, CancellationToken cancellationToken = default)
+        => Task.CompletedTask;
+
     public virtual Task<DraftUpdateIdentity> UpdateDraftAsync(DraftUpdateSnapshot snapshot, MailCopy draft, CancellationToken cancellationToken = default)
         => Task.FromResult<DraftUpdateIdentity>(null);
 

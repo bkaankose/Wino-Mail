@@ -5,36 +5,30 @@ using Wino.Core.Domain.Entities.Shared;
 namespace Wino.Core.Domain.Models.Contacts;
 
 /// <summary>
-/// Pure merge of local-contact and Global Address List recipient suggestions shared by the mail and
-/// calendar compose pages: local first (the user's own address book), then directory entries whose
-/// address is not already present. Local wins on a duplicate address, compared case-insensitively.
+/// Pure merge of the recipient suggestion sources shared by the mail and calendar compose pages.
+///
+/// Sources are given in the order they should be offered and each contributes only the addresses the
+/// ones before it did not, compared without case - so the earliest source wins a duplicate. The mail
+/// composer offers the addresses this mailbox has written to before, then the user's own contacts,
+/// then the organisation's directory, because a list ordered by who you actually correspond with
+/// beats one ordered by who happens to be in an address book.
 /// </summary>
 public static class RecipientSuggestionMerge
 {
-    public static List<AccountContact> Merge(IReadOnlyList<AccountContact> local, IReadOnlyList<AccountContact> directory)
+    public static List<AccountContact> Merge(params IReadOnlyList<AccountContact>[] sources)
     {
-        var merged = new List<AccountContact>(local?.Count ?? 0);
+        var merged = new List<AccountContact>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        if (local != null)
+        foreach (var source in sources)
         {
-            foreach (var contact in local)
-            {
-                if (contact == null)
-                    continue;
+            if (source == null)
+                continue;
 
-                merged.Add(contact);
-                if (!string.IsNullOrEmpty(contact.Address))
-                    seen.Add(contact.Address);
-            }
-        }
-
-        if (directory != null)
-        {
-            foreach (var entry in directory)
+            foreach (var contact in source)
             {
-                if (entry != null && !string.IsNullOrEmpty(entry.Address) && seen.Add(entry.Address))
-                    merged.Add(entry);
+                if (contact != null && !string.IsNullOrEmpty(contact.Address) && seen.Add(contact.Address))
+                    merged.Add(contact);
             }
         }
 

@@ -32,6 +32,7 @@ using Wino.Core.Requests.Mail;
 using Wino.Core.Synchronizers.Exchange;
 using Wino.Mapi;
 using Wino.Mapi.AddressBook;
+using Wino.Mapi.Autocomplete;
 using Wino.Mapi.Calendar;
 using Wino.Mapi.Rops;
 using Wino.Mapi.Rules;
@@ -881,6 +882,116 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
     private static string? FolderKey(MailItemFolder folder) => folder.RemoteFolderId ?? folder.MapiFolderId;
 
     private static ulong ParseFolderId(MailItemFolder folder) => TryParseFolderId(folder, out var id) ? id : 0;
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Exchange keeps the list Outlook calls its nickname cache: a hidden message in the Inbox whose
+    /// body is a packed table of everyone the mailbox has written to, with a weight that rises each
+    /// time. Outlook reads it at startup, answers from memory, and saves on shutdown.
+    /// </remarks>
+    public override bool RemembersRecipients => true;
+
+    // The parsed list is kept between a read and a write on purpose. The stored format carries far
+    // more per entry than the neutral shape crossing the seam - fields another client wrote and this
+    // code does not interpret - and the only way to add a name without damaging the rest is to change
+    // the thing that was read and write that back. So the bytes never leave this class.
+    private AutocompleteStream? _rememberedRecipients;
+    private readonly SemaphoreSlim _rememberedRecipientsGate = new(1, 1);
+
+    /// <inheritdoc />
+    public override async Task<IReadOnlyList<RememberedRecipient>> GetRememberedRecipientsAsync(CancellationToken cancellationToken = default)
+    {
+        var list = await LoadRememberedRecipientsAsync(cancellationToken).ConfigureAwait(false);
+
+        if (list is null)
+            return [];
+
+        // Already ordered heaviest first by the format, so taking them in order is taking the best.
+        return list.Entries
+            .Where(e => !string.IsNullOrWhiteSpace(e.SmtpAddress))
+            .Select(e => new RememberedRecipient(e.SmtpAddress!, e.DropdownDisplayName ?? e.DisplayName, e.Weight))
+            .ToList();
+    }
+
+    /// <inheritdoc />
+    public override async Task RememberRecipientsAsync(IReadOnlyList<RememberedRecipient> recipients, CancellationToken cancellationToken = default)
+    {
+        if (recipients is null || recipients.Count == 0)
+            return;
+
+        await _rememberedRecipientsGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var list = await LoadRememberedRecipientsUnguardedAsync(cancellationToken).ConfigureAwait(false);
+
+            // A read that FAILED is not a mailbox with no list, and the difference decides whether it
+            // is safe to write: an empty list written over somebody's real one destroys it.
+            if (list is null)
+                return;
+
+            var changed = false;
+
+            foreach (var recipient in recipients)
+            {
+                if (string.IsNullOrWhiteSpace(recipient.Address))
+                    continue;
+
+                list.Record(recipient.Address.Trim(), recipient.DisplayName);
+                changed = true;
+            }
+
+            if (!changed)
+                return;
+
+            var folders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+            var inboxId = RequireFolderId(folders.FirstOrDefault(f => f.SpecialFolderType == SpecialFolderType.Inbox));
+
+            await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+
+            await MapiAutocompleteOperations
+                .WriteAsync(lease.Session, inboxId, list, cancellationToken, Diagnostics)
+                .ConfigureAwait(false);
+        }
+        finally
+        {
+            _rememberedRecipientsGate.Release();
+        }
+    }
+
+    private async Task<AutocompleteStream?> LoadRememberedRecipientsAsync(CancellationToken cancellationToken)
+    {
+        if (_rememberedRecipients is not null)
+            return _rememberedRecipients;
+
+        await _rememberedRecipientsGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            return await LoadRememberedRecipientsUnguardedAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _rememberedRecipientsGate.Release();
+        }
+    }
+
+    private async Task<AutocompleteStream?> LoadRememberedRecipientsUnguardedAsync(CancellationToken cancellationToken)
+    {
+        if (_rememberedRecipients is not null)
+            return _rememberedRecipients;
+
+        var folders = await ExchangeChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
+        var inboxId = RequireFolderId(folders.FirstOrDefault(f => f.SpecialFolderType == SpecialFolderType.Inbox));
+
+        await using var lease = await AcquireSessionAsync(cancellationToken).ConfigureAwait(false);
+
+        // A mailbox Outlook has never opened has no list, which is not a fault: start an empty one so
+        // this run's sends are remembered and saved as a new list.
+        _rememberedRecipients = await MapiAutocompleteOperations
+            .ReadAsync(lease.Session, inboxId, cancellationToken, Diagnostics)
+            .ConfigureAwait(false) ?? AutocompleteStream.Empty();
+
+        return _rememberedRecipients;
+    }
 
     public override async Task<IReadOnlyList<RemoteInboxRule>> GetInboxRulesAsync(CancellationToken cancellationToken = default)
     {
