@@ -20,7 +20,7 @@ namespace Wino.Services;
 /// a file delete rather than a migration against live mail.
 /// </summary>
 public sealed class MailIntelligenceStore(
-    IApplicationConfiguration applicationConfiguration) : IMailIntelligenceStore, IAsyncDisposable
+    IApplicationConfiguration applicationConfiguration) : IMailIntelligenceStore, IIntelligenceResultKeyRows, IAsyncDisposable
 {
     private const string DatabaseName = "WinoMailIntelligence.db";
 
@@ -60,6 +60,7 @@ public sealed class MailIntelligenceStore(
             await connection.CreateTableAsync<BriefingViewStateRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<MailIntelligenceAccessRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<AccountIntelligenceSnapshotRow>().ConfigureAwait(false);
+            await connection.CreateTableAsync<IntelligenceResultKeyRow>().ConfigureAwait(false);
 
             _connection = connection;
             return connection;
@@ -106,6 +107,7 @@ public sealed class MailIntelligenceStore(
             IsEnrichmentAcknowledged = job.Enrichment.IsAcknowledged,
             FailedCount = job.FailedCount,
             LastError = job.LastError,
+            ResultKeyId = job.ResultKeyId,
             CreatedUtc = job.CreatedUtc,
             UpdatedUtc = DateTime.UtcNow,
         }, typeof(MailIntelligenceJobRow)).ConfigureAwait(false);
@@ -552,6 +554,44 @@ public sealed class MailIntelligenceStore(
         await lease.Connection.ExecuteAsync("DELETE FROM AccountIntelligenceSnapshot").ConfigureAwait(false);
     }
 
+    // ---- result keys ---------------------------------------------------------------
+
+    async Task<IReadOnlyList<IntelligenceResultKeyRow>> IIntelligenceResultKeyRows.GetAllAsync(CancellationToken cancellationToken)
+    {
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        return await lease.Connection.Table<IntelligenceResultKeyRow>()
+            .OrderBy(x => x.CreatedUtc)
+            .ToListAsync()
+            .ConfigureAwait(false);
+    }
+
+    async Task<IntelligenceResultKeyRow?> IIntelligenceResultKeyRows.GetAsync(string keyId, CancellationToken cancellationToken)
+    {
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        return await lease.Connection.Table<IntelligenceResultKeyRow>()
+            .Where(x => x.KeyId == keyId)
+            .FirstOrDefaultAsync()
+            .ConfigureAwait(false);
+    }
+
+    async Task IIntelligenceResultKeyRows.InsertAsync(IntelligenceResultKeyRow row, CancellationToken cancellationToken)
+    {
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        await lease.Connection.InsertAsync(row, typeof(IntelligenceResultKeyRow)).ConfigureAwait(false);
+    }
+
+    async Task IIntelligenceResultKeyRows.DeleteAsync(string keyId, CancellationToken cancellationToken)
+    {
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        await lease.Connection.DeleteAsync<IntelligenceResultKeyRow>(keyId).ConfigureAwait(false);
+    }
+
+    async Task IIntelligenceResultKeyRows.DeleteAllAsync(CancellationToken cancellationToken)
+    {
+        using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
+        await lease.Connection.ExecuteAsync("DELETE FROM IntelligenceResultKey").ConfigureAwait(false);
+    }
+
     // ---- lifecycle -----------------------------------------------------------------
 
     public async Task DeleteAccountAsync(Guid localAccountId, CancellationToken cancellationToken = default)
@@ -625,7 +665,10 @@ public sealed class MailIntelligenceStore(
         row.FailedCount,
         row.LastError,
         row.CreatedUtc,
-        row.UpdatedUtc);
+        row.UpdatedUtc)
+    {
+        ResultKeyId = row.ResultKeyId,
+    };
 
     private static ClassificationArtifact Map(ClassificationArtifactRow row) => new(
         new MailArtifactKey(row.RemoteMessageId, row.ContentHash),

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using FluentAssertions;
 using SQLite;
+using Wino.Core.Domain.Intelligence.Keys;
 using Wino.Mail.AI.Cryptography;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Services;
@@ -34,9 +35,24 @@ public sealed class MailIntelligenceUploadBuilderTests
     private static readonly Guid UserId = Guid.Parse("11111111-2222-3333-4444-555555555555");
     private static readonly Guid MailboxId = Guid.Parse("66666666-7777-8888-9999-000000000000");
 
-    private static MailIntelligenceUploadBuilder CreateBuilder()
-        => new(new PemContentEnvelopeEncryptor(
-            new ContentEncryptionPublicKey(EmbeddedIntelligencePublicKeyProvider.KeyId, PublicKey)));
+    private static readonly ContentEncryptionPublicKey TransportKey = new("wino-intelligence-test-v1", PublicKey);
+
+    private static readonly IntelligenceResultKey ResultKey = new(
+        "dev-202609-0123abcd", UserId, "-----BEGIN PUBLIC KEY-----\nresult\n-----END PUBLIC KEY-----", DateTime.UtcNow);
+
+    private static TestBuilder CreateBuilder() => new();
+
+    /// <summary>Supplies the transport and result keys every build needs.</summary>
+    private sealed class TestBuilder
+    {
+        private readonly MailIntelligenceUploadBuilder _builder = new();
+
+        public MailIntelligenceUpload Build(Guid userId, Guid mailboxId, Guid jobId, IReadOnlyList<MailIntelligenceUploadEnvelopeDto> messages, string language)
+            => _builder.Build(userId, mailboxId, jobId, messages, language, TransportKey, ResultKey);
+
+        public byte[] BuildSingle(Guid userId, Guid mailboxId, MailIntelligenceUploadEnvelopeDto message)
+            => _builder.BuildSingle(userId, mailboxId, message, TransportKey);
+    }
 
     [Fact]
     public void Build_WritesAManifestMatchingTheJob()
@@ -50,8 +66,12 @@ public sealed class MailIntelligenceUploadBuilderTests
             using var connection = new SQLiteConnection(path, SQLiteOpenFlags.ReadOnly);
             var manifest = connection.Query<ManifestRow>("SELECT * FROM manifest").Single();
 
-            manifest.format_version.Should().Be(MailIntelligenceFormatVersions.Current);
+            manifest.format_version.Should().Be(2);
             manifest.job_id.Should().Be(jobId.ToString("D"));
+            manifest.key_id.Should().Be(TransportKey.KeyId, "the manifest names the transport key the envelopes were encrypted to");
+            manifest.result_key_id.Should().Be(ResultKey.KeyId);
+            manifest.result_public_key.Should().Be(ResultKey.PublicKeyPem);
+            upload.JobId.Should().Be(jobId);
             manifest.mailbox_id.Should().Be(MailboxId.ToString("D"));
             manifest.message_count.Should().Be(2);
             manifest.language.Should().Be("en-US");
@@ -163,6 +183,8 @@ public sealed class MailIntelligenceUploadBuilderTests
         public string created_utc { get; set; } = string.Empty;
         public int message_count { get; set; }
         public string language { get; set; } = string.Empty;
+        public string result_key_id { get; set; } = string.Empty;
+        public string result_public_key { get; set; } = string.Empty;
     }
 
     private sealed class MessageRow

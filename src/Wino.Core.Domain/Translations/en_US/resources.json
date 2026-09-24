@@ -2665,6 +2665,8 @@
   "SemanticIndex_OverallProgress": "{0:N0} of {1:N0} messages complete · {2:N0} remaining",
   "SemanticIndex_OperationDeleting": "Deleting intelligence data…",
   "Intelligence_QuotaExceeded": "Your intelligence quota is exhausted. Contact Wino support if you need help.",
+  "Intelligence_ResultKeyLost": "This device could no longer read these results, so they were discarded. Process the messages again to get new results.",
+  "Intelligence_ResultKeyUnavailable": "Wino Intelligence could not prepare this device to receive results. Try again later.",
   "Intelligence_QuotaTitle": "Monthly intelligence quota",
   "Intelligence_QuotaUsage": "{0:N0}% used · resets {1}",
   "Intelligence_QuotaCached": "Last updated {0}",

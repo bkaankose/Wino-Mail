@@ -743,6 +743,7 @@ public partial class App : WinoApplication,
             _ = entitlementService.RefreshAsync();
 
             await Services.GetRequiredService<IMailIntelligenceCoordinator>().InitializeAsync();
+            await Services.GetRequiredService<IntelligenceResultKeyLifecycle>().InitializeAsync();
 
             _hasConfiguredAccounts = (await _accountService.GetAccountsAsync()).Any();
 

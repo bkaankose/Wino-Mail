@@ -39,10 +39,10 @@ public interface IWinoAccountApiClient
     // independently downloadable and independently acknowledged stages.
     Task<MailIntelligenceJobAcceptedDto> SubmitMailIntelligenceJobAsync(
         Guid mailboxId, Guid jobId, string checksum, byte[] upload, CancellationToken cancellationToken = default);
-    Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(CancellationToken cancellationToken = default);
+    Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(string? resultKeyId = null, CancellationToken cancellationToken = default);
+    Task<IntelligenceTransportKeyDto> GetIntelligenceTransportKeyAsync(CancellationToken cancellationToken = default);
     Task<MailIntelligenceJobDto?> GetMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);
-    Task<ClassificationResultPageDto> GetClassificationResultPageAsync(Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default);
-    Task<SummaryResultPageDto> GetEnrichmentResultPageAsync(Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default);
+    Task<MailIntelligenceResultPayload> GetMailIntelligenceResultPageAsync(Guid mailboxId, Guid jobId, string stage, int page, CancellationToken cancellationToken = default);
     Task<MailIntelligenceStageAckResultDto> AcknowledgeMailIntelligenceStageAsync(
         Guid mailboxId, Guid jobId, string stage, string digest, CancellationToken cancellationToken = default);
     Task CancelMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);

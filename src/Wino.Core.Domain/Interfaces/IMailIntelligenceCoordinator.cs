@@ -17,6 +17,18 @@ public interface IMailIntelligenceCoordinator
     Task InitializeAsync();
 
     /// <summary>
+    /// Follows unfinished jobs again and, once per run, deletes server jobs this device does not
+    /// track. Called when the add-on becomes active.
+    /// </summary>
+    Task ResumeAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stops every submission and deletes every unfinished job here and, best effort, on the
+    /// server. Imported artifacts are kept. Called when the add-on ends.
+    /// </summary>
+    Task AbandonJobsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Submits the selected messages. A selection larger than the server's per-job limit
     /// is split across several jobs, which may run concurrently for one mailbox.
     /// </summary>

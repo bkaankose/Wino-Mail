@@ -26,10 +26,25 @@ public sealed record WinoIntelligenceEntitlementSnapshot(
 
     public bool CanConsumeQuota => State == WinoIntelligenceEntitlementState.Active;
 
+    /// <summary>
+    /// True when the state comes from a billing status the API just returned (or from a local
+    /// sign-out), false when it was evaluated from the cached snapshot. Only an authoritative
+    /// snapshot may remove the device result key: a stale cache is never evidence the add-on ended.
+    /// </summary>
+    public bool IsAuthoritative { get; init; }
+
     public static WinoIntelligenceEntitlementSnapshot SignedOut(DateTimeOffset now)
-        => new(WinoIntelligenceEntitlementState.SignedOut, null, now);
+        => new(WinoIntelligenceEntitlementState.SignedOut, null, now) { IsAuthoritative = true };
 
     public static WinoIntelligenceEntitlementSnapshot Evaluate(
+        Guid accountId,
+        BillingStatusResultDto? billing,
+        AiUsageStatusDto? usage,
+        DateTimeOffset now,
+        bool isFreshBilling)
+        => EvaluateState(accountId, billing, usage, now, isFreshBilling) with { IsAuthoritative = isFreshBilling };
+
+    private static WinoIntelligenceEntitlementSnapshot EvaluateState(
         Guid accountId,
         BillingStatusResultDto? billing,
         AiUsageStatusDto? usage,

@@ -115,6 +115,12 @@ public sealed class MailIntelligenceJobRow
     public int FailedCount { get; set; }
     public string? LastError { get; set; }
 
+    /// <summary>
+    /// The device result key this job's results are encrypted to. Null only for a job
+    /// submitted before results were encrypted, whose pages the server still sends as JSON.
+    /// </summary>
+    public string? ResultKeyId { get; set; }
+
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
 

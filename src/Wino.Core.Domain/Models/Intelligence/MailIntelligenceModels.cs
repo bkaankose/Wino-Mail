@@ -79,6 +79,9 @@ public sealed record MailIntelligenceJobState(
     DateTime UpdatedUtc)
 {
     public bool IsFinished => Classification.IsAcknowledged && Enrichment.IsAcknowledged;
+
+    /// <summary>The device result key the job's results are encrypted to; null for a legacy job.</summary>
+    public string? ResultKeyId { get; init; }
 }
 
 public sealed record MailIntelligenceStageState(
