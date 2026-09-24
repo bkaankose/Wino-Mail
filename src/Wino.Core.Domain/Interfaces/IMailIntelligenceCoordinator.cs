@@ -8,7 +8,7 @@ using Wino.Core.Domain.Models.SemanticIndexing;
 namespace Wino.Core.Domain.Interfaces;
 
 /// <summary>
-/// Drives Classification-first, Summarization-second processing from this device: selects messages, uploads
+/// Drives Classification-first, Enrichment-second processing from this device: selects messages, uploads
 /// one encrypted job per mailbox, polls, imports each stage, and acknowledges each stage
 /// only after its import has committed.
 /// </summary>

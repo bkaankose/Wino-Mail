@@ -42,7 +42,7 @@ public interface IWinoAccountApiClient
     Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(CancellationToken cancellationToken = default);
     Task<MailIntelligenceJobDto?> GetMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);
     Task<ClassificationResultPageDto> GetClassificationResultPageAsync(Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default);
-    Task<SummaryResultPageDto> GetSummaryResultPageAsync(Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default);
+    Task<SummaryResultPageDto> GetEnrichmentResultPageAsync(Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default);
     Task<MailIntelligenceStageAckResultDto> AcknowledgeMailIntelligenceStageAsync(
         Guid mailboxId, Guid jobId, string stage, string digest, CancellationToken cancellationToken = default);
     Task CancelMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);

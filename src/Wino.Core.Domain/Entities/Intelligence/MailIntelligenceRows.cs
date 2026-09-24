@@ -59,9 +59,9 @@ public sealed class ClassificationArtifactRow
         => $"{localAccountId:D}|{remoteMessageId}";
 }
 
-/// <summary>The Summarization headline and summary for one briefing-included message.</summary>
-[Table("SummaryArtifact")]
-public sealed class SummaryArtifactRow
+/// <summary>The Enrichment headline and summary for one briefing-included message.</summary>
+[Table("EnrichmentArtifact")]
+public sealed class EnrichmentArtifactRow
 {
     [PrimaryKey]
     public string Key { get; set; } = string.Empty;
@@ -106,11 +106,11 @@ public sealed class MailIntelligenceJobRow
     public bool IsClassificationImported { get; set; }
     public bool IsClassificationAcknowledged { get; set; }
 
-    public string SummarizationStatus { get; set; } = "pending";
-    public int SummarizationPageCount { get; set; }
-    public string? SummarizationDigest { get; set; }
-    public bool IsSummarizationImported { get; set; }
-    public bool IsSummarizationAcknowledged { get; set; }
+    public string EnrichmentStatus { get; set; } = "pending";
+    public int EnrichmentPageCount { get; set; }
+    public string? EnrichmentDigest { get; set; }
+    public bool IsEnrichmentImported { get; set; }
+    public bool IsEnrichmentAcknowledged { get; set; }
 
     public int FailedCount { get; set; }
     public string? LastError { get; set; }
@@ -118,7 +118,7 @@ public sealed class MailIntelligenceJobRow
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
 
-    public bool IsComplete => IsClassificationAcknowledged && IsSummarizationAcknowledged;
+    public bool IsComplete => IsClassificationAcknowledged && IsEnrichmentAcknowledged;
 }
 
 /// <summary>

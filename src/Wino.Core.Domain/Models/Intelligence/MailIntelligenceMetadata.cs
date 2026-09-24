@@ -7,7 +7,7 @@ namespace Wino.Core.Domain.Models.Intelligence;
 
 /// <summary>
 /// What this device knows about one message after processing.
-/// Classification supplies the labels, the priority and the briefing decision; Summarization supplies the
+/// Classification supplies the labels, the priority and the briefing decision; Enrichment supplies the
 /// headline and summary, and only for messages Classification included. There is deliberately no
 /// deadline, due date, action or status here: those were the least reliable outputs of
 /// the previous design and the decision model cannot produce them.
@@ -30,13 +30,13 @@ public sealed record MailIntelligenceMetadata(
         string.Equals(Priority, "high", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(Priority, "urgent", StringComparison.OrdinalIgnoreCase);
 
-    public static MailIntelligenceMetadata From(ClassificationArtifact jev, SummaryArtifact? luna = null) => new(
-        jev.Key.RemoteMessageId,
-        jev.Labels,
-        jev.Priority,
-        jev.IncludeInBriefing,
-        luna?.Headline ?? string.Empty,
-        luna?.Summary ?? string.Empty);
+    public static MailIntelligenceMetadata From(ClassificationArtifact classification, EnrichmentArtifact? enrichment = null) => new(
+        classification.Key.RemoteMessageId,
+        classification.Labels,
+        classification.Priority,
+        classification.IncludeInBriefing,
+        enrichment?.Headline ?? string.Empty,
+        enrichment?.Summary ?? string.Empty);
 
     /// <summary>Labels remaining after the user's per-account indicator settings.</summary>
     public IReadOnlyList<string> VisibleLabels(IReadOnlySet<string>? enabledLabels)

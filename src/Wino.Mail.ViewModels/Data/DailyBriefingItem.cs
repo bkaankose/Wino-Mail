@@ -10,7 +10,7 @@ using Wino.Core.Domain.Models.Intelligence;
 namespace Wino.Mail.ViewModels;
 
 /// <summary>
-/// One briefing card. It shows only what Classification and Summarization produce: sender and date, smart
+/// One briefing card. It shows only what Classification and Enrichment produce: sender and date, smart
 /// labels, priority, a headline, a one-line summary, and the single action Classification chose.
 /// There is still no status or due date, because the decision model does not produce them.
 /// </summary>

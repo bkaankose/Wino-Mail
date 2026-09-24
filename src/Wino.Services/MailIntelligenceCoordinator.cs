@@ -395,7 +395,7 @@ public sealed class MailIntelligenceCoordinator(
         {
             Status = remote.Status,
             Classification = job.Classification with { Status = remote.Classification.Status, PageCount = remote.Classification.PageCount, Digest = remote.Classification.ResultDigest },
-            Summarization = job.Summarization with { Status = remote.Summarization.Status, PageCount = remote.Summarization.PageCount, Digest = remote.Summarization.ResultDigest },
+            Enrichment = job.Enrichment with { Status = remote.Summarization.Status, PageCount = remote.Summarization.PageCount, Digest = remote.Summarization.ResultDigest },
             FailedCount = remote.Classification.FailedCount + remote.Summarization.FailedCount,
         };
         await store.UpsertJobAsync(updated, cancellationToken).ConfigureAwait(false);
@@ -404,7 +404,7 @@ public sealed class MailIntelligenceCoordinator(
         {
             Status = MailIntelligenceJobStatus.Downloading,
             Classification = new MailIntelligenceStageProgress(remote.Classification.Status, remote.Classification.PageCount, updated.Classification.IsImported, remote.Classification.IsAcknowledged),
-            Summarization = new MailIntelligenceStageProgress(remote.Summarization.Status, remote.Summarization.PageCount, updated.Summarization.IsImported, remote.Summarization.IsAcknowledged),
+            Enrichment = new MailIntelligenceStageProgress(remote.Summarization.Status, remote.Summarization.PageCount, updated.Enrichment.IsImported, remote.Summarization.IsAcknowledged),
             FailedMessageCount = updated.FailedCount,
         });
 
@@ -415,9 +415,9 @@ public sealed class MailIntelligenceCoordinator(
             await ImportClassificationStageAsync(updated, remote, cancellationToken).ConfigureAwait(false);
         }
 
-        if (remote.Summarization.Status == MailIntelligenceStageStatuses.Published && !updated.Summarization.IsAcknowledged)
+        if (remote.Summarization.Status == MailIntelligenceStageStatuses.Published && !updated.Enrichment.IsAcknowledged)
         {
-            await ImportSummarizationStageAsync(updated, remote, cancellationToken).ConfigureAwait(false);
+            await ImportEnrichmentStageAsync(updated, remote, cancellationToken).ConfigureAwait(false);
         }
 
         var latest = await store.GetJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
@@ -473,17 +473,17 @@ public sealed class MailIntelligenceCoordinator(
             job.LocalAccountId, new HashSet<string>(StringComparer.Ordinal), IntelligenceMetadataChangeScope.Messages));
     }
 
-    private async Task ImportSummarizationStageAsync(
+    private async Task ImportEnrichmentStageAsync(
         MailIntelligenceJobState job, MailIntelligenceJobDto remote, CancellationToken cancellationToken)
     {
         for (var page = 0; page < remote.Summarization.PageCount; page++)
         {
             var dto = await apiClient
-                .GetSummaryResultPageAsync(job.MailboxId, job.JobId, page, cancellationToken)
+                .GetEnrichmentResultPageAsync(job.MailboxId, job.JobId, page, cancellationToken)
                 .ConfigureAwait(false);
 
             var artifacts = dto.Items
-                .Select(item => new SummaryArtifact(
+                .Select(item => new EnrichmentArtifact(
                     new MailArtifactKey(item.Identity.RemoteMessageId, item.Identity.ContentHash),
                     item.Headline,
                     item.Summary,
@@ -493,14 +493,14 @@ public sealed class MailIntelligenceCoordinator(
             var desired = await ResolveDesiredHashesAsync(
                 job.LocalAccountId, artifacts.Select(static x => x.Key.RemoteMessageId), cancellationToken).ConfigureAwait(false);
 
-            await store.ImportSummaryPageAsync(
+            await store.ImportEnrichmentPageAsync(
                 job.LocalAccountId, artifacts, MapFailures(dto.Failures), desired, cancellationToken).ConfigureAwait(false);
         }
 
-        await store.MarkStageImportedAsync(job.JobId, MailIntelligenceStageKind.Summarization, cancellationToken).ConfigureAwait(false);
+        await store.MarkStageImportedAsync(job.JobId, MailIntelligenceStageKind.Enrichment, cancellationToken).ConfigureAwait(false);
         await apiClient.AcknowledgeMailIntelligenceStageAsync(
             job.MailboxId, job.JobId, "summarization", remote.Summarization.ResultDigest ?? string.Empty, cancellationToken).ConfigureAwait(false);
-        await store.MarkStageAcknowledgedAsync(job.JobId, MailIntelligenceStageKind.Summarization, cancellationToken).ConfigureAwait(false);
+        await store.MarkStageAcknowledgedAsync(job.JobId, MailIntelligenceStageKind.Enrichment, cancellationToken).ConfigureAwait(false);
 
         messenger.Send(new IntelligenceMetadataChanged(
             job.LocalAccountId, new HashSet<string>(StringComparer.Ordinal), IntelligenceMetadataChangeScope.Messages));
@@ -553,7 +553,7 @@ public sealed class MailIntelligenceCoordinator(
         => [.. failures.Select(failure => new MailIntelligenceItemFailure(
             new MailArtifactKey(failure.Identity.RemoteMessageId, failure.Identity.ContentHash),
             string.Equals(failure.Stage, "summarization", StringComparison.Ordinal)
-                ? MailIntelligenceStageKind.Summarization
+                ? MailIntelligenceStageKind.Enrichment
                 : MailIntelligenceStageKind.Classification,
             failure.ErrorCode))];
 
@@ -639,9 +639,9 @@ public sealed class MailIntelligenceCoordinator(
 
             if (response.Summary is { } summary)
             {
-                await store.ImportSummaryPageAsync(
+                await store.ImportEnrichmentPageAsync(
                     localMailAccountId,
-                    [new SummaryArtifact(
+                    [new EnrichmentArtifact(
                         new MailArtifactKey(summary.Identity.RemoteMessageId, summary.Identity.ContentHash),
                         summary.Headline,
                         summary.Summary,

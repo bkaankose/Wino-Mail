@@ -409,7 +409,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             WinoAccountApiJsonContext.Default.ClassificationResultPageDto,
             cancellationToken).ConfigureAwait(false);
 
-    public async Task<SummaryResultPageDto> GetSummaryResultPageAsync(
+    public async Task<SummaryResultPageDto> GetEnrichmentResultPageAsync(
         Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default)
         => await GetResultPageAsync(
             mailboxId,
@@ -461,7 +461,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     /// <summary>
     /// Processes one mail synchronously. The response carries the Classification artifact always and
-    /// the Summarization artifact whenever Classification selected the message for the briefing.
+    /// the Enrichment artifact whenever Classification selected the message for the briefing.
     /// </summary>
     public async Task<AnalyzeMailResponseDto> AnalyzeMailAsync(
         Guid mailboxId,

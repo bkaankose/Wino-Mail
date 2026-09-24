@@ -115,17 +115,17 @@ public sealed class MailIntelligenceStoreTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ClassificationAndSummarizationImportIndependently()
+    public async Task ClassificationAndEnrichmentImportIndependently()
     {
         await _store.ImportClassificationPageAsync(AccountId, [Classification("m1", "h1", include: true)], [], Empty);
 
-        // Classification alone is a complete, usable result; Summarization simply has not arrived yet.
+        // Classification alone is a complete, usable result; Enrichment simply has not arrived yet.
         (await _store.GetClassificationArtifactsAsync(AccountId, ["m1"])).Should().ContainSingle();
-        (await _store.GetSummaryArtifactsAsync(AccountId, ["m1"])).Should().BeEmpty();
+        (await _store.GetEnrichmentArtifactsAsync(AccountId, ["m1"])).Should().BeEmpty();
 
-        await _store.ImportSummaryPageAsync(AccountId, [Summary("m1", "h1")], [], Empty);
+        await _store.ImportEnrichmentPageAsync(AccountId, [Summary("m1", "h1")], [], Empty);
 
-        (await _store.GetSummaryArtifactsAsync(AccountId, ["m1"])).Should().ContainSingle()
+        (await _store.GetEnrichmentArtifactsAsync(AccountId, ["m1"])).Should().ContainSingle()
             .Which.Value.Headline.Should().Be("Headline m1");
     }
 
@@ -140,10 +140,10 @@ public sealed class MailIntelligenceStoreTests : IAsyncLifetime
 
         var job = await _store.GetJobAsync(jobId);
         job!.Classification.IsAcknowledged.Should().BeTrue();
-        job.Summarization.IsAcknowledged.Should().BeFalse();
+        job.Enrichment.IsAcknowledged.Should().BeFalse();
         job.IsFinished.Should().BeFalse();
 
-        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Summarization);
+        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Enrichment);
         (await _store.GetJobAsync(jobId))!.IsFinished.Should().BeTrue();
     }
 
@@ -156,9 +156,9 @@ public sealed class MailIntelligenceStoreTests : IAsyncLifetime
         (await _store.GetUnfinishedJobsAsync()).Should().ContainSingle();
 
         await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Classification);
-        (await _store.GetUnfinishedJobsAsync()).Should().ContainSingle("Summarization is still outstanding");
+        (await _store.GetUnfinishedJobsAsync()).Should().ContainSingle("Enrichment is still outstanding");
 
-        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Summarization);
+        await _store.MarkStageAcknowledgedAsync(jobId, MailIntelligenceStageKind.Enrichment);
         (await _store.GetUnfinishedJobsAsync()).Should().BeEmpty();
     }
 
@@ -236,7 +236,7 @@ public sealed class MailIntelligenceStoreTests : IAsyncLifetime
             DateTime.UtcNow,
             signals ?? ClassificationSignals.Empty);
 
-    private static SummaryArtifact Summary(string remoteMessageId, string hash)
+    private static EnrichmentArtifact Summary(string remoteMessageId, string hash)
         => new(new MailArtifactKey(remoteMessageId, hash), $"Headline {remoteMessageId}", "Summary.", DateTime.UtcNow);
 
     private static MailIntelligenceJobState Job(Guid jobId) => new(

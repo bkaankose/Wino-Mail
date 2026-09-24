@@ -7,7 +7,7 @@ namespace Wino.Core.Domain.Models.Intelligence;
 public enum MailIntelligenceStageKind
 {
     Classification,
-    Summarization,
+    Enrichment,
 }
 
 /// <summary>Identity of one artifact. The hash is the freshness key.</summary>
@@ -47,7 +47,7 @@ public sealed record ClassificationArtifact(
     DateTime CompletedUtc,
     ClassificationSignals Signals);
 
-public sealed record SummaryArtifact(
+public sealed record EnrichmentArtifact(
     MailArtifactKey Key,
     string Headline,
     string Summary,
@@ -72,13 +72,13 @@ public sealed record MailIntelligenceJobState(
     int MessageCount,
     string Status,
     MailIntelligenceStageState Classification,
-    MailIntelligenceStageState Summarization,
+    MailIntelligenceStageState Enrichment,
     int FailedCount,
     string? LastError,
     DateTime CreatedUtc,
     DateTime UpdatedUtc)
 {
-    public bool IsFinished => Classification.IsAcknowledged && Summarization.IsAcknowledged;
+    public bool IsFinished => Classification.IsAcknowledged && Enrichment.IsAcknowledged;
 }
 
 public sealed record MailIntelligenceStageState(

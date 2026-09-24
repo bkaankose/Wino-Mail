@@ -4,11 +4,13 @@ Intelligence results are **device-local derived data**. The server analyzes mail
 it and hands back artifacts; it stores no mail content and keeps no index. A second device
 reprocesses its own mail rather than inheriting results from this one.
 
-## The two stages
+## The two phases
 
-Every selected message goes to **Jev**, which returns smart labels, a priority and a single
-decision about whether the message belongs in the daily briefing. Only the included messages
-go on to **Luna**, which writes a headline and a one-line summary.
+Every selected message goes through **Classification**, which returns smart labels, a priority
+and a single decision about whether the message belongs in the daily briefing. Only the included
+messages go on to **Enrichment**, which writes a headline and a one-line summary. Classification
+runs on the Jev model and Enrichment on Luna; the model names appear only where a model is
+configured, never in phase, stage or type names.
 
 Jev cannot generate text, cannot order dates and cannot do arithmetic. Nothing in the app may
 ask it for a due date, a count or a multi-step conclusion — that is why the briefing shows
@@ -28,7 +30,7 @@ it needs application code, not a better question.
 5. Import each stage in its **own transaction**, and acknowledge that stage only after its
    import commits.
 
-Luna publishes an **empty stage** when no message qualified, so exactly two stages are always
+Enrichment publishes an **empty stage** when no message qualified, so exactly two stages are always
 acknowledged per job.
 
 The mailbox id comes from the existing account/mailbox sync (`UserMailboxSyncEntry.Id`). If
@@ -48,7 +50,7 @@ There are no embeddings and no mail bodies in this database.
 
 ## Briefing
 
-The briefing shows only Jev-included messages, grouped by the day they arrived. "New" is
+The briefing shows only messages Classification included, grouped by the day they arrived. "New" is
 first-import time. Ignoring a card keys on identity plus content hash, so a message that is
 later reprocessed can resurface.
 

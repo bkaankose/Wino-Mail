@@ -8,7 +8,7 @@ using Wino.Core.Domain.Models.Intelligence;
 namespace Wino.Core.Domain.Interfaces;
 
 /// <summary>
-/// Device-local intelligence storage. Holds Classification and Summarization artifacts keyed by account,
+/// Device-local intelligence storage. Holds Classification and Enrichment artifacts keyed by account,
 /// remote message id and content hash, plus the jobs this device is waiting on.
 /// It never stores mail bodies or embeddings.
 /// </summary>
@@ -34,10 +34,10 @@ public interface IMailIntelligenceStore : IInitializeAsync
         IReadOnlyDictionary<string, string> desiredHashes,
         CancellationToken cancellationToken = default);
 
-    /// <summary>Imports one Summarization page in its own transaction, separate from Classification.</summary>
-    Task<MailIntelligenceImportResult> ImportSummaryPageAsync(
+    /// <summary>Imports one Enrichment page in its own transaction, separate from Classification.</summary>
+    Task<MailIntelligenceImportResult> ImportEnrichmentPageAsync(
         Guid localAccountId,
-        IReadOnlyList<SummaryArtifact> artifacts,
+        IReadOnlyList<EnrichmentArtifact> artifacts,
         IReadOnlyList<MailIntelligenceItemFailure> failures,
         IReadOnlyDictionary<string, string> desiredHashes,
         CancellationToken cancellationToken = default);
@@ -49,7 +49,7 @@ public interface IMailIntelligenceStore : IInitializeAsync
     Task<IReadOnlyDictionary<string, ClassificationArtifact>> GetClassificationArtifactsAsync(
         Guid localAccountId, IReadOnlyCollection<string> remoteMessageIds, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyDictionary<string, SummaryArtifact>> GetSummaryArtifactsAsync(
+    Task<IReadOnlyDictionary<string, EnrichmentArtifact>> GetEnrichmentArtifactsAsync(
         Guid localAccountId, IReadOnlyCollection<string> remoteMessageIds, CancellationToken cancellationToken = default);
 
     Task<IReadOnlySet<string>> GetProcessedMessageIdsAsync(

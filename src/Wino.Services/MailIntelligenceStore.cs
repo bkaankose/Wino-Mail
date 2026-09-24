@@ -54,7 +54,7 @@ public sealed class MailIntelligenceStore(
                 SQLiteOpenFlags.ReadWrite | SQLiteOpenFlags.Create | SQLiteOpenFlags.FullMutex);
 
             await connection.CreateTableAsync<ClassificationArtifactRow>().ConfigureAwait(false);
-            await connection.CreateTableAsync<SummaryArtifactRow>().ConfigureAwait(false);
+            await connection.CreateTableAsync<EnrichmentArtifactRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<MailIntelligenceJobRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<BriefingIgnoreRow>().ConfigureAwait(false);
             await connection.CreateTableAsync<BriefingViewStateRow>().ConfigureAwait(false);
@@ -99,11 +99,11 @@ public sealed class MailIntelligenceStore(
             ClassificationDigest = job.Classification.Digest,
             IsClassificationImported = job.Classification.IsImported,
             IsClassificationAcknowledged = job.Classification.IsAcknowledged,
-            SummarizationStatus = job.Summarization.Status,
-            SummarizationPageCount = job.Summarization.PageCount,
-            SummarizationDigest = job.Summarization.Digest,
-            IsSummarizationImported = job.Summarization.IsImported,
-            IsSummarizationAcknowledged = job.Summarization.IsAcknowledged,
+            EnrichmentStatus = job.Enrichment.Status,
+            EnrichmentPageCount = job.Enrichment.PageCount,
+            EnrichmentDigest = job.Enrichment.Digest,
+            IsEnrichmentImported = job.Enrichment.IsImported,
+            IsEnrichmentAcknowledged = job.Enrichment.IsAcknowledged,
             FailedCount = job.FailedCount,
             LastError = job.LastError,
             CreatedUtc = job.CreatedUtc,
@@ -125,7 +125,7 @@ public sealed class MailIntelligenceStore(
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
         var rows = await lease.Connection.Table<MailIntelligenceJobRow>()
-            .Where(x => !x.IsClassificationAcknowledged || !x.IsSummarizationAcknowledged)
+            .Where(x => !x.IsClassificationAcknowledged || !x.IsEnrichmentAcknowledged)
             .OrderBy(x => x.CreatedUtc)
             .ToListAsync()
             .ConfigureAwait(false);
@@ -206,16 +206,16 @@ public sealed class MailIntelligenceStore(
         return new MailIntelligenceImportResult(fresh.Count, stale, failures.Count);
     }
 
-    public async Task<MailIntelligenceImportResult> ImportSummaryPageAsync(
+    public async Task<MailIntelligenceImportResult> ImportEnrichmentPageAsync(
         Guid localAccountId,
-        IReadOnlyList<SummaryArtifact> artifacts,
+        IReadOnlyList<EnrichmentArtifact> artifacts,
         IReadOnlyList<MailIntelligenceItemFailure> failures,
         IReadOnlyDictionary<string, string> desiredHashes,
         CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
 
-        var fresh = new List<SummaryArtifact>();
+        var fresh = new List<EnrichmentArtifact>();
         var stale = 0;
         foreach (var artifact in artifacts)
         {
@@ -229,16 +229,16 @@ public sealed class MailIntelligenceStore(
         }
 
         var now = DateTime.UtcNow;
-        var existing = await LoadFirstImportedAsync<SummaryArtifactRow>(
+        var existing = await LoadFirstImportedAsync<EnrichmentArtifactRow>(
             lease.Connection, localAccountId, fresh.Select(x => x.Key.RemoteMessageId)).ConfigureAwait(false);
 
         await lease.Connection.RunInTransactionAsync(connection =>
         {
             foreach (var artifact in fresh)
             {
-                connection.InsertOrReplace(new SummaryArtifactRow
+                connection.InsertOrReplace(new EnrichmentArtifactRow
                 {
-                    Key = SummaryArtifactRow.BuildKey(localAccountId, artifact.Key.RemoteMessageId),
+                    Key = EnrichmentArtifactRow.BuildKey(localAccountId, artifact.Key.RemoteMessageId),
                     LocalAccountId = localAccountId,
                     RemoteMessageId = artifact.Key.RemoteMessageId,
                     ContentHash = artifact.Key.ContentHash,
@@ -246,7 +246,7 @@ public sealed class MailIntelligenceStore(
                     Summary = artifact.Summary,
                     CompletedUtc = artifact.CompletedUtc,
                     FirstImportedUtc = existing.TryGetValue(artifact.Key.RemoteMessageId, out var first) ? first : now,
-                }, typeof(SummaryArtifactRow));
+                }, typeof(EnrichmentArtifactRow));
             }
         }).ConfigureAwait(false);
 
@@ -276,7 +276,7 @@ public sealed class MailIntelligenceStore(
             return result;
         }
 
-        var table = typeof(TRow) == typeof(ClassificationArtifactRow) ? "ClassificationArtifact" : "SummaryArtifact";
+        var table = typeof(TRow) == typeof(ClassificationArtifactRow) ? "ClassificationArtifact" : "EnrichmentArtifact";
         foreach (var chunk in ids.Chunk(400))
         {
             var parameters = new object[chunk.Length + 1];
@@ -315,7 +315,7 @@ public sealed class MailIntelligenceStore(
             }
             else
             {
-                row.IsSummarizationImported = true;
+                row.IsEnrichmentImported = true;
             }
         }, cancellationToken).ConfigureAwait(false);
 
@@ -328,7 +328,7 @@ public sealed class MailIntelligenceStore(
             }
             else
             {
-                row.IsSummarizationAcknowledged = true;
+                row.IsEnrichmentAcknowledged = true;
             }
         }, cancellationToken).ConfigureAwait(false);
 
@@ -368,14 +368,14 @@ public sealed class MailIntelligenceStore(
         return result;
     }
 
-    public async Task<IReadOnlyDictionary<string, SummaryArtifact>> GetSummaryArtifactsAsync(
+    public async Task<IReadOnlyDictionary<string, EnrichmentArtifact>> GetEnrichmentArtifactsAsync(
         Guid localAccountId, IReadOnlyCollection<string> remoteMessageIds, CancellationToken cancellationToken = default)
     {
         using var lease = await GetConnectionLeaseAsync(cancellationToken).ConfigureAwait(false);
-        var result = new Dictionary<string, SummaryArtifact>(StringComparer.Ordinal);
+        var result = new Dictionary<string, EnrichmentArtifact>(StringComparer.Ordinal);
         foreach (var chunk in remoteMessageIds.Distinct(StringComparer.Ordinal).Chunk(400))
         {
-            var rows = await QueryByIdsAsync<SummaryArtifactRow>(lease.Connection, "SummaryArtifact", localAccountId, chunk).ConfigureAwait(false);
+            var rows = await QueryByIdsAsync<EnrichmentArtifactRow>(lease.Connection, "EnrichmentArtifact", localAccountId, chunk).ConfigureAwait(false);
             foreach (var row in rows)
             {
                 result[row.RemoteMessageId] = Map(row);
@@ -560,7 +560,7 @@ public sealed class MailIntelligenceStore(
         await lease.Connection.RunInTransactionAsync(connection =>
         {
             connection.Execute("DELETE FROM ClassificationArtifact WHERE LocalAccountId = ?", localAccountId);
-            connection.Execute("DELETE FROM SummaryArtifact WHERE LocalAccountId = ?", localAccountId);
+            connection.Execute("DELETE FROM EnrichmentArtifact WHERE LocalAccountId = ?", localAccountId);
             connection.Execute("DELETE FROM MailIntelligenceJob WHERE LocalAccountId = ?", localAccountId);
             connection.Execute("DELETE FROM BriefingIgnore WHERE LocalAccountId = ?", localAccountId);
             connection.Execute("DELETE FROM BriefingViewState WHERE LocalAccountId = ?", localAccountId);
@@ -621,7 +621,7 @@ public sealed class MailIntelligenceStore(
         row.MessageCount,
         row.Status,
         new MailIntelligenceStageState(row.ClassificationStatus, row.ClassificationPageCount, row.ClassificationDigest, row.IsClassificationImported, row.IsClassificationAcknowledged),
-        new MailIntelligenceStageState(row.SummarizationStatus, row.SummarizationPageCount, row.SummarizationDigest, row.IsSummarizationImported, row.IsSummarizationAcknowledged),
+        new MailIntelligenceStageState(row.EnrichmentStatus, row.EnrichmentPageCount, row.EnrichmentDigest, row.IsEnrichmentImported, row.IsEnrichmentAcknowledged),
         row.FailedCount,
         row.LastError,
         row.CreatedUtc,
@@ -662,7 +662,7 @@ public sealed class MailIntelligenceStore(
         }
     }
 
-    private static SummaryArtifact Map(SummaryArtifactRow row) => new(
+    private static EnrichmentArtifact Map(EnrichmentArtifactRow row) => new(
         new MailArtifactKey(row.RemoteMessageId, row.ContentHash),
         row.Headline,
         row.Summary,
