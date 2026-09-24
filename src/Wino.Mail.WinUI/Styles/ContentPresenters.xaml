@@ -4,6 +4,7 @@
     xmlns:controls="using:Wino.Mail.WinUI.Controls">
 
     <!--  Indicator glyphs share one square box so they line up when placed side by side.  -->
+    <!--  The implicit WinoFontIcon style does not reach these templates, so each icon sets the font explicitly.  -->
 
     <!--  Flagged  -->
     <DataTemplate x:Key="FlaggedSymbolControlTemplate">
@@ -12,7 +13,10 @@
             Height="14"
             HorizontalAlignment="Center"
             VerticalAlignment="Center">
-            <controls:WinoFontIcon Foreground="{StaticResource FlaggedBrush}" Icon="Flag" />
+            <controls:WinoFontIcon
+                FontFamily="{ThemeResource WinoIconFontFamily}"
+                Foreground="{StaticResource FlaggedBrush}"
+                Icon="Flag" />
         </Viewbox>
     </DataTemplate>
 
@@ -24,7 +28,10 @@
             Height="14"
             HorizontalAlignment="Center"
             VerticalAlignment="Center">
-            <controls:WinoFontIcon Foreground="{StaticResource AttachmentBrush}" Icon="Attachment" />
+            <controls:WinoFontIcon
+                FontFamily="{ThemeResource WinoIconFontFamily}"
+                Foreground="{StaticResource AttachmentBrush}"
+                Icon="Attachment" />
         </Viewbox>
     </DataTemplate>
 
@@ -35,7 +42,7 @@
             Height="14"
             HorizontalAlignment="Center"
             VerticalAlignment="Center">
-            <controls:WinoFontIcon Icon="Calendar" />
+            <controls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Calendar" />
         </Viewbox>
     </DataTemplate>
 </ResourceDictionary>

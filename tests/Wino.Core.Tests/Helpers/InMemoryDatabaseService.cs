@@ -74,6 +74,8 @@ public class InMemoryDatabaseService : IDatabaseService
         await Connection.CreateTableAsync<SentMailReceiptState>();
         await Connection.CreateTableAsync<WinoAccount>();
         await Connection.CreateTableAsync<AccountProviderFeature>();
+        await Connection.CreateTableAsync<RecipientHistory>();
+        await Connection.ExecuteAsync(DatabaseService.RecipientHistoryUniqueIndexSql);
     }
 
     public async ValueTask DisposeAsync()

@@ -169,7 +169,7 @@ public static class SettingsNavigationInfoProvider
                 Translator.PeopleSettings_Description,
                 WinoIconGlyph.Settings,
                 searchKeywords: Translator.PeopleSettings_SearchKeywords),
-            new(null, Translator.SettingsOptions_ToDoSection, string.Empty, WinoIconGlyph.TaskList, isSeparator: true),
+            new(null, Translator.SettingsOptions_ToDoSection, string.Empty, WinoIconGlyph.CheckmarkCircle, isSeparator: true),
             new(WinoPage.ToDoPreferenceSettingsPage,
                 Translator.ToDoSettings_Title,
                 Translator.ToDoSettings_Description,

@@ -43,6 +43,7 @@ public class MailService : BaseDatabaseService, IMailService
     private readonly IMailCategoryService _mailCategoryService;
     private readonly IWinoAccountProfileService _winoAccountProfileService;
     private readonly IMailIntelligenceStore _localIntelligenceStore;
+    private readonly IRecipientHistoryService _recipientHistoryService;
 
     private readonly ILogger _logger = Log.ForContext<MailService>();
 
@@ -57,9 +58,11 @@ public class MailService : BaseDatabaseService, IMailService
                        IMailCategoryService mailCategoryService,
                        IWinoAccountProfileService winoAccountProfileService = null,
                        IMailIntelligenceStore localIntelligenceStore = null,
-                       DraftUpdateRegistry draftUpdates = null) : base(databaseService)
+                       DraftUpdateRegistry draftUpdates = null,
+                       IRecipientHistoryService recipientHistoryService = null) : base(databaseService)
     {
         _draftUpdates = draftUpdates;
+        _recipientHistoryService = recipientHistoryService;
         _folderService = folderService;
         _contactService = contactService;
         _accountService = accountService;
@@ -1916,14 +1919,13 @@ public class MailService : BaseDatabaseService, IMailService
         mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
         mailCopy.FolderId = mailItemFolder.Id;
 
-        await SaveContactsForPackageAsync(account.Id, package).ConfigureAwait(false);
-
         var mimeSaveTask = _mimeFileService.SaveMimeMessageAsync(mailCopy.FileId, mimeMessage, account.Id);
         var insertMailTask = InsertMailAsync(mailCopy, reportUiChange: true);
 
         await Task.WhenAll(mimeSaveTask, insertMailTask).ConfigureAwait(false);
         await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
         await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
+        await RecordRecipientHistoryAsync(account, mailCopy, package).ConfigureAwait(false);
     }
 
     public async Task CreateMailAsyncEx(Guid accountId, NewMailItemPackage package)
@@ -1954,6 +1956,8 @@ public class MailService : BaseDatabaseService, IMailService
         }
 
         var pendingInserts = new List<(MailCopy MailCopy, NewMailItemPackage Package, MimeMessage MimeMessage)>();
+        var historyInserts = new List<(MailCopy MailCopy, NewMailItemPackage Package)>();
+        var historyKeysInBatch = new HashSet<string>(StringComparer.Ordinal);
         var pendingUpdates = new List<(MailCopy MailCopy, MailCopy ExistingMailCopy, NewMailItemPackage Package, MimeMessage MimeMessage)>();
 
         foreach (var package in targetPackages)
@@ -2000,8 +2004,6 @@ public class MailService : BaseDatabaseService, IMailService
                 }
             }
 
-            await SaveContactsForPackageAsync(accountId, package).ConfigureAwait(false);
-
             var existingCopyItem = await Connection.Table<MailCopy>()
                                                    .FirstOrDefaultAsync(a => a.Id == mailCopy.Id && a.FolderId == assignedFolder.Id)
                                                    .ConfigureAwait(false);
@@ -2017,6 +2019,10 @@ public class MailService : BaseDatabaseService, IMailService
             else
             {
                 pendingInserts.Add((mailCopy, package, mimeMessage));
+
+                // Gmail delivers one package per label, so only the first copy of a message counts.
+                if (await IsFirstCopyForRecipientHistoryAsync(accountId, mailCopy, historyKeysInBatch).ConfigureAwait(false))
+                    historyInserts.Add((mailCopy, package));
             }
         }
 
@@ -2057,6 +2063,13 @@ public class MailService : BaseDatabaseService, IMailService
             await _sentMailReceiptService.TrackSentMailAsync(pendingUpdate.MailCopy, pendingUpdate.MimeMessage).ConfigureAwait(false);
             await _sentMailReceiptService.ProcessIncomingReceiptAsync(pendingUpdate.MailCopy, pendingUpdate.MimeMessage).ConfigureAwait(false);
         }
+
+        if (historyInserts.Count > 0)
+        {
+            var ownAddresses = await GetOwnAddressesAsync(account).ConfigureAwait(false);
+            foreach (var historyInsert in historyInserts)
+                await RecordRecipientHistoryAsync(account, historyInsert.MailCopy, historyInsert.Package, ownAddresses).ConfigureAwait(false);
+        }
     }
 
     public async Task<bool> CreateMailAsync(Guid accountId, NewMailItemPackage package)
@@ -2093,6 +2106,9 @@ public class MailService : BaseDatabaseService, IMailService
         mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
         mailCopy.FolderId = assignedFolder.Id;
 
+        // Decide before other copies are removed below, or a moved IMAP message would count twice.
+        var isFirstCopyForHistory = await IsFirstCopyForRecipientHistoryAsync(accountId, mailCopy).ConfigureAwait(false);
+
         await RemoveOtherImapCopiesWithSameMessageIdAsync(
             account,
             assignedFolder,
@@ -2121,9 +2137,6 @@ public class MailService : BaseDatabaseService, IMailService
             }
 
         }
-
-        // Save contact information extracted from provider API or MIME before insert/update.
-        await SaveContactsForPackageAsync(accountId, package).ConfigureAwait(false);
 
         // Create mail copy in the database.
         // Update if exists.
@@ -2160,37 +2173,103 @@ public class MailService : BaseDatabaseService, IMailService
             await _sentMailReceiptService.TrackSentMailAsync(mailCopy, mimeMessage).ConfigureAwait(false);
             await _sentMailReceiptService.ProcessIncomingReceiptAsync(mailCopy, mimeMessage).ConfigureAwait(false);
 
+            if (isFirstCopyForHistory)
+                await RecordRecipientHistoryAsync(account, mailCopy, package).ConfigureAwait(false);
+
             return true;
         }
     }
 
-    private async Task SaveContactsForPackageAsync(Guid accountId, NewMailItemPackage package)
+    /// <summary>
+    /// True when no non-draft copy of this message exists in the account yet, so recording it
+    /// in recipient history cannot double count a label copy, a moved message, or a re-sync.
+    /// </summary>
+    private async Task<bool> IsFirstCopyForRecipientHistoryAsync(Guid accountId, MailCopy mailCopy, HashSet<string> keysInBatch = null)
     {
-        if (package == null) return;
+        if (_recipientHistoryService == null || mailCopy == null || mailCopy.IsDraft)
+            return false;
 
-        if (package.Mime != null)
+        var id = mailCopy.Id ?? string.Empty;
+        var messageId = MailHeaderExtensions.NormalizeMessageId(mailCopy.MessageId) ?? string.Empty;
+
+        if (keysInBatch != null)
         {
-            await _contactService.SaveAddressInformationAsync(accountId, package.Mime).ConfigureAwait(false);
+            var isNewId = keysInBatch.Add($"id:{id}");
+            var isNewMessageId = messageId.Length == 0 || keysInBatch.Add($"mid:{messageId}");
+            if (!isNewId || !isNewMessageId)
+                return false;
+        }
+
+        var existingCount = await Connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM MailCopy " +
+            "INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id " +
+            "WHERE MailItemFolder.MailAccountId = ? AND MailCopy.IsDraft = 0 " +
+            "AND (MailCopy.Id = ? OR (? <> '' AND MailCopy.MessageId = ?))",
+            accountId,
+            id,
+            messageId,
+            messageId).ConfigureAwait(false);
+
+        return existingCount == 0;
+    }
+
+    /// <summary>
+    /// Remembers who the account corresponds with. Mail from one of the account's own addresses,
+    /// or filed in Sent, records its recipients; any other mail records its sender.
+    /// </summary>
+    private async Task RecordRecipientHistoryAsync(MailAccount account, MailCopy mailCopy, NewMailItemPackage package, HashSet<string> ownAddresses = null)
+    {
+        if (_recipientHistoryService == null || account == null || mailCopy == null || mailCopy.IsDraft)
             return;
-        }
 
-        var contacts = package.ExtractedContacts?
-            .Where(c => c != null && !string.IsNullOrWhiteSpace(c.Address))
-            .ToList() ?? new List<AccountContact>();
+        var folderType = mailCopy.AssignedFolder?.SpecialFolderType;
+        if (folderType is SpecialFolderType.Draft or SpecialFolderType.Deleted or SpecialFolderType.Junk)
+            return;
 
-        var senderAddress = package.Copy?.FromAddress;
-        if (!string.IsNullOrWhiteSpace(senderAddress))
+        var fromAddress = mailCopy.FromAddress?.Trim();
+        if (string.IsNullOrEmpty(fromAddress))
+            return;
+
+        try
         {
-            contacts.Add(new AccountContact
+            ownAddresses ??= await GetOwnAddressesAsync(account).ConfigureAwait(false);
+            var whenUtc = mailCopy.CreationDate == default ? DateTime.UtcNow : mailCopy.CreationDate;
+
+            if (ownAddresses.Contains(fromAddress) || folderType == SpecialFolderType.Sent)
             {
-                Address = senderAddress,
-                Name = string.IsNullOrWhiteSpace(package.Copy?.FromName) ? senderAddress : package.Copy.FromName
-            });
+                var recipients = GetSentRecipients(package, fromAddress, ownAddresses);
+                await _recipientHistoryService.RecordSentAsync(account.Id, recipients, whenUtc).ConfigureAwait(false);
+            }
+            else
+            {
+                await _recipientHistoryService.RecordReceivedAsync(account.Id, fromAddress, mailCopy.FromName, whenUtc).ConfigureAwait(false);
+            }
         }
+        catch (Exception ex)
+        {
+            // History only ranks suggestions. It must never fail mail synchronization.
+            _logger.Warning(ex, "Failed to record recipient history for {MailCopyId}.", mailCopy.Id);
+        }
+    }
 
-        if (contacts.Count == 0) return;
+    private static List<RecipientAddress> GetSentRecipients(NewMailItemPackage package, string fromAddress, HashSet<string> ownAddresses)
+    {
+        IEnumerable<RecipientAddress> candidates = package?.Mime != null
+            ? package.Mime.To.Mailboxes
+                .Concat(package.Mime.Cc.Mailboxes)
+                .Concat(package.Mime.Bcc.Mailboxes)
+                .Select(mailbox => new RecipientAddress(mailbox.Address, mailbox.Name))
+            // Provider metadata does not say which address was a recipient, but for a sent mail
+            // every address other than the sender and the account's own is one.
+            : package?.ExtractedContacts?
+                .Where(contact => contact != null)
+                .Select(contact => new RecipientAddress(contact.Address, contact.Name)) ?? [];
 
-        await _contactService.SaveAddressInformationAsync(accountId, contacts).ConfigureAwait(false);
+        return candidates
+            .Where(recipient => !string.IsNullOrWhiteSpace(recipient.Address))
+            .Where(recipient => !string.Equals(recipient.Address.Trim(), fromAddress, StringComparison.OrdinalIgnoreCase))
+            .Where(recipient => !ownAddresses.Contains(recipient.Address.Trim()))
+            .ToList();
     }
 
     private Task ReplaceMailCategoriesForPackageAsync(Guid accountId, MailCopy mailCopy, NewMailItemPackage package)

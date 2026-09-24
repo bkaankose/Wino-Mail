@@ -76,5 +76,17 @@
                 </ComboBox.ItemTemplate>
             </ComboBox>
         </controls:SettingsCard>
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="PeopleSuggestedRecipientsCard"
+            Description="{x:Bind domain:Translator.PeopleSettings_SuggestedRecipients_Description}"
+            Header="{x:Bind domain:Translator.PeopleSettings_SuggestedRecipients_Header}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="History" />
+            </controls:SettingsCard.HeaderIcon>
+            <Button
+                AutomationProperties.AutomationId="PeopleSuggestedRecipientsClear"
+                Command="{x:Bind ViewModel.ClearSuggestedRecipientsCommand}"
+                Content="{x:Bind domain:Translator.PeopleSettings_SuggestedRecipients_Clear}" />
+        </controls:SettingsCard>
     </StackPanel>
 </abstract:ContactsPreferenceSettingsPageAbstract>

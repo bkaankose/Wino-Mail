@@ -23,6 +23,7 @@
     <type fullname="Wino.Core.Domain.Entities.Shared.ContactPostalAddress" preserve="all" />
     <type fullname="Wino.Core.Domain.Entities.Shared.ContactImAddress" preserve="all" />
     <type fullname="Wino.Core.Domain.Entities.Shared.ContactRelation" preserve="all" />
+    <type fullname="Wino.Core.Domain.Entities.Shared.RecipientHistory" preserve="all" />
     <type fullname="Wino.Core.Domain.Entities.Shared.CustomServerInformation" preserve="all" />
     <type fullname="Wino.Core.Domain.Entities.Shared.KeyboardShortcut" preserve="all" />
     <type fullname="Wino.Core.Domain.Entities.Shared.MailAccount" preserve="all" />

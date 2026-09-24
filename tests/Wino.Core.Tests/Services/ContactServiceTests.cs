@@ -1,5 +1,4 @@
 using FluentAssertions;
-using MimeKit;
 using Moq;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -33,113 +32,6 @@ public class ContactServiceTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _databaseService.DisposeAsync();
-    }
-
-    [Fact]
-    public async Task SaveAddressInformationAsync_WithNotificationReplyAddress_DoesNotPersistContact()
-    {
-        await _contactService.SaveAddressInformationAsync(_accountId,
-        [
-            new AccountContact
-            {
-                Address = "reply+ABCD1234@reply.github.com",
-                Name = "[owner/repository] Issue #42"
-            }
-        ]);
-
-        var contact = await _contactService.GetContactByAddressAsync(null, "reply+ABCD1234@reply.github.com");
-
-        contact.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task SaveAddressInformationAsync_WithHumanContact_PersistsContact()
-    {
-        await _contactService.SaveAddressInformationAsync(_accountId,
-        [
-            new AccountContact
-            {
-                Address = "alice@example.com",
-                Name = "Alice Example"
-            }
-        ]);
-
-        var contact = await _contactService.GetContactByAddressAsync(null, "alice@example.com");
-
-        contact.Should().NotBeNull();
-        contact!.Name.Should().Be("Alice Example");
-    }
-
-    [Fact]
-    public async Task SaveAddressInformationAsync_WithExistingNoisyContact_RemovesAutoCapturedEntry()
-    {
-        var existing = new AccountContact
-        {
-            Id = Guid.NewGuid(),
-            MailAccountId = _accountId,
-            AddressBookId = _addressBookId,
-            SourceKind = ContactSourceKind.Local,
-            DisplayName = "GitHub Notifications",
-            IsAutoCollected = true
-        };
-        await _databaseService.Connection.InsertAsync(existing, typeof(AccountContact));
-        await _databaseService.Connection.InsertAsync(
-            new ContactEmailAddress
-            {
-                Id = Guid.NewGuid(),
-                ContactId = existing.Id,
-                Address = "notifications@github.com",
-                NormalizedAddress = "notifications@github.com",
-                IsPrimary = true
-            },
-            typeof(ContactEmailAddress));
-
-        await _contactService.SaveAddressInformationAsync(_accountId,
-        [
-            new AccountContact
-            {
-                Address = "notifications@github.com",
-                Name = "[owner/repository] Issue #99"
-            }
-        ]);
-
-        var contact = await _contactService.GetContactByAddressAsync(null, "notifications@github.com");
-
-        contact.Should().BeNull();
-    }
-
-    [Fact]
-    public async Task SaveAddressInformationAsync_WithNoisyMimeGroup_SkipsGroupAndNoisyMembers()
-    {
-        var message = new MimeMessage();
-        message.To.Add(new GroupAddress("[owner/repository] Issue #123", new InternetAddressList
-        {
-            new MailboxAddress("Alice Example", "alice@example.com"),
-            new MailboxAddress("[owner/repository] Issue #123", "notifications@github.com")
-        }));
-
-        await _contactService.SaveAddressInformationAsync(_accountId, message);
-
-        var contacts = await _contactService.ResolveRecipientCandidatesAsync(null, "alice");
-
-        contacts.Select(c => c.Address).Should().Contain("alice@example.com");
-        (await _contactService.GetContactByAddressAsync(null, "notifications@github.com")).Should().BeNull();
-    }
-
-    [Fact]
-    public async Task SaveAddressInformationAsync_SameAddressInTwoAccounts_KeepsSeparateCards()
-    {
-        var first = new MailAccount { Id = Guid.NewGuid(), Name = "First", ProviderType = MailProviderType.IMAP4 };
-        var second = new MailAccount { Id = Guid.NewGuid(), Name = "Second", ProviderType = MailProviderType.IMAP4 };
-        await _databaseService.Connection.InsertAsync(first, typeof(MailAccount));
-        await _databaseService.Connection.InsertAsync(second, typeof(MailAccount));
-
-        await _contactService.SaveAddressInformationAsync(first.Id, [new AccountContact { Address = "same@example.com", Name = "First name" }]);
-        await _contactService.SaveAddressInformationAsync(second.Id, [new AccountContact { Address = "same@example.com", Name = "Second name" }]);
-
-        var cards = await _databaseService.Connection.Table<AccountContact>().ToListAsync();
-        cards.Should().HaveCount(2);
-        (await _contactService.ResolveRecipientCandidatesAsync(first.Id, "same@example.com"))!.Single().MailAccountId.Should().Be(first.Id);
     }
 
     [Fact]
@@ -257,18 +149,6 @@ public class ContactServiceTests : IAsyncLifetime
 
         resolved.Should().NotBeNull();
         resolved!.DisplayName.Should().Be("Multi Address");
-    }
-
-    [Fact]
-    public async Task SaveAddressInformationAsync_UpdatesAnExistingAutoCollectedNameWithoutDuplicating()
-    {
-        await _contactService.SaveAddressInformationAsync(_accountId, [new AccountContact { Address = "carol@example.com", Name = "carol@example.com" }]);
-        await _contactService.SaveAddressInformationAsync(_accountId, [new AccountContact { Address = "carol@example.com", Name = "Carol Example" }, new AccountContact { Address = "dave@example.com", Name = "Dave Example" }]);
-
-        var page = await _contactService.GetContactsPageAsync(ContactQueryFilter.All, 0, 50);
-
-        page.TotalCount.Should().Be(2);
-        page.Contacts.Single(contact => contact.PrimaryEmailAddress == "carol@example.com").DisplayName.Should().Be("Carol Example");
     }
 
     [Fact]

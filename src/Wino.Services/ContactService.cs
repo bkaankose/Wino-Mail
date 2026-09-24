@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
-using MimeKit;
 using Serilog;
 using SQLite;
 using Wino.Core.Domain;
@@ -158,37 +157,6 @@ public class ContactService : BaseDatabaseService, IContactService
         }
 
         return results;
-    }
-
-    public async Task SaveAddressInformationAsync(Guid accountId, MimeMessage message)
-    {
-        if (message is null)
-            return;
-
-        var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(item => item.Id == accountId).ConfigureAwait(false);
-        if (account is null || !account.IsContactAccessEnabled || account.IsContactAccessGranted)
-            return;
-
-        var book = await GetOrCreateLocalAddressBookAsync(accountId, account.Name).ConfigureAwait(false);
-        var contacts = message.GetRecipients(true)
-            .Where(address => !string.IsNullOrWhiteSpace(address.Address))
-            .Select(address => CreateAutoCollectedContact(accountId, book.Id, address.Address, address.Name));
-
-        await SaveAutoCollectedAsync(accountId, book.Id, contacts).ConfigureAwait(false);
-    }
-
-    public async Task SaveAddressInformationAsync(Guid accountId, IEnumerable<AccountContact> contacts)
-    {
-        if (contacts is null)
-            return;
-
-        var account = await Connection.Table<MailAccount>().FirstOrDefaultAsync(item => item.Id == accountId).ConfigureAwait(false);
-        if (account is null || !account.IsContactAccessEnabled || account.IsContactAccessGranted)
-            return;
-
-        var book = await GetOrCreateLocalAddressBookAsync(accountId, account.Name).ConfigureAwait(false);
-        var normalized = contacts.Select(contact => CreateAutoCollectedContact(accountId, book.Id, contact.Address, contact.Name));
-        await SaveAutoCollectedAsync(accountId, book.Id, normalized).ConfigureAwait(false);
     }
 
     public async Task<AccountContact> StageCreateAsync(AccountContact contact)
@@ -699,117 +667,6 @@ public class ContactService : BaseDatabaseService, IContactService
         return book;
     }
 
-    private async Task SaveAutoCollectedAsync(Guid accountId, Guid addressBookId, IEnumerable<AccountContact> contacts)
-    {
-        var input = contacts.Where(contact => contact is not null && !string.IsNullOrWhiteSpace(contact.Address))
-            .GroupBy(contact => ContactEmailAddress.Normalize(contact.Address), StringComparer.Ordinal)
-            .Select(group => group.First()).ToList();
-        if (input.Count == 0)
-            return;
-
-        try
-        {
-            var normalizedAddresses = input
-                .Select(item => ContactEmailAddress.Normalize(item.Address))
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Distinct(StringComparer.Ordinal)
-                .ToList();
-            var existingByAddress = await FindContactsAsync(accountId, addressBookId, normalizedAddresses).ConfigureAwait(false);
-            var noisy = new List<AccountContact>();
-
-            foreach (var item in input)
-            {
-                var normalized = ContactEmailAddress.Normalize(item.Address);
-                existingByAddress.TryGetValue(normalized ?? string.Empty, out var existing);
-
-                if (!ShouldPersistAutoCollectedContact(item.Address, item.DisplayName))
-                {
-                    if (existing is { IsAutoCollected: true })
-                        noisy.Add(existing);
-                    continue;
-                }
-
-                if (existing is null)
-                {
-                    await WriteContactAsync(item, insert: true).ConfigureAwait(false);
-                }
-                else if (existing.IsAutoCollected && item.DisplayName != item.Address && existing.DisplayName != item.DisplayName)
-                {
-                    existing.DisplayName = item.DisplayName;
-                    existing.ModifiedAtUtc = DateTime.UtcNow;
-                    existing.SortKey = existing.DisplayValue?.ToLowerInvariant() ?? string.Empty;
-                    await Connection.UpdateAsync(existing, typeof(AccountContact)).ConfigureAwait(false);
-                }
-            }
-
-            if (noisy.Count > 0)
-                await DeleteCardsAsync(noisy).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to save account-scoped auto-collected contacts for {AccountId}.", accountId);
-        }
-    }
-
-    private async Task<AccountContact> FindContactAsync(Guid accountId, Guid addressBookId, string address)
-    {
-        var rows = await Connection.QueryAsync<AccountContact>(
-            "SELECT c.* FROM ContactCard c JOIN ContactEmailAddress e ON e.ContactId = c.Id " +
-            "WHERE c.MailAccountId = ? AND c.AddressBookId = ? AND e.NormalizedAddress = ? LIMIT 1",
-            accountId,
-            addressBookId,
-            ContactEmailAddress.Normalize(address)).ConfigureAwait(false);
-        await LoadChildrenAsync(rows).ConfigureAwait(false);
-        return rows.FirstOrDefault();
-    }
-
-    private async Task<Dictionary<string, AccountContact>> FindContactsAsync(
-        Guid accountId,
-        Guid addressBookId,
-        IReadOnlyList<string> normalizedAddresses)
-    {
-        var result = new Dictionary<string, AccountContact>(StringComparer.Ordinal);
-        if (normalizedAddresses.Count == 0)
-            return result;
-
-        const int chunkSize = 400;
-        for (var offset = 0; offset < normalizedAddresses.Count; offset += chunkSize)
-        {
-            var chunk = normalizedAddresses.Skip(offset).Take(chunkSize).ToList();
-            var placeholders = string.Join(",", chunk.Select(_ => "?"));
-            var rows = await Connection.QueryAsync<AccountContact>(
-                "SELECT DISTINCT c.* FROM ContactCard c JOIN ContactEmailAddress e ON e.ContactId = c.Id " +
-                $"WHERE c.MailAccountId = ? AND c.AddressBookId = ? AND e.NormalizedAddress IN ({placeholders})",
-                [accountId, addressBookId, .. chunk.Cast<object>()]).ConfigureAwait(false);
-
-            await LoadChildrenAsync(rows).ConfigureAwait(false);
-            foreach (var contact in rows)
-            {
-                foreach (var email in contact.EmailAddresses.Where(email => !string.IsNullOrWhiteSpace(email.NormalizedAddress)))
-                    result.TryAdd(email.NormalizedAddress, contact);
-            }
-        }
-
-        return result;
-    }
-
-    private static AccountContact CreateAutoCollectedContact(Guid accountId, Guid addressBookId, string address, string displayName)
-    {
-        var contact = new AccountContact
-        {
-            Id = Guid.NewGuid(),
-            MailAccountId = accountId,
-            AddressBookId = addressBookId,
-            SourceKind = ContactSourceKind.Local,
-            DisplayName = string.IsNullOrWhiteSpace(displayName) ? address?.Trim() : displayName.Trim(),
-            IsAutoCollected = true,
-            CreatedAtUtc = DateTime.UtcNow,
-            ModifiedAtUtc = DateTime.UtcNow
-        };
-        contact.Address = address?.Trim();
-        return contact;
-    }
-
     private async Task WriteContactAsync(AccountContact contact, bool insert)
     {
         NormalizeChildren(contact);
@@ -968,30 +825,5 @@ public class ContactService : BaseDatabaseService, IContactService
             contact.CreatedAtUtc = contact.ModifiedAtUtc;
         NormalizeChildren(contact);
         return contact;
-    }
-
-    private static bool ShouldPersistAutoCollectedContact(string address, string displayName)
-    {
-        if (string.IsNullOrWhiteSpace(address))
-            return false;
-        var atIndex = address.Trim().LastIndexOf('@');
-        if (atIndex <= 0 || atIndex == address.Trim().Length - 1)
-            return false;
-
-        var local = address.Trim()[..atIndex].ToLowerInvariant();
-        if (local.StartsWith("reply+", StringComparison.Ordinal) || local.Contains("noreply", StringComparison.Ordinal) ||
-            local.Contains("no-reply", StringComparison.Ordinal) || local.Contains("donotreply", StringComparison.Ordinal) ||
-            local.Contains("do-not-reply", StringComparison.Ordinal) || local is "mailer-daemon" or "postmaster")
-            return false;
-
-        if (local is "notification" or "notifications" or "updates" or "digest")
-        {
-            var value = displayName?.Trim().ToLowerInvariant() ?? string.Empty;
-            return !(value.Contains("notification", StringComparison.Ordinal) || value.Contains("issue #", StringComparison.Ordinal) ||
-                     value.Contains("pull request #", StringComparison.Ordinal) || value.Contains("discussion #", StringComparison.Ordinal) ||
-                     (value.StartsWith("[", StringComparison.Ordinal) && value.Contains('/') && value.Contains(']')));
-        }
-
-        return true;
     }
 }

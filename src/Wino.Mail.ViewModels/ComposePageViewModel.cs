@@ -25,6 +25,7 @@ using Wino.Core.Domain.Models.Launch;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Attachments;
 using Wino.Core.Domain.Models.Common;
+using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Extensions;
 using Wino.Core.Services;
 using Wino.Mail.ViewModels.Data;
@@ -188,6 +189,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public readonly IFontService FontService;
     public readonly IPreferencesService PreferencesService;
     public readonly IContactService ContactService;
+    public readonly IRecipientSuggestionService RecipientSuggestionService;
+    private readonly IRecipientHistoryService _recipientHistoryService;
     public readonly ISmimeCertificateService _smimeCertificateService;
     private readonly IShareActivationService _shareActivationService;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
@@ -213,10 +216,14 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IDraftSyncRetryService draftSyncRetryService,
                                 IDraftUpdateCoordinator draftUpdates, DraftUpdateRegistry draftRegistry,
                                 IDraftSaveService draftSaveService,
+                                IRecipientSuggestionService recipientSuggestionService,
+                                IRecipientHistoryService recipientHistoryService,
                                 IAttachmentFileService attachmentFileService = null)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
+        RecipientSuggestionService = recipientSuggestionService;
+        _recipientHistoryService = recipientHistoryService;
         FontService = fontService;
         PreferencesService = preferencesService;
 
@@ -1013,10 +1020,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             if (item is MailboxAddress mailboxAddress)
             {
-                var foundContact = await ContactService.GetContactByAddressAsync(ComposingAccount?.Id, mailboxAddress.Address).ConfigureAwait(false)
-                    ?? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address };
+                var foundContact = await ContactService.GetContactByAddressAsync(ComposingAccount?.Id, mailboxAddress.Address).ConfigureAwait(false);
 
-                contacts.Add(foundContact);
+                // Keep the address the mail used; the contact only supplies the name and picture.
+                contacts.Add(foundContact is null
+                    ? new AccountContact() { Name = mailboxAddress.Name, Address = mailboxAddress.Address }
+                    : RecipientSuggestion.ForTypedAddress(mailboxAddress.Address, foundContact));
             }
             else if (item is GroupAddress groupAddress)
             {
@@ -1070,16 +1079,45 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     public async Task<AccountContact> GetAddressInformationAsync(string tokenText, ObservableCollection<AccountContact> collection)
     {
-        // Get model from the service. This will make sure the name is properly included if there is any record.
-
-        var info = await ContactService.GetContactByAddressAsync(ComposingAccount?.Id, tokenText).ConfigureAwait(false)
-            ?? new AccountContact() { Name = tokenText, Address = tokenText };
-
-        // Don't add if there is already that address in the collection.
-        if (collection.Any(a => a.Address == info.Address))
+        var address = tokenText?.Trim();
+        if (string.IsNullOrEmpty(address) || ContainsAddress(collection, address))
             return null;
 
-        return info;
+        // A known contact supplies the name, but the typed address is kept: it may be a
+        // secondary address of that contact.
+        var knownContact = await ContactService.GetContactByAddressAsync(ComposingAccount?.Id, address).ConfigureAwait(false);
+        return RecipientSuggestion.ForTypedAddress(address, knownContact);
+    }
+
+    public static bool ContainsAddress(IEnumerable<AccountContact> collection, string address, AccountContact except = null)
+        => collection?.Any(item => !ReferenceEquals(item, except) &&
+                                   string.Equals(item.Address?.Trim(), address?.Trim(), StringComparison.OrdinalIgnoreCase)) == true;
+
+    /// <summary>
+    /// Adds a recipient unless the address is already in the field. Returns false for a duplicate.
+    /// </summary>
+    public bool TryAddRecipient(ObservableCollection<AccountContact> collection, AccountContact recipient)
+    {
+        if (collection is null || recipient is null || string.IsNullOrWhiteSpace(recipient.Address) || ContainsAddress(collection, recipient.Address))
+            return false;
+
+        collection.Add(recipient);
+        return true;
+    }
+
+    /// <summary>
+    /// Stops suggesting a remembered correspondent for the composing account.
+    /// </summary>
+    public async Task SuppressSuggestionAsync(RecipientSuggestion suggestion)
+    {
+        if (suggestion is not { CanSuppress: true } || string.IsNullOrWhiteSpace(suggestion.Address))
+            return;
+
+        var accountId = ComposingAccount?.Id ?? suggestion.MailAccountId;
+        if (accountId == Guid.Empty)
+            return;
+
+        await _recipientHistoryService.SuppressAsync(accountId, suggestion.Address).ConfigureAwait(false);
     }
 
     public void NotifyAddressExists()

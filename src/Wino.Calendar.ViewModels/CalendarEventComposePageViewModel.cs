@@ -43,6 +43,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
     private readonly INavigationService _navigationService;
     private readonly IMailDialogService _dialogService;
     private readonly IContactService _contactService;
+    private readonly IRecipientSuggestionService _recipientSuggestionService;
     private readonly IPreferencesService _preferencesService;
     private readonly IUnderlyingThemeService _underlyingThemeService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
@@ -210,7 +211,8 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
                                              IPreferencesService preferencesService,
                                              IUnderlyingThemeService underlyingThemeService,
                                              IWinoRequestDelegator winoRequestDelegator,
-                                             IAttachmentFileService attachmentFileService = null)
+                                             IAttachmentFileService attachmentFileService = null,
+                                             IRecipientSuggestionService recipientSuggestionService = null)
     {
         _accountService = accountService;
         _calendarService = calendarService;
@@ -221,6 +223,7 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         _underlyingThemeService = underlyingThemeService;
         _winoRequestDelegator = winoRequestDelegator;
         _attachmentFileService = attachmentFileService;
+        _recipientSuggestionService = recipientSuggestionService;
 
         CurrentSettings = _preferencesService.GetCurrentCalendarSettings();
         IsDarkWebviewRenderer = _underlyingThemeService.IsUnderlyingThemeDark();
@@ -523,7 +526,13 @@ public partial class CalendarEventComposePageViewModel : CalendarBaseViewModel
         if (string.IsNullOrWhiteSpace(queryText) || queryText.Length < 2)
             return [];
 
-        return await _contactService.ResolveRecipientCandidatesAsync(SelectedCalendar?.Account?.Id, queryText).ConfigureAwait(false) ?? [];
+        var accountId = SelectedCalendar?.Account?.Id;
+
+        // Attendees are people, so contact lists are left out; ranking matches the mail composer.
+        if (_recipientSuggestionService != null)
+            return [.. await _recipientSuggestionService.SuggestAsync(accountId, queryText, includeLists: false).ConfigureAwait(false)];
+
+        return await _contactService.ResolveRecipientCandidatesAsync(accountId, queryText).ConfigureAwait(false) ?? [];
     }
 
     public async Task<CalendarComposeAttendeeViewModel> GetAttendeeAsync(string tokenText)

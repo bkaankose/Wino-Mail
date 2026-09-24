@@ -156,5 +156,5 @@ public class AliasIdentityTests
             Mock.Of<INativeAppService>(), Mock.Of<IFolderService>(), accounts, Mock.Of<IEmailTemplateService>(),
             Mock.Of<IWinoRequestDelegator>(), Mock.Of<IContactService>(), Mock.Of<IFontService>(), Mock.Of<IPreferencesService>(),
             Certificates(), Mock.Of<IShareActivationService>(), Mock.Of<IDraftSyncRetryService>(), Mock.Of<IDraftUpdateCoordinator>(),
-            new DraftUpdateRegistry(), save);
+            new DraftUpdateRegistry(), save, Mock.Of<IRecipientSuggestionService>(), Mock.Of<IRecipientHistoryService>());
 }

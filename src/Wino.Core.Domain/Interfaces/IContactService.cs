@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MimeKit;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Contacts;
@@ -20,8 +19,6 @@ public interface IContactService : IContactQueryService
     /// caller can expand the list into individual recipients.
     /// </summary>
     Task<List<ContactListRecipient>> ResolveRecipientListsAsync(string queryText, int limit = 5);
-    Task SaveAddressInformationAsync(Guid accountId, MimeMessage message);
-    Task SaveAddressInformationAsync(Guid accountId, IEnumerable<AccountContact> contacts);
     Task<AccountContact> StageCreateAsync(AccountContact contact);
     Task<AccountContact> StageUpdateAsync(AccountContact contact);
     Task SetContactPictureFileIdAsync(Guid contactId, Guid? pictureFileId);

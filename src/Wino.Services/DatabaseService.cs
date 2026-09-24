@@ -26,6 +26,12 @@ public class DatabaseService : IDatabaseService
     public const string CurrentDatabaseName = "Wino210.db";
     public const int CurrentSchemaVersion = 210;
 
+    /// <summary>
+    /// Recipient history upserts target this constraint, so every database that holds the table needs it.
+    /// </summary>
+    public const string RecipientHistoryUniqueIndexSql =
+        "CREATE UNIQUE INDEX IF NOT EXISTS IX_RecipientHistory_Account_Address ON RecipientHistory(AccountId, NormalizedAddress)";
+
     private bool _isInitialized = false;
     private bool _cardDavCreationCapabilityMigrationRequired;
     private bool _countedFolderSeedRequired;
@@ -153,6 +159,7 @@ VALUES
             Connection.CreateTableAsync<ContactRelation>(),
             Connection.CreateTableAsync<ContactList>(),
             Connection.CreateTableAsync<ContactListMember>(),
+            Connection.CreateTableAsync<RecipientHistory>(),
             Connection.CreateTableAsync<CardDavAccountState>(),
             Connection.CreateTableAsync<CardDavAddressBookState>(),
             Connection.CreateTableAsync<CardDavResourceShadow>(),
@@ -783,6 +790,7 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactCard_IsFavorite_SortKey ON ContactCard(IsFavorite, SortKey)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_ContactListMember_List_Contact ON ContactListMember(ListId, ContactId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactListMember_ContactId ON ContactListMember(ContactId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync(RecipientHistoryUniqueIndexSql).ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_CardDavResourceShadow_Book_Href ON CardDavResourceShadow(AddressBookId, ExactHref)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_CardDavResourceShadow_Book_Generation ON CardDavResourceShadow(AddressBookId, LastSeenGeneration)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_CardDavQuarantine_Book_Href ON CardDavQuarantine(AddressBookId, ExactHref)").ConfigureAwait(false);

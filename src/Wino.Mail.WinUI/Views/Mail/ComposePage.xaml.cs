@@ -35,6 +35,7 @@ using Wino.Helpers;
 using Wino.Mail.Controls;
 using Wino.Mail.Controls.ContextFlyout;
 using Wino.Mail.Controls.Core.ContextFlyout;
+using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
@@ -64,7 +65,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     private bool _isSpellCheckEnabled;
     private string _spellCheckLanguageCode = string.Empty;
     private CancellationTokenSource? _editorLifecycleCancellationSource;
-    private readonly Dictionary<TokenizingTextBox, List<IContactDisplayItem>> _recipientSuggestions = [];
+    private readonly Dictionary<TokenizingTextBox, RecipientSuggestionState> _recipientSuggestions = [];
 
     public bool SupportsPopOut => !_isPoppedOut;
     public bool HasEditorKeyboardFocus => WebViewEditor.FocusState != FocusState.Unfocused;
@@ -149,13 +150,14 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 return;
             }
 
-            if (senderBox.Text.Length >= 2)
+            var query = senderBox.Text ?? string.Empty;
+            if (query.Trim().Length >= 2)
             {
-                _ = ResolveRecipientSuggestionsAsync(box, senderBox, senderBox.Text);
+                _ = ResolveRecipientSuggestionsAsync(box, senderBox, query);
             }
             else
             {
-                _recipientSuggestions[box] = [];
+                ClearRecipientSuggestions(box);
             }
         });
     }
@@ -407,113 +409,337 @@ public sealed partial class ComposePage : ComposePageAbstract,
     }
 
     /// <summary>
-    /// Suggests matching contacts, and local contact lists ahead of them. Both render through
-    /// the shared <c>ContactSuggestionTemplate</c> because both are <see cref="IContactDisplayItem"/>.
+    /// The suggestions a recipient box shows, and the inner search box showing them. The inner
+    /// box is recreated as tokens are added, so it is captured with each result.
+    /// </summary>
+    private sealed class RecipientSuggestionState
+    {
+        public int Version { get; set; }
+        public List<RecipientSuggestion> Items { get; set; } = [];
+        public string Query { get; set; } = string.Empty;
+        public AutoSuggestBox? Owner { get; set; }
+    }
+
+    private RecipientSuggestionState GetSuggestionState(TokenizingTextBox box)
+    {
+        if (!_recipientSuggestions.TryGetValue(box, out var state))
+        {
+            state = new RecipientSuggestionState();
+            _recipientSuggestions[box] = state;
+        }
+
+        return state;
+    }
+
+    private ObservableCollection<AccountContact>? GetAddressCollection(TokenizingTextBox box)
+        => box.Tag?.ToString() switch
+        {
+            "ToBox" => ViewModel.ToItems,
+            "CCBox" => ViewModel.CCItems,
+            "BCCBox" => ViewModel.BCCItems,
+            _ => null
+        };
+
+    /// <summary>
+    /// Suggests contact lists, contacts and remembered correspondents for the typed text.
+    /// A slower earlier query never replaces the result of a newer one.
     /// </summary>
     private async Task ResolveRecipientSuggestionsAsync(TokenizingTextBox box, AutoSuggestBox senderBox, string query)
     {
-        var contacts = await ViewModel.ContactService.ResolveRecipientCandidatesAsync(ViewModel.ComposingAccount?.Id, query).ConfigureAwait(false) ?? [];
-        var lists = await ViewModel.ContactService.ResolveRecipientListsAsync(query).ConfigureAwait(false) ?? [];
+        var state = GetSuggestionState(box);
+        var version = ++state.Version;
 
-        var suggestions = new List<IContactDisplayItem>(lists.Count + contacts.Count);
-        suggestions.AddRange(lists);
-        suggestions.AddRange(contacts);
+        List<RecipientSuggestion> suggestions;
+        try
+        {
+            suggestions = await ViewModel.RecipientSuggestionService
+                .SuggestAsync(ViewModel.ComposingAccount?.Id, query)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            _logger.CaptureException(exception, "ComposePage.ResolveRecipientSuggestions");
+            return;
+        }
 
         await ViewModel.ExecuteUIThread(() =>
         {
-            _recipientSuggestions[box] = suggestions;
-            senderBox.ItemsSource = suggestions;
+            if (version != state.Version || !string.Equals(senderBox.Text, query, StringComparison.Ordinal))
+                return;
+
+            // Someone already in this field is not worth suggesting again.
+            var collection = GetAddressCollection(box);
+            state.Items = suggestions
+                .Where(suggestion => suggestion.IsList || !ComposePageViewModel.ContainsAddress(collection!, suggestion.Address))
+                .ToList();
+            state.Query = query;
+            state.Owner = senderBox;
+            senderBox.ItemsSource = state.Items;
         });
+    }
+
+    private void ClearRecipientSuggestions(TokenizingTextBox box)
+    {
+        var state = GetSuggestionState(box);
+        state.Version++;
+        state.Items = [];
+        state.Query = string.Empty;
+
+        if (state.Owner != null)
+            state.Owner.ItemsSource = null;
     }
 
     /// <summary>
     /// Adds every member of a picked contact list that is not already a recipient.
     /// </summary>
-    private static int AddListMembers(ContactListRecipient listRecipient, ObservableCollection<AccountContact>? addressCollection)
+    private int AddListMembers(IEnumerable<AccountContact> members, ObservableCollection<AccountContact>? addressCollection)
     {
         if (addressCollection is null)
             return 0;
 
         var added = 0;
-        foreach (var member in listRecipient.ExpandRecipients())
+        foreach (var member in members)
         {
-            if (addressCollection.Any(item => string.Equals(item.Address, member.PrimaryEmailAddress, StringComparison.OrdinalIgnoreCase)))
-                continue;
-
-            addressCollection.Add(member);
-            added++;
+            var recipient = RecipientSuggestion.ForTypedAddress(member.PrimaryEmailAddress, member);
+            if (ViewModel.TryAddRecipient(addressCollection, recipient))
+                added++;
         }
 
         return added;
     }
 
+    /// <summary>
+    /// Splits typed or pasted text such as "Ann &lt;ann@x.com&gt;, bob@y.com" into parts.
+    /// </summary>
+    private static List<string> SplitRecipientText(string text)
+        => (text ?? string.Empty)
+            .Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+
+    /// <summary>
+    /// The suggestion Enter should take. When Enter comes before the debounced search has
+    /// answered, the search runs now so fast typists get the same result.
+    /// </summary>
+    private async Task<RecipientSuggestion?> GetTopSuggestionAsync(TokenizingTextBox box, string query, ObservableCollection<AccountContact> collection)
+    {
+        var state = GetSuggestionState(box);
+
+        // Only what is on screen for this exact text; a list left from shorter text would pick the wrong person.
+        if (string.Equals(state.Query?.Trim(), query.Trim(), StringComparison.OrdinalIgnoreCase) && state.Items.Count > 0)
+            return state.Items[0];
+
+        if (query.Trim().Length < 2)
+            return null;
+
+        var suggestions = await ViewModel.RecipientSuggestionService.SuggestAsync(ViewModel.ComposingAccount?.Id, query);
+
+        // Someone already in the field is still returned, so the user hears "already added", not "invalid address".
+        return suggestions.FirstOrDefault(suggestion => suggestion.IsList || !ComposePageViewModel.ContainsAddress(collection, suggestion.Address))
+            ?? suggestions.FirstOrDefault();
+    }
+
+    private static bool TryParseRecipient(string text, out string address, out string? name)
+    {
+        address = string.Empty;
+        name = null;
+
+        if (MailboxAddress.TryParse(text, out var mailbox) && EmailValidator.Validate(mailbox.Address))
+        {
+            address = mailbox.Address;
+            name = string.IsNullOrWhiteSpace(mailbox.Name) ? null : mailbox.Name;
+            return true;
+        }
+
+        return false;
+    }
+
+    private async Task<AccountContact?> ResolveTypedRecipientAsync(string address, string? name, ObservableCollection<AccountContact> collection)
+    {
+        var recipient = await ViewModel.GetAddressInformationAsync(address, collection);
+
+        // A pasted "Name <address>" keeps its name when the address is not a known contact.
+        if (recipient != null && name != null && recipient is not RecipientSuggestion)
+            recipient.Name = name;
+
+        return recipient;
+    }
+
+    /// <summary>
+    /// Raised for text the user commits with Enter or a delimiter. A complete address is taken
+    /// as typed, even when a suggestion is showing. Partial text takes the top suggestion.
+    /// A picked suggestion does not come here; see <see cref="TokenItemAdded"/>.
+    /// </summary>
     private async void TokenItemAdding(TokenizingTextBox sender, TokenItemAddingEventArgs args)
     {
         var deferral = args.GetDeferral();
         try
         {
-            var suggestion = GetFirstSuggestion(sender);
-            var addressCollection = sender.Tag?.ToString() switch
-            {
-                "ToBox" => ViewModel.ToItems,
-                "CCBox" => ViewModel.CCItems,
-                "BCCBox" => ViewModel.BCCItems,
-                _ => null
-            };
-
-            // A contact list is not a single recipient: expand it into its members instead
-            // of committing one token.
-            if (suggestion is ContactListRecipient listRecipient)
+            var addressCollection = GetAddressCollection(sender);
+            if (addressCollection is null)
             {
                 args.Cancel = true;
-                if (AddListMembers(listRecipient, addressCollection) == 0)
-                    ViewModel.NotifyAddressExists();
                 return;
             }
 
-            var suggestedContact = suggestion as AccountContact;
-            var tokenText = suggestedContact?.Address ?? args.TokenText;
-
-            if (suggestedContact == null && !EmailValidator.Validate(tokenText))
+            var parts = SplitRecipientText(args.TokenText);
+            if (parts.Count == 0)
             {
                 args.Cancel = true;
-                ViewModel.NotifyInvalidEmail(args.TokenText);
                 return;
             }
 
-            AccountContact? addedItem = null;
+            var parsed = parts
+                .Select(part => (Text: part, IsValid: TryParseRecipient(part, out var address, out var name), Address: address, Name: name))
+                .ToList();
 
-            if (suggestedContact != null)
+            if (!parsed[0].IsValid)
             {
-                addedItem = addressCollection?.Any(a => string.Equals(a.Address, suggestedContact.Address, StringComparison.OrdinalIgnoreCase)) == true
-                    ? null
-                    : suggestedContact;
-            }
-            else
-            {
-                addedItem = sender.Tag?.ToString() switch
+                var suggestion = parts.Count == 1 ? await GetTopSuggestionAsync(sender, parts[0], addressCollection) : null;
+
+                if (suggestion is { IsList: true })
                 {
-                    "ToBox" => await ViewModel.GetAddressInformationAsync(tokenText, ViewModel.ToItems),
-                    "CCBox" => await ViewModel.GetAddressInformationAsync(tokenText, ViewModel.CCItems),
-                    "BCCBox" => await ViewModel.GetAddressInformationAsync(tokenText, ViewModel.BCCItems),
-                    _ => null
-                };
+                    args.Cancel = true;
+                    if (AddListMembers(suggestion.ListMembers, addressCollection) == 0)
+                        ViewModel.NotifyAddressExists();
+                    ClearTypedText(sender);
+                }
+                else if (suggestion != null)
+                {
+                    if (ComposePageViewModel.ContainsAddress(addressCollection, suggestion.Address))
+                    {
+                        args.Cancel = true;
+                        ViewModel.NotifyAddressExists();
+                        ClearTypedText(sender);
+                    }
+                    else
+                    {
+                        args.Item = suggestion;
+                    }
+                }
+                else
+                {
+                    args.Cancel = true;
+                    ViewModel.NotifyInvalidEmail(parsed[0].Text);
+
+                    // The box clears the text it rejected; put it back so a typo can be fixed in place.
+                    var rejectedText = args.TokenText;
+                    DispatcherQueue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () => sender.Text = rejectedText);
+                }
+
+                return;
             }
 
-            if (addedItem == null)
+            var first = await ResolveTypedRecipientAsync(parsed[0].Address, parsed[0].Name, addressCollection);
+            if (first == null)
             {
                 args.Cancel = true;
                 ViewModel.NotifyAddressExists();
+                ClearTypedText(sender);
             }
             else
             {
-                args.Item = addedItem;
+                args.Item = first;
+            }
+
+            // The rest of a pasted list is added after the first token, keeping its order.
+            var extras = parsed.Skip(1).ToList();
+            if (extras.Count > 0)
+            {
+                DispatcherQueue.TryEnqueue(async () =>
+                {
+                    foreach (var extra in extras)
+                    {
+                        if (!extra.IsValid)
+                        {
+                            ViewModel.NotifyInvalidEmail(extra.Text);
+                            continue;
+                        }
+
+                        var recipient = await ResolveTypedRecipientAsync(extra.Address, extra.Name, addressCollection);
+                        if (recipient != null)
+                            ViewModel.TryAddRecipient(addressCollection, recipient);
+                    }
+                });
             }
         }
         finally
         {
-            _recipientSuggestions[sender] = [];
+            ClearRecipientSuggestions(sender);
             deferral.Complete();
+        }
+    }
+
+    /// <summary>
+    /// Raised after any token is added, including a suggestion picked with the mouse or with
+    /// the arrow keys and Enter, which the box inserts without asking. A contact list becomes
+    /// its members here, and a second copy of an address is taken back out.
+    /// </summary>
+    private void TokenItemAdded(TokenizingTextBox sender, object item)
+    {
+        ClearRecipientSuggestions(sender);
+
+        var addressCollection = GetAddressCollection(sender);
+        if (addressCollection is null || item is not AccountContact recipient)
+            return;
+
+        if (recipient is RecipientSuggestion { IsList: true } list)
+        {
+            // Removed on the next tick: the box is still laying out the token it just added.
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                RemoveRecipient(addressCollection, list);
+                if (AddListMembers(list.ListMembers, addressCollection) == 0)
+                    ViewModel.NotifyAddressExists();
+            });
+            return;
+        }
+
+        if (ComposePageViewModel.ContainsAddress(addressCollection, recipient.Address, except: recipient))
+        {
+            DispatcherQueue.TryEnqueue(() => RemoveRecipient(addressCollection, recipient));
+            ViewModel.NotifyAddressExists();
+        }
+    }
+
+    // Suggestions for one contact can share its Id, so remove by reference, not by equality.
+    private static void RemoveRecipient(ObservableCollection<AccountContact> collection, AccountContact recipient)
+    {
+        for (var index = collection.Count - 1; index >= 0; index--)
+        {
+            if (ReferenceEquals(collection[index], recipient))
+            {
+                collection.RemoveAt(index);
+                return;
+            }
+        }
+    }
+
+    private void ClearTypedText(TokenizingTextBox box)
+        => DispatcherQueue.TryEnqueue(() => box.Text = string.Empty);
+
+    /// <summary>
+    /// Hides a remembered correspondent from suggestions without closing the list.
+    /// </summary>
+    private async void SuppressSuggestionClicked(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: RecipientSuggestion suggestion })
+            return;
+
+        var owner = _recipientSuggestions.FirstOrDefault(pair => pair.Value.Items.Contains(suggestion));
+        if (owner.Value is { } state)
+        {
+            state.Items = state.Items.Where(item => !ReferenceEquals(item, suggestion)).ToList();
+            if (state.Owner != null)
+                state.Owner.ItemsSource = state.Items;
+        }
+
+        try
+        {
+            await ViewModel.SuppressSuggestionAsync(suggestion);
+        }
+        catch (Exception exception)
+        {
+            _logger.CaptureException(exception, "ComposePage.SuppressSuggestion");
         }
     }
 
@@ -564,13 +790,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
             if (!string.IsNullOrEmpty(currentText) && EmailValidator.Validate(currentText))
             {
-                var addressCollection = tokenizingTextBox.Tag?.ToString() switch
-                {
-                    "ToBox" => ViewModel.ToItems,
-                    "CCBox" => ViewModel.CCItems,
-                    "BCCBox" => ViewModel.BCCItems,
-                    _ => null
-                };
+                var addressCollection = GetAddressCollection(tokenizingTextBox);
 
                 AccountContact? addedItem = null;
 
@@ -590,11 +810,6 @@ public sealed partial class ComposePage : ComposePageAbstract,
             }
         }
     }
-
-    private IContactDisplayItem? GetFirstSuggestion(TokenizingTextBox box)
-        => _recipientSuggestions.TryGetValue(box, out var suggestions)
-            ? suggestions.FirstOrDefault()
-            : null;
 
     private void ComposerLoaded(object sender, RoutedEventArgs e)
     {

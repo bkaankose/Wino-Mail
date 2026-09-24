@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Views.Abstract"
     xmlns:contactControls="using:Wino.Mail.Controls.ContactPicture"
+    xmlns:contacts="using:Wino.Core.Domain.Models.Contacts"
     xmlns:controls="using:Wino.Controls"
     xmlns:controls1="using:Wino.Mail.Controls"
     xmlns:coreControls="using:Wino.Mail.WinUI.Controls"
@@ -20,6 +21,7 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     xmlns:reader="using:Wino.Core.Domain.Models.Reader"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:winuiHelpers="using:Wino.Mail.WinUI.Helpers"
     x:Name="root"
     d:Background="White"
     AutomationProperties.AutomationId="ComposePageRoot"
@@ -57,6 +59,80 @@
                     Margin="6,0,8,0"
                     VerticalAlignment="Center"
                     Text="{x:Bind DisplayName}" />
+            </Grid>
+        </DataTemplate>
+
+        <!--  Recipient suggestion. The matched text is semibold, the source sits at the right, and a remembered correspondent can be dismissed without closing the list.  -->
+        <DataTemplate x:Key="RecipientSuggestionTemplate" x:DataType="contacts:RecipientSuggestion">
+            <Grid
+                Padding="0,6"
+                AutomationProperties.Name="{x:Bind DisplayName}"
+                ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <contactControls:WinoContactPicture
+                    Width="32"
+                    Height="32"
+                    VerticalAlignment="Center"
+                    ContactPicture="{x:Bind helpers:XamlHelpers.GetContactPicture(PreviewContact, DisplayName, Address), Mode=OneTime}"
+                    IsFaviconEnabled="{x:Bind helpers:XamlHelpers.GetFaviconEnabled(), Mode=OneTime}"
+                    IsGravatarEnabled="{x:Bind helpers:XamlHelpers.GetGravatarEnabled(), Mode=OneTime}" />
+
+                <StackPanel
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    Spacing="1">
+                    <TextBlock
+                        winuiHelpers:TextMatchHighlighter.Query="{x:Bind MatchQuery}"
+                        winuiHelpers:TextMatchHighlighter.Text="{x:Bind DisplayName}"
+                        MaxLines="1"
+                        TextTrimming="CharacterEllipsis" />
+                    <TextBlock
+                        winuiHelpers:TextMatchHighlighter.Query="{x:Bind MatchQuery}"
+                        winuiHelpers:TextMatchHighlighter.Text="{x:Bind SecondaryText}"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        MaxLines="1"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <TextBlock
+                    Grid.Column="2"
+                    MaxWidth="140"
+                    VerticalAlignment="Center"
+                    Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                    MaxLines="1"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind SourceCaption}"
+                    TextTrimming="CharacterEllipsis" />
+
+                <!--  Never takes focus, so pressing it keeps the list open and the caret in the box.  -->
+                <Button
+                    Grid.Column="3"
+                    Width="28"
+                    Height="28"
+                    Padding="0"
+                    VerticalAlignment="Center"
+                    AllowFocusOnInteraction="False"
+                    AutomationProperties.AutomationId="ComposeSuppressSuggestion"
+                    AutomationProperties.Name="{x:Bind domain:Translator.RecipientSuggestion_DontSuggest, Mode=OneTime}"
+                    Click="SuppressSuggestionClicked"
+                    IsTabStop="False"
+                    Style="{StaticResource TransparentActionButtonStyle}"
+                    ToolTipService.ToolTip="{x:Bind domain:Translator.RecipientSuggestion_DontSuggest, Mode=OneTime}"
+                    Visibility="{x:Bind CanSuppress, Mode=OneTime}">
+                    <!--  The implicit icon style does not reach the suggestion popup, so the font is set here.  -->
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="12"
+                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                        Icon="Dismiss" />
+                </Button>
             </Grid>
         </DataTemplate>
 
@@ -530,10 +606,11 @@
                             ItemsSource="{x:Bind ViewModel.ToItems, Mode=OneTime}"
                             LostFocus="AddressBoxLostFocus"
                             PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
-                            SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
+                            SuggestedItemTemplate="{StaticResource RecipientSuggestionTemplate}"
                             TabIndex="1"
                             Tag="ToBox"
                             TokenDelimiter=";"
+                            TokenItemAdded="TokenItemAdded"
                             TokenItemAdding="TokenItemAdding"
                             TokenItemTemplate="{StaticResource ContactTokenTemplate}" />
 
@@ -574,10 +651,11 @@
                         ItemsSource="{x:Bind ViewModel.CCItems, Mode=OneTime}"
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
-                        SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
+                        SuggestedItemTemplate="{StaticResource RecipientSuggestionTemplate}"
                         TabIndex="3"
                         Tag="CCBox"
                         TokenDelimiter=";"
+                        TokenItemAdded="TokenItemAdded"
                         TokenItemAdding="TokenItemAdding"
                         TokenItemTemplate="{StaticResource ContactTokenTemplate}"
                         Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />
@@ -597,10 +675,11 @@
                         ItemsSource="{x:Bind ViewModel.BCCItems, Mode=OneTime}"
                         LostFocus="AddressBoxLostFocus"
                         PlaceholderText="{x:Bind domain:Translator.ComposerToPlaceholder}"
-                        SuggestedItemTemplate="{StaticResource ContactSuggestionTemplate}"
+                        SuggestedItemTemplate="{StaticResource RecipientSuggestionTemplate}"
                         TabIndex="4"
                         Tag="BCCBox"
                         TokenDelimiter=";"
+                        TokenItemAdded="TokenItemAdded"
                         TokenItemAdding="TokenItemAdding"
                         TokenItemTemplate="{StaticResource ContactTokenTemplate}"
                         Visibility="{x:Bind ViewModel.IsCCBCCVisible, Mode=OneWay}" />

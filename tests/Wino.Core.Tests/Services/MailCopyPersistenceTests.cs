@@ -344,7 +344,7 @@ public class MailCopyPersistenceTests : IAsyncLifetime
         saved.FileId.Should().Be(draft.FileId);
     }
 
-    private static MailService BuildMailService(InMemoryDatabaseService db, DraftUpdateRegistry? registry = null)
+    internal static MailService BuildMailService(InMemoryDatabaseService db, DraftUpdateRegistry? registry = null, IRecipientHistoryService? recipientHistoryService = null)
     {
         var signatureService = new Mock<ISignatureService>();
         var authProvider = new Mock<IAuthenticationProvider>();
@@ -382,7 +382,7 @@ public class MailCopyPersistenceTests : IAsyncLifetime
             mimeFileService.Object,
             preferencesService.Object,
             sentMailReceiptService,
-            mailCategoryService, draftUpdates: registry);
+            mailCategoryService, draftUpdates: registry, recipientHistoryService: recipientHistoryService);
     }
 
     public sealed class MailRetrievalRecipient(params string[] targetMailIds) :

@@ -1,6 +1,9 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -12,7 +15,10 @@ namespace Wino.Mail.ViewModels;
 
 public partial class ContactsPreferenceSettingsPageViewModel(
     IPreferencesService preferencesService,
-    IContactQueryService contactService) : CoreBaseViewModel
+    IContactQueryService contactService,
+    IAccountService accountService,
+    IRecipientHistoryService recipientHistoryService,
+    IMailDialogService dialogService) : CoreBaseViewModel
 {
     private bool _isLoaded;
 
@@ -87,6 +93,22 @@ public partial class ContactsPreferenceSettingsPageViewModel(
             SelectedSort = SortOptions.First(option => option.Order == preferencesService.ContactSortOrder);
             _isLoaded = true;
         });
+    }
+
+    /// <summary>
+    /// Forgets the people Wino learned from mail for every account. Contacts are not touched.
+    /// </summary>
+    [RelayCommand]
+    private async Task ClearSuggestedRecipientsAsync()
+    {
+        var accounts = await accountService.GetAccountsAsync().ConfigureAwait(false) ?? [];
+        foreach (var account in accounts)
+            await recipientHistoryService.ClearAsync(account.Id).ConfigureAwait(false);
+
+        await ExecuteUIThread(() => dialogService.InfoBarMessage(
+            Translator.PeopleSettings_SuggestedRecipients_ClearedTitle,
+            Translator.PeopleSettings_SuggestedRecipients_ClearedMessage,
+            InfoBarMessageType.Success)).ConfigureAwait(false);
     }
 
     partial void OnSelectedDestinationBehaviorChanged(DestinationBehaviorOption value)
