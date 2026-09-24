@@ -29,6 +29,14 @@ public sealed class MapiTransportException(string requestType, HttpStatusCode ht
     /// <summary>X-ResponseCode 10, ContextNotFound: the session is gone, or a Connect never succeeded.</summary>
     public bool IsContextNotFound => ResponseCode == "10";
 
+    /// <summary>
+    /// X-ResponseCode 15, InvalidSequence: two requests were in flight at once inside one Session
+    /// Context. MS-OXCMAPIHTTP allows exactly one, and says the server fails every subsequent
+    /// request in that context once it has seen this - so a session that reports it is finished,
+    /// not merely unlucky, and nothing is gained by trying it again.
+    /// </summary>
+    public bool IsInvalidSequence => ResponseCode == "15";
+
     public bool IsUnauthorized => HttpStatus == HttpStatusCode.Unauthorized;
 }
 

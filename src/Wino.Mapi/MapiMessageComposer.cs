@@ -41,7 +41,13 @@ public static class MapiMessageComposer
     private const int InlineLimit = 4 * 1024;
 
     /// <summary>Creates and saves a message in <paramref name="folderId"/>; returns its id.</summary>
-    public static async Task<ulong> CreateAsync(MapiSession session, ulong folderId, MapiOutgoingMessage message, CancellationToken cancellationToken = default, Action<string>? diagnostics = null)
+    /// <param name="interactive">
+    /// True when somebody is waiting on this, which shortens how long a silent server is given. The
+    /// caller decides, not this class: the same code composes a draft somebody just clicked Save on
+    /// and a meeting request going out during a calendar sync, and only the caller can tell them
+    /// apart.
+    /// </param>
+    public static async Task<ulong> CreateAsync(MapiSession session, ulong folderId, MapiOutgoingMessage message, CancellationToken cancellationToken = default, Action<string>? diagnostics = null, bool interactive = false)
     {
         var handles = MapiSession.MergeHandles([session.LogonHandle], [], Slots);
 
@@ -53,7 +59,10 @@ public static class MapiMessageComposer
         {
             await PopulateAsync(session, handles, message, cancellationToken, diagnostics).ConfigureAwait(false);
 
-            (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSaveChangesMessage(2, 1), handles, cancellationToken).ConfigureAwait(false);
+            // The save is the step that has been seen to go unanswered, and it is tiny - so a short
+            // leash here is never a slow upload being cut off, unlike the property and attachment
+            // writes above it.
+            (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSaveChangesMessage(2, 1), handles, cancellationToken, interactive).ConfigureAwait(false);
             var savedId = RopMessageOps.ParseSaveChangesMessage(new RopReader(rops));
             diagnostics?.Invoke($"compose: created 0x{savedId:X16} in 0x{folderId:X16} ({message.Recipients.Count} recipients, {message.Attachments.Count} attachments)");
             return savedId != 0 ? savedId : createdId ?? 0;
@@ -68,7 +77,8 @@ public static class MapiMessageComposer
     /// Creates the message in <paramref name="outboxOrDraftsFolderId"/>, marks it to be filed to
     /// <paramref name="sentItemsFolderId"/> and deleted after submit, saves, and submits it.
     /// </summary>
-    public static async Task SendAsync(MapiSession session, ulong outboxOrDraftsFolderId, ulong sentItemsFolderId, MapiOutgoingMessage message, CancellationToken cancellationToken = default, Action<string>? diagnostics = null)
+    /// <param name="interactive">See <see cref="CreateAsync"/>: whether somebody is waiting on this.</param>
+    public static async Task SendAsync(MapiSession session, ulong outboxOrDraftsFolderId, ulong sentItemsFolderId, MapiOutgoingMessage message, CancellationToken cancellationToken = default, Action<string>? diagnostics = null, bool interactive = false)
     {
         var handles = MapiSession.MergeHandles([session.LogonHandle], [], Slots);
 
@@ -89,10 +99,10 @@ public static class MapiMessageComposer
             };
             await SetPropertiesAsync(session, handles, 1, sendProperties, cancellationToken).ConfigureAwait(false);
 
-            (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSaveChangesMessage(2, 1, RopMessageOps.SaveFlags.KeepOpenReadWrite), handles, cancellationToken).ConfigureAwait(false);
+            (rops, _) = await session.ExecuteAsync(RopMessageOps.BuildSaveChangesMessage(2, 1, RopMessageOps.SaveFlags.KeepOpenReadWrite), handles, cancellationToken, interactive).ConfigureAwait(false);
             var savedId = RopMessageOps.ParseSaveChangesMessage(new RopReader(rops));
 
-            (rops, _) = await session.ExecuteAsync(RopMessageWrite.BuildSubmitMessage(1), handles, cancellationToken).ConfigureAwait(false);
+            (rops, _) = await session.ExecuteAsync(RopMessageWrite.BuildSubmitMessage(1), handles, cancellationToken, interactive).ConfigureAwait(false);
             RopMessageWrite.ParseSubmitMessage(new RopReader(rops));
             diagnostics?.Invoke($"compose: submitted 0x{savedId:X16} ({message.Recipients.Count} recipients, {message.Attachments.Count} attachments)");
         }
@@ -111,6 +121,11 @@ public static class MapiMessageComposer
             TaggedPropertyValue.Long(PropertyTags.Importance, message.Importance),
             TaggedPropertyValue.Long(PropertyTags.InternetCodepage, 65001),
             TaggedPropertyValue.Boolean(PropertyTags.ReadReceiptRequested, message.ReadReceiptRequested),
+
+            // Nothing here ever writes a rich text body, so the plain or HTML one is the message. Say
+            // so, or the transport assumes a rich text body it cannot see is the real one and encodes
+            // the message to carry it, which hands the recipient a note with the original inside it.
+            TaggedPropertyValue.Boolean(PropertyTags.RtfInSync, true),
         };
 
         if (!string.IsNullOrEmpty(message.InternetMessageId))

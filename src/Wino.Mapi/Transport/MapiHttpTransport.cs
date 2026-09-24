@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -21,6 +22,20 @@ public sealed class MapiHttpTransport : IDisposable
     private readonly Uri _endpoint;
     private readonly Action<string>? _trace;
     private readonly TimeSpan _defaultTimeout;
+
+    /// <summary>The least silence that counts as the server having stopped talking.</summary>
+    private static readonly TimeSpan MinimumIdleWindow = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// How long a request somebody is waiting on may go completely unanswered before it is given up.
+    ///
+    /// Shorter than the default because of who is waiting, not because of what is being asked. It
+    /// governs the server STARTING to reply: once it is talking, keep-alives keep the request alive
+    /// however long the work takes, since cutting off a server that is working is what poisons the
+    /// session. So this is the "nothing at all is happening" case, and fifteen seconds of that in
+    /// front of somebody saving a draft is already a long time.
+    /// </summary>
+    internal static readonly TimeSpan InteractiveReplyTimeout = TimeSpan.FromSeconds(15);
 
     // X-ClientInfo identifies the client INSTANCE and must not change within a session; X-RequestId
     // is that instance plus a sequence number. Minting a fresh guid per request makes the server
@@ -53,6 +68,7 @@ public sealed class MapiHttpTransport : IDisposable
             CookieContainer = new CookieContainer(),
             UseCookies = true,
         };
+        MapiTls.Apply(handler);
 
         if (credential is MapiCredential.Integrated integrated)
         {
@@ -100,9 +116,13 @@ public sealed class MapiHttpTransport : IDisposable
         return SendAsync("Connect", body.ToArray(), cancellationToken);
     }
 
-    /// <summary>Execute request: carries one or more ROPs and the server object handle table.</summary>
-    public Task<MapiResponse> ExecuteAsync(byte[] ropBytes, IReadOnlyList<uint> handleTable, CancellationToken cancellationToken = default)
-        => SendAsync("Execute", RopExecute.BuildExecuteBody(ropBytes, handleTable), cancellationToken);
+    /// <summary>
+    /// Execute request: carries one or more ROPs and the server object handle table.
+    /// <paramref name="interactive"/> marks a request somebody is waiting on, which is given less
+    /// time to go unanswered - see <see cref="InteractiveReplyTimeout"/>.
+    /// </summary>
+    public Task<MapiResponse> ExecuteAsync(byte[] ropBytes, IReadOnlyList<uint> handleTable, CancellationToken cancellationToken = default, bool interactive = false)
+        => SendAsync("Execute", RopExecute.BuildExecuteBody(ropBytes, handleTable), cancellationToken, interactive ? InteractiveReplyTimeout : null);
 
     /// <summary>
     /// NotificationWait request (MS-OXCMAPIHTTP 2.2.4.4): a long poll that returns when the server has a
@@ -169,11 +189,6 @@ public sealed class MapiHttpTransport : IDisposable
 
     private async Task<MapiResponse> SendOnceAsync(string requestType, byte[] body, CancellationToken cancellationToken, TimeSpan? requestTimeout)
     {
-        // Every request carries its own timeout on the token (the client has none; see the constructor).
-        using var perRequestTimeout = new CancellationTokenSource(requestTimeout ?? _defaultTimeout);
-        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, perRequestTimeout.Token);
-        cancellationToken = linked.Token;
-
         using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint);
         request.Content = new ByteArrayContent(body);
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/mapi-http");
@@ -195,17 +210,31 @@ public sealed class MapiHttpTransport : IDisposable
 
         _trace?.Invoke($"--> {requestType} {body.Length} byte body");
 
-        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
-        var payload = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        // The reply timeout covers getting an answer STARTED, and nothing after that: its tokens are
+        // scoped to this block so the body read below cannot accidentally be put under them. Doing
+        // that would reinstate a flat deadline on a server that is working and talking, which is the
+        // whole thing this went to some trouble to stop doing.
+        HttpResponseMessage response;
+        using (var replyTimeout = new CancellationTokenSource(requestTimeout ?? _defaultTimeout))
+        using (var startingToReply = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, replyTimeout.Token))
+        {
+            response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, startingToReply.Token).ConfigureAwait(false);
+        }
+
+        using var _ = response;
 
         CaptureSessionCookies(response);
+
+        var pendingPeriod = Header(response, "X-PendingPeriod");
+        var idleWindow = IdleWindow(pendingPeriod, SilenceBudget(requestTimeout, _defaultTimeout));
+        var payload = await ReadBodyAsync(response, idleWindow, response.Content.Headers.ContentLength, cancellationToken).ConfigureAwait(false);
 
         var result = new MapiResponse
         {
             HttpStatus = response.StatusCode,
             RequestType = requestType,
             ResponseCodeHeader = Header(response, "X-ResponseCode"),
-            PendingPeriod = Header(response, "X-PendingPeriod"),
+            PendingPeriod = pendingPeriod,
             ExpirationTime = Header(response, "X-ExpirationTime"),
             ServerId = Header(response, "X-ServerApplication"),
             WwwAuthenticate = Header(response, "WWW-Authenticate"),
@@ -221,6 +250,83 @@ public sealed class MapiHttpTransport : IDisposable
         _trace?.Invoke($"<-- {(int)response.StatusCode} {response.StatusCode}  X-ResponseCode={result.ResponseCodeHeader ?? "(none)"}  meta=[{string.Join(",", metaTags)}]  payload={result.Body.Length} bytes");
 
         return result;
+    }
+
+    /// <summary>
+    /// How long the server may go silent before the reply is treated as abandoned.
+    ///
+    /// MS-OXCMAPIHTTP is explicit that a slow operation is not a dead one: while the server works it
+    /// writes PENDING keep-alives into the response body, and X-PendingPeriod says how often to
+    /// expect them. So the right question is not "has a minute passed" but "has the server stopped
+    /// talking" - three missed keep-alives, with a floor for servers that name a very short period.
+    /// </summary>
+    internal static TimeSpan IdleWindow(string? pendingPeriod, TimeSpan fallback)
+    {
+        if (int.TryParse(pendingPeriod, out var milliseconds) && milliseconds > 0)
+            return Longer(TimeSpan.FromMilliseconds(milliseconds * 3d), MinimumIdleWindow);
+
+        // No promise made, so fall back to the caller's own patience.
+        return fallback;
+    }
+
+    /// <summary>
+    /// How long silence is tolerated when the server names no keep-alive period.
+    ///
+    /// Deliberately not the reply timeout. A caller asking to give up SOONER on a server that says
+    /// nothing - somebody waiting on a draft save - is not asking to cut off one that is talking,
+    /// and treating those as one number would abandon working servers more often, not less. Only a
+    /// caller asking for more patience than usual, which is NotificationWait, raises it.
+    /// </summary>
+    internal static TimeSpan SilenceBudget(TimeSpan? requestTimeout, TimeSpan standard)
+        => requestTimeout is { } asked ? Longer(asked, standard) : standard;
+
+    private static TimeSpan Longer(TimeSpan a, TimeSpan b) => a > b ? a : b;
+
+    /// <summary>
+    /// Reads the response body, allowing the server as long as it likes provided it keeps saying so.
+    /// The timeout is reset by every chunk that arrives, so a save that genuinely takes two minutes
+    /// completes instead of being abandoned at some fixed mark - and abandoning it was never free:
+    /// the request carries on running on the server, and the next one sent down that session is
+    /// refused as an invalid sequence, along with everything after it.
+    /// </summary>
+    internal static async Task<byte[]> ReadBodyAsync(HttpResponseMessage response, TimeSpan idleWindow, long? expectedLength = null, CancellationToken cancellationToken = default)
+    {
+        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+
+        // Sized from Content-Length where the server gave one, and otherwise large enough that an
+        // ordinary ROP response needs no doubling at all. The doublings are what the old
+        // ReadAsByteArrayAsync avoided by buffering through a pool, and on a phone the ones past
+        // 85 KB land on the large-object heap.
+        using var collected = new MemoryStream(expectedLength is > 0 and < int.MaxValue ? (int)expectedLength : 64 * 1024);
+
+        // One pair of token sources for the whole read, re-armed before each chunk. CancelAfter on a
+        // live source reschedules its timer, which is the same "reset on every chunk" behaviour a
+        // fresh source per iteration gave - without allocating a source, a timer and two token
+        // registrations for every 16 KB that arrives.
+        using var silence = new CancellationTokenSource(idleWindow);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, silence.Token);
+
+        var chunk = ArrayPool<byte>.Shared.Rent(16 * 1024);
+        try
+        {
+            while (true)
+            {
+                silence.CancelAfter(idleWindow);
+
+                var read = await stream.ReadAsync(chunk.AsMemory(), linked.Token).ConfigureAwait(false);
+
+                if (read == 0)
+                    break;
+
+                collected.Write(chunk, 0, read);
+            }
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(chunk);
+        }
+
+        return collected.ToArray();
     }
 
     /// <summary>Remembers the pairs Connect sets, so later requests can present them.</summary>
@@ -342,7 +448,12 @@ public sealed class MapiResponse
 
         var detail = HttpStatus == HttpStatusCode.Unauthorized
             ? "HTTP 401: the credential was rejected. On-premises Exchange does not advertise Bearer in its challenge even where it accepts one, so WWW-Authenticate says nothing about that."
-            : $"HTTP {(int)HttpStatus}, X-ResponseCode {ResponseCodeHeader ?? "(none)"}" + (ResponseCodeHeader == "10" ? " (ContextNotFound: no session; usually a Connect that already failed)" : "");
+            : $"HTTP {(int)HttpStatus}, X-ResponseCode {ResponseCodeHeader ?? "(none)"}" + ResponseCodeHeader switch
+            {
+                "10" => " (ContextNotFound: no session; usually a Connect that already failed)",
+                "15" => " (InvalidSequence: two requests were in flight at once in one session; the server rejects every later one in that session too)",
+                _ => string.Empty,
+            };
 
         throw new MapiTransportException(RequestType, HttpStatus, ResponseCodeHeader, $"{RequestType} was not accepted by the transport: {detail}");
     }

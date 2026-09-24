@@ -1172,7 +1172,7 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
             var draftsFolderId = RequireFolderId(draftsFolder);
             var outgoing = MapiOutgoingMessageMapper.FromMime(preparation.CreatedLocalDraftMimeMessage);
 
-            var messageId = await MapiMessageComposer.CreateAsync(session, draftsFolderId, outgoing, CancellationToken.None, Diagnostics).ConfigureAwait(false);
+            var messageId = await MapiMessageComposer.CreateAsync(session, draftsFolderId, outgoing, CancellationToken.None, Diagnostics, interactive: true).ConfigureAwait(false);
             var id = ToMailCopyId(messageId);
 
             var isMapped = await ExchangeChangeProcessor.MapLocalDraftAsync(
@@ -1209,7 +1209,7 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
             // Created in the Outbox, submitted from there; the transport files the copy to Sent Items and
             // deletes the original (PidTagDeleteAfterSubmit). On-prem Exchange sends as the mailbox.
             var outgoing = MapiOutgoingMessageMapper.FromMime(mime);
-            await MapiMessageComposer.SendAsync(session, session.Logon!.OutboxFolderId, sentFolderId, outgoing, CancellationToken.None, Diagnostics).ConfigureAwait(false);
+            await MapiMessageComposer.SendAsync(session, session.Logon!.OutboxFolderId, sentFolderId, outgoing, CancellationToken.None, Diagnostics, interactive: true).ConfigureAwait(false);
 
             // Best-effort cleanup of the server draft created by CreateDraft.
             if (preparation.MailItem is { } draft && TryParseMailCopyId(draft.Id, out var draftMessageId))
@@ -2050,7 +2050,7 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
                 ? MapiCalendarOperations.BuildOccurrenceCancellation(tags, master, originalStartUtc, originalWall, master.Sequence, now)
                 : MapiCalendarOperations.BuildOccurrenceRequest(tags, master, change, originalStartUtc, originalWall, master.Sequence, now);
             var logon = session.Logon!;
-            await MapiMessageComposer.SendAsync(session, logon.OutboxFolderId, logon.SentItemsFolderId, message, CancellationToken.None, Diagnostics).ConfigureAwait(false);
+            await MapiMessageComposer.SendAsync(session, logon.OutboxFolderId, logon.SentItemsFolderId, message, CancellationToken.None, Diagnostics, interactive: true).ConfigureAwait(false);
             Logger.Information("MAPI calendar {Account}: {Kind} for occurrence {Start:u} of 0x{Id:X16} sent to {Attendees} attendees.", Account.Address, cancel ? "cancellation" : "update", originalStartUtc, masterId, attendees.Count);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

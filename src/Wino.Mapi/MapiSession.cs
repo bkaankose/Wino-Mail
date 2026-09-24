@@ -92,25 +92,40 @@ public sealed class MapiSession : IAsyncDisposable
     /// Sends one Execute and unwraps it. The returned handle table is the server's view: slots the
     /// ROPs filled carry new handles, the rest echo what was sent.
     /// </summary>
-    public async Task<(byte[] Rops, uint[] Handles)> ExecuteAsync(byte[] ropBytes, IReadOnlyList<uint> handleTable, CancellationToken cancellationToken = default)
+    public async Task<(byte[] Rops, uint[] Handles)> ExecuteAsync(byte[] ropBytes, IReadOnlyList<uint> handleTable, CancellationToken cancellationToken = default, bool interactive = false)
     {
         try
         {
-            var response = await _transport.ExecuteAsync(ropBytes, handleTable, cancellationToken).ConfigureAwait(false);
+            var response = await _transport.ExecuteAsync(ropBytes, handleTable, cancellationToken, interactive).ConfigureAwait(false);
             response.EnsureTransportSucceeded();
             return RopExecute.ParseExecuteResponse(response.Body);
         }
-        catch (MapiTransportException ex) when (ex.IsContextNotFound || ex.HttpStatus == HttpStatusCode.Unauthorized)
-        {
-            Faulted = true;
-            throw;
-        }
-        catch (HttpRequestException)
+        catch (Exception ex) when (RetiresSession(ex))
         {
             Faulted = true;
             throw;
         }
     }
+
+    /// <summary>
+    /// Whether a failed Execute leaves this session unusable. The question is asked this way round
+    /// on purpose.
+    ///
+    /// MS-OXCMAPIHTTP allows one request at a time inside a Session Context, so the only evidence
+    /// the context is still clean is a response that came back and parsed. Anything else leaves an
+    /// open question the client cannot answer - did the server finish? is the framing still in
+    /// step? - and a session carrying an open question poisons every request after it, because the
+    /// server refuses the whole context once it sees two requests at once.
+    ///
+    /// Listing what kills a session instead would mean every new failure defaults to REUSE, which is
+    /// how a cancelled request came to be handed back to the pool in the first place, and how the
+    /// switch to streaming the body nearly added another: an IO failure part way through a response
+    /// is not an HttpRequestException.
+    ///
+    /// So only one thing is known safe: a well-formed response that carried a ROP-level error. The
+    /// exchange completed, the framing held, and the session is exactly as usable as before.
+    /// </summary>
+    private static bool RetiresSession(Exception exception) => exception is not MapiRopException;
 
     /// <summary>
     /// True once the server has lost this session (context gone, credential expired, or the
@@ -142,21 +157,37 @@ public sealed class MapiSession : IAsyncDisposable
         return merged;
     }
 
-    /// <summary>Releases a server object handle. Best effort: a failure here is not worth surfacing.</summary>
+    /// <summary>
+    /// Releases a server object handle. Best effort as far as the caller is concerned - a failure
+    /// here is not worth surfacing - but it goes through <see cref="ExecuteAsync"/> rather than
+    /// round the side of it, because a release that was cancelled or refused leaves the session in
+    /// the same open question any other request would, and swallowing that quietly used to return a
+    /// session to the pool looking healthy.
+    /// </summary>
     public async Task ReleaseAsync(uint handle, CancellationToken cancellationToken = default)
     {
         try
         {
-            await _transport.ExecuteAsync(RopMessage.BuildRelease(0), [handle], cancellationToken).ConfigureAwait(false);
+            await ExecuteAsync(RopMessage.BuildRelease(0), [handle], cancellationToken).ConfigureAwait(false);
         }
-        catch (MapiException)
+        catch (Exception ex) when (ex is MapiException or HttpRequestException or OperationCanceledException)
         {
         }
     }
 
+    /// <summary>
+    /// A clean session is disconnected; a faulted one is dropped where it stands.
+    ///
+    /// Saying goodbye costs a request, and a faulted context is one whose last request left an open
+    /// question - see <see cref="RetiresSession"/>. If the server is still working on that request,
+    /// the Disconnect is queued behind it and gets no answer, because a Session Context takes one
+    /// request at a time. Measured: a cancelled body read of a 139 KB message, then a Disconnect
+    /// that never came back. The server retires an idle context on its own, so the courtesy buys
+    /// nothing and can only add to work the mailbox is already behind on.
+    /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if (_connected)
+        if (_connected && !Faulted)
         {
             try
             {

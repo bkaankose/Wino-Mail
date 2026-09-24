@@ -146,6 +146,12 @@ public static class PropertyTypes
 public static class PropertyTags
 {
     public const uint MessageClass = 0x001A001F;                 // PidTagMessageClass
+    /// <summary>
+    /// PidTagRtfInSync: the plain or HTML body is the message's real body, and no rich text body is
+    /// waiting to be reconciled with it. Left unset, the transport assumes there is one it cannot see
+    /// and encodes the message to preserve it, which costs a meeting request its class on the way out.
+    /// </summary>
+    public const uint RtfInSync = 0x0E1F000B;
     public const uint Subject = 0x0037001F;                      // PidTagSubject
     public const uint DisplayName = 0x3001001F;                  // PidTagDisplayName
     public const uint RuleMessageProvider = 0x65EB001F;          // PidTagRuleMessageProvider
