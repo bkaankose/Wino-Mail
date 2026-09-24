@@ -8,13 +8,25 @@ using Wino.Core.Domain.Models.SemanticIndexing;
 namespace Wino.Core.Domain.Interfaces;
 
 /// <summary>
-/// Drives Classification-first, Summarization-second processing from this device: selects messages, uploads
+/// Drives Classification-first, Enrichment-second processing from this device: selects messages, uploads
 /// one encrypted job per mailbox, polls, imports each stage, and acknowledges each stage
 /// only after its import has committed.
 /// </summary>
 public interface IMailIntelligenceCoordinator
 {
     Task InitializeAsync();
+
+    /// <summary>
+    /// Follows unfinished jobs again and, once per run, deletes server jobs this device does not
+    /// track. Called when the add-on becomes active.
+    /// </summary>
+    Task ResumeAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Stops every submission and deletes every unfinished job here and, best effort, on the
+    /// server. Imported artifacts are kept. Called when the add-on ends.
+    /// </summary>
+    Task AbandonJobsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Submits the selected messages. A selection larger than the server's per-job limit

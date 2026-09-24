@@ -983,14 +983,14 @@ public class MailService : BaseDatabaseService, IMailService
                 continue;
 
             var remoteIds = mailsByRemoteId.Keys.ToArray();
-            var jevByRemoteId = await _localIntelligenceStore.GetClassificationArtifactsAsync(
+            var classificationByRemoteId = await _localIntelligenceStore.GetClassificationArtifactsAsync(
                 accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
-            var lunaByRemoteId = await _localIntelligenceStore.GetSummaryArtifactsAsync(
+            var enrichmentByRemoteId = await _localIntelligenceStore.GetEnrichmentArtifactsAsync(
                 accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
 
             foreach (var (remoteId, matchingMails) in mailsByRemoteId)
             {
-                var metadata = CreateIntelligenceMetadata(remoteId, jevByRemoteId, lunaByRemoteId);
+                var metadata = CreateIntelligenceMetadata(remoteId, classificationByRemoteId, enrichmentByRemoteId);
                 foreach (var mail in matchingMails)
                     mail.IntelligenceMetadata = metadata;
             }
@@ -999,16 +999,16 @@ public class MailService : BaseDatabaseService, IMailService
 
     internal static MailIntelligenceMetadata CreateIntelligenceMetadata(
         string remoteMessageId,
-        IReadOnlyDictionary<string, ClassificationArtifact> jevArtifacts,
-        IReadOnlyDictionary<string, SummaryArtifact> lunaArtifacts)
+        IReadOnlyDictionary<string, ClassificationArtifact> classificationArtifacts,
+        IReadOnlyDictionary<string, EnrichmentArtifact> enrichmentArtifacts)
     {
-        if (!jevArtifacts.TryGetValue(remoteMessageId, out var jev))
+        if (!classificationArtifacts.TryGetValue(remoteMessageId, out var classification))
         {
             return null;
         }
 
-        lunaArtifacts.TryGetValue(remoteMessageId, out var luna);
-        return MailIntelligenceMetadata.From(jev, luna);
+        enrichmentArtifacts.TryGetValue(remoteMessageId, out var enrichment);
+        return MailIntelligenceMetadata.From(classification, enrichment);
     }
 
     private async Task<MailCopy> HydrateMailCopyAsync(MailCopy mailCopy)

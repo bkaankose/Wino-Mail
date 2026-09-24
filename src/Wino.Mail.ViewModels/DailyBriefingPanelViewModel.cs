@@ -363,12 +363,17 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
 
         try
         {
-            var mailCopy = await _mailService.GetSingleMailItemAsync(item.MailUniqueId).ConfigureAwait(false);
-            var code = mailCopy is { FileId: var fileId } && fileId != Guid.Empty && mailCopy.AssignedAccount is not null
-                ? ExtractCode(await _mimeFileService
-                    .GetMimeMessageInformationAsync(fileId, mailCopy.AssignedAccount.Id)
-                    .ConfigureAwait(false))
-                : null;
+            // Enrichment's extracted code first; reading the body is the fallback.
+            var code = item.OneTimeCode;
+            if (string.IsNullOrEmpty(code))
+            {
+                var mailCopy = await _mailService.GetSingleMailItemAsync(item.MailUniqueId).ConfigureAwait(false);
+                code = mailCopy is { FileId: var fileId } && fileId != Guid.Empty && mailCopy.AssignedAccount is not null
+                    ? ExtractCode(await _mimeFileService
+                        .GetMimeMessageInformationAsync(fileId, mailCopy.AssignedAccount.Id)
+                        .ConfigureAwait(false))
+                    : null;
+            }
 
             if (string.IsNullOrEmpty(code))
             {

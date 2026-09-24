@@ -6,13 +6,14 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Intelligence;
+using Wino.Mail.AI.Abstractions;
 
 namespace Wino.Mail.ViewModels;
 
 /// <summary>
-/// One briefing card. It shows only what Classification and Summarization produce: sender and date, smart
-/// labels, priority, a headline, a one-line summary, and the single action Classification chose.
-/// There is still no status or due date, because the decision model does not produce them.
+/// One briefing card. It shows only what Classification and Enrichment produce: sender and date, smart
+/// labels, priority, a headline, a one-line summary, and a primary command picked from Enrichment's
+/// typed smart actions.
 /// </summary>
 public sealed partial class DailyBriefingItem : ObservableObject
 {
@@ -83,14 +84,18 @@ public sealed partial class DailyBriefingItem : ObservableObject
 
     public bool CanOpen => MailUniqueId != Guid.Empty;
 
-    /// <summary>The action Classification chose for this message, lowercase, "none" when it chose none.</summary>
-    public string Action => Fact.Action;
+    /// <summary>The typed smart actions Enrichment extracted for this message.</summary>
+    public IReadOnlyList<MailSmartAction> Actions => Fact.Actions;
+
+    /// <summary>The one-time code Enrichment extracted, when the message carries one.</summary>
+    public string? OneTimeCode => Actions.OfType<OneTimeCodeAction>().Select(static action => action.Code)
+        .FirstOrDefault(static code => !string.IsNullOrWhiteSpace(code));
 
     /// <summary>
-    /// The card's one command. Its wording comes from Classification's action, so a card says what the
+    /// The card's one command. Its wording comes from the smart actions, so a card says what the
     /// message asks for instead of always saying Open.
     /// </summary>
-    public DailyBriefingActionPresentation PrimaryAction => DailyBriefingActionPresentationFactory.Create(Action);
+    public DailyBriefingActionPresentation PrimaryAction => DailyBriefingActionPresentationFactory.ForActions(Actions);
 
     public string PrimaryActionText => PrimaryAction.Label;
 

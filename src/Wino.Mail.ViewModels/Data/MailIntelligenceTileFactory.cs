@@ -76,24 +76,28 @@ public static class MailIntelligenceTileFactory
     public static string GetSmartLabelGlyph(MailSmartLabel label) => label switch
     {
         MailSmartLabel.Important => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Star),
-        MailSmartLabel.ActionRequired => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Flash),
+        MailSmartLabel.Action => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Flash),
         MailSmartLabel.Finance => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Payment),
         MailSmartLabel.Travel => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Airplane),
         MailSmartLabel.Social => WinoIconGlyphs.GetGlyph(WinoIconGlyph.People),
         MailSmartLabel.Newsletter => WinoIconGlyphs.GetGlyph(WinoIconGlyph.News),
         MailSmartLabel.Receipt => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Cart),
+        MailSmartLabel.Security => WinoIconGlyphs.GetGlyph(WinoIconGlyph.LockClosed),
+        MailSmartLabel.Shipping => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Package),
         _ => FallbackSmartLabelGlyph
     };
 
     public static string GetSmartLabelText(MailSmartLabel label) => label switch
     {
         MailSmartLabel.Important => Translator.IntelligenceTile_LabelImportant,
-        MailSmartLabel.ActionRequired => Translator.IntelligenceTile_LabelActionRequired,
+        MailSmartLabel.Action => Translator.IntelligenceTile_LabelActionRequired,
         MailSmartLabel.Finance => Translator.IntelligenceTile_LabelFinance,
         MailSmartLabel.Travel => Translator.IntelligenceTile_LabelTravel,
         MailSmartLabel.Social => Translator.IntelligenceTile_LabelSocial,
         MailSmartLabel.Newsletter => Translator.IntelligenceTile_LabelNewsletter,
         MailSmartLabel.Receipt => Translator.IntelligenceTile_LabelReceipt,
+        MailSmartLabel.Security => Translator.IntelligenceTile_LabelSecurity,
+        MailSmartLabel.Shipping => Translator.IntelligenceTile_LabelShipping,
         _ => label.ToString()
     };
 

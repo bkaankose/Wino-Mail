@@ -2,15 +2,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Contracts.Intelligence;
 
 namespace Wino.Core.Domain.Models.Intelligence;
 
 /// <summary>
-/// One quota bucket as the UI shows it. The server counts actions rather than money, so
-/// this carries counts: "1,240 of 1,500", which a person can act on, instead of a
-/// percentage of a budget they were never told the size of.
+/// One usage line as the UI shows it. <see cref="Used"/> and <see cref="Limit"/> are percent
+/// of the period's budget, which is what the API reports.
 /// </summary>
 public sealed record IntelligenceUsageItem(string Bucket, string DisplayName, int Used, int Limit)
 {
@@ -26,45 +24,23 @@ public sealed record IntelligenceUsageItem(string Bucket, string DisplayName, in
 
 public static class IntelligenceUsage
 {
-    /// <summary>
-    /// Fixed display order: the bucket that gates indexing first, then the reader
-    /// features in the order someone meets them.
-    /// </summary>
-    private static readonly string[] Order =
-    [
-        AiQuotaBucketIds.Intelligence,
-        AiQuotaBucketIds.Summarize,
-        AiQuotaBucketIds.Rewrite,
-        AiQuotaBucketIds.Translate,
-    ];
+    public const string IntelligenceBucket = "intelligence";
 
+    /// <summary>
+    /// The API reports one share of the period's budget rather than per-feature counts, so
+    /// the list holds a single item measured in percent (limit 100).
+    /// </summary>
     public static IReadOnlyList<IntelligenceUsageItem> Describe(AiUsageStatusDto? usage)
     {
-        if (usage is null || usage.Buckets.Count == 0)
+        if (usage is null)
         {
             return [];
         }
 
-        return [.. Order
-            .Select(bucket => usage.Find(bucket))
-            .Where(bucket => bucket is not null)
-            .Select(bucket => new IntelligenceUsageItem(
-                bucket!.Bucket, DisplayName(bucket.Bucket), bucket.Used, bucket.Limit))];
+        var used = (int)Math.Round(Math.Clamp(usage.UsagePercentage, 0m, 100m), MidpointRounding.AwayFromZero);
+        return [new IntelligenceUsageItem(IntelligenceBucket, Translator.WinoIntelligence_UsageBucketIntelligence, used, 100)];
     }
 
-    /// <summary>
-    /// The headline the usage button shows. Mail messages, because that is the bucket
-    /// indexing spends and the one a user will hit first.
-    /// </summary>
     public static IntelligenceUsageItem? Headline(AiUsageStatusDto? usage)
-        => Describe(usage).FirstOrDefault(x => x.Bucket == AiQuotaBucketIds.Intelligence);
-
-    private static string DisplayName(string bucket) => bucket switch
-    {
-        AiQuotaBucketIds.Intelligence => Translator.WinoIntelligence_UsageBucketIntelligence,
-        AiQuotaBucketIds.Summarize => Translator.WinoIntelligence_UsageBucketSummarize,
-        AiQuotaBucketIds.Rewrite => Translator.WinoIntelligence_UsageBucketRewrite,
-        AiQuotaBucketIds.Translate => Translator.WinoIntelligence_UsageBucketTranslate,
-        _ => bucket,
-    };
+        => Describe(usage).FirstOrDefault();
 }

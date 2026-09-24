@@ -1,4 +1,6 @@
 #nullable enable
+using System.Collections.Generic;
+using System.Linq;
 using Wino.Core.Domain;
 using Wino.Mail.AI.Abstractions;
 
@@ -17,7 +19,7 @@ public enum DailyBriefingActionExecution
     CopyVerificationCode,
 }
 
-/// <summary>Localized, UI-ready form of the action Classification chose for one message.</summary>
+/// <summary>Localized, UI-ready form of the primary smart action for one message.</summary>
 public sealed record DailyBriefingActionPresentation(
     string Label,
     string Glyph,
@@ -30,10 +32,9 @@ public sealed record DailyBriefingActionPresentation(
 }
 
 /// <summary>
-/// Maps <see cref="MailBriefingAction"/> - the action Classification returns alongside the labels and the
-/// priority - to the card's primary button.
+/// Maps the typed smart actions Enrichment extracted to the card's primary button.
 /// Two of them Wino can carry out on its own; the rest name what the message asks for and
-/// hand over to the message itself, because nothing local can complete them.
+/// hand over to the message itself, because nothing local can complete them yet.
 /// </summary>
 public static class DailyBriefingActionPresentationFactory
 {
@@ -41,7 +42,35 @@ public static class DailyBriefingActionPresentationFactory
         Translator.DailyBriefing_ActionOpen, DailyBriefingIcons.OpenMail, "Open");
 
     /// <summary>
-    /// Builds the presentation for a stored action name. An action this build does not know
+    /// Picks the card's primary action from Enrichment's smart actions. The order puts what
+    /// Wino can finish itself first, then what is time-bound, then the rest.
+    /// </summary>
+    public static DailyBriefingActionPresentation ForActions(IReadOnlyList<MailSmartAction> actions, bool allowReply = true)
+    {
+        var name = actions
+            .Select(ActionName)
+            .Where(static entry => entry.Name is not null)
+            .OrderBy(static entry => entry.Rank)
+            .Select(static entry => entry.Name)
+            .FirstOrDefault();
+
+        return Create(name, allowReply);
+    }
+
+    private static (string? Name, int Rank) ActionName(MailSmartAction action) => action switch
+    {
+        OneTimeCodeAction => ("copycode", 0),
+        SuggestedReplyAction => ("reply", 1),
+        CalendarEventAction => ("addtocalendar", 2),
+        PaymentDueAction => ("pay", 3),
+        ShipmentAction => ("trackshipment", 4),
+        SecurityNoticeAction => ("review", 5),
+        BookingAction or OrderAction or TaskAction => ("review", 6),
+        _ => (null, int.MaxValue),
+    };
+
+    /// <summary>
+    /// Builds the presentation for an action name. An action this build does not know
     /// degrades to opening the message rather than disappearing.
     /// </summary>
     public static DailyBriefingActionPresentation Create(string? action, bool allowReply = true)

@@ -54,6 +54,7 @@ using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
 using Wino.Messaging.UI;
 using Wino.Mail.AI.Abstractions;
+using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
 using GlobalizationCultureInfo = System.Globalization.CultureInfo;
 using GraphTaskStatus = Microsoft.Graph.Models.TaskStatus;
 

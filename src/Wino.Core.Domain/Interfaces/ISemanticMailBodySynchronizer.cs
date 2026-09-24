@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.AI.Abstractions;
+using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
 
 namespace Wino.Core.Domain.Interfaces;
 

@@ -30,8 +30,8 @@
         </Style>
 
         <!--
-            A card carries three lines and nothing else: Luna's headline with the arrival time
-            opposite it, her one-line summary, and Jev's labels beside the one action Jev chose.
+            A card carries three lines and nothing else: the Enrichment headline with the arrival time
+            opposite it, its one-line summary, and the Classification labels beside the chosen action.
             Neither the subject nor the sender is among them - the headline says what the message
             is about, and the card is a briefing entry rather than a second message list.
         -->
@@ -66,7 +66,7 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <!--  Summarization headline, falling back to the subject before Summarization has run.  -->
+                            <!--  Enrichment headline, falling back to the subject before Enrichment has run.  -->
                             <TextBlock
                                 MaxLines="2"
                                 Style="{StaticResource BodyStrongTextBlockStyle}"
@@ -95,7 +95,7 @@
                             </StackPanel>
                         </Grid>
 
-                        <!--  Summarization one-line summary.  -->
+                        <!--  Enrichment one-line summary.  -->
                         <TextBlock
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             MaxLines="2"

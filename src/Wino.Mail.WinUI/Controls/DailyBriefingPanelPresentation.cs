@@ -25,7 +25,7 @@ public static class DailyBriefingPanelPresentation
            (string.Equals(fact.Priority, "urgent", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(fact.Priority, "high", StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>The Summarization headline, falling back to the subject when Summarization has not run yet.</summary>
+    /// <summary>The Enrichment headline, falling back to the subject when Enrichment has not run yet.</summary>
     public static string Headline(DailyBriefingFact fact)
         => string.IsNullOrWhiteSpace(fact.Headline) ? fact.Subject : fact.Headline;
 

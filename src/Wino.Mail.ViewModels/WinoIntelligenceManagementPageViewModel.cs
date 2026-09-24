@@ -221,13 +221,13 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial int ActiveJobCount { get; set; }
 
-    /// <summary>Progress of the Classification decision stage, reported separately from Summarization.</summary>
+    /// <summary>Progress of the Classification decision stage, reported separately from Enrichment.</summary>
     [ObservableProperty]
     public partial string ClassificationStageText { get; set; } = string.Empty;
 
-    /// <summary>Progress of the Summarization generation stage.</summary>
+    /// <summary>Progress of the Enrichment stage.</summary>
     [ObservableProperty]
-    public partial string SummarizationStageText { get; set; } = string.Empty;
+    public partial string EnrichmentStageText { get; set; } = string.Empty;
 
     /// <summary>Jobs still in flight, so the screen can show, retry and cancel each one.</summary>
     public ObservableCollection<MailIntelligenceJobState> ActiveJobs { get; } = [];
@@ -899,8 +899,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     }
 
     /// <summary>
-    /// The quota line shows the mail-message bucket: it is the one indexing spends, and it
-    /// is counted in messages rather than in a share of a budget the user never sees.
+    /// The quota line shows the share of the period's budget used and when it resets.
     /// </summary>
     private void ApplyQuota(AiUsageStatusDto? usage)
     {
@@ -912,7 +911,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             ? Translator.Intelligence_QuotaUnavailable
             : string.Format(
                 Translator.Intelligence_QuotaUsage,
-                headline.Value,
+                headline.Used,
                 usage?.ResetsAtUtc is { } resetsAtUtc ? resetsAtUtc.LocalDateTime.ToString("d MMMM") : string.Empty);
     }
 
@@ -1255,13 +1254,13 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         ProgressValue = snapshot.ProcessedMessageCount;
         ProgressMaximum = Math.Max(1, snapshot.SelectedMessageCount);
 
-        // Classification and Summarization advance independently, so they are reported separately rather than
+        // Classification and Enrichment advance independently, so they are reported separately rather than
         // blended into one percentage.
         ClassificationStageText = FormatStage(Translator.SemanticIndex_EmbeddingProgress, snapshot.Classification, snapshot);
-        SummarizationStageText = FormatStage(Translator.SemanticIndex_MetadataProgress, snapshot.Summarization, snapshot);
+        EnrichmentStageText = FormatStage(Translator.SemanticIndex_MetadataProgress, snapshot.Enrichment, snapshot);
         ProgressText = ClassificationStageText;
         MetadataProgressValue = snapshot.ProcessedMessageCount;
-        MetadataProgressText = SummarizationStageText;
+        MetadataProgressText = EnrichmentStageText;
 
         var remainingMessageCount = Math.Max(snapshot.SelectedMessageCount - snapshot.ProcessedMessageCount, 0);
         ProgressSummary = snapshot.SelectedMessageCount == 0

@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Intelligence.Keys;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.Cryptography;
@@ -81,7 +82,15 @@ public static class ServicesContainerSetup
         services.AddSingleton<MailIntelligenceUploadBuilder>();
         services.AddSingleton<IWinoIntelligenceCoordinator, WinoIntelligenceCoordinator>();
         services.AddSingleton<IIntelligenceCoverageHandoff, IntelligenceCoverageHandoff>();
-        services.AddSingleton<IMailIntelligenceStore, MailIntelligenceStore>();
+        services.AddSingleton<MailIntelligenceStore>();
+        services.AddSingleton<IMailIntelligenceStore>(provider => provider.GetRequiredService<MailIntelligenceStore>());
+        services.AddSingleton<IIntelligenceResultKeyRows>(provider => provider.GetRequiredService<MailIntelligenceStore>());
+        services.AddSingleton<IIntelligenceKeyProtector, DpapiIntelligenceKeyProtector>();
+        services.AddSingleton<IntelligenceResultKeyPresence>();
+        services.AddSingleton<IIntelligenceResultKeyStore, IntelligenceResultKeyStore>();
+        services.AddSingleton<IntelligenceResultKeyLifecycle>();
+        services.AddSingleton<IntelligenceTransportKeyProvider>();
+        services.AddSingleton<MailIntelligenceResultPageReader>();
         services.AddSingleton<ILocalIntelligenceService, LocalIntelligenceService>();
         services.AddSingleton<IContentEnvelopeEncryptor>(_ =>
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load()));

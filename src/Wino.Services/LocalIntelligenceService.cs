@@ -117,8 +117,8 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
             }
 
             var remoteIds = distinct.Select(static x => x.RemoteMessageId!).ToArray();
-            var jevArtifacts = await _store.GetClassificationArtifactsAsync(accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
-            var lunaArtifacts = await _store.GetSummaryArtifactsAsync(accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
+            var classificationArtifacts = await _store.GetClassificationArtifactsAsync(accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
+            var enrichmentArtifacts = await _store.GetEnrichmentArtifactsAsync(accountGroup.Key, remoteIds, cancellationToken).ConfigureAwait(false);
             var ignored = await _store.GetIgnoredAsync(accountGroup.Key, cancellationToken).ConfigureAwait(false);
 
             var enabledLabels = ResolveEnabledLabels(account);
@@ -130,17 +130,17 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
             foreach (var candidate in distinct)
             {
                 var remoteMessageId = candidate.RemoteMessageId!;
-                if (!jevArtifacts.TryGetValue(remoteMessageId, out var jev) || !jev.IncludeInBriefing)
+                if (!classificationArtifacts.TryGetValue(remoteMessageId, out var classification) || !classification.IncludeInBriefing)
                 {
                     // Only messages Classification selected reach the briefing.
                     continue;
                 }
 
-                lunaArtifacts.TryGetValue(remoteMessageId, out var luna);
+                enrichmentArtifacts.TryGetValue(remoteMessageId, out var enrichment);
 
                 // A card stays ignored only while the content it was ignored at is current.
                 var isIgnored = ignored.TryGetValue(remoteMessageId, out var ignoredHash) &&
-                    string.Equals(ignoredHash, jev.Key.ContentHash, StringComparison.OrdinalIgnoreCase);
+                    string.Equals(ignoredHash, classification.Key.ContentHash, StringComparison.OrdinalIgnoreCase);
                 if (isIgnored)
                 {
                     ignoredCount++;
@@ -154,22 +154,22 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
                 var receivedAt = new DateTimeOffset(DateTime.SpecifyKind(mail.CreationDate, DateTimeKind.Utc));
                 var firstImported = await _store
                     .GetFirstImportedUtcAsync(accountGroup.Key, remoteMessageId, cancellationToken)
-                    .ConfigureAwait(false) ?? jev.CompletedUtc;
+                    .ConfigureAwait(false) ?? classification.CompletedUtc;
 
                 facts.Add(new DailyBriefingFact(
                     accountGroup.Key,
                     mail.UniqueId,
                     remoteMessageId,
-                    jev.Key.ContentHash,
+                    classification.Key.ContentHash,
                     mail.Subject ?? string.Empty,
                     mail.FromName ?? string.Empty,
                     mail.FromAddress ?? string.Empty,
                     receivedAt,
-                    jev.Labels,
-                    jev.Priority,
-                    jev.Action,
-                    luna?.Headline ?? string.Empty,
-                    luna?.Summary ?? string.Empty,
+                    classification.Labels,
+                    classification.Priority,
+                    enrichment?.Actions ?? [],
+                    enrichment?.Headline ?? string.Empty,
+                    enrichment?.Summary ?? string.Empty,
                     firstImported,
                     indicatorState,
                     isIgnored));

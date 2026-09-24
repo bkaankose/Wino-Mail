@@ -86,7 +86,11 @@ public sealed class WinoIntelligenceEntitlementService :
     private WinoIntelligenceEntitlementSnapshot SetCurrent(WinoIntelligenceEntitlementSnapshot value)
     {
         var previous = Interlocked.Exchange(ref _current, value);
-        if (previous.State != value.State || previous.WinoAccountId != value.WinoAccountId)
+        // A fresh answer that confirms a cached state is still news: only an authoritative
+        // snapshot may move the device result key.
+        if (previous.State != value.State ||
+            previous.WinoAccountId != value.WinoAccountId ||
+            (value.IsAuthoritative && !previous.IsAuthoritative))
             _messenger.Send(new WinoIntelligenceEntitlementChanged(value));
 
         return value;

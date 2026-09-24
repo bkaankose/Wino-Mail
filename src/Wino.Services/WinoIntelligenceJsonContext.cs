@@ -6,5 +6,4 @@ namespace Wino.Services;
 
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
 [JsonSerializable(typeof(MailTranslationResult))]
-[JsonSerializable(typeof(ClassificationSignals))]
 internal sealed partial class WinoIntelligenceJsonContext : JsonSerializerContext;

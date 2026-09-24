@@ -80,8 +80,9 @@ public sealed class WinoIntelligenceEntitlementSnapshotTests
             new AiUsageStatusDto
             {
                 EntitlementStatus = "active",
-                // Only the mail-message bucket gates indexing.
-                Buckets = [new AiQuotaBucketDto(AiQuotaBucketIds.Intelligence, 1_500, 1_500)],
+                UsagePercentage = 100m,
+                RemainingPercentage = 0m,
+                IsExhausted = true,
             });
 
         entitlement.State.Should().Be(WinoIntelligenceEntitlementState.QuotaExhausted);

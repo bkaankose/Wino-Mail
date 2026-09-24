@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Mail.AI.Abstractions;
 
 namespace Wino.Core.Domain.Models.Intelligence;
 
@@ -32,7 +33,7 @@ public sealed record DailyBriefingIndicatorState(
 }
 
 /// <summary>
-/// One briefing entry: a message Classification included, described only in terms Classification and Summarization can
+/// One briefing entry: a message Classification included, described only in terms Classification and Enrichment can
 /// actually support.
 /// </summary>
 public sealed record DailyBriefingFact(
@@ -46,7 +47,7 @@ public sealed record DailyBriefingFact(
     DateTimeOffset ReceivedAt,
     IReadOnlyList<string> Labels,
     string Priority,
-    string Action,
+    IReadOnlyList<MailSmartAction> Actions,
     string Headline,
     string Summary,
     DateTime FirstImportedUtc,

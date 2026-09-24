@@ -29,22 +29,11 @@ public sealed class ClassificationArtifactRow
 
     public string Priority { get; set; } = "normal";
 
-    /// <summary>
-    /// The one action the briefing offers for this message, lowercase. Decided during
-    /// classification, so the briefing never has to parse it out of generated text.
-    /// </summary>
-    public string Action { get; set; } = "none";
+    /// <summary>Comma-separated smart action kind ids Classification hinted at, for example "oneTimeCode".</summary>
+    public string Hints { get; set; } = string.Empty;
 
     [Indexed]
     public bool IncludeInBriefing { get; set; }
-
-    /// <summary>
-    /// The raw probabilities behind the decision, as JSON. Stored because retuning a
-    /// threshold should read these back rather than re-submit the mailbox: the evidence
-    /// and the questions did not change, only the policy did.
-    /// Empty for rows imported before signals were sent.
-    /// </summary>
-    public string SignalsJson { get; set; } = string.Empty;
 
     public DateTime CompletedUtc { get; set; }
 
@@ -59,9 +48,9 @@ public sealed class ClassificationArtifactRow
         => $"{localAccountId:D}|{remoteMessageId}";
 }
 
-/// <summary>The Summarization headline and summary for one briefing-included message.</summary>
-[Table("SummaryArtifact")]
-public sealed class SummaryArtifactRow
+/// <summary>The Enrichment output for one message: briefing headline and summary, and smart actions.</summary>
+[Table("EnrichmentArtifact")]
+public sealed class EnrichmentArtifactRow
 {
     [PrimaryKey]
     public string Key { get; set; } = string.Empty;
@@ -75,6 +64,10 @@ public sealed class SummaryArtifactRow
     public string ContentHash { get; set; } = string.Empty;
     public string Headline { get; set; } = string.Empty;
     public string Summary { get; set; } = string.Empty;
+
+    /// <summary>The typed smart actions as JSON, polymorphic on "kind". Empty when there are none.</summary>
+    public string ActionsJson { get; set; } = string.Empty;
+
     public DateTime CompletedUtc { get; set; }
     public DateTime FirstImportedUtc { get; set; }
 
@@ -106,19 +99,25 @@ public sealed class MailIntelligenceJobRow
     public bool IsClassificationImported { get; set; }
     public bool IsClassificationAcknowledged { get; set; }
 
-    public string SummarizationStatus { get; set; } = "pending";
-    public int SummarizationPageCount { get; set; }
-    public string? SummarizationDigest { get; set; }
-    public bool IsSummarizationImported { get; set; }
-    public bool IsSummarizationAcknowledged { get; set; }
+    public string EnrichmentStatus { get; set; } = "pending";
+    public int EnrichmentPageCount { get; set; }
+    public string? EnrichmentDigest { get; set; }
+    public bool IsEnrichmentImported { get; set; }
+    public bool IsEnrichmentAcknowledged { get; set; }
 
     public int FailedCount { get; set; }
     public string? LastError { get; set; }
 
+    /// <summary>
+    /// The device result key this job's results are encrypted to. Null only for a job
+    /// submitted before results were encrypted, whose pages the server still sends as JSON.
+    /// </summary>
+    public string? ResultKeyId { get; set; }
+
     public DateTime CreatedUtc { get; set; }
     public DateTime UpdatedUtc { get; set; }
 
-    public bool IsComplete => IsClassificationAcknowledged && IsSummarizationAcknowledged;
+    public bool IsComplete => IsClassificationAcknowledged && IsEnrichmentAcknowledged;
 }
 
 /// <summary>

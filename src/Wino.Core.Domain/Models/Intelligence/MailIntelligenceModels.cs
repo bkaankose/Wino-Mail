@@ -1,56 +1,39 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using Wino.Mail.AI.Abstractions;
 
 namespace Wino.Core.Domain.Models.Intelligence;
 
 public enum MailIntelligenceStageKind
 {
     Classification,
-    Summarization,
+    Enrichment,
 }
 
 /// <summary>Identity of one artifact. The hash is the freshness key.</summary>
 public sealed record MailArtifactKey(string RemoteMessageId, string ContentHash);
 
-/// <summary>
-/// The raw judgments behind a classification, before any threshold was applied. Kept on
-/// the device so a threshold change can be applied to results that are already here,
-/// rather than by re-submitting the mailbox and paying for it a second time.
-/// Keys are the lowercase label and priority names the rest of the app uses.
-/// </summary>
-public sealed record ClassificationSignals(
-    IReadOnlyDictionary<string, double> LabelProbabilities,
-    double BriefingProbability,
-    double PriorityScore,
-    IReadOnlyDictionary<string, double> PriorityProbabilities,
-    string TopAction,
-    double TopActionProbability,
-    double ActionConfidence)
-{
-    public static ClassificationSignals Empty { get; } = new(
-        new Dictionary<string, double>(),
-        0d,
-        0d,
-        new Dictionary<string, double>(),
-        "none",
-        0d,
-        0d);
-}
-
+/// <param name="Hints">
+/// Smart action kinds Classification expects Enrichment to extract, as their wire ids
+/// (for example "oneTimeCode").
+/// </param>
 public sealed record ClassificationArtifact(
     MailArtifactKey Key,
     IReadOnlyList<string> Labels,
     string Priority,
-    string Action,
+    IReadOnlyList<string> Hints,
     bool IncludeInBriefing,
-    DateTime CompletedUtc,
-    ClassificationSignals Signals);
+    DateTime CompletedUtc);
 
-public sealed record SummaryArtifact(
+/// <param name="Headline">Briefing headline; empty for mail that is not in the briefing.</param>
+/// <param name="Summary">Briefing summary; empty for mail that is not in the briefing.</param>
+/// <param name="Actions">Typed smart actions Enrichment extracted, in the order it returned them.</param>
+public sealed record EnrichmentArtifact(
     MailArtifactKey Key,
     string Headline,
     string Summary,
+    IReadOnlyList<MailSmartAction> Actions,
     DateTime CompletedUtc);
 
 public sealed record MailIntelligenceItemFailure(
@@ -72,13 +55,16 @@ public sealed record MailIntelligenceJobState(
     int MessageCount,
     string Status,
     MailIntelligenceStageState Classification,
-    MailIntelligenceStageState Summarization,
+    MailIntelligenceStageState Enrichment,
     int FailedCount,
     string? LastError,
     DateTime CreatedUtc,
     DateTime UpdatedUtc)
 {
-    public bool IsFinished => Classification.IsAcknowledged && Summarization.IsAcknowledged;
+    public bool IsFinished => Classification.IsAcknowledged && Enrichment.IsAcknowledged;
+
+    /// <summary>The device result key the job's results are encrypted to; null for a legacy job.</summary>
+    public string? ResultKeyId { get; init; }
 }
 
 public sealed record MailIntelligenceStageState(

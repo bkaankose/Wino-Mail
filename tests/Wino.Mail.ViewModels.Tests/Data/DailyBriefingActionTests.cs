@@ -1,4 +1,6 @@
+using System;
 using FluentAssertions;
+using Wino.Mail.AI.Abstractions;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Xunit;
@@ -6,8 +8,8 @@ using Xunit;
 namespace Wino.Mail.ViewModels.Tests.Data;
 
 /// <summary>
-/// The card's command comes from the action Classification returns, so these cover the mapping and
-/// the one piece of content the action needs but the artifact does not carry: the code itself.
+/// The card's command comes from Enrichment's typed smart actions, so these cover the mapping and
+/// the fallback that reads a code from the body when no action carries one.
 /// </summary>
 public class DailyBriefingActionTests
 {
@@ -52,6 +54,33 @@ public class DailyBriefingActionTests
         var presentation = DailyBriefingActionPresentationFactory.Create(action);
 
         presentation.Should().Be(DailyBriefingActionPresentationFactory.Open);
+    }
+
+    [Fact]
+    public void ForActions_ShouldPreferCopyingACode_OverTimeBoundActions()
+    {
+        MailSmartAction[] actions =
+        [
+            new PaymentDueAction("Due Friday", "Acme", "12.00", "EUR", new DateOnly(2026, 10, 2), null),
+            new OneTimeCodeAction("Code 481223", "481223", null, null),
+        ];
+
+        DailyBriefingActionPresentationFactory.ForActions(actions).Execution
+            .Should().Be(DailyBriefingActionExecution.CopyVerificationCode);
+    }
+
+    [Fact]
+    public void ForActions_ShouldReply_WhenEnrichmentSuggestedAReply()
+        => DailyBriefingActionPresentationFactory.ForActions(
+                [new SuggestedReplyAction("Can you confirm?", "Yes, confirmed.", SuggestedReplyIntent.Accept)])
+            .Execution.Should().Be(DailyBriefingActionExecution.Reply);
+
+    [Fact]
+    public void ForActions_ShouldOpen_WhenThereAreNoActionsOrOnlyAFollowUp()
+    {
+        DailyBriefingActionPresentationFactory.ForActions([]).Should().Be(DailyBriefingActionPresentationFactory.Open);
+        DailyBriefingActionPresentationFactory.ForActions([new FollowUpAction("Waiting on them")])
+            .Should().Be(DailyBriefingActionPresentationFactory.Open);
     }
 
     [Theory]

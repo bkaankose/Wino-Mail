@@ -368,12 +368,23 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         throw new InvalidOperationException("Submitting the intelligence job failed. Retry limit reached.");
     }
 
-    public async Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(CancellationToken cancellationToken = default)
+    public async Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(
+        string? resultKeyId = null, CancellationToken cancellationToken = default)
         => RequireResult(await SendAuthorizedRequestAsync(
             HttpMethod.Get,
-            $"{MailIntelligenceRoot}/jobs",
+            string.IsNullOrEmpty(resultKeyId)
+                ? $"{MailIntelligenceRoot}/jobs"
+                : $"{MailIntelligenceRoot}/jobs?resultKeyId={Uri.EscapeDataString(resultKeyId)}",
             WinoAccountApiJsonContext.Default.ApiEnvelopeMailIntelligenceJobListDto,
             cancellationToken).ConfigureAwait(false), "Listing intelligence jobs failed.");
+
+    /// <summary>The server transport key uploads are encrypted to. Public material; bearer only.</summary>
+    public async Task<IntelligenceTransportKeyDto> GetIntelligenceTransportKeyAsync(CancellationToken cancellationToken = default)
+        => RequireResult(await SendAuthorizedRequestAsync(
+            HttpMethod.Get,
+            $"{MailIntelligenceRoot}/transport-key",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceTransportKeyDto,
+            cancellationToken).ConfigureAwait(false), "Loading the intelligence transport key failed.");
 
     /// <summary>Returns null when the job is gone, which happens once both stages are acknowledged.</summary>
     public async Task<MailIntelligenceJobDto?> GetMailIntelligenceJobAsync(
@@ -399,34 +410,17 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             "Reading the intelligence job failed.");
     }
 
-    public async Task<ClassificationResultPageDto> GetClassificationResultPageAsync(
-        Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default)
-        => await GetResultPageAsync(
-            mailboxId,
-            jobId,
-            MailIntelligenceStageIds.Classification,
-            page,
-            WinoAccountApiJsonContext.Default.ClassificationResultPageDto,
-            cancellationToken).ConfigureAwait(false);
-
-    public async Task<SummaryResultPageDto> GetSummaryResultPageAsync(
-        Guid mailboxId, Guid jobId, int page, CancellationToken cancellationToken = default)
-        => await GetResultPageAsync(
-            mailboxId,
-            jobId,
-            MailIntelligenceStageIds.Summarization,
-            page,
-            WinoAccountApiJsonContext.Default.SummaryResultPageDto,
-            cancellationToken).ConfigureAwait(false);
-
-    /// <summary>Result pages are served as plain JSON rather than wrapped in an envelope.</summary>
-    private async Task<T> GetResultPageAsync<T>(
+    /// <summary>
+    /// Downloads one result page as its JSON bytes. A job bound to a device result key gets an
+    /// <see cref="EncryptedResultPageDto"/>; a job submitted before results were encrypted gets
+    /// the stage page itself.
+    /// </summary>
+    public async Task<byte[]> GetMailIntelligenceResultPageAsync(
         Guid mailboxId,
         Guid jobId,
         string stage,
         int page,
-        JsonTypeInfo<T> typeInfo,
-        CancellationToken cancellationToken) where T : class
+        CancellationToken cancellationToken = default)
     {
         using var response = await SendAuthorizedAsync(
             () => CreateAuthorizedRequestAsync(
@@ -435,9 +429,14 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("MissingAccessToken");
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        return await JsonSerializer.DeserializeAsync(stream, typeInfo, cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException($"The {stage} result page was empty.");
+
+        var content = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        if (content.Length == 0)
+        {
+            throw new InvalidOperationException($"The {stage} result page was empty.");
+        }
+
+        return content;
     }
 
     public async Task<MailIntelligenceStageAckResultDto> AcknowledgeMailIntelligenceStageAsync(
@@ -461,7 +460,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     /// <summary>
     /// Processes one mail synchronously. The response carries the Classification artifact always and
-    /// the Summarization artifact whenever Classification selected the message for the briefing.
+    /// the Enrichment artifact whenever Classification selected the message for the briefing.
     /// </summary>
     public async Task<AnalyzeMailResponseDto> AnalyzeMailAsync(
         Guid mailboxId,
@@ -1001,6 +1000,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(string[]))]
 [JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobAcceptedDto>))]
 [JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobListDto>))]
+[JsonSerializable(typeof(ApiEnvelope<IntelligenceTransportKeyDto>))]
+[JsonSerializable(typeof(EncryptedResultPageDto))]
 [JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobDto>))]
 [JsonSerializable(typeof(ApiEnvelope<MailIntelligenceStageAckResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AnalyzeMailResponseDto>))]
@@ -1008,10 +1009,10 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(MailIntelligenceJobDto))]
 [JsonSerializable(typeof(MailIntelligenceStageStatusDto))]
 [JsonSerializable(typeof(ClassificationResultPageDto))]
-[JsonSerializable(typeof(SummaryResultPageDto))]
+[JsonSerializable(typeof(EnrichmentResultPageDto))]
 [JsonSerializable(typeof(MailClassificationArtifactDto))]
-[JsonSerializable(typeof(MailSummaryArtifactDto))]
-[JsonSerializable(typeof(MailClassificationSignalsDto))]
+[JsonSerializable(typeof(MailEnrichmentArtifactDto))]
+[JsonSerializable(typeof(MailSmartAction))]
 [JsonSerializable(typeof(MailArtifactIdentityDto))]
 [JsonSerializable(typeof(MailIntelligenceFailureDto))]
 [JsonSerializable(typeof(AnalyzeMailResponseDto))]
