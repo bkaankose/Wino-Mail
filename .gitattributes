@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Magika assets are checked against pinned SHA-256 hashes at load time. Keep their bytes
+# exactly as committed so a Windows checkout with core.autocrlf does not turn LF into CRLF.
+src/Wino.Core.ML/Models/Magika/** -text
