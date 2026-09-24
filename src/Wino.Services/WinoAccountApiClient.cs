@@ -411,11 +411,11 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     }
 
     /// <summary>
-    /// Downloads one result page as bytes. A job bound to a device result key gets an encoded
-    /// content envelope only that device can open; a job submitted before results were
-    /// encrypted gets plain JSON.
+    /// Downloads one result page as its JSON bytes. A job bound to a device result key gets an
+    /// <see cref="EncryptedResultPageDto"/>; a job submitted before results were encrypted gets
+    /// the stage page itself.
     /// </summary>
-    public async Task<MailIntelligenceResultPayload> GetMailIntelligenceResultPageAsync(
+    public async Task<byte[]> GetMailIntelligenceResultPageAsync(
         Guid mailboxId,
         Guid jobId,
         string stage,
@@ -436,9 +436,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             throw new InvalidOperationException($"The {stage} result page was empty.");
         }
 
-        var mediaType = response.Content.Headers.ContentType?.MediaType;
-        var isEncrypted = string.Equals(mediaType, "application/octet-stream", StringComparison.OrdinalIgnoreCase);
-        return new MailIntelligenceResultPayload(content, isEncrypted);
+        return content;
     }
 
     public async Task<MailIntelligenceStageAckResultDto> AcknowledgeMailIntelligenceStageAsync(
@@ -1003,6 +1001,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobAcceptedDto>))]
 [JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobListDto>))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceTransportKeyDto>))]
+[JsonSerializable(typeof(EncryptedResultPageDto))]
 [JsonSerializable(typeof(ApiEnvelope<MailIntelligenceJobDto>))]
 [JsonSerializable(typeof(ApiEnvelope<MailIntelligenceStageAckResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AnalyzeMailResponseDto>))]

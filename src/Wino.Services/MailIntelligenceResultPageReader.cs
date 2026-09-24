@@ -13,67 +13,68 @@ using Wino.Mail.Contracts.Intelligence;
 namespace Wino.Services;
 
 /// <summary>
-/// Downloads one result page and opens it with the job's device result key. Plain JSON is
+/// Downloads one result page and opens it with the job's device result key. Plain pages are
 /// accepted only for a job that was never bound to a key; a keyed job whose page arrives
-/// unencrypted is refused rather than trusted.
+/// unencrypted, or encrypted to another key, stage or page, is refused rather than trusted.
 /// </summary>
 public sealed class MailIntelligenceResultPageReader(
     IWinoAccountApiClient apiClient,
     IIntelligenceResultKeyStore keys)
 {
-    /// <summary>
-    /// Route bound into the result page's authenticated data. Must match the server.
-    /// </summary>
-    public static string ResultRoute(Guid mailboxId, Guid jobId, string stage, int page)
-        => $"/api/v2/ai/intelligence/mailboxes/{mailboxId:D}/jobs/{jobId:D}/results/{stage}/page-{page}";
-
-    public Task<ClassificationResultPageDto> ReadClassificationAsync(
+    public Task<MailIntelligenceResultPage<ClassificationResultPageDto>> ReadClassificationAsync(
         MailIntelligenceJobState job, int page, CancellationToken cancellationToken)
         => ReadAsync(job, MailIntelligenceStageIds.Classification, page,
             WinoAccountApiJsonContext.Default.ClassificationResultPageDto, cancellationToken);
 
     // TODO: EnrichmentResultPageDto and MailIntelligenceStageIds.Enrichment with Contracts 3.0.0-alpha.1.
-    public Task<SummaryResultPageDto> ReadEnrichmentAsync(
+    public Task<MailIntelligenceResultPage<SummaryResultPageDto>> ReadEnrichmentAsync(
         MailIntelligenceJobState job, int page, CancellationToken cancellationToken)
-        => ReadAsync(job, MailIntelligenceStageIds.Summarization, page,
+        => ReadAsync(job, MailIntelligenceStageIdsV3.Enrichment, page,
             WinoAccountApiJsonContext.Default.SummaryResultPageDto, cancellationToken);
 
-    private async Task<T> ReadAsync<T>(
+    private async Task<MailIntelligenceResultPage<T>> ReadAsync<T>(
         MailIntelligenceJobState job,
         string stage,
         int page,
         JsonTypeInfo<T> typeInfo,
         CancellationToken cancellationToken) where T : class
     {
-        var payload = await apiClient
+        var content = await apiClient
             .GetMailIntelligenceResultPageAsync(job.MailboxId, job.JobId, stage, page, cancellationToken)
             .ConfigureAwait(false);
 
-        if (!payload.IsEncrypted)
-        {
-            if (job.ResultKeyId is not null)
-            {
-                throw new InvalidOperationException(
-                    $"The {stage} result page for an encrypted job arrived unencrypted and was refused.");
-            }
-
-            return Deserialize(payload.Content, typeInfo, stage);
-        }
-
         if (job.ResultKeyId is null)
         {
-            throw new InvalidOperationException($"The {stage} result page is encrypted but the job has no result key.");
+            return new(Deserialize(content, typeInfo, stage), EnvelopeHash: null);
+        }
+
+        EncryptedResultPageDto? encrypted;
+        try
+        {
+            encrypted = JsonSerializer.Deserialize(content, WinoAccountApiJsonContext.Default.EncryptedResultPageDto);
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidOperationException($"The {stage} result page for an encrypted job was not encrypted and was refused.", exception);
+        }
+
+        if (encrypted is not { Envelope.Length: > 0 } ||
+            !string.Equals(encrypted.Stage, stage, StringComparison.Ordinal) ||
+            encrypted.PageIndex != page ||
+            !string.Equals(encrypted.ResultKeyId, job.ResultKeyId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"The {stage} result page {page} does not belong to this job and was refused.");
         }
 
         var plaintext = await keys.DecryptAsync(
             job.ResultKeyId,
-            payload.Content,
+            encrypted.Envelope,
             job.MailboxId,
-            ResultRoute(job.MailboxId, job.JobId, stage, page),
+            MailIntelligenceResultRoutes.Page(job.MailboxId, job.JobId, stage, page),
             cancellationToken).ConfigureAwait(false);
         try
         {
-            return Deserialize(plaintext, typeInfo, stage);
+            return new(Deserialize(plaintext, typeInfo, stage), MailIntelligenceResultDigest.PageHash(encrypted.Envelope));
         }
         finally
         {
@@ -85,3 +86,9 @@ public sealed class MailIntelligenceResultPageReader(
         => JsonSerializer.Deserialize(json, typeInfo)
             ?? throw new InvalidOperationException($"The {stage} result page was empty.");
 }
+
+/// <summary>
+/// One opened result page. <paramref name="EnvelopeHash"/> is set for encrypted pages and feeds
+/// the stage digest the client checks before acknowledging.
+/// </summary>
+public sealed record MailIntelligenceResultPage<T>(T Page, string? EnvelopeHash) where T : class;

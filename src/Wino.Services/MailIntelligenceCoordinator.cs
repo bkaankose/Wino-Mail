@@ -538,6 +538,13 @@ public sealed class MailIntelligenceCoordinator(
             return;
         }
 
+        if (remote.Status == MailIntelligenceErrorCodes.ExpiredJobStatus)
+        {
+            // Same as a 410: the results are gone and the messages are picked up again.
+            await store.DeleteJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
         var updated = job with
         {
             Status = remote.Status,
@@ -589,9 +596,12 @@ public sealed class MailIntelligenceCoordinator(
         MailIntelligenceJobState job, MailIntelligenceJobDto remote, CancellationToken cancellationToken)
     {
         var imported = 0;
+        var pageHashes = new List<string?>();
         for (var page = 0; page < remote.Classification.PageCount; page++)
         {
-            var dto = await pageReader.ReadClassificationAsync(job, page, cancellationToken).ConfigureAwait(false);
+            var read = await pageReader.ReadClassificationAsync(job, page, cancellationToken).ConfigureAwait(false);
+            pageHashes.Add(read.EnvelopeHash);
+            var dto = read.Page;
 
             var artifacts = dto.Items
                 .Select(item => new ClassificationArtifact(
@@ -614,6 +624,7 @@ public sealed class MailIntelligenceCoordinator(
 
         // The import has committed, so the stage can be acknowledged.
         await store.MarkStageImportedAsync(job.JobId, MailIntelligenceStageKind.Classification, cancellationToken).ConfigureAwait(false);
+        EnsureDigestMatches(job, MailIntelligenceStageIds.Classification, pageHashes, remote.Classification.ResultDigest);
         await apiClient.AcknowledgeMailIntelligenceStageAsync(
             job.MailboxId, job.JobId, "classification", remote.Classification.ResultDigest ?? string.Empty, cancellationToken).ConfigureAwait(false);
         await store.MarkStageAcknowledgedAsync(job.JobId, MailIntelligenceStageKind.Classification, cancellationToken).ConfigureAwait(false);
@@ -626,12 +637,36 @@ public sealed class MailIntelligenceCoordinator(
             job.LocalAccountId, new HashSet<string>(StringComparer.Ordinal), IntelligenceMetadataChangeScope.Messages));
     }
 
+    /// <summary>
+    /// For an encrypted job, checks that the pages read are the set the server published before
+    /// the stage is acknowledged. Each envelope is already authenticated on decrypt; this catches
+    /// a missing, repeated or reordered page. A mismatch leaves the stage unacknowledged.
+    /// </summary>
+    internal static void EnsureDigestMatches(
+        MailIntelligenceJobState job, string stage, IReadOnlyList<string?> pageHashes, string? serverDigest)
+    {
+        if (job.ResultKeyId is null)
+        {
+            return;
+        }
+
+        var digest = MailIntelligenceResultDigest.Compute(pageHashes.Select(static hash =>
+            hash ?? throw new InvalidOperationException("An encrypted result page had no envelope hash.")));
+        if (!string.Equals(digest, serverDigest, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"The {stage} results did not match the server's digest and were not acknowledged.");
+        }
+    }
+
     private async Task ImportEnrichmentStageAsync(
         MailIntelligenceJobState job, MailIntelligenceJobDto remote, CancellationToken cancellationToken)
     {
+        var pageHashes = new List<string?>();
         for (var page = 0; page < remote.Summarization.PageCount; page++)
         {
-            var dto = await pageReader.ReadEnrichmentAsync(job, page, cancellationToken).ConfigureAwait(false);
+            var read = await pageReader.ReadEnrichmentAsync(job, page, cancellationToken).ConfigureAwait(false);
+            pageHashes.Add(read.EnvelopeHash);
+            var dto = read.Page;
 
             var artifacts = dto.Items
                 .Select(item => new EnrichmentArtifact(
@@ -649,8 +684,9 @@ public sealed class MailIntelligenceCoordinator(
         }
 
         await store.MarkStageImportedAsync(job.JobId, MailIntelligenceStageKind.Enrichment, cancellationToken).ConfigureAwait(false);
+        EnsureDigestMatches(job, MailIntelligenceStageIdsV3.Enrichment, pageHashes, remote.Summarization.ResultDigest);
         await apiClient.AcknowledgeMailIntelligenceStageAsync(
-            job.MailboxId, job.JobId, "summarization", remote.Summarization.ResultDigest ?? string.Empty, cancellationToken).ConfigureAwait(false);
+            job.MailboxId, job.JobId, MailIntelligenceStageIdsV3.Enrichment, remote.Summarization.ResultDigest ?? string.Empty, cancellationToken).ConfigureAwait(false);
         await store.MarkStageAcknowledgedAsync(job.JobId, MailIntelligenceStageKind.Enrichment, cancellationToken).ConfigureAwait(false);
 
         messenger.Send(new IntelligenceMetadataChanged(
@@ -725,7 +761,7 @@ public sealed class MailIntelligenceCoordinator(
     private static IReadOnlyList<MailIntelligenceItemFailure> MapFailures(IReadOnlyList<MailIntelligenceFailureDto> failures)
         => [.. failures.Select(failure => new MailIntelligenceItemFailure(
             new MailArtifactKey(failure.Identity.RemoteMessageId, failure.Identity.ContentHash),
-            string.Equals(failure.Stage, "summarization", StringComparison.Ordinal)
+            string.Equals(failure.Stage, MailIntelligenceStageIdsV3.Enrichment, StringComparison.Ordinal)
                 ? MailIntelligenceStageKind.Enrichment
                 : MailIntelligenceStageKind.Classification,
             failure.ErrorCode))];
