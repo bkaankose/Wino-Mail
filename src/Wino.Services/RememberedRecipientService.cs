@@ -117,20 +117,24 @@ public class RememberedRecipientService : IRememberedRecipientService
                 _logger.Information("Remembered recipients for {AccountId}: {Count}.", accountId, list.Recipients.Count);
             }
 
+            list.Settled = true;
             return list;
         }
         catch (OperationCanceledException)
         {
+            // A superseded keystroke is not an answer. Settling here would leave the account with no
+            // suggestions for the rest of the run because one read was overtaken; the next keystroke
+            // reads it instead.
             throw;
         }
         catch (Exception exception)
         {
             _logger.Debug(exception, "Could not read remembered recipients for {AccountId}.", accountId);
+            list.Settled = true;
             return list;
         }
         finally
         {
-            list.Settled = true;
             list.Gate.Release();
         }
     }

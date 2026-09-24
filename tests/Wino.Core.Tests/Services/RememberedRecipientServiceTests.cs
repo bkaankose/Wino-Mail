@@ -188,6 +188,33 @@ public class RememberedRecipientServiceTests
     }
 
     [Fact]
+    public async Task ASupersededReadDoesNotLeaveTheAccountEmptyForTheRun()
+    {
+        // The composer cancels a suggestion query when the next keystroke supersedes it. If the first
+        // read of a large list is still in flight when that happens, the cancellation is not an
+        // answer - treating it as one would settle the account as having no list, and suggest nothing
+        // from it for the rest of the run.
+        var reads = 0;
+        var harness = new Harness(list: [Person("rwilson@example.test", "Rebecca Wilson", 100)]);
+        harness.Synchronizer
+            .Setup(s => s.GetRememberedRecipientsAsync(It.IsAny<CancellationToken>()))
+            .Returns((CancellationToken token) =>
+            {
+                reads++;
+                return reads == 1
+                    ? Task.FromCanceled<IReadOnlyList<RememberedRecipient>>(new CancellationToken(canceled: true))
+                    : Task.FromResult<IReadOnlyList<RememberedRecipient>>([Person("rwilson@example.test", "Rebecca Wilson", 100)]);
+            });
+
+        var service = harness.Build();
+
+        var superseded = async () => await service.SuggestAsync(Account, "rwil");
+        await superseded.Should().ThrowAsync<OperationCanceledException>();
+
+        (await service.SuggestAsync(Account, "rwil")).Should().HaveCount(1, "the next keystroke must read the list, not find it settled as empty");
+    }
+
+    [Fact]
     public async Task CancellationIsNotSwallowed()
     {
         // Every other failure degrades to "no suggestions"; cancellation has to propagate, or a
