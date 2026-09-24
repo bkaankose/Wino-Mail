@@ -37,6 +37,20 @@
             Text="{x:Bind domain:Translator.SettingsAboutWinoDescription}" />
 
         <controls:SettingsCard
+            AutomationProperties.AutomationId="AboutPageWhatsNewSettingsCard"
+            Command="{x:Bind ViewModel.OpenWhatsNewCommand}"
+            Description="{x:Bind domain:Translator.SettingsWhatsNew_Description}"
+            Header="{x:Bind domain:Translator.SettingsWhatsNew_Title}"
+            IsClickEnabled="True">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Icon="Announcement" />
+            </controls:SettingsCard.HeaderIcon>
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
             AutomationProperties.AutomationId="AboutPageSettingsCard"
             Command="{x:Bind ViewModel.NavigateCommand}"
             CommandParameter="{x:Bind ViewModel.WebsiteUrl}"

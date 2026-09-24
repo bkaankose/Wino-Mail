@@ -24,6 +24,12 @@ public interface INewThemeService : IInitializeAsync
     List<string> GetAvailableAccountColors();
     Task ApplyCustomThemeAsync(bool isInitializing);
 
+    /// <summary>
+    /// Points the icon font theme resources at the icon style preference. Elements resolve the font
+    /// when they are created, so call this after the application resources load and before any window is built.
+    /// </summary>
+    void ApplyIconStyle();
+
     // Window Backdrop Management
     WindowBackdropType CurrentBackdropType { get; set; }
     void ApplyBackdrop(WindowBackdropType backdropType);

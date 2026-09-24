@@ -20,7 +20,7 @@
                                     AutomationProperties.AutomationId="PARTTodayButton"
                                     Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarButton.Icon>
-                                        <controls1:WinoFontIcon Icon="CalendarToday" />
+                                        <controls1:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="CalendarToday" />
                                     </AppBarButton.Icon>
                                 </AppBarButton>
 
@@ -31,7 +31,7 @@
                                     AutomationProperties.AutomationId="PARTDayToggle"
                                     Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
-                                        <controls1:WinoFontIcon Icon="CalendarDay" />
+                                        <controls1:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="CalendarDay" />
                                     </AppBarToggleButton.Icon>
                                 </AppBarToggleButton>
 
@@ -40,7 +40,7 @@
                                     AutomationProperties.AutomationId="PARTWeekToggle"
                                     Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
-                                        <controls1:WinoFontIcon Icon="CalendarWeek" />
+                                        <controls1:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="CalendarWeek" />
                                     </AppBarToggleButton.Icon>
                                 </AppBarToggleButton>
 
@@ -49,7 +49,7 @@
                                     AutomationProperties.AutomationId="PARTWorkWeekToggle"
                                     Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
-                                        <controls1:WinoFontIcon Icon="CalendarWorkWeek" />
+                                        <controls1:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="CalendarWorkWeek" />
                                     </AppBarToggleButton.Icon>
                                 </AppBarToggleButton>
 
@@ -58,7 +58,7 @@
                                     AutomationProperties.AutomationId="PARTMonthToggle"
                                     Foreground="{ThemeResource ApplicationForegroundThemeBrush}">
                                     <AppBarToggleButton.Icon>
-                                        <controls1:WinoFontIcon Icon="CalendarMonth" />
+                                        <controls1:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="CalendarMonth" />
                                     </AppBarToggleButton.Icon>
                                 </AppBarToggleButton>
                             </CommandBar.PrimaryCommands>

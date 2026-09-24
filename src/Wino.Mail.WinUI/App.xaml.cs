@@ -803,6 +803,10 @@ public partial class App : WinoApplication,
     {
         base.OnLaunched(args);
 
+        // Every window resolves the icon font when its XAML loads, but NewThemeService.InitializeAsync
+        // runs only after the first window exists. Application.Resources is not usable in the constructor.
+        NewThemeService.ApplyIconStyle();
+
         _preferencesService ??= Services.GetRequiredService<IPreferencesService>();
         if (ShouldCreateTrayIcon())
         {

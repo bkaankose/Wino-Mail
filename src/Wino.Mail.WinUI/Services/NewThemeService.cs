@@ -381,45 +381,83 @@ public class NewThemeService : INewThemeService
         // Change accent color if specified.
         if (!string.IsNullOrEmpty(hex))
         {
-            var color = CommunityToolkit.WinUI.Helpers.ColorHelper.ToColor(hex);
-            var white = Color.FromArgb(255, 255, 255, 255);
-            var black = Color.FromArgb(255, 0, 0, 0);
-            var light1 = BlendColor(color, white, 0.20);
-            var light2 = BlendColor(color, white, 0.40);
-            var light3 = BlendColor(color, white, 0.60);
-            var dark1 = BlendColor(color, black, 0.20);
-            var dark2 = BlendColor(color, black, 0.40);
-            var dark3 = BlendColor(color, black, 0.60);
-            var isDarkTheme = _underlyingThemeService.IsUnderlyingThemeDark();
+            var rootContent = TryGetShellRootContent();
+            TrackAccentThemeSource(rootContent);
 
-            SetColorResource("SystemAccentColor", color);
-            SetColorResource("SystemAccentColorLight1", light1);
-            SetColorResource("SystemAccentColorLight2", light2);
-            SetColorResource("SystemAccentColorLight3", light3);
-            SetColorResource("SystemAccentColorDark1", dark1);
-            SetColorResource("SystemAccentColorDark2", dark2);
-            SetColorResource("SystemAccentColorDark3", dark3);
-
-            // WinUI control templates redirect their checked/selected states to these
-            // semantic brushes. Mutating the existing brushes is important: many of
-            // those redirects are StaticResource references and retain the original
-            // brush instance for the lifetime of the application.
-            var accentFill = isDarkTheme ? light2 : dark1;
-            SetBrushResource("AccentFillColorDefaultBrush", accentFill);
-            SetBrushResource("AccentFillColorSecondaryBrush", accentFill, 0.90);
-            SetBrushResource("AccentFillColorTertiaryBrush", accentFill, 0.80);
-            SetBrushResource("AccentFillColorSelectedTextBackgroundBrush", color);
-
-            SetBrushResource("AccentTextFillColorPrimaryBrush", isDarkTheme ? light3 : dark2);
-            SetBrushResource("AccentTextFillColorSecondaryBrush", isDarkTheme ? light3 : dark3);
-            SetBrushResource("AccentTextFillColorTertiaryBrush", isDarkTheme ? light2 : dark1);
-
-            SetBrushResource("NavigationViewSelectionIndicatorForeground", accentFill);
-            SetBrushResource("SystemControlBackgroundAccentBrush", accentFill);
-            SetBrushResource("SystemColorControlAccentBrush", accentFill);
+            appliedAccentHex = hex;
+            ApplyAccentPalette(hex, IsAccentThemeDark(rootContent));
 
             RefreshThemeResource();
         }
+    }
+
+    // The accent brushes are single instances shared by both themes, so their colors must
+    // match the theme the shell actually renders. The saved preference alone is not enough:
+    // a Default theme follows Windows after launch, and TextOnAccentFillColorPrimaryBrush
+    // already follows the rendered theme, so a mismatch puts black text on a dark accent.
+    private string appliedAccentHex = string.Empty;
+    private FrameworkElement? accentThemeSource;
+
+    private bool IsAccentThemeDark(FrameworkElement? rootContent)
+        => rootContent != null
+            ? rootContent.ActualTheme == ElementTheme.Dark
+            : _underlyingThemeService.IsUnderlyingThemeDark();
+
+    private void TrackAccentThemeSource(FrameworkElement? rootContent)
+    {
+        if (rootContent == null || ReferenceEquals(rootContent, accentThemeSource)) return;
+
+        if (accentThemeSource != null)
+            accentThemeSource.ActualThemeChanged -= AccentThemeSourceActualThemeChanged;
+
+        accentThemeSource = rootContent;
+        accentThemeSource.ActualThemeChanged += AccentThemeSourceActualThemeChanged;
+    }
+
+    private void AccentThemeSourceActualThemeChanged(FrameworkElement sender, object args)
+    {
+        // Brush color changes propagate without a theme refresh, so this cannot loop.
+        if (!string.IsNullOrEmpty(appliedAccentHex))
+            ApplyAccentPalette(appliedAccentHex, sender.ActualTheme == ElementTheme.Dark);
+    }
+
+    private void ApplyAccentPalette(string hex, bool isDarkTheme)
+    {
+        var color = CommunityToolkit.WinUI.Helpers.ColorHelper.ToColor(hex);
+        var white = Color.FromArgb(255, 255, 255, 255);
+        var black = Color.FromArgb(255, 0, 0, 0);
+        var light1 = BlendColor(color, white, 0.20);
+        var light2 = BlendColor(color, white, 0.40);
+        var light3 = BlendColor(color, white, 0.60);
+        var dark1 = BlendColor(color, black, 0.20);
+        var dark2 = BlendColor(color, black, 0.40);
+        var dark3 = BlendColor(color, black, 0.60);
+
+        SetColorResource("SystemAccentColor", color);
+        SetColorResource("SystemAccentColorLight1", light1);
+        SetColorResource("SystemAccentColorLight2", light2);
+        SetColorResource("SystemAccentColorLight3", light3);
+        SetColorResource("SystemAccentColorDark1", dark1);
+        SetColorResource("SystemAccentColorDark2", dark2);
+        SetColorResource("SystemAccentColorDark3", dark3);
+
+        // WinUI control templates redirect their checked/selected states to these
+        // semantic brushes. Mutating the existing brushes is important: many of
+        // those redirects are StaticResource references and retain the original
+        // brush instance for the lifetime of the application.
+        var accentFill = isDarkTheme ? light2 : dark1;
+        SetBrushResource("AccentFillColorDefaultBrush", accentFill);
+        SetBrushResource("AccentFillColorSecondaryBrush", accentFill, 0.90);
+        SetBrushResource("AccentFillColorTertiaryBrush", accentFill, 0.80);
+        SetBrushResource("AccentFillColorSelectedTextBackgroundBrush", color);
+
+        SetBrushResource("AccentTextFillColorPrimaryBrush", isDarkTheme ? light3 : dark2);
+        SetBrushResource("AccentTextFillColorSecondaryBrush", isDarkTheme ? light3 : dark3);
+        SetBrushResource("AccentTextFillColorTertiaryBrush", isDarkTheme ? light2 : dark1);
+
+        SetBrushResource("NavigationViewSelectionIndicatorForeground", accentFill);
+        SetBrushResource("SystemControlBackgroundAccentBrush", accentFill);
+        SetBrushResource("SystemColorControlAccentBrush", accentFill);
     }
 
     private void SetColorResource(string resourceKey, Color color)
@@ -475,6 +513,8 @@ public class NewThemeService : INewThemeService
 
         dispatcherQueue.TryEnqueue(() => ApplyIconStyle(refresh: true));
     }
+
+    public void ApplyIconStyle() => ApplyIconStyle(refresh: false);
 
     /// <summary>
     /// Points WinoIconFontFamily in the Light/Dark theme dictionaries of Styles/WinoIcons.xaml at the

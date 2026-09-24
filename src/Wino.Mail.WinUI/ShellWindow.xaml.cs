@@ -46,6 +46,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     IRecipient<IntelligenceMetadataChanged>,
     IRecipient<WinoIntelligenceAccessChanged>,
     IRecipient<WinoIntelligenceEntitlementChanged>,
+    IRecipient<WhatsNewOpened>,
     IRecipient<AccountSynchronizationProgressUpdatedMessage>
 {
     private bool _allowClose;
@@ -56,11 +57,14 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
     private IWinoAccountProfileService WinoAccountProfileService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoAccountProfileService>();
     private IWinoIntelligenceEntitlementService EntitlementService { get; } = WinoApplication.Current.Services.GetRequiredService<IWinoIntelligenceEntitlementService>();
     private ILocalIntelligenceService LocalIntelligenceService { get; } = WinoApplication.Current.Services.GetRequiredService<ILocalIntelligenceService>();
+    private IWhatsNewService WhatsNewService { get; } = WinoApplication.Current.Services.GetRequiredService<IWhatsNewService>();
+    private IWhatsNewWindowLauncher WhatsNewWindowLauncher { get; } = WinoApplication.Current.Services.GetRequiredService<IWhatsNewWindowLauncher>();
 
     private bool _calendarReminderServerStartAttempted;
     private ITitleBarSearchHost? _activeTitleBarSearchHost;
     private IShellMenuProvider? _activeSynchronizationProvider;
     private float? _shellTitleOpacity;
+    private const double ShellTitleSynchronizationButtonInset = 40;
     private bool _isBackButtonVisibilityReady;
     private bool _isSynchronizingTitleBarSearch;
     private bool _hasDailyBriefingAccess;
@@ -92,6 +96,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         ApplyTitleBarSearchHost();
         ApplyShellSynchronizationProvider();
         _ = RefreshDailyBriefingStateAsync();
+        _ = RefreshWhatsNewButtonAsync();
         _ = EntitlementService.RefreshAsync();
 
         // Handle window closing event for terminate vs background/tray behavior.
@@ -324,6 +329,26 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         if (message.Entitlement.CanAccessSurfaces)
             _ = RefreshDailyBriefingStateAsync();
     }
+
+    public void Receive(WhatsNewOpened message)
+        => DispatcherQueue.TryEnqueue(() => WhatsNewButton.Visibility = Visibility.Collapsed);
+
+    /// <summary>The button stays until the window has been opened once for the running version.</summary>
+    private async Task RefreshWhatsNewButtonAsync()
+    {
+        try
+        {
+            var shouldShow = await WhatsNewService.ShouldShowShellEntryAsync().ConfigureAwait(false);
+            DispatcherQueue.TryEnqueue(() => WhatsNewButton.Visibility = shouldShow ? Visibility.Visible : Visibility.Collapsed);
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Error(exception, "Failed to refresh the What's New title-bar button.");
+        }
+    }
+
+    private async void WhatsNewButtonClicked(object sender, RoutedEventArgs e)
+        => await WhatsNewWindowLauncher.ShowAsync();
 
     private async void DailyBriefingToggleButtonClicked(object sender, RoutedEventArgs e)
     {
@@ -738,6 +763,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         {
             ShellSynchronizationButton.Visibility = Visibility.Collapsed;
             ShellSynchronizationButton.IsSynchronizing = false;
+            SetShellTitleReservesSynchronizationButton(false);
 
             // Switching to a mode without synchronization while the pill was out must not
             // leave the title faded behind it.
@@ -749,6 +775,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         var state = provider.SynchronizationState;
 
         ShellSynchronizationButton.Visibility = Visibility.Visible;
+        SetShellTitleReservesSynchronizationButton(true);
         ShellSynchronizationButton.IsSynchronizing = state.IsSynchronizing;
         ShellSynchronizationButton.IsIndeterminate = state.IsIndeterminate;
         ShellSynchronizationButton.Progress = state.ProgressPercentage;
@@ -790,6 +817,24 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         {
             RefreshShellSynchronizationButton();
         }
+    }
+
+    /// <summary>
+    /// The title sits after the synchronization button's 36px footprint (plus its -2 overhang
+    /// and spacing), so modes without synchronization, such as Settings, pull it back to the edge.
+    /// Moving the title shifts the search box, and the TitleBar only recomputes its passthrough
+    /// rects on resize, so they are refreshed here after the new layout is in place.
+    /// </summary>
+    private void SetShellTitleReservesSynchronizationButton(bool reserve)
+    {
+        var margin = new Thickness(reserve ? ShellTitleSynchronizationButtonInset : 0, 0, 0, 0);
+
+        if (ShellTitleHost.Margin == margin)
+            return;
+
+        ShellTitleHost.Margin = margin;
+        ShellTitleBar.UpdateLayout();
+        ShellTitleBar.RecomputeDragRegions();
     }
 
     /// <summary>
@@ -881,6 +926,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this);
         WeakReferenceMessenger.Default.Register<WinoIntelligenceEntitlementChanged>(this);
+        WeakReferenceMessenger.Default.Register<WhatsNewOpened>(this);
         WeakReferenceMessenger.Default.Register<AccountSynchronizationProgressUpdatedMessage>(this);
     }
 
@@ -895,6 +941,7 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<IntelligenceMetadataChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceAccessChanged>(this);
         WeakReferenceMessenger.Default.Unregister<WinoIntelligenceEntitlementChanged>(this);
+        WeakReferenceMessenger.Default.Unregister<WhatsNewOpened>(this);
         WeakReferenceMessenger.Default.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
     }
 

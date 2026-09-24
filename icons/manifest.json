@@ -68,9 +68,6 @@
     {
       "name": "CustomServer",
       "codepoint": "F509",
-      "aliases": [
-        "Mail"
-      ],
       "svg": "CustomServer.svg"
     },
     {
@@ -121,17 +118,28 @@
     {
       "name": "Flag",
       "codepoint": "F40C",
-      "svg": "Flag.svg"
+      "svg": "Flag.svg",
+      "accent": {
+        "svg": "Flag.accent.svg",
+        "color": "red"
+      },
+      "source": "fluent:flag"
     },
     {
       "name": "ClearFlag",
       "codepoint": "F40F",
-      "svg": "ClearFlag.svg"
+      "svg": "ClearFlag.svg",
+      "source": "fluent:flag_off"
     },
     {
       "name": "Folder",
       "codepoint": "E643",
-      "svg": "Folder.svg"
+      "svg": "Folder.svg",
+      "accent": {
+        "svg": "Folder.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:folder"
     },
     {
       "name": "Forward",
@@ -181,7 +189,12 @@
     {
       "name": "Pin",
       "codepoint": "F5FF",
-      "svg": "Pin.svg"
+      "svg": "Pin.svg",
+      "accent": {
+        "svg": "Pin.accent.svg",
+        "color": "orange"
+      },
+      "source": "fluent:pin"
     },
     {
       "name": "UnPin",
@@ -196,7 +209,12 @@
     {
       "name": "Star",
       "codepoint": "E734",
-      "svg": "Star.svg"
+      "svg": "Star.svg",
+      "accent": {
+        "svg": "Star.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:star"
     },
     {
       "name": "CreateFolder",
@@ -331,17 +349,20 @@
     {
       "name": "SortTextDesc",
       "codepoint": "F3606",
-      "svg": "SortTextDesc.svg"
+      "svg": "SortTextDesc.svg",
+      "source": "fluent:text_sort_descending"
     },
     {
       "name": "SortLinesDesc",
       "codepoint": "F038A",
-      "svg": "SortLinesDesc.svg"
+      "svg": "SortLinesDesc.svg",
+      "source": "fluent:arrow_sort_down_lines"
     },
     {
       "name": "Certificate",
       "codepoint": "EB95",
-      "svg": "Certificate.svg"
+      "svg": "Certificate.svg",
+      "source": "fluent:certificate"
     },
     {
       "name": "OpenInNewWindow",
@@ -351,7 +372,8 @@
     {
       "name": "New",
       "codepoint": "F002A",
-      "svg": "New.svg"
+      "svg": "New.svg",
+      "source": "fluent:add_circle"
     },
     {
       "name": "IMAP",
@@ -366,33 +388,62 @@
     {
       "name": "Calendar",
       "codepoint": "E912",
-      "svg": "Calendar.svg"
+      "svg": "Calendar.svg",
+      "accent": {
+        "svg": "Calendar.accent.svg",
+        "color": "teal"
+      },
+      "source": "fluent:calendar_ltr"
     },
     {
       "name": "CalendarToday",
       "codepoint": "E911",
       "svg": "CalendarToday.svg",
-      "advance": 956
+      "accent": {
+        "svg": "CalendarToday.accent.svg",
+        "color": "teal"
+      },
+      "source": "fluent:calendar_today"
     },
     {
       "name": "CalendarDay",
       "codepoint": "E913",
-      "svg": "CalendarDay.svg"
+      "svg": "CalendarDay.svg",
+      "accent": {
+        "svg": "CalendarDay.accent.svg",
+        "color": "teal"
+      },
+      "source": "fluent:calendar_day"
     },
     {
       "name": "CalendarWeek",
       "codepoint": "E914",
-      "svg": "CalendarWeek.svg"
+      "svg": "CalendarWeek.svg",
+      "accent": {
+        "svg": "CalendarWeek.accent.svg",
+        "color": "teal"
+      },
+      "source": "fluent:calendar_3_day"
     },
     {
       "name": "CalendarWorkWeek",
       "codepoint": "E91E",
-      "svg": "CalendarWorkWeek.svg"
+      "svg": "CalendarWorkWeek.svg",
+      "accent": {
+        "svg": "CalendarWorkWeek.accent.svg",
+        "color": "teal"
+      },
+      "source": "fluent:calendar_work_week"
     },
     {
       "name": "CalendarMonth",
       "codepoint": "E91C",
-      "svg": "CalendarMonth.svg"
+      "svg": "CalendarMonth.svg",
+      "accent": {
+        "svg": "CalendarMonth.accent.svg",
+        "color": "teal"
+      },
+      "source": "fluent:calendar_month"
     },
     {
       "name": "CalendarYear",
@@ -472,12 +523,14 @@
     {
       "name": "CalendarEventRepeat",
       "codepoint": "E915",
-      "svg": "CalendarEventRepeat.svg"
+      "svg": "CalendarEventRepeat.svg",
+      "source": "fluent:arrow_repeat_all"
     },
     {
       "name": "CalendarEventMuiltiDay",
       "codepoint": "E91B",
-      "svg": "CalendarEventMuiltiDay.svg"
+      "svg": "CalendarEventMuiltiDay.svg",
+      "source": "fluent:calendar_multiple"
     },
     {
       "name": "CalendarError",
@@ -487,7 +540,12 @@
     {
       "name": "Reminder",
       "codepoint": "E918",
-      "svg": "Reminder.svg"
+      "svg": "Reminder.svg",
+      "accent": {
+        "svg": "Reminder.accent.svg",
+        "color": "amber"
+      },
+      "source": "fluent:clock_alarm"
     },
     {
       "name": "CalendarAttendee",
@@ -497,17 +555,24 @@
     {
       "name": "CalendarAttendees",
       "codepoint": "E929",
-      "svg": "CalendarAttendees.svg"
+      "svg": "CalendarAttendees.svg",
+      "accent": {
+        "svg": "CalendarAttendees.accent.svg",
+        "color": "purple"
+      },
+      "source": "fluent:people_team"
     },
     {
       "name": "CalendarSync",
       "codepoint": "E91D",
-      "svg": "CalendarSync.svg"
+      "svg": "CalendarSync.svg",
+      "source": "fluent:calendar_sync"
     },
     {
       "name": "EventRespond",
       "codepoint": "E924",
-      "svg": "EventRespond.svg"
+      "svg": "EventRespond.svg",
+      "source": "fluent:calendar_reply"
     },
     {
       "name": "EventAccept",
@@ -552,17 +617,24 @@
     {
       "name": "EventEditSeries",
       "codepoint": "E92A",
-      "svg": "EventEditSeries.svg"
+      "svg": "EventEditSeries.svg",
+      "source": "fluent:calendar_edit"
     },
     {
       "name": "EventJoinOnline",
       "codepoint": "E926",
-      "svg": "EventJoinOnline.svg"
+      "svg": "EventJoinOnline.svg",
+      "accent": {
+        "svg": "EventJoinOnline.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:video"
     },
     {
       "name": "ViewMessageSource",
       "codepoint": "E943",
-      "svg": "ViewMessageSource.svg"
+      "svg": "ViewMessageSource.svg",
+      "source": "fluent:code"
     },
     {
       "name": "Apple",
@@ -579,7 +651,12 @@
     {
       "name": "People",
       "codepoint": "F007",
-      "svg": "People.svg"
+      "svg": "People.svg",
+      "accent": {
+        "svg": "People.accent.svg",
+        "color": "purple"
+      },
+      "source": "fluent:people"
     },
     {
       "name": "AttachmentNew",
@@ -634,7 +711,8 @@
     {
       "name": "PersonAdd",
       "codepoint": "E8FA",
-      "svg": "PersonAdd.svg"
+      "svg": "PersonAdd.svg",
+      "source": "fluent:person_add"
     },
     {
       "name": "WeatherRainSnow",
@@ -689,7 +767,12 @@
     {
       "name": "CalendarAgenda",
       "codepoint": "E919",
-      "svg": "CalendarAgenda.svg"
+      "svg": "CalendarAgenda.svg",
+      "accent": {
+        "svg": "CalendarAgenda.accent.svg",
+        "color": "teal"
+      },
+      "source": "fluent:calendar_agenda"
     },
     {
       "name": "WeatherCloudyNight",
@@ -724,12 +807,14 @@
     {
       "name": "PeopleCommunity",
       "codepoint": "EBDA",
-      "svg": "PeopleCommunity.svg"
+      "svg": "PeopleCommunity.svg",
+      "source": "fluent:people_community"
     },
     {
       "name": "Translate",
       "codepoint": "F2B7",
-      "svg": "Translate.svg"
+      "svg": "Translate.svg",
+      "source": "fluent:translate"
     },
     {
       "name": "Edit",
@@ -831,6 +916,10 @@
       "name": "Person",
       "codepoint": "E008",
       "svg": "Person.svg",
+      "accent": {
+        "svg": "Person.accent.svg",
+        "color": "blue"
+      },
       "source": "fluent:person"
     },
     {
@@ -1313,6 +1402,10 @@
       "name": "TaskList",
       "codepoint": "E04F",
       "svg": "TaskList.svg",
+      "accent": {
+        "svg": "TaskList.accent.svg",
+        "color": "green"
+      },
       "source": "fluent:task_list_ltr"
     },
     {
@@ -1609,6 +1702,10 @@
       "name": "Location",
       "codepoint": "E07D",
       "svg": "Location.svg",
+      "accent": {
+        "svg": "Location.accent.svg",
+        "color": "red"
+      },
       "source": "fluent:location"
     },
     {
@@ -1846,6 +1943,92 @@
       "codepoint": "E0A3",
       "svg": "StarFilled.svg",
       "source": "fluent:star"
+    },
+    {
+      "name": "Mail",
+      "codepoint": "E0A4",
+      "svg": "Mail.svg",
+      "accent": {
+        "svg": "Mail.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:mail"
+    },
+    {
+      "name": "Announcement",
+      "codepoint": "E0A5",
+      "svg": "Announcement.svg",
+      "accent": {
+        "svg": "Announcement.accent.svg",
+        "color": "orange"
+      },
+      "source": "fluent:megaphone"
+    },
+    {
+      "name": "AppModeMail",
+      "codepoint": "E0A6",
+      "svg": "AppModeMail.svg",
+      "accent": {
+        "svg": "AppModeMail.accent.svg",
+        "color": "blue"
+      },
+      "source": "custom:Assets/AppEntries/Mail.svg"
+    },
+    {
+      "name": "AppModeCalendar",
+      "codepoint": "E0A7",
+      "svg": "AppModeCalendar.svg",
+      "accent": {
+        "svg": "AppModeCalendar.accent.svg",
+        "color": "teal"
+      },
+      "source": "custom:Assets/AppEntries/Calendar.svg"
+    },
+    {
+      "name": "AppModeContacts",
+      "codepoint": "E0A8",
+      "svg": "AppModeContacts.svg",
+      "source": "custom:Assets/AppEntries/People.svg"
+    },
+    {
+      "name": "AppModeToDo",
+      "codepoint": "E0A9",
+      "svg": "AppModeToDo.svg",
+      "accent": {
+        "svg": "AppModeToDo.accent.svg",
+        "color": "green"
+      },
+      "source": "custom:Assets/AppEntries/ToDo.svg"
+    },
+    {
+      "name": "MailFilled",
+      "codepoint": "E0AA",
+      "svg": "MailFilled.svg",
+      "source": "fluent:mail"
+    },
+    {
+      "name": "CalendarFilled",
+      "codepoint": "E0AB",
+      "svg": "CalendarFilled.svg",
+      "source": "fluent:calendar_ltr"
+    },
+    {
+      "name": "PeopleFilled",
+      "codepoint": "E0AC",
+      "svg": "PeopleFilled.svg",
+      "source": "fluent:people"
+    },
+    {
+      "name": "CheckmarkCircleFilled",
+      "codepoint": "E0AD",
+      "svg": "CheckmarkCircleFilled.svg",
+      "source": "fluent:checkmark_circle"
+    },
+    {
+      "name": "SettingsFilled",
+      "codepoint": "E0AE",
+      "svg": "SettingsFilled.svg",
+      "source": "fluent:settings"
     }
   ]
 }

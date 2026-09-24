@@ -12,7 +12,7 @@ using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
-using Wino.Core.Domain.Models.Updates;
+using Wino.Core.Domain.Models.WhatsNew;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Navigation;
 using Wino.Messaging.UI;
@@ -21,12 +21,12 @@ namespace Wino.Mail.ViewModels;
 
 public partial class WelcomePageV2ViewModel : MailBaseViewModel
 {
-    private readonly IUpdateManager _updateManager;
+    private readonly IWhatsNewService _whatsNewService;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoAccountDataSyncService _syncService;
 
     [ObservableProperty]
-    public partial List<UpdateNoteSection> UpdateSections { get; set; } = [];
+    public partial List<WhatsNewFeature> UpdateSections { get; set; } = [];
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(GetStartedCommand))]
@@ -40,11 +40,11 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
     public bool HasImportStatus => !string.IsNullOrWhiteSpace(ImportStatusMessage);
 
-    public WelcomePageV2ViewModel(IUpdateManager updateManager,
+    public WelcomePageV2ViewModel(IWhatsNewService whatsNewService,
                                   IMailDialogService dialogService,
                                   IWinoAccountDataSyncService syncService)
     {
-        _updateManager = updateManager;
+        _whatsNewService = whatsNewService;
         _dialogService = dialogService;
         _syncService = syncService;
     }
@@ -55,8 +55,9 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
         try
         {
-            var updateNotes = await _updateManager.GetLatestUpdateNotesAsync().ConfigureAwait(false);
-            await ExecuteUIThread(() => UpdateSections = updateNotes.Sections);
+            var releases = await _whatsNewService.GetReleasesAsync().ConfigureAwait(false);
+            var latestFeatures = releases.Count > 0 ? releases[0].Features : [];
+            await ExecuteUIThread(() => UpdateSections = latestFeatures);
         }
         catch (Exception)
         {

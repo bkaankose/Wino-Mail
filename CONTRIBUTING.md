@@ -29,6 +29,8 @@ Wino development requires Windows because the active application is a packaged W
 
 NuGet restore installs the Windows App SDK and other managed dependencies. Wino supports x86, x64, and ARM64 package builds.
 
+Python 3 is required only to add or change icons. See [`icons/README.md`](icons/README.md).
+
 ## First build
 
 1. Clone the repository.
@@ -203,6 +205,8 @@ The `controls` projects contain highly customized controls for Wino. They are sh
 Use [`Wino.Mail.Controls.Playground`](controls/Wino.Mail.Controls.Playground) for quick control tests before integration into the full application.
 
 Read [`controls/AGENTS.md`](controls/AGENTS.md) before you change a shared control. Format changed XAML with the repository harness before handoff.
+
+Every icon comes from the WinoIcons fonts. To add one, follow [Add an icon](icons/README.md#add-an-icon). Do not copy an SVG into `icons/svg` by hand.
 
 ## Before you submit
 

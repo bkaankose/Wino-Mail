@@ -100,6 +100,6 @@ public static class ServicesContainerSetup
         services.AddTransient<ICalDavClient>(provider => new CalDavClient(
             provider.GetRequiredService<IDavTransport>(),
             provider.GetRequiredService<IDavResponseHandler>()));
-        services.AddSingleton<IUpdateManager, UpdateManager>();
+        services.AddSingleton<IWhatsNewService, WhatsNewService>();
     }
 }

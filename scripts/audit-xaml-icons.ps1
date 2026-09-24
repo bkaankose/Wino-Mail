@@ -91,7 +91,43 @@ function Find-Violations {
     }
 }
 
-$excluded = '\\(bin|obj)\\'
+# The app WinoFontIcon gets its FontFamily from an implicit style. Inside a ControlTemplate of a
+# style dictionary that style is not applied, so the icon falls back to Segoe Fluent Icons and draws
+# whatever Segoe has at the Wino codepoint. Such icons must set FontFamily themselves.
+$appIconNamespace = "using:Wino.Mail.WinUI.Controls"
+
+function Find-TemplateIconViolations {
+    param([System.IO.FileInfo]$File, [string]$RootPath)
+
+    try {
+        $document = [System.Xml.Linq.XDocument]::Load($File.FullName, [System.Xml.Linq.LoadOptions]::SetLineInfo)
+    }
+    catch {
+        return
+    }
+
+    $relativePath = $File.FullName.Substring($RootPath.Length).TrimStart('\', '/')
+    foreach ($element in $document.Descendants()) {
+        if ($element.Name.LocalName -notin @("WinoFontIcon", "WinoFontIconSource") -or $element.Name.NamespaceName -ne $appIconNamespace) {
+            continue
+        }
+        if ($null -ne $element.Attribute("FontFamily")) {
+            continue
+        }
+        if (-not ($element.Ancestors() | Where-Object { $_.Name.LocalName -eq "ControlTemplate" } | Select-Object -First 1)) {
+            continue
+        }
+
+        [PSCustomObject]@{
+            File = $relativePath
+            Line = ([System.Xml.IXmlLineInfo]$element).LineNumber
+            Rule = "WinoFontIcon in ControlTemplate without FontFamily"
+            Text = 'Add FontFamily="{ThemeResource WinoIconFontFamily}"'
+        }
+    }
+}
+
+$excluded = '\\(bin|obj|AppPackages)\\'
 $violations = [System.Collections.Generic.List[object]]::new()
 
 foreach ($folder in $Root) {
@@ -99,7 +135,10 @@ foreach ($folder in $Root) {
 
     Get-ChildItem -Path $rootPath -Recurse -File -Include *.xaml |
         Where-Object { $_.FullName -notmatch $excluded } |
-        ForEach-Object { Find-Violations -File $_ -RootPath $rootPath -Rules $xamlRules -IsXaml $true } |
+        ForEach-Object {
+            Find-Violations -File $_ -RootPath $rootPath -Rules $xamlRules -IsXaml $true
+            Find-TemplateIconViolations -File $_ -RootPath $rootPath
+        } |
         ForEach-Object { $violations.Add($_) }
 
     Get-ChildItem -Path $rootPath -Recurse -File -Include *.cs |

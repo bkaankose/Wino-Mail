@@ -15,6 +15,17 @@ All channels use the same source and compiled binaries. Selecting Beta does not 
 Each distribution has its own package identity and runtime profile. All three can run at the same time.
 Release maintainers decide which version to publish to each feed.
 
+## Before you run the script
+
+1. Set the new version in `src/Wino.Mail.WinUI/Package.appxmanifest`.
+2. Add the What's New notes for that version with the [whats-new skill](../.claude/skills/whats-new/SKILL.md).
+   The skill writes `src/Wino.Mail.WinUI/Assets/WhatsNew/<major.minor.build>.json` and its PNG illustrations.
+3. Run `pwsh -NoProfile -File .\scripts\whats-new\validate.ps1`.
+
+The release script runs the same validation. If the notes are missing or invalid, it shows the failures and asks whether to continue.
+With `-NonInteractive`, it only shows a warning.
+The What's New button in the title bar appears only when notes exist for the installed version.
+
 ## Run the script
 
 After installing the build prerequisites below, run this command from the repository root in PowerShell 7:

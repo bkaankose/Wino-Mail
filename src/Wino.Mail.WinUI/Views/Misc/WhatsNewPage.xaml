@@ -1,0 +1,151 @@
+﻿<abstract:WhatsNewPageAbstract
+    x:Class="Wino.Views.Misc.WhatsNewPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:abstract="using:Wino.Views.Abstract"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:domain="using:Wino.Core.Domain"
+    xmlns:helpers="using:Wino.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:models="using:Wino.Core.Domain.Models.WhatsNew"
+    mc:Ignorable="d">
+
+    <Grid Padding="24,8,24,24" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="40" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--  Sits under the window's drag region, so it holds nothing interactive.  -->
+        <TextBlock
+            VerticalAlignment="Bottom"
+            Style="{StaticResource TitleTextBlockStyle}"
+            Text="{x:Bind domain:Translator.WhatsNew_Header, Mode=OneTime}" />
+
+        <!--  SelectorBar has no overflow of its own; older versions scroll sideways.  -->
+        <ScrollViewer
+            Grid.Row="1"
+            HorizontalScrollBarVisibility="Hidden"
+            HorizontalScrollMode="Auto"
+            VerticalScrollBarVisibility="Disabled"
+            VerticalScrollMode="Disabled"
+            Visibility="{x:Bind ViewModel.HasReleases, Mode=OneWay}">
+            <SelectorBar
+                x:Name="VersionSelectorBar"
+                Margin="-12,0,0,0"
+                AutomationProperties.AutomationId="WhatsNewVersionSelectorBar"
+                AutomationProperties.Name="{x:Bind domain:Translator.WhatsNew_VersionSelectorAutomationName, Mode=OneTime}"
+                SelectionChanged="VersionSelectorBarSelectionChanged" />
+        </ScrollViewer>
+
+        <Grid
+            Grid.Row="2"
+            ColumnSpacing="8"
+            Visibility="{x:Bind ViewModel.HasReleases, Mode=OneWay}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <ListView
+                x:Name="FeatureListView"
+                Margin="-4,0,0,0"
+                AutomationProperties.AutomationId="WhatsNewFeatureListView"
+                AutomationProperties.Name="{x:Bind domain:Translator.WhatsNew_FeatureListAutomationName, Mode=OneTime}"
+                ItemsSource="{x:Bind ViewModel.Features, Mode=OneWay}"
+                SelectedItem="{x:Bind ViewModel.SelectedFeature, Mode=TwoWay}"
+                SelectionMode="Single">
+                <ListView.ItemContainerStyle>
+                    <Style BasedOn="{StaticResource DefaultListViewItemStyle}" TargetType="ListViewItem">
+                        <Setter Property="Padding" Value="16,12" />
+                        <Setter Property="Margin" Value="4,0,4,4" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="models:WhatsNewFeature">
+                        <StackPanel AutomationProperties.Name="{x:Bind AccessibilityName, Mode=OneTime}" Spacing="4">
+                            <TextBlock
+                                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                Text="{x:Bind Title, Mode=OneTime}"
+                                TextWrapping="WrapWholeWords" />
+                            <TextBlock
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                MaxLines="3"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind Description, Mode=OneTime}"
+                                TextTrimming="CharacterEllipsis"
+                                TextWrapping="WrapWholeWords" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <!--  Flipping follows the list selection both ways through SelectedFeature.  -->
+            <Border
+                Grid.Column="1"
+                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                CornerRadius="8">
+                <FlipView
+                    x:Name="FeatureFlipView"
+                    AutomationProperties.AutomationId="WhatsNewFeatureFlipView"
+                    AutomationProperties.Name="{x:Bind domain:Translator.WhatsNew_FeatureListAutomationName, Mode=OneTime}"
+                    Background="Transparent"
+                    CornerRadius="7"
+                    ItemsSource="{x:Bind ViewModel.Features, Mode=OneWay}"
+                    SelectedItem="{x:Bind ViewModel.SelectedFeature, Mode=TwoWay}">
+                    <FlipView.ItemTemplate>
+                        <DataTemplate x:DataType="models:WhatsNewFeature">
+                            <Grid AutomationProperties.Name="{x:Bind AccessibilityName, Mode=OneTime}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="300" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+
+                                <!--  Illustrations are 1120x600 PNGs: this 560x300 slot at 2x.  -->
+                                <Border
+                                    Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="0,0,0,1">
+                                    <Image
+                                        AutomationProperties.AccessibilityView="Raw"
+                                        Source="{x:Bind ImageUri, Mode=OneTime}"
+                                        Stretch="UniformToFill" />
+                                </Border>
+
+                                <ScrollViewer
+                                    Grid.Row="1"
+                                    HorizontalScrollBarVisibility="Disabled"
+                                    VerticalScrollBarVisibility="Auto">
+                                    <StackPanel Padding="20,16,20,20" Spacing="8">
+                                        <TextBlock
+                                            Style="{StaticResource SubtitleTextBlockStyle}"
+                                            Text="{x:Bind Title, Mode=OneTime}"
+                                            TextWrapping="WrapWholeWords" />
+                                        <TextBlock
+                                            Style="{StaticResource BodyTextBlockStyle}"
+                                            Text="{x:Bind Description, Mode=OneTime}"
+                                            TextWrapping="WrapWholeWords" />
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </Grid>
+                        </DataTemplate>
+                    </FlipView.ItemTemplate>
+                </FlipView>
+            </Border>
+        </Grid>
+
+        <TextBlock
+            Grid.Row="2"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            AutomationProperties.AutomationId="WhatsNewEmptyMessage"
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Style="{StaticResource BodyTextBlockStyle}"
+            Text="{x:Bind domain:Translator.WhatsNew_EmptyMessage, Mode=OneTime}"
+            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.HasReleases), Mode=OneWay}" />
+    </Grid>
+</abstract:WhatsNewPageAbstract>

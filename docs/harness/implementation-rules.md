@@ -66,7 +66,7 @@ Every icon comes from the WinoIcons fonts. Their source is `icons/manifest.json`
 - Inside `Wino.Core.Domain`, do not put `[ObservableProperty]` on a `WinoIconGlyph` property. The enum is generated in that assembly, so the MVVM generator cannot resolve it. Use a plain property.
 - Do not set `FontSize` on a `WinoFontIcon` hosted in an `Icon` or `HeaderIcon` slot or a `Viewbox`. The host sizes it.
 - The icon style (monochrome or colorful) is applied by `NewThemeService`. It rewrites `WinoIconFontFamily` in the theme dictionaries of `Styles/WinoIcons.xaml`, the same way it applies accent colors. Do not set `FontFamily` on an individual `WinoFontIcon`.
-- To add an icon, run `python icons/tools/add_fluent_icon.py <fluent_name> <Name> [--accent <palette key>]`, then `python icons/tools/build_fonts.py`. Commit the manifest, the SVGs and every regenerated font. Only use `--accent` where color carries meaning. Toolbar and menu commands stay monochrome.
+- To add an icon, follow [Add an icon](../../icons/README.md#add-an-icon). From an SVG file, run `python icons/tools/add_svg_icon.py <Name> --svg <file>`. From Fluent UI System Icons, run `python icons/tools/add_fluent_icon.py <fluent_name> <Name> [--accent <palette key>]`. Then run `python icons/tools/build_fonts.py`. Commit the manifest, the SVGs and every regenerated font. Never copy an SVG into `icons/svg` by hand; the font build ignores files that are not in the manifest. Only use `--accent` where color carries meaning. Toolbar and menu commands stay monochrome.
 - Check with `.\scripts\audit-xaml-icons.ps1` and `python icons/tools/build_fonts.py --check`.
 
 Format changed XAML with the repository-pinned XAML Styler before the build. Passive mode must pass before handoff:

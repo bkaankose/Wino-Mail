@@ -20,6 +20,7 @@ public partial class AboutPageViewModel : CoreBaseViewModel
     private readonly IClipboardService _clipboardService;
     private readonly IFileService _fileService;
     private readonly IWinoLogger _logInitializer;
+    private readonly IWhatsNewWindowLauncher _whatsNewWindowLauncher;
 
     public string VersionName => _nativeAppService.GetFullAppVersion();
     public string WebsiteUrl => AppUrls.Website;
@@ -37,7 +38,8 @@ public partial class AboutPageViewModel : CoreBaseViewModel
                               IApplicationConfiguration appInitializerService,
                               IClipboardService clipboardService,
                               IFileService fileService,
-                              IWinoLogger logInitializer)
+                              IWinoLogger logInitializer,
+                              IWhatsNewWindowLauncher whatsNewWindowLauncher)
     {
         _storeRatingService = storeRatingService;
         _dialogService = dialogService;
@@ -46,6 +48,7 @@ public partial class AboutPageViewModel : CoreBaseViewModel
         _appInitializerService = appInitializerService;
         _clipboardService = clipboardService;
         _fileService = fileService;
+        _whatsNewWindowLauncher = whatsNewWindowLauncher;
 
         PreferencesService = preferencesService;
     }
@@ -72,6 +75,9 @@ public partial class AboutPageViewModel : CoreBaseViewModel
             _logInitializer.RefreshLoggingLevel();
         }
     }
+
+    [RelayCommand]
+    private Task OpenWhatsNewAsync() => _whatsNewWindowLauncher.ShowAsync();
 
     [RelayCommand]
     private async Task CopyDiagnosticId()

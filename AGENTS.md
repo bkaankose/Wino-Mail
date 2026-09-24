@@ -33,6 +33,7 @@ Read only references that apply to the task:
 | Contacts, To Do, or activation audit replay | [replay contract](scripts/ui-audit/REPLAY.md) |
 | Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
 | Release packaging | [release guide](docs/releases.md) |
+| What's New notes and illustrations | [whats-new skill](.claude/skills/whats-new/SKILL.md) |
 
 Repository commands and package rules take precedence over stale personal skill instructions.
 Use focused skills for the affected subsystem. Avoid loading overlapping general workflows for the same operation.

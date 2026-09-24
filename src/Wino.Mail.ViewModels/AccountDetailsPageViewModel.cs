@@ -545,8 +545,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
         var account = Account;
         var confirmation = await _dialogService.ShowConfirmationDialogAsync(
-            string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, account.Name),
             Translator.DialogMessage_DeleteAccountConfirmationTitle,
+            string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, account.Name),
             Translator.Buttons_Delete);
 
         if (!confirmation)

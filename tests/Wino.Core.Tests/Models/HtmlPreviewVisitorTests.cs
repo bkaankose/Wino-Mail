@@ -5,7 +5,7 @@ using MimeKit.Cryptography;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Wino.Core.Domain.Models.MailItem;
-using Wino.Core.Domain.Models.Updates;
+using Wino.Core.Domain.Models.WhatsNew;
 using Wino.Services.Extensions;
 
 namespace Wino.Core.Tests.Models;
@@ -382,10 +382,10 @@ public class HtmlPreviewVisitorTests
     }
 
     [Fact]
-    public void UpdateNoteSection_Should_Use_Title_And_Description_For_Accessibility_Name()
+    public void WhatsNewFeature_Should_Use_Title_And_Description_For_Accessibility_Name()
     {
         // Arrange
-        var section = new UpdateNoteSection
+        var section = new WhatsNewFeature
         {
             Title = "Better inbox",
             Description = "Mail actions are easier to find."

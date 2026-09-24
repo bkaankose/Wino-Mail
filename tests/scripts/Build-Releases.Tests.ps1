@@ -229,6 +229,7 @@ try {
         $plan = New-FixturePlan $true $false
         function Read-ReleaseSelection { return $plan.Selection }
         function New-ReleasePlan { param($Selection); return $plan }
+        function Confirm-ReleaseWhatsNew { param($Plan); return $true }
         function Get-ReleaseTools { param($Selection); return @{} }
         function Get-StoreSigningCertificate { param($Plan, $Thumbprint); return [pscustomobject]@{ Thumbprint = 'fixture' } }
         function Get-ReleaseSigningConfiguration { throw 'Store must not require signing.' }
@@ -256,6 +257,7 @@ try {
         $plan = New-FixturePlan $false $false -Sideload $true
         function Read-ReleaseSelection { return $plan.Selection }
         function New-ReleasePlan { param($Selection); return $plan }
+        function Confirm-ReleaseWhatsNew { param($Plan); return $true }
         function Get-ReleaseTools { param($Selection); return @{} }
         function Get-ReleaseSigningConfiguration {
             param([switch]$IncludeBeta, [switch]$IncludeSideload)
@@ -470,6 +472,24 @@ try {
         Assert-True (Test-Path -LiteralPath $ready) 'First channel was not restored.'
         Assert-True (Test-Path -LiteralPath $betaReady) 'Second channel was not restored.'
         foreach ($destination in $plan.Destinations) { Assert-True (-not (Test-Path -LiteralPath $destination)) 'Partial finalization remained.' }
+    }
+    Test-Case 'What''s New notes are required for the manifest version' {
+        $plan = New-FixturePlan $true $false
+        $app = Join-Path $plan.RepositoryRoot 'src/Wino.Mail.WinUI'
+        $notes = Join-Path $app 'Assets/WhatsNew'
+        $null = New-Item -ItemType Directory -Path $notes -Force
+        '<Project><ItemGroup><Content Include="Assets\WhatsNew\*.json" /></ItemGroup></Project>' |
+            Set-Content -LiteralPath (Join-Path $app 'Wino.Mail.WinUI.csproj')
+        $errors = @(Get-ReleaseWhatsNewErrors $plan)
+        Assert-True ($errors.Count -eq 1 -and $errors[0] -match 'No release notes for 2\.53\.0') "Unexpected errors: $($errors -join '; ')"
+
+        # Only the PNG header is read: signature, IHDR length and type, then width 1120 and height 600.
+        $png = [byte[]](0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52, 0, 0, 4, 0x60, 0, 0, 2, 0x58)
+        [IO.File]::WriteAllBytes((Join-Path $notes 'sample-feature.png'), $png)
+        '{ "version": "2.53.0", "features": [ { "image": "sample-feature.png", "title": "Sample", "description": "Text" } ] }' |
+            Set-Content -LiteralPath (Join-Path $notes '2.53.0.json')
+        $errors = @(Get-ReleaseWhatsNewErrors $plan)
+        Assert-True ($errors.Count -eq 0) "Valid notes were rejected: $($errors -join '; ')"
     }
     Write-Host "$script:Passed release script tests passed." -ForegroundColor Green
 }

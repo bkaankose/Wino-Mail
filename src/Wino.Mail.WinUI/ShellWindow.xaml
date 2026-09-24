@@ -200,6 +200,22 @@
                                 </Grid>
                             </ToggleButton>
                             <Button
+                                x:Name="WhatsNewButton"
+                                Width="38"
+                                Height="38"
+                                Padding="0"
+                                AutomationProperties.AutomationId="ShellWhatsNewButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.WhatsNew_ShellButtonTooltip, Mode=OneTime}"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                Click="WhatsNewButtonClicked"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.WhatsNew_ShellButtonTooltip, Mode=OneTime}"
+                                Visibility="Collapsed">
+                                <Viewbox Width="22" Height="22">
+                                    <coreControls:WinoFontIcon Icon="Announcement" />
+                                </Viewbox>
+                            </Button>
+                            <Button
                                 x:Name="WinoAccountButton"
                                 AutomationProperties.AutomationId="WinoAccountButton"
                                 AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}"

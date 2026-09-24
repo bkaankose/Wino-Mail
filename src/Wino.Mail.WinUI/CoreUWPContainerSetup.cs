@@ -44,6 +44,7 @@ public static class CoreUWPContainerSetup
         services.AddTransient<IClipboardService, ClipboardService>();
         services.AddTransient<IStartupBehaviorService, StartupBehaviorService>();
         services.AddSingleton<IPrintService, PrintService>();
+        services.AddSingleton<IWhatsNewWindowLauncher, WhatsNewWindowLauncher>();
 
     }
 
@@ -58,6 +59,7 @@ public static class CoreUWPContainerSetup
         services.AddTransient(typeof(SettingsPageViewModel));
         services.AddTransient(typeof(WelcomeHostPageViewModel));
         services.AddTransient(typeof(KeyboardShortcutsPageViewModel));
+        services.AddTransient(typeof(WhatsNewPageViewModel));
     }
 }
 

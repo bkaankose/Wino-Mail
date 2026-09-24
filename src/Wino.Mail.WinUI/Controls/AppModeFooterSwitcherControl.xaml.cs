@@ -61,6 +61,8 @@ public sealed partial class AppModeFooterSwitcherControl : Segmented
 
     private void ModeSegmentedControlSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        UpdateModeIcons();
+
         if (_isUpdatingSelection)
             return;
 
@@ -91,6 +93,17 @@ public sealed partial class AppModeFooterSwitcherControl : Segmented
             _ => 0
         };
         _isUpdatingSelection = false;
+        UpdateModeIcons();
+    }
+
+    // The selected mode shows its Filled glyph; the others stay Regular.
+    private void UpdateModeIcons()
+    {
+        MailModeIcon.Icon = SelectedIndex == 0 ? WinoIconGlyph.MailFilled : WinoIconGlyph.Mail;
+        CalendarModeIcon.Icon = SelectedIndex == 1 ? WinoIconGlyph.CalendarFilled : WinoIconGlyph.Calendar;
+        ContactsModeIcon.Icon = SelectedIndex == 2 ? WinoIconGlyph.PeopleFilled : WinoIconGlyph.People;
+        ToDoModeIcon.Icon = SelectedIndex == 3 ? WinoIconGlyph.CheckmarkCircleFilled : WinoIconGlyph.CheckmarkCircle;
+        SettingsModeIcon.Icon = SelectedIndex == 4 ? WinoIconGlyph.SettingsFilled : WinoIconGlyph.Settings;
     }
 
     private void UpdateOrientationState()

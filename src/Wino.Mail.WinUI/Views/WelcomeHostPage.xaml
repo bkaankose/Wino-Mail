@@ -66,6 +66,14 @@
             </winuiControls:BreadcrumbBar>
         </Border>
 
-        <Frame x:Name="WizardFrame" Grid.Row="1" />
+        <!--  Wizard pages size to their content; the host scrolls them when they are taller than the window.  -->
+        <ScrollViewer
+            x:Name="WizardScrollViewer"
+            Grid.Row="1"
+            AutomationProperties.AutomationId="WelcomeWizardScrollViewer"
+            HorizontalScrollBarVisibility="Disabled"
+            VerticalScrollBarVisibility="Auto">
+            <Frame x:Name="WizardFrame" />
+        </ScrollViewer>
     </Grid>
 </abstract:WelcomeHostPageAbstract>

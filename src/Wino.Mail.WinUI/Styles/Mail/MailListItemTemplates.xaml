@@ -61,6 +61,7 @@
                     x:Name="DetailedIntelligenceTileGlyph"
                     VerticalAlignment="Center"
                     AutomationProperties.AccessibilityView="Raw"
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
                     FontSize="11"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Glyph="{x:Bind Glyph, Mode=OneTime}"
@@ -100,6 +101,7 @@
                 <coreControls:WinoFontIcon
                     x:Name="CompactIntelligenceTileGlyph"
                     AutomationProperties.AccessibilityView="Raw"
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
                     FontSize="10"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Glyph="{x:Bind Glyph, Mode=OneTime}"
@@ -132,6 +134,7 @@
             <coreControls:WinoFontIcon
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
+                FontFamily="{ThemeResource WinoIconFontFamily}"
                 FontSize="10"
                 Icon="{x:Bind helpers:XamlHelpers.GetThreadChevronGlyph(IsExpanded), Mode=OneWay}" />
         </Grid>
