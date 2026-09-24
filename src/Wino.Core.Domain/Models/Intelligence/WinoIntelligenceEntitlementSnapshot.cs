@@ -67,9 +67,7 @@ public sealed record WinoIntelligenceEntitlementSnapshot(
         if (!aiPack.HasAccess)
             return new(WinoIntelligenceEntitlementState.NoSubscription, accountId, now);
 
-        // Only the mail-message bucket gates intelligence. A reader feature running out of
-        // rewrites says nothing about whether this mailbox can still be processed.
-        var quotaExhausted = usage?.Find(AiQuotaBucketIds.Intelligence)?.IsExhausted == true;
+        var quotaExhausted = usage?.IsExhausted == true;
         return new(
             quotaExhausted ? WinoIntelligenceEntitlementState.QuotaExhausted : WinoIntelligenceEntitlementState.Active,
             accountId,

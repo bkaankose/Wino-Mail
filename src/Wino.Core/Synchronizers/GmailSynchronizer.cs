@@ -48,6 +48,7 @@ using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
 using Wino.Mail.AI.Abstractions;
+using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
 using Wino.Messaging.UI;
 using Wino.Services;
 using DriveFile = global::Google.Apis.Drive.v3.Data.File;

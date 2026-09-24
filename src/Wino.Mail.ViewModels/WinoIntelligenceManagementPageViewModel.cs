@@ -899,8 +899,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     }
 
     /// <summary>
-    /// The quota line shows the mail-message bucket: it is the one indexing spends, and it
-    /// is counted in messages rather than in a share of a budget the user never sees.
+    /// The quota line shows the share of the period's budget used and when it resets.
     /// </summary>
     private void ApplyQuota(AiUsageStatusDto? usage)
     {
@@ -912,7 +911,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             ? Translator.Intelligence_QuotaUnavailable
             : string.Format(
                 Translator.Intelligence_QuotaUsage,
-                headline.Value,
+                headline.Used,
                 usage?.ResetsAtUtc is { } resetsAtUtc ? resetsAtUtc.LocalDateTime.ToString("d MMMM") : string.Empty);
     }
 

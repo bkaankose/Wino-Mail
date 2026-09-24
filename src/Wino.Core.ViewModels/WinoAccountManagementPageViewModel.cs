@@ -1399,8 +1399,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         };
 
     /// <summary>
-    /// Renders one usage response: every bucket in the list, and the mail-message bucket as
-    /// the headline, because that is the one indexing spends and the one a user hits first.
+    /// Renders one usage response as the share of the period's budget used and remaining.
     /// </summary>
     private void ApplyIntelligenceUsage(AiUsageStatusDto? usage)
     {
@@ -1419,7 +1418,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         IntelligenceUsageSummary = headline is null
             ? Translator.WinoAccount_Management_IntelligenceUsageUnavailable
             : string.Format(
-                Translator.WinoAccount_Management_IntelligenceUsageSummary, headline.Used, headline.Limit);
+                Translator.WinoAccount_Management_IntelligenceUsageSummary, headline.Used, headline.Remaining);
     }
 
     private Task ResetIntelligenceDataAsync() => ExecuteUIThread(() =>

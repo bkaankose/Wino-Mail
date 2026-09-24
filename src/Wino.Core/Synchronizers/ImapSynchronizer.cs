@@ -42,6 +42,7 @@ using Wino.Messaging.UI;
 using Wino.Services;
 using Wino.Services.Extensions;
 using Wino.Mail.AI.Abstractions;
+using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
 
 namespace Wino.Core.Synchronizers.Mail;
 

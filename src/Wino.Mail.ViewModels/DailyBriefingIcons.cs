@@ -49,12 +49,14 @@ public static class DailyBriefingIcons
     public static string Label(MailSmartLabel label) => label switch
     {
         MailSmartLabel.Important => WinoIconGlyphs.GetGlyph(WinoIconGlyph.StarFilled),
-        MailSmartLabel.ActionRequired => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Flash),
+        MailSmartLabel.Action => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Flash),
         MailSmartLabel.Finance => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Payment),
         MailSmartLabel.Travel => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Airplane),
         MailSmartLabel.Social => WinoIconGlyphs.GetGlyph(WinoIconGlyph.People),
         MailSmartLabel.Newsletter => WinoIconGlyphs.GetGlyph(WinoIconGlyph.News),
         MailSmartLabel.Receipt => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Cart),
+        MailSmartLabel.Security => WinoIconGlyphs.GetGlyph(WinoIconGlyph.LockClosed),
+        MailSmartLabel.Shipping => WinoIconGlyphs.GetGlyph(WinoIconGlyph.Package),
         _ => Information,
     };
 

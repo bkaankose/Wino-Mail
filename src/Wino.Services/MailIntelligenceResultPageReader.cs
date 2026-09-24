@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Intelligence.Keys;
 using Wino.Core.Domain.Models.Intelligence;
+using Wino.Mail.AI.Abstractions;
 using Wino.Mail.Contracts.Intelligence;
 
 namespace Wino.Services;
@@ -26,11 +27,10 @@ public sealed class MailIntelligenceResultPageReader(
         => ReadAsync(job, MailIntelligenceStageIds.Classification, page,
             WinoAccountApiJsonContext.Default.ClassificationResultPageDto, cancellationToken);
 
-    // TODO: EnrichmentResultPageDto and MailIntelligenceStageIds.Enrichment with Contracts 3.0.0-alpha.1.
-    public Task<MailIntelligenceResultPage<SummaryResultPageDto>> ReadEnrichmentAsync(
+    public Task<MailIntelligenceResultPage<EnrichmentResultPageDto>> ReadEnrichmentAsync(
         MailIntelligenceJobState job, int page, CancellationToken cancellationToken)
-        => ReadAsync(job, MailIntelligenceStageIdsV3.Enrichment, page,
-            WinoAccountApiJsonContext.Default.SummaryResultPageDto, cancellationToken);
+        => ReadAsync(job, MailIntelligenceStageIds.Enrichment, page,
+            WinoAccountApiJsonContext.Default.EnrichmentResultPageDto, cancellationToken);
 
     private async Task<MailIntelligenceResultPage<T>> ReadAsync<T>(
         MailIntelligenceJobState job,

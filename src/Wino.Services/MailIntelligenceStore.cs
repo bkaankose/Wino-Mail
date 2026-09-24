@@ -12,6 +12,7 @@ using SQLite;
 using Wino.Core.Domain.Entities.Intelligence;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
+using Wino.Mail.AI.Abstractions;
 
 namespace Wino.Services;
 
@@ -194,9 +195,8 @@ public sealed class MailIntelligenceStore(
                     ContentHash = artifact.Key.ContentHash,
                     Labels = string.Join(',', artifact.Labels),
                     Priority = artifact.Priority,
-                    Action = artifact.Action,
+                    Hints = string.Join(',', artifact.Hints),
                     IncludeInBriefing = artifact.IncludeInBriefing,
-                    SignalsJson = SerializeSignals(artifact.Signals),
                     CompletedUtc = artifact.CompletedUtc,
                     // Re-importing the same identity keeps the original arrival time, so a
                     // duplicate result never makes an old card look new.
@@ -246,6 +246,7 @@ public sealed class MailIntelligenceStore(
                     ContentHash = artifact.Key.ContentHash,
                     Headline = artifact.Headline,
                     Summary = artifact.Summary,
+                    ActionsJson = SerializeActions(artifact.Actions),
                     CompletedUtc = artifact.CompletedUtc,
                     FirstImportedUtc = existing.TryGetValue(artifact.Key.RemoteMessageId, out var first) ? first : now,
                 }, typeof(EnrichmentArtifactRow));
@@ -672,44 +673,48 @@ public sealed class MailIntelligenceStore(
 
     private static ClassificationArtifact Map(ClassificationArtifactRow row) => new(
         new MailArtifactKey(row.RemoteMessageId, row.ContentHash),
-        string.IsNullOrEmpty(row.Labels) ? [] : row.Labels.Split(',', StringSplitOptions.RemoveEmptyEntries),
+        SplitList(row.Labels),
         row.Priority,
-        row.Action,
+        SplitList(row.Hints),
         row.IncludeInBriefing,
-        row.CompletedUtc,
-        DeserializeSignals(row.SignalsJson));
-
-    private static string SerializeSignals(ClassificationSignals signals)
-        => JsonSerializer.Serialize(signals, MailIntelligenceSignalsJsonContext.Default.ClassificationSignals);
-
-    /// <summary>
-    /// Reads the stored signals back. A row written before signals existed, or one whose
-    /// payload cannot be read, falls back to empty rather than failing the import: the
-    /// decision itself is in its own columns and stands on its own.
-    /// </summary>
-    private static ClassificationSignals DeserializeSignals(string json)
-    {
-        if (string.IsNullOrEmpty(json))
-        {
-            return ClassificationSignals.Empty;
-        }
-
-        try
-        {
-            return JsonSerializer.Deserialize(json, MailIntelligenceSignalsJsonContext.Default.ClassificationSignals)
-                ?? ClassificationSignals.Empty;
-        }
-        catch (JsonException)
-        {
-            return ClassificationSignals.Empty;
-        }
-    }
+        row.CompletedUtc);
 
     private static EnrichmentArtifact Map(EnrichmentArtifactRow row) => new(
         new MailArtifactKey(row.RemoteMessageId, row.ContentHash),
         row.Headline,
         row.Summary,
+        DeserializeActions(row.ActionsJson),
         row.CompletedUtc);
+
+    private static string[] SplitList(string value)
+        => string.IsNullOrEmpty(value) ? [] : value.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+    internal static string SerializeActions(IReadOnlyList<MailSmartAction> actions)
+        => actions.Count == 0
+            ? string.Empty
+            : JsonSerializer.Serialize([.. actions], MailIntelligenceActionsJsonContext.Default.ListMailSmartAction);
+
+    /// <summary>
+    /// Reads stored actions back. A payload this build cannot read (an action kind added
+    /// later, for example) yields no actions rather than failing: the headline and summary
+    /// stand on their own.
+    /// </summary>
+    internal static IReadOnlyList<MailSmartAction> DeserializeActions(string json)
+    {
+        if (string.IsNullOrEmpty(json))
+        {
+            return [];
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(json, MailIntelligenceActionsJsonContext.Default.ListMailSmartAction) ?? [];
+        }
+        catch (Exception exception) when (exception is JsonException or NotSupportedException)
+        {
+            return [];
+        }
+    }
 
     private async Task<ConnectionLease> GetConnectionLeaseAsync(CancellationToken cancellationToken)
     {
@@ -738,5 +743,5 @@ public sealed class MailIntelligenceStore(
 }
 
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
-[JsonSerializable(typeof(ClassificationSignals))]
-internal sealed partial class MailIntelligenceSignalsJsonContext : JsonSerializerContext;
+[JsonSerializable(typeof(List<MailSmartAction>))]
+internal sealed partial class MailIntelligenceActionsJsonContext : JsonSerializerContext;

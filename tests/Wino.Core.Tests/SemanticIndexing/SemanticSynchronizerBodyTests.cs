@@ -9,6 +9,7 @@ using Wino.Core.Integration.Processors;
 using Wino.Core.Synchronizers.Mail;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.AI.Abstractions;
+using MailBodyLocator = Wino.Core.Domain.Models.Intelligence.MailBodyLocator;
 using Wino.Services;
 using MimeKit;
 using Xunit;

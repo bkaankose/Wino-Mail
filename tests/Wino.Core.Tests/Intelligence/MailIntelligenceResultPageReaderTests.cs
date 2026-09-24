@@ -8,6 +8,7 @@ using Moq;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Intelligence.Keys;
 using Wino.Core.Domain.Models.Intelligence;
+using Wino.Mail.AI.Abstractions;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Services;
 using Xunit;
