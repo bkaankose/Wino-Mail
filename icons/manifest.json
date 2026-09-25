@@ -58,12 +58,50 @@
     {
       "name": "Google",
       "codepoint": "E905",
-      "svg": "Google.svg"
+      "svg": "Google.svg",
+      "layers": [
+        {
+          "svg": "Google.layer1.svg",
+          "color": "#4285F4"
+        },
+        {
+          "svg": "Google.layer2.svg",
+          "color": "#34A853"
+        },
+        {
+          "svg": "Google.layer3.svg",
+          "color": "#FBBC05"
+        },
+        {
+          "svg": "Google.layer4.svg",
+          "color": "#EA4335"
+        }
+      ],
+      "source": "custom"
     },
     {
       "name": "Microsoft",
       "codepoint": "E904",
-      "svg": "Microsoft.svg"
+      "svg": "Microsoft.svg",
+      "layers": [
+        {
+          "svg": "Microsoft.layer1.svg",
+          "color": "#F25022"
+        },
+        {
+          "svg": "Microsoft.layer2.svg",
+          "color": "#7FBA00"
+        },
+        {
+          "svg": "Microsoft.layer3.svg",
+          "color": "#00A4EF"
+        },
+        {
+          "svg": "Microsoft.layer4.svg",
+          "color": "#FFB900"
+        }
+      ],
+      "source": "custom"
     },
     {
       "name": "CustomServer",
@@ -2029,6 +2067,18 @@
       "codepoint": "E0AE",
       "svg": "SettingsFilled.svg",
       "source": "fluent:settings"
+    },
+    {
+      "name": "GoogleMono",
+      "codepoint": "E0AF",
+      "svg": "GoogleMono.svg",
+      "source": "custom"
+    },
+    {
+      "name": "MicrosoftMono",
+      "codepoint": "E0B0",
+      "svg": "MicrosoftMono.svg",
+      "source": "custom"
     }
   ]
 }

@@ -127,13 +127,14 @@ public sealed partial class WinoAccountIcon : IconSourceElement
             return;
         }
 
+        var isTinted = TryGetAccountColor(account.AccountColorHex, out var color);
         var iconSource = new WinoFontIconSource
         {
-            Glyph = AccountIconGlyphs.GetGlyph(account.Provider),
+            Glyph = AccountIconGlyphs.GetGlyph(account.Provider, isTinted),
             FontSize = GetEffectiveProviderIconSize(),
         };
 
-        if (TryGetAccountColor(account.AccountColorHex, out var color))
+        if (isTinted)
         {
             iconSource.Foreground = new SolidColorBrush(color);
         }

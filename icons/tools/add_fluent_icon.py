@@ -94,7 +94,7 @@ def next_free_codepoint(manifest: dict) -> int:
     return cp
 
 
-ENTRY_KEY_ORDER = ["name", "codepoint", "aliases", "svg", "accent", "color", "advance", "source"]
+ENTRY_KEY_ORDER = ["name", "codepoint", "aliases", "svg", "accent", "color", "layers", "advance", "source"]
 
 
 def add(manifest: dict, fluent_name: str, name: str, accent: str | None = None, codepoint: str | None = None,
@@ -116,6 +116,8 @@ def add(manifest: dict, fluent_name: str, name: str, accent: str | None = None, 
     entry["source"] = f"fluent:{fluent_name}"
     entry.pop("advance", None)
     entry.pop("color", None)
+    for old in entry.pop("layers", []):
+        (SVG_DIR / old["svg"]).unlink(missing_ok=True)
     if aliases:
         entry["aliases"] = sorted(set(entry.get("aliases", [])) | set(aliases))
 

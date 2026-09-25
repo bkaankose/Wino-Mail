@@ -11,6 +11,7 @@ Three fonts are produced from the same outlines:
   WinoIconsColor-Dark.ttf     same layers, dark palette
 
 Glyphs with a fixed "color" (brand logos) are a single colored layer in all three fonts.
+Glyphs with fixed-color "layers" (multi-color brand logos) keep those layers in all three fonts.
 """
 from __future__ import annotations
 
@@ -58,10 +59,12 @@ def validate(manifest: dict) -> None:
         if cp in seen_codepoints:
             errors.append(f"{icon['name']}: U+{cp:X} already used by {seen_codepoints[cp]}")
         seen_codepoints[cp] = icon["name"]
-        for key in ("svg",) + (("accent",) if "accent" in icon else ()):
-            svg = icon[key]["svg"] if key == "accent" else icon[key]
+        svgs = [icon["svg"], *([icon["accent"]["svg"]] if "accent" in icon else []), *(l["svg"] for l in icon.get("layers", []))]
+        for svg in svgs:
             if not (SVG_DIR / svg).is_file():
                 errors.append(f"{icon['name']}: missing {svg}")
+        if sum(key in icon for key in ("accent", "color", "layers")) > 1:
+            errors.append(f"{icon['name']}: accent, color and layers are exclusive")
         accent = icon.get("accent")
         if accent:
             for palette_name, palette in manifest["palettes"].items():
@@ -99,6 +102,14 @@ def build_font(manifest: dict, variant: str) -> bytes:
 
         if "color" in icon:
             layers[name] = [(name, color_index(icon["color"]))]
+        elif "layers" in icon:
+            layers[name] = []
+            for index, layer in enumerate(icon["layers"], 1):
+                layer_name = f"{name}.layer{index}"
+                glyph_order.append(layer_name)
+                glyphs[layer_name] = svg_to_glyph(SVG_DIR / layer["svg"], ascent)
+                advances[layer_name] = advances[name]
+                layers[name].append((layer_name, color_index(layer["color"])))
         elif palette_name and "accent" in icon:
             accent_name = f"{name}.accent"
             glyph_order.append(accent_name)
@@ -222,7 +233,7 @@ def write_preview(manifest: dict, fonts: dict[str, bytes], out: Path) -> None:
     cells = []
     for icon in manifest["icons"]:
         ch = f"&#x{icon['codepoint']};"
-        tag = " accent" if "accent" in icon else ""
+        tag = " accent" if "accent" in icon or "layers" in icon else ""
         cells.append(f'<div class="cell{tag}"><span class="g">{ch}</span><span class="n">{html.escape(icon["name"])}</span></div>')
     grid = "".join(cells)
     fonts = manifest["fonts"]

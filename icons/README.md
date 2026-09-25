@@ -27,6 +27,12 @@ Run the commands below with `icons\.venv\Scripts\python`, or activate the enviro
 
    The file can have any size or `viewBox`. The script scales it to match the other icons. Add `--color #RRGGBB` only for a brand logo that must keep a fixed color. You can also pass XAML geometry or SVG path data with `--path "<data>"` instead of `--svg`.
 
+   For a multi-color brand logo, pass one SVG per color with `--layer`, bottom layer first. Each layer keeps its color in all three fonts, so the logo is always in color. Add `--full-bleed` to fill the whole em like the other brand logos:
+
+   ```powershell
+   python icons/tools/add_svg_icon.py Microsoft --full-bleed --layer red.svg=#F25022 --layer green.svg=#7FBA00 --layer blue.svg=#00A4EF --layer yellow.svg=#FFB900
+   ```
+
    **You want an icon from [Fluent UI System Icons](https://github.com/microsoft/fluentui-system-icons).** The script downloads that one SVG for you:
 
    ```powershell
@@ -125,7 +131,7 @@ The color fonts use COLR v0. Each glyph with an accent has two layers:
 - **Accent layer:** the Fluent *Filled* shape, tinted with a palette color that includes alpha. It sits below the outline.
 - **Base outline:** palette index `0xFFFF`, so it keeps following `Foreground`. Hover, pressed, selected and disabled states work as they do in the monochrome font.
 
-Glyphs without an accent look the same in all three fonts.
+Glyphs without an accent look the same in all three fonts. Brand logos with a fixed `color` or fixed-color `layers` (Google, Microsoft) are COLR glyphs in all three fonts, including the monochrome one.
 
 `src/Wino.SourceGenerators/Icons/WinoIconGenerator.cs` generates code from `manifest.json`:
 
