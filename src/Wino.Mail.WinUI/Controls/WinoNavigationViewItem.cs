@@ -7,6 +7,12 @@ namespace Wino.Mail.WinUI.Controls;
 
 public partial class WinoNavigationViewItem : NavigationViewItem
 {
+    /// <summary>
+    /// Re-runs NavigationViewItem's visual state update. It has no public entry point;
+    /// OnContentChanged runs it and is idempotent for unchanged content.
+    /// </summary>
+    internal void RefreshVisualState() => OnContentChanged(Content, Content);
+
     public bool IsDraggingItemOver
     {
         get { return (bool)GetValue(IsDraggingItemOverProperty); }

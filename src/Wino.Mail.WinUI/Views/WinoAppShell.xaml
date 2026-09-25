@@ -56,7 +56,7 @@
     </Page.Resources>
 
     <Grid x:Name="RootGrid">
-        <muxc:NavigationView
+        <coreControls:WinoNavigationView
             x:Name="navigationView"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
@@ -82,11 +82,11 @@
             SelectedItem="{x:Bind ViewModel.SelectedMenuItem, Mode=TwoWay}"
             SelectionChanged="MenuSelectionChanged"
             Style="{StaticResource WinoAppShellNavigationViewStyle}">
-            <muxc:NavigationView.ContentTransitions>
+            <coreControls:WinoNavigationView.ContentTransitions>
                 <TransitionCollection>
                     <AddDeleteThemeTransition />
                 </TransitionCollection>
-            </muxc:NavigationView.ContentTransitions>
+            </coreControls:WinoNavigationView.ContentTransitions>
 
             <Grid>
                 <controls1:PropertySizer
@@ -129,7 +129,7 @@
                     PreferredPlacement="Bottom"
                     Target="{x:Bind ShellInfoBar}" />
             </Grid>
-        </muxc:NavigationView>
+        </coreControls:WinoNavigationView>
 
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="LowResolutionStates">
