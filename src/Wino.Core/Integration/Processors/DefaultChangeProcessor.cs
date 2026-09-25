@@ -43,6 +43,13 @@ public interface IDefaultChangeProcessor
     Task<List<MailItemFolder>> GetSynchronizationFoldersAsync(MailSynchronizationOptions options);
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId);
     Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity);
+
+    /// <summary>
+    /// Removes a local draft, under the same lifecycle lock as <see cref="MapLocalDraftAsync(Guid, Guid, string, string, string)"/>.
+    /// Returns null when the draft was still local and is now gone, or the draft itself when a
+    /// server create mapped it first - in which case a copy now exists on the server as well.
+    /// </summary>
+    Task<MailCopy> DiscardLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId);
     Task UpdateDraftIdentityAsync(Guid accountId, Guid uniqueId, DraftUpdateIdentity identity);
     Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error);
     Task<bool> IsMailExistsAsync(Guid accountId, Guid mailUniqueId);
@@ -317,6 +324,9 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task<bool> MapLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId, string newMailCopyId, string newDraftId, string newThreadId, uint imapUid, uint imapUidValidity)
         => MailService.MapLocalDraftAsync(accountId, localDraftCopyUniqueId, newMailCopyId, newDraftId, newThreadId, imapUid, imapUidValidity);
+
+    public Task<MailCopy> DiscardLocalDraftAsync(Guid accountId, Guid localDraftCopyUniqueId)
+        => MailService.DiscardLocalDraftAsync(accountId, localDraftCopyUniqueId);
 
     public Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)
         => MailService.MarkDraftSyncFailedAsync(mailUniqueId, error);

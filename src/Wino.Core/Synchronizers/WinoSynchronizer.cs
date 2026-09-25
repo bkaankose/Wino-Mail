@@ -22,6 +22,7 @@ using Wino.Core.Domain.Models.PublicFolders;
 using Wino.Core.Domain.Models.Rules;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Helpers;
+using Wino.Core.Integration.Processors;
 using Wino.Core.Requests.Bundles;
 using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Category;
@@ -1027,6 +1028,10 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
 
     /// <inheritdoc />
+    /// <summary>What a successful send leaves to tidy. See <see cref="SentDraftCleanup"/>.</summary>
+    protected Task<MailCopy> ResolveDraftLeftBySendAsync(IDefaultChangeProcessor changeProcessor, MailCopy sentDraft)
+        => SentDraftCleanup.ResolveAsync(changeProcessor, Account.Id, sentDraft);
+
     public virtual bool RemembersRecipients => false;
 
     /// <inheritdoc />

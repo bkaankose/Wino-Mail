@@ -321,6 +321,22 @@ namespace Google.Apis.Gmail.v1
 
             public ListRequest List(string userId) => new(_httpClient, _service, userId);
 
+            public SendRequest Send(Message body, string userId) => new(_httpClient, _service, body, userId);
+
+            public sealed class SendRequest : GoogleApiRequest<Message>
+            {
+                internal SendRequest(HttpClient httpClient, object service, Message body, string userId)
+                    : base(
+                        httpClient,
+                        service,
+                        HttpMethod.Post,
+                        () => $"{BaseUri}/{GoogleUrl.Segment(userId)}/messages/send",
+                        GoogleApiJsonContext.Default.Message,
+                        () => GoogleJsonContent.Create(body, GoogleApiJsonContext.Default.Message))
+                {
+                }
+            }
+
             public sealed class BatchDeleteRequest : GoogleApiRequest<GoogleEmptyResponse>
             {
                 internal BatchDeleteRequest(HttpClient httpClient, object service, BatchDeleteMessagesRequest body, string userId)

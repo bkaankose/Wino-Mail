@@ -389,46 +389,53 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         MimeMessage smtpMessage)
     {
         var draft = request.MailItem;
-        var draftUid = GetUniqueId(draft);
 
-        try
+        // A draft that never reached the server has no UID - resolving one throws, and that throw would
+        // come after SMTP had accepted the message, reporting a delivered send as failed. The shared
+        // rule discards such a draft locally, or hands back the server copy if a create finished first.
+        var serverDraft = await ResolveDraftLeftBySendAsync(_imapChangeProcessor, draft).ConfigureAwait(false);
+
+        if (serverDraft != null)
         {
-            var remoteDraftFolder = await client
-                .GetFolderAsync(draft.AssignedFolder.RemoteFolderId)
-                .ConfigureAwait(false);
-
-            await remoteDraftFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
             try
             {
-                await DeleteRemoteDraftIfPresentAsync(remoteDraftFolder, draftUid).ConfigureAwait(false);
-            }
-            finally
-            {
-                await client.CloseSelectedMailboxAsync(remoteDraftFolder, _logger).ConfigureAwait(false);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex,
-                "SMTP accepted message {MailId}, but IMAP draft cleanup failed for folder {FolderName}, UID {Uid}.",
-                draft.Id,
-                draft.AssignedFolder?.FolderName,
-                draftUid.Id);
-        }
+                var draftUid = GetUniqueId(serverDraft);
+                var remoteDraftFolder = await client
+                    .GetFolderAsync(serverDraft.AssignedFolder.RemoteFolderId)
+                    .ConfigureAwait(false);
 
-        // Do not wait for a later folder reconciliation to observe the deletion. SMTP acceptance
-        // is the commit point for sending, so the local draft must be removed immediately even
-        // when the provider already removed the remote UID as a side effect of SMTP submission.
-        try
-        {
-            await _imapChangeProcessor.DeleteMailAsync(Account.Id, draft.Id).ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex,
-                "SMTP accepted message {MailId}, but deleting its local draft copy failed for account {AccountId}.",
-                draft.Id,
-                Account.Id);
+                await remoteDraftFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
+                try
+                {
+                    await DeleteRemoteDraftIfPresentAsync(remoteDraftFolder, draftUid).ConfigureAwait(false);
+                }
+                finally
+                {
+                    await client.CloseSelectedMailboxAsync(remoteDraftFolder, _logger).ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex,
+                    "SMTP accepted message {MailId}, but IMAP draft cleanup failed for folder {FolderName}.",
+                    serverDraft.Id,
+                    serverDraft.AssignedFolder?.FolderName);
+            }
+
+            // Do not wait for a later folder reconciliation to observe the deletion. SMTP acceptance
+            // is the commit point for sending, so the local draft must be removed immediately even
+            // when the provider already removed the remote UID as a side effect of SMTP submission.
+            try
+            {
+                await _imapChangeProcessor.DeleteMailAsync(Account.Id, serverDraft.Id).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex,
+                    "SMTP accepted message {MailId}, but deleting its local draft copy failed for account {AccountId}.",
+                    serverDraft.Id,
+                    Account.Id);
+            }
         }
 
         if (!request.AccountPreferences.ShouldAppendMessagesToSentFolder || request.SentFolder == null)

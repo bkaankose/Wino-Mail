@@ -552,6 +552,7 @@
     "Exception_MailProcessing": "This mail is still being processed. Please try again after few seconds.",
     "Exception_MissingAlias": "Primary alias does not exist for this account. Creating draft failed.",
     "Exception_AliasSendDenied_Message": "You do not have permission to send from alias {0}. Pick another alias or update your mailbox permissions.",
+    "Exception_DraftNotSavedForSend": "This message can't be sent until its draft has finished saving to Outlook, because it is sent from an alias or is larger than 3 MB. Try again in a moment.",
     "Exception_NullAssignedAccount": "Assigned account is null",
     "Exception_NullAssignedFolder": "Assigned folder is null",
     "Exception_SynchronizerFailureHTTP": "Response handling failed with error HTTP code {0}",

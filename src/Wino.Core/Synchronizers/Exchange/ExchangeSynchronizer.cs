@@ -2720,9 +2720,11 @@ public class ExchangeSynchronizer : WinoSynchronizer<EwsRequest, Item, Appointme
             else
                 await message.SendAndSaveCopy().ConfigureAwait(false);
 
-            // Best-effort cleanup of the server draft created by CreateDraft.
-            var serverDraftId = preparation.MailItem?.Id;
-            if (!string.IsNullOrWhiteSpace(serverDraftId) && !(preparation.MailItem?.IsLocalDraft ?? true))
+            // The message has gone. Tidy the draft it came from - best effort, because nothing after
+            // this point may report the send as failed (see ResolveDraftLeftBySendAsync). A draft that
+            // never reached the server has no id there to delete, but its local row still has to go.
+            var serverDraftId = (await ResolveDraftLeftBySendAsync(_exchangeChangeProcessor, preparation.MailItem).ConfigureAwait(false))?.Id;
+            if (!string.IsNullOrWhiteSpace(serverDraftId))
             {
                 try
                 {

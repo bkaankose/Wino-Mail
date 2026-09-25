@@ -101,6 +101,10 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     private const uint MaximumAllowedBatchRequestSize = 20;
     private const int SimpleAttachmentUploadLimitBytes = 3 * 1024 * 1024;
     private const int MaximumUploadSessionAttachmentSizeBytes = 150 * 1024 * 1024;
+
+    // Graph refuses a request body over 4 MB, and /me/sendMail takes the MIME base64-encoded, so this
+    // is measured on the encoded text - roughly 3 MB of message.
+    private const int MaximumMimeSendRequestBytes = 4 * 1000 * 1000;
     private const int LargeAttachmentUploadChunkSizeBytes = 320 * 1024;
 
     private const string INBOX_NAME = "inbox";
@@ -3508,9 +3512,41 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         }
     }
 
+    /// <summary>
+    /// A send from MIME, for a draft with no server copy. Kept out of the batch and run on its own,
+    /// because /me/sendMail takes a text body, and a batch step expects JSON.
+    /// </summary>
+    private sealed record MimeSendBundle(RequestInformation NativeRequest, SendDraftRequest SendRequest, int RequestBytes)
+        : HttpRequestBundle<RequestInformation>(NativeRequest, SendRequest, SendRequest);
+
+    // A draft that has reached the server is sent as it always was: patched, its attachments uploaded,
+    // then sent. One that has not is sent from its MIME with /me/sendMail, which needs no server copy,
+    // so the composer never waits on a slow draft save. That path has two limits, both Graph's (see
+    // SendWithoutServerDraftAsync): a 4 MB request, and no honouring of a From alias in MIME. A local
+    // draft past either still has to wait for its draft to be saved.
     public override List<IRequestBundle<RequestInformation>> SendDraft(SendDraftRequest request)
     {
         var sendDraftPreparationRequest = request.Request;
+
+        if (sendDraftPreparationRequest.MailItem.IsLocalDraft)
+        {
+            // Local draft mapping header must never leak to recipients.
+            var mime = sendDraftPreparationRequest.Mime;
+            mime.Headers.Remove(Domain.Constants.WinoLocalDraftHeader);
+
+            using var mimeStream = new MemoryStream();
+            mime.WriteTo(mimeStream);
+            var body = Encoding.ASCII.GetBytes(Convert.ToBase64String(mimeStream.GetBuffer(), 0, (int)mimeStream.Length));
+
+            // Built by hand: this client carries only the Graph endpoints Wino otherwise uses.
+            var baseUrl = string.IsNullOrEmpty(_graphClient.RequestAdapter.BaseUrl) ? "https://graph.microsoft.com/v1.0" : _graphClient.RequestAdapter.BaseUrl.TrimEnd('/');
+            var mimeSendRequest = new RequestInformation { HttpMethod = Method.POST, URI = new Uri($"{baseUrl}/me/sendMail") };
+            mimeSendRequest.Content = new MemoryStream(body);
+            mimeSendRequest.Headers.Add("Content-Type", "text/plain");
+
+            return [new MimeSendBundle(mimeSendRequest, request, body.Length)];
+        }
+
         var mailCopyId = sendDraftPreparationRequest.MailItem.Id;
         var mimeMessage = sendDraftPreparationRequest.Mime;
 
@@ -3528,6 +3564,54 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         // Attachment uploads are handled outside batching because large attachments
         // require upload sessions whose URLs are generated dynamically.
         return [patchDraftBundle, sendBundle];
+    }
+
+    /// <summary>
+    /// Sends a draft that never reached the server, from its MIME, then tidies the draft away.
+    /// </summary>
+    private async Task SendWithoutServerDraftAsync(MimeSendBundle bundle, CancellationToken cancellationToken)
+    {
+        var sendDraftRequest = bundle.SendRequest;
+
+        try
+        {
+            // Graph ignores the From header in MIME, so a message from an alias would leave from the
+            // primary address instead; and it refuses a body over 4 MB. Neither can be sent as written
+            // without a server draft, so say so rather than send it from the wrong address.
+            var alias = sendDraftRequest.Request.SendingAlias?.AliasAddress;
+            var sendsFromAlias = !string.IsNullOrWhiteSpace(alias) && !string.Equals(alias.Trim(), Account.Address?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+            if (sendsFromAlias || bundle.RequestBytes > MaximumMimeSendRequestBytes)
+                throw new InvalidOperationException(Translator.Exception_DraftNotSavedForSend);
+
+            await _graphClient.RequestAdapter.SendNoContentAsync(
+                bundle.NativeRequest,
+                new Dictionary<string, Microsoft.Kiota.Abstractions.Serialization.ParsableFactory<Microsoft.Kiota.Abstractions.Serialization.IParsable>> { ["XXX"] = ODataError.CreateFromDiscriminatorValue },
+                cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            RequestUiChangeCoordinator.RevertRequest(sendDraftRequest);
+            throw;
+        }
+
+        // The message has gone. Nothing from here may report the send as failed.
+        var draft = await ResolveDraftLeftBySendAsync(_outlookChangeProcessor, sendDraftRequest.Request.MailItem).ConfigureAwait(false);
+
+        _logger.Debug("Sent a draft with no server copy from its MIME ({Bytes} bytes); {Leftover}.", bundle.RequestBytes,
+            draft is null || draft.IsLocalDraft ? "its local copy was discarded" : "its draft reached the server meanwhile and is being deleted");
+
+        if (draft is null || draft.IsLocalDraft)
+            return;
+
+        try
+        {
+            await _graphClient.Me.Messages[draft.Id].DeleteAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.Debug(ex, "Could not delete Outlook draft {DraftId} after send (it may already be gone).", draft.Id);
+        }
     }
 
     private Task UploadDraftAttachmentsAsync(SendDraftRequest request, CancellationToken cancellationToken)
@@ -3817,7 +3901,11 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         // Upload attachments once before that batched patch/send sequence.
         var uploadedSendDraftRequests = new List<SendDraftRequest>();
 
+        // A send from MIME has no server draft to upload anything to, and runs on its own below.
+        var mimeSends = batchedRequests.OfType<MimeSendBundle>().ToList();
+
         foreach (var sendDraftRequest in batchedRequests
+            .Where(b => b is not MimeSendBundle)
             .Select(b => b.UIChangeRequest)
             .OfType<SendDraftRequest>())
         {
@@ -3859,9 +3947,14 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             }
         }
 
+        foreach (var mimeSend in mimeSends)
+        {
+            await SendWithoutServerDraftAsync(mimeSend, cancellationToken).ConfigureAwait(false);
+        }
+
         // Now batch and execute the network requests.
         var batchEligibleRequests = batchedRequests
-            .Except(directRequests)
+            .Where(bundle => bundle is not MimeSendBundle && !directRequests.Contains(bundle))
             .ToList();
 
         var batchedGroups = batchEligibleRequests.Batch((int)MaximumAllowedBatchRequestSize);

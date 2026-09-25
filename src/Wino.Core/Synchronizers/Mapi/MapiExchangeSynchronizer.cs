@@ -1322,8 +1322,11 @@ public sealed class MapiExchangeSynchronizer : ExchangeSynchronizer
             var outgoing = MapiOutgoingMessageMapper.FromMime(mime);
             await MapiMessageComposer.SendAsync(session, session.Logon!.OutboxFolderId, sentFolderId, outgoing, CancellationToken.None, Diagnostics, interactive: true).ConfigureAwait(false);
 
-            // Best-effort cleanup of the server draft created by CreateDraft.
-            if (preparation.MailItem is { } draft && TryParseMailCopyId(draft.Id, out var draftMessageId))
+            // The message has gone. Tidy the draft it came from - best effort, because nothing after
+            // this point may report the send as failed (see ResolveDraftLeftBySendAsync).
+            var draft = await ResolveDraftLeftBySendAsync(ExchangeChangeProcessor, preparation.MailItem).ConfigureAwait(false);
+
+            if (draft is not null && TryParseMailCopyId(draft.Id, out var draftMessageId))
             {
                 try
                 {

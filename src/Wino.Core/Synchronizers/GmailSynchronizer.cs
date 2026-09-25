@@ -2591,7 +2591,6 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
     public override List<IRequestBundle<IGoogleApiRequest>> SendDraft(SendDraftRequest singleDraftRequest)
     {
-
         var message = new Message();
 
         if (!string.IsNullOrEmpty(singleDraftRequest.Item.ThreadId))
@@ -2608,15 +2607,36 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         var base64UrlEncodedMime = Base64UrlEncoder.Encode(mimeString);
         message.Raw = base64UrlEncodedMime;
 
-        var draft = new Draft()
-        {
-            Id = singleDraftRequest.Request.MailItem.DraftId,
-            Message = message
-        };
-
-        var networkCall = _gmailService.Users.Drafts.Send(draft, "me");
+        // Sent as a message, from its MIME, rather than as a draft by id: drafts.send needs the draft
+        // to exist on the server, so a draft whose upload had not finished - or had failed - could not
+        // be sent at all. drafts.send also consumed the server draft as it went; this does not, so the
+        // draft is removed separately once the send has succeeded (DeleteDraftLeftBySendAsync).
+        // ThreadId above keeps a reply in its conversation.
+        var networkCall = _gmailService.Users.Messages.Send(message, "me");
 
         return [new HttpRequestBundle<IGoogleApiRequest>(networkCall, singleDraftRequest, singleDraftRequest)];
+    }
+
+    /// <summary>
+    /// After a send has succeeded, removes the draft it came from. Best effort: the message has gone,
+    /// and failing now would report the send as failed and bring the draft back to be sent again.
+    /// </summary>
+    private async Task DeleteDraftLeftBySendAsync(SendDraftRequest sendDraftRequest, CancellationToken cancellationToken)
+    {
+        var draft = await ResolveDraftLeftBySendAsync(_gmailChangeProcessor, sendDraftRequest.Request.MailItem).ConfigureAwait(false);
+
+        // A Gmail draft is addressed by its draft id, which is not the message id.
+        if (string.IsNullOrEmpty(draft?.DraftId) || draft.IsLocalDraft)
+            return;
+
+        try
+        {
+            await _gmailService.Users.Drafts.Delete("me", draft.DraftId).ExecuteAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.Debug(ex, "Could not delete Gmail draft {DraftId} after send (it may already be gone).", draft.DraftId);
+        }
     }
 
     public override async Task<List<MailCopy>> OnlineSearchAsync(RemoteMailSearchCriteria criteria, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
@@ -3317,6 +3337,9 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         }
 
         await PersistSuccessfulMailStateChangesAsync(bundle).ConfigureAwait(false);
+
+        if (bundle.UIChangeRequest is SendDraftRequest sendDraftRequest)
+            await DeleteDraftLeftBySendAsync(sendDraftRequest, cancellationToken).ConfigureAwait(false);
 
         if (bundle is HttpRequestBundle<IGoogleApiRequest, Message> messageBundle)
         {
