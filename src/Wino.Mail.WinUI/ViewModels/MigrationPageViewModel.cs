@@ -9,6 +9,7 @@ using Microsoft.UI.Dispatching;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Migration;
+using Wino.Core.Domain.Models.WhatsNew;
 using Wino.Services;
 
 namespace Wino.Mail.WinUI.ViewModels;
@@ -82,6 +83,7 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
     private readonly IDatabaseService _databaseService;
     private readonly IMigrationAccountAuthorizationService _authorizationService;
     private readonly IWinoLogger _logger;
+    private readonly IWhatsNewService _whatsNewService;
     private readonly Queue<MigrationAccountOptionViewModel> _authorizationQueue = new();
     private DispatcherQueue? _dispatcherQueue;
     private MigrationResult? _lastResult;
@@ -138,6 +140,11 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
     [ObservableProperty]
     public partial string AuthorizationErrorMessage { get; set; } = string.Empty;
 
+    /// <summary>Bundled What's New features, newest release first. Everything in them is new to a migrating user.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFeatureTourVisible))]
+    public partial List<WhatsNewFeature> Features { get; set; } = [];
+
     public bool IsOptionsVisible => IsReady && !IsRunning && !IsFailed && !IsCompleted;
     public bool IsProgressVisible => IsRunning;
     public bool IsFailureVisible => IsFailed;
@@ -145,6 +152,8 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
     public bool IsAuthorizationVisible => CurrentAuthorizationAccount != null && !IsCompleted;
     public bool IsAuthorizationErrorVisible => IsAuthorizationVisible && !string.IsNullOrWhiteSpace(AuthorizationErrorMessage);
     public bool CanSkipMigration => IsFailed && !IsRunning;
+    public bool IsIllustrationIdle => !IsRunning && !IsFailed && !IsCompleted;
+    public bool IsFeatureTourVisible => Features.Count > 0 && !IsAuthorizationVisible && !IsFailed;
 
     public string AuthorizationProgressText => string.Format(
         Wino.Core.Domain.Translator.Migration_AuthorizationProgress,
@@ -160,12 +169,14 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
         IMigrationCoordinator coordinator,
         IDatabaseService databaseService,
         IMigrationAccountAuthorizationService authorizationService,
-        IWinoLogger logger)
+        IWinoLogger logger,
+        IWhatsNewService whatsNewService)
     {
         _coordinator = coordinator;
         _databaseService = databaseService;
         _authorizationService = authorizationService;
         _logger = logger;
+        _whatsNewService = whatsNewService;
         _coordinator.ProgressChanged += OnProgressChanged;
     }
 
@@ -173,6 +184,9 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
 
     public async Task InitializeAsync()
     {
+        if (Features.Count == 0)
+            await LoadFeaturesAsync();
+
         var plan = await _coordinator.InspectAsync();
 
         Accounts.Clear();
@@ -456,6 +470,21 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
         AddStep(MigrationStepKind.Completed, "Ready to launch");
     }
 
+    private async Task LoadFeaturesAsync()
+    {
+        try
+        {
+            var releases = await _whatsNewService.GetReleasesAsync();
+
+            Features = releases.SelectMany(release => release.Features).ToList();
+        }
+        catch (Exception ex)
+        {
+            // The tour is optional; migration must not depend on it.
+            _logger.CaptureException(ex, "MigrationFeatureTour");
+        }
+    }
+
     private void AddStep(MigrationStepKind kind, string title) => Steps.Add(new MigrationStepItemViewModel
     {
         Kind = kind,
@@ -476,6 +505,8 @@ public sealed partial class MigrationPageViewModel : ObservableObject, IDisposab
         OnPropertyChanged(nameof(IsAuthorizationVisible));
         OnPropertyChanged(nameof(IsAuthorizationErrorVisible));
         OnPropertyChanged(nameof(CanSkipMigration));
+        OnPropertyChanged(nameof(IsIllustrationIdle));
+        OnPropertyChanged(nameof(IsFeatureTourVisible));
         OnPropertyChanged(nameof(StepProgressText));
         OnPropertyChanged(nameof(AuthorizationProgressText));
     }

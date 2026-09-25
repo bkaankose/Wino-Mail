@@ -20,6 +20,12 @@
             <Grid.Shadow>
                 <ThemeShadow />
             </Grid.Shadow>
+            <!--  Shown only when neither Mica nor Acrylic is supported, so transparent theme brushes stay readable.  -->
+            <Border
+                x:Name="SurfaceFallbackBackground"
+                Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                CornerRadius="7"
+                Visibility="Collapsed" />
             <SystemBackdropElement x:Name="SurfaceBackdrop" CornerRadius="7" />
             <ContentPresenter
                 x:Name="SurfaceContent"

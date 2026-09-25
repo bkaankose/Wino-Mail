@@ -55,9 +55,6 @@ tab_width = 4
 # New line preferences
 end_of_line = crlf
 
-# Winapp CLI Rosyln Analyzer
-dotnet_diagnostic.WUI0001.severity = error
-
 #### .NET Coding Conventions ####
 
 # Organize usings

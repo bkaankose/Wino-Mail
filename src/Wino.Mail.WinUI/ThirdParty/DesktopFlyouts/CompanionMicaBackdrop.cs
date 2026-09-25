@@ -84,8 +84,11 @@ internal sealed partial class CompanionMicaBackdrop : DesktopFlyoutSystemBackdro
     {
         var controller = BackdropControllerHelpers.GetMicaController(configuration.Theme);
         if (controller is not null)
+        {
             controller.Kind = MicaKind.Base;
+            return controller;
+        }
 
-        return controller;
+        return BackdropControllerHelpers.GetAcrylicController(configuration.Theme);
     }
 }

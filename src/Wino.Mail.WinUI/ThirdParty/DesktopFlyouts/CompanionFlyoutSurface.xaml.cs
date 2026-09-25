@@ -13,6 +13,9 @@ public sealed partial class CompanionFlyoutSurface : UserControl
         InitializeComponent();
         SurfaceContent.Content = content;
         SurfaceBackdrop.SystemBackdrop = new CompanionMicaBackdrop();
+
+        if (!BackdropControllerHelpers.IsAnyBackdropSupported())
+            SurfaceFallbackBackground.Visibility = Visibility.Visible;
     }
 
     internal CompositeTransform AnimationTransform => SurfaceTransform;

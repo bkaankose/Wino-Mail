@@ -26,6 +26,12 @@ public sealed partial class MigrationPage : Page
 
     private void OnPageUnloaded(object sender, RoutedEventArgs e) => ViewModel.Dispose();
 
+    private void OnFeatureFlipViewSelectionChanged(object sender, SelectionChangedEventArgs e)
+        => MigrationFeaturePager.SelectedPageIndex = MigrationFeatureFlipView.SelectedIndex;
+
+    private void OnFeaturePagerSelectedIndexChanged(PipsPager sender, PipsPagerSelectedIndexChangedEventArgs args)
+        => MigrationFeatureFlipView.SelectedIndex = sender.SelectedPageIndex;
+
     private async void OnSkipMigrationClick(object sender, RoutedEventArgs e)
     {
         var dialog = new ContentDialog

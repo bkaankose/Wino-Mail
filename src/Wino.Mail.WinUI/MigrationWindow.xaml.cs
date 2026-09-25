@@ -24,7 +24,7 @@ public sealed partial class MigrationWindow : WindowEx, IWinoFrameProvider
         InitializeComponent();
         MinWidth = 760;
         MinHeight = 620;
-        Width = 980;
+        Width = 1120;
         Height = 720;
         Title = Wino.Core.Domain.Translator.MigrationWindow_Title;
         this.SetIcon("Assets/Wino_Icon.ico");

@@ -448,7 +448,7 @@ public sealed class MailListStore
     public Task RemoveAsync(MailCopy removeItem) =>
         removeItem is null
             ? Task.CompletedTask
-            : RemoveRangeByIdAsync([removeItem.UniqueId]);
+            : RemoveRangeByIdAsync((Guid[])[removeItem.UniqueId]);
 
     public Task RemoveRangeAsync(IEnumerable<MailCopy> removeItems) =>
         RemoveRangeByIdAsync(removeItems?
