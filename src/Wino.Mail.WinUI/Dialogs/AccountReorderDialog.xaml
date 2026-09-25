@@ -38,6 +38,7 @@
                     </Grid.ColumnDefinitions>
                     <coreControls:WinoFontIcon
                         VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="16"
                         Icon="ReOrderDotsVertical"
                         Opacity="0.5" />
@@ -74,12 +75,14 @@
                     </Grid.ColumnDefinitions>
                     <coreControls:WinoFontIcon
                         VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="16"
                         Icon="ReOrderDotsVertical"
                         Opacity="0.5" />
                     <coreControls:WinoFontIcon
                         Grid.Column="1"
                         VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         Icon="PeopleLink" />
                     <StackPanel
                         Grid.Column="2"
