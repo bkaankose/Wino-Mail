@@ -62,12 +62,15 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     // Update is triggered when we leave the page.
     private bool isUpdatingMimeBlocked = false;
 
-    private bool canSendMail => ComposingAccount != null && !IsLocalDraft && CurrentMimeMessage != null && !IsDraftBusy;
-    private bool canSendLocalDraftToServer => ComposingAccount != null && IsLocalDraft && CurrentMimeMessage != null && !IsDraftBusy && !IsRetryingSendToServer;
+    // Send never depends on the draft's save. Every provider sends from the MIME when the draft has not
+    // reached the server, so however long a save takes - or if it fails - Send stays.
+    private bool canSendMail => ComposingAccount != null && CurrentMimeMessage != null && !IsSendingMail;
+
+    private bool canSaveToServer => ComposingAccount != null && CurrentMimeMessage != null && ShouldShowSaveToServerButton && !IsSavingToServer;
 
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
-    [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveToServerCommand))]
     [ObservableProperty]
     public partial MimeMessage CurrentMimeMessage { get; set; } = null;
 
@@ -79,23 +82,31 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsLocalDraft))]
-    [NotifyPropertyChangedFor(nameof(ShouldShowSendToServerButton))]
-    [NotifyPropertyChangedFor(nameof(ShouldShowSendButton))]
+    [NotifyPropertyChangedFor(nameof(ShouldShowSaveToServerButton))]
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
-    [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveToServerCommand))]
     public partial MailItemViewModel CurrentMailDraftItem { get; set; }
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShouldShowSendToServerButton))]
+    [NotifyPropertyChangedFor(nameof(ShouldShowSaveToServerButton))]
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
-    [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveToServerCommand))]
     public partial bool IsDraftBusy { get; set; }
 
+    /// <summary>
+    /// True from the moment a send is dispatched until it has been handed to the request queue. This
+    /// is what stops a second Send, rather than <see cref="IsDraftBusy"/> - which also covers the
+    /// draft being saved in the background, and must not take Send away while it does.
+    /// </summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
-    public partial bool IsRetryingSendToServer { get; set; }
+    [NotifyCanExecuteChangedFor(nameof(SendCommand))]
+    public partial bool IsSendingMail { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveToServerCommand))]
+    public partial bool IsSavingToServer { get; set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(DraftSyncErrorMessage))]
@@ -116,7 +127,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(DiscardCommand))]
     [NotifyCanExecuteChangedFor(nameof(SendCommand))]
-    [NotifyCanExecuteChangedFor(nameof(SendToServerCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveToServerCommand))]
     public partial MailAccount ComposingAccount { get; set; }
 
     [ObservableProperty]
@@ -150,8 +161,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     public ObservableCollection<AccountContact> ToItems { get; set; } = [];
     public ObservableCollection<AccountContact> CCItems { get; set; } = [];
     public ObservableCollection<AccountContact> BCCItems { get; set; } = [];
-    public bool ShouldShowSendToServerButton => IsLocalDraft && !IsDraftBusy;
-    public bool ShouldShowSendButton => !IsLocalDraft;
+    /// <summary>
+    /// Whether to offer "Save to server": the draft is on this device only and nothing is saving it, so
+    /// its save to the server failed. It is never needed to send - Send works on a local draft - but it
+    /// is the only way to get such a draft onto the server, and so onto other devices, without sending.
+    /// </summary>
+    public bool ShouldShowSaveToServerButton => IsLocalDraft && !IsDraftBusy;
     public string DraftSyncErrorMessage
     {
         get
@@ -463,16 +478,24 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         await ExecuteUIThread(() =>
         {
+            IsSendingMail = true;
             IsDraftBusy = true;
         });
 
         RememberRecipients();
 
-        await _worker.ExecuteAsync(draftSendPreparationRequest);
+        try
+        {
+            await _worker.ExecuteAsync(draftSendPreparationRequest);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsSendingMail = false);
+        }
     }
 
-    [RelayCommand(CanExecute = nameof(canSendLocalDraftToServer))]
-    private async Task SendToServerAsync()
+    [RelayCommand(CanExecute = nameof(canSaveToServer))]
+    private async Task SaveToServerAsync()
     {
         if (CurrentMailDraftItem?.MailCopy == null || ComposingAccount == null || CurrentMimeMessage == null)
             return;
@@ -481,7 +504,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             await ExecuteUIThread(() =>
             {
-                IsRetryingSendToServer = true;
+                IsSavingToServer = true;
                 IsDraftBusy = true;
                 NotifyComposeActionStateChanged();
             });
@@ -498,7 +521,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         {
             await ExecuteUIThread(() =>
             {
-                IsRetryingSendToServer = false;
+                IsSavingToServer = false;
             });
 
             await UpdatePendingOperationStateAsync().ConfigureAwait(false);
@@ -828,7 +851,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
         // Newly created local drafts can have a short period where request queue is empty
         // while folder synchronization/mapping is still in progress.
-        // Keep progress visible during this grace period to prevent "Send to server" flicker.
+        // Keep progress visible during this grace period to prevent "Save to server" flicker.
         if (!hasPendingOperation && CurrentMailDraftItem.MailCopy.IsLocalDraft)
         {
             keepBusyForInitialGracePeriod = IsWithinLocalDraftRetryGracePeriod(CurrentMailDraftItem.MailCopy);
@@ -1213,12 +1236,11 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private void NotifyComposeActionStateChanged()
     {
         OnPropertyChanged(nameof(IsLocalDraft));
-        OnPropertyChanged(nameof(ShouldShowSendToServerButton));
-        OnPropertyChanged(nameof(ShouldShowSendButton));
+        OnPropertyChanged(nameof(ShouldShowSaveToServerButton));
 
         DiscardCommand.NotifyCanExecuteChanged();
         SendCommand.NotifyCanExecuteChanged();
-        SendToServerCommand.NotifyCanExecuteChanged();
+        SaveToServerCommand.NotifyCanExecuteChanged();
     }
 
     private bool ShouldTrackDraftSynchronizationState(Guid accountId)

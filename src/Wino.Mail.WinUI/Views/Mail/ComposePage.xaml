@@ -169,7 +169,7 @@
             <muxc:InfoBar.ActionButton>
                 <Button
                     AutomationProperties.AutomationId="ComposeRetryDraftUploadButton"
-                    Command="{x:Bind ViewModel.SendToServerCommand}"
+                    Command="{x:Bind ViewModel.SaveToServerCommand}"
                     Content="{x:Bind domain:Translator.Draft_RetryUpload, Mode=OneTime}" />
             </muxc:InfoBar.ActionButton>
         </muxc:InfoBar>
@@ -279,7 +279,7 @@
                             </AppBarButton>
 
                             <!--  Send is the one thing this page exists for, so it is the only accented control on it.  -->
-                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind ViewModel.ShouldShowSendButton, Mode=OneWay}">
+                            <AppBarElementContainer VerticalContentAlignment="Center">
                                 <Button
                                     Height="32"
                                     Margin="4,0,8,0"
@@ -295,19 +295,19 @@
                                 </Button>
                             </AppBarElementContainer>
 
-                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind ViewModel.ShouldShowSendToServerButton, Mode=OneWay}">
+                            <!--  A retry for a draft whose save to the server failed. Not a way to send - Send works on a local draft - so it is not accented.  -->
+                            <AppBarElementContainer VerticalContentAlignment="Center" Visibility="{x:Bind ViewModel.ShouldShowSaveToServerButton, Mode=OneWay}">
                                 <Button
                                     Height="32"
                                     Margin="4,0,8,0"
                                     VerticalAlignment="Center"
                                     AutomationProperties.AutomationId="ComposePageAppBarButton5"
-                                    AutomationProperties.Name="{x:Bind domain:Translator.Buttons_SendToServer, Mode=OneTime}"
-                                    Command="{x:Bind ViewModel.SendToServerCommand}"
-                                    Style="{StaticResource AccentButtonStyle}"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.Buttons_SaveToServer, Mode=OneTime}"
+                                    Command="{x:Bind ViewModel.SaveToServerCommand}"
                                     ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_LocalDraftSyncInfo}">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <coreControls:WinoFontIcon FontSize="14" Icon="SendNew" />
-                                        <TextBlock Text="{x:Bind domain:Translator.Buttons_SendToServer, Mode=OneTime}" />
+                                        <FontIcon FontSize="14" Glyph="&#xE898;" />
+                                        <TextBlock Text="{x:Bind domain:Translator.Buttons_SaveToServer, Mode=OneTime}" />
                                     </StackPanel>
                                 </Button>
                             </AppBarElementContainer>
