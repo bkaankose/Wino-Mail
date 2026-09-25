@@ -6,7 +6,9 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Serilog;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
@@ -119,7 +121,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
         var account = await GetActiveAccountAsync().ConfigureAwait(false);
         return account is not null && account.Id == response.Result.UserId
             ? WinoAccountOperationResult.Success(account)
-            : WinoAccountOperationResult.Failure("AccountSessionChanged");
+            : WinoAccountOperationResult.Failure(WinoAccountClientErrorCodes.AccountSessionChanged);
     }
 
     public async Task<WinoAccount?> GetActiveAccountAsync()
@@ -130,31 +132,57 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     public async Task<WinoAccount?> GetAuthenticatedAccountAsync(CancellationToken cancellationToken = default)
     {
+        var (account, errorCode) = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
+
+        // An unreachable service says nothing about whether the user is signed in.
+        if (WinoAccountClientErrorCodes.IsServiceFailure(errorCode))
+            throw new WinoAccountApiException(errorCode!);
+
+        return account;
+    }
+
+    /// <summary>
+    /// Resolves the signed-in account with a usable access token, refreshing it when expired.
+    /// Returns the failure code instead of the account when that is not possible.
+    /// </summary>
+    private async Task<(WinoAccount? Account, string? ErrorCode)> AuthenticateAsync(CancellationToken cancellationToken)
+    {
         var account = await GetActiveAccountAsync().ConfigureAwait(false);
 
         if (account == null)
         {
-            return null;
+            return (null, WinoAccountClientErrorCodes.SignInRequired);
         }
 
         if (string.IsNullOrWhiteSpace(account.AccessToken))
         {
             _logger.Warning("Wino account {Email} is missing an access token.", account.Email);
-            return null;
+            return (null, WinoAccountClientErrorCodes.SignInRequired);
         }
 
         if (account.AccessTokenExpiresAtUtc > DateTime.UtcNow)
         {
-            return account;
+            return (account, null);
         }
 
         var refreshResult = await RefreshAsync(cancellationToken).ConfigureAwait(false);
         if (!refreshResult.IsSuccess)
         {
-            return null;
+            _logger.Warning("Wino account access token refresh failed with error code {ErrorCode}.", refreshResult.ErrorCode);
+            return (null, refreshResult.ErrorCode ?? ApiErrorCodes.RefreshTokenInvalid);
         }
 
-        return refreshResult.Account ?? await GetActiveAccountAsync().ConfigureAwait(false);
+        var refreshed = refreshResult.Account ?? await GetActiveAccountAsync().ConfigureAwait(false);
+        return refreshed is null
+            ? (null, WinoAccountClientErrorCodes.SignInRequired)
+            : (refreshed, null);
+    }
+
+    private async Task RequireAuthenticatedAccountAsync(CancellationToken cancellationToken)
+    {
+        var (account, errorCode) = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
+        if (account is null)
+            throw new WinoAccountApiException(errorCode ?? WinoAccountClientErrorCodes.SignInRequired);
     }
 
     public async Task<bool> HasActiveAccountAsync()
@@ -163,13 +191,17 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     public async Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default)
     {
         var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
-        if (session is null || await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false) is null)
-            return ApiEnvelope<AuthUserDto>.Failure("MissingAccessToken");
+        if (session is null)
+            return ApiEnvelope<AuthUserDto>.Failure(WinoAccountClientErrorCodes.SignInRequired);
+
+        var (account, errorCode) = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
+        if (account is null)
+            return ApiEnvelope<AuthUserDto>.Failure(errorCode ?? WinoAccountClientErrorCodes.SignInRequired);
 
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, session.CancellationToken);
         var response = await _apiClient.GetCurrentUserAsync(linked.Token).ConfigureAwait(false);
         if (!response.IsSuccess || response.Result is null) return response;
-        if (response.Result.UserId != session.AccountId) return ApiEnvelope<AuthUserDto>.Failure("AccountSessionChanged");
+        if (response.Result.UserId != session.AccountId) return ApiEnvelope<AuthUserDto>.Failure(WinoAccountClientErrorCodes.AccountSessionChanged);
 
         var committed = await _sessions.CommitAsync(session, async () =>
         {
@@ -182,7 +214,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             }
         }, cancellationToken).ConfigureAwait(false);
 
-        return committed ? response : ApiEnvelope<AuthUserDto>.Failure("AccountSessionChanged");
+        return committed ? response : ApiEnvelope<AuthUserDto>.Failure(WinoAccountClientErrorCodes.AccountSessionChanged);
     }
 
     public async Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default)
@@ -203,32 +235,28 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
     public async Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default)
     {
-        _ = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("MissingAccessToken");
+        await RequireAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
 
         return await _apiClient.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default)
     {
-        _ = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("MissingAccessToken");
+        await RequireAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
 
         await _apiClient.SaveSettingsAsync(settingsJson, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default)
     {
-        _ = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("MissingAccessToken");
+        await RequireAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
 
         return await _apiClient.GetMailboxesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task ReplaceMailboxesAsync(ReplaceUserMailboxesRequestDto request, CancellationToken cancellationToken = default)
     {
-        _ = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("MissingAccessToken");
+        await RequireAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
 
         await _apiClient.ReplaceMailboxesAsync(request, cancellationToken).ConfigureAwait(false);
     }
@@ -317,10 +345,10 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
                                                                    string operationName,
                                                                    CancellationToken cancellationToken)
     {
-        var account = await GetAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
+        var (account, errorCode) = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
         if (account == null)
         {
-            return ApiEnvelope<T>.Failure("MissingAccessToken");
+            return ApiEnvelope<T>.Failure(errorCode ?? WinoAccountClientErrorCodes.SignInRequired);
         }
 
         var response = await executeAsync(account).ConfigureAwait(false);

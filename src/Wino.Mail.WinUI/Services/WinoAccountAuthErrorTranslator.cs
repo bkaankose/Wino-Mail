@@ -31,12 +31,18 @@ public static class WinoAccountAuthErrorTranslator
             ApiErrorCodes.ExternalAuthCodeInvalid => Translator.WinoAccount_Error_ExternalAuthCodeInvalid,
             ApiErrorCodes.Forbidden => Translator.WinoAccount_Error_Forbidden,
             ApiErrorCodes.ValidationFailed => Translator.WinoAccount_Error_ValidationFailed,
-            _ => errorCode
+            _ => WinoAccountApiErrorTranslator.Translate(errorCode)
         };
     }
 
     public static string Format(string? errorCode, string? errorMessage)
     {
+        // App-side codes carry no server message worth showing next to the translated text.
+        if (WinoAccountClientErrorCodes.IsServiceFailure(errorCode) || errorCode == WinoAccountClientErrorCodes.SignInRequired)
+        {
+            return Translate(errorCode);
+        }
+
         var translatedCode = Translate(errorCode);
         var hasCode = !string.IsNullOrWhiteSpace(errorCode);
         var hasMessage = !string.IsNullOrWhiteSpace(errorMessage);

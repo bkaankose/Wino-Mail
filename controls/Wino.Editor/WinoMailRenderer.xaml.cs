@@ -37,6 +37,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
     private int _contentVersion;
     private int _renderedContentVersion = -1;
     private bool _allowNextInternalNavigation;
+    private bool _blockRemoteResources;
 
     public WinoMailRenderer() => InitializeComponent();
 
@@ -52,6 +53,17 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
             _isDarkMode = value;
             if (_ready.Task.IsCompletedSuccessfully) _ = ApplyThemeWhenReadyAsync();
         }
+    }
+
+    /// <summary>
+    /// Blocks every network request the rendered message makes, including CSS backgrounds and
+    /// web fonts that image stripping cannot reach. Set it before rendering a message whose
+    /// remote content is not allowed, such as mail in the junk folder.
+    /// </summary>
+    public bool BlockRemoteResources
+    {
+        get => _blockRemoteResources;
+        set => _blockRemoteResources = value;
     }
 
     /// <summary>
@@ -253,6 +265,7 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         var environment = WebViewEnvironment ?? await WinoWebViewEnvironment.GetSharedEnvironmentAsync();
         await RendererWebView2.EnsureCoreWebView2Async(environment);
         ObjectDisposedException.ThrowIf(_disposed, this);
+        WinoWebViewSecurity.Apply(RendererWebView2.CoreWebView2);
         AttachBrowserEvents();
         _allowNextInternalNavigation = true;
         try
@@ -371,6 +384,26 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         CoreWebView2WebMessageReceivedEventArgs args)
         => ProcessMessage(args.WebMessageAsJson);
 
+    private void CoreWebView2_WebResourceRequested(
+        CoreWebView2 sender,
+        CoreWebView2WebResourceRequestedEventArgs args)
+    {
+        if (IsRemoteRequestAllowed(args.ResourceContext, args.Request.Uri)) return;
+        args.Response = sender.Environment.CreateWebResourceResponse(null, 403, "Blocked", string.Empty);
+    }
+
+    // The document's content security policy already restricts requests to images and fonts.
+    // This network-level check also honors the per-message remote-content decision.
+    private bool IsRemoteRequestAllowed(CoreWebView2WebResourceContext context, string? uri)
+    {
+        if (_blockRemoteResources) return false;
+        if (context is not (CoreWebView2WebResourceContext.Image or CoreWebView2WebResourceContext.Font))
+            return false;
+
+        return Uri.TryCreate(uri, UriKind.Absolute, out Uri? parsed) &&
+               (parsed.Scheme == Uri.UriSchemeHttps || parsed.Scheme == Uri.UriSchemeHttp);
+    }
+
     private void CoreWebView2_NewWindowRequested(
         CoreWebView2 sender,
         CoreWebView2NewWindowRequestedEventArgs args)
@@ -482,6 +515,8 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
 
         RendererWebView2.CoreWebView2.WebMessageReceived += CoreWebView2_WebMessageReceived;
         RendererWebView2.CoreWebView2.NewWindowRequested += CoreWebView2_NewWindowRequested;
+        RendererWebView2.CoreWebView2.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
+        RendererWebView2.CoreWebView2.WebResourceRequested += CoreWebView2_WebResourceRequested;
         _browserEventsAttached = true;
     }
 
@@ -491,6 +526,8 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
 
         RendererWebView2.CoreWebView2.WebMessageReceived -= CoreWebView2_WebMessageReceived;
         RendererWebView2.CoreWebView2.NewWindowRequested -= CoreWebView2_NewWindowRequested;
+        RendererWebView2.CoreWebView2.WebResourceRequested -= CoreWebView2_WebResourceRequested;
+        RendererWebView2.CoreWebView2.RemoveWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         _browserEventsAttached = false;
     }
 

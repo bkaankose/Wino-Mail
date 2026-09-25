@@ -918,6 +918,7 @@
                                 ProcessKeyboardAccelerators="WinoListViewProcessKeyboardAccelerators"
                                 ProjectionOptions="{x:Bind ViewModel.MailListOptions, Mode=OneWay}"
                                 RightHoverAction="{x:Bind helpers:XamlHelpers.GetHoverActionKind(ViewModel.PreferencesService.RightHoverAction), Mode=OneWay}"
+                                SelectAdjacentOnRemoval="{x:Bind ViewModel.PreferencesService.AutoSelectNextItem, Mode=OneWay}"
                                 SelectionMode="Extended"
                                 SelectionSnapshotChanged="MailListViewSelectionSnapshotChanged">
                                 <listview:ThreadedMailListView.ItemsPanel>

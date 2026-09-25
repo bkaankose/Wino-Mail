@@ -92,30 +92,42 @@ public sealed partial class MailListCollection<TItem> : ObservableCollection<TIt
     public int RemoveRangeById(IEnumerable<Guid> ids)
     {
         ArgumentNullException.ThrowIfNull(ids);
-        var idSet = ids.ToHashSet();
+        var idSet = ids as IReadOnlySet<Guid> ?? ids.ToHashSet();
         if (idSet.Count == 0)
         {
             return 0;
         }
 
-        var removed = Items.Where(item => idSet.Contains(item.StableId)).ToArray();
-        if (removed.Length == 0)
+        // Ids that are not listed cost one dictionary probe each; nothing is materialized.
+        var matches = 0;
+        foreach (var id in idSet)
+        {
+            if (_itemsById.ContainsKey(id))
+            {
+                matches++;
+            }
+        }
+
+        if (matches == 0)
         {
             return 0;
         }
 
+        var removed = 0;
         using (DeferRefresh())
         {
-            foreach (var index in Enumerable
-                         .Range(0, Items.Count)
-                         .Where(index => idSet.Contains(Items[index].StableId))
-                         .OrderDescending())
+            // Walk backwards so each removal leaves the indices still to visit untouched.
+            for (var index = Items.Count - 1; index >= 0 && removed < matches; index--)
             {
-                RemoveItem(index);
+                if (idSet.Contains(Items[index].StableId))
+                {
+                    RemoveItem(index);
+                    removed++;
+                }
             }
         }
 
-        return removed.Length;
+        return removed;
     }
 
     public void ReplaceAll(IEnumerable<TItem> items)

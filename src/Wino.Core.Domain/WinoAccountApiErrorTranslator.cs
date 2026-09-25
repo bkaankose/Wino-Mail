@@ -13,6 +13,14 @@ public static class WinoAccountApiErrorTranslator
     public const string IntelligenceDeletionPendingCode = "INTELLIGENCE_DELETION_PENDING";
     public const string IntelligenceDeletionFailedCode = "INTELLIGENCE_DELETION_FAILED";
 
+    /// <summary>
+    /// User-facing text for a failed Wino Account operation. API failures are translated by their error code.
+    /// </summary>
+    public static string Describe(System.Exception exception)
+        => exception is Exceptions.WinoAccountApiException apiException
+            ? Translate(apiException.ErrorCode)
+            : exception.Message;
+
     public static string Translate(string? errorCode)
     {
         if (string.IsNullOrWhiteSpace(errorCode))
@@ -67,6 +75,10 @@ public static class WinoAccountApiErrorTranslator
             ApiErrorCodes.InternalServerError => Translator.WinoAccount_Error_InternalServerError,
             ApiErrorCodes.Forbidden => Translator.WinoAccount_Error_Forbidden,
             ApiErrorCodes.ValidationFailed => Translator.WinoAccount_Error_ValidationFailed,
+            WinoAccountClientErrorCodes.ServiceUnavailable => Translator.WinoAccount_Error_ServiceUnavailable,
+            WinoAccountClientErrorCodes.InvalidServiceResponse => Translator.WinoAccount_Error_InvalidServiceResponse,
+            WinoAccountClientErrorCodes.SignInRequired => Translator.WinoAccount_Error_SignInRequired,
+            WinoAccountClientErrorCodes.AccountSessionChanged => Translator.WinoAccount_Error_AccountSessionChanged,
             _ => errorCode,
         };
     }

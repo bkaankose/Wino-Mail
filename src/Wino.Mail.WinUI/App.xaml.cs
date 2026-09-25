@@ -728,6 +728,7 @@ public partial class App : WinoApplication,
             await Services.GetRequiredService<IKeyboardShortcutService>().InitializeAsync();
 
             await Services.GetRequiredService<AccountProfilePictureMaintenance>().MigrateLegacyAsync();
+            await Services.GetRequiredService<AccountSenderPictureDirectory>().InitializeAsync();
 
             _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
             _preferencesService = Services.GetRequiredService<IPreferencesService>();

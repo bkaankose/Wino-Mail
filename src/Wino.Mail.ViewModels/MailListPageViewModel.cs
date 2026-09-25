@@ -410,8 +410,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     public bool HasSingleItemSelected => SelectedItemsCount == 1;
 
     public bool IsAllItemsSelected =>
-        MailCollection.AllItemsCount > 0 &&
-        SelectedItemsCount == MailCollection.AllItemsCount;
+        MailCollection.Count > 0 &&
+        SelectedItemsCount == MailCollection.Count;
 
     public bool HasSingleFullySelectedThread
     {
@@ -592,7 +592,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     /// <summary>
     /// Indicates current state of the mail list. Doesn't matter it's loading or no.
     /// </summary>
-    public bool IsEmpty => MailCollection.AllItemsCount == 0;
+    public bool IsEmpty => MailCollection.Count == 0;
 
     /// <summary>
     /// Progress ring only should be visible when the folder is initializing and there are no items. We don't need to show it when there are items.
@@ -1188,7 +1188,8 @@ public partial class MailListPageViewModel : MailBaseViewModel,
             await MailCollection.AddRangeAsync(
                 viewModels,
                 clearIdCache: false,
-                shouldApply: () => IsCurrentMailLoad(context));
+                shouldApply: () => IsCurrentMailLoad(context),
+                isPreferred: MatchesActiveListSeed);
             if (!IsCurrentMailLoad(context))
                 return;
 
@@ -1768,7 +1769,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     /// <returns>True if the ThreadId exists in the collection, false otherwise.</returns>
     private bool ThreadIdExistsInCollection(MailCopy mailItem)
     {
-        return MailCollection.ContainsThreadId(Wino.Core.Domain.Extensions.MailConversationIdentity.ThreadKey(mailItem));
+        return MailCollection.ContainsThreadKey(Wino.Core.Domain.Extensions.MailConversationIdentity.ThreadKey(mailItem));
     }
 
     protected override async void OnMailAdded(MailCopy addedMail, EntityUpdateSource source)
@@ -2208,27 +2209,12 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                     return;
                 }
 
-                MailItemViewModel nextItem = null;
-                bool isDeletedMailSelected = false;
-
-                await ExecuteUIThread(() =>
-                {
-                    isDeletedMailSelected = IsMailSelected(removedMail.UniqueId);
-
-                    if (isDeletedMailSelected && PreferencesService.AutoSelectNextItem)
-                    {
-                        nextItem = MailCollection.GetNextItem(removedMail);
-                    }
-                });
-
-                // RemoveAsync already handles UI threading internally
+                // RemoveAsync already handles UI threading internally. When the removed mail
+                // was selected, the list view picks the row that takes its visible position
+                // (SelectAdjacentOnRemoval, bound to the AutoSelectNextItem preference) before
+                // it publishes a snapshot, so no empty selection reaches the reader.
                 await MailCollection.RemoveAsync(removedMail);
                 await PruneDraftThreadOrphansAsync(removedMail.ThreadId);
-
-                if (nextItem != null)
-                    WeakReferenceMessenger.Default.Send(new SelectMailItemContainerEvent(nextItem.UniqueId, ScrollToItem: true));
-                // If there is no replacement, the threaded list projection drops the
-                // removed selection token and publishes the resulting empty snapshot.
 
                 await ExecuteUIThread(() => { NotifyItemFoundState(); });
             }

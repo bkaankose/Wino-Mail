@@ -10,21 +10,30 @@ public sealed record MailListProjectionGroupKey(bool IsPinned, object? Value);
 
 public sealed class MailListThread
 {
+    private IReadOnlyList<IMailListSourceItem> _items;
+
     internal MailListThread(string key, IReadOnlyList<IMailListSourceItem> items)
     {
         Key = key;
-        Items = items;
+        _items = items;
     }
 
     public string Key { get; }
 
-    public IReadOnlyList<IMailListSourceItem> Items { get; }
+    public IReadOnlyList<IMailListSourceItem> Items => _items;
 
-    public IMailListSourceItem RepresentativeItem => Items[0];
+    public IMailListSourceItem RepresentativeItem => _items[0];
 
-    public int Count => Items.Count;
+    public int Count => _items.Count;
 
     public bool IsExpanded { get; internal set; }
+
+    /// <summary>
+    /// Updates the ordered leaves in place so rows that reference this thread keep their
+    /// identity when a leaf is added or removed. The list host anchors the viewport and the
+    /// native selection on row instances, so replacing the thread would replace every row.
+    /// </summary>
+    internal void ReplaceItems(IReadOnlyList<IMailListSourceItem> items) => _items = items;
 }
 
 #if WINRT_EXPOSED
@@ -74,6 +83,16 @@ public sealed partial class MailListRow : INotifyPropertyChanged
 
     internal void NotifyExpansionChanged() =>
         PropertyChanged?.Invoke(this, new(nameof(IsExpanded)));
+
+    /// <summary>
+    /// Raised on a thread head whose thread kept its identity but changed its leaves, so
+    /// bindings such as a message count refresh without the row being replaced.
+    /// </summary>
+    internal void NotifyThreadChanged()
+    {
+        PropertyChanged?.Invoke(this, new(nameof(Thread)));
+        PropertyChanged?.Invoke(this, new(nameof(LeafItems)));
+    }
 }
 
 #if WINRT_EXPOSED

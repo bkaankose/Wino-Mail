@@ -16,6 +16,12 @@ public static class WinoAccountAiErrorTranslator
 
     public static string Format(string? errorCode, string? errorMessage)
     {
+        // App-side codes carry no server message worth showing next to the translated text.
+        if (WinoAccountClientErrorCodes.IsServiceFailure(errorCode) || errorCode == WinoAccountClientErrorCodes.SignInRequired)
+        {
+            return Translate(errorCode);
+        }
+
         var translatedCode = Translate(errorCode);
         var hasCode = !string.IsNullOrWhiteSpace(errorCode);
         var hasMessage = !string.IsNullOrWhiteSpace(errorMessage);

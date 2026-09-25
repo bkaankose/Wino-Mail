@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
@@ -52,7 +53,7 @@ public sealed class WinoPurchaseReconciliationService(
                 var profile = await profileService.RefreshProfileAsync(cancellationToken).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!profile.IsSuccess || profile.Account is null)
-                    return new(profile.ErrorCode is ApiErrorCodes.RefreshTokenInvalid or "MissingAccessToken" or "AccountSessionChanged"
+                    return new(profile.ErrorCode is ApiErrorCodes.RefreshTokenInvalid or WinoAccountClientErrorCodes.SignInRequired or WinoAccountClientErrorCodes.AccountSessionChanged
                         ? WinoPurchaseRefreshOutcome.SignInRequired : WinoPurchaseRefreshOutcome.Failed);
 
                 var refresh = await snapshots.RefreshPurchasesAsync(cancellationToken).ConfigureAwait(false);

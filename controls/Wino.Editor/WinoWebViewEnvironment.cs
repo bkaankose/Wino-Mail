@@ -40,3 +40,24 @@ public static class WinoWebViewEnvironment
         }
     }
 }
+
+internal static class WinoWebViewSecurity
+{
+    /// <summary>
+    /// Turns off browser features that neither the reader nor the editor uses. Mail markup is
+    /// untrusted, so dialogs, autofill, host objects and the status bar must not be reachable.
+    /// </summary>
+    public static void Apply(CoreWebView2 coreWebView)
+    {
+        var settings = coreWebView.Settings;
+        settings.AreDefaultScriptDialogsEnabled = false;
+        settings.AreHostObjectsAllowed = false;
+        settings.IsGeneralAutofillEnabled = false;
+        settings.IsPasswordAutosaveEnabled = false;
+        settings.IsStatusBarEnabled = false;
+        settings.IsSwipeNavigationEnabled = false;
+#if !DEBUG
+        settings.AreDevToolsEnabled = false;
+#endif
+    }
+}

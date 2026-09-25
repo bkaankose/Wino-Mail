@@ -36,6 +36,37 @@ public sealed class MailListCollectionTests
     }
 
     [Fact]
+    public void RemoveRangeById_RemovesEveryListedItem_AndIgnoresUnknownIds()
+    {
+        var items = Enumerable.Range(0, 6).Select(index => new TestItem($"item-{index}")).ToArray();
+        var collection = new MailListCollection<TestItem>();
+        collection.AddRange(items);
+        var removals = new List<NotifyCollectionChangedEventArgs>();
+        collection.CollectionChanged += (_, args) => removals.Add(args);
+
+        var removed = collection.RemoveRangeById([items[0].StableId, items[3].StableId, items[5].StableId, Guid.NewGuid()]);
+
+        removed.Should().Be(3);
+        ((IEnumerable<TestItem>)collection).Should().Equal(items[1], items[2], items[4]);
+        removals.Should().HaveCount(3).And.OnlyContain(args => args.Action == NotifyCollectionChangedAction.Remove);
+        collection.ContainsId(items[3].StableId).Should().BeFalse();
+        collection.ContainsId(items[4].StableId).Should().BeTrue();
+    }
+
+    [Fact]
+    public void RemoveRangeById_WithNoMatches_RaisesNothing()
+    {
+        var collection = new MailListCollection<TestItem> { new TestItem("a") };
+        var changes = 0;
+        collection.CollectionChanged += (_, _) => changes++;
+        collection.BatchUpdateCompleted += (_, _) => changes++;
+
+        collection.RemoveRangeById([Guid.NewGuid()]).Should().Be(0);
+
+        changes.Should().Be(0);
+    }
+
+    [Fact]
     public void RemoveRangeById_UpdatesIdentityIndex()
     {
         var first = new TestItem("a");

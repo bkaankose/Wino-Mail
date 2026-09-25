@@ -6,7 +6,9 @@ using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Windows.Foundation;
 using Windows.UI.Core;
 using Wino.Mail.Controls.Core;
 using Wino.Mail.Controls.Core.HoverActions;
@@ -21,6 +23,7 @@ namespace Wino.Mail.Controls.MailListView;
 /// </summary>
 public partial class WinoMailListView : ListView, IDisposable
 {
+    private const string ScrollViewerPartName = "ScrollViewer";
     private readonly ObservableCollection<IMailListSourceItem> _selectedItems = [];
     private readonly ObservableCollection<string> _selectedThreadKeys = [];
     private readonly ObservableCollection<string> _expandedThreadKeys = [];
@@ -43,6 +46,10 @@ public partial class WinoMailListView : ListView, IDisposable
     private IMailListSourceItem? _multiSelectRetainedItem;
     private IMailListCollection? _mailItemsSource;
     private MailListProjectionOptions? _projectionOptions;
+    private RemovalAnchor _removalAnchor;
+    private ViewportAnchor? _viewportAnchor;
+    private ScrollViewer? _scrollViewer;
+    private bool _focusWasInsideList;
     private bool _disposed;
     public WinoMailListView()
     {
@@ -227,6 +234,16 @@ public partial class WinoMailListView : ListView, IDisposable
 
     partial void OnIsPreviewModeChanged(bool newValue) => ApplyConfigurationToRealizedContainers();
 
+    /// <summary>
+    /// When every selected mail disappears from the source, selects the row that now occupies
+    /// the first selected row's visible position (or the last row when the list got shorter).
+    /// The replacement is chosen in visible order before the empty selection would be
+    /// published, so hosts never observe an empty snapshot and the viewport does not move.
+    /// A wholesale reset (folder switch) never triggers it.
+    /// </summary>
+    [GeneratedDependencyProperty]
+    public partial bool SelectAdjacentOnRemoval { get; set; }
+
     public HoverActionKind LeftHoverAction
     {
         get => (HoverActionKind)GetValue(LeftHoverActionProperty);
@@ -391,6 +408,7 @@ public partial class WinoMailListView : ListView, IDisposable
 
     public virtual void Cleanup()
     {
+        _viewportAnchor = null;
         CompositionTarget.Rendering -= OnFirstFrameRendered;
         _pendingFrameTrace = null;
         DetachProjection();
@@ -466,6 +484,7 @@ public partial class WinoMailListView : ListView, IDisposable
         }
 
         _isTemplateApplied = true;
+        _scrollViewer = GetTemplateChild(ScrollViewerPartName) as ScrollViewer;
         ApplyTemplates();
         ApplyGroupHeaderTemplate();
         AttachProjection();
@@ -593,7 +612,7 @@ public partial class WinoMailListView : ListView, IDisposable
         _projection.GroupsReset += OnProjectionGroupsReset;
         var viewSource = GetViewSource();
         viewSource.Source = _projection.Groups;
-        ItemsSource = viewSource.View;
+        ItemsSource = DetachCurrency(viewSource.View);
 
         SynchronizeExpandedThreadKeys();
         QueueSelectionRestore();
@@ -623,6 +642,9 @@ public partial class WinoMailListView : ListView, IDisposable
     /// </summary>
     private void OnProjectionGroupsResetting(object? sender, EventArgs args)
     {
+        // A wholesale replacement is a new identity set, not a removal from the current one.
+        _removalAnchor = default;
+        _viewportAnchor = null;
         if (ItemsSource is null)
         {
             return;
@@ -641,7 +663,23 @@ public partial class WinoMailListView : ListView, IDisposable
         }
 
         _isReattachingItemsSource = false;
-        ItemsSource = GetViewSource().View;
+        ItemsSource = DetachCurrency(GetViewSource().View);
+    }
+
+    /// <summary>
+    /// A grouped collection view starts with its first row as the current item, and the list
+    /// mirrors currency into its selection. Selection here is identity-token driven, so the
+    /// view is attached without a current item; otherwise every wholesale reset would select
+    /// the first row on its own.
+    /// </summary>
+    private static ICollectionView? DetachCurrency(ICollectionView? view)
+    {
+        if (view is not null && view.CurrentPosition >= 0)
+        {
+            view.MoveCurrentToPosition(-1);
+        }
+
+        return view;
     }
 
     /// <summary>
@@ -688,11 +726,260 @@ public partial class WinoMailListView : ListView, IDisposable
         // Native selection is cleared while row instances are replaced. Tokens are
         // identity-based and must survive until they can be restored to the new rows.
         _isProjectionChanging = true;
+        _removalAnchor = CaptureRemovalAnchor();
+        _viewportAnchor = CaptureViewportAnchor();
+        _focusWasInsideList = _removalAnchor.IsSet && IsFocusInsideList();
+    }
+
+    private bool IsFocusInsideList()
+    {
+        if (XamlRoot is null || FocusManager.GetFocusedElement(XamlRoot) is not DependencyObject focused)
+        {
+            return false;
+        }
+
+        for (var current = focused; current is not null; current = VisualTreeHelper.GetParent(current))
+        {
+            if (ReferenceEquals(current, this))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Records where the rows at the top of the viewport sit before the projection changes.
+    /// The items panel anchors the viewport on a realized container; when that container is
+    /// the row being removed or replaced (a deleted thread head, a thread collapsing into a
+    /// single row) the panel loses its anchor and the offset moves. The first surviving row
+    /// of this list is scrolled back to the position it had, so what the user sees stays put.
+    /// </summary>
+    private ViewportAnchor? CaptureViewportAnchor()
+    {
+        if (_scrollViewer is null || _scrollViewer.VerticalOffset <= 0 || ItemsPanelRoot is null)
+        {
+            return null;
+        }
+
+        var viewportHeight = _scrollViewer.ViewportHeight;
+        var candidates = new List<(Guid Id, double Top)>();
+        foreach (var child in ItemsPanelRoot.Children)
+        {
+            if (child is not WinoMailListViewItem { Row: { } row } container)
+            {
+                continue;
+            }
+
+            var top = container.TransformToVisual(_scrollViewer).TransformPoint(new Point(0, 0)).Y;
+            if (top + container.ActualHeight <= 0 || top >= viewportHeight)
+            {
+                continue;
+            }
+
+            candidates.Add((row.SourceItem.StableId, top));
+        }
+
+        if (candidates.Count == 0)
+        {
+            return null;
+        }
+
+        candidates.Sort(static (left, right) => left.Top.CompareTo(right.Top));
+        return new ViewportAnchor(candidates);
+    }
+
+    private void RestoreViewportAnchor()
+    {
+        var anchor = _viewportAnchor;
+        _viewportAnchor = null;
+        if (anchor is null || _scrollViewer is null || _projection is null || _disposed)
+        {
+            return;
+        }
+
+        // The items panel realizes and positions containers during layout; measure after a
+        // synchronous pass so the positions are final rather than those of the previous frame.
+        UpdateLayout();
+
+        foreach (var (id, previousTop) in anchor.Candidates)
+        {
+            if (ResolveVisibleRow(id) is not { } row || ContainerFromItem(row) is not FrameworkElement container)
+            {
+                // Removed, or not realized yet: the next row down is the new reference.
+                continue;
+            }
+
+            var top = container.TransformToVisual(_scrollViewer).TransformPoint(new Point(0, 0)).Y;
+            var delta = top - previousTop;
+            if (Math.Abs(delta) > 0.5)
+            {
+                _scrollViewer.ChangeView(null, _scrollViewer.VerticalOffset + delta, null, disableAnimation: true);
+            }
+
+            return;
+        }
+    }
+
+    /// <summary>
+    /// Remembers, before the projection changes, which mail follows and which precedes the
+    /// selection in visible order, plus the first selected row's index. If the change removes
+    /// every selected mail, the successor is the natural next selection; the predecessor covers
+    /// a removal at the end of the list, and the index is the last resort when both vanished.
+    /// Identities are used rather than indices because rows above the selection can disappear
+    /// in the same change, for example when a thread collapses into a single row.
+    /// </summary>
+    private RemovalAnchor CaptureRemovalAnchor()
+    {
+        if (!SelectAdjacentOnRemoval || _projection is null || _tokens.Count == 0)
+        {
+            return default;
+        }
+
+        var index = 0;
+        var firstSelectedIndex = -1;
+        string? holdingThreadKey = null;
+        Guid? holdingRepresentativeId = null;
+        Guid? predecessor = null;
+        foreach (var group in _projection.Groups)
+        {
+            foreach (var row in group)
+            {
+                var isSelected = IsSelectedOrHoldsSelectedLeaf(row);
+                if (isSelected && firstSelectedIndex < 0)
+                {
+                    firstSelectedIndex = index;
+                    if (!IsSelected(row))
+                    {
+                        // The selection lives in this collapsed thread. If the thread outlives
+                        // the removal its head is the closest visible stand-in, and if it
+                        // shrinks to a single row its representative is.
+                        holdingThreadKey = row.ThreadKey;
+                        holdingRepresentativeId = row.SourceItem.StableId;
+                    }
+                }
+                else if (!isSelected && firstSelectedIndex < 0)
+                {
+                    predecessor = row.SourceItem.StableId;
+                }
+                else if (!isSelected)
+                {
+                    return new RemovalAnchor(true, firstSelectedIndex, holdingThreadKey, holdingRepresentativeId, row.SourceItem.StableId, predecessor);
+                }
+
+                index++;
+            }
+        }
+
+        return firstSelectedIndex < 0
+            ? default
+            : new RemovalAnchor(true, firstSelectedIndex, holdingThreadKey, holdingRepresentativeId, null, predecessor);
+    }
+
+    /// <summary>
+    /// A row counts as selected for anchoring when it is selected itself or when it is the
+    /// collapsed head of a thread that holds a selected leaf, since that leaf has no row of its own.
+    /// </summary>
+    private bool IsSelectedOrHoldsSelectedLeaf(MailListRow row)
+    {
+        if (IsSelected(row))
+        {
+            return true;
+        }
+
+        if (!row.IsThreadHead || row.Thread is not { IsExpanded: false } thread)
+        {
+            return false;
+        }
+
+        foreach (var item in thread.Items)
+        {
+            if (_tokens.Contains(SelectionToken.ForItem(item)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Drops tokens whose mail no longer exists. When that empties the selection and a removal
+    /// anchor was captured, the row now at the anchor takes over so the selection never goes
+    /// through an empty state. Returns <see langword="true"/> when a replacement was selected.
+    /// </summary>
+    private bool ReconcileTokensAfterRemoval()
+    {
+        var anchor = _removalAnchor;
+        _removalAnchor = default;
+        if (_projection is null || _tokens.Count == 0)
+        {
+            return false;
+        }
+
+        var dropped = _tokens.RemoveWhere(token =>
+            token.StableId is { } stableId
+                ? _projection.FindItem(stableId) is null
+                : token.ThreadKey is not null &&
+                  _projection.FindThread(token.ThreadKey) is null);
+        if (dropped == 0 ||
+            _tokens.Count > 0 ||
+            !anchor.IsSet ||
+            !SelectAdjacentOnRemoval ||
+            _projection.RowCount == 0)
+        {
+            return false;
+        }
+
+        var replacement =
+            ResolveThreadHead(anchor.HoldingThreadKey) ??
+            ResolveVisibleRow(anchor.HoldingRepresentativeId) ??
+            ResolveVisibleRow(anchor.SuccessorId) ??
+            ResolveVisibleRow(anchor.PredecessorId) ??
+            _projection.GetRowAtVisibleIndex(Math.Min(anchor.Index, _projection.RowCount - 1));
+        if (replacement is null)
+        {
+            return false;
+        }
+
+        _tokens.Add(SelectionToken.ForItem(replacement.SourceItem));
+        return true;
+    }
+
+    private MailListRow? ResolveThreadHead(string? threadKey) =>
+        threadKey is not null && _projection?.FindThread(threadKey) is { } thread
+            ? _projection.FindRow(thread.RepresentativeItem.StableId)
+            : null;
+
+    /// <summary>
+    /// The row that shows a mail, or the head of its thread when the mail is a collapsed leaf.
+    /// </summary>
+    private MailListRow? ResolveVisibleRow(Guid? stableId)
+    {
+        if (stableId is not { } id || _projection is null || _projection.FindItem(id) is null)
+        {
+            return null;
+        }
+
+        if (_projection.FindRow(id) is { } row)
+        {
+            return row;
+        }
+
+        return _projection.GetThreadForItem(id) is { } thread
+            ? _projection.FindRow(thread.RepresentativeItem.StableId)
+            : null;
     }
 
     private void OnProjectionChanged(object? sender, EventArgs args)
     {
         _isProjectionChanging = false;
+        if (_viewportAnchor is not null)
+        {
+            RestoreViewportAnchor();
+        }
+
         if (_restoreSelectionSynchronouslyAfterProjectionChange)
         {
             _restoreSelectionSynchronouslyAfterProjectionChange = false;
@@ -715,7 +1002,10 @@ public partial class WinoMailListView : ListView, IDisposable
 
     private void OnNativeSelectionChanged(object sender, SelectionChangedEventArgs args)
     {
-        if (_isProjectionChanging || _isRestoringSelection)
+        // While a restore is queued the native selection is transient: the projection just
+        // changed and focus recovery may select whatever container took the focused slot.
+        // The queued restore re-applies the identity tokens, so that interim state is ignored.
+        if (_isProjectionChanging || _isRestoringSelection || _isSelectionRestoreQueued)
         {
             return;
         }
@@ -990,10 +1280,13 @@ public partial class WinoMailListView : ListView, IDisposable
                 return;
             }
 
+            var replacedRemovedSelection = ReconcileTokensAfterRemoval();
+
             _isRestoringSelection = true;
+            MailListRow[] desiredRows;
             try
             {
-                var desiredRows = _projection.Rows
+                desiredRows = _projection.Rows
                     .Where(IsSelected)
                     .ToArray();
                 var desiredSet = desiredRows.ToHashSet();
@@ -1019,6 +1312,15 @@ public partial class WinoMailListView : ListView, IDisposable
                 _isRestoringSelection = false;
             }
 
+            if (replacedRemovedSelection && desiredRows.Length > 0)
+            {
+                MoveFocusToReplacement(desiredRows[0]);
+            }
+            else
+            {
+                _focusWasInsideList = false;
+            }
+
             PublishSelectionSnapshot();
         }
         finally
@@ -1026,6 +1328,22 @@ public partial class WinoMailListView : ListView, IDisposable
             var completion = _selectionRestoreCompletion;
             _selectionRestoreCompletion = null;
             completion?.TrySetResult(true);
+        }
+    }
+
+    /// <summary>
+    /// After a removal replaced the selection, keeps keyboard focus on the list by moving it
+    /// to the replacement's container. Whether focus belonged to the list is decided before
+    /// the change: removing the focused container makes XAML move focus to the next control
+    /// in tab order (typically the reader), and that stray move must not win.
+    /// </summary>
+    private void MoveFocusToReplacement(MailListRow row)
+    {
+        var focusWasInsideList = _focusWasInsideList;
+        _focusWasInsideList = false;
+        if (focusWasInsideList && ContainerFromItem(row) is Control container)
+        {
+            container.Focus(FocusState.Programmatic);
         }
     }
 
@@ -1187,6 +1505,21 @@ public partial class WinoMailListView : ListView, IDisposable
             target.Add(value);
         }
     }
+
+    /// <summary>Rows near the top of the viewport and their offsets before a projection change.</summary>
+    private sealed record ViewportAnchor(IReadOnlyList<(Guid Id, double Top)> Candidates);
+
+    /// <summary>
+    /// What to select when a change removes the whole selection, captured before the change.
+    /// <see cref="IsSet"/> is explicit because the default value must not resolve to row zero.
+    /// </summary>
+    private readonly record struct RemovalAnchor(
+        bool IsSet,
+        int Index,
+        string? HoldingThreadKey,
+        Guid? HoldingRepresentativeId,
+        Guid? SuccessorId,
+        Guid? PredecessorId);
 
     private readonly record struct SelectionToken(string ThreadKey, Guid? StableId)
     {

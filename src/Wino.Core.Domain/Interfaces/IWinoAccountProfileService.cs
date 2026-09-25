@@ -23,6 +23,11 @@ public interface IWinoAccountProfileService
     Task<ApiEnvelope<EmailConfirmationResendResultDto>> ResendEmailConfirmationAsync(string endpoint, string ticket, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<JsonElement>> ForgotPasswordAsync(string email, CancellationToken cancellationToken = default);
     Task<WinoAccount?> GetActiveAccountAsync();
+    /// <summary>
+    /// Returns the signed-in account with a usable access token, refreshing it when it expired.
+    /// Returns null when no account is signed in or its credentials were rejected.
+    /// </summary>
+    /// <exception cref="Exceptions.WinoAccountApiException">The Wino service could not be reached to refresh the token.</exception>
     Task<WinoAccount?> GetAuthenticatedAccountAsync(CancellationToken cancellationToken = default);
     Task<bool> HasActiveAccountAsync();
     Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default);

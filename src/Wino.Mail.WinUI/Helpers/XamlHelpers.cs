@@ -28,6 +28,7 @@ using Wino.Mail.Controls.HoverActions;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
+using Wino.Services;
 
 namespace Wino.Helpers;
 
@@ -36,6 +37,7 @@ public static class XamlHelpers
     private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
     private static IPreferencesService? PreferencesService => WinoApplication.Current.Services.GetService<IPreferencesService>();
     private static IPictureStorageService PictureStorageService => WinoApplication.Current.Services.GetRequiredService<IPictureStorageService>();
+    private static AccountSenderPictureDirectory AccountSenderPictureDirectory => WinoApplication.Current.Services.GetRequiredService<AccountSenderPictureDirectory>();
 
     #region Mail Filter Editor
 
@@ -272,9 +274,12 @@ public static class XamlHelpers
         var resolvedAddress = !string.IsNullOrWhiteSpace(contact?.Address)
             ? contact.Address
             : address ?? string.Empty;
-        var localImagePath = contact?.ContactPictureFileId is Guid fileId
-            ? PictureStorageService.GetPicturePath(PictureKind.Contact, fileId)
-            : null;
+        // A sender that is one of the user's own accounts shows that account's picture
+        // before any Gravatar or initials fallback.
+        var localImagePath = (contact?.ContactPictureFileId is Guid fileId
+                ? PictureStorageService.GetPicturePath(PictureKind.Contact, fileId)
+                : null)
+            ?? AccountSenderPictureDirectory.GetProfilePicturePath(resolvedAddress);
 
         return new ContactPictureIdentity(resolvedName, resolvedAddress, localImagePath);
     }

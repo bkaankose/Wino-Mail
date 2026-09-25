@@ -16,6 +16,7 @@
             }
             if (typeof window.DOMPurify !== "function") return "window.DOMPurify is missing";
             if (typeof window.Readability !== "function") return "window.Readability is missing";
+            if (typeof window.WinoMailColors !== "object") return "window.WinoMailColors is missing";
             return typeof window.WinoRenderer === "object" ? "ready" : "window.WinoRenderer is missing";
         }
         if (!("isConnected" in Node.prototype)) {
@@ -25,7 +26,7 @@
             });
         }
     </script>
-    <script defer src="darkreader.js"></script>
+    <script defer src="mail-colors.js"></script>
     <script defer src="linkify.min.js"></script>
     <script defer src="linkify-element.min.js"></script>
     <script defer src="dompurify-3.4.14.min.js"></script>

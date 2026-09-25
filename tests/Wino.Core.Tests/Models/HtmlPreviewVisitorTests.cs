@@ -50,6 +50,38 @@ public class HtmlPreviewVisitorTests
     }
 
     [Fact]
+    public void HtmlPreviewVisitor_Should_Keep_Only_Color_Scheme_Meta_Tags()
+    {
+        var html = """
+            <html>
+                <head>
+                    <meta name="color-scheme" content="light dark">
+                    <meta name="supported-color-schemes" content="light dark" data-extra="dropped">
+                    <meta http-equiv="refresh" content="0; url=https://malicious.example">
+                    <meta name="color-scheme" http-equiv="refresh" content="light dark">
+                    <meta name="viewport" content="width=device-width">
+                    <meta name="color-scheme" content="light; url=https://malicious.example">
+                </head>
+                <body><p>hello</p></body>
+            </html>
+            """;
+
+        var message = new MimeMessage();
+        message.Body = new TextPart("html") { Text = html };
+
+        var visitor = new HtmlPreviewVisitor(Path.GetTempPath());
+        message.Accept(visitor);
+        var output = visitor.HtmlBody;
+
+        output.Should().Contain("name=\"color-scheme\" content=\"light dark\"", "the sender's color-scheme hint drives dark-mode rendering");
+        output.Should().Contain("name=\"supported-color-schemes\" content=\"light dark\"", "the legacy Apple Mail hint is kept without extra attributes");
+        output.Should().NotContain("http-equiv", "meta refresh and other pragma directives must never reach the renderer");
+        output.Should().NotContain("viewport", "unrelated meta tags stay blocked");
+        output.Should().NotContain("malicious.example", "a hint with anything but scheme keywords is dropped");
+        output.Should().NotContain("data-extra", "only the name and content attributes are written");
+    }
+
+    [Fact]
     public void HtmlPreviewVisitor_Should_Sanitize_Dangerous_Url_Attributes()
     {
         // Arrange

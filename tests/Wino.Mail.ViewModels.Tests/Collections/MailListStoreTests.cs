@@ -7,6 +7,7 @@ using FluentAssertions;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.AI.Abstractions;
@@ -496,6 +497,138 @@ public sealed class MailListStoreTests
     {
         CoreDispatcher = new ImmediateDispatcher(),
     };
+
+    [Fact]
+    public async Task Indexes_FollowAddRemoveResetAndClear()
+    {
+        var store = CreateStore();
+        var first = CreateMailCopy("thread-a");
+        var second = CreateMailCopy("thread-a");
+        var third = CreateMailCopy("thread-b");
+        var threadA = MailConversationIdentity.ThreadKey(first);
+        var threadB = MailConversationIdentity.ThreadKey(third);
+
+        await store.AddRangeAsync([new MailItemViewModel(first), new MailItemViewModel(second), new MailItemViewModel(third)], clearIdCache: true);
+        store.ContainsThreadKey(threadA).Should().BeTrue();
+        store.ContainsThreadKey(threadB).Should().BeTrue();
+        store.ItemIds.Should().BeEquivalentTo([first.UniqueId, second.UniqueId, third.UniqueId]);
+
+        await store.RemoveAsync(first);
+        store.ContainsThreadKey(threadA).Should().BeTrue("one leaf of the thread is still listed");
+        store.ContainsMailUniqueId(first.UniqueId).Should().BeFalse();
+        store.Find(second.UniqueId).Should().NotBeNull();
+
+        await store.RemoveAsync(second);
+        store.ContainsThreadKey(threadA).Should().BeFalse();
+
+        await store.ResetAsync([new MailItemViewModel(first)]);
+        store.ContainsThreadKey(threadA).Should().BeTrue();
+        store.ContainsThreadKey(threadB).Should().BeFalse();
+        store.ItemIds.Should().BeEquivalentTo([first.UniqueId]);
+
+        await store.ClearAsync();
+        store.ContainsThreadKey(threadA).Should().BeFalse();
+        store.ItemIds.Should().BeEmpty();
+        store.Find(first.UniqueId).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task UpdatingThreadId_MovesTheThreadKeyIndex()
+    {
+        var store = CreateStore();
+        var mail = CreateMailCopy("before");
+        var previousKey = MailConversationIdentity.ThreadKey(mail);
+        await store.AddAsync(mail);
+        var updated = CloneMailCopy(mail);
+        updated.ThreadId = "after";
+
+        await store.UpdateMailCopy(updated, EntityUpdateSource.Server, MailCopyChangeFlags.ThreadId);
+
+        store.ContainsThreadKey(previousKey).Should().BeFalse();
+        store.ContainsThreadKey(MailConversationIdentity.ThreadKey(updated)).Should().BeTrue();
+        store.Find(mail.UniqueId).ThreadKey.Should().Be(MailConversationIdentity.ThreadKey(updated));
+    }
+
+    [Fact]
+    public async Task SameInstanceUpdate_RefreshesTheRow_WithoutRebuildingTheProjection()
+    {
+        var store = CreateStore();
+        var mail = CreateMailCopy("thread-1");
+        await store.AddRangeAsync([new MailItemViewModel(mail), new MailItemViewModel(CreateMailCopy("thread-2"))], clearIdCache: true);
+        using var projection = new MailListProjection(store.Items);
+        var rebuilds = 0;
+        projection.ProjectionChanged += (_, _) => rebuilds++;
+        var item = store.Find(mail.UniqueId);
+        var notified = new List<string>();
+        item.PropertyChanged += (_, args) => notified.Add(args.PropertyName);
+
+        // The same instance was mutated in place, as client-side operations do.
+        mail.IsRead = true;
+        await store.UpdateMailCopy(mail, EntityUpdateSource.ClientUpdated);
+
+        rebuilds.Should().Be(0);
+        notified.Should().Contain(nameof(MailItemViewModel.IsRead));
+        notified.Should().NotContain(nameof(MailItemViewModel.DateSortKey));
+        item.IsRead.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RemoveLiveRangeAsync_IgnoresMailThatIsNotListed()
+    {
+        var store = CreateStore();
+        var account = CreateGmailAccount();
+        var listed = CreateMailCopy("thread-1");
+        listed.AssignedAccount = account;
+        await store.AddAsync(listed);
+        var unlisted = CreateMailCopy("thread-2");
+        unlisted.AssignedAccount = account;
+        var unlistedSibling = CreateLabelCopy(unlisted, account, Guid.NewGuid());
+
+        await store.RemoveLiveRangeAsync([unlisted], [unlistedSibling], null);
+
+        ((IEnumerable<MailItemViewModel>)store.Items).Should().ContainSingle()
+            .Which.UniqueId.Should().Be(listed.UniqueId);
+    }
+
+    [Fact]
+    public async Task AddRangeAsync_WithPreferredSeed_KeepsTheListedCopyInstance()
+    {
+        var store = CreateStore();
+        var account = CreateGmailAccount();
+        var inboxFolderId = Guid.NewGuid();
+        var starredFolderId = Guid.NewGuid();
+        var inboxCopy = CreateMailCopy("thread-1");
+        inboxCopy.AssignedAccount = account;
+        inboxCopy.FolderId = inboxFolderId;
+        inboxCopy.AssignedFolder = new MailItemFolder { Id = inboxFolderId, MailAccountId = account.Id, SpecialFolderType = SpecialFolderType.Inbox };
+        var starredCopy = CreateLabelCopy(inboxCopy, account, starredFolderId);
+        starredCopy.AssignedFolder = new MailItemFolder { Id = starredFolderId, MailAccountId = account.Id, SpecialFolderType = SpecialFolderType.Starred };
+
+        // The starred view lists the starred copy; a later page also carries the inbox copy.
+        await store.AddRangeAsync([new MailItemViewModel(starredCopy)], clearIdCache: true);
+        var listedInstance = store.Find(starredCopy.UniqueId);
+
+        await store.AddRangeAsync(
+            [new MailItemViewModel(inboxCopy)],
+            clearIdCache: false,
+            isPreferred: mail => mail.FolderId == starredFolderId);
+
+        ((IEnumerable<MailItemViewModel>)store.Items).Should().ContainSingle()
+            .Which.Should().BeSameAs(listedInstance);
+    }
+
+    [Fact]
+    public async Task ItemIds_SnapshotIsStableWhileTheListMutates()
+    {
+        var store = CreateStore();
+        await store.AddRangeAsync(Enumerable.Range(0, 50).Select(_ => new MailItemViewModel(CreateMailCopy("t"))), clearIdCache: true);
+
+        var snapshot = store.ItemIds;
+        await store.ClearAsync();
+
+        snapshot.Should().HaveCount(50);
+        store.ItemIds.Should().BeEmpty();
+    }
 
     private static MailCopy CreateMailCopy(string threadId) => new()
     {

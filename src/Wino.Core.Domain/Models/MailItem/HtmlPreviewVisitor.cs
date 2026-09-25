@@ -39,6 +39,17 @@ public sealed class HtmlPreviewVisitor : MimeVisitor
         Uri.UriSchemeHttp, Uri.UriSchemeHttps, "cid"
     };
 
+    // Only these meta tags reach the renderer, and only as a name/content pair. They carry
+    // the sender's color-scheme intent that Outlook and Apple Mail use to skip dark inversion.
+    private static readonly HashSet<string> ColorSchemeMetaNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "color-scheme", "supported-color-schemes"
+    };
+
+    private static readonly Regex ColorSchemeContentRegex = new(
+        @"^[a-zA-Z ,]{1,64}$",
+        RegexOptions.CultureInvariant);
+
     private static readonly Regex ScriptBlockRegex = new(
         @"<script\b[^>]*>.*?(?:</script\s*>|$)",
         RegexOptions.IgnoreCase | RegexOptions.Singleline | RegexOptions.CultureInvariant);
@@ -303,6 +314,15 @@ public sealed class HtmlPreviewVisitor : MimeVisitor
     {
         var tagName = context.TagName;
 
+        if (context.TagId == HtmlTagId.Meta && !context.IsEndTag &&
+            TryGetColorSchemeMeta(context, out var metaName, out var metaContent))
+        {
+            context.WriteTag(writer, false);
+            writer.WriteAttribute("name", metaName);
+            writer.WriteAttribute("content", metaContent);
+            return;
+        }
+
         if (BlockedTags.Contains(tagName))
         {
             context.DeleteTag = true;
@@ -354,6 +374,30 @@ public sealed class HtmlPreviewVisitor : MimeVisitor
 
         if (context.TagId == HtmlTagId.Body)
             writer.WriteAttribute("oncontextmenu", "return false;");
+    }
+
+    private static bool TryGetColorSchemeMeta(HtmlTagContext context, out string name, out string content)
+    {
+        name = null;
+        content = null;
+
+        foreach (var attribute in context.Attributes)
+        {
+            if (attribute.Name.Equals("http-equiv", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            if (attribute.Name.Equals("name", StringComparison.OrdinalIgnoreCase))
+                name = attribute.Value?.Trim();
+            else if (attribute.Name.Equals("content", StringComparison.OrdinalIgnoreCase))
+                content = attribute.Value?.Trim();
+        }
+
+        if (string.IsNullOrEmpty(name) || !ColorSchemeMetaNames.Contains(name) ||
+            string.IsNullOrEmpty(content) || !ColorSchemeContentRegex.IsMatch(content))
+            return false;
+
+        name = name.ToLowerInvariant();
+        return true;
     }
 
     private static bool ShouldDropAttribute(string tagName, string attributeName)

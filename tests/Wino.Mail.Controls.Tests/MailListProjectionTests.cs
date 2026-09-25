@@ -211,6 +211,106 @@ public sealed class MailListProjectionTests
         projection.Groups.Should().BeEmpty();
     }
 
+    [Fact]
+    public void RemovingLeaf_FromExpandedThread_KeepsSurvivingRowInstances_AndRaisesOneRemove()
+    {
+        var now = DateTimeOffset.Now;
+        var newest = new TestItem("newest", "thread", now);
+        var middle = new TestItem("middle", "thread", now.AddMinutes(-5));
+        var oldest = new TestItem("oldest", "thread", now.AddMinutes(-10));
+        var collection = new MailListCollection<TestItem>();
+        collection.AddRange([newest, middle, oldest]);
+        using var projection = new MailListProjection(
+            collection,
+            new MailListProjectionOptions { GroupMode = MailListGroupMode.None });
+        projection.ExpandThread("thread");
+
+        var headBefore = projection.FindRow(newest.StableId);
+        var oldestChildBefore = projection.Rows.Single(row => row.IsThreadChild && row.SourceItem == oldest);
+        var threadBefore = projection.FindThread("thread");
+        var rowChanges = new List<NotifyCollectionChangedEventArgs>();
+        projection.Groups[0].CollectionChanged += (_, args) => rowChanges.Add(args);
+
+        using (collection.DeferRefresh())
+        {
+            collection.RemoveById(middle.StableId);
+        }
+
+        rowChanges.Should().ContainSingle()
+            .Which.Action.Should().Be(NotifyCollectionChangedAction.Remove);
+        projection.FindThread("thread").Should().BeSameAs(threadBefore);
+        projection.FindThread("thread")!.Items.Should().Equal(newest, oldest);
+        projection.Rows.Should().Contain(headBefore!);
+        projection.Rows.Should().Contain(oldestChildBefore);
+        projection.IsThreadExpanded("thread").Should().BeTrue();
+    }
+
+    [Fact]
+    public void RemovingRepresentative_ReplacesOnlyTheHeadRow()
+    {
+        var now = DateTimeOffset.Now;
+        var newest = new TestItem("newest", "thread", now);
+        var middle = new TestItem("middle", "thread", now.AddMinutes(-5));
+        var oldest = new TestItem("oldest", "thread", now.AddMinutes(-10));
+        var collection = new MailListCollection<TestItem>();
+        collection.AddRange([newest, middle, oldest]);
+        using var projection = new MailListProjection(
+            collection,
+            new MailListProjectionOptions { GroupMode = MailListGroupMode.None });
+        projection.ExpandThread("thread");
+        var childrenBefore = projection.Rows.Where(row => row.IsThreadChild && row.SourceItem != newest).ToArray();
+
+        using (collection.DeferRefresh())
+        {
+            collection.RemoveById(newest.StableId);
+        }
+
+        var head = projection.Rows.Single(row => row.IsThreadHead);
+        head.SourceItem.Should().BeSameAs(middle);
+        projection.Rows.Where(row => row.IsThreadChild).Should().Equal(childrenBefore);
+    }
+
+    [Fact]
+    public void RemovingLeaf_UntilOneRemains_ProjectsSingleRow()
+    {
+        var now = DateTimeOffset.Now;
+        var newest = new TestItem("newest", "thread", now);
+        var oldest = new TestItem("oldest", "thread", now.AddMinutes(-10));
+        var collection = new MailListCollection<TestItem>();
+        collection.AddRange([newest, oldest]);
+        using var projection = new MailListProjection(collection);
+        projection.ExpandThread("thread");
+
+        using (collection.DeferRefresh())
+        {
+            collection.RemoveById(oldest.StableId);
+        }
+
+        projection.Rows.Should().ContainSingle().Which.Kind.Should().Be(MailListRowKind.Single);
+        projection.FindThread("thread").Should().BeNull();
+        projection.ExpandedThreadKeys.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void GetAdjacentVisibleItem_WalksAcrossGroups()
+    {
+        var today = DateTimeOffset.Now;
+        var first = new TestItem("a", date: today);
+        var second = new TestItem("b", date: today.AddDays(-1));
+        var third = new TestItem("c", date: today.AddDays(-2));
+        var collection = new MailListCollection<TestItem>();
+        collection.AddRange([third, first, second]);
+        using var projection = new MailListProjection(collection);
+
+        projection.Groups.Should().HaveCount(3);
+        projection.GetAdjacentVisibleItem(first.StableId).Should().BeSameAs(second);
+        projection.GetAdjacentVisibleItem(second.StableId).Should().BeSameAs(third);
+        projection.GetAdjacentVisibleItem(third.StableId).Should().BeNull();
+        projection.GetAdjacentVisibleItem(second.StableId, -1).Should().BeSameAs(first);
+        projection.GetRowAtVisibleIndex(2)!.SourceItem.Should().BeSameAs(third);
+        projection.GetRowAtVisibleIndex(3).Should().BeNull();
+    }
+
     private static TestItem[] CreateItems(string prefix, int count)
     {
         var items = new TestItem[count];

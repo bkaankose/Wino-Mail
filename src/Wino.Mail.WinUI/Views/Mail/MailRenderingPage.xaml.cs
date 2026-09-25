@@ -186,6 +186,10 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             ? HtmlMailRenderMode.Readability
             : HtmlMailRenderMode.Original;
         var shouldLinkifyText = ViewModel.CurrentRenderModel?.MailRenderingOptions?.RenderPlaintextLinks ?? true;
+
+        // Image stripping cannot reach CSS backgrounds or web fonts, so blocked remote
+        // content is also enforced at the renderer's network layer.
+        MailRenderer.BlockRemoteResources = !(ViewModel.CurrentRenderModel?.MailRenderingOptions?.LoadImages ?? true);
         await MailRenderer.RenderHtmlAsync(
             string.IsNullOrEmpty(html) ? " " : html,
             renderMode,

@@ -93,6 +93,40 @@ public class MailCopyPersistenceTests : IAsyncLifetime
         stored.IsPinned.Should().BeTrue();
     }
 
+    [Theory]
+    [InlineData("   Subscription canceled", "Subscription canceled")]
+    [InlineData("\r\n\t Hello\r\n\r\nworld  ", "Hello world")]
+    [InlineData("͏ ‌ ‌Preheader‌ ‌", "Preheader")]
+    [InlineData("Subscription canceled     Your subscription", "Subscription canceled Your subscription")]
+    [InlineData(" ​﻿ ", "")]
+    [InlineData(null, null)]
+    public void NormalizePreviewText_TrimsAndCollapsesWhitespace(string? input, string? expected)
+        => MailService.NormalizePreviewText(input).Should().Be(expected);
+
+    [Fact]
+    public async Task CreateAndRefreshMail_StoresNormalizedPreviewText()
+    {
+        var mail = new MailCopy
+        {
+            Id = "preview-mail", FileId = Guid.NewGuid(), Subject = "Hello",
+            PreviewText = "͏  \r\n  First preview", CreationDate = DateTime.UtcNow
+        };
+        await _mailService.CreateMailAsync(_account.Id, new NewMailItemPackage(mail, null, _inboxFolder.RemoteFolderId));
+
+        var stored = await _databaseService.Connection.Table<MailCopy>().FirstAsync(m => m.Id == mail.Id);
+        stored.PreviewText.Should().Be("First preview");
+
+        var refreshed = new MailCopy
+        {
+            Id = mail.Id, FileId = Guid.NewGuid(), Subject = "Hello",
+            PreviewText = "\t\t Second   preview  ", CreationDate = DateTime.UtcNow
+        };
+        await _mailService.CreateMailAsync(_account.Id, new NewMailItemPackage(refreshed, null, _inboxFolder.RemoteFolderId));
+
+        stored = await _databaseService.Connection.FindAsync<MailCopy>(stored.UniqueId);
+        stored.PreviewText.Should().Be("Second preview");
+    }
+
     [Fact]
     public async Task DelayedDraftStateUpdate_PreservesLatestSavedContent()
     {

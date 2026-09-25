@@ -46,6 +46,10 @@
                                     Text="Design review follow-up" />
                             </StackPanel>
                         </Border>
+                        <ToggleSwitch
+                            AutomationProperties.AutomationId="ComposeDarkModeToggle"
+                            Header="Dark writing surface"
+                            Toggled="ComposeDarkMode_Toggled" />
                         <InfoBar
                             Title="Try the editor"
                             IsClosable="False"
@@ -123,6 +127,30 @@
                             Click="RenderScenario_Click"
                             Content="Hostile HTML"
                             Tag="Hostile" />
+                        <Button
+                            AutomationProperties.AutomationId="RendererOutlookScenarioButton"
+                            Click="RenderScenario_Click"
+                            Content="Outlook styles"
+                            Tag="Outlook" />
+                        <Button
+                            AutomationProperties.AutomationId="RendererBrandScenarioButton"
+                            Click="RenderScenario_Click"
+                            Content="Brand colors"
+                            Tag="Brand" />
+                        <Button
+                            AutomationProperties.AutomationId="RendererSenderDarkScenarioButton"
+                            Click="RenderScenario_Click"
+                            Content="Sender dark mode"
+                            Tag="SenderDark" />
+                        <ToggleSwitch
+                            Margin="0,8,0,0"
+                            AutomationProperties.AutomationId="RendererDarkModeToggle"
+                            Header="Dark reading surface"
+                            Toggled="RendererDarkMode_Toggled" />
+                        <ToggleSwitch
+                            AutomationProperties.AutomationId="RendererBlockRemoteToggle"
+                            Header="Block remote content"
+                            Toggled="RendererBlockRemote_Toggled" />
                         <TextBlock
                             x:Name="RendererScenarioStatus"
                             AutomationProperties.AutomationId="RendererScenarioStatus"

@@ -102,7 +102,7 @@ public class MailService : BaseDatabaseService, IMailService
             HasAttachments = false,
             Importance = MailImportance.Normal,
             Subject = createdDraftMimeMessage.Subject,
-            PreviewText = createdDraftMimeMessage.TextBody,
+            PreviewText = NormalizePreviewText(createdDraftMimeMessage.TextBody),
             IsRead = true,
             IsDraft = true,
             FolderId = draftFolder.Id,
@@ -1213,6 +1213,48 @@ public class MailService : BaseDatabaseService, IMailService
 
     #region Repository Calls
 
+    /// <summary>
+    /// Previews render as a single line. Trims leading and trailing whitespace, including the
+    /// invisible padding characters that marketing mails use to fill the preheader, and collapses
+    /// inner whitespace runs to a single space.
+    /// </summary>
+    internal static string NormalizePreviewText(string previewText)
+    {
+        if (string.IsNullOrEmpty(previewText))
+            return previewText;
+
+        var builder = new StringBuilder(previewText.Length);
+        var pendingSpace = false;
+
+        foreach (var character in previewText)
+        {
+            if (char.IsWhiteSpace(character) || IsInvisiblePreviewPadding(character))
+            {
+                pendingSpace = builder.Length > 0;
+                continue;
+            }
+
+            if (pendingSpace)
+            {
+                builder.Append(' ');
+                pendingSpace = false;
+            }
+
+            builder.Append(character);
+        }
+
+        return builder.ToString();
+    }
+
+    private static bool IsInvisiblePreviewPadding(char character)
+        => character is '͏' or '­' or '​' or '‌' or '‍' or '⁠' or '﻿';
+
+    private static void NormalizePreviewText(MailCopy mailCopy)
+    {
+        if (mailCopy != null)
+            mailCopy.PreviewText = NormalizePreviewText(mailCopy.PreviewText);
+    }
+
     private async Task<MailCopy> InsertMailAsync(MailCopy mailCopy, bool reportUiChange)
     {
         if (mailCopy == null)
@@ -1220,6 +1262,8 @@ public class MailService : BaseDatabaseService, IMailService
             _logger.Warning("Null mail passed to InsertMailAsync call.");
             return null;
         }
+
+        NormalizePreviewText(mailCopy);
 
         if (mailCopy.FolderId == Guid.Empty)
         {
@@ -1259,7 +1303,7 @@ public class MailService : BaseDatabaseService, IMailService
                 throw new InvalidOperationException("Draft no longer exists.");
 
             current.Subject = snapshot.Subject;
-            current.PreviewText = snapshot.PreviewText;
+            current.PreviewText = NormalizePreviewText(snapshot.PreviewText);
             current.FromAddress = snapshot.FromAddress;
             current.FromName = snapshot.FromName;
             current.HasAttachments = snapshot.HasAttachments;
@@ -1329,6 +1373,8 @@ public class MailService : BaseDatabaseService, IMailService
         }
 
         _logger.Debug("Updating mail {MailCopyId} with Folder {FolderId}", mailCopy.Id, mailCopy.FolderId);
+
+        NormalizePreviewText(mailCopy);
 
         existingMailCopy ??= mailCopy.UniqueId != Guid.Empty
             ? await Connection.FindAsync<MailCopy>(mailCopy.UniqueId).ConfigureAwait(false)
@@ -1511,6 +1557,7 @@ public class MailService : BaseDatabaseService, IMailService
                     continue;
                 }
 
+                NormalizePreviewText(persisted);
                 connection.Update(persisted, typeof(MailCopy));
                 appliedUpdates.Add((persisted, changedProperties));
             }
@@ -2619,7 +2666,7 @@ public class MailService : BaseDatabaseService, IMailService
                 return false;
 
             current.Subject = remoteCopy.Subject;
-            current.PreviewText = remoteCopy.PreviewText;
+            current.PreviewText = NormalizePreviewText(remoteCopy.PreviewText);
             current.FromName = remoteCopy.FromName;
             current.FromAddress = remoteCopy.FromAddress;
             current.HasAttachments = remoteCopy.HasAttachments;

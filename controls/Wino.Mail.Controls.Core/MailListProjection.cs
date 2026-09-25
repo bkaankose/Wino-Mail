@@ -110,6 +110,30 @@ public sealed partial class MailListProjection : IDisposable
         return -1;
     }
 
+    /// <summary>
+    /// Returns the row at a position in visible order, counting across groups, or
+    /// <see langword="null"/> when the index is outside the projected rows.
+    /// </summary>
+    public MailListRow? GetRowAtVisibleIndex(int index)
+    {
+        if (index < 0)
+        {
+            return null;
+        }
+
+        foreach (var group in _groups)
+        {
+            if (index < group.Count)
+            {
+                return group[index];
+            }
+
+            index -= group.Count;
+        }
+
+        return null;
+    }
+
     public IMailListSourceItem? GetAdjacentVisibleItem(Guid stableId, int offset = 1)
     {
         if (offset == 0)
@@ -117,17 +141,13 @@ public sealed partial class MailListProjection : IDisposable
             return FindItem(stableId);
         }
 
-        var rows = Rows.ToArray();
-        var index = Array.FindIndex(rows, row => row.SourceItem.StableId == stableId);
-        if (index < 0)
+        if (FindRow(stableId) is not { } row)
         {
             return null;
         }
 
-        var adjacentIndex = index + offset;
-        return adjacentIndex >= 0 && adjacentIndex < rows.Length
-            ? rows[adjacentIndex].SourceItem
-            : null;
+        var index = GetVisibleRowIndex(row);
+        return index < 0 ? null : GetRowAtVisibleIndex(index + offset)?.SourceItem;
     }
 
     public void ExpandThread(string threadKey, bool collapseOtherThreads = true)
@@ -504,21 +524,36 @@ public sealed partial class MailListProjection : IDisposable
             }
 
             var threadKey = item.ThreadKey!;
-            var thread = existingThreads.TryGetValue(threadKey, out var existingThread) &&
-                         existingThread.Items.SequenceEqual(threadItems)
-                ? existingThread
-                : new MailListThread(threadKey, threadItems);
+            MailListThread thread;
+            var leavesChanged = false;
+            if (existingThreads.TryGetValue(threadKey, out var existingThread))
+            {
+                // Keep the thread instance so surviving rows keep their identity. Only the
+                // rows whose source item changed (a removed leaf, a new representative) are
+                // replaced below.
+                thread = existingThread;
+                if (!existingThread.Items.SequenceEqual(threadItems))
+                {
+                    existingThread.ReplaceItems(threadItems);
+                    leavesChanged = true;
+                }
+            }
+            else
+            {
+                thread = new MailListThread(threadKey, threadItems);
+            }
+
             thread.IsExpanded = _expandedThreadKeys.Contains(threadKey);
             rebuiltThreads.Add(thread.Key, thread);
 
-            var rows = new List<MailListRow>
+            var headIdentity = new RowIdentity(MailListRowKind.ThreadHead, thread.RepresentativeItem.StableId);
+            var head = GetOrCreateRow(existingRows, headIdentity, thread.RepresentativeItem, thread);
+            if (leavesChanged && existingRows.TryGetValue(headIdentity, out var existingHead) && ReferenceEquals(existingHead, head))
             {
-                GetOrCreateRow(
-                    existingRows,
-                    new(MailListRowKind.ThreadHead, thread.RepresentativeItem.StableId),
-                    thread.RepresentativeItem,
-                    thread),
-            };
+                head.NotifyThreadChanged();
+            }
+
+            var rows = new List<MailListRow> { head };
             if (thread.IsExpanded)
             {
                 rows.AddRange(thread.Items.Select(threadItem =>

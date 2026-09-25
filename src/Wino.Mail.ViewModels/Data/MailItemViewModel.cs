@@ -113,7 +113,40 @@ public partial class MailItemViewModel : ObservableRecipient, IMailListItem, IMa
 
     public Guid StableId => UniqueId;
 
-    public string? ThreadKey => Wino.Core.Domain.Extensions.MailConversationIdentity.ThreadKey(MailCopy);
+    private string? _threadKeyCache;
+    private string? _threadKeyCacheThreadId;
+    private Guid _threadKeyCacheAccountId;
+
+    /// <summary>
+    /// Conversation key in the list. The projection reads it several times per item on every
+    /// rebuild, so the formatted key is cached until the thread or account it derives from
+    /// changes.
+    /// </summary>
+    public string? ThreadKey
+    {
+        get
+        {
+            var mailCopy = MailCopy;
+            if (mailCopy is null)
+            {
+                return null;
+            }
+
+            var threadId = mailCopy.ThreadId ?? string.Empty;
+            var accountId = Wino.Core.Domain.Extensions.MailConversationIdentity.AccountId(mailCopy);
+            if (_threadKeyCacheThreadId is not null &&
+                accountId == _threadKeyCacheAccountId &&
+                string.Equals(threadId, _threadKeyCacheThreadId, StringComparison.Ordinal))
+            {
+                return _threadKeyCache;
+            }
+
+            _threadKeyCache = Wino.Core.Domain.Extensions.MailConversationIdentity.ThreadKey(mailCopy);
+            _threadKeyCacheThreadId = threadId;
+            _threadKeyCacheAccountId = accountId;
+            return _threadKeyCache;
+        }
+    }
 
     public DateTimeOffset DateSortKey => new(CreationDate);
 

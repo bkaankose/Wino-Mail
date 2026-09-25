@@ -239,6 +239,7 @@ public sealed partial class WinoMailEditor : UserControl, IHtmlMailEditor
         var environment = WebViewEnvironment ?? await WinoWebViewEnvironment.GetSharedEnvironmentAsync();
         await EditorWebView2.EnsureCoreWebView2Async(environment);
         ObjectDisposedException.ThrowIf(_disposed, this);
+        WinoWebViewSecurity.Apply(EditorWebView2.CoreWebView2);
 
         _bridge = new EditorBridge(EditorWebView2);
         _bridge.SelectionStateChanged += Bridge_SelectionStateChanged;

@@ -37,6 +37,7 @@ public interface IHtmlMailEditor : IEditorCommandTarget, IDisposable
 public interface IHtmlMailRenderer : IDisposable
 {
     bool IsDarkMode { get; set; }
+    bool BlockRemoteResources { get; set; }
     CoreWebView2Environment? WebViewEnvironment { get; set; }
 
     Task InitializeAsync();

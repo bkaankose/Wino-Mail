@@ -1,7 +1,6 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -14,8 +13,10 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using System.Threading;
 using System.Threading.Tasks;
+using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.AI.Abstractions;
@@ -29,6 +30,13 @@ using Wino.Mail.Contracts.Intelligence;
 
 namespace Wino.Services;
 
+/// <summary>
+/// HTTP client for the Wino Account API.
+/// Transport failures, timeouts and non-API responses (for example a gateway HTML page) surface as
+/// <see cref="WinoAccountApiException"/> with <see cref="WinoAccountClientErrorCodes.ServiceUnavailable"/> or
+/// <see cref="WinoAccountClientErrorCodes.InvalidServiceResponse"/>. Envelope-returning methods report the same
+/// codes as failed envelopes instead of throwing.
+/// </summary>
 public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 {
     private readonly HttpClient _httpClient;
@@ -38,6 +46,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private readonly IWinoAccountSessionService _sessions;
     private readonly bool _ownsHttpClient;
     private readonly int _maximumEncryptedAttempts;
+    private readonly ILogger _logger = Log.ForContext<WinoAccountApiClient>();
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromMinutes(10);
 
     private const string ApiUrl = "https://localhost:7204/";
@@ -118,28 +127,14 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement,
             cancellationToken);
 
-    public async Task<ApiEnvelope<JsonElement>> LogoutAsync(string refreshToken, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            using var response = await _httpClient.PostAsJsonAsync(
-                "api/v1/auth/logout",
-                new LogoutRequest(refreshToken),
-                WinoAccountApiJsonContext.Default.LogoutRequest,
-                cancellationToken).ConfigureAwait(false);
-
-            var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            var envelope = string.IsNullOrWhiteSpace(payload)
-                ? null
-                : JsonSerializer.Deserialize(payload, WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement);
-
-            return envelope ?? ApiEnvelope<JsonElement>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim());
-        }
-        catch (Exception ex)
-        {
-            return ApiEnvelope<JsonElement>.Failure(ex.Message);
-        }
-    }
+    public Task<ApiEnvelope<JsonElement>> LogoutAsync(string refreshToken, CancellationToken cancellationToken = default)
+        => SendAnonymousRequestAsync(
+            HttpMethod.Post,
+            "api/v1/auth/logout",
+            new LogoutRequest(refreshToken),
+            WinoAccountApiJsonContext.Default.LogoutRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeJsonElement,
+            cancellationToken);
 
     public Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync("api/v1/auth/me", WinoAccountApiJsonContext.Default.ApiEnvelopeAuthUserDto, cancellationToken);
@@ -147,55 +142,49 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public async Task<IntelligenceConsentDto> GetIntelligenceConsentAsync(CancellationToken cancellationToken = default)
     {
         var envelope = await SendAuthorizedRequestAsync("api/v1/ai/consent", WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceConsentDto, cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Intelligence consent could not be loaded.");
+        return RequireResult(envelope, "Intelligence consent could not be loaded.");
     }
 
     public async Task<IntelligenceConsentDto> AcceptIntelligenceConsentAsync(string policyVersion, string source, CancellationToken cancellationToken = default)
     {
         var request = new UpdateIntelligenceConsentRequest(policyVersion, source);
         var envelope = await SendAuthorizedRequestAsync(HttpMethod.Put, "api/v1/ai/consent", request, WinoAccountApiJsonContext.Default.UpdateIntelligenceConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceConsentDto, cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Intelligence consent could not be saved.");
+        return RequireResult(envelope, "Intelligence consent could not be saved.");
     }
 
     public async Task<IntelligenceConsentDto> RevokeIntelligenceConsentAsync(string source, CancellationToken cancellationToken = default)
     {
         var request = new RevokeIntelligenceConsentRequest(source);
         var envelope = await SendAuthorizedRequestAsync(HttpMethod.Delete, "api/v1/ai/consent", request, WinoAccountApiJsonContext.Default.RevokeIntelligenceConsentRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeIntelligenceConsentDto, cancellationToken).ConfigureAwait(false);
-        return envelope.IsSuccess && envelope.Result is not null ? envelope.Result : throw new InvalidOperationException(envelope.ErrorCode ?? "Intelligence consent could not be revoked.");
+        return RequireResult(envelope, "Intelligence consent could not be revoked.");
     }
 
-    public async Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default)
-    {
-        return await SendAuthorizedRequestAsync(
+    public Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
             HttpMethod.Post,
             "api/v2/ai/summarize",
             new SummarizeRequest(segments, targetLanguage),
             WinoAccountApiJsonContext.Default.SummarizeRequest,
             WinoAccountApiJsonContext.Default.ApiEnvelopeAiSummaryResultDto,
-            cancellationToken).ConfigureAwait(false);
-    }
+            cancellationToken);
 
-    public async Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default)
-    {
-        return await SendAuthorizedRequestAsync(
+    public Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
             HttpMethod.Post,
             "api/v2/ai/translate",
             new TranslateRequest(segments, sourceLanguage, targetLanguage),
             WinoAccountApiJsonContext.Default.TranslateRequest,
             WinoAccountApiJsonContext.Default.ApiEnvelopeAiTranslationResultDto,
-            cancellationToken).ConfigureAwait(false);
-    }
+            cancellationToken);
 
-    public async Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string language, CancellationToken cancellationToken = default)
-    {
-        return await SendAuthorizedRequestAsync(
+    public Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string language, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
             HttpMethod.Post,
             "api/v1/ai/rewrite",
             new LocalizedRewriteRequest(html, mode, language),
             WinoAccountApiJsonContext.Default.LocalizedRewriteRequest,
             WinoAccountApiJsonContext.Default.ApiEnvelopeAiTextResultDto,
-            cancellationToken).ConfigureAwait(false);
-    }
+            cancellationToken);
 
     public Task<ApiEnvelope<CheckoutSessionResultDto>> CreateCheckoutSessionAsync(string productCode, CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync(
@@ -224,19 +213,20 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             () => CreateAuthorizedRequestAsync(HttpMethod.Get, "api/v1/users/me/settings"),
             cancellationToken).ConfigureAwait(false);
 
-        if (response == null)
-        {
-            throw new InvalidOperationException("MissingAccessToken");
-        }
-
-        if (response.StatusCode == System.Net.HttpStatusCode.NoContent)
+        if (response.StatusCode == HttpStatusCode.NoContent)
         {
             return null;
         }
 
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
 
-        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        var payload = await ReadPayloadAsync(response, cancellationToken).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(payload) && IsHtmlResponse(response))
+        {
+            throw NonApiResponse(response.StatusCode, null);
+        }
+
+        return payload;
     }
 
     public async Task SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default)
@@ -248,11 +238,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
                 () => new StringContent(settingsJson, Encoding.UTF8, "application/json")),
             cancellationToken).ConfigureAwait(false);
 
-        if (response == null)
-        {
-            throw new InvalidOperationException("MissingAccessToken");
-        }
-
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
@@ -262,24 +247,15 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             () => CreateAuthorizedRequestAsync(HttpMethod.Get, "api/v1/users/me/mailboxes"),
             cancellationToken).ConfigureAwait(false);
 
-        if (response == null)
-        {
-            throw new InvalidOperationException("MissingAccessToken");
-        }
-
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
 
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        var envelope = string.IsNullOrWhiteSpace(payload)
-            ? null
-            : JsonSerializer.Deserialize(payload, WinoAccountApiJsonContext.Default.ApiEnvelopeUserMailboxSyncListDto);
-
-        if (envelope?.IsSuccess == true && envelope.Result != null)
+        var envelope = await ReadEnvelopeAsync(response, WinoAccountApiJsonContext.Default.ApiEnvelopeUserMailboxSyncListDto, cancellationToken).ConfigureAwait(false);
+        if (envelope.IsSuccess && envelope.Result != null)
         {
             return envelope.Result;
         }
 
-        throw new InvalidOperationException(ExtractErrorMessage(payload) ?? envelope?.ErrorCode ?? "Mailbox synchronization request failed.");
+        throw new WinoAccountApiException(envelope.ErrorCode ?? "Mailbox synchronization request failed.", response.StatusCode);
     }
 
     public async Task ReplaceMailboxesAsync(ReplaceUserMailboxesRequestDto request, CancellationToken cancellationToken = default)
@@ -290,11 +266,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
                 "api/v1/users/me/mailboxes",
                 () => JsonContent.Create(request, WinoAccountApiJsonContext.Default.ReplaceUserMailboxesRequestDto)),
             cancellationToken).ConfigureAwait(false);
-
-        if (response == null)
-        {
-            throw new InvalidOperationException("MissingAccessToken");
-        }
 
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
     }
@@ -321,8 +292,9 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         ArgumentNullException.ThrowIfNull(upload);
         var endpoint = $"{MailIntelligenceJobsRoute(mailboxId)}?jobId={jobId:D}&checksum={checksum}";
 
-        for (var attempt = 0; attempt < _maximumEncryptedAttempts; attempt++)
+        for (var attempt = 0; ; attempt++)
         {
+            var isLastAttempt = attempt >= _maximumEncryptedAttempts - 1;
             try
             {
                 using var response = await SendAuthorizedAsync(
@@ -335,10 +307,9 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
                             content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
                             return content;
                         }),
-                    cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidOperationException("MissingAccessToken");
+                    cancellationToken).ConfigureAwait(false);
 
-                if (attempt < _maximumEncryptedAttempts - 1 &&
+                if (!isLastAttempt &&
                     response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.BadGateway or
                         HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)
                 {
@@ -346,22 +317,17 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
                     continue;
                 }
 
-                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-                var envelope = await JsonSerializer.DeserializeAsync(
-                    stream,
+                var envelope = await ReadEnvelopeAsync(
+                    response,
                     WinoAccountApiJsonContext.Default.ApiEnvelopeMailIntelligenceJobAcceptedDto,
                     cancellationToken).ConfigureAwait(false);
-                return RequireResult(
-                    envelope ?? ApiEnvelope<MailIntelligenceJobAcceptedDto>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
-                    "Submitting the intelligence job failed.");
+                return RequireResult(envelope, "Submitting the intelligence job failed.");
             }
-            catch (HttpRequestException) when (attempt < _maximumEncryptedAttempts - 1)
+            catch (WinoAccountApiException ex) when (ex.IsServiceUnavailable && !isLastAttempt)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
             }
         }
-
-        throw new InvalidOperationException("Submitting the intelligence job failed. Retry limit reached.");
     }
 
     public async Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(
@@ -391,22 +357,18 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             : MailIntelligenceJobRoute(mailboxId, jobId);
         using var response = await SendAuthorizedAsync(
             () => CreateAuthorizedRequestAsync(HttpMethod.Get, route),
-            cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("MissingAccessToken");
+            cancellationToken).ConfigureAwait(false);
 
-        if (response.StatusCode == HttpStatusCode.NotFound)
+        if (response.StatusCode == HttpStatusCode.NotFound && !IsHtmlResponse(response))
         {
             return null;
         }
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var envelope = await JsonSerializer.DeserializeAsync(
-            stream,
+        var envelope = await ReadEnvelopeAsync(
+            response,
             WinoAccountApiJsonContext.Default.ApiEnvelopeMailIntelligenceJobDto,
             cancellationToken).ConfigureAwait(false);
-        return RequireResult(
-            envelope ?? ApiEnvelope<MailIntelligenceJobDto>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
-            "Reading the intelligence job failed.");
+        return RequireResult(envelope, "Reading the intelligence job failed.");
     }
 
     /// <summary>
@@ -425,11 +387,24 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             () => CreateAuthorizedRequestAsync(
                 HttpMethod.Get,
                 $"{MailIntelligenceJobRoute(mailboxId, jobId)}/results/{stage}?page={page}"),
-            cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("MissingAccessToken");
+            cancellationToken).ConfigureAwait(false);
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
 
-        var content = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        if (IsHtmlResponse(response))
+        {
+            throw NonApiResponse(response.StatusCode, null);
+        }
+
+        byte[] content;
+        try
+        {
+            content = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        {
+            throw ServiceUnavailable(ex, response.StatusCode);
+        }
+
         if (content.Length == 0)
         {
             throw new InvalidOperationException($"The {stage} result page was empty.");
@@ -452,8 +427,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     {
         using var response = await SendAuthorizedAsync(
             () => CreateAuthorizedRequestAsync(HttpMethod.Delete, MailIntelligenceJobRoute(mailboxId, jobId)),
-            cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("MissingAccessToken");
+            cancellationToken).ConfigureAwait(false);
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
@@ -479,90 +453,13 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
                     content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
                     return content;
                 }),
-            cancellationToken).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("MissingAccessToken");
+            cancellationToken).ConfigureAwait(false);
 
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var envelope = await JsonSerializer.DeserializeAsync(
-            stream,
+        var envelope = await ReadEnvelopeAsync(
+            response,
             WinoAccountApiJsonContext.Default.ApiEnvelopeAnalyzeMailResponseDto,
             cancellationToken).ConfigureAwait(false);
-        return RequireResult(
-            envelope ?? ApiEnvelope<AnalyzeMailResponseDto>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
-            "Analyzing the message failed.");
-    }
-
-    private async Task<T> SendEncryptedIntelligenceAsync<T>(
-        string endpoint,
-        byte[] encryptedEnvelope,
-        JsonTypeInfo<ApiEnvelope<T>> responseType,
-        string failureMessage,
-        CancellationToken cancellationToken) where T : class
-    {
-        for (var attempt = 0; attempt < _maximumEncryptedAttempts; attempt++)
-        {
-            try
-            {
-                using var response = await SendAuthorizedAsync(
-                    () => CreateAuthorizedRequestAsync(
-                        HttpMethod.Post,
-                        endpoint,
-                        () =>
-                        {
-                            var content = new ByteArrayContent(encryptedEnvelope);
-                            content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-                            return content;
-                        }),
-                    cancellationToken).ConfigureAwait(false)
-                    ?? throw new InvalidOperationException("MissingAccessToken");
-                if (attempt < _maximumEncryptedAttempts - 1 && response.StatusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.Conflict or
-                    HttpStatusCode.BadGateway or HttpStatusCode.ServiceUnavailable or HttpStatusCode.GatewayTimeout)
-                {
-                    await Task.Delay(TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
-                    continue;
-                }
-
-                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-                var responseEnvelope = await JsonSerializer.DeserializeAsync(
-                    stream,
-                    responseType,
-                    cancellationToken).ConfigureAwait(false);
-                return RequireResult(
-                    responseEnvelope ?? ApiEnvelope<T>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
-                    failureMessage);
-            }
-            catch (HttpRequestException) when (attempt < _maximumEncryptedAttempts - 1)
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(250 * Math.Pow(2, attempt)), cancellationToken).ConfigureAwait(false);
-            }
-        }
-
-        throw new InvalidOperationException($"{failureMessage} Retry limit reached.");
-    }
-
-    private async Task<T> SendEncryptedIntelligenceOnceAsync<T>(
-        string endpoint,
-        byte[] encryptedEnvelope,
-        JsonTypeInfo<ApiEnvelope<T>> responseType,
-        string failureMessage,
-        CancellationToken cancellationToken) where T : class
-    {
-        using var request = await CreateAuthorizedRequestAsync(
-                HttpMethod.Post,
-                endpoint,
-                () =>
-                {
-                    var content = new ByteArrayContent(encryptedEnvelope);
-                    content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-                    return content;
-                }).ConfigureAwait(false)
-            ?? throw new InvalidOperationException("MissingAccessToken");
-        using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-        await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        var responseEnvelope = await JsonSerializer.DeserializeAsync(stream, responseType, cancellationToken).ConfigureAwait(false);
-        return RequireResult(
-            responseEnvelope ?? ApiEnvelope<T>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim()),
-            failureMessage);
+        return RequireResult(envelope, "Analyzing the message failed.");
     }
 
     private static T RequireResult<T>(ApiEnvelope<T> envelope, string fallback) where T : class
@@ -574,47 +471,42 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     {
         try
         {
-            using var response = await _httpClient.PostAsJsonAsync(
-                endpoint,
-                request,
-                typeInfo,
-                cancellationToken).ConfigureAwait(false);
+            using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint)
+            {
+                Content = JsonContent.Create(request, typeInfo)
+            };
+            using var response = await SendAsync(httpRequest, cancellationToken).ConfigureAwait(false);
 
-            var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            var envelope = string.IsNullOrWhiteSpace(payload)
-                ? null
-                : JsonSerializer.Deserialize(payload, WinoAccountApiJsonContext.Default.ApiEnvelopeAuthResultDto);
+            var payload = await ReadPayloadAsync(response, cancellationToken).ConfigureAwait(false);
+            var envelope = ParseEnvelope(response, payload, WinoAccountApiJsonContext.Default.ApiEnvelopeAuthResultDto);
 
-            if (envelope?.IsSuccess == true && envelope.Result != null)
+            if (envelope.IsSuccess && envelope.Result != null)
             {
                 return WinoAccountApiResult<AuthResultDto>.Success(envelope.Result);
             }
 
-            var errorCode = envelope?.ErrorCode ?? $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim();
             var errorMessage = ExtractErrorMessage(payload) ?? response.ReasonPhrase;
             var errorDetails = ExtractDetails(payload);
 
-            return WinoAccountApiResult<AuthResultDto>.Failure(errorCode, errorMessage, errorDetails);
+            return WinoAccountApiResult<AuthResultDto>.Failure(envelope.ErrorCode ?? FormatHttpStatus(response), errorMessage, errorDetails);
         }
-        catch (Exception ex)
+        catch (WinoAccountApiException ex)
         {
+            return WinoAccountApiResult<AuthResultDto>.Failure(ex.ErrorCode);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            _logger.Error(ex, "Wino account request {Endpoint} failed unexpectedly.", endpoint);
             return WinoAccountApiResult<AuthResultDto>.Failure(ex.GetType().Name, ex.Message);
         }
     }
 
-    private static InvalidOperationException SemanticApiFailure(string? errorCode, string fallbackMessage)
-        => new(errorCode switch
-        {
-            ApiErrorCodes.IntelligenceUploadTooLarge => Translator.SemanticIndex_StorageLimitExceeded,
-            _ => errorCode ?? fallbackMessage,
-        });
-
     private static InvalidOperationException IntelligenceApiFailure(string? errorCode, string fallbackMessage)
-        => new(errorCode switch
+        => errorCode switch
         {
-            ApiErrorCodes.AiQuotaExceeded => Translator.Intelligence_QuotaExceeded,
-            _ => errorCode ?? fallbackMessage,
-        });
+            ApiErrorCodes.AiQuotaExceeded => new InvalidOperationException(Translator.Intelligence_QuotaExceeded),
+            _ => new WinoAccountApiException(errorCode ?? fallbackMessage),
+        };
 
     private static string? ExtractErrorMessage(string? payload)
     {
@@ -720,18 +612,24 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         return !string.IsNullOrWhiteSpace(value);
     }
 
-    private static async Task EnsureSuccessResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    private async Task EnsureSuccessResponseAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         if (response.IsSuccessStatusCode)
         {
             return;
         }
 
-        var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        throw new InvalidOperationException(
+        var payload = await ReadPayloadAsync(response, cancellationToken).ConfigureAwait(false);
+        if (IsHtmlResponse(response) || (string.IsNullOrWhiteSpace(payload) && IsServiceFailureStatus(response.StatusCode)))
+        {
+            throw NonApiResponse(response.StatusCode, null);
+        }
+
+        throw new WinoAccountApiException(
             ExtractErrorCode(payload)
             ?? ExtractErrorMessage(payload)
-            ?? $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim());
+            ?? FormatHttpStatus(response),
+            response.StatusCode);
     }
 
     private Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TResponse>(string endpoint, JsonTypeInfo<ApiEnvelope<TResponse>> typeInfo, CancellationToken cancellationToken)
@@ -751,74 +649,56 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
                 Content = JsonContent.Create(requestBody, requestTypeInfo)
             };
 
-            using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-
-            var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            var envelope = string.IsNullOrWhiteSpace(payload)
-                ? null
-                : JsonSerializer.Deserialize(payload, responseTypeInfo);
-
-            return envelope ?? ApiEnvelope<TResponse>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim());
+            using var response = await SendAsync(request, cancellationToken).ConfigureAwait(false);
+            return await ReadEnvelopeAsync(response, responseTypeInfo, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (WinoAccountApiException ex)
         {
+            return ApiEnvelope<TResponse>.Failure(ex.ErrorCode);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            _logger.Error(ex, "Wino account request {Endpoint} failed unexpectedly.", endpoint);
             return ApiEnvelope<TResponse>.Failure(ex.Message);
         }
     }
 
-    private async Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TResponse>(HttpMethod method, string endpoint, JsonTypeInfo<ApiEnvelope<TResponse>> typeInfo, CancellationToken cancellationToken)
+    private Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TResponse>(HttpMethod method, string endpoint, JsonTypeInfo<ApiEnvelope<TResponse>> typeInfo, CancellationToken cancellationToken)
+        => SendAuthorizedEnvelopeAsync(() => CreateAuthorizedRequestAsync(method, endpoint), endpoint, typeInfo, cancellationToken);
+
+    private Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TRequest, TResponse>(HttpMethod method,
+                                                                                          string endpoint,
+                                                                                          TRequest requestBody,
+                                                                                          JsonTypeInfo<TRequest> requestTypeInfo,
+                                                                                          JsonTypeInfo<ApiEnvelope<TResponse>> responseTypeInfo,
+                                                                                          CancellationToken cancellationToken)
+        => SendAuthorizedEnvelopeAsync(
+            () => CreateAuthorizedRequestAsync(method, endpoint, () => JsonContent.Create(requestBody, requestTypeInfo)),
+            endpoint,
+            responseTypeInfo,
+            cancellationToken);
+
+    private async Task<ApiEnvelope<TResponse>> SendAuthorizedEnvelopeAsync<TResponse>(Func<Task<HttpRequestMessage?>> requestFactory,
+                                                                                       string endpoint,
+                                                                                       JsonTypeInfo<ApiEnvelope<TResponse>> typeInfo,
+                                                                                       CancellationToken cancellationToken)
     {
         try
         {
-            using var response = await SendAuthorizedAsync(
-                () => CreateAuthorizedRequestAsync(method, endpoint),
-                cancellationToken).ConfigureAwait(false);
-
-            if (response == null)
-                return ApiEnvelope<TResponse>.Failure("MissingAccessToken");
-
-            var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            var envelope = string.IsNullOrWhiteSpace(payload)
-                ? null
-                : JsonSerializer.Deserialize(payload, typeInfo);
-            return envelope ?? ApiEnvelope<TResponse>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim());
+            using var response = await SendAuthorizedAsync(requestFactory, cancellationToken).ConfigureAwait(false);
+            return await ReadEnvelopeAsync(response, typeInfo, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (WinoAccountApiException ex)
         {
-            return ApiEnvelope<TResponse>.Failure(ex.Message);
+            return ApiEnvelope<TResponse>.Failure(ex.ErrorCode);
         }
-    }
-
-    private async Task<ApiEnvelope<TResponse>> SendAuthorizedRequestAsync<TRequest, TResponse>(HttpMethod method,
-                                                                                                string endpoint,
-                                                                                                TRequest requestBody,
-                                                                                                JsonTypeInfo<TRequest> requestTypeInfo,
-                                                                                                JsonTypeInfo<ApiEnvelope<TResponse>> responseTypeInfo,
-                                                                                                CancellationToken cancellationToken)
-    {
-        try
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            using var response = await SendAuthorizedAsync(
-                () => CreateAuthorizedRequestAsync(
-                    method,
-                    endpoint,
-                    () => JsonContent.Create(requestBody, requestTypeInfo)),
-                cancellationToken).ConfigureAwait(false);
-
-            if (response == null)
+            if (ex is not OperationCanceledException)
             {
-                return ApiEnvelope<TResponse>.Failure("MissingAccessToken");
+                _logger.Error(ex, "Wino account request {Endpoint} failed unexpectedly.", endpoint);
             }
 
-            var payload = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-            var envelope = string.IsNullOrWhiteSpace(payload)
-                ? null
-                : JsonSerializer.Deserialize(payload, responseTypeInfo);
-
-            return envelope ?? ApiEnvelope<TResponse>.Failure($"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim());
-        }
-        catch (Exception ex)
-        {
             return ApiEnvelope<TResponse>.Failure(ex.Message);
         }
     }
@@ -835,44 +715,53 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         return request;
     }
 
-    private async Task<HttpResponseMessage?> SendAuthorizedAsync(Func<Task<HttpRequestMessage?>> requestFactory, CancellationToken cancellationToken)
+    /// <summary>
+    /// Sends a bearer request, refreshing the access token once on 401.
+    /// Throws <see cref="WinoAccountApiException"/> when no account is signed in or the service cannot be reached.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAuthorizedAsync(Func<Task<HttpRequestMessage?>> requestFactory, CancellationToken cancellationToken)
     {
-        var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
-        if (session is null) return null;
+        var session = await _sessions.CaptureAsync(cancellationToken).ConfigureAwait(false)
+            ?? throw WinoAccountApiException.SignInRequired();
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, session.CancellationToken);
         cancellationToken = linked.Token;
-        using var initialRequest = await requestFactory().ConfigureAwait(false);
-        if (initialRequest == null)
-        {
-            return null;
-        }
+        using var initialRequest = await requestFactory().ConfigureAwait(false)
+            ?? throw WinoAccountApiException.SignInRequired();
 
-        var response = await _httpClient.SendAsync(initialRequest, cancellationToken).ConfigureAwait(false);
+        var response = await SendAsync(initialRequest, cancellationToken).ConfigureAwait(false);
         if (cancellationToken.IsCancellationRequested)
         {
             response.Dispose();
             cancellationToken.ThrowIfCancellationRequested();
         }
 
-        if (response.StatusCode != System.Net.HttpStatusCode.Unauthorized)
+        if (response.StatusCode != HttpStatusCode.Unauthorized)
         {
             return response;
         }
 
-        if (!await TryRefreshAccessTokenAsync(session, initialRequest.Headers.Authorization?.Parameter, cancellationToken).ConfigureAwait(false))
+        bool refreshed;
+        try
+        {
+            refreshed = await TryRefreshAccessTokenAsync(session, initialRequest.Headers.Authorization?.Parameter, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
+
+        if (!refreshed)
         {
             return response;
         }
 
         response.Dispose();
 
-        using var retryRequest = await requestFactory().ConfigureAwait(false);
-        if (retryRequest == null)
-        {
-            return null;
-        }
+        using var retryRequest = await requestFactory().ConfigureAwait(false)
+            ?? throw WinoAccountApiException.SignInRequired();
 
-        var retryResponse = await _httpClient.SendAsync(retryRequest, cancellationToken).ConfigureAwait(false);
+        var retryResponse = await SendAsync(retryRequest, cancellationToken).ConfigureAwait(false);
         if (cancellationToken.IsCancellationRequested)
         {
             retryResponse.Dispose();
@@ -882,21 +771,106 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         return retryResponse;
     }
 
+    /// <summary>
+    /// The only place requests leave the client. Connection failures and <see cref="HttpClient.Timeout"/>
+    /// become <see cref="WinoAccountClientErrorCodes.ServiceUnavailable"/>; caller cancellation stays an
+    /// <see cref="OperationCanceledException"/>.
+    /// </summary>
+    private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw ServiceUnavailable(ex, ex.StatusCode);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw ServiceUnavailable(ex, null);
+        }
+    }
+
+    private async Task<string> ReadPayloadAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        {
+            throw ServiceUnavailable(ex, response.StatusCode);
+        }
+    }
+
+    private async Task<ApiEnvelope<T>> ReadEnvelopeAsync<T>(HttpResponseMessage response, JsonTypeInfo<ApiEnvelope<T>> typeInfo, CancellationToken cancellationToken)
+    {
+        var payload = await ReadPayloadAsync(response, cancellationToken).ConfigureAwait(false);
+        return ParseEnvelope(response, payload, typeInfo);
+    }
+
+    /// <summary>
+    /// Parses an API envelope. A body that is not API JSON (a proxy or hosting error page, a captive portal)
+    /// never reaches the caller as a JSON parse error; it becomes a service failure.
+    /// </summary>
+    private ApiEnvelope<T> ParseEnvelope<T>(HttpResponseMessage response, string? payload, JsonTypeInfo<ApiEnvelope<T>> typeInfo)
+    {
+        if (string.IsNullOrWhiteSpace(payload))
+        {
+            if (IsServiceFailureStatus(response.StatusCode))
+            {
+                throw NonApiResponse(response.StatusCode, null);
+            }
+
+            return ApiEnvelope<T>.Failure(FormatHttpStatus(response));
+        }
+
+        if (IsHtmlResponse(response))
+        {
+            throw NonApiResponse(response.StatusCode, null);
+        }
+
+        try
+        {
+            return JsonSerializer.Deserialize(payload, typeInfo) ?? ApiEnvelope<T>.Failure(FormatHttpStatus(response));
+        }
+        catch (JsonException ex)
+        {
+            throw NonApiResponse(response.StatusCode, ex);
+        }
+    }
+
+    private WinoAccountApiException ServiceUnavailable(Exception exception, HttpStatusCode? statusCode)
+    {
+        _logger.Warning("Wino account service is unreachable ({StatusCode}): {Reason}",
+            (int?)statusCode, exception.GetBaseException().Message);
+        return WinoAccountApiException.ServiceUnavailable(exception, statusCode);
+    }
+
+    private WinoAccountApiException NonApiResponse(HttpStatusCode statusCode, Exception? exception)
+    {
+        _logger.Warning("Wino account service returned a non-API response with HTTP {StatusCode}.", (int)statusCode);
+        return (int)statusCode >= 400
+            ? WinoAccountApiException.ServiceUnavailable(exception, statusCode)
+            : WinoAccountApiException.InvalidResponse(statusCode, exception);
+    }
+
+    private static bool IsServiceFailureStatus(HttpStatusCode statusCode)
+        => (int)statusCode >= 500 || statusCode is HttpStatusCode.RequestTimeout or HttpStatusCode.TooManyRequests;
+
+    private static bool IsHtmlResponse(HttpResponseMessage response)
+        => response.Content.Headers.ContentType?.MediaType is string mediaType &&
+           (mediaType.Equals("text/html", StringComparison.OrdinalIgnoreCase) ||
+            mediaType.Equals("application/xhtml+xml", StringComparison.OrdinalIgnoreCase));
+
+    private static string FormatHttpStatus(HttpResponseMessage response)
+        => $"HTTP {(int)response.StatusCode} {response.ReasonPhrase}".Trim();
+
     private async Task<string?> GetAccessTokenAsync()
     {
         var account = await _databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
         return string.IsNullOrWhiteSpace(account?.AccessToken) ? null : account.AccessToken;
-    }
-
-    private string GetApplicationLanguage()
-    {
-        var language = _translationService?.CurrentLanguageModel?.Code;
-        if (!string.IsNullOrWhiteSpace(language))
-            return language;
-
-        return string.IsNullOrWhiteSpace(CultureInfo.CurrentUICulture.Name)
-            ? "en-US"
-            : CultureInfo.CurrentUICulture.Name;
     }
 
     private async Task<bool> TryRefreshAccessTokenAsync(WinoAccountSession session, string? rejectedAccessToken, CancellationToken cancellationToken)
@@ -904,8 +878,14 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         var refreshed = await _sessions.RefreshCredentialsAsync(session, rejectedAccessToken, async (account, token) =>
         {
             var result = await RefreshAsync(account.RefreshToken, token).ConfigureAwait(false);
-            return result.IsSuccess && result.Result is not null
-                ? MapAccount(result.Result, account.LastAuthenticatedUtc) : null;
+            if (result.IsSuccess && result.Result is not null)
+                return MapAccount(result.Result, account.LastAuthenticatedUtc);
+
+            // An unreachable service says nothing about the credentials; do not report it as a 401.
+            if (WinoAccountClientErrorCodes.IsServiceFailure(result.ErrorCode))
+                throw new WinoAccountApiException(result.ErrorCode!);
+
+            return null;
         }, cancellationToken).ConfigureAwait(false);
 
         return refreshed is not null;
@@ -936,29 +916,6 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         }
 
         return sslPolicyErrors == System.Net.Security.SslPolicyErrors.None;
-    }
-
-    private sealed class DeltaFrameContent : HttpContent
-    {
-        private readonly Func<Stream, CancellationToken, Task> _writeAsync;
-
-        public DeltaFrameContent(Func<Stream, CancellationToken, Task> writeAsync)
-        {
-            _writeAsync = writeAsync;
-            Headers.ContentType = new MediaTypeHeaderValue("application/x-wino-encrypted-frames");
-        }
-
-        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context)
-            => _writeAsync(stream, CancellationToken.None);
-
-        protected override Task SerializeToStreamAsync(Stream stream, TransportContext? context, CancellationToken cancellationToken)
-            => _writeAsync(stream, cancellationToken);
-
-        protected override bool TryComputeLength(out long length)
-        {
-            length = 0;
-            return false;
-        }
     }
 
     public void Dispose()

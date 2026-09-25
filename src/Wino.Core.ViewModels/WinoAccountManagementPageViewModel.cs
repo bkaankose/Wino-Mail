@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Ai;
@@ -522,7 +523,20 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 return;
         }
 
-        if (await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false) == null)
+        WinoAccount? authenticatedAccount;
+        try
+        {
+            authenticatedAccount = await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
+        }
+        catch (WinoAccountApiException ex)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                          WinoAccountApiErrorTranslator.Translate(ex.ErrorCode),
+                                          InfoBarMessageType.Error);
+            return;
+        }
+
+        if (authenticatedAccount == null)
         {
             _dialogService.InfoBarMessage(
                 Translator.GeneralTitle_Warning,
@@ -795,7 +809,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         {
             _dialogService.InfoBarMessage(
                 Translator.GeneralTitle_Error,
-                ex.Message,
+                WinoAccountApiErrorTranslator.Describe(ex),
                 InfoBarMessageType.Error);
         }
     }
@@ -831,7 +845,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         {
             _dialogService.InfoBarMessage(
                 Translator.GeneralTitle_Error,
-                ex.Message,
+                WinoAccountApiErrorTranslator.Describe(ex),
                 InfoBarMessageType.Error);
         }
         finally

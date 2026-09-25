@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels.Data;
@@ -105,7 +106,21 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
 
     protected async Task PurchaseUnlimitedAccountWithWinoAccountAsync()
     {
-        if (await WinoAccountProfileService.GetAuthenticatedAccountAsync().ConfigureAwait(false) == null)
+        WinoAccount account;
+        try
+        {
+            account = await WinoAccountProfileService.GetAuthenticatedAccountAsync().ConfigureAwait(false);
+        }
+        catch (WinoAccountApiException ex)
+        {
+            DialogService.InfoBarMessage(
+                Translator.GeneralTitle_Error,
+                WinoAccountApiErrorTranslator.Translate(ex.ErrorCode),
+                InfoBarMessageType.Error);
+            return;
+        }
+
+        if (account == null)
         {
             DialogService.InfoBarMessage(
                 Translator.GeneralTitle_Warning,

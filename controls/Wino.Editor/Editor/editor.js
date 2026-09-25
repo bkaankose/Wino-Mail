@@ -44,6 +44,83 @@
         }
     }
 
+    const sanitizeOptions = {
+        USE_PROFILES: { html: true },
+        ADD_ATTR: ["target"],
+        FORBID_TAGS: [
+            "script", "form", "input", "button", "textarea", "select", "option",
+            "fieldset", "legend", "output", "datalist", "iframe", "frame", "frameset",
+            "object", "embed", "applet", "base", "meta", "link", "template"
+        ],
+        FORBID_CONTENTS: [
+            "script", "form", "iframe", "frame", "frameset", "object", "embed",
+            "applet", "template"
+        ]
+    };
+
+    // Every HTML string that enters the editable surface passes through DOMPurify first.
+    // Drafts, replies, templates, signatures and pasted content can all carry mail markup.
+    function sanitizeHtml(html) {
+        if (!window.DOMPurify || window.DOMPurify.isSupported !== true ||
+            typeof window.DOMPurify.sanitize !== "function") {
+            throw new Error("DOMPurify is unavailable; refusing to insert untrusted HTML.");
+        }
+        const sanitized = window.DOMPurify.sanitize(String(html || ""), sanitizeOptions);
+        if (typeof sanitized !== "string") {
+            throw new Error("DOMPurify returned an unexpected result; refusing to insert untrusted HTML.");
+        }
+        return sanitized;
+    }
+
+    // Dark mode adapts colors for display only. Each adapted element carries an id attribute
+    // that a generated stylesheet targets; inline styles stay exactly as authored, and
+    // getContent() removes the ids, so the sent HTML never contains dark-mode colors.
+    const composeRootAttribute = "data-wino-compose-root";
+    const darkColorAttribute = "data-wino-dk";
+    const darkColorStyle = document.createElement("style");
+    darkColorStyle.id = "wino-dark-colors";
+    document.head.appendChild(darkColorStyle);
+    let darkColorTimer = 0;
+    let nextDarkColorId = 1;
+
+    function refreshDarkColors() {
+        window.clearTimeout(darkColorTimer);
+        darkColorStyle.textContent = "";
+        const byElement = new Map();
+        if (darkMode && window.WinoMailColors) {
+            const surface = getComputedStyle(editor).backgroundColor;
+            window.WinoMailColors.computeDarkOverrides(editor, surface).forEach(override => {
+                if (override.element === editor) return;
+                let declarations = byElement.get(override.element);
+                if (!declarations) byElement.set(override.element, declarations = []);
+                declarations.push(`${override.property}: ${override.value} !important;`);
+            });
+        }
+
+        editor.querySelectorAll(`[${darkColorAttribute}]`).forEach(element => {
+            if (!byElement.has(element)) element.removeAttribute(darkColorAttribute);
+        });
+
+        const usedIds = new Set();
+        const rules = [];
+        byElement.forEach((declarations, element) => {
+            let id = element.getAttribute(darkColorAttribute);
+            if (!id || usedIds.has(id)) {
+                id = String(nextDarkColorId++);
+                element.setAttribute(darkColorAttribute, id);
+            }
+            usedIds.add(id);
+            rules.push(`#wino-editor [${darkColorAttribute}="${id}"] { ${declarations.join(" ")} }`);
+        });
+        darkColorStyle.textContent = rules.join("\n");
+    }
+
+    function scheduleDarkColorRefresh() {
+        if (!darkMode) return;
+        window.clearTimeout(darkColorTimer);
+        darkColorTimer = window.setTimeout(refreshDarkColors, 250);
+    }
+
     let applicationShortcuts = [];
 
     function setApplicationShortcuts(shortcuts) {
@@ -493,7 +570,7 @@
         } else {
             restoreSelection();
         }
-        const result = document.execCommand("insertHTML", false, html);
+        const result = document.execCommand("insertHTML", false, sanitizeHtml(html));
         rememberSelection();
         sendContentChanged();
         return result;
@@ -502,27 +579,82 @@
     function setContent(base64Html, mode) {
         if (window.WinoEditorImages) window.WinoEditorImages.clearSelection();
         const decoded = decodeBase64(base64Html);
-        const html = /<html[\s>]/i.test(decoded)
-            ? new DOMParser().parseFromString(decoded, "text/html").body.innerHTML
-            : decoded;
+        // DOMPurify returns the body content of a full document, like the parser used to.
+        const html = unwrapComposeRoot(sanitizeHtml(decoded));
         if (mode === "reply") {
             editor.innerHTML = `<p><br></p><p><br></p>${html}`;
         } else {
             editor.innerHTML = html || "<p><br></p>";
         }
         placeCaretAtStart(editor.firstChild || editor);
+        refreshDarkColors();
         sendContentChanged();
         return true;
     }
 
+    // getContent() wraps the body in a root that carries the composer typography. Reopening a
+    // draft or signature removes that root again, so wrappers never nest.
+    function unwrapComposeRoot(html) {
+        if (!html || html.indexOf(composeRootAttribute) < 0) return html;
+        const parsed = new DOMParser().parseFromString(html, "text/html");
+        const root = parsed.body.firstElementChild;
+        if (!root || parsed.body.children.length !== 1 || !root.hasAttribute(composeRootAttribute) ||
+            parsed.body.textContent.trim() !== root.textContent.trim()) {
+            return html;
+        }
+        return root.innerHTML;
+    }
+
+    function toHex(match, red, green, blue, alpha) {
+        if (alpha !== undefined && parseFloat(alpha) < 1) return match;
+        return `#${[red, green, blue].map(value => Math.min(255, Number(value)).toString(16).padStart(2, "0")).join("")}`;
+    }
+
+    // Mail clients disagree on default list and quote spacing. Inline what the author saw.
+    function inlineBlockSpacing(source, target) {
+        const selector = "ul, ol, blockquote";
+        const sourceBlocks = source.querySelectorAll(selector);
+        const targetBlocks = target.querySelectorAll(selector);
+        if (sourceBlocks.length !== targetBlocks.length) return;
+        targetBlocks.forEach((block, index) => {
+            const style = block.style;
+            if (style.margin || style.marginTop || style.marginBottom || style.marginLeft || style.marginRight) return;
+            const computed = getComputedStyle(sourceBlocks[index]);
+            style.margin = `${computed.marginTop} ${computed.marginRight} ${computed.marginBottom} ${computed.marginLeft}`;
+            if (block.localName !== "blockquote" && !style.paddingLeft && !style.paddingInlineStart) {
+                style.paddingLeft = computed.paddingLeft;
+            }
+        });
+    }
+
+    function escapeAttribute(value) {
+        return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+    }
+
     function getContent() {
         const clone = editor.cloneNode(true);
+        inlineBlockSpacing(editor, clone);
         clone.querySelectorAll("[data-wino-editor-artifact]").forEach(node => node.remove());
-        clone.querySelectorAll("[data-darkreader-inline-bgcolor],[data-darkreader-inline-color],[data-darkreader-inline-border-top],[data-darkreader-inline-border-right],[data-darkreader-inline-border-bottom],[data-darkreader-inline-border-left]").forEach(node => {
-            [...node.attributes].filter(attribute => attribute.name.startsWith("data-darkreader-")).forEach(attribute => node.removeAttribute(attribute.name));
-            [...node.style].filter(name => name.startsWith("--darkreader-inline-")).forEach(name => node.style.removeProperty(name));
+        clone.querySelectorAll("*").forEach(node => {
+            [...node.attributes]
+                .filter(attribute => attribute.name === darkColorAttribute || attribute.name.startsWith("data-darkreader-"))
+                .forEach(attribute => node.removeAttribute(attribute.name));
+            if (!node.hasAttribute("style")) return;
+            // Drafts saved by the old Dark Reader integration can still carry its variables.
+            [...node.style].filter(name => name.startsWith("--darkreader-")).forEach(name => node.style.removeProperty(name));
+            const style = node.getAttribute("style") || "";
+            const normalized = style.replace(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/gi, toHex).trim();
+            if (!normalized) node.removeAttribute("style");
+            else if (normalized !== style) node.setAttribute("style", normalized);
         });
-        return `<html><head><meta charset="utf-8"></head><body>${clone.innerHTML}</body></html>`;
+
+        const declarations = [];
+        if (editor.style.fontFamily) declarations.push(`font-family: ${editor.style.fontFamily}`);
+        if (editor.style.fontSize) declarations.push(`font-size: ${editor.style.fontSize}`);
+        const body = declarations.length
+            ? `<div ${composeRootAttribute}="true" style="${escapeAttribute(declarations.join("; "))}">${clone.innerHTML}</div>`
+            : clone.innerHTML;
+        return `<html><head><meta charset="utf-8"></head><body>${body}</body></html>`;
     }
 
     function getBodyContent() {
@@ -546,10 +678,7 @@
     function setTheme(isDark) {
         darkMode = Boolean(isDark);
         document.documentElement.dataset.theme = darkMode ? "dark" : "light";
-        if (window.DarkReader) {
-            if (darkMode) window.DarkReader.enable({ brightness: 100, contrast: 90, sepia: 0 });
-            else window.DarkReader.disable();
-        }
+        refreshDarkColors();
         sendState();
     }
 
@@ -680,7 +809,7 @@
 
     function normalizePastedHtml(html, plainText) {
         const container = document.createElement("div");
-        container.innerHTML = html || "";
+        container.innerHTML = sanitizeHtml(html);
         container.querySelectorAll("script,style,link,meta,iframe,object,embed").forEach(node => node.remove());
         container.querySelectorAll("*").forEach(node => {
             Array.from(node.attributes).forEach(attribute => {
@@ -930,6 +1059,9 @@
     editor.addEventListener("compositionstart", () => { correctionRevision++; });
     editor.addEventListener("input", event => {
         correctionRevision++;
+        if (!/^(insertText|insertCompositionText|deleteContent)/.test(event.inputType || "")) {
+            scheduleDarkColorRefresh();
+        }
         if (autoCorrect && spellCheck && event.inputType === "insertText" &&
             /^[\s.,;:!?]$/.test(event.data || "") && !event.isComposing) {
             requestAutoCorrection();

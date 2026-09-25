@@ -103,7 +103,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
         {
             await ExecuteUIThreadAsync(() =>
                 _dialogService.ShowMessageAsync(
-                    ex.Message,
+                    WinoAccountApiErrorTranslator.Describe(ex),
                     Translator.GeneralTitle_Error,
                     WinoCustomMessageDialogIcon.Error)).ConfigureAwait(false);
         }

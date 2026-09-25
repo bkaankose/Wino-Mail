@@ -36,6 +36,14 @@
                 </NavigationViewItem.Icon>
             </NavigationViewItem>
             <NavigationViewItem
+                AutomationProperties.AutomationId="MailListInteractionsNavigationItem"
+                Content="Mail list interactions"
+                Tag="mailListInteractions">
+                <NavigationViewItem.Icon>
+                    <accountIcon:WinoFontIcon Glyph="&#xF509;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem
                 AutomationProperties.AutomationId="EditorNavigationItem"
                 Content="Compose editor"
                 Tag="editor">

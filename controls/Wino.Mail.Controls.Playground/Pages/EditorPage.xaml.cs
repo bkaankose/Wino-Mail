@@ -54,6 +54,54 @@ public sealed partial class EditorPage : Page, IDisposable, IPlaygroundLifetimeA
         <p>A second safe paragraph makes the fallback observable even if stock Readability decides that this synthetic article is not suitable for extraction.</p></article>
         """;
 
+    // An Outlook-authored layout: head styles, a body background, a fixed-width card,
+    // a spacer image, and a fixed-position element that must not overlay the reader.
+    private const string OutlookHtml = """
+        <html><head><style>
+        body { background: #f3f3f3; margin: 0; }
+        p.MsoNormal { margin: 0; font-family: Calibri, sans-serif; font-size: 11pt; color: #1f3864; }
+        .card { width: 600px; background: #ffffff; border: 1px solid #dddddd; }
+        .banner { position: fixed; top: 0; left: 0; background: #ff0000; color: #ffffff; }
+        </style></head>
+        <body>
+        <table class="card" cellpadding="16" cellspacing="0"><tr><td>
+        <p class="MsoNormal">Hi Avery,</p>
+        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" width="1" height="24" alt="">
+        <p class="MsoNormal">The quarterly review is attached. Paragraphs use Outlook's zero margins, and the spacer image above keeps its 24 pixel height.</p>
+        <p class="MsoNormal"><a href="#details">Jump to details</a></p>
+        <div class="banner">This fixed banner must scroll with the message.</div>
+        <h3 id="details" style="color:#000000">Details</h3>
+        <p class="MsoNormal">Regards,<br>Morgan</p>
+        </td></tr></table>
+        </body></html>
+        """;
+
+    // A promotional layout whose saturated colors must survive the dark reading surface.
+    private const string BrandHtml = """
+        <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e0e0e0">
+          <tr><td style="background:#0b3d91;color:#ffffff;padding:16px;font:bold 20px Segoe UI">Contoso Airlines</td></tr>
+          <tr><td style="background-image:linear-gradient(135deg,#ffd54f,#ff8a65);color:#3e2723;padding:24px">Gradient hero text keeps the sender's colors.</td></tr>
+          <tr><td style="padding:16px;color:#333333">Your trip to Lisbon is confirmed. Light panels become dark surfaces, while the brand bar, the gradient, and the button stay as designed.</td></tr>
+          <tr><td style="padding:0 16px 16px"><div style="background:#fff3cd;color:#856404;border:1px solid #ffeeba;padding:8px">Check-in opens 24 hours before departure.</div></td></tr>
+          <tr><td style="padding:0 16px 16px"><a href="https://example.com/trip" style="background:#c62828;color:#ffffff;padding:10px 18px;text-decoration:none;display:inline-block">Manage booking</a></td></tr>
+        </table>
+        """;
+
+    // A sender that ships its own dark palette. The reader must use it instead of adapting colors.
+    private const string SenderDarkHtml = """
+        <html><head>
+        <meta name="color-scheme" content="light dark">
+        <style>
+        body { background: #ffffff; color: #111111; }
+        .panel { background: #e8f0fe; color: #0b3d91; padding: 12px; }
+        @media (prefers-color-scheme: dark) {
+          body { background: #0d1b2a !important; color: #e0e6ef !important; }
+          .panel { background: #1b263b !important; color: #9ec5fe !important; }
+        }
+        </style></head>
+        <body><p>This newsletter declares its own dark mode.</p><div class="panel">Its dark palette is used as the sender designed it.</div></body></html>
+        """;
+
     private bool _rendererLoaded;
     private HtmlMailRenderMode _renderMode;
     private string _scenario = "Article";
@@ -120,10 +168,30 @@ public sealed partial class EditorPage : Page, IDisposable, IPlaygroundLifetimeA
             "Newsletter" => NewsletterHtml,
             "Image" => ImageHtml,
             "Hostile" => HostileHtml,
+            "Outlook" => OutlookHtml,
+            "Brand" => BrandHtml,
+            "SenderDark" => SenderDarkHtml,
             _ => ArticleHtml,
         };
         await MailRenderer.RenderHtmlAsync(html, _renderMode);
         RendererScenarioStatus.Text = $"{_renderMode} · {_scenario}";
+    }
+
+    private async void RendererDarkMode_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleSwitch toggle) await MailRenderer.SetThemeAsync(toggle.IsOn);
+    }
+
+    private async void RendererBlockRemote_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleSwitch toggle) return;
+        MailRenderer.BlockRemoteResources = toggle.IsOn;
+        if (_rendererLoaded) await RenderSelectedScenarioAsync();
+    }
+
+    private void ComposeDarkMode_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleSwitch toggle) ComposeEditor.IsEditorDarkMode = toggle.IsOn;
     }
 
     private void ComposeEditor_ApplicationShortcutRequested(object? sender, EditorApplicationShortcutGesture e)

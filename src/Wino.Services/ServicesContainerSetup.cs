@@ -93,6 +93,7 @@ public static class ServicesContainerSetup
         services.AddTransient<IWinoAccountDataSyncService, WinoAccountDataSyncService>();
         services.AddSingleton<IPictureStorageService, PictureStorageService>();
         services.AddSingleton<AccountProfilePictureMaintenance>();
+        services.AddSingleton<AccountSenderPictureDirectory>();
 
         services.AddSingleton<IDavTransport>(_ => new DavTransport());
         services.AddSingleton<IDavMultistatusReader, DavMultistatusReader>();

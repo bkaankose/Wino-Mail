@@ -14,6 +14,7 @@ public sealed partial class MainPage : Page
         new("accountIcon", typeof(AccountIconPage)),
         new("contact", typeof(ContactPicturePage)),
         new("mailList", typeof(MailListPage)),
+        new("mailListInteractions", typeof(MailListInteractionsPage)),
         new("editor", typeof(EditorPage)),
         new("searchBar", typeof(SearchBarPage)),
         new("intelligenceHeader", typeof(IntelligenceHeaderPage)),
@@ -142,7 +143,7 @@ public sealed partial class MainPage : Page
                 return;
             }
 
-            ShowSuccess("Memory sweep passed: three cycles, twelve routes, and no retained pages or controls.");
+            ShowSuccess("Memory sweep passed: three cycles, thirteen routes, and no retained pages or controls.");
         }
         catch (OperationCanceledException)
         {
