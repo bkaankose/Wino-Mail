@@ -24,8 +24,8 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
     IDisposable
 {
     /// <summary>
-    /// How far back the briefing looks. Cards are grouped by received day, so there is no
-    /// forward window any more.
+    /// How long before the requested day a message can have arrived and still appear on it,
+    /// because one of its dated smart actions covers that day.
     /// </summary>
     private const int LookbackDays = 30;
 
@@ -58,6 +58,7 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
     }
 
     public async Task<DailyBriefingFactsResult> GetBriefingFactsAsync(
+        DateOnly day,
         TimeZoneInfo timeZone,
         bool includeIgnored = false,
         CancellationToken cancellationToken = default)
@@ -65,14 +66,16 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
         var eligible = await GetEligibleAccountsAsync(cancellationToken).ConfigureAwait(false);
         if (eligible.Count == 0)
         {
-            return DailyBriefingFactsResult.Empty;
+            return DailyBriefingFactsResult.Empty(day);
         }
 
         await _databaseService.InitializeAsync().ConfigureAwait(false);
 
         // sqlite-net turns method calls inside the expression tree into SQL functions and
         // SQLite has no AddDays, so the bound is computed before the query is composed.
-        var windowStartUtc = DateTime.UtcNow.AddDays(-LookbackDays);
+        var dayStartUtc = TimeZoneInfo.ConvertTimeToUtc(
+            day.ToDateTime(TimeOnly.MinValue, DateTimeKind.Unspecified), timeZone);
+        var windowStartUtc = dayStartUtc.AddDays(-LookbackDays);
 
         var accountsById = eligible.ToDictionary(static x => x.Account.Id);
         var folders = await _databaseService.Connection.Table<MailItemFolder>().ToListAsync().ConfigureAwait(false);
@@ -138,25 +141,14 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
 
                 enrichmentArtifacts.TryGetValue(remoteMessageId, out var enrichment);
 
+                var mail = candidate.Mail;
+                var receivedAt = new DateTimeOffset(DateTime.SpecifyKind(mail.CreationDate, DateTimeKind.Utc));
+
                 // A card stays ignored only while the content it was ignored at is current.
                 var isIgnored = ignored.TryGetValue(remoteMessageId, out var ignoredHash) &&
                     string.Equals(ignoredHash, classification.Key.ContentHash, StringComparison.OrdinalIgnoreCase);
-                if (isIgnored)
-                {
-                    ignoredCount++;
-                    if (!includeIgnored)
-                    {
-                        continue;
-                    }
-                }
 
-                var mail = candidate.Mail;
-                var receivedAt = new DateTimeOffset(DateTime.SpecifyKind(mail.CreationDate, DateTimeKind.Utc));
-                var firstImported = await _store
-                    .GetFirstImportedUtcAsync(accountGroup.Key, remoteMessageId, cancellationToken)
-                    .ConfigureAwait(false) ?? classification.CompletedUtc;
-
-                facts.Add(new DailyBriefingFact(
+                var fact = new DailyBriefingFact(
                     accountGroup.Key,
                     mail.UniqueId,
                     remoteMessageId,
@@ -170,21 +162,36 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
                     enrichment?.Actions ?? [],
                     enrichment?.Headline ?? string.Empty,
                     enrichment?.Summary ?? string.Empty,
-                    firstImported,
+                    classification.CompletedUtc,
                     indicatorState,
-                    isIgnored));
+                    isIgnored);
+
+                if (!fact.AppearsOn(day, timeZone))
+                {
+                    continue;
+                }
+
+                if (isIgnored)
+                {
+                    ignoredCount++;
+                    if (!includeIgnored)
+                    {
+                        continue;
+                    }
+                }
+
+                var firstImported = await _store
+                    .GetFirstImportedUtcAsync(accountGroup.Key, remoteMessageId, cancellationToken)
+                    .ConfigureAwait(false);
+
+                facts.Add(firstImported is { } importedUtc ? fact with { FirstImportedUtc = importedUtc } : fact);
             }
         }
 
-        var days = facts
-            .GroupBy(fact => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(fact.ReceivedAt, timeZone).DateTime))
-            .OrderByDescending(static group => group.Key)
-            .Select(group => new DailyBriefingDay(
-                group.Key,
-                [.. group.OrderByDescending(static fact => fact.ReceivedAt)]))
-            .ToArray();
-
-        return new DailyBriefingFactsResult(days, facts.Count, ignoredCount);
+        return new DailyBriefingFactsResult(
+            day,
+            [.. facts.OrderByDescending(static fact => fact.ReceivedAt)],
+            ignoredCount);
     }
 
     private static IReadOnlySet<string> ResolveEnabledLabels(Core.Domain.Entities.Shared.MailAccount account)

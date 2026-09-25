@@ -1,11 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Headless Wino host for trying mail synchronization and Wino Intelligence indexing against the
+    real app database. It runs the same services the app runs; see README.md.
+  -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
     <Platforms>x86;x64;arm64</Platforms>
+    <!-- Host stubs use DispatchProxy, so this tool stays out of the Release AOT gate. -->
     <IsAotCompatible>false</IsAotCompatible>
-    <RootNamespace>Wino.SmokeTest.ConsoleApp</RootNamespace>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Wino.Intelligence.ConsoleApp</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -18,9 +25,5 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Wino.Core\Wino.Core.csproj" />
     <ProjectReference Include="..\..\src\Wino.Services\Wino.Services.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <InternalsVisibleTo Include="Wino.SmokeTest.Console.Tests" />
   </ItemGroup>
 </Project>

@@ -24,10 +24,9 @@ namespace Wino.Mail.ViewModels;
 
 /// <summary>
 /// Drives the daily briefing panel.
-/// The briefing is a flat, reverse-chronological list of the messages Classification included,
-/// grouped by the day each one was received. There is no date picker and no upcoming window,
-/// because Classification produces no dates. It does produce one action per message, and the card's
-/// command follows it.
+/// The briefing shows one day at a time, picked from the last seven days and starting at today.
+/// A day lists the messages Classification included that arrived on it, plus those whose dated
+/// smart actions cover it, newest first. Each card's command follows its smart actions.
 /// </summary>
 public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
     IRecipient<IntelligenceVisibilityChanged>,
@@ -45,13 +44,26 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly IClipboardService _clipboardService;
 
+    /// <summary>How many days the date strip offers, today included.</summary>
+    public const int DayCount = 7;
+
     private CancellationTokenSource? _loadCancellation;
     private IReadOnlyList<DailyBriefingAccount> _eligibleAccounts = [];
     private bool _isInitialized;
+    private bool _isResettingDates;
     private DateTime? _lastViewedUtc;
 
-    /// <summary>Day groups, newest first.</summary>
-    public ObservableCollection<DailyBriefingDateItem> Days { get; } = [];
+    /// <summary>The days the date strip offers, newest first, so flipping forward goes back in time.</summary>
+    public ObservableCollection<DailyBriefingDateItem> Dates { get; } = [];
+
+    /// <summary>Cards for the selected day, newest first.</summary>
+    public ObservableCollection<DailyBriefingItem> Items { get; } = [];
+
+    [ObservableProperty]
+    public partial int SelectedDateIndex { get; set; } = -1;
+
+    public DailyBriefingDateItem? SelectedDate =>
+        SelectedDateIndex >= 0 && SelectedDateIndex < Dates.Count ? Dates[SelectedDateIndex] : null;
 
     [ObservableProperty]
     public partial bool IsShowingIgnored { get; set; }
@@ -108,11 +120,50 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
 
     public event EventHandler? CloseRequested;
 
+    /// <summary>Runs each time the panel opens, so the briefing always starts at today.</summary>
     public async Task InitializeAsync()
     {
+        await _dispatcher.ExecuteOnUIThread(ResetDates).ConfigureAwait(false);
         _isInitialized = true;
         await _localService.MarkOpenedAsync().ConfigureAwait(false);
         await LoadAsync(refreshAccounts: true).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Rebuilds the strip when the local date has moved on since it was built, and selects today.
+    /// The FlipView pushes its own index back while items change, so loads are held off until done.
+    /// </summary>
+    private void ResetDates()
+    {
+        var today = GetToday();
+        _isResettingDates = true;
+        try
+        {
+            if (Dates.Count != DayCount || Dates[0].Date != today)
+            {
+                Dates.Clear();
+                for (var offset = 0; offset < DayCount; offset++)
+                {
+                    var date = today.AddDays(-offset);
+                    Dates.Add(new DailyBriefingDateItem { Date = date, DisplayName = FormatDay(date, today) });
+                }
+            }
+
+            SelectedDateIndex = 0;
+        }
+        finally
+        {
+            _isResettingDates = false;
+        }
+    }
+
+    partial void OnSelectedDateIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(SelectedDate));
+        if (_isInitialized && !_isResettingDates && SelectedDate is not null)
+        {
+            _ = LoadAsync(refreshAccounts: false);
+        }
     }
 
     [RelayCommand]
@@ -140,11 +191,19 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
         var cancellation = new CancellationTokenSource();
         _loadCancellation = cancellation;
         var token = cancellation.Token;
+        DateOnly day = default;
 
         await _dispatcher.ExecuteOnUIThread(() =>
         {
+            day = SelectedDate?.Date ?? GetToday();
+            Items.Clear();
             IsLoading = true;
+            IsEmpty = false;
+            IsFilteredEmpty = false;
             LoadError = string.Empty;
+            OnPropertyChanged(nameof(HasLoadError));
+            OnPropertyChanged(nameof(ShowContent));
+            OnPropertyChanged(nameof(ShowFilteredEmpty));
         }).ConfigureAwait(false);
 
         try
@@ -158,7 +217,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
             {
                 await _dispatcher.ExecuteOnUIThread(() =>
                 {
-                    Days.Clear();
+                    Items.Clear();
                     IsUnavailable = true;
                     IsLoading = false;
                     UpdateEmptyState();
@@ -170,7 +229,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
             _lastViewedUtc = unseen.LastViewedUtc;
 
             var result = await _localService
-                .GetBriefingFactsAsync(_dateContext.TimeZone, IsShowingIgnored, token)
+                .GetBriefingFactsAsync(day, _dateContext.TimeZone, IsShowingIgnored, token)
                 .ConfigureAwait(false);
 
             if (token.IsCancellationRequested)
@@ -182,44 +241,33 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
 
             await _dispatcher.ExecuteOnUIThread(() =>
             {
-                Days.Clear();
+                // A day switch that landed while this load was hopping to the UI thread wins.
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                Items.Clear();
                 var newCount = 0;
 
-                foreach (var day in result.Days)
+                foreach (var fact in result.Facts)
                 {
-                    var items = new List<DailyBriefingItem>(day.Facts.Count);
-                    foreach (var fact in day.Facts)
-                    {
-                        if (!accountsById.TryGetValue(fact.LocalAccountId, out var account))
-                        {
-                            continue;
-                        }
-
-                        var item = new DailyBriefingItem(fact, account)
-                        {
-                            IsNew = fact.IsNewSince(_lastViewedUtc),
-                        };
-
-                        if (item.IsNew)
-                        {
-                            newCount++;
-                        }
-
-                        items.Add(item);
-                    }
-
-                    if (items.Count == 0)
+                    if (!accountsById.TryGetValue(fact.LocalAccountId, out var account))
                     {
                         continue;
                     }
 
-                    Days.Add(new DailyBriefingDateItem
+                    var item = new DailyBriefingItem(fact, account)
                     {
-                        Date = day.LocalDate,
-                        DisplayName = FormatDay(day.LocalDate),
-                        SecondaryName = day.LocalDate.ToString("d", CultureInfo.CurrentCulture),
-                        Items = new ObservableCollection<DailyBriefingItem>(items),
-                    });
+                        IsNew = fact.IsNewSince(_lastViewedUtc),
+                    };
+
+                    if (item.IsNew)
+                    {
+                        newCount++;
+                    }
+
+                    Items.Add(item);
                 }
 
                 NewItemCount = newCount;
@@ -227,11 +275,6 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
                 IsUnavailable = false;
                 IsLoading = false;
                 UpdateEmptyState();
-
-                // The grouped view is rebuilt from the repopulated collection rather than left to
-                // track it: a grouped CollectionViewSource that was bound while the collection was
-                // still empty does not pick up the groups added afterwards.
-                OnPropertyChanged(nameof(Days));
             }).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
@@ -254,11 +297,12 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
     [ObservableProperty]
     public partial bool HasIgnoredItems { get; set; }
 
-    private string FormatDay(DateOnly date)
-    {
-        var today = DateOnly.FromDateTime(
-            TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, _dateContext.TimeZone).DateTime);
+    private DateOnly GetToday()
+        => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, _dateContext.TimeZone).DateTime);
 
+    /// <summary>Today, Yesterday, or the month and day.</summary>
+    public static string FormatDay(DateOnly date, DateOnly today)
+    {
         if (date == today)
         {
             return Translator.DailyBriefing_Today;
@@ -266,7 +310,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
 
         return date == today.AddDays(-1)
             ? Translator.DailyBriefing_Yesterday
-            : date.ToString("dddd, MMMM d", CultureInfo.CurrentCulture);
+            : date.ToString("MMMM d", CultureInfo.CurrentCulture);
     }
 
     /// <summary>
@@ -483,20 +527,13 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
 
     private void RemoveItem(DailyBriefingItem item)
     {
-        foreach (var day in Days.ToArray())
-        {
-            if (day.Items.Remove(item) && day.Items.Count == 0)
-            {
-                Days.Remove(day);
-            }
-        }
-
+        Items.Remove(item);
         HasIgnoredItems = true;
     }
 
     private void UpdateEmptyState()
     {
-        var hasItems = Days.Any(static day => day.Items.Count > 0);
+        var hasItems = Items.Count > 0;
         IsFilteredEmpty = !IsShowingIgnored && HasIgnoredItems && !hasItems;
         IsEmpty = !hasItems && !IsFilteredEmpty;
         OnPropertyChanged(nameof(ShowContent));
@@ -510,12 +547,9 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
         await _dispatcher.ExecuteOnUIThread(() =>
         {
             NewItemCount = 0;
-            foreach (var day in Days)
+            foreach (var item in Items)
             {
-                foreach (var item in day.Items)
-                {
-                    item.IsNew = false;
-                }
+                item.IsNew = false;
             }
         }).ConfigureAwait(false);
 
@@ -564,7 +598,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
         _eligibleAccounts = [];
         _ = _dispatcher.ExecuteOnUIThread(() =>
         {
-            Days.Clear();
+            Items.Clear();
             IsLoading = false;
             IsUnavailable = true;
             LoadError = string.Empty;

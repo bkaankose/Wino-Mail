@@ -17,18 +17,6 @@
     mc:Ignorable="d">
 
     <UserControl.Resources>
-        <!--  Grouped by the day each message was received, newest day first.  -->
-        <CollectionViewSource
-            x:Name="BriefingCollectionViewSource"
-            IsSourceGrouped="True"
-            ItemsPath="Items" />
-
-        <Style x:Key="BriefingGroupHeaderContainerStyle" TargetType="ListViewHeaderItem">
-            <Setter Property="MinHeight" Value="0" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-        </Style>
-
         <!--
             A card carries three lines and nothing else: the Enrichment headline with the arrival time
             opposite it, its one-line summary, and the Classification labels beside the chosen action.
@@ -170,7 +158,11 @@
                                     Click="PrimaryActionClicked"
                                     Tag="{x:Bind}">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <presentation:WinoFontIcon FontSize="12" Glyph="{x:Bind PrimaryActionGlyph}" />
+                                        <!--  The implicit WinoFontIcon style does not reach icons inside this item template.  -->
+                                        <presentation:WinoFontIcon
+                                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                                            FontSize="12"
+                                            Glyph="{x:Bind PrimaryActionGlyph}" />
                                         <TextBlock FontSize="12" Text="{x:Bind PrimaryActionText}" />
                                     </StackPanel>
                                 </Button>
@@ -185,27 +177,16 @@
                                     IsEnabled="{x:Bind CanToggleIgnore, Mode=OneWay}"
                                     Tag="{x:Bind}"
                                     ToolTipService.ToolTip="{x:Bind IgnoreActionText, Mode=OneWay}">
-                                    <presentation:WinoFontIcon FontSize="12" Glyph="{x:Bind IgnoreActionGlyph, Mode=OneWay}" />
+                                    <presentation:WinoFontIcon
+                                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                                        FontSize="12"
+                                        Glyph="{x:Bind IgnoreActionGlyph, Mode=OneWay}" />
                                 </Button>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
                 </Border>
             </SwipeControl>
-        </DataTemplate>
-
-        <!--  One header per received day.  -->
-        <DataTemplate x:Key="BriefingDayHeaderTemplate" x:DataType="vm:DailyBriefingDateItem">
-            <Border Padding="16,10,16,6" Background="{ThemeResource SolidBackgroundFillColorSecondaryBrush}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind DisplayName}" />
-                    <TextBlock
-                        VerticalAlignment="Center"
-                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                        Style="{StaticResource CaptionTextBlockStyle}"
-                        Text="{x:Bind SecondaryName}" />
-                </StackPanel>
-            </Border>
         </DataTemplate>
     </UserControl.Resources>
 
@@ -221,6 +202,7 @@
         </Grid.Shadow>
 
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
@@ -266,35 +248,49 @@
             </Button>
         </Grid>
 
-        <Grid Grid.Row="1">
+        <!--  The last seven days, newest first; the panel opens on Today and flipping right goes back a day.  -->
+        <FlipView
+            x:Name="DateFlipView"
+            Grid.Row="1"
+            Height="40"
+            AutomationProperties.AutomationId="DailyBriefingDateFlipView"
+            AutomationProperties.Name="{x:Bind domain:Translator.DailyBriefing_Title, Mode=OneTime}"
+            Background="Transparent"
+            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+            BorderThickness="0,1,0,1"
+            ItemsSource="{x:Bind ViewModel.Dates, Mode=OneTime}"
+            SelectedIndex="{x:Bind ViewModel.SelectedDateIndex, Mode=TwoWay}">
+            <FlipView.ItemTemplate>
+                <DataTemplate x:DataType="vm:DailyBriefingDateItem">
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                        AutomationProperties.AutomationId="DailyBriefingDateText"
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="{x:Bind DisplayName}" />
+                </DataTemplate>
+            </FlipView.ItemTemplate>
+        </FlipView>
+
+        <Grid Grid.Row="2">
             <ListView
                 x:Name="BriefingListView"
+                Padding="0,6"
                 HorizontalContentAlignment="Stretch"
                 AutomationProperties.AutomationId="DailyBriefingContentListView"
                 AutomationProperties.Name="{x:Bind domain:Translator.DailyBriefing_Title, Mode=OneTime}"
                 IsItemClickEnabled="False"
                 ItemTemplate="{StaticResource BriefingItemTemplate}"
-                ItemsSource="{x:Bind BriefingCollectionViewSource.View, Mode=OneWay}"
+                ItemsSource="{x:Bind ViewModel.Items, Mode=OneTime}"
                 ScrollViewer.VerticalScrollBarVisibility="Auto"
                 SelectionMode="None"
                 Visibility="{x:Bind ViewModel.ShowContent, Mode=OneWay}">
-                <ListView.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <ItemsStackPanel AreStickyGroupHeadersEnabled="True" />
-                    </ItemsPanelTemplate>
-                </ListView.ItemsPanel>
                 <ListView.ItemContainerTransitions>
                     <TransitionCollection>
                         <AddDeleteThemeTransition />
                         <RepositionThemeTransition IsStaggeringEnabled="False" />
                     </TransitionCollection>
                 </ListView.ItemContainerTransitions>
-                <ListView.GroupStyle>
-                    <GroupStyle
-                        HeaderContainerStyle="{StaticResource BriefingGroupHeaderContainerStyle}"
-                        HeaderTemplate="{StaticResource BriefingDayHeaderTemplate}"
-                        HidesIfEmpty="True" />
-                </ListView.GroupStyle>
             </ListView>
 
             <StackPanel

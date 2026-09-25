@@ -1,21 +1,14 @@
 #nullable enable
 using System;
-using System.Collections.ObjectModel;
-using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace Wino.Mail.ViewModels;
 
 /// <summary>
-/// One received-day group in the briefing. Cards are grouped by the day the message
-/// arrived, which is the only date the briefing states.
+/// One day in the briefing's date strip: Today, Yesterday, or the date itself.
 /// </summary>
-public sealed partial class DailyBriefingDateItem : ObservableObject
+public sealed class DailyBriefingDateItem
 {
     public DateOnly Date { get; init; }
 
     public string DisplayName { get; init; } = string.Empty;
-
-    public string SecondaryName { get; init; } = string.Empty;
-
-    public ObservableCollection<DailyBriefingItem> Items { get; init; } = [];
 }

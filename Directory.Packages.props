@@ -35,7 +35,7 @@
     <PackageVersion Include="Microsoft.NETCore.UniversalWindowsPlatform" Version="6.2.14" />
     <PackageVersion Include="Microsoft.Windows.SDK.BuildTools.MSIX" Version="1.7.260610101" />
     <PackageVersion Include="Microsoft.Windows.CsWinRT" Version="2.3.1" />
-    <PackageVersion Include="Wino.Mail.Contracts" Version="3.0.0-alpha.3" />
+    <PackageVersion Include="Wino.Mail.Contracts" Version="3.0.0-alpha.4" />
     <PackageVersion Include="Wino.Mail.AI.Abstractions" Version="3.0.0-alpha.3" />
     <PackageVersion Include="Wino.Mail.AI.ContentProcessing" Version="3.0.0-alpha.3" />
     <PackageVersion Include="MimeKit" Version="4.17.0" />

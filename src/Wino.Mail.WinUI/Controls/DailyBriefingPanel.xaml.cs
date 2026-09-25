@@ -1,5 +1,4 @@
 using System;
-using System.ComponentModel;
 using System.Numerics;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,9 +43,7 @@ public sealed partial class DailyBriefingPanel : UserControl
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         ViewModel.CloseRequested += ViewModelCloseRequested;
-        ViewModel.PropertyChanged += ViewModelPropertyChanged;
 
-        UpdateBriefingCollectionViewSource();
         ElementCompositionPreview.SetIsTranslationEnabled(PanelRoot, true);
         if (!_isOpen) SetTranslation(PanelWidth());
     }
@@ -54,7 +51,6 @@ public sealed partial class DailyBriefingPanel : UserControl
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         ViewModel.CloseRequested -= ViewModelCloseRequested;
-        ViewModel.PropertyChanged -= ViewModelPropertyChanged;
         ViewModel.Dispose();
     }
 
@@ -154,23 +150,6 @@ public sealed partial class DailyBriefingPanel : UserControl
     {
         if (sender is Button { Tag: DailyBriefingItem item })
             ViewModel.IgnoreCommand.Execute(item);
-    }
-
-    private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(ViewModel.Days))
-            UpdateBriefingCollectionViewSource();
-    }
-
-    /// <summary>
-    /// Rebinds the grouped view to the day collection. A grouped CollectionViewSource bound while
-    /// its collection was still empty never picks up the groups added later, so the view is rebuilt
-    /// after every load instead of being left to track the collection.
-    /// </summary>
-    private void UpdateBriefingCollectionViewSource()
-    {
-        BriefingCollectionViewSource.Source = null;
-        BriefingCollectionViewSource.Source = ViewModel.Days;
     }
 
     private void ToggleIgnoreInvoked(SwipeItem sender, SwipeItemInvokedEventArgs args)

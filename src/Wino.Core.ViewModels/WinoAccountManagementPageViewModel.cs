@@ -1399,7 +1399,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         };
 
     /// <summary>
-    /// Renders one usage response as the share of the period's budget used and remaining.
+    /// Renders one usage response: every monthly bucket, with the intelligence bucket as the headline.
     /// </summary>
     private void ApplyIntelligenceUsage(AiUsageStatusDto? usage)
     {

@@ -63,7 +63,6 @@ $testProjects = @{
     controls = "tests\Wino.Mail.Controls.Tests\Wino.Mail.Controls.Tests.csproj"
     core = "tests\Wino.Core.Tests\Wino.Core.Tests.csproj"
     viewmodels = "tests\Wino.Mail.ViewModels.Tests\Wino.Mail.ViewModels.Tests.csproj"
-    smoke = "tests\Wino.SmokeTest.Console.Tests\Wino.SmokeTest.Console.Tests.csproj"
 }
 
 function Show-Usage {
@@ -72,7 +71,7 @@ Wino Mail development harness
 
   .\scripts\wino.ps1 affected [-Path <repository-relative path[]>]
   .\scripts\wino.ps1 build <app|controls|core|editor|playground|viewmodels> [-Configuration Debug|Release] [-Restore]
-  .\scripts\wino.ps1 test <controls|core|viewmodels|smoke> [-Filter <text>] [-NoBuild] [-Restore]
+  .\scripts\wino.ps1 test <controls|core|viewmodels> [-Filter <text>] [-NoBuild] [-Restore]
   .\scripts\wino.ps1 run <app|playground> [-NoBuild] [-Restore]
   .\scripts\wino.ps1 debug <app|playground> [-NoBuild] [-Restore]
   .\scripts\wino.ps1 doctor <app|playground>

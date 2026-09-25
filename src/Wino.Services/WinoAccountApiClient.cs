@@ -1,15 +1,12 @@
 #nullable enable
 using System;
-using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
@@ -21,7 +18,6 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.Intelligence;
 using Wino.Mail.AI.Abstractions;
 using Wino.Mail.AI.Cryptography;
 using Wino.Mail.Api.Contracts.Ai;
@@ -44,8 +40,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private readonly int _maximumEncryptedAttempts;
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromMinutes(10);
 
-    // private const string ApiUrl = "https://localhost:7204/";
-    private const string ApiUrl = "https://api.winomail.app/";
+    private const string ApiUrl = "https://localhost:7204/";
+    // private const string ApiUrl = "https://api.winomail.app/";
 
     public WinoAccountApiClient(
         IDatabaseService databaseService,
@@ -388,10 +384,13 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     /// <summary>Returns null when the job is gone, which happens once both stages are acknowledged.</summary>
     public async Task<MailIntelligenceJobDto?> GetMailIntelligenceJobAsync(
-        Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default)
+        Guid mailboxId, Guid jobId, int waitSeconds = 0, CancellationToken cancellationToken = default)
     {
+        var route = waitSeconds > 0
+            ? $"{MailIntelligenceJobRoute(mailboxId, jobId)}?waitSeconds={waitSeconds}"
+            : MailIntelligenceJobRoute(mailboxId, jobId);
         using var response = await SendAuthorizedAsync(
-            () => CreateAuthorizedRequestAsync(HttpMethod.Get, MailIntelligenceJobRoute(mailboxId, jobId)),
+            () => CreateAuthorizedRequestAsync(HttpMethod.Get, route),
             cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("MissingAccessToken");
 

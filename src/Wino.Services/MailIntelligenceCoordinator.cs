@@ -53,7 +53,11 @@ public sealed class MailIntelligenceCoordinator(
     /// </summary>
     private const int MaxMessagesPerJob = 1_000;
 
-    private const int DocumentPreparationConcurrency = 4;
+    /// <summary>
+    /// Preparing a message is CPU work (sanitizing and tokenizing the body) after one file read,
+    /// so it scales with the cores the machine has.
+    /// </summary>
+    private static readonly int DocumentPreparationConcurrency = Math.Clamp(Environment.ProcessorCount, 4, 16);
 
     private readonly ConcurrentDictionary<Guid, MailIntelligenceJobSnapshot> _snapshots = new();
     private readonly ConcurrentDictionary<Guid, List<string>> _synchronizedQueues = new();
@@ -63,8 +67,37 @@ public sealed class MailIntelligenceCoordinator(
     private Task? _resumeLoop;
     private volatile bool _acceptingWork = true;
 
-    /// <summary>How often an unfinished job is re-checked while the app is running.</summary>
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(20);
+    private static readonly Serilog.ILogger Logger = Serilog.Log.ForContext<MailIntelligenceCoordinator>();
+
+    /// <summary>
+    /// How long one status request may wait on the server for a stage to become downloadable.
+    /// The server answers the moment one is, so this only bounds an idle wait.
+    /// </summary>
+    private const int StatusWaitSeconds = 25;
+
+    /// <summary>
+    /// Pause after a round that came back at once with nothing to do, for example from a server
+    /// that ignores the wait. Keeps the loop from spinning.
+    /// </summary>
+    private static readonly TimeSpan IdleRoundDelay = TimeSpan.FromSeconds(3);
+
+    /// <summary>Pause when another poller holds a job, before asking again.</summary>
+    private static readonly TimeSpan BusyJobDelay = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>The long-poll follower of each unfinished job.</summary>
+    private readonly ConcurrentDictionary<Guid, Task> _jobFollowers = new();
+
+    /// <summary>One poller per job at a time, so two paths never import the same stage twice.</summary>
+    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _jobGates = new();
+
+    /// <summary>
+    /// Content hashes computed when messages were prepared for upload. Import compares every
+    /// artifact against the current hash; within a job's lifetime the prepared hash is current,
+    /// so it saves re-reading and re-projecting every body.
+    /// </summary>
+    private readonly ConcurrentDictionary<(Guid AccountId, string RemoteMessageId), (string Hash, DateTime PreparedUtc)> _preparedHashes = new();
+
+    private static readonly TimeSpan PreparedHashLifetime = TimeSpan.FromMinutes(30);
 
     /// <summary>
     /// A server job this device does not track is only swept once it is well past the server's
@@ -82,6 +115,10 @@ public sealed class MailIntelligenceCoordinator(
 
     public Task InitializeAsync()
     {
+        // The content projection loads its tokenizer on first use, which takes seconds. Doing
+        // that now keeps it off the first indexing run of the session.
+        _ = Task.Run(WarmContentProcessor);
+
         messenger.Register<AccountSynchronizationCompleted>(this, static (recipient, message) =>
             _ = ((MailIntelligenceCoordinator)recipient).HandleSynchronizationCompletedAsync(message));
         messenger.Register<MailAddedMessage>(this, static (recipient, message) =>
@@ -165,52 +202,9 @@ public sealed class MailIntelligenceCoordinator(
     }
 
     /// <summary>
-    /// Polls unfinished jobs until none remain. Runs at launch and whenever a submission
-    /// adds work, so a job outlives the session that created it.
-    /// </summary>
-    private async Task ResumePendingJobsAsync(CancellationToken cancellationToken)
-    {
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                if (!CanFollowJobs)
-                {
-                    // Restarted by the next entitlement change that makes jobs usable again.
-                    return;
-                }
-
-                var jobs = await store.GetUnfinishedJobsAsync(cancellationToken).ConfigureAwait(false);
-                if (jobs.Count == 0)
-                {
-                    return;
-                }
-
-                await PollAsync(cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-            catch
-            {
-                // Intelligence must never break the app. The next tick tries again.
-            }
-
-            try
-            {
-                await Task.Delay(PollInterval, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-        }
-    }
-
-    /// <summary>
-    /// Restarts the poll loop if it has finished because nothing was outstanding. Called
-    /// after a submission so newly created jobs are followed to completion.
+    /// Starts a follower for every unfinished job that does not have one. Runs at launch, when the
+    /// add-on becomes usable, and after every submission, so a job outlives the session that
+    /// created it and a new job is followed the moment it exists.
     /// </summary>
     private void EnsureResumeLoopRunning()
     {
@@ -221,12 +215,75 @@ public sealed class MailIntelligenceCoordinator(
 
         lock (_resumeLoopGate)
         {
-            if (_resumeLoop is { IsCompleted: false })
+            _resumeLoop = Task.Run(() => StartJobFollowersAsync(_lifecycle.Token));
+        }
+    }
+
+    private async Task StartJobFollowersAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            if (!CanFollowJobs)
             {
+                // Restarted by the next entitlement change that makes jobs usable again.
                 return;
             }
 
-            _resumeLoop = Task.Run(() => ResumePendingJobsAsync(_lifecycle.Token));
+            foreach (var job in await store.GetUnfinishedJobsAsync(cancellationToken).ConfigureAwait(false))
+            {
+                _ = _jobFollowers.GetOrAdd(job.JobId, jobId => Task.Run(() => FollowJobAsync(jobId, cancellationToken)));
+            }
+        }
+        catch
+        {
+            // Intelligence must never break the app. The next trigger starts them again.
+        }
+    }
+
+    /// <summary>
+    /// Follows one job to the end with long polls: each request returns the moment a stage can be
+    /// downloaded, so results are collected as soon as the server publishes them.
+    /// </summary>
+    private async Task FollowJobAsync(Guid jobId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested && CanFollowJobs)
+            {
+                var job = await store.GetJobAsync(jobId, cancellationToken).ConfigureAwait(false);
+                if (job is null)
+                {
+                    return;
+                }
+
+                var started = DateTime.UtcNow;
+                var polled = await TryPollJobAsync(job, StatusWaitSeconds, cancellationToken).ConfigureAwait(false);
+                if (!polled)
+                {
+                    // Another poller holds the job for the moment.
+                    await Task.Delay(BusyJobDelay, cancellationToken).ConfigureAwait(false);
+                }
+                else if (DateTime.UtcNow - started < TimeSpan.FromSeconds(1))
+                {
+                    // Answered at once with nothing new: a server that does not hold requests.
+                    var latest = await store.GetJobAsync(jobId, cancellationToken).ConfigureAwait(false);
+                    if (latest is not null && latest with { UpdatedUtc = job.UpdatedUtc } == job)
+                    {
+                        await Task.Delay(IdleRoundDelay, cancellationToken).ConfigureAwait(false);
+                    }
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch
+        {
+            // Intelligence must never break the app. The next trigger starts a new follower.
+        }
+        finally
+        {
+            _jobFollowers.TryRemove(jobId, out _);
         }
     }
 
@@ -295,10 +352,9 @@ public sealed class MailIntelligenceCoordinator(
             }
 
             SetSnapshot(localMailAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Waiting });
-            await PollAsync(cancellationToken).ConfigureAwait(false);
 
-            // Whatever this poll did not finish is followed by the resume loop, so results
-            // arrive even if the app is closed and reopened before the server is done.
+            // Each new job gets a follower that long-polls it, so results are collected the
+            // moment they are published, and still arrive if the app restarts in between.
             EnsureResumeLoopRunning();
         }
         catch (OperationCanceledException)
@@ -329,13 +385,16 @@ public sealed class MailIntelligenceCoordinator(
         IReadOnlyList<string> remoteMessageIds,
         CancellationToken cancellationToken)
     {
-        var candidates = new List<IntelligenceMessageCandidate>();
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+
+        // One query for the account, then a lookup per id. Finding each id separately re-read
+        // every candidate of the account once per message.
+        var byId = await GetCandidatesByIdAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        var candidatesMs = clock.ElapsedMilliseconds;
+        var candidates = new List<IntelligenceMessageCandidate>(remoteMessageIds.Count);
         foreach (var remoteMessageId in remoteMessageIds)
         {
-            var candidate = await messageResolver
-                .FindCandidateAsync(account.Id, remoteMessageId, cancellationToken)
-                .ConfigureAwait(false);
-            if (candidate is not null)
+            if (byId.TryGetValue(remoteMessageId, out var candidate))
             {
                 candidates.Add(candidate);
             }
@@ -347,16 +406,19 @@ public sealed class MailIntelligenceCoordinator(
         }
 
         var prepared = await PrepareAsync(account, candidates, cancellationToken).ConfigureAwait(false);
+        var preparedMs = clock.ElapsedMilliseconds;
         if (prepared.Count == 0)
         {
             return;
         }
 
         var language = translationService.CurrentLanguageModel?.Code ?? "en-US";
+        long builtMs = 0;
         var accepted = await WithTransportKeyAsync(async transportKey =>
         {
             var upload = uploadBuilder.Build(
                 context.WinoUserId, context.MailboxId, Guid.NewGuid(), prepared, language, transportKey, resultKey);
+            builtMs = clock.ElapsedMilliseconds;
             try
             {
                 return await apiClient.SubmitMailIntelligenceJobAsync(
@@ -367,6 +429,10 @@ public sealed class MailIntelligenceCoordinator(
                 CryptographicOperations.ZeroMemory(upload.Content);
             }
         }, cancellationToken).ConfigureAwait(false);
+
+        Logger.Information(
+            "Intelligence job {JobId}: {Count} messages. Candidates {CandidatesMs} ms, prepare {PrepareMs} ms, build {BuildMs} ms, upload {UploadMs} ms",
+            accepted.JobId, prepared.Count, candidatesMs, preparedMs - candidatesMs, builtMs - preparedMs, clock.ElapsedMilliseconds - builtMs);
 
         // The job id is persisted before anything else, so a crash right after upload
         // still leaves the device able to collect the results.
@@ -408,21 +474,37 @@ public sealed class MailIntelligenceCoordinator(
         }
     }
 
+    /// <summary>
+    /// Reads every body in one pass (local MIME first, then the provider in as few round trips as
+    /// it allows), then projects them in parallel. The projection is CPU work, so it scales with
+    /// cores; the body reads are bounded by what the provider tolerates.
+    /// </summary>
     private async Task<List<MailIntelligenceUploadEnvelopeDto>> PrepareAsync(
         MailAccount account,
         IReadOnlyList<IntelligenceMessageCandidate> candidates,
         CancellationToken cancellationToken)
     {
-        var prepared = new List<MailIntelligenceUploadEnvelopeDto>(candidates.Count);
-        var gate = new SemaphoreSlim(DocumentPreparationConcurrency, DocumentPreparationConcurrency);
-        var results = new MailIntelligenceUploadEnvelopeDto?[candidates.Count];
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var contents = await messageResolver.GetContentsAsync(account.Id, candidates, cancellationToken).ConfigureAwait(false);
+        var readMs = clock.ElapsedMilliseconds;
 
-        await Task.WhenAll(candidates.Select(async (candidate, index) =>
+        var results = new MailIntelligenceUploadEnvelopeDto?[candidates.Count];
+        await Parallel.ForAsync(0, candidates.Count, new ParallelOptions
         {
-            await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            MaxDegreeOfParallelism = DocumentPreparationConcurrency,
+            CancellationToken = cancellationToken,
+        }, async (index, token) =>
+        {
+            var candidate = candidates[index];
+            if (!contents.TryGetValue(candidate.RemoteMessageId, out var content))
+            {
+                // A message whose body cannot be read is skipped rather than failing the job.
+                return;
+            }
+
             try
             {
-                results[index] = await PrepareOneAsync(account, candidate, cancellationToken).ConfigureAwait(false);
+                results[index] = await PrepareOneAsync(account, candidate, content, token).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -430,26 +512,32 @@ public sealed class MailIntelligenceCoordinator(
             }
             catch
             {
-                // A message whose body cannot be read is skipped rather than failing the job.
                 results[index] = null;
             }
-            finally
-            {
-                gate.Release();
-            }
-        })).ConfigureAwait(false);
+        }).ConfigureAwait(false);
 
-        gate.Dispose();
-        prepared.AddRange(results.Where(static item => item is not null)!);
-        return prepared;
+        Logger.Information(
+            "Prepared {Prepared}/{Count} messages: bodies {ReadMs} ms, projection {ProjectMs} ms",
+            results.Count(static item => item is not null), candidates.Count, readMs, clock.ElapsedMilliseconds - readMs);
+        return [.. results.OfType<MailIntelligenceUploadEnvelopeDto>()];
     }
 
     private async Task<MailIntelligenceUploadEnvelopeDto> PrepareOneAsync(
         MailAccount account,
         IntelligenceMessageCandidate candidate,
         CancellationToken cancellationToken)
+        => await PrepareOneAsync(
+            account,
+            candidate,
+            await messageResolver.GetContentAsync(account.Id, candidate, cancellationToken).ConfigureAwait(false),
+            cancellationToken).ConfigureAwait(false);
+
+    private Task<MailIntelligenceUploadEnvelopeDto> PrepareOneAsync(
+        MailAccount account,
+        IntelligenceMessageCandidate candidate,
+        SemanticMailContent content,
+        CancellationToken cancellationToken)
     {
-        var content = await messageResolver.GetContentAsync(account.Id, candidate, cancellationToken).ConfigureAwait(false);
         var from = content.From.Count > 0
             ? content.From
             : [new MailAddress(candidate.Sender, candidate.SenderName)];
@@ -459,7 +547,9 @@ public sealed class MailIntelligenceCoordinator(
         var processed = new MailContentProcessor(new HtmlContentSanitizer())
             .Prepare(from, candidate.Subject, content.Body, ContentProfile);
 
-        return new MailIntelligenceUploadEnvelopeDto
+        _preparedHashes[(account.Id, candidate.RemoteMessageId)] = (processed.ContentHash, DateTime.UtcNow);
+
+        return Task.FromResult(new MailIntelligenceUploadEnvelopeDto
         {
             RemoteMessageId = candidate.RemoteMessageId,
             ContentHash = processed.ContentHash,
@@ -474,7 +564,23 @@ public sealed class MailIntelligenceCoordinator(
             ProviderImportance = candidate.ProviderImportance,
             RemoteFolderIds = candidate.RemoteFolderIds,
             HasListUnsubscribe = content.HasListUnsubscribe,
-        };
+        });
+    }
+
+    private static void WarmContentProcessor()
+    {
+        try
+        {
+            new MailContentProcessor(new HtmlContentSanitizer()).Prepare(
+                [new MailAddress("warmup@wino.invalid", "Wino")],
+                "Warm-up",
+                new MailBodyContent(MailBodyFormat.PlainText, "Warm-up"),
+                ContentProfile);
+        }
+        catch
+        {
+            // Only a warm-up; the real call reports its own failure.
+        }
     }
 
     // ---- polling and import --------------------------------------------------------
@@ -487,25 +593,55 @@ public sealed class MailIntelligenceCoordinator(
         }
 
         var jobs = await store.GetUnfinishedJobsAsync(cancellationToken).ConfigureAwait(false);
-        foreach (var job in jobs)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                await PollJobAsync(job, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception exception)
-            {
-                SetSnapshot(job.LocalAccountId, snapshot => snapshot with { ErrorCode = exception.Message });
-            }
-        }
+        await PollJobsAsync(jobs, 0, cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task PollJobAsync(MailIntelligenceJobState job, CancellationToken cancellationToken)
+    /// <summary>Polls the jobs side by side. A job another poller is already handling is skipped.</summary>
+    private Task PollJobsAsync(IReadOnlyList<MailIntelligenceJobState> jobs, int waitSeconds, CancellationToken cancellationToken)
+    {
+        if (!_acceptingWork || !CanFollowJobs)
+        {
+            return Task.CompletedTask;
+        }
+
+        return Task.WhenAll(jobs.Select(job => TryPollJobAsync(job, waitSeconds, cancellationToken)));
+    }
+
+    /// <summary>Polls one job unless another poller holds it. Returns whether it polled.</summary>
+    private async Task<bool> TryPollJobAsync(MailIntelligenceJobState job, int waitSeconds, CancellationToken cancellationToken)
+    {
+        var gate = _jobGates.GetOrAdd(job.JobId, static _ => new SemaphoreSlim(1, 1));
+        if (!await gate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        {
+            return false;
+        }
+
+        try
+        {
+            // Re-read under the gate: the previous holder may have finished the job.
+            var current = await store.GetJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
+            if (current is not null)
+            {
+                await PollJobAsync(current, waitSeconds, cancellationToken).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            SetSnapshot(job.LocalAccountId, snapshot => snapshot with { ErrorCode = exception.Message });
+        }
+        finally
+        {
+            gate.Release();
+        }
+
+        return true;
+    }
+
+    private async Task PollJobAsync(MailIntelligenceJobState job, int waitSeconds, CancellationToken cancellationToken)
     {
         if (job.ResultKeyId is { } resultKeyId &&
             !(await resultKeys.GetKeysAsync(cancellationToken).ConfigureAwait(false)).Any(key => key.KeyId == resultKeyId))
@@ -520,7 +656,7 @@ public sealed class MailIntelligenceCoordinator(
         try
         {
             remote = await apiClient
-                .GetMailIntelligenceJobAsync(job.MailboxId, job.JobId, cancellationToken)
+                .GetMailIntelligenceJobAsync(job.MailboxId, job.JobId, waitSeconds, cancellationToken)
                 .ConfigureAwait(false);
         }
         catch (InvalidOperationException exception) when (exception.Message == ApiErrorCodes.IntelligenceJobExpired)
@@ -713,34 +849,69 @@ public sealed class MailIntelligenceCoordinator(
             return new Dictionary<string, string>(StringComparer.Ordinal);
         }
 
-        var hashes = new Dictionary<string, string>(StringComparer.Ordinal);
+        var hashes = new ConcurrentDictionary<string, string>(StringComparer.Ordinal);
+        var missing = new List<string>();
+        var now = DateTime.UtcNow;
         foreach (var remoteMessageId in remoteMessageIds.Distinct(StringComparer.Ordinal))
         {
-            var candidate = await messageResolver
-                .FindCandidateAsync(localAccountId, remoteMessageId, cancellationToken)
-                .ConfigureAwait(false);
-            if (candidate is null)
+            if (_preparedHashes.TryGetValue((localAccountId, remoteMessageId), out var prepared) &&
+                now - prepared.PreparedUtc < PreparedHashLifetime)
             {
-                continue;
+                hashes[remoteMessageId] = prepared.Hash;
             }
-
-            try
+            else
             {
-                var projection = await PrepareOneAsync(account, candidate, cancellationToken).ConfigureAwait(false);
-                hashes[remoteMessageId] = projection.ContentHash;
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch
-            {
-                // Without a readable body the local hash is unknown, so the artifact is
-                // accepted rather than discarded on a guess.
+                missing.Add(remoteMessageId);
             }
         }
 
-        return hashes;
+        if (missing.Count > 0)
+        {
+            var byId = await GetCandidatesByIdAsync(localAccountId, cancellationToken).ConfigureAwait(false);
+            using var gate = new SemaphoreSlim(DocumentPreparationConcurrency, DocumentPreparationConcurrency);
+            await Task.WhenAll(missing.Select(async remoteMessageId =>
+            {
+                if (!byId.TryGetValue(remoteMessageId, out var candidate))
+                {
+                    return;
+                }
+
+                await gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    var projection = await PrepareOneAsync(account, candidate, cancellationToken).ConfigureAwait(false);
+                    hashes[remoteMessageId] = projection.ContentHash;
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                    // Without a readable body the local hash is unknown, so the artifact is
+                    // accepted rather than discarded on a guess.
+                }
+                finally
+                {
+                    gate.Release();
+                }
+            })).ConfigureAwait(false);
+        }
+
+        return new Dictionary<string, string>(hashes, StringComparer.Ordinal);
+    }
+
+    private async Task<Dictionary<string, IntelligenceMessageCandidate>> GetCandidatesByIdAsync(
+        Guid localAccountId, CancellationToken cancellationToken)
+    {
+        var candidates = await messageResolver.GetCandidatesAsync(localAccountId, cancellationToken: cancellationToken).ConfigureAwait(false);
+        var byId = new Dictionary<string, IntelligenceMessageCandidate>(StringComparer.Ordinal);
+        foreach (var candidate in candidates)
+        {
+            byId.TryAdd(candidate.RemoteMessageId, candidate);
+        }
+
+        return byId;
     }
 
     private static IReadOnlyList<MailIntelligenceItemFailure> MapFailures(IReadOnlyList<MailIntelligenceFailureDto> failures)
@@ -892,7 +1063,7 @@ public sealed class MailIntelligenceCoordinator(
         var job = await store.GetJobAsync(jobId, cancellationToken).ConfigureAwait(false);
         if (job is not null)
         {
-            await PollJobAsync(job, cancellationToken).ConfigureAwait(false);
+            await PollJobAsync(job, 0, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -1149,15 +1320,18 @@ public sealed class MailIntelligenceCoordinator(
         messenger.UnregisterAll(this);
         await _lifecycle.CancelAsync().ConfigureAwait(false);
 
+        var loops = _jobFollowers.Values.ToList();
         if (_resumeLoop is { } loop)
         {
-            try
-            {
-                await loop.ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-            }
+            loops.Add(loop);
+        }
+
+        try
+        {
+            await Task.WhenAll(loops).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
         }
 
         _lifecycle.Dispose();

@@ -81,7 +81,7 @@ public partial class OutlookSynchronizerJsonContext : JsonSerializerContext;
 /// - CreateMailCopyFromMessageAsync: Creates MailCopy from Message metadata
 /// - DownloadMissingMimeMessageAsync: Downloads raw MIME only when explicitly requested
 /// </summary>
-public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event, Contact>, IProviderMailFilterSynchronizer, ISemanticMailBodySynchronizer
+public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, Message, Event, Contact>, IProviderMailFilterSynchronizer, ISemanticMailBodyBatchSynchronizer
 {
     private const string WinoTaskExtensionName = "com.winomail.taskIdentity";
     private const string WinoTaskLocalIdProperty = "localTaskId";
@@ -3655,6 +3655,78 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         {
             Categories = categoryNames?.ToList() ?? []
         });
+
+    /// <summary>
+    /// Reads bodies through Graph JSON batching, 20 messages per request. Steps Graph throttles
+    /// (429) or fails are left out, so the caller can read them one by one.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<string, SemanticMailContent>> GetSemanticBodiesAsync(
+        IReadOnlyList<MailBodyLocator> locators,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(locators);
+        var contents = new System.Collections.Concurrent.ConcurrentDictionary<string, SemanticMailContent>(StringComparer.Ordinal);
+
+        async Task ReadBatchAsync(MailBodyLocator[] batch)
+        {
+            var batchContent = new BatchRequestContentCollection(_graphClient);
+            var locatorsByRequestId = new Dictionary<string, MailBodyLocator>(StringComparer.Ordinal);
+            foreach (var locator in batch)
+            {
+                var requestInfo = _graphClient.Me.Messages[locator.ProviderMessageId ?? locator.RemoteMessageId].ToGetRequestInformation(request =>
+                {
+                    request.QueryParameters.Select = ["body", "from", "toRecipients", "ccRecipients", "attachments"];
+                    request.QueryParameters.Expand = ["attachments($select=name,contentType)"];
+                    request.Headers.Add("Prefer", "outlook.body-content-type=\"html\"");
+                });
+                locatorsByRequestId[await batchContent.AddBatchRequestStepAsync(requestInfo).ConfigureAwait(false)] = locator;
+            }
+
+            var batchResponse = await _graphClient.Batch.PostAsync(batchContent, cancellationToken).ConfigureAwait(false);
+            foreach (var (requestId, locator) in locatorsByRequestId)
+            {
+                try
+                {
+                    var message = await batchResponse.GetResponseByIdAsync<Message>(requestId).ConfigureAwait(false);
+                    if (message is not null)
+                    {
+                        contents[locator.RemoteMessageId] = ToSemanticContent(message);
+                    }
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    // A throttled or failed step; the caller reads it on its own.
+                }
+            }
+        }
+
+        // Graph runs the steps of one batch against the mailbox's concurrency limit, so batches
+        // go out a couple at a time rather than all at once.
+        await Parallel.ForEachAsync(
+            locators.Chunk((int)MaximumAllowedBatchRequestSize),
+            new ParallelOptions { MaxDegreeOfParallelism = 2, CancellationToken = cancellationToken },
+            async (batch, _) => await ReadBatchAsync(batch).ConfigureAwait(false)).ConfigureAwait(false);
+
+        return contents;
+    }
+
+    private static SemanticMailContent ToSemanticContent(Message? message)
+    {
+        var content = message?.Body?.Content ?? string.Empty;
+        var format = message?.Body?.ContentType == BodyType.Html
+            ? MailBodyFormat.Html
+            : MailBodyFormat.PlainText;
+        return new SemanticMailContent(
+            new MailBodyContent(format, content),
+            message?.From?.EmailAddress is { Address: { Length: > 0 } address } from
+                ? [new MailAddress(address, from.Name)]
+                : [],
+            message?.ToRecipients?.Select(x => x.EmailAddress?.Address).Where(x => !string.IsNullOrWhiteSpace(x)).Cast<string>().ToArray() ?? [],
+            message?.CcRecipients?.Select(x => x.EmailAddress?.Address).Where(x => !string.IsNullOrWhiteSpace(x)).Cast<string>().ToArray() ?? [],
+            message?.Attachments?.Select(static attachment => new SemanticMailAttachment(
+                attachment.Name ?? string.Empty,
+                attachment.ContentType ?? string.Empty)).ToArray() ?? []);
+    }
 
     public async Task<SemanticMailContent> GetSemanticBodyAsync(
         MailBodyLocator locator,

@@ -80,8 +80,7 @@ public sealed class WinoIntelligenceEntitlementSnapshotTests
             new AiUsageStatusDto
             {
                 EntitlementStatus = "active",
-                UsagePercentage = 100m,
-                RemainingPercentage = 0m,
+                Buckets = [new AiQuotaBucketDto("intelligence", 1500, 1500)],
                 IsExhausted = true,
             });
 

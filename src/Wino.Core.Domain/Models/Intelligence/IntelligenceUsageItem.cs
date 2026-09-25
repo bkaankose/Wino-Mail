@@ -2,13 +2,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Contracts.Intelligence;
 
 namespace Wino.Core.Domain.Models.Intelligence;
 
 /// <summary>
-/// One usage line as the UI shows it. <see cref="Used"/> and <see cref="Limit"/> are percent
-/// of the period's budget, which is what the API reports.
+/// One usage line as the UI shows it: how many of a monthly bucket's actions are used, for
+/// example 400 of 1,500 intelligence messages.
 /// </summary>
 public sealed record IntelligenceUsageItem(string Bucket, string DisplayName, int Used, int Limit)
 {
@@ -24,11 +25,10 @@ public sealed record IntelligenceUsageItem(string Bucket, string DisplayName, in
 
 public static class IntelligenceUsage
 {
-    public const string IntelligenceBucket = "intelligence";
+    public const string IntelligenceBucket = AiQuotaBucketIds.Intelligence;
 
     /// <summary>
-    /// The API reports one share of the period's budget rather than per-feature counts, so
-    /// the list holds a single item measured in percent (limit 100).
+    /// Every bucket the API reports, in its order. Empty when the user has no entitlement.
     /// </summary>
     public static IReadOnlyList<IntelligenceUsageItem> Describe(AiUsageStatusDto? usage)
     {
@@ -37,10 +37,21 @@ public static class IntelligenceUsage
             return [];
         }
 
-        var used = (int)Math.Round(Math.Clamp(usage.UsagePercentage, 0m, 100m), MidpointRounding.AwayFromZero);
-        return [new IntelligenceUsageItem(IntelligenceBucket, Translator.WinoIntelligence_UsageBucketIntelligence, used, 100)];
+        return usage.Buckets
+            .Select(bucket => new IntelligenceUsageItem(bucket.Bucket, DisplayName(bucket.Bucket), bucket.Used, bucket.Limit))
+            .ToArray();
     }
 
+    /// <summary>The intelligence bucket, which is what indexing and analysis spend.</summary>
     public static IntelligenceUsageItem? Headline(AiUsageStatusDto? usage)
-        => Describe(usage).FirstOrDefault();
+        => Describe(usage).FirstOrDefault(item => item.Bucket == IntelligenceBucket);
+
+    private static string DisplayName(string bucket) => bucket switch
+    {
+        AiQuotaBucketIds.Intelligence => Translator.WinoIntelligence_UsageBucketIntelligence,
+        AiQuotaBucketIds.Summarize => Translator.WinoIntelligence_UsageBucketSummarize,
+        AiQuotaBucketIds.Rewrite => Translator.WinoIntelligence_UsageBucketRewrite,
+        AiQuotaBucketIds.Translate => Translator.WinoIntelligence_UsageBucketTranslate,
+        _ => bucket,
+    };
 }

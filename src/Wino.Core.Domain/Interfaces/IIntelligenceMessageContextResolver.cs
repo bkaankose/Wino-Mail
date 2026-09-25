@@ -49,4 +49,34 @@ public interface IIntelligenceMessageContextResolver
         Guid localAccountId,
         IntelligenceMessageCandidate candidate,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Reads the content of many messages, keyed by remote message id: local MIME first, then the
+    /// provider in as few round trips as it allows. A message missing from the result could not
+    /// be read.
+    /// </summary>
+    async Task<IReadOnlyDictionary<string, SemanticMailContent>> GetContentsAsync(
+        Guid localAccountId,
+        IReadOnlyList<IntelligenceMessageCandidate> candidates,
+        CancellationToken cancellationToken = default)
+    {
+        var contents = new Dictionary<string, SemanticMailContent>(StringComparer.Ordinal);
+        foreach (var candidate in candidates)
+        {
+            try
+            {
+                contents[candidate.RemoteMessageId] = await GetContentAsync(localAccountId, candidate, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Unreadable; left out of the result.
+            }
+        }
+
+        return contents;
+    }
 }

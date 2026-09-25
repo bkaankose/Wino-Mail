@@ -11,10 +11,11 @@ public interface ILocalIntelligenceService
 {
     Task<IReadOnlyList<DailyBriefingAccount>> GetEligibleAccountsAsync(CancellationToken cancellationToken = default);
     /// <summary>
-    /// Briefing entries grouped by the day each message was received, newest day first.
-    /// Only messages Classification included are returned.
+    /// Briefing entries for one local day, newest first: messages received that day and messages
+    /// whose dated smart actions cover it. Only messages Classification included are returned.
     /// </summary>
     Task<DailyBriefingFactsResult> GetBriefingFactsAsync(
+        DateOnly day,
         TimeZoneInfo timeZone,
         bool includeIgnored = false,
         CancellationToken cancellationToken = default);

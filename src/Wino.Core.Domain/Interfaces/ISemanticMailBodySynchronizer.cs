@@ -18,6 +18,22 @@ public interface ISemanticMailBodySynchronizer
         CancellationToken cancellationToken = default);
 }
 
+/// <summary>
+/// A synchronizer that can read many bodies in one provider round trip. Intelligence reads the
+/// bodies of a whole selection at once, and one request per message is both slow and, for
+/// providers that cap concurrent requests per mailbox, quickly throttled.
+/// </summary>
+public interface ISemanticMailBodyBatchSynchronizer : ISemanticMailBodySynchronizer
+{
+    /// <summary>
+    /// Reads the bodies it can, keyed by <see cref="MailBodyLocator.RemoteMessageId"/>. A locator
+    /// missing from the result could not be read; the caller may try it on its own.
+    /// </summary>
+    Task<IReadOnlyDictionary<string, SemanticMailContent>> GetSemanticBodiesAsync(
+        IReadOnlyList<MailBodyLocator> locators,
+        CancellationToken cancellationToken = default);
+}
+
 public sealed record SemanticMailContent(
     MailBodyContent Body,
     IReadOnlyList<MailAddress> From,

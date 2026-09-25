@@ -41,7 +41,11 @@ public interface IWinoAccountApiClient
         Guid mailboxId, Guid jobId, string checksum, byte[] upload, CancellationToken cancellationToken = default);
     Task<MailIntelligenceJobListDto> GetMailIntelligenceJobsAsync(string? resultKeyId = null, CancellationToken cancellationToken = default);
     Task<IntelligenceTransportKeyDto> GetIntelligenceTransportKeyAsync(CancellationToken cancellationToken = default);
-    Task<MailIntelligenceJobDto?> GetMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, CancellationToken cancellationToken = default);
+    /// <param name="waitSeconds">
+    /// When above zero, the server holds the request until a stage can be downloaded or the job
+    /// ends (or the wait runs out), instead of answering at once.
+    /// </param>
+    Task<MailIntelligenceJobDto?> GetMailIntelligenceJobAsync(Guid mailboxId, Guid jobId, int waitSeconds = 0, CancellationToken cancellationToken = default);
     Task<byte[]> GetMailIntelligenceResultPageAsync(Guid mailboxId, Guid jobId, string stage, int page, CancellationToken cancellationToken = default);
     Task<MailIntelligenceStageAckResultDto> AcknowledgeMailIntelligenceStageAsync(
         Guid mailboxId, Guid jobId, string stage, string digest, CancellationToken cancellationToken = default);

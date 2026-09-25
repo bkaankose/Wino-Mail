@@ -219,8 +219,13 @@ public sealed class WinoAccountManagementPageViewModelTests
             ApiEnvelope<AiUsageStatusDto>.Success(new AiUsageStatusDto
             {
                 EntitlementStatus = "active",
-                UsagePercentage = 42.6m,
-                RemainingPercentage = 57.4m,
+                Buckets =
+                [
+                    new AiQuotaBucketDto("intelligence", 400, 1500),
+                    new AiQuotaBucketDto("summarize", 3, 1500),
+                    new AiQuotaBucketDto("rewrite", 0, 1500),
+                    new AiQuotaBucketDto("translate", 7, 100),
+                ],
                 IsExhausted = false,
             }));
 
@@ -246,11 +251,14 @@ public sealed class WinoAccountManagementPageViewModelTests
 
         viewModel.HasIntelligenceAccess.Should().BeTrue();
 
-        // The API reports one share of the period's budget, shown as whole percent.
-        var usage = viewModel.IntelligenceUsageItems.Should().ContainSingle().Subject;
-        usage.Used.Should().Be(43);
-        usage.Limit.Should().Be(100);
-        usage.Remaining.Should().Be(57);
+        // The API reports every monthly bucket as a count; the intelligence bucket comes first.
+        viewModel.IntelligenceUsageItems.Select(item => item.Bucket)
+            .Should().Equal("intelligence", "summarize", "rewrite", "translate");
+        var usage = viewModel.IntelligenceUsageItems[0];
+        usage.Used.Should().Be(400);
+        usage.Limit.Should().Be(1500);
+        usage.Remaining.Should().Be(1100);
+        viewModel.IntelligenceUsageItems[3].Limit.Should().Be(100);
         viewModel.IntelligenceMailboxes.Single().Address.Should().Be(localAccount.Address);
         viewModel.IntelligenceMailboxes.Single().CanManage.Should().BeTrue();
 

@@ -180,6 +180,125 @@ public sealed class IntelligenceMessageContextResolver(
             },
             cancellationToken).ConfigureAwait(false);
 
+    /// <summary>
+    /// Bodies the provider is asked for one message at a time run at most this many at once.
+    /// Microsoft Graph allows four concurrent requests per mailbox; more are throttled with a
+    /// Retry-After that stalls the whole selection.
+    /// </summary>
+    private const int RemoteBodyConcurrency = 4;
+
+    public async Task<IReadOnlyDictionary<string, SemanticMailContent>> GetContentsAsync(
+        Guid localAccountId,
+        IReadOnlyList<IntelligenceMessageCandidate> candidates,
+        CancellationToken cancellationToken = default)
+    {
+        var contents = new System.Collections.Concurrent.ConcurrentDictionary<string, SemanticMailContent>(StringComparer.Ordinal);
+
+        // Local MIME first. It is a file read, so it runs wide.
+        var remote = new System.Collections.Concurrent.ConcurrentBag<IntelligenceMessageCandidate>();
+        await Parallel.ForEachAsync(candidates, new ParallelOptions
+        {
+            MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount, 4, 16),
+            CancellationToken = cancellationToken,
+        }, async (candidate, token) =>
+        {
+            try
+            {
+                var local = await TryReadLocalContentAsync(localAccountId, candidate.FileIds, token).ConfigureAwait(false);
+                if (local is not null)
+                {
+                    contents[candidate.RemoteMessageId] = local;
+                }
+                else
+                {
+                    remote.Add(candidate);
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                remote.Add(candidate);
+            }
+        }).ConfigureAwait(false);
+
+        if (remote.IsEmpty)
+        {
+            return contents;
+        }
+
+        var synchronizer = await synchronizationManager.GetSynchronizerAsync(localAccountId).ConfigureAwait(false);
+        var pending = remote.ToList();
+
+        // A provider that reads many bodies per round trip gets the whole remainder at once.
+        if (synchronizer is ISemanticMailBodyBatchSynchronizer batch)
+        {
+            try
+            {
+                var fetched = await batch.GetSemanticBodiesAsync(
+                    pending.Select(static candidate => candidate.Locator).ToArray(), cancellationToken).ConfigureAwait(false);
+                foreach (var (remoteMessageId, content) in fetched)
+                {
+                    contents[remoteMessageId] = content;
+                }
+
+                pending = pending.Where(candidate => !contents.ContainsKey(candidate.RemoteMessageId)).ToList();
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // The batch as a whole failed; each message is tried on its own below.
+            }
+        }
+
+        if (pending.Count == 0 || synchronizer is not ISemanticMailBodySynchronizer single)
+        {
+            return contents;
+        }
+
+        await Parallel.ForEachAsync(pending, new ParallelOptions
+        {
+            MaxDegreeOfParallelism = RemoteBodyConcurrency,
+            CancellationToken = cancellationToken,
+        }, async (candidate, token) =>
+        {
+            try
+            {
+                contents[candidate.RemoteMessageId] = await single.GetSemanticBodyAsync(candidate.Locator, token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch
+            {
+                // Unreadable; left out of the result.
+            }
+        }).ConfigureAwait(false);
+
+        return contents;
+    }
+
+    private async Task<SemanticMailContent?> TryReadLocalContentAsync(
+        Guid localAccountId, IReadOnlyList<Guid> fileIds, CancellationToken cancellationToken)
+    {
+        foreach (var fileId in fileIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!await mimeFileService.IsMimeExistAsync(localAccountId, fileId).ConfigureAwait(false))
+                continue;
+            var mime = await mimeFileService.GetMimeMessageInformationAsync(fileId, localAccountId, cancellationToken).ConfigureAwait(false);
+            return GetLocalContent(mime.MimeMessage);
+        }
+
+        return null;
+    }
+
     internal static async Task<SemanticMailContent> ResolveContentAsync(
         IMimeFileService mimeFileService,
         Guid localAccountId,

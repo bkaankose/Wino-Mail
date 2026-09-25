@@ -899,7 +899,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     }
 
     /// <summary>
-    /// The quota line shows the share of the period's budget used and when it resets.
+    /// The quota line shows how many of the month's intelligence messages are used and when it resets.
     /// </summary>
     private void ApplyQuota(AiUsageStatusDto? usage)
     {
@@ -912,7 +912,8 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
             : string.Format(
                 Translator.Intelligence_QuotaUsage,
                 headline.Used,
-                usage?.ResetsAtUtc is { } resetsAtUtc ? resetsAtUtc.LocalDateTime.ToString("d MMMM") : string.Empty);
+                usage?.ResetsAtUtc is { } resetsAtUtc ? resetsAtUtc.LocalDateTime.ToString("d MMMM") : string.Empty,
+                headline.Limit);
     }
 
     private Task ResetAccountAccessAsync() => ExecuteUIThread(() =>
