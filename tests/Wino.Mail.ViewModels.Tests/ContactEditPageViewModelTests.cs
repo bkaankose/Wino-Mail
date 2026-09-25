@@ -1,6 +1,7 @@
 using System;
 using FluentAssertions;
 using Moq;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -449,12 +450,12 @@ public class ContactEditPageViewModelTests
         viewModel.SelectedDestination = new ContactCreateDestination(
             Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Outlook, "Outlook", "Contacts", true);
 
-        viewModel.RemovePhotoLabel.Should().Be("Hide picture in Wino");
+        viewModel.RemovePhotoLabel.Should().Be(Translator.ContactEditDialog_HidePhotoInWino, "an Outlook photo is only hidden locally, not removed from the server");
 
         viewModel.SelectedDestination = new ContactCreateDestination(
             Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Gmail, "Gmail", "Contacts", true);
 
-        viewModel.RemovePhotoLabel.Should().Be("Remove Photo");
+        viewModel.RemovePhotoLabel.Should().Be(Translator.ContactEditDialog_RemovePhoto);
     }
 
     [Fact]
