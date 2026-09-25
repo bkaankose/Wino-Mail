@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Contact;
@@ -16,11 +17,11 @@ namespace Wino.Core.Synchronizers;
 public sealed class LocalContactSynchronizer
 {
     private readonly IContactService _contactService;
-    private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly IPictureStorageService _contactPictureFileService;
 
     public LocalContactSynchronizer(
         IContactService contactService = null,
-        IContactPictureFileService contactPictureFileService = null)
+        IPictureStorageService contactPictureFileService = null)
     {
         _contactService = contactService;
         _contactPictureFileService = contactPictureFileService;
@@ -48,7 +49,7 @@ public sealed class LocalContactSynchronizer
                     throw new InvalidOperationException("Local contact picture persistence is unavailable.");
 
                 committedContact.ContactPictureFileId = await _contactPictureFileService
-                    .SaveContactPictureAsync(contactRequest.Photo)
+                    .SavePictureAsync(PictureKind.Contact, contactRequest.Photo)
                     .ConfigureAwait(false);
             }
             else if (contactRequest.Operation == Domain.Enums.ContactSynchronizerOperation.DeletePhoto)

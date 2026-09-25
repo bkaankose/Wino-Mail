@@ -67,8 +67,8 @@ public sealed partial class AccountCreationDialogControl : UserControl, IRecipie
     {
         if (string.IsNullOrEmpty(copyClipboardURL)) return;
 
-        var clipboardService = WinoApplication.Current.Services.GetRequiredService<IClipboardService>();
-        await clipboardService.CopyClipboardAsync(copyClipboardURL);
+        var nativeAppService = WinoApplication.Current.Services.GetRequiredService<INativeAppService>();
+        await nativeAppService.CopyClipboardAsync(copyClipboardURL);
     }
 
 

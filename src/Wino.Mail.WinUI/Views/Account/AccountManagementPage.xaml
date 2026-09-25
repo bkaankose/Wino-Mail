@@ -164,6 +164,15 @@
                                 TextTrimming="CharacterEllipsis" />
                         </Grid>
 
+                        <!--  The Store channel never needs a Wino Account; Stripe does, so say which channels are open.  -->
+                        <TextBlock
+                            Grid.Row="1"
+                            AutomationProperties.AutomationId="AccountManagementPurchaseChannelsText"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind ViewModel.PurchaseChannelsDescription, Mode=OneWay}"
+                            TextWrapping="WrapWholeWords" />
+
                         <StackPanel
                             Grid.Row="2"
                             VerticalAlignment="Center"

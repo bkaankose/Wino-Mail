@@ -25,7 +25,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     private readonly INavigationService _navigationService;
     private readonly IMailDialogService _dialogService;
     private readonly IPreferencesService _preferencesService;
-    private readonly IContactPictureFileService _pictureFileService;
+    private readonly IPictureStorageService _pictureFileService;
     private AccountContact _original;
     private byte[] _photoBytes;
     private bool _deletePhoto;
@@ -115,7 +115,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     public double BirthdayDayValue { get => BirthdayDay ?? double.NaN; set { BirthdayDay = double.IsNaN(value) ? null : (int)value; IsDirty = true; } }
 
     public ContactEditPageViewModel(IContactQueryService contactService, IWinoRequestDelegator requestDelegator,
-        INavigationService navigationService, IMailDialogService dialogService, IContactPictureFileService pictureFileService,
+        INavigationService navigationService, IMailDialogService dialogService, IPictureStorageService pictureFileService,
         IPreferencesService preferencesService = null)
     {
         _contactService = contactService;
@@ -174,7 +174,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
             {
                 _original = original;
                 _previewPhotoPath = original.ContactPictureFileId is Guid pictureFileId
-                    ? _pictureFileService.GetContactPicturePath(pictureFileId)
+                    ? _pictureFileService.GetPicturePath(PictureKind.Contact, pictureFileId)
                     : null;
                 IsEditMode = true;
                 IsFavorite = original.IsFavorite;

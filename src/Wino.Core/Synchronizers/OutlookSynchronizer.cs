@@ -151,7 +151,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     private readonly IContactService _contactService;
     private readonly LocalContactSynchronizer _localContactSynchronizer;
     private readonly OutlookContactsClient _outlookContactsClient;
-    private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly IPictureStorageService _contactPictureFileService;
     private readonly ICardDavSynchronizationEngine _cardDavSynchronizationEngine;
     private readonly ITaskService _taskService;
     private readonly LocalTaskSynchronizer _localTaskSynchronizer;
@@ -184,7 +184,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                                IMailCategoryService mailCategoryService,
                                IMailFilterExecutor mailFilterExecutor = null,
                                IContactService contactService = null,
-                               IContactPictureFileService contactPictureFileService = null,
+                               IPictureStorageService contactPictureFileService = null,
                                ITaskService taskService = null,
                                ICardDavSynchronizationEngine cardDavSynchronizationEngine = null) : base(account, WeakReferenceMessenger.Default)
     {
@@ -1376,7 +1376,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             }
 
             contact.ContactPictureFileId = await _contactPictureFileService
-                .SaveContactPictureAsync(bytes)
+                .SavePictureAsync(PictureKind.Contact, bytes)
                 .ConfigureAwait(false);
         }
     }
@@ -1408,7 +1408,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
     private bool RequiresOutlookContactPhotoRefresh(Guid pictureFileId)
     {
-        var path = _contactPictureFileService.GetContactPicturePath(pictureFileId);
+        var path = _contactPictureFileService.GetPicturePath(PictureKind.Contact, pictureFileId);
         if (path is null)
             return true;
 
@@ -1513,7 +1513,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
             PreserveOutlookContactPhotoSuppression(incoming, current);
 
             if (downloadedPictureFileId.HasValue && !referencedPictureFileIds.Contains(downloadedPictureFileId.Value))
-                await _contactPictureFileService.DeleteContactPictureAsync(downloadedPictureFileId.Value).ConfigureAwait(false);
+                await _contactPictureFileService.DeletePictureAsync(PictureKind.Contact, downloadedPictureFileId.Value).ConfigureAwait(false);
         }
     }
 
@@ -1605,7 +1605,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                     case ContactSynchronizerOperation.SetPhoto:
                         await _outlookContactsClient.SetPhotoAsync(local.RemoteId, request.Photo, cancellationToken).ConfigureAwait(false);
                         var photoContact = RequestEntityCloner.Contact(local);
-                        photoContact.ContactPictureFileId = await _contactPictureFileService.SaveContactPictureAsync(request.Photo).ConfigureAwait(false);
+                        photoContact.ContactPictureFileId = await _contactPictureFileService.SavePictureAsync(PictureKind.Contact, request.Photo).ConfigureAwait(false);
                         photoContact.RemotePhotoKey = null;
                         await _outlookChangeProcessor.CommitContactMutationAsync(local.Id, photoContact, false).ConfigureAwait(false);
                         break;

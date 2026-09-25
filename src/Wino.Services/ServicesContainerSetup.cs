@@ -31,8 +31,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoLogger, WinoLogger>();
         services.AddSingleton<IWinoTelemetryService, WinoTelemetryService>();
         services.AddSingleton<INotificationPolicyService, NotificationPolicyService>();
-        services.AddSingleton<ILaunchProtocolService, LaunchProtocolService>();
-        services.AddSingleton<IShareActivationService, ShareActivationService>();
+        services.AddSingleton<IActivationStateService, ActivationStateService>();
         services.AddSingleton<IMimeFileService, MimeFileService>();
         services.AddSingleton<IContentTypeClassificationModel, MagikaContentTypeClassificationModel>();
         services.AddSingleton<IContentTypeDetectionService, ContentTypeDetectionService>();
@@ -40,7 +39,6 @@ public static class ServicesContainerSetup
         services.AddSingleton<IAttachmentFileService, AttachmentFileService>();
         services.AddSingleton<ICalendarIcsFileService, CalendarIcsFileService>();
         services.AddSingleton<IActivationFileImportService, ActivationFileImportService>();
-        services.AddTransient<IMimeStorageService, MimeStorageService>();
 
         services.AddTransient<ICalendarService, CalendarService>();
         services.AddTransient<IMailService, MailService>();
@@ -62,7 +60,6 @@ public static class ServicesContainerSetup
         services.AddTransient<ISignatureService, SignatureService>();
         services.AddTransient<IEmailTemplateService, EmailTemplateService>();
         services.AddTransient<IContextMenuItemService, ContextMenuItemService>();
-        services.AddTransient<ICalendarContextMenuItemService, CalendarContextMenuItemService>();
         services.AddSingleton<IKnownImapProviderCatalogLoader, KnownImapProviderCatalogLoader>();
         services.AddSingleton<IKnownImapProviderCatalog, EmbeddedKnownImapProviderCatalog>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
@@ -75,7 +72,6 @@ public static class ServicesContainerSetup
         services.AddSingleton<IWinoPendingCheckoutStore, WinoPendingCheckoutStore>();
         services.AddSingleton<IWinoPurchaseReconciliationService, WinoPurchaseReconciliationService>();
         services.AddSingleton<IWinoAccountIntelligenceSnapshotService, WinoAccountIntelligenceSnapshotService>();
-        services.AddSingleton<IWinoIntelligenceEntitlementService, WinoIntelligenceEntitlementService>();
         services.AddSingleton<ISemanticIndexJobRegistry, SemanticIndexJobRegistry>();
         services.AddSingleton<IIntelligenceMessageContextResolver, IntelligenceMessageContextResolver>();
         services.AddSingleton<IMailIntelligenceCoordinator, MailIntelligenceCoordinator>();
@@ -95,10 +91,8 @@ public static class ServicesContainerSetup
         services.AddSingleton<IContentEnvelopeEncryptor>(_ =>
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load()));
         services.AddTransient<IWinoAccountDataSyncService, WinoAccountDataSyncService>();
-        services.AddSingleton<IContactPictureFileService, ContactPictureFileService>();
-        services.AddSingleton<IAccountProfilePictureFileService, AccountProfilePictureFileService>();
-        services.AddSingleton<AccountProfilePictureMigrationService>();
-        services.AddSingleton<AccountProfilePictureBackfillService>();
+        services.AddSingleton<IPictureStorageService, PictureStorageService>();
+        services.AddSingleton<AccountProfilePictureMaintenance>();
 
         services.AddSingleton<IDavTransport>(_ => new DavTransport());
         services.AddSingleton<IDavMultistatusReader, DavMultistatusReader>();

@@ -15,9 +15,9 @@ public sealed class DraftMimePersistenceTests
     public async Task Atomic_save_truncates_shorter_message_and_blocks_stale_remote_mime()
     {
         var root = Path.Combine(Path.GetTempPath(), "wino-draft-test-" + Guid.NewGuid());
-        var native = new Mock<INativeAppService>(); native.Setup(x => x.GetMimeMessageStoragePath()).ReturnsAsync(root);
+        var configuration = new Mock<IApplicationConfiguration>(); configuration.Setup(x => x.MimeStorageFolderPath).Returns(root);
         var registry = new DraftUpdateRegistry();
-        var files = new MimeFileService(native.Object, registry);
+        var files = new MimeFileService(configuration.Object, registry);
         var account = Guid.NewGuid(); var file = Guid.NewGuid();
         try
         {

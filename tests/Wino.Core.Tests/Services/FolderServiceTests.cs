@@ -315,6 +315,6 @@ public class FolderServiceTests : IAsyncLifetime
             Mock.Of<IAuthenticationProvider>(),
             Mock.Of<IMimeFileService>(),
             Mock.Of<IPreferencesService>(),
-            Mock.Of<IContactPictureFileService>());
+            Mock.Of<IPictureStorageService>());
     }
 }

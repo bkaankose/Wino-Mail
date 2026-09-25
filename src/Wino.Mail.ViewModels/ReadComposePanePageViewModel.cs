@@ -2,15 +2,14 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Translations;
+using Wino.Core.Services;
 
 namespace Wino.Mail.ViewModels;
 
 public partial class ReadComposePanePageViewModel : MailBaseViewModel
 {
-    private readonly IFontService _fontService;
-
     public IPreferencesService PreferencesService { get; set; }
-    public List<string> AvailableFonts => _fontService.GetFonts();
+    public List<string> AvailableFonts => FontService.GetFonts();
     public List<AppLanguageModel> AvailableSpellCheckLanguages { get; }
 
     [ObservableProperty]
@@ -33,11 +32,9 @@ public partial class ReadComposePanePageViewModel : MailBaseViewModel
     public partial AppLanguageModel? CurrentSpellCheckLanguage { get; set; }
 
     public ReadComposePanePageViewModel(IMailDialogService dialogService,
-                                    IFontService fontService,
                                     IPreferencesService preferencesService,
                                     ITranslationService translationService)
     {
-        _fontService = fontService;
         PreferencesService = preferencesService;
         AvailableSpellCheckLanguages = translationService.GetAvailableLanguages();
 

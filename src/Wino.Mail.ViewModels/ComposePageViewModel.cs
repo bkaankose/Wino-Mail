@@ -186,13 +186,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private readonly IAccountService _accountService;
     private readonly IEmailTemplateService _emailTemplateService;
     private readonly IWinoRequestDelegator _worker;
-    public readonly IFontService FontService;
     public readonly IPreferencesService PreferencesService;
     public readonly IContactService ContactService;
     public readonly IRecipientSuggestionService RecipientSuggestionService;
     private readonly IRecipientHistoryService _recipientHistoryService;
     public readonly ISmimeCertificateService _smimeCertificateService;
-    private readonly IShareActivationService _shareActivationService;
+    private readonly IActivationStateService _activationStateService;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
     private readonly IDraftUpdateCoordinator _draftUpdates;
     private readonly DraftUpdateRegistry _draftRegistry;
@@ -209,10 +208,9 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IEmailTemplateService emailTemplateService,
                                 IWinoRequestDelegator worker,
                                 IContactService contactService,
-                                IFontService fontService,
                                 IPreferencesService preferencesService,
                                 ISmimeCertificateService smimeCertificateService,
-                                IShareActivationService shareActivationService,
+                                IActivationStateService activationStateService,
                                 IDraftSyncRetryService draftSyncRetryService,
                                 IDraftUpdateCoordinator draftUpdates, DraftUpdateRegistry draftRegistry,
                                 IDraftSaveService draftSaveService,
@@ -224,7 +222,6 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         ContactService = contactService;
         RecipientSuggestionService = recipientSuggestionService;
         _recipientHistoryService = recipientHistoryService;
-        FontService = fontService;
         PreferencesService = preferencesService;
 
         _folderService = folderService;
@@ -236,7 +233,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _emailTemplateService = emailTemplateService;
         _worker = worker;
         _smimeCertificateService = smimeCertificateService;
-        _shareActivationService = shareActivationService;
+        _activationStateService = activationStateService;
         _draftSyncRetryService = draftSyncRetryService;
         _draftUpdates = draftUpdates;
         _draftRegistry = draftRegistry;
@@ -977,7 +974,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         if (draftUniqueId == Guid.Empty)
             return;
 
-        var shareRequest = _shareActivationService.ConsumePendingComposeShareRequest(draftUniqueId);
+        var shareRequest = _activationStateService.ConsumePendingComposeShareRequest(draftUniqueId);
 
         if (shareRequest?.Files == null || shareRequest.Files.Count == 0)
             return;

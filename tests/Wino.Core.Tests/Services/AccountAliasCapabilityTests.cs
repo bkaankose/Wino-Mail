@@ -108,7 +108,7 @@ public partial class AccountAliasCapabilityTests : IAsyncLifetime
         var preferencesService = new Mock<IPreferencesService>();
         var signatureService = new Mock<ISignatureService>();
         var mimeFileService = new Mock<IMimeFileService>();
-        var contactPictureFileService = new Mock<IContactPictureFileService>();
+        var contactPictureFileService = new Mock<IPictureStorageService>();
 
         return new AccountService(
             databaseService,

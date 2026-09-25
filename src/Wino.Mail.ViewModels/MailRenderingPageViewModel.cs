@@ -53,7 +53,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     private readonly IFileService _fileService;
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly IContactService _contactService;
-    private readonly IClipboardService _clipboardService;
     private readonly IUnsubscriptionService _unsubscriptionService;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IAttachmentFileService _attachmentFileService;
@@ -209,7 +208,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         IWinoRequestDelegator requestDelegator,
         IStatePersistanceService statePersistenceService,
         IContactService contactService,
-        IClipboardService clipboardService,
         IUnsubscriptionService unsubscriptionService,
         IPreferencesService preferencesService,
         IPrintService printService,
@@ -224,7 +222,6 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
         PrintService = printService;
         _applicationConfiguration = applicationConfiguration;
         _attachmentFileService = attachmentFileService;
-        _clipboardService = clipboardService;
         _unsubscriptionService = unsubscriptionService;
         _underlyingThemeService = underlyingThemeService;
         _mimeFileService = mimeFileService;
@@ -240,7 +237,7 @@ public partial class MailRenderingPageViewModel : MailBaseViewModel,
     {
         try
         {
-            await _clipboardService.CopyClipboardAsync(copyText);
+            await NativeAppService.CopyClipboardAsync(copyText);
 
             _dialogService.InfoBarMessage(Translator.ClipboardTextCopied_Title, string.Format(Translator.ClipboardTextCopied_Message, copyText), InfoBarMessageType.Information);
         }

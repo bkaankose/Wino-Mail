@@ -45,7 +45,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private readonly ICalendarService _calendarService;
     private readonly IMailDialogService _dialogService;
     private readonly IPreferencesService _preferencesService;
-    private readonly ITaskCompletionSoundPlayer _completionSoundPlayer;
+    private readonly INativeAppService _nativeAppService;
     private readonly NewTaskListMenuItem _newListMenuItem = new();
     private readonly SeperatorItem _commandSeparator = new();
     private readonly SeperatorItem _smartViewSeparator = new();
@@ -458,7 +458,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         ICalendarService calendarService,
         IMailDialogService dialogService,
         IPreferencesService preferencesService = null,
-        ITaskCompletionSoundPlayer completionSoundPlayer = null)
+        INativeAppService nativeAppService = null)
     {
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;
@@ -468,7 +468,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _calendarService = calendarService;
         _dialogService = dialogService;
         _preferencesService = preferencesService;
-        _completionSoundPlayer = completionSoundPlayer;
+        _nativeAppService = nativeAppService;
         TaskGroups = new ReadOnlyObservableCollection<TaskGroup>(_taskGroups);
     }
 
@@ -1312,7 +1312,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             OriginalTask: original)).ConfigureAwait(false);
 
         if (desired.IsCompleted && _preferencesService?.IsTaskCompletionSoundEnabled == true)
-            _completionSoundPlayer?.Play();
+            _nativeAppService?.PlayTaskCompletionSound();
     }
 
     [RelayCommand]
@@ -1562,7 +1562,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         await QueueMutationsAsync(requests).ConfigureAwait(false);
 
         if (isCompleted && requests.Count > 0 && _preferencesService?.IsTaskCompletionSoundEnabled == true)
-            _completionSoundPlayer?.Play();
+            _nativeAppService?.PlayTaskCompletionSound();
     }
 
     [RelayCommand]

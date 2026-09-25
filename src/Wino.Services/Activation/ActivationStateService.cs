@@ -5,8 +5,11 @@ using Wino.Core.Domain.Models.Launch;
 
 namespace Wino.Services;
 
-public class ShareActivationService : IShareActivationService
+public class ActivationStateService : IActivationStateService
 {
+    public object? LaunchParameter { get; set; }
+    public MailToUri? MailToUri { get; set; }
+
     private readonly object _syncRoot = new();
     private MailShareRequest? _pendingShareRequest;
     private PendingComposeMailShareRequest? _pendingComposeShareRequest;

@@ -24,13 +24,14 @@ namespace Wino.Core.ViewModels;
 public partial class SettingOptionsPageViewModel : CoreBaseViewModel
 {
     private readonly INativeAppService _nativeAppService;
+    private readonly IAppMetadataService _appMetadataService;
     private readonly IAccountService _accountService;
-    private readonly IMimeStorageService _mimeStorageService;
-    private readonly IStoreRatingService _storeRatingService;
+    private readonly IMimeFileService _mimeFileService;
+    private readonly IMicrosoftStoreService _storeService;
     private readonly ITranslationService _translationService;
     private readonly INewThemeService _newThemeService;
     private readonly IPreferencesService _preferencesService;
-    private readonly IProviderService _providerService;
+    private readonly IKnownImapProviderCatalog _providerCatalog;
     private bool _isInitializingSettings;
     private bool _isAppearanceSelectionPaused;
 
@@ -83,29 +84,31 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
     public partial bool UseAccentColor { get; set; }
 
     public SettingOptionsPageViewModel(INativeAppService nativeAppService,
+                                        IAppMetadataService appMetadataService,
                                         IAccountService accountService,
-                                        IMimeStorageService mimeStorageService,
-                                         IStoreRatingService storeRatingService,
+                                        IMimeFileService mimeFileService,
+                                         IMicrosoftStoreService storeService,
                                           ITranslationService translationService,
                                           INewThemeService newThemeService,
                                           IPreferencesService preferencesService,
-                                         IProviderService providerService)
+                                         IKnownImapProviderCatalog providerCatalog)
     {
         _nativeAppService = nativeAppService;
+        _appMetadataService = appMetadataService;
         _accountService = accountService;
-        _mimeStorageService = mimeStorageService;
-        _storeRatingService = storeRatingService;
+        _mimeFileService = mimeFileService;
+        _storeService = storeService;
         _translationService = translationService;
         _newThemeService = newThemeService;
         _preferencesService = preferencesService;
-        _providerService = providerService;
+        _providerCatalog = providerCatalog;
     }
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
-        VersionText = string.Format("{0}{1}", Translator.SettingsAboutVersion, _nativeAppService.GetFullAppVersion());
+        VersionText = string.Format("{0}{1}", Translator.SettingsAboutVersion, _appMetadataService.AppVersion);
         SearchQuery = string.Empty;
         SearchSuggestions.Clear();
         StorageSummaryText = Translator.SettingsHome_StorageLoading;
@@ -177,7 +180,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
         var count = accounts.Count;
         Dictionary<Guid, long> storageSizeMap = count == 0
             ? []
-            : await _mimeStorageService.GetAccountsMimeStorageSizesAsync(accounts.Select(account => account.Id)).ConfigureAwait(false);
+            : await _mimeFileService.GetAccountsMimeStorageSizesAsync(accounts.Select(account => account.Id)).ConfigureAwait(false);
         var totalStorageBytes = storageSizeMap.Values.Sum();
         var groupedAccountItems = CreateAccountItems(accounts);
 
@@ -312,7 +315,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
 
     private AccountProviderDetailViewModel CreateAccountProviderDetails(MailAccount account)
     {
-        var provider = _providerService.GetProviderDetail(account.ProviderType);
+        var provider = _providerCatalog.GetProviderDetail(account.ProviderType);
         return new AccountProviderDetailViewModel(provider, account);
     }
 
@@ -396,7 +399,7 @@ public partial class SettingOptionsPageViewModel : CoreBaseViewModel
 
         if (stringTarget == "Store")
         {
-            await _storeRatingService.LaunchStorePageForReviewAsync();
+            await _storeService.LaunchStorePageForReviewAsync();
             return;
         }
 

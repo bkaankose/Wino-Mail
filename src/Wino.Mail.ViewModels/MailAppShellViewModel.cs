@@ -85,17 +85,14 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IUnreadBadgeService _unreadBadgeService;
     private readonly IMailCategoryService _mailCategoryService;
     private readonly IConfigurationService _configurationService;
-    private readonly IStartupBehaviorService _startupBehaviorService;
     private readonly IAccountService _accountService;
     private readonly IContextMenuItemService _contextMenuItemService;
-    private readonly IStoreRatingService _storeRatingService;
-    private readonly ILaunchProtocolService _launchProtocolService;
+    private readonly IMicrosoftStoreService _storeService;
+    private readonly IActivationStateService _activationStateService;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IMailDialogService _dialogService;
     private readonly IMimeFileService _mimeFileService;
-    private readonly IWebView2RuntimeValidatorService _webView2RuntimeValidatorService;
-    private readonly IShareActivationService _shareActivationService;
 
     private readonly INativeAppService _nativeAppService;
     private readonly IMailService _mailService;
@@ -118,18 +115,15 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IMailCategoryService mailCategoryService,
                              IAccountService accountService,
                              IContextMenuItemService contextMenuItemService,
-                             IStoreRatingService storeRatingService,
+                             IMicrosoftStoreService storeService,
                              IPreferencesService preferencesService,
-                             ILaunchProtocolService launchProtocolService,
+                             IActivationStateService activationStateService,
                              INotificationBuilder notificationBuilder,
                              IWinoRequestDelegator winoRequestDelegator,
                              IFolderService folderService,
                              IUnreadBadgeService unreadBadgeService,
                              IStatePersistanceService statePersistanceService,
-                             IConfigurationService configurationService,
-                             IStartupBehaviorService startupBehaviorService,
-                             IWebView2RuntimeValidatorService webView2RuntimeValidatorService,
-                             IShareActivationService shareActivationService)
+                             IConfigurationService configurationService)
     {
         StatePersistenceService = statePersistanceService;
 
@@ -138,7 +132,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         NavigationService = navigationService;
 
         _configurationService = configurationService;
-        _startupBehaviorService = startupBehaviorService;
         _mimeFileService = mimeFileService;
         _nativeAppService = nativeAppService;
         _mailService = mailService;
@@ -147,12 +140,10 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _unreadBadgeService = unreadBadgeService;
         _accountService = accountService;
         _contextMenuItemService = contextMenuItemService;
-        _storeRatingService = storeRatingService;
-        _launchProtocolService = launchProtocolService;
+        _storeService = storeService;
+        _activationStateService = activationStateService;
         _notificationBuilder = notificationBuilder;
         _winoRequestDelegator = winoRequestDelegator;
-        _webView2RuntimeValidatorService = webView2RuntimeValidatorService;
-        _shareActivationService = shareActivationService;
     }
 
     protected override void OnDispatcherAssigned()
@@ -349,7 +340,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task ValidateWebView2RuntimeAsync()
     {
-        var isRuntimeAvailable = await _webView2RuntimeValidatorService.IsRuntimeAvailableAsync();
+        var isRuntimeAvailable = await _nativeAppService.IsWebView2RuntimeAvailableAsync();
 
         if (!isRuntimeAvailable)
         {
@@ -389,7 +380,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         if (!_configurationService.Get<bool>(IsActivateStartupLaunchAskedKey, false))
         {
-            var currentBehavior = await _startupBehaviorService.GetCurrentStartupBehaviorAsync();
+            var currentBehavior = await _nativeAppService.GetCurrentStartupBehaviorAsync();
 
             // User somehow already enabled Wino before the first launch.
             if (currentBehavior == StartupBehaviorResult.Enabled)
@@ -408,7 +399,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
             if (isAccepted)
             {
-                var behavior = await _startupBehaviorService.ToggleStartupBehavior(true);
+                var behavior = await _nativeAppService.ToggleStartupBehavior(true);
 
                 shouldDisplayLaterOnMessage = behavior != StartupBehaviorResult.Enabled;
             }
@@ -456,11 +447,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
             // Check whether we have saved navigation item from toast.
 
-            bool hasToastActivation = _launchProtocolService.LaunchParameter != null;
+            bool hasToastActivation = _activationStateService.LaunchParameter != null;
 
             if (hasToastActivation)
             {
-                if (_launchProtocolService.LaunchParameter is AccountMenuItemExtended accountExtendedMessage)
+                if (_activationStateService.LaunchParameter is AccountMenuItemExtended accountExtendedMessage)
                 {
                     // Find the account that this folder and mail belongs to.
                     var account = await _mailService.GetMailAccountByUniqueIdAsync(accountExtendedMessage.NavigateMailItem.UniqueId);
@@ -471,7 +462,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
                         WeakReferenceMessenger.Default.Send(accountExtendedMessage);
 
-                        _launchProtocolService.LaunchParameter = null;
+                        _activationStateService.LaunchParameter = null;
                     }
                     else
                     {
@@ -481,7 +472,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             }
             else
             {
-                bool hasMailtoActivation = _launchProtocolService.MailToUri != null;
+                bool hasMailtoActivation = _activationStateService.MailToUri != null;
 
                 if (hasMailtoActivation)
                 {
@@ -980,7 +971,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
         else if (clickedMenuItem is RateMenuItem)
         {
-            await _storeRatingService.LaunchStorePageForReviewAsync();
+            await _storeService.LaunchStorePageForReviewAsync();
         }
         else if (clickedMenuItem is NewMailMenuItem)
         {
@@ -993,7 +984,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             // Theory: This is a special folder like Categories or More. Don't navigate to it.
 
             // Prompt user rating dialog if eligible.
-            _ = _storeRatingService.PromptRatingDialogAsync();
+            _ = _storeService.PromptRatingDialogAsync();
 
             await NavigateFolderAsync(baseFolderMenuItem);
         }
@@ -1188,7 +1179,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     public async Task HandleCreateNewMailAsync()
     {
-        _ = _storeRatingService.PromptRatingDialogAsync();
+        _ = _storeService.PromptRatingDialogAsync();
 
         MailAccount operationAccount = null;
 
@@ -1304,7 +1295,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
             var draftOptions = new DraftCreationOptions
             {
                 Reason = DraftCreationReason.Empty,
-                MailToUri = _launchProtocolService.MailToUri
+                MailToUri = _activationStateService.MailToUri
             };
 
             try
@@ -1313,7 +1304,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
                 if (shareRequest?.Files?.Count > 0)
                 {
-                    _shareActivationService.StagePendingComposeShareRequest(draftMailCopy.UniqueId, shareRequest);
+                    _activationStateService.StagePendingComposeShareRequest(draftMailCopy.UniqueId, shareRequest);
                 }
 
                 var draftPreparationRequest = new DraftPreparationRequest(account, draftMailCopy, draftBase64MimeMessage, draftOptions.Reason);
@@ -1363,7 +1354,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
     private async Task HandleMailToProtocolMessageAsync()
     {
-        var mailToUri = _launchProtocolService.MailToUri;
+        var mailToUri = _activationStateService.MailToUri;
         if (mailToUri == null)
             return;
 
@@ -1400,16 +1391,16 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
         finally
         {
-            if (ReferenceEquals(_launchProtocolService.MailToUri, mailToUri))
+            if (ReferenceEquals(_activationStateService.MailToUri, mailToUri))
             {
-                _launchProtocolService.MailToUri = null;
+                _activationStateService.MailToUri = null;
             }
         }
     }
 
     public async Task HandlePendingShareRequestAsync()
     {
-        var shareRequest = _shareActivationService.ConsumePendingShareRequest();
+        var shareRequest = _activationStateService.ConsumePendingShareRequest();
 
         if (shareRequest?.Files == null || shareRequest.Files.Count == 0)
             return;
@@ -1831,15 +1822,6 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
 
         await ChangeLoadedAccountAsync(createdMenuItem);
-
-        try
-        {
-            await _nativeAppService.PinAppToTaskbarAsync();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to pin Wino to taskbar.");
-        }
     }
 
     public async void Receive(AccountUpdatedMessage message)

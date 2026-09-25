@@ -16,9 +16,9 @@ namespace Wino.Services;
 public class ContactService : BaseDatabaseService, IContactService
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<ContactService>();
-    private readonly IContactPictureFileService _pictureFileService;
+    private readonly IPictureStorageService _pictureFileService;
 
-    public ContactService(IDatabaseService databaseService, IContactPictureFileService pictureFileService = null) : base(databaseService)
+    public ContactService(IDatabaseService databaseService, IPictureStorageService pictureFileService = null) : base(databaseService)
         => _pictureFileService = pictureFileService;
 
     public async Task<AccountContact> GetContactAsync(Guid contactId)
@@ -227,7 +227,7 @@ public class ContactService : BaseDatabaseService, IContactService
         {
             try
             {
-                await _pictureFileService.DeleteContactPictureAsync(pictureFileId.Value).ConfigureAwait(false);
+                await _pictureFileService.DeletePictureAsync(PictureKind.Contact, pictureFileId.Value).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -740,7 +740,7 @@ public class ContactService : BaseDatabaseService, IContactService
         foreach (var pictureId in contacts.Where(contact => contact.ContactPictureFileId.HasValue)
                      .Select(contact => contact.ContactPictureFileId.Value).Distinct())
         {
-            try { await _pictureFileService.DeleteContactPictureAsync(pictureId).ConfigureAwait(false); }
+            try { await _pictureFileService.DeletePictureAsync(PictureKind.Contact, pictureId).ConfigureAwait(false); }
             catch (Exception ex) { Log.Warning(ex, "Failed to delete contact picture {PictureId}.", pictureId); }
         }
     }

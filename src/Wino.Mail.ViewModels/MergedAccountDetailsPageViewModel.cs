@@ -53,17 +53,17 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
     private readonly IMailDialogService _dialogService;
     private readonly IAccountService _accountService;
     private readonly IPreferencesService _preferencesService;
-    private readonly IProviderService _providerService;
+    private readonly IKnownImapProviderCatalog _providerCatalog;
 
     public MergedAccountDetailsPageViewModel(IMailDialogService dialogService,
                                              IAccountService accountService,
                                              IPreferencesService preferencesService,
-                                             IProviderService providerService)
+                                             IKnownImapProviderCatalog providerCatalog)
     {
         _dialogService = dialogService;
         _accountService = accountService;
         _preferencesService = preferencesService;
-        _providerService = providerService;
+        _providerCatalog = providerCatalog;
     }
 
     [RelayCommand(CanExecute = nameof(CanUnlink))]
@@ -199,7 +199,7 @@ public partial class MergedAccountDetailsPageViewModel : MailBaseViewModel,
             {
                 if (!LinkedAccounts.Any(a => a.Account.Id == account.Id))
                 {
-                    var provider = _providerService.GetProviderDetail(account.ProviderType);
+                    var provider = _providerCatalog.GetProviderDetail(account.ProviderType);
 
                     UnlinkedAccounts.Add(new AccountProviderDetailViewModel(provider, account));
                 }

@@ -910,7 +910,7 @@ public class MailFetchingTests : IAsyncLifetime
         var authProvider = new Mock<IAuthenticationProvider>();
         var mimeFileService = new Mock<IMimeFileService>();
         var preferencesService = new Mock<IPreferencesService>();
-        var contactPictureFileService = new Mock<IContactPictureFileService>();
+        var contactPictureFileService = new Mock<IPictureStorageService>();
 
         var accountService = new AccountService(
             db,

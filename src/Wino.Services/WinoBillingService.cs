@@ -13,7 +13,7 @@ namespace Wino.Services;
 public sealed class WinoBillingService(
     IDatabaseService databaseService,
     IWinoAccountApiClient apiClient,
-    IStoreManagementService storeManagementService,
+    IMicrosoftStoreService storeService,
     INativeAppService nativeAppService,
     IWinoPendingCheckoutStore? pendingCheckouts = null,
     IWinoAccountSessionService? sessions = null) : IWinoBillingService
@@ -64,7 +64,7 @@ public sealed class WinoBillingService(
             return true;
         }
 
-        return await storeManagementService.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
+        return await storeService.HasProductAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS).ConfigureAwait(false);
     }
 
     private static string GetProductCode(WinoAddOnProductType productType)

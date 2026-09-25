@@ -23,7 +23,7 @@ public interface ISynchronizationManager
     /// Initializes the SynchronizationManager with required dependencies.
     /// </summary>
     Task InitializeAsync(ISynchronizerFactory synchronizerFactory,
-                        IImapTestService imapTestService,
+                        IMailServerTestService mailServerTestService,
                         IAccountService accountService,
                         INotificationBuilder notificationBuilder,
                         IAuthenticationProvider authenticationProvider,

@@ -22,7 +22,7 @@ namespace Wino.Mail.ViewModels;
 public partial class MailPreferencesPageViewModel : MailBaseViewModel
 {
     private readonly IAccountService _accountService;
-    private readonly IProviderService _providerService;
+    private readonly IKnownImapProviderCatalog _providerCatalog;
 
     private bool _isLoaded;
     private int _emailSyncIntervalMinutes;
@@ -35,11 +35,11 @@ public partial class MailPreferencesPageViewModel : MailBaseViewModel
     public MailPreferencesPageViewModel(
         IPreferencesService preferencesService,
         IAccountService accountService,
-        IProviderService providerService)
+        IKnownImapProviderCatalog providerCatalog)
     {
         PreferencesService = preferencesService;
         _accountService = accountService;
-        _providerService = providerService;
+        _providerCatalog = providerCatalog;
 
         SearchModes =
         [
@@ -225,5 +225,5 @@ public partial class MailPreferencesPageViewModel : MailBaseViewModel
     }
 
     private AccountProviderDetailViewModel CreateAccountDetails(MailAccount account)
-        => new(_providerService.GetProviderDetail(account.ProviderType), account);
+        => new(_providerCatalog.GetProviderDetail(account.ProviderType), account);
 }

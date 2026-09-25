@@ -13,13 +13,13 @@ public static class MailAccountIconInfoFactory
 {
     public static AccountIconInfo Create(
         MailAccount account,
-        IAccountProfilePictureFileService profilePictureFileService)
+        IPictureStorageService profilePictureFileService)
     {
         ArgumentNullException.ThrowIfNull(account);
         ArgumentNullException.ThrowIfNull(profilePictureFileService);
 
         var profilePicturePath = account.ProfilePictureFileId is { } fileId
-            ? profilePictureFileService.GetProfilePicturePath(fileId)
+            ? profilePictureFileService.GetPicturePath(PictureKind.AccountProfile, fileId)
             : null;
 
         return new AccountIconInfo(

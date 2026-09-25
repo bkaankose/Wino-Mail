@@ -28,7 +28,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 {
     private readonly IAccountService _accountService;
     private readonly IDialogServiceBase _dialogService;
-    private readonly IProviderService _providerService;
+    private readonly IKnownImapProviderCatalog _providerCatalog;
     private readonly INewThemeService _themeService;
     private ProviderSelectionHostMode _hostMode = ProviderSelectionHostMode.Wizard;
 
@@ -303,13 +303,13 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public ProviderSelectionPageViewModel(
         IAccountService accountService,
         IDialogServiceBase dialogService,
-        IProviderService providerService,
+        IKnownImapProviderCatalog providerCatalog,
         INewThemeService themeService,
         WelcomeWizardContext wizardContext)
     {
         _accountService = accountService;
         _dialogService = dialogService;
-        _providerService = providerService;
+        _providerCatalog = providerCatalog;
         _themeService = themeService;
         WizardContext = wizardContext;
         SelectedInitialSynchronizationRange = InitialSynchronizationRanges.First(option => option.Range == InitialSynchronizationRange.SixMonths);
@@ -354,7 +354,7 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
             WizardContext.Reset();
         }
 
-        Providers = _providerService.GetAvailableProviders()
+        Providers = _providerCatalog.GetAvailableProviders()
             .Where(provider => provider.Type != MailProviderType.POP3)
             .ToList();
         AvailableColors = _themeService.GetAvailableAccountColors()

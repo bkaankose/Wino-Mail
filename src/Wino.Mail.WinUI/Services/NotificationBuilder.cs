@@ -52,8 +52,7 @@ public class NotificationBuilder : INotificationBuilder
     private readonly IMailService _mailService;
     private readonly IThumbnailService _thumbnailService;
     private readonly IPreferencesService _preferencesService;
-    private readonly IAccountProfilePictureFileService _accountProfilePictureFileService;
-    private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly IPictureStorageService _pictureStorageService;
     private readonly INotificationHostClient _notificationHostClient;
     private readonly INotificationPolicyService _notificationPolicyService;
 
@@ -63,8 +62,7 @@ public class NotificationBuilder : INotificationBuilder
                                IMailService mailService,
                                IThumbnailService thumbnailService,
                                IPreferencesService preferencesService,
-                               IAccountProfilePictureFileService accountProfilePictureFileService,
-                               IContactPictureFileService contactPictureFileService,
+                               IPictureStorageService pictureStorageService,
                                INotificationHostClient notificationHostClient,
                                INotificationPolicyService notificationPolicyService)
     {
@@ -74,8 +72,7 @@ public class NotificationBuilder : INotificationBuilder
         _mailService = mailService;
         _thumbnailService = thumbnailService;
         _preferencesService = preferencesService;
-        _accountProfilePictureFileService = accountProfilePictureFileService;
-        _contactPictureFileService = contactPictureFileService;
+        _pictureStorageService = pictureStorageService;
         _notificationHostClient = notificationHostClient;
         _notificationPolicyService = notificationPolicyService;
 
@@ -413,7 +410,7 @@ public class NotificationBuilder : INotificationBuilder
         if (contact.ContactPictureFileId is { } pictureFileId)
         {
             builder.SetAppLogoOverride(
-                _contactPictureFileService.GetContactPictureUri(pictureFileId),
+                _pictureStorageService.GetPictureUri(PictureKind.Contact, pictureFileId),
                 AppNotificationImageCrop.Circle);
         }
 
@@ -459,7 +456,7 @@ public class NotificationBuilder : INotificationBuilder
         var settings = NotificationSettingsResolver.ResolveMail(_preferencesService, accountPreferences);
         var builder = CreateBuilder();
 
-        var senderPictureUri = GetContactPictureUri(mailItem);
+        var senderPictureUri = GetSenderPictureUri(mailItem);
         if (senderPictureUri == null)
         {
             var avatarThumbnail = await _thumbnailService.GetThumbnailAsync(mailItem.FromAddress, awaitLoad: true);
@@ -693,9 +690,9 @@ public class NotificationBuilder : INotificationBuilder
             _ => NotificationKind.Other
         };
 
-    private Uri? GetContactPictureUri(MailCopy mailItem)
+    private Uri? GetSenderPictureUri(MailCopy mailItem)
         => mailItem.SenderContact?.ContactPictureFileId is { } fileId
-            ? _contactPictureFileService.GetContactPictureUri(fileId)
+            ? _pictureStorageService.GetPictureUri(PictureKind.Contact, fileId)
             : null;
 
     private static Uri GetNotificationIconUri(string iconName)
@@ -787,7 +784,7 @@ public class NotificationBuilder : INotificationBuilder
     private Uri GetProviderIconUri(MailAccount account)
     {
         if (account.ProfilePictureFileId is { } fileId &&
-            _accountProfilePictureFileService.GetProfilePictureUri(fileId) is { } profilePictureUri)
+            _pictureStorageService.GetPictureUri(PictureKind.AccountProfile, fileId) is { } profilePictureUri)
         {
             return profilePictureUri;
         }

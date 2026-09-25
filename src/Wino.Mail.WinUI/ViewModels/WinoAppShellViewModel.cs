@@ -25,7 +25,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
 {
     private readonly Dictionary<WinoApplicationMode, IShellMenuProvider> _providers = [];
     private readonly IServiceProvider _serviceProvider;
-    private readonly IStoreUpdateService _storeUpdateService;
+    private readonly IMicrosoftStoreService _storeService;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoLogger _logger;
     private bool _isCheckingStoreUpdate;
@@ -41,7 +41,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
                                  IPreferencesService preferencesService,
                                  IStatePersistanceService statePersistenceService,
                                  INavigationService navigationService,
-                                 IStoreUpdateService storeUpdateService,
+                                 IMicrosoftStoreService storeService,
                                  IMailDialogService dialogService,
                                  IWinoLogger logger)
     {
@@ -49,7 +49,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
         PreferencesService = preferencesService;
         StatePersistenceService = statePersistenceService;
         NavigationService = navigationService;
-        _storeUpdateService = storeUpdateService;
+        _storeService = storeService;
         _dialogService = dialogService;
         _logger = logger;
 
@@ -270,7 +270,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
 
         try
         {
-            var hasAvailableUpdate = await _storeUpdateService.RefreshAvailabilityAsync();
+            var hasAvailableUpdate = await _storeService.RefreshAvailabilityAsync();
 
             if (_isShutdown || !hasAvailableUpdate || !PreferencesService.IsStoreUpdateNotificationsEnabled)
                 return;
@@ -291,7 +291,7 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
 
                 if (shouldUpdate && !_isShutdown)
                 {
-                    await _storeUpdateService.StartUpdateAsync();
+                    await _storeService.StartUpdateAsync();
                 }
             });
         }

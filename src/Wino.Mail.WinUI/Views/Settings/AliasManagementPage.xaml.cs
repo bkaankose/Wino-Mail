@@ -37,8 +37,8 @@ public sealed partial class AliasManagementPage : AliasManagementPageAbstract
     {
         if (GetAlias(sender) is not MailAccountAlias alias) return;
 
-        var clipboardService = WinoApplication.Current.Services.GetRequiredService<IClipboardService>();
-        await clipboardService.CopyClipboardAsync(alias.AliasAddress);
+        var nativeAppService = WinoApplication.Current.Services.GetRequiredService<INativeAppService>();
+        await nativeAppService.CopyClipboardAsync(alias.AliasAddress);
     }
 
     private static MailAccountAlias GetAlias(object sender)

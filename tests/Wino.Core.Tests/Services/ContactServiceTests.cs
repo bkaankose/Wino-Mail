@@ -283,7 +283,7 @@ public class ContactServiceTests : IAsyncLifetime
     public async Task SuppressContactPictureAsync_ClearsTheReferenceAndDeletesOnlyAnUnsharedFile()
     {
         var pictureFileId = Guid.NewGuid();
-        var pictureService = new Mock<IContactPictureFileService>();
+        var pictureService = new Mock<IPictureStorageService>();
         var contactService = new ContactService(_databaseService, pictureService.Object);
         var first = await CreateLocalContactAsync("First");
         var second = await CreateLocalContactAsync("Second");
@@ -295,11 +295,11 @@ public class ContactServiceTests : IAsyncLifetime
         (await contactService.GetContactAsync(first.Id)).ContactPictureFileId.Should().BeNull();
         (await contactService.GetContactAsync(first.Id)).RemotePhotoKey.Should().Be("outlook:hidden-photo:v1");
         (await contactService.GetContactAsync(second.Id)).ContactPictureFileId.Should().Be(pictureFileId);
-        pictureService.Verify(service => service.DeleteContactPictureAsync(pictureFileId), Times.Never);
+        pictureService.Verify(service => service.DeletePictureAsync(PictureKind.Contact, pictureFileId), Times.Never);
 
         await contactService.SuppressContactPictureAsync(second.Id, "outlook:hidden-photo:v1");
 
-        pictureService.Verify(service => service.DeleteContactPictureAsync(pictureFileId), Times.Once);
+        pictureService.Verify(service => service.DeletePictureAsync(PictureKind.Contact, pictureFileId), Times.Once);
     }
 
     [Fact]

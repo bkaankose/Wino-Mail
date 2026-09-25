@@ -35,7 +35,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly IWinoTelemetryService _telemetryService;
     private readonly WelcomeWizardContext _wizardContext;
-    private readonly IPop3TestService _pop3TestService;
+    private readonly IMailServerTestService _mailServerTestService;
     private readonly IKnownImapProviderCatalog _knownImapProviderCatalog;
     private readonly IAccountCapabilityService _accountCapabilityService;
     private readonly INativeAppService _nativeAppService;
@@ -247,7 +247,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                                            ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                            IWinoTelemetryService telemetryService,
                                            WelcomeWizardContext wizardContext,
-                                           IPop3TestService pop3TestService = null,
+                                           IMailServerTestService mailServerTestService = null,
                                            IKnownImapProviderCatalog knownImapProviderCatalog = null,
                                            IAccountCapabilityService accountCapabilityService = null,
                                            INativeAppService nativeAppService = null)
@@ -264,7 +264,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _telemetryService = telemetryService;
         _wizardContext = wizardContext;
-        _pop3TestService = pop3TestService;
+        _mailServerTestService = mailServerTestService;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
@@ -860,12 +860,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     private async Task ValidatePop3ConnectivityAsync(CustomServerInformation serverInformation)
     {
-        if (_pop3TestService == null)
+        if (_mailServerTestService == null)
             throw new InvalidOperationException("POP3 connectivity testing is unavailable.");
 
         while (true)
         {
-            var result = await _pop3TestService.TestConnectionAsync(serverInformation).ConfigureAwait(false);
+            var result = await _mailServerTestService.TestPop3Async(serverInformation).ConfigureAwait(false);
             if (!result.IsCertificateUIRequired)
             {
                 if (!result.IsSuccess)

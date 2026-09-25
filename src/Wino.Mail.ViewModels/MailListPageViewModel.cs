@@ -70,7 +70,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly HashSet<Guid> gmailUnreadFolderMarkedAsReadUniqueIds = [];
 
     public MailListStore MailCollection { get; } = new();
-    private readonly IWinoIntelligenceEntitlementService? _entitlementService;
+    private readonly IWinoAccountIntelligenceSnapshotService? _entitlementService;
 
     [ObservableProperty]
     public partial MailListProjectionOptions MailListOptions { get; set; } = new();
@@ -106,7 +106,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private readonly ILogger _logger = Log.ForContext<MailListPageViewModel>();
     private readonly IMailCategoryService _mailCategoryService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
-    private readonly IKeyPressService _keyPressService;
     private readonly IWinoLogger _winoLogger;
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IDraftSyncRetryService _draftSyncRetryService;
@@ -323,14 +322,13 @@ public partial class MailListPageViewModel : MailBaseViewModel,
                                  IContextMenuItemService contextMenuItemService,
                                  IMailCategoryService mailCategoryService,
                                  IWinoRequestDelegator winoRequestDelegator,
-                                 IKeyPressService keyPressService,
                                  IPreferencesService preferencesService,
                                  INewThemeService themeService,
                                  IWinoLogger winoLogger,
                                  ISynchronizationManager synchronizationManager,
                                  IDraftSyncRetryService draftSyncRetryService,
                                  IMailShellClient shellMenuProvider = null,
-                                 IWinoIntelligenceEntitlementService entitlementService = null)
+                                 IWinoAccountIntelligenceSnapshotService entitlementService = null)
     {
         ShellMenuProvider = shellMenuProvider;
 
@@ -343,7 +341,6 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         _contextMenuItemService = contextMenuItemService;
         _mailCategoryService = mailCategoryService;
         _winoRequestDelegator = winoRequestDelegator;
-        _keyPressService = keyPressService;
         _synchronizationManager = synchronizationManager;
         _draftSyncRetryService = draftSyncRetryService;
         _entitlementService = entitlementService;
@@ -375,7 +372,7 @@ public partial class MailListPageViewModel : MailBaseViewModel,
     private MailItemViewModel CreateMailItemViewModel(MailCopy mailCopy)
         => new(mailCopy, CurrentAccountNicknamePosition)
         {
-            CanShowIntelligence = _entitlementService?.Current.CanAccessSurfaces == true
+            CanShowIntelligence = _entitlementService?.CurrentEntitlement.CanAccessSurfaces == true
         };
 
     private void UpdateAccountNicknamePositionForItems()

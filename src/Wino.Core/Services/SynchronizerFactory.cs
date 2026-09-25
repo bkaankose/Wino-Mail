@@ -30,7 +30,7 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly IMailFilterExecutor _mailFilterExecutor;
     private readonly IServerCertificateTrustService _serverCertificateTrustService;
     private readonly IContactService _contactService;
-    private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly IPictureStorageService _contactPictureFileService;
     private readonly ITaskService _taskService;
     private readonly ICardDavSynchronizationEngine _cardDavSynchronizationEngine;
     private readonly IPop3ClientFactory _pop3ClientFactory;
@@ -59,7 +59,7 @@ public class SynchronizerFactory : ISynchronizerFactory
                                IMailFilterExecutor mailFilterExecutor,
                                IServerCertificateTrustService serverCertificateTrustService,
                                IContactService contactService,
-                               IContactPictureFileService contactPictureFileService,
+                               IPictureStorageService contactPictureFileService,
                                ITaskService taskService = null,
                                ICardDavSynchronizationEngine cardDavSynchronizationEngine = null,
                                IPop3ClientFactory pop3ClientFactory = null,

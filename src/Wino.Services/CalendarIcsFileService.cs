@@ -9,12 +9,12 @@ namespace Wino.Services;
 
 public class CalendarIcsFileService : ICalendarIcsFileService
 {
-    private readonly INativeAppService _nativeAppService;
+    private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly ILogger _logger = Log.ForContext<CalendarIcsFileService>();
 
-    public CalendarIcsFileService(INativeAppService nativeAppService)
+    public CalendarIcsFileService(IApplicationConfiguration applicationConfiguration)
     {
-        _nativeAppService = nativeAppService;
+        _applicationConfiguration = applicationConfiguration;
     }
 
     public async Task SaveCalendarItemIcsAsync(Guid accountId, Guid calendarId, Guid calendarItemId, string remoteEventId, string remoteResourceHref, string eTag, string icsContent)
@@ -178,11 +178,10 @@ public class CalendarIcsFileService : ICalendarIcsFileService
         return accountPath;
     }
 
-    private async Task<string> GetIcsRootPathAsync()
+    private Task<string> GetIcsRootPathAsync()
     {
-        var mimeRootPath = await _nativeAppService.GetMimeMessageStoragePath().ConfigureAwait(false);
-        var icsRootPath = Path.Combine(mimeRootPath, "CalendarIcs");
+        var icsRootPath = Path.Combine(_applicationConfiguration.MimeStorageFolderPath, "CalendarIcs");
         Directory.CreateDirectory(icsRootPath);
-        return icsRootPath;
+        return Task.FromResult(icsRootPath);
     }
 }

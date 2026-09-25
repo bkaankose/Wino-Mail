@@ -530,7 +530,6 @@ public class CalendarPageViewModelTests
             statePersistenceService.Object,
             calendarService,
             navigationService ?? Mock.Of<INavigationService>(),
-            Mock.Of<IKeyPressService>(),
             nativeAppService ?? Mock.Of<INativeAppService>(),
             accountCalendarStateService,
             notificationBuilder ?? Mock.Of<INotificationBuilder>(),

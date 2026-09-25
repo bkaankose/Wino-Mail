@@ -27,7 +27,7 @@ public sealed class MailAccountIconInfoFactoryTests
         SpecialImapProvider specialImapProvider,
         AccountIconProvider expectedProvider)
     {
-        var service = new Mock<IAccountProfilePictureFileService>();
+        var service = new Mock<IPictureStorageService>();
         var account = new MailAccount
         {
             ProviderType = providerType,
@@ -43,8 +43,8 @@ public sealed class MailAccountIconInfoFactoryTests
     public void Create_ResolvesProfilePicturePathAndPreservesColor()
     {
         var fileId = Guid.NewGuid();
-        var service = new Mock<IAccountProfilePictureFileService>();
-        service.Setup(item => item.GetProfilePicturePath(fileId)).Returns(@"C:\pictures\account.jpg");
+        var service = new Mock<IPictureStorageService>();
+        service.Setup(item => item.GetPicturePath(PictureKind.AccountProfile, fileId)).Returns(@"C:\pictures\account.jpg");
         var account = new MailAccount
         {
             ProviderType = MailProviderType.Gmail,
@@ -62,8 +62,8 @@ public sealed class MailAccountIconInfoFactoryTests
     public void Create_MissingProfilePictureReturnsNullPath()
     {
         var fileId = Guid.NewGuid();
-        var service = new Mock<IAccountProfilePictureFileService>();
-        service.Setup(item => item.GetProfilePicturePath(fileId)).Returns((string?)null);
+        var service = new Mock<IPictureStorageService>();
+        service.Setup(item => item.GetPicturePath(PictureKind.AccountProfile, fileId)).Returns((string?)null);
         var account = new MailAccount
         {
             ProviderType = MailProviderType.Outlook,
@@ -78,7 +78,7 @@ public sealed class MailAccountIconInfoFactoryTests
     [Fact]
     public void Create_AccountWithoutProfilePictureDoesNotQueryFileService()
     {
-        var service = new Mock<IAccountProfilePictureFileService>(MockBehavior.Strict);
+        var service = new Mock<IPictureStorageService>(MockBehavior.Strict);
         var account = new MailAccount { ProviderType = MailProviderType.Outlook };
 
         var result = MailAccountIconInfoFactory.Create(account, service.Object);

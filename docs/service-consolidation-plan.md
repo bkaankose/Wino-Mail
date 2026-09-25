@@ -493,3 +493,31 @@ Each step builds and ships on its own.
   the merged class holds no per-call mutable state before flipping.
 - After each step, run the app once to the shell. A missing registration throws
   at first resolve, not at build.
+
+## Implementation notes (2026-09-25)
+
+Every proposal above is implemented on `feature/vNext`. Four points differ from
+the text, each because the dependency graph turned out to be tighter than the
+scan assumed:
+
+- **10, pending checkout store: kept.** `WinoAccountProfileService` clears the
+  pending checkout on sign-out. Folding the store into `IWinoBillingService`
+  would give profile → billing → store → dialog → profile, the exact cycle this
+  section warns about. `IWinoPendingCheckoutStore` stays as the leaf it is.
+- **2, store service takes `Lazy<IMailDialogService>`.** The dialog service does
+  reach the store transitively (dialog → profile → intelligence coordinator →
+  snapshot → billing → store). The lazy edge is registered in
+  `CoreUWPContainerSetup` next to the store service.
+- **3, window manager takes `Lazy<INewThemeService>`.** `NewThemeService`
+  already depends on `IWinoWindowManager`, so the mutual edge the section
+  anticipated exists today. `AboutPageViewModel` lives in `Wino.Core.ViewModels`
+  and cannot see the window manager; it sends `WhatsNewOpenRequested`, which the
+  shell window handles with the same two lines as its title-bar button.
+- **8, delete-older-than is reshaped.** `MailService` depends on
+  `IMimeFileService`, so the file service cannot take `IMailService` back.
+  `IMimeFileService.DeleteMimeStorageAsync(accountId, fileIds)` deletes the
+  folders it is given; `StoragePageViewModel` resolves the cutoff date to file
+  ids through `IMailService` first.
+
+Also: `ProtocolActivationHandler` (0.2) had no construction site, so it and its
+unused `ActivationHandler<T>` base were deleted instead of rewired.

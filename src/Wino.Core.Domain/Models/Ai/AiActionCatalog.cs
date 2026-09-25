@@ -1,13 +1,13 @@
-﻿using System.Collections.Generic;
-using Wino.Core.Domain;
-using Wino.Core.Domain.Interfaces;
-using Wino.Core.Domain.Models.Ai;
+using System.Collections.Generic;
 
-namespace Wino.Mail.WinUI.Services;
+namespace Wino.Core.Domain.Models.Ai;
 
-public sealed class AiActionOptionsService : IAiActionOptionsService
+/// <summary>
+/// The fixed lists of translation languages and rewrite modes the AI actions offer.
+/// </summary>
+public static class AiActionCatalog
 {
-    public IReadOnlyList<AiTranslateLanguageOption> GetTranslateLanguageOptions()
+    public static IReadOnlyList<AiTranslateLanguageOption> GetTranslateLanguageOptions()
     {
         return new AiTranslateLanguageOption[]
         {
@@ -30,7 +30,7 @@ public sealed class AiActionOptionsService : IAiActionOptionsService
         };
     }
 
-    public IReadOnlyList<AiRewriteModeOption> GetRewriteModeOptions()
+    public static IReadOnlyList<AiRewriteModeOption> GetRewriteModeOptions()
     {
         return new AiRewriteModeOption[]
         {

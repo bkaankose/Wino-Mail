@@ -229,8 +229,8 @@ public sealed class Database210MigrationCoordinatorTests
             });
             await source.CloseAsync();
 
-            var failingPictures = new Mock<IAccountProfilePictureFileService>();
-            failingPictures.Setup(service => service.SaveProfilePictureAsync(
+            var failingPictures = new Mock<IPictureStorageService>();
+            failingPictures.Setup(service => service.SavePictureAsync(PictureKind.AccountProfile,
                     It.IsAny<byte[]>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new IOException("simulated profile storage failure"));
             var firstClock = new FakeMigrationClock();
@@ -341,14 +341,14 @@ public sealed class Database210MigrationCoordinatorTests
 
     private static DatabaseMigrationCoordinator CreateCoordinator(
         string directory,
-        IAccountProfilePictureFileService pictureService = null,
+        IPictureStorageService pictureService = null,
         IMigrationClock clock = null)
     {
         var configuration = CreateConfiguration(directory);
         if (pictureService == null)
         {
-            var pictureServiceMock = new Mock<IAccountProfilePictureFileService>();
-            pictureServiceMock.Setup(service => service.SaveProfilePictureAsync(
+            var pictureServiceMock = new Mock<IPictureStorageService>();
+            pictureServiceMock.Setup(service => service.SavePictureAsync(PictureKind.AccountProfile,
                     It.IsAny<byte[]>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(Guid.NewGuid());
             pictureService = pictureServiceMock.Object;

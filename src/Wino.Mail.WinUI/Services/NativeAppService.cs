@@ -3,13 +3,20 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Microsoft.UI.Input;
+using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
+using Serilog;
 using Windows.ApplicationModel;
+using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
 using Windows.System;
+using Windows.UI.Core;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Telemetry;
+using Wino.Helpers;
+using Wino.Mail.WinUI.Extensions;
 
 
 
@@ -20,10 +27,14 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace Wino.Services;
 
-public class NativeAppService : INativeAppService, IAppMetadataService
+/// <summary>
+/// Single owner of the stateless Windows platform capabilities the app needs: launching, clipboard,
+/// keyboard state, startup task, WebView2 probe, notification sound, taskbar and shell presence state.
+/// </summary>
+public partial class NativeAppService : INativeAppService, IAppMetadataService, IUserPresenceStateProvider
 {
     private const uint AbmGetTaskbarPosition = 0x00000005;
-    private string _mimeMessagesFolder = string.Empty;
+    private const string WinoStartupTaskId = "WinoStartupId";
 
     public Func<IntPtr> GetCoreWindowHwnd { get; set; } = static () => IntPtr.Zero;
 
@@ -35,30 +46,6 @@ public class NativeAppService : INativeAppService, IAppMetadataService
 
         return string.Empty;
     }
-
-    public async Task<string> GetMimeMessageStoragePath()
-    {
-        if (!string.IsNullOrEmpty(_mimeMessagesFolder))
-            return _mimeMessagesFolder;
-
-        var localFolder = ApplicationData.Current.LocalFolder;
-        var mimeFolder = await localFolder.CreateFolderAsync("Mime", CreationCollisionOption.OpenIfExists);
-
-        _mimeMessagesFolder = mimeFolder.Path;
-
-        return _mimeMessagesFolder;
-    }
-
-    [Obsolete("This should be removed. There should be no functionality.")]
-    public bool IsAppRunning()
-    {
-#if WINDOWS_UWP
-        return (Window.Current?.Content as Frame)?.Content != null;
-#endif
-
-        return true;
-    }
-
 
     public async Task LaunchFileAsync(string filePath)
     {
@@ -178,16 +165,14 @@ public class NativeAppService : INativeAppService, IAppMetadataService
         return key?.GetValue("ProgId") as string;
     }
 
-    public string GetFullAppVersion()
+    public string AppVersion
     {
-        Package package = Package.Current;
-        PackageId packageId = package.Id;
-        PackageVersion version = packageId.Version;
-
-        return string.Format("{0}.{1}.{2}.{3}", version.Major, version.Minor, version.Build, version.Revision);
+        get
+        {
+            var version = Package.Current.Id.Version;
+            return string.Format("{0}.{1}.{2}.{3}", version.Major, version.Minor, version.Build, version.Revision);
+        }
     }
-
-    public string AppVersion => GetFullAppVersion();
 
     public string PackageName => Package.Current.Id.Name;
 
@@ -203,23 +188,129 @@ public class NativeAppService : INativeAppService, IAppMetadataService
 
     public string SentryDist => AppTelemetryMetadata.NormalizeAppVersion(AppVersion);
 
-    [Obsolete("Not supported for Win SDK")]
-    public async Task PinAppToTaskbarAsync()
+    public Task CopyClipboardAsync(string text)
     {
-        // If Start screen manager API's aren't present
-        //if (!ApiInformation.IsTypePresent("Windows.UI.Shell.TaskbarManager")) return;
+        var package = new DataPackage();
+        package.SetText(text);
 
-        //// Get the taskbar manager
-        //var taskbarManager = TaskbarManager.GetDefault();
+        Clipboard.SetContent(package);
 
-        //// If Taskbar doesn't allow pinning, don't show the tip
-        //if (!taskbarManager.IsPinningAllowed) return;
-
-        //// If already pinned, don't show the tip
-        //if (await taskbarManager.IsCurrentAppPinnedAsync()) return;
-
-        //await taskbarManager.RequestPinCurrentAppAsync();
+        return Task.CompletedTask;
     }
+
+    public bool IsCtrlKeyPressed()
+        => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
+
+    public bool IsShiftKeyPressed()
+        => InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down);
+
+    public async Task<StartupBehaviorResult> ToggleStartupBehavior(bool isEnabled)
+    {
+        try
+        {
+            var task = await StartupTask.GetAsync(WinoStartupTaskId);
+
+            if (isEnabled)
+            {
+                await task.RequestEnableAsync();
+            }
+            else
+            {
+                task.Disable();
+            }
+        }
+        catch (Exception)
+        {
+            Log.Error("Error toggling startup behavior");
+        }
+
+        return await GetCurrentStartupBehaviorAsync();
+    }
+
+    public async Task<StartupBehaviorResult> GetCurrentStartupBehaviorAsync()
+    {
+        try
+        {
+            var task = await StartupTask.GetAsync(WinoStartupTaskId);
+
+            return task.State.AsStartupBehaviorResult();
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Error getting startup behavior");
+
+            return StartupBehaviorResult.Fatal;
+        }
+    }
+
+    public async Task<bool> IsWebView2RuntimeAvailableAsync()
+    {
+        try
+        {
+            var version = CoreWebView2Environment.GetAvailableBrowserVersionString();
+            if (string.IsNullOrWhiteSpace(version))
+            {
+                return false;
+            }
+
+            await WebViewExtensions.GetSharedEnvironmentAsync();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "WebView2 runtime validation failed.");
+            return false;
+        }
+    }
+
+    public void PlayTaskCompletionSound() => NotificationSoundPlayer.Play(NotificationSoundEvent.Default);
+
+    #region IUserPresenceStateProvider
+
+    // Reads the shell notification state. There is no WinUI API for Focus assist, so this is the
+    // supported Win32 route. The interface stays separate so notification policy remains unit-testable.
+
+    private enum UserNotificationState
+    {
+        NotPresent = 1,
+        Busy = 2,
+        RunningDirect3dFullScreen = 3,
+        PresentationMode = 4,
+        AcceptsNotifications = 5,
+        QuietTime = 6,
+        App = 7
+    }
+
+    [LibraryImport("shell32.dll")]
+    private static partial int SHQueryUserNotificationState(out UserNotificationState state);
+
+    public bool IsPresenting()
+    {
+        var state = GetUserNotificationState();
+
+        return state is UserNotificationState.PresentationMode
+            or UserNotificationState.RunningDirect3dFullScreen
+            or UserNotificationState.Busy;
+    }
+
+    public bool IsSystemQuietTimeActive() => GetUserNotificationState() == UserNotificationState.QuietTime;
+
+    private static UserNotificationState GetUserNotificationState()
+    {
+        try
+        {
+            return SHQueryUserNotificationState(out var state) == 0 ? state : UserNotificationState.AcceptsNotifications;
+        }
+        catch (Exception)
+        {
+            // The shell call is unavailable in some session states. Treat it as "nothing special is
+            // happening" rather than suppressing every notification.
+            return UserNotificationState.AcceptsNotifications;
+        }
+    }
+
+    #endregion
 
     public WindowsTaskbarPosition GetTaskbarPosition()
     {
@@ -239,13 +330,6 @@ public class NativeAppService : INativeAppService, IAppMetadataService
 
     public bool IsAppRunningInBackground()
         => !Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread().HasThreadAccess;
-
-    public string GetCalendarAttachmentsFolderPath()
-    {
-        var attachmentsFolder = System.IO.Path.Combine(ApplicationData.Current.LocalFolder.Path, "CalendarAttachments");
-        System.IO.Directory.CreateDirectory(attachmentsFolder);
-        return attachmentsFolder;
-    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct APPBARDATA

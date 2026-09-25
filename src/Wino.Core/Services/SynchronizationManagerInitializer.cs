@@ -20,7 +20,7 @@ public class SynchronizationManagerInitializer : IInitializeAsync
     public async Task InitializeAsync()
     {
         var synchronizerFactory = _serviceProvider.GetRequiredService<ISynchronizerFactory>();
-        var imapTestService = _serviceProvider.GetRequiredService<IImapTestService>();
+        var mailServerTestService = _serviceProvider.GetRequiredService<IMailServerTestService>();
         var accountService = _serviceProvider.GetRequiredService<IAccountService>();
         var authenticationProvider = _serviceProvider.GetRequiredService<IAuthenticationProvider>();
         var notificationBuilder = _serviceProvider.GetRequiredService<INotificationBuilder>();
@@ -33,7 +33,7 @@ public class SynchronizationManagerInitializer : IInitializeAsync
 
         await SynchronizationManager.Instance.InitializeAsync(
             concreteSynchronizerFactory,
-            imapTestService,
+            mailServerTestService,
             accountService,
             notificationBuilder,
             authenticationProvider,

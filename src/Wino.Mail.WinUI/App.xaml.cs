@@ -33,7 +33,6 @@ using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.ViewModels;
-using Wino.Mail.Services;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Activation;
@@ -589,11 +588,7 @@ public partial class App : WinoApplication,
         services.AddSingleton<INavigationReentryRule, ModeRootReentryRule>();
         services.AddSingleton<INavigationService, NavigationService>();
         services.AddSingleton<IMailDialogService, DialogService>();
-        services.AddSingleton<ITaskCompletionSoundPlayer, TaskCompletionSoundPlayer>();
-        services.AddSingleton<IAiActionOptionsService, AiActionOptionsService>();
         services.AddSingleton<ISearchHistoryService, SearchHistoryService>();
-        services.AddSingleton<ReleaseLocalAccountDataCleanupService>();
-        services.AddTransient<IProviderService, ProviderService>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
         services.AddSingleton<IAccountCalendarStateService, AccountCalendarStateService>();
         services.AddSingleton<IDateContextProvider, SystemDateContextProvider>();
@@ -732,15 +727,15 @@ public partial class App : WinoApplication,
 
             await Services.GetRequiredService<IKeyboardShortcutService>().InitializeAsync();
 
-            await Services.GetRequiredService<AccountProfilePictureMigrationService>().RunAsync();
+            await Services.GetRequiredService<AccountProfilePictureMaintenance>().MigrateLegacyAsync();
 
             _synchronizationManager = Services.GetRequiredService<ISynchronizationManager>();
             _preferencesService = Services.GetRequiredService<IPreferencesService>();
             _accountService = Services.GetRequiredService<IAccountService>();
 
-            var entitlementService = Services.GetRequiredService<IWinoIntelligenceEntitlementService>();
-            await entitlementService.GetAsync();
-            _ = entitlementService.RefreshAsync();
+            var entitlementService = Services.GetRequiredService<IWinoAccountIntelligenceSnapshotService>();
+            await entitlementService.GetEntitlementAsync();
+            _ = entitlementService.RefreshEntitlementAsync();
 
             await Services.GetRequiredService<IMailIntelligenceCoordinator>().InitializeAsync();
             await Services.GetRequiredService<IntelligenceResultKeyLifecycle>().InitializeAsync();
@@ -754,7 +749,7 @@ public partial class App : WinoApplication,
                     : CompanionReadinessState.NoAccounts);
             }
 
-            _ = Services.GetRequiredService<AccountProfilePictureBackfillService>().RunAsync();
+            _ = Services.GetRequiredService<AccountProfilePictureMaintenance>().BackfillAsync();
 
             _activationInfrastructureInitialized = true;
         }
@@ -948,16 +943,16 @@ public partial class App : WinoApplication,
 
         if (shareRequest?.Files == null || shareRequest.Files.Count == 0)
         {
-            Services.GetRequiredService<IShareActivationService>().ClearPendingShareRequest();
+            Services.GetRequiredService<IActivationStateService>().ClearPendingShareRequest();
             return false;
         }
 
-        var shareActivationService = Services.GetRequiredService<IShareActivationService>();
-        shareActivationService.PendingShareRequest = shareRequest;
+        var activationStateService = Services.GetRequiredService<IActivationStateService>();
+        activationStateService.PendingShareRequest = shareRequest;
 
         if (!_hasConfiguredAccounts)
         {
-            shareActivationService.ClearPendingShareRequest();
+            activationStateService.ClearPendingShareRequest();
             return false;
         }
 
@@ -979,7 +974,7 @@ public partial class App : WinoApplication,
         if (mailToUri == null)
             return false;
 
-        Services.GetRequiredService<ILaunchProtocolService>().MailToUri = mailToUri;
+        Services.GetRequiredService<IActivationStateService>().MailToUri = mailToUri;
 
         if (!_hasConfiguredAccounts)
             return false;
@@ -1153,8 +1148,8 @@ public partial class App : WinoApplication,
                 return Task.CompletedTask;
             });
 
-        var storeUpdateService = Services.GetRequiredService<IStoreUpdateService>();
-        await storeUpdateService.StartUpdateAsync();
+        var storeService = Services.GetRequiredService<IMicrosoftStoreService>();
+        await storeService.StartUpdateAsync();
     }
 
     private async Task HandleCalendarToastNavigationAsync(Guid calendarItemId)
@@ -1318,7 +1313,7 @@ public partial class App : WinoApplication,
             // A new or switching shell consumes this after its mail menu has been rebuilt.
             // Mode activation is asynchronous, so looking up the folder immediately would
             // race the menu initialization when the notification was opened from another mode.
-            Services.GetRequiredService<ILaunchProtocolService>().LaunchParameter =
+            Services.GetRequiredService<IActivationStateService>().LaunchParameter =
                 new AccountMenuItemExtended(mailItem.AssignedFolder.Id, mailItem);
         }
 

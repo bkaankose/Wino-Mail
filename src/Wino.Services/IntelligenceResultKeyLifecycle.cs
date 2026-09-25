@@ -23,7 +23,7 @@ public sealed class IntelligenceResultKeyLifecycle :
 {
     private readonly IIntelligenceResultKeyStore _keys;
     private readonly IMailIntelligenceCoordinator _coordinator;
-    private readonly IWinoIntelligenceEntitlementService _entitlement;
+    private readonly IWinoAccountIntelligenceSnapshotService _entitlement;
     private readonly IntelligenceResultKeyPresence _presence;
     private readonly IMessenger _messenger;
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -32,7 +32,7 @@ public sealed class IntelligenceResultKeyLifecycle :
     public IntelligenceResultKeyLifecycle(
         IIntelligenceResultKeyStore keys,
         IMailIntelligenceCoordinator coordinator,
-        IWinoIntelligenceEntitlementService entitlement,
+        IWinoAccountIntelligenceSnapshotService entitlement,
         IntelligenceResultKeyPresence presence,
         IMessenger messenger)
     {
@@ -46,7 +46,7 @@ public sealed class IntelligenceResultKeyLifecycle :
 
     /// <summary>Applies the current snapshot once at startup, before any message arrives.</summary>
     public Task InitializeAsync(CancellationToken cancellationToken = default)
-        => ApplyAsync(_entitlement.Current, cancellationToken);
+        => ApplyAsync(_entitlement.CurrentEntitlement, cancellationToken);
 
     public void Receive(WinoIntelligenceEntitlementChanged message)
         => _ = ApplySafelyAsync(message.Entitlement);

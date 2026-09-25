@@ -118,7 +118,7 @@ public sealed class WinoRequestProcessorMoveTests
     private static WinoRequestProcessor CreateProcessor(IFolderService folderService)
         => new(
             folderService,
-            Mock.Of<IKeyPressService>(),
+            Mock.Of<INativeAppService>(),
             Mock.Of<IPreferencesService>(),
             Mock.Of<IMailDialogService>(),
             Mock.Of<IMailService>());

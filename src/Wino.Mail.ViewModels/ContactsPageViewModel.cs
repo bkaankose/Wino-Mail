@@ -54,7 +54,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     private readonly IWinoRequestDelegator _requestDelegator;
     private readonly INavigationService _navigationService;
     private readonly IMailDialogService _dialogService;
-    private readonly ILaunchProtocolService _launchProtocolService;
+    private readonly IActivationStateService _activationStateService;
     private readonly ICardDavSynchronizationStore _cardDavSynchronizationStore;
     private readonly IPreferencesService _preferencesService;
     private readonly SemaphoreSlim _loadSemaphore = new(1, 1);
@@ -113,7 +113,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     public ContactsPageViewModel(IContactQueryService contactService, IAccountService accountService,
         ISynchronizationManager synchronizationManager, IWinoRequestDelegator requestDelegator,
         INavigationService navigationService, IMailDialogService dialogService,
-        ILaunchProtocolService launchProtocolService,
+        IActivationStateService activationStateService,
         ICardDavSynchronizationStore cardDavSynchronizationStore = null,
         IPreferencesService preferencesService = null)
     {
@@ -123,7 +123,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         _requestDelegator = requestDelegator;
         _navigationService = navigationService;
         _dialogService = dialogService;
-        _launchProtocolService = launchProtocolService;
+        _activationStateService = activationStateService;
         _preferencesService = preferencesService;
         _cardDavSynchronizationStore = cardDavSynchronizationStore;
         _primaryFilterGroup = [];
@@ -1321,7 +1321,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         if (string.IsNullOrWhiteSpace(address)) return;
 
         // Reuse the mailto activation path: the shell picks the account and creates the draft.
-        _launchProtocolService.MailToUri = new MailToUri($"mailto:{Uri.EscapeDataString(address)}");
+        _activationStateService.MailToUri = new MailToUri($"mailto:{Uri.EscapeDataString(address)}");
         Messenger.Send(new MailtoProtocolMessageRequested());
     }
 

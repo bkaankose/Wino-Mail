@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -38,7 +38,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private readonly IAccountService _accountService;
     private readonly IMailIntelligenceCoordinator _semanticIndexCoordinator;
     private readonly IPreferencesService _preferencesService;
-    private readonly IAiActionOptionsService _aiActionOptionsService;
     private bool _isAiLanguageInitialized;
     private readonly IWinoAccountIntelligenceSnapshotService? _snapshotService;
     private readonly WinoAddOnItemViewModel _aiPackAddOn;
@@ -47,7 +46,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private readonly IWinoPurchaseReconciliationService? _purchaseReconciliation;
     private readonly IWinoAccountSessionService? _sessions;
     private readonly IWinoLogger? _logger;
-    private readonly IWinoIntelligenceEntitlementService? _entitlementService;
+    private readonly IMicrosoftStoreService? _storeService;
     private string _intelligencePolicyVersion = string.Empty;
 
     public ObservableCollection<WinoAddOnItemViewModel> AddOns { get; } = [];
@@ -232,12 +231,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                                                IAccountService accountService,
                                                IMailIntelligenceCoordinator semanticIndexCoordinator,
                                                IPreferencesService preferencesService,
-                                               IAiActionOptionsService aiActionOptionsService,
                                                IWinoAccountIntelligenceSnapshotService? snapshotService = null,
                                                IWinoPurchaseReconciliationService? purchaseReconciliation = null,
                                                IWinoAccountSessionService? sessions = null,
                                                IWinoLogger? logger = null,
-                                               IWinoIntelligenceEntitlementService? entitlementService = null)
+                                               IMicrosoftStoreService? storeService = null)
     {
         _profileService = profileService;
         _syncService = syncService;
@@ -247,12 +245,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         _accountService = accountService;
         _semanticIndexCoordinator = semanticIndexCoordinator;
         _preferencesService = preferencesService;
-        _aiActionOptionsService = aiActionOptionsService;
         _snapshotService = snapshotService;
         _purchaseReconciliation = purchaseReconciliation;
         _sessions = sessions;
         _logger = logger;
-        _entitlementService = entitlementService;
+        _storeService = storeService;
 
         _aiPackAddOn = CreateAddOnItem(WinoAddOnProductType.AI_PACK);
         _unlimitedAccountsAddOn = CreateAddOnItem(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
@@ -336,7 +333,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 Translator.WinoAccount_Management_Benefit_Unlimited_Point1,
                 Translator.WinoAccount_Management_Benefit_Unlimited_Point2,
                 Translator.WinoAccount_Management_Benefit_Unlimited_Point3,
-                Translator.WinoAccount_Management_Benefit_Unlimited_Point4
+                Translator.WinoAccount_Management_Benefit_Unlimited_Point4,
+            Translator.WinoAccount_Management_Benefit_Unlimited_Point5
             ],
             Translator.WinoAccount_Management_Benefit_Unlimited_Cta,
             WinoIconGlyph.BenefitUnlimitedAccounts)
@@ -358,7 +356,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     private void InitializeAiLanguageOptions()
     {
-        var translateLanguageOptions = _aiActionOptionsService?.GetTranslateLanguageOptions();
+        var translateLanguageOptions = AiActionCatalog.GetTranslateLanguageOptions();
 
         if (translateLanguageOptions is not null)
         {
@@ -503,6 +501,25 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         if (addOn == null)
         {
             return;
+        }
+
+        // Unlimited Accounts is still sold in the Microsoft Store, so the user picks the channel first.
+        if (addOn.ProductType == WinoAddOnProductType.UNLIMITED_ACCOUNTS && _storeService != null)
+        {
+            var channel = await _dialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
+
+            if (channel == UnlimitedAccountsPurchaseChannel.MicrosoftStore)
+            {
+                if (await UnlimitedAccountsStorePurchase.PurchaseAsync(_storeService, _dialogService, _logger).ConfigureAwait(false))
+                {
+                    await LoadAsync().ConfigureAwait(false);
+                }
+
+                return;
+            }
+
+            if (channel != UnlimitedAccountsPurchaseChannel.WinoAccount)
+                return;
         }
 
         if (await _profileService.GetAuthenticatedAccountAsync().ConfigureAwait(false) == null)
@@ -1440,7 +1457,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
     private WinoIntelligenceEntitlementSnapshot ResolveEntitlement(WinoAccountIntelligenceSnapshot snapshot)
     {
-        var current = _entitlementService?.Current;
+        var current = _snapshotService?.CurrentEntitlement;
         if (current?.WinoAccountId == snapshot.WinoAccountId)
             return current;
 

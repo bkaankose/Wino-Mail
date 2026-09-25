@@ -44,13 +44,11 @@ public static class CoreContainerSetup
         services.AddTransient<IDraftSaveService, DraftSaveService>();
         services.AddSingleton<IDraftUpdateCoordinator, DraftUpdateCoordinator>();
         services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();
-        services.AddTransient<IImapTestService, ImapTestService>();
-        services.AddTransient<IPop3TestService, Pop3TestService>();
+        services.AddTransient<IMailServerTestService, MailServerTestService>();
         services.AddTransient<IPop3ClientFactory, MailKitPop3ClientFactory>();
         services.AddTransient<ISmtpTransport, MailKitSmtpTransport>();
         services.AddTransient<IAuthenticationProvider, AuthenticationProvider>();
         services.AddTransient<IAutoDiscoveryService, AutoDiscoveryService>();
-        services.AddTransient<IFontService, FontService>();
         services.AddTransient<IUnsubscriptionService, UnsubscriptionService>();
         services.AddTransient<IOutlookAuthenticator, OutlookAuthenticator>();
         services.AddTransient<IGmailAuthenticator, GmailAuthenticator>();

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Serilog;
 using WinUIEx;
+using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 
@@ -23,6 +24,8 @@ public partial class WinoWindowManager : IWinoWindowManager
     private const uint IdlePriorityClass = 0x40;
 
     private readonly object _syncLock = new();
+    // The theme service depends on the window manager, so it is resolved lazily here.
+    private readonly Lazy<INewThemeService> _themeService;
     private readonly Dictionary<(WinoWindowKind Kind, string Name), WindowEx> _windows = [];
     private readonly Dictionary<WindowEx, (WinoWindowKind Kind, string Name)> _windowKeys = [];
     private readonly HashSet<WindowEx> _visibleWindows = [];
@@ -30,6 +33,29 @@ public partial class WinoWindowManager : IWinoWindowManager
     private bool _isBackgroundResourceSavingEnabled;
 
     public WindowEx? ActiveWindow { get; private set; }
+
+    public WinoWindowManager(Lazy<INewThemeService> themeService)
+    {
+        _themeService = themeService;
+    }
+
+    public async Task<WindowEx> ShowThemedWindowAsync(WinoWindowKind kind, Func<WindowEx> factory, string? name = null)
+    {
+        if (GetWindow(kind, name) is { } existingWindow)
+        {
+            ActivateWindow(existingWindow);
+            return existingWindow;
+        }
+
+        var window = CreateWindow(kind, factory, name);
+
+        // CreateWindow made it the active window, which is the one the theme service targets.
+        // Do not show it before its theme resources and backdrop are ready.
+        await _themeService.Value.ApplyThemeToActiveWindowAsync();
+        ActivateWindow(window);
+
+        return window;
+    }
 
     public WindowEx CreateWindow(WinoWindowKind kind, Func<WindowEx> factory, string? name = null)
     {

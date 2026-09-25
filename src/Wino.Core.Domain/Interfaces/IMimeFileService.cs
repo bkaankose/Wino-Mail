@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using MimeKit;
@@ -90,4 +91,19 @@ public interface IMimeFileService
     /// </summary>
     /// <param name="accountId">Account id.</param>
     Task DeleteUserMimeCacheAsync(Guid accountId);
+
+    /// <summary>
+    /// Root folder that holds every account's MIME storage.
+    /// </summary>
+    string GetMimeRootPath();
+
+    /// <summary>
+    /// Total on-disk size of each account's MIME storage, in bytes. Missing folders count as zero.
+    /// </summary>
+    Task<Dictionary<Guid, long>> GetAccountsMimeStorageSizesAsync(IEnumerable<Guid> accountIds);
+
+    /// <summary>
+    /// Deletes the MIME folders of the given files for the account and returns how many folders were removed.
+    /// </summary>
+    Task<int> DeleteMimeStorageAsync(Guid accountId, IEnumerable<Guid> fileIds);
 }

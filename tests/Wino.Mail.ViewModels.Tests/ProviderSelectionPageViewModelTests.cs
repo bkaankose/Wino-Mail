@@ -15,7 +15,7 @@ public sealed class ProviderSelectionPageViewModelTests
     [Fact]
     public void AccountSetupProviders_ExcludePop3()
     {
-        var providerService = new Mock<IProviderService>();
+        var providerService = new Mock<IKnownImapProviderCatalog>();
         providerService.Setup(service => service.GetAvailableProviders()).Returns(
         [
             new ProviderDetail(MailProviderType.Outlook, SpecialImapProvider.None),
@@ -43,7 +43,7 @@ public sealed class ProviderSelectionPageViewModelTests
         var viewModel = new ProviderSelectionPageViewModel(
             Mock.Of<IAccountService>(),
             Mock.Of<IDialogServiceBase>(),
-            Mock.Of<IProviderService>(),
+            Mock.Of<IKnownImapProviderCatalog>(),
             Mock.Of<INewThemeService>(),
             new WelcomeWizardContext())
         {
@@ -60,7 +60,7 @@ public sealed class ProviderSelectionPageViewModelTests
         => new(
             Mock.Of<IAccountService>(),
             Mock.Of<IDialogServiceBase>(),
-            Mock.Of<IProviderService>(),
+            Mock.Of<IKnownImapProviderCatalog>(),
             Mock.Of<INewThemeService>(),
             new WelcomeWizardContext())
         {
@@ -174,7 +174,7 @@ public sealed class ProviderSelectionPageViewModelTests
         var viewModel = new ProviderSelectionPageViewModel(
             Mock.Of<IAccountService>(),
             Mock.Of<IDialogServiceBase>(),
-            Mock.Of<IProviderService>(),
+            Mock.Of<IKnownImapProviderCatalog>(),
             Mock.Of<INewThemeService>(),
             new WelcomeWizardContext());
 
@@ -259,7 +259,7 @@ public sealed class ProviderSelectionPageViewModelTests
         var viewModel = new ProviderSelectionPageViewModel(
             Mock.Of<IAccountService>(),
             Mock.Of<IDialogServiceBase>(),
-            Mock.Of<IProviderService>(),
+            Mock.Of<IKnownImapProviderCatalog>(),
             Mock.Of<INewThemeService>(),
             wizardContext)
         {
@@ -296,7 +296,7 @@ public sealed class ProviderSelectionPageViewModelTests
         var viewModel = new ProviderSelectionPageViewModel(
             Mock.Of<IAccountService>(),
             Mock.Of<IDialogServiceBase>(),
-            Mock.Of<IProviderService>(),
+            Mock.Of<IKnownImapProviderCatalog>(),
             Mock.Of<INewThemeService>(),
             wizardContext)
         {

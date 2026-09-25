@@ -233,13 +233,13 @@ public class SettingsPageViewModelTests
     private static WinoIntelligenceEntitlementSnapshot Entitlement(WinoIntelligenceEntitlementState state)
         => new(state, state == WinoIntelligenceEntitlementState.SignedOut ? null : Guid.NewGuid(), DateTimeOffset.UtcNow);
 
-    private static Mock<IWinoIntelligenceEntitlementService> EntitlementService(
+    private static Mock<IWinoAccountIntelligenceSnapshotService> EntitlementService(
         WinoIntelligenceEntitlementSnapshot entitlement)
     {
-        var service = new Mock<IWinoIntelligenceEntitlementService>();
-        service.SetupGet(item => item.Current).Returns(entitlement);
-        service.Setup(item => item.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entitlement);
-        service.Setup(item => item.RefreshAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entitlement);
+        var service = new Mock<IWinoAccountIntelligenceSnapshotService>();
+        service.SetupGet(item => item.CurrentEntitlement).Returns(entitlement);
+        service.Setup(item => item.GetEntitlementAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entitlement);
+        service.Setup(item => item.RefreshEntitlementAsync(It.IsAny<CancellationToken>())).ReturnsAsync(entitlement);
         return service;
     }
 

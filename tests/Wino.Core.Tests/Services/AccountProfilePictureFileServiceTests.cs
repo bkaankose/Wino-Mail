@@ -2,6 +2,7 @@ using FluentAssertions;
 using Moq;
 using SkiaSharp;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Enums;
 using Wino.Services;
 using Xunit;
 
@@ -16,14 +17,14 @@ public sealed class AccountProfilePictureFileServiceTests : IDisposable
     {
         var service = CreateService();
 
-        var fileId = await service.SaveProfilePictureAsync(CreateImage(120, 80));
-        var path = service.GetProfilePicturePath(fileId);
+        var fileId = await service.SavePictureAsync(PictureKind.AccountProfile, CreateImage(120, 80));
+        var path = service.GetPicturePath(PictureKind.AccountProfile, fileId);
 
         path.Should().NotBeNull();
         using var bitmap = SKBitmap.Decode(path);
         bitmap.Width.Should().Be(48);
         bitmap.Height.Should().Be(48);
-        service.GetProfilePictureUri(fileId).ToString()
+        service.GetPictureUri(PictureKind.AccountProfile, fileId).ToString()
             .Should().Be($"ms-appdata:///local/account-profile-pictures/{fileId:N}.jpg");
     }
 
@@ -31,16 +32,16 @@ public sealed class AccountProfilePictureFileServiceTests : IDisposable
     public async Task SaveProfilePictureAsync_ReplacesOldFileOnlyAfterNewFileIsValid()
     {
         var service = CreateService();
-        var oldFileId = await service.SaveProfilePictureAsync(CreateImage(48, 48));
+        var oldFileId = await service.SavePictureAsync(PictureKind.AccountProfile, CreateImage(48, 48));
 
-        var act = () => service.SaveProfilePictureAsync([1, 2, 3], oldFileId);
+        var act = () => service.SavePictureAsync(PictureKind.AccountProfile, [1, 2, 3], oldFileId);
 
         await act.Should().ThrowAsync<ArgumentException>();
-        service.GetProfilePicturePath(oldFileId).Should().NotBeNull();
+        service.GetPicturePath(PictureKind.AccountProfile, oldFileId).Should().NotBeNull();
 
-        var newFileId = await service.SaveProfilePictureAsync(CreateImage(96, 96), oldFileId);
-        service.GetProfilePicturePath(oldFileId).Should().BeNull();
-        service.GetProfilePicturePath(newFileId).Should().NotBeNull();
+        var newFileId = await service.SavePictureAsync(PictureKind.AccountProfile, CreateImage(96, 96), oldFileId);
+        service.GetPicturePath(PictureKind.AccountProfile, oldFileId).Should().BeNull();
+        service.GetPicturePath(PictureKind.AccountProfile, newFileId).Should().NotBeNull();
     }
 
     public void Dispose()
@@ -49,11 +50,11 @@ public sealed class AccountProfilePictureFileServiceTests : IDisposable
             Directory.Delete(_tempFolder, recursive: true);
     }
 
-    private AccountProfilePictureFileService CreateService()
+    private PictureStorageService CreateService()
     {
         var configuration = new Mock<IApplicationConfiguration>();
         configuration.SetupGet(item => item.ApplicationDataFolderPath).Returns(_tempFolder);
-        return new AccountProfilePictureFileService(configuration.Object);
+        return new PictureStorageService(configuration.Object);
     }
 
     private static byte[] CreateImage(int width, int height)

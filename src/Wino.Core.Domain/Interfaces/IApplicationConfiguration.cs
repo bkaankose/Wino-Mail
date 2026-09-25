@@ -25,7 +25,26 @@ public interface IApplicationConfiguration
     string ApplicationTempFolderPath { get; set; }
 
     /// <summary>
+    /// Folder under the application data folder that stores MIME messages and their resources.
+    /// The folder exists after the first read.
+    /// </summary>
+    string MimeStorageFolderPath => EnsureDataSubfolder("Mime");
+
+    /// <summary>
+    /// Folder under the application data folder that stores downloaded calendar attachments.
+    /// The folder exists after the first read.
+    /// </summary>
+    string CalendarAttachmentsFolderPath => EnsureDataSubfolder("CalendarAttachments");
+
+    /// <summary>
     /// Application insights instrumentation key.
     /// </summary>
     string SentryDNS { get; }
+
+    protected string EnsureDataSubfolder(string name)
+    {
+        var path = System.IO.Path.Combine(ApplicationDataFolderPath, name);
+        System.IO.Directory.CreateDirectory(path);
+        return path;
+    }
 }

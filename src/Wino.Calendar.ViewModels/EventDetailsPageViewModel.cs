@@ -29,6 +29,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 {
     private readonly ICalendarService _calendarService;
     private readonly INativeAppService _nativeAppService;
+    private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IPreferencesService _preferencesService;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoRequestDelegator _winoRequestDelegator;
@@ -152,10 +153,12 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                                      INotificationBuilder notificationBuilder,
                                      IUnderlyingThemeService underlyingThemeService,
                                      IContactService contactService,
+                                     IApplicationConfiguration applicationConfiguration,
                                      IAttachmentFileService attachmentFileService = null)
     {
         _calendarService = calendarService;
         _nativeAppService = nativeAppService;
+        _applicationConfiguration = applicationConfiguration;
         _preferencesService = preferencesService;
         _dialogService = dialogService;
         _winoRequestDelegator = winoRequestDelegator;
@@ -710,7 +713,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                 var source = attachmentViewModel.CreateFileSource();
                 var result = await _attachmentFileService.OpenAsync(
                     source,
-                    _nativeAppService.GetCalendarAttachmentsFolderPath(),
+                    _applicationConfiguration.CalendarAttachmentsFolderPath,
                     detection,
                     mismatchApproved: false);
 
@@ -730,7 +733,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
                     {
                         result = await _attachmentFileService.OpenAsync(
                             source,
-                            _nativeAppService.GetCalendarAttachmentsFolderPath(),
+                            _applicationConfiguration.CalendarAttachmentsFolderPath,
                             detection,
                             mismatchApproved: true);
                     }
@@ -809,7 +812,7 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
 
         // Create attachments folder for this calendar item
         var attachmentsFolder = Path.Combine(
-            _nativeAppService.GetCalendarAttachmentsFolderPath(),
+            _applicationConfiguration.CalendarAttachmentsFolderPath,
             CurrentEvent.CalendarItem.Id.ToString());
 
         Directory.CreateDirectory(attachmentsFolder);

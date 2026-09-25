@@ -33,7 +33,7 @@ public class ContactEditPageViewModelTests
             Mock.Of<IWinoRequestDelegator>(),
             Mock.Of<INavigationService>(),
             Mock.Of<IMailDialogService>(),
-            Mock.Of<IContactPictureFileService>())
+            Mock.Of<IPictureStorageService>())
         {
             SelectedCategory = ContactEditorCategory.Notes
         };
@@ -100,7 +100,7 @@ public class ContactEditPageViewModelTests
             delegator.Object,
             navigation.Object,
             Mock.Of<IMailDialogService>(),
-            Mock.Of<IContactPictureFileService>());
+            Mock.Of<IPictureStorageService>());
         var destination = new ContactCreateDestination(
             Guid.NewGuid(),
             Guid.NewGuid(),
@@ -154,7 +154,7 @@ public class ContactEditPageViewModelTests
             delegator.Object,
             Mock.Of<INavigationService>(),
             Mock.Of<IMailDialogService>(),
-            Mock.Of<IContactPictureFileService>());
+            Mock.Of<IPictureStorageService>());
 
         viewModel.OnNavigatedTo(NavigationMode.New, new ContactEditNavigationParameter(contact.Id));
         await WaitForAsync(() => viewModel.IsEditMode);
@@ -196,7 +196,7 @@ public class ContactEditPageViewModelTests
             delegator.Object,
             Mock.Of<INavigationService>(),
             Mock.Of<IMailDialogService>(),
-            Mock.Of<IContactPictureFileService>());
+            Mock.Of<IPictureStorageService>());
 
         viewModel.OnNavigatedTo(NavigationMode.New, new ContactEditNavigationParameter(contact.Id));
         await WaitForAsync(() => viewModel.IsEditMode);
@@ -222,7 +222,7 @@ public class ContactEditPageViewModelTests
             delegator.Object,
             navigation.Object,
             Mock.Of<IMailDialogService>(),
-            Mock.Of<IContactPictureFileService>());
+            Mock.Of<IPictureStorageService>());
         var destination = new ContactCreateDestination(
             Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Local, "Test", "Local contacts", true);
         viewModel.Destinations.Add(destination);
@@ -253,7 +253,7 @@ public class ContactEditPageViewModelTests
             delegator.Object,
             navigation.Object,
             Mock.Of<IMailDialogService>(),
-            Mock.Of<IContactPictureFileService>());
+            Mock.Of<IPictureStorageService>());
         var destination = new ContactCreateDestination(
             Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Local, "Test", "Local contacts", true);
         viewModel.SelectedDestination = destination;
@@ -290,7 +290,7 @@ public class ContactEditPageViewModelTests
             delegator.Object,
             Mock.Of<INavigationService>(),
             Mock.Of<IMailDialogService>(),
-            Mock.Of<IContactPictureFileService>());
+            Mock.Of<IPictureStorageService>());
         byte[] photoBytes = [1, 2, 3, 4];
         var importedContact = new AccountContact
         {
@@ -337,7 +337,7 @@ public class ContactEditPageViewModelTests
     [InlineData(2001, 2, 28, true)]
     public async Task Save_RejectsBirthdaysThatAreNotRealCalendarDates(int year, int month, int day, bool isValid)
     {
-        var viewModel = new ContactEditPageViewModel(Mock.Of<IContactService>(), Mock.Of<IWinoRequestDelegator>(), Mock.Of<INavigationService>(), Mock.Of<IMailDialogService>(), Mock.Of<IContactPictureFileService>());
+        var viewModel = new ContactEditPageViewModel(Mock.Of<IContactService>(), Mock.Of<IWinoRequestDelegator>(), Mock.Of<INavigationService>(), Mock.Of<IMailDialogService>(), Mock.Of<IPictureStorageService>());
         var destination = new ContactCreateDestination(Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Local, "Test", "Local contacts", true);
         viewModel.Destinations.Add(destination);
         viewModel.SelectedDestination = destination;
@@ -405,7 +405,7 @@ public class ContactEditPageViewModelTests
             Mock.Of<IWinoRequestDelegator>(),
             navigation ?? Mock.Of<INavigationService>(),
             dialogs ?? Mock.Of<IMailDialogService>(),
-            Mock.Of<IContactPictureFileService>());
+            Mock.Of<IPictureStorageService>());
 
     private static async Task WaitForAsync(Func<bool> predicate)
     {
@@ -428,7 +428,7 @@ public class ContactEditPageViewModelTests
             Mock.Of<IWinoRequestDelegator>(),
             Mock.Of<INavigationService>(),
             dialogs.Object,
-            Mock.Of<IContactPictureFileService>());
+            Mock.Of<IPictureStorageService>());
 
         await viewModel.ChoosePhotoCommand.ExecuteAsync(null);
 
@@ -465,8 +465,8 @@ public class ContactEditPageViewModelTests
         var dialogs = new Mock<IMailDialogService>();
         dialogs.Setup(service => service.PickFilesAsync(It.IsAny<object[]>()))
             .ReturnsAsync([new SharedFile("contact.png", imageBytes)]);
-        var pictureService = new Mock<IContactPictureFileService>();
-        pictureService.Setup(service => service.SaveContactPictureAsync(imageBytes)).ReturnsAsync(pictureId);
+        var pictureService = new Mock<IPictureStorageService>();
+        pictureService.Setup(service => service.SavePictureAsync(PictureKind.Contact, imageBytes)).ReturnsAsync(pictureId);
         var contactService = new Mock<IContactService>();
         contactService.Setup(service => service.SetContactFavoriteAsync(It.IsAny<Guid>(), It.IsAny<bool>())).Returns(Task.CompletedTask);
         contactService.Setup(service => service.SetListsForContactAsync(It.IsAny<Guid>(), It.IsAny<IEnumerable<Guid>>())).Returns(Task.CompletedTask);

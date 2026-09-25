@@ -25,22 +25,22 @@ public class WhatsNewService : IWhatsNewService
 
     private readonly ILogger _logger = Log.ForContext<WhatsNewService>();
     private readonly IConfigurationService _configurationService;
-    private readonly INativeAppService _nativeAppService;
+    private readonly IAppMetadataService _appMetadataService;
     private readonly string _releaseNotesDirectory;
 
     private IReadOnlyList<WhatsNewRelease>? _releases;
 
-    public WhatsNewService(IConfigurationService configurationService, INativeAppService nativeAppService)
-        : this(configurationService, nativeAppService, Path.Combine(AppContext.BaseDirectory, "Assets", "WhatsNew"))
+    public WhatsNewService(IConfigurationService configurationService, IAppMetadataService appMetadataService)
+        : this(configurationService, appMetadataService, Path.Combine(AppContext.BaseDirectory, "Assets", "WhatsNew"))
     {
     }
 
     internal WhatsNewService(IConfigurationService configurationService,
-                             INativeAppService nativeAppService,
+                             IAppMetadataService appMetadataService,
                              string releaseNotesDirectory)
     {
         _configurationService = configurationService;
-        _nativeAppService = nativeAppService;
+        _appMetadataService = appMetadataService;
         _releaseNotesDirectory = releaseNotesDirectory;
     }
 
@@ -71,7 +71,7 @@ public class WhatsNewService : IWhatsNewService
 
     public async Task<bool> ShouldShowShellEntryAsync()
     {
-        if (!WhatsNewRelease.TryNormalizeVersion(_nativeAppService.GetFullAppVersion(), out var currentVersion))
+        if (!WhatsNewRelease.TryNormalizeVersion(_appMetadataService.AppVersion, out var currentVersion))
             return false;
 
         var releases = await GetReleasesAsync().ConfigureAwait(false);
@@ -85,7 +85,7 @@ public class WhatsNewService : IWhatsNewService
 
     public void MarkOpenedForCurrentVersion()
     {
-        if (!WhatsNewRelease.TryNormalizeVersion(_nativeAppService.GetFullAppVersion(), out var currentVersion))
+        if (!WhatsNewRelease.TryNormalizeVersion(_appMetadataService.AppVersion, out var currentVersion))
             return;
 
         _configurationService.Set(LastOpenedVersionKey, currentVersion.ToString());

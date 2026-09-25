@@ -19,4 +19,15 @@ public interface IKnownImapProviderCatalog
     /// Finds app-password guidance for the address's domain, or null when the catalog has none.
     /// </summary>
     KnownAppPasswordHelp FindAppPasswordHelp(string emailAddress);
+
+    /// <summary>
+    /// Every provider the account setup offers: Outlook, Gmail, the catalog's setup-visible IMAP providers,
+    /// generic IMAP and POP3, in display order.
+    /// </summary>
+    List<IProviderDetail> GetAvailableProviders();
+
+    /// <summary>
+    /// Returns the provider detail for the given type, or throws when the type is not offered.
+    /// </summary>
+    IProviderDetail GetProviderDetail(MailProviderType type);
 }

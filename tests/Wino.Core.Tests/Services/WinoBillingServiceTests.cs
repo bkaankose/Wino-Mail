@@ -16,7 +16,7 @@ namespace Wino.Core.Tests.Services;
 public sealed class WinoBillingServiceTests : IAsyncLifetime
 {
     private readonly Mock<IWinoAccountApiClient> _apiClient = new();
-    private readonly Mock<IStoreManagementService> _storeManagementService = new();
+    private readonly Mock<IMicrosoftStoreService> _storeManagementService = new();
     private readonly Mock<INativeAppService> _nativeAppService = new();
     private InMemoryDatabaseService _databaseService = null!;
     private WinoBillingService _service = null!;

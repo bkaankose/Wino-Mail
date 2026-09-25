@@ -41,7 +41,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
 
     private readonly IApplicationConfiguration _configuration;
     private readonly IDatabaseSchemaService _schemaService;
-    private readonly IAccountProfilePictureFileService _profilePictureFileService;
+    private readonly IPictureStorageService _profilePictureFileService;
     private readonly IAuthenticationTokenMigrationService _authenticationTokenMigrationService;
     private readonly IMigrationClock _clock;
     private readonly SemaphoreSlim _migrationLock = new(1, 1);
@@ -52,7 +52,7 @@ public sealed class DatabaseMigrationCoordinator : IMigrationCoordinator
     public DatabaseMigrationCoordinator(
         IApplicationConfiguration configuration,
         IDatabaseSchemaService schemaService,
-        IAccountProfilePictureFileService profilePictureFileService,
+        IPictureStorageService profilePictureFileService,
         IAuthenticationTokenMigrationService authenticationTokenMigrationService = null,
         IMigrationClock clock = null)
     {
@@ -724,7 +724,7 @@ WHERE Id = ?;",
                 if (!account.ProfilePictureFileId.HasValue)
                 {
                     account.ProfilePictureFileId = await _profilePictureFileService
-                        .SaveProfilePictureAsync(
+                        .SavePictureAsync(PictureKind.AccountProfile,
                             Convert.FromBase64String(account.Base64ProfilePictureData),
                             account.Id,
                             cancellationToken)

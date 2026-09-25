@@ -41,7 +41,7 @@ public sealed class WinoAccountManagementPageViewModelTests
         var viewModel = new WinoAccountManagementPageViewModel(profile.Object,
             Mock.Of<IWinoAccountDataSyncService>(), Mock.Of<IMailDialogService>(),
             Mock.Of<IWinoBillingService>(), Mock.Of<IWinoAccountApiClient>(), Mock.Of<IAccountService>(),
-            Mock.Of<IMailIntelligenceCoordinator>(), Mock.Of<IPreferencesService>(), Mock.Of<IAiActionOptionsService>(),
+            Mock.Of<IMailIntelligenceCoordinator>(), Mock.Of<IPreferencesService>(),
             snapshots.Object, sessions: sessions);
         viewModel.OnNavigatedTo(NavigationMode.New, null!);
         try
@@ -118,7 +118,7 @@ public sealed class WinoAccountManagementPageViewModelTests
         profile.Setup(x => x.GetActiveAccountAsync()).ReturnsAsync(account);
         return new(profile.Object, Mock.Of<IWinoAccountDataSyncService>(), Mock.Of<IMailDialogService>(),
             Mock.Of<IWinoBillingService>(), Mock.Of<IWinoAccountApiClient>(), Mock.Of<IAccountService>(),
-            Mock.Of<IMailIntelligenceCoordinator>(), Mock.Of<IPreferencesService>(), Mock.Of<IAiActionOptionsService>(),
+            Mock.Of<IMailIntelligenceCoordinator>(), Mock.Of<IPreferencesService>(),
             snapshots, reconciliation);
     }
 
@@ -163,8 +163,7 @@ public sealed class WinoAccountManagementPageViewModelTests
             Mock.Of<IWinoAccountApiClient>(),
             Mock.Of<IAccountService>(),
             Mock.Of<IMailIntelligenceCoordinator>(),
-            Mock.Of<IPreferencesService>(),
-            Mock.Of<IAiActionOptionsService>());
+            Mock.Of<IPreferencesService>());
 
         viewModel.OnNavigatedTo(
             NavigationMode.New,
@@ -241,8 +240,7 @@ public sealed class WinoAccountManagementPageViewModelTests
             apiClient.Object,
             accountService.Object,
             coordinator.Object,
-            Mock.Of<IPreferencesService>(),
-            Mock.Of<IAiActionOptionsService>());
+            Mock.Of<IPreferencesService>());
 
         viewModel.OnNavigatedTo(NavigationMode.New, null!);
 
@@ -494,8 +492,7 @@ public sealed class WinoAccountManagementPageViewModelTests
             apiClient.Object,
             accountService.Object,
             Mock.Of<IMailIntelligenceCoordinator>(),
-            Mock.Of<IPreferencesService>(),
-            Mock.Of<IAiActionOptionsService>());
+            Mock.Of<IPreferencesService>());
     }
 
     private static WinoAccountManagementPageViewModel CreateConsentViewModel(
@@ -528,8 +525,7 @@ public sealed class WinoAccountManagementPageViewModelTests
             apiClient.Object,
             accountService,
             coordinator,
-            Mock.Of<IPreferencesService>(),
-            Mock.Of<IAiActionOptionsService>());
+            Mock.Of<IPreferencesService>());
     }
 
     private static async Task WaitUntilAsync(Func<bool> condition)

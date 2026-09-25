@@ -582,6 +582,6 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             Mock.Of<IAuthenticationProvider>(),
             Mock.Of<IMimeFileService>(),
             preferencesService,
-            Mock.Of<IContactPictureFileService>());
+            Mock.Of<IPictureStorageService>());
     }
 }

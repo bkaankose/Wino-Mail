@@ -366,7 +366,7 @@ public class MailCopyPersistenceTests : IAsyncLifetime
             authProvider.Object,
             mimeFileService.Object,
             preferencesService.Object,
-            Mock.Of<IContactPictureFileService>());
+            Mock.Of<IPictureStorageService>());
 
         var mailCategoryService = new MailCategoryService(db);
         var folderService = new FolderService(db, accountService, mailCategoryService);

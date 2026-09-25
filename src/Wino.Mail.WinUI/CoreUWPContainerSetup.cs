@@ -1,3 +1,4 @@
+using System;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
@@ -22,29 +23,27 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<NativeAppService>();
         services.AddSingleton<INativeAppService>(provider => provider.GetRequiredService<NativeAppService>());
         services.AddSingleton<IAppMetadataService>(provider => provider.GetRequiredService<NativeAppService>());
-        services.AddSingleton<IStoreManagementService, StoreManagementService>();
+        services.AddSingleton<IUserPresenceStateProvider>(provider => provider.GetRequiredService<NativeAppService>());
         services.AddSingleton<IPreferencesService, PreferencesService>();
-        services.AddSingleton<IUserPresenceStateProvider, ShellUserPresenceStateProvider>();
         services.AddSingleton<INewThemeService, NewThemeService>();
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
         services.AddSingleton<ISmimeCertificateService, SmimeCertificateService>();
 
         services.AddSingleton<IThumbnailService, ThumbnailService>();
-        services.AddSingleton<IDialogServiceBase, DialogServiceBase>();
+        // One dialog stack, one presentation semaphore: the base interface forwards to the mail dialog service.
+        services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
         services.AddTransient<IConfigurationService, ConfigurationService>();
         services.AddTransient<IFileService, FileService>();
-        services.AddTransient<IStoreRatingService, StoreRatingService>();
-        services.AddSingleton<IStoreUpdateService, StoreUpdateService>();
-        services.AddTransient<IKeyPressService, KeyPressService>();
-        services.AddTransient<IWebView2RuntimeValidatorService, WebView2RuntimeValidatorService>();
+        services.AddSingleton<IMicrosoftStoreService, MicrosoftStoreService>();
+        // Lazy edges break the two constructor cycles in the shell: the Store service reaches the
+        // dialog service (dialog -> profile -> intelligence -> billing -> store), and the window
+        // manager reaches the theme service (theme -> window manager).
+        services.AddSingleton(provider => new Lazy<IMailDialogService>(provider.GetRequiredService<IMailDialogService>));
+        services.AddSingleton(provider => new Lazy<INewThemeService>(provider.GetRequiredService<INewThemeService>));
         services.AddSingleton<INotificationHostClient, NotificationHostClient>();
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
         services.AddSingleton<ICalendarReminderServer, CalendarReminderServer>();
-        services.AddSingleton<PackagedAppEntryLauncher>();
-        services.AddTransient<IClipboardService, ClipboardService>();
-        services.AddTransient<IStartupBehaviorService, StartupBehaviorService>();
         services.AddSingleton<IPrintService, PrintService>();
-        services.AddSingleton<IWhatsNewWindowLauncher, WhatsNewWindowLauncher>();
 
     }
 

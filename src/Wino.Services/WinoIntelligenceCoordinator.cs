@@ -39,7 +39,6 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
     private readonly IWinoLogger _logger;
     private readonly IMailContentProjector _contentProjector;
     private readonly IWinoAccountIntelligenceSnapshotService? _accountSnapshotService;
-    private readonly IWinoIntelligenceEntitlementService? _entitlementService;
     private readonly ConcurrentDictionary<Guid, PendingRequest> _requests = new();
 
     public WinoIntelligenceCoordinator(
@@ -56,8 +55,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         IPreferencesService preferencesService,
         IWinoLogger logger,
         IMailContentProjector contentProjector,
-        IWinoAccountIntelligenceSnapshotService? accountSnapshotService = null,
-        IWinoIntelligenceEntitlementService? entitlementService = null)
+        IWinoAccountIntelligenceSnapshotService? accountSnapshotService = null)
     {
         _profileService = profileService;
         _apiClient = apiClient;
@@ -73,7 +71,6 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         _logger = logger;
         _contentProjector = contentProjector;
         _accountSnapshotService = accountSnapshotService;
-        _entitlementService = entitlementService;
 
         WeakReferenceMessenger.Default.Register<WinoIntelligenceAccessChanged>(this, static (recipient, _) =>
             ((WinoIntelligenceCoordinator)recipient).InvalidateAccess());
@@ -278,9 +275,9 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         if (winoAccount is null)
             return AccessSnapshot.None;
 
-        var entitlement = _entitlementService is null
+        var entitlement = _accountSnapshotService is null
             ? null
-            : await _entitlementService.GetAsync(cancellationToken).ConfigureAwait(false);
+            : await _accountSnapshotService.GetEntitlementAsync(cancellationToken).ConfigureAwait(false);
         if (entitlement is not null && !entitlement.CanAccessSurfaces)
             return AccessSnapshot.None;
 

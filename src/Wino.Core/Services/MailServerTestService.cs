@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MailKit.Net.Pop3;
+using MailKit.Net.Smtp;
 using Wino.Core.Diagnostics;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Exceptions;
@@ -13,16 +14,62 @@ using Wino.Core.Integration;
 
 namespace Wino.Core.Services;
 
-public sealed class Pop3TestService : IPop3TestService
+public sealed class MailServerTestService : IMailServerTestService
 {
     private readonly IServerCertificateTrustService _certificateTrustService;
 
-    public Pop3TestService(IServerCertificateTrustService certificateTrustService = null)
+    public MailServerTestService(IServerCertificateTrustService certificateTrustService = null)
     {
         _certificateTrustService = certificateTrustService;
     }
 
-    public async Task<Pop3ConnectivityTestResult> TestConnectionAsync(
+    public async Task TestImapAsync(CustomServerInformation serverInformation)
+    {
+        using var protocolLogStream = new MemoryStream();
+        var protocol = "IMAP";
+
+        try
+        {
+            var poolOptions = ImapClientPoolOptions.CreateTestPool(
+                serverInformation,
+                () => new WinoProtocolLogger(protocolLogStream, MailProtocol.Imap),
+                _certificateTrustService);
+
+            using (var clientPool = new ImapClientPool(poolOptions))
+            {
+                // This call will make sure that everything is authenticated + connected successfully.
+                var client = await clientPool.GetClientAsync();
+
+                clientPool.Release(client);
+            }
+
+            // Test SMTP connectivity.
+            protocol = "SMTP";
+            using var smtpProtocolLogger = new WinoProtocolLogger(protocolLogStream, MailProtocol.Smtp);
+            using var smtpClient = new SmtpClient(smtpProtocolLogger);
+            if (!smtpClient.IsConnected)
+                await MailKitSmtpConnectionPolicy.ConnectAndAuthenticateAsync(
+                    smtpClient,
+                    serverInformation,
+                    _certificateTrustService).ConfigureAwait(false);
+
+            await smtpClient.DisconnectAsync(true).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            var actualError = ex.GetBaseException().Message;
+            var message = string.IsNullOrWhiteSpace(actualError)
+                ? $"{protocol} server validation failed."
+                : $"{protocol} server validation failed: {actualError}";
+
+            throw new ImapValidationException(
+                message,
+                Encoding.UTF8.GetString(protocolLogStream.ToArray()),
+                ex);
+        }
+    }
+
+    public async Task<Pop3ConnectivityTestResult> TestPop3Async(
         CustomServerInformation serverInformation,
         CancellationToken cancellationToken = default)
     {

@@ -4,6 +4,7 @@ using Moq;
 using SkiaSharp;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
 using Xunit;
@@ -27,20 +28,22 @@ public sealed class AccountProfilePictureMigrationServiceTests : IAsyncLifetime
         await _databaseService.Connection.InsertAsync(account);
         var configuration = new Mock<IApplicationConfiguration>();
         configuration.SetupGet(item => item.ApplicationDataFolderPath).Returns(_tempFolder);
-        var fileService = new AccountProfilePictureFileService(configuration.Object);
-        var migration = new AccountProfilePictureMigrationService(
+        var fileService = new PictureStorageService(configuration.Object);
+        var migration = new AccountProfilePictureMaintenance(
             _databaseService,
             fileService,
-            Mock.Of<IMessenger>());
+            Mock.Of<IMessenger>(),
+            Mock.Of<IAccountService>(),
+            Mock.Of<ISynchronizationManager>());
 
-        await migration.RunAsync();
-        await migration.RunAsync();
+        await migration.MigrateLegacyAsync();
+        await migration.MigrateLegacyAsync();
 
         var migrated = await _databaseService.Connection.FindAsync<MailAccount>(account.Id);
         migrated.Base64ProfilePictureData.Should().BeEmpty();
         migrated.ProfilePictureFileId.Should().NotBeNull();
         migrated.IsProfilePictureBackfillComplete.Should().BeTrue();
-        fileService.GetProfilePicturePath(migrated.ProfilePictureFileId!.Value).Should().NotBeNull();
+        fileService.GetPicturePath(PictureKind.AccountProfile, migrated.ProfilePictureFileId!.Value).Should().NotBeNull();
         Directory.GetFiles(Path.Combine(_tempFolder, "account-profile-pictures")).Should().ContainSingle();
         (await _databaseService.Connection.Table<AccountContact>().CountAsync()).Should().Be(0);
     }

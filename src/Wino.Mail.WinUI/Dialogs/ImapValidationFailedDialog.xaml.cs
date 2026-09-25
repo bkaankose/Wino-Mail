@@ -8,7 +8,7 @@ namespace Wino.Mail.Dialogs;
 
 public sealed partial class ImapValidationFailedDialog : ContentDialog
 {
-    private readonly IClipboardService _clipboardService = App.Current.Services.GetRequiredService<IClipboardService>();
+    private readonly INativeAppService _nativeAppService = App.Current.Services.GetRequiredService<INativeAppService>();
 
     public string ErrorMessage { get; set; } = string.Empty;
     public string ProtocolLog { get; set; } = string.Empty;
@@ -21,7 +21,7 @@ public sealed partial class ImapValidationFailedDialog : ContentDialog
 
     private async void CopyDiagnosticsClicked(ContentDialog sender, ContentDialogButtonClickEventArgs args)
     {
-        await _clipboardService.CopyClipboardAsync(
+        await _nativeAppService.CopyClipboardAsync(
             $"{ErrorMessage}{Environment.NewLine}{Environment.NewLine}{ProtocolLog}");
         Copied = true;
     }

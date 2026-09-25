@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Enums;
 using Wino.Services;
 using Xunit;
 
@@ -26,7 +27,7 @@ public class ContactPictureFileServiceTests : IDisposable
 
         var imageData = new byte[] { 1, 2, 3 };
 
-        var fileId = await service.SaveContactPictureAsync(imageData);
+        var fileId = await service.SavePictureAsync(PictureKind.Contact, imageData);
 
         var savedPath = Path.Combine(contactsFolder, $"{fileId}.jpg");
         File.Exists(savedPath).Should().BeTrue();
@@ -38,9 +39,9 @@ public class ContactPictureFileServiceTests : IDisposable
     public async Task GetContactPictureUri_ReturnsPackageLocalUri_ForExistingPicture()
     {
         var service = CreateService();
-        var fileId = await service.SaveContactPictureAsync([1, 2, 3]);
+        var fileId = await service.SavePictureAsync(PictureKind.Contact, [1, 2, 3]);
 
-        service.GetContactPictureUri(fileId)
+        service.GetPictureUri(PictureKind.Contact, fileId)
             .Should().Be(new Uri($"ms-appdata:///local/contacts/{fileId:D}.jpg"));
     }
 
@@ -49,16 +50,14 @@ public class ContactPictureFileServiceTests : IDisposable
     {
         var service = CreateService();
 
-        service.GetContactPictureUri(Guid.NewGuid()).Should().BeNull();
+        service.GetPictureUri(PictureKind.Contact, Guid.NewGuid()).Should().BeNull();
     }
 
-    private ContactPictureFileService CreateService()
+    private PictureStorageService CreateService()
     {
         var applicationConfiguration = new Mock<IApplicationConfiguration>();
         applicationConfiguration.SetupGet(a => a.ApplicationDataFolderPath).Returns(_tempFolder);
 
-        return new ContactPictureFileService(
-            Mock.Of<IDatabaseService>(),
-            applicationConfiguration.Object);
+        return new PictureStorageService(applicationConfiguration.Object);
     }
 }

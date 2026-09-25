@@ -20,7 +20,7 @@ using Wino.Views.Mail;
 
 namespace Wino.Services;
 
-public class NavigationService : NavigationServiceBase, INavigationService
+public class NavigationService : INavigationService
 {
     private readonly IStatePersistanceService _statePersistanceService;
     private readonly IDispatcher _dispatcher;
@@ -626,4 +626,14 @@ public class NavigationService : NavigationServiceBase, INavigationService
     }
 
     #endregion
+
+    private static NavigationTransitionInfo GetNavigationTransitionInfo(NavigationTransitionType transition)
+    {
+        return transition switch
+        {
+            NavigationTransitionType.DrillIn => new DrillInNavigationTransitionInfo(),
+            NavigationTransitionType.Entrance => new EntranceNavigationTransitionInfo(),
+            _ => new SuppressNavigationTransitionInfo(),
+        };
+    }
 }

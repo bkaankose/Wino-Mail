@@ -612,7 +612,7 @@ public class MailThreadingTests : IAsyncLifetime
         preferencesService.SetupProperty(x => x.ComposerFont, "Calibri");
         preferencesService.SetupProperty(x => x.ComposerFontSize, 12);
 
-        var contactPictureFileService = new Mock<IContactPictureFileService>();
+        var contactPictureFileService = new Mock<IPictureStorageService>();
 
         var accountService = new AccountService(
             db,

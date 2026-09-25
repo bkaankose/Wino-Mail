@@ -35,8 +35,7 @@ public static class XamlHelpers
 {
     private static CultureInfo AppDisplayCulture => CultureInfo.DefaultThreadCurrentUICulture ?? CultureInfo.CurrentUICulture;
     private static IPreferencesService? PreferencesService => WinoApplication.Current.Services.GetService<IPreferencesService>();
-    private static IContactPictureFileService? ContactPictureFileService => WinoApplication.Current.Services.GetService<IContactPictureFileService>();
-    private static IAccountProfilePictureFileService AccountProfilePictureFileService => WinoApplication.Current.Services.GetRequiredService<IAccountProfilePictureFileService>();
+    private static IPictureStorageService PictureStorageService => WinoApplication.Current.Services.GetRequiredService<IPictureStorageService>();
 
     #region Mail Filter Editor
 
@@ -243,7 +242,7 @@ public static class XamlHelpers
     public static IAccountIconInfo? GetAccountIconInfo(MailAccount? account)
         => account is null
             ? null
-            : MailAccountIconInfoFactory.Create(account, AccountProfilePictureFileService);
+            : MailAccountIconInfoFactory.Create(account, PictureStorageService);
 
     public static IAccountIconInfo GetAccountIconInfo(
         MailAccount? account,
@@ -251,7 +250,7 @@ public static class XamlHelpers
         SpecialImapProvider specialImapProvider)
         => account is null
             ? MailAccountIconInfoFactory.CreateProviderFallback(providerType, specialImapProvider)
-            : MailAccountIconInfoFactory.Create(account, AccountProfilePictureFileService);
+            : MailAccountIconInfoFactory.Create(account, PictureStorageService);
 
     public static IconElement GetAccountOrGlyphIcon(MailAccount? account, string glyph)
         => account is null
@@ -274,7 +273,7 @@ public static class XamlHelpers
             ? contact.Address
             : address ?? string.Empty;
         var localImagePath = contact?.ContactPictureFileId is Guid fileId
-            ? ContactPictureFileService?.GetContactPicturePath(fileId)
+            ? PictureStorageService.GetPicturePath(PictureKind.Contact, fileId)
             : null;
 
         return new ContactPictureIdentity(resolvedName, resolvedAddress, localImagePath);

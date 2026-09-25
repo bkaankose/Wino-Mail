@@ -11,12 +11,12 @@ public sealed class WhatsNewServiceTests : IDisposable
 {
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "WinoWhatsNewTests", Guid.NewGuid().ToString("N"));
     private readonly InMemoryConfigurationService _configuration = new();
-    private readonly Mock<INativeAppService> _nativeAppService = new();
+    private readonly Mock<IAppMetadataService> _appMetadataService = new();
 
     public WhatsNewServiceTests()
     {
         Directory.CreateDirectory(_directory);
-        _nativeAppService.Setup(x => x.GetFullAppVersion()).Returns("2.1.3.0");
+        _appMetadataService.Setup(x => x.AppVersion).Returns("2.1.3.0");
     }
 
     public void Dispose()
@@ -70,7 +70,7 @@ public sealed class WhatsNewServiceTests : IDisposable
         _configuration.Values[WhatsNewService.LastOpenedVersionKey].Should().Be("2.1.3");
         (await service.ShouldShowShellEntryAsync()).Should().BeFalse();
 
-        _nativeAppService.Setup(x => x.GetFullAppVersion()).Returns("2.1.4.0");
+        _appMetadataService.Setup(x => x.AppVersion).Returns("2.1.4.0");
         (await service.ShouldShowShellEntryAsync()).Should().BeTrue();
     }
 
@@ -84,7 +84,7 @@ public sealed class WhatsNewServiceTests : IDisposable
         version.ToString().Should().Be(expected);
     }
 
-    private WhatsNewService CreateService() => new(_configuration, _nativeAppService.Object, _directory);
+    private WhatsNewService CreateService() => new(_configuration, _appMetadataService.Object, _directory);
 
     private void WriteRelease(string version, bool starred = false)
     {

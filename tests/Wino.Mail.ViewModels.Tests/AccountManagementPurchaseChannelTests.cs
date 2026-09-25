@@ -1,5 +1,6 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Moq;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -14,7 +15,7 @@ public sealed class AccountManagementPurchaseChannelTests
     public async Task Upgrade_Cancelled_DoesNotStartPurchase()
     {
         var dialogs = new Mock<IMailDialogService>();
-        var store = new Mock<IStoreManagementService>();
+        var store = new Mock<IMicrosoftStoreService>();
         var billing = new Mock<IWinoBillingService>();
         dialogs.Setup(service => service.ShowUnlimitedAccountsPurchaseChannelDialogAsync())
             .ReturnsAsync((UnlimitedAccountsPurchaseChannel?)null);
@@ -30,7 +31,7 @@ public sealed class AccountManagementPurchaseChannelTests
     public async Task Upgrade_MicrosoftStoreSelected_UsesStorePurchase()
     {
         var dialogs = new Mock<IMailDialogService>();
-        var store = new Mock<IStoreManagementService>();
+        var store = new Mock<IMicrosoftStoreService>();
         var billing = new Mock<IWinoBillingService>();
         var profile = new Mock<IWinoAccountProfileService>();
         dialogs.Setup(service => service.ShowUnlimitedAccountsPurchaseChannelDialogAsync())
@@ -52,7 +53,7 @@ public sealed class AccountManagementPurchaseChannelTests
     public async Task Upgrade_WinoAccountSelected_UsesStripeCheckout()
     {
         var dialogs = new Mock<IMailDialogService>();
-        var store = new Mock<IStoreManagementService>();
+        var store = new Mock<IMicrosoftStoreService>();
         var billing = new Mock<IWinoBillingService>();
         var profile = new Mock<IWinoAccountProfileService>();
         dialogs.Setup(service => service.ShowUnlimitedAccountsPurchaseChannelDialogAsync())
@@ -73,7 +74,7 @@ public sealed class AccountManagementPurchaseChannelTests
     public async Task Upgrade_WinoAccountSelectedWhileSignedOut_ShowsSignInMessage()
     {
         var dialogs = new Mock<IMailDialogService>();
-        var store = new Mock<IStoreManagementService>();
+        var store = new Mock<IMicrosoftStoreService>();
         var billing = new Mock<IWinoBillingService>();
         var profile = new Mock<IWinoAccountProfileService>();
         dialogs.Setup(service => service.ShowUnlimitedAccountsPurchaseChannelDialogAsync())
@@ -92,16 +93,34 @@ public sealed class AccountManagementPurchaseChannelTests
         store.Verify(service => service.PurchaseAsync(It.IsAny<WinoAddOnProductType>()), Times.Never);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PurchasePanel_DescribesChannelsForWinoAccountState(bool isSignedIn)
+    {
+        var billing = new Mock<IWinoBillingService>();
+        var profile = new Mock<IWinoAccountProfileService>();
+        profile.Setup(service => service.HasActiveAccountAsync()).ReturnsAsync(isSignedIn);
+        var viewModel = CreateViewModel(new Mock<IMailDialogService>(), new Mock<IMicrosoftStoreService>(), billing, profile);
+
+        await viewModel.ManageStorePurchasesAsync();
+
+        viewModel.IsWinoAccountSignedIn.Should().Be(isSignedIn);
+        viewModel.PurchaseChannelsDescription.Should().Be(isSignedIn
+            ? Translator.UnlimitedAccountsPurchaseChannels_SignedIn
+            : Translator.UnlimitedAccountsPurchaseChannels_SignedOut);
+    }
+
     private static AccountManagementViewModel CreateViewModel(
         Mock<IMailDialogService> dialogs,
-        Mock<IStoreManagementService> store,
+        Mock<IMicrosoftStoreService> store,
         Mock<IWinoBillingService> billing,
         Mock<IWinoAccountProfileService>? profile = null)
         => new(
             dialogs.Object,
             Mock.Of<INavigationService>(),
             Mock.Of<IAccountService>(),
-            Mock.Of<IProviderService>(),
+            Mock.Of<IKnownImapProviderCatalog>(),
             billing.Object,
             profile?.Object ?? Mock.Of<IWinoAccountProfileService>(),
             Mock.Of<IWinoAccountDataSyncService>(),

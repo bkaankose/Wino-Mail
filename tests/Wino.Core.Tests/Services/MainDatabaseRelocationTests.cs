@@ -104,7 +104,7 @@ public sealed class MainDatabaseRelocationTests : IDisposable
         var configuration = Configuration();
         var source = Path.Combine(configuration.PublisherSharedFolderPath, DatabaseService.LegacyDatabaseName);
         await File.WriteAllTextAsync(source, "corrupt");
-        var coordinator = new DatabaseMigrationCoordinator(configuration, new DatabaseSchemaService(configuration), Mock.Of<IAccountProfilePictureFileService>());
+        var coordinator = new DatabaseMigrationCoordinator(configuration, new DatabaseSchemaService(configuration), Mock.Of<IPictureStorageService>());
         (await coordinator.InspectAsync()).Status.Should().Be(MigrationStatus.Failed);
         (await coordinator.RunAsync([])).Status.Should().Be(MigrationStatus.Failed);
         File.Exists(MainDatabasePaths.GetPath(configuration, DatabaseService.CurrentDatabaseName)).Should().BeFalse();

@@ -154,7 +154,7 @@ public class AliasIdentityTests
     private static ComposePageViewModel Composer(IAccountService accounts, IDraftSaveService save)
         => new(Mock.Of<IMailDialogService>(), Mock.Of<IMailService>(), Mock.Of<IMimeFileService>(), Mock.Of<IFileService>(),
             Mock.Of<INativeAppService>(), Mock.Of<IFolderService>(), accounts, Mock.Of<IEmailTemplateService>(),
-            Mock.Of<IWinoRequestDelegator>(), Mock.Of<IContactService>(), Mock.Of<IFontService>(), Mock.Of<IPreferencesService>(),
-            Certificates(), Mock.Of<IShareActivationService>(), Mock.Of<IDraftSyncRetryService>(), Mock.Of<IDraftUpdateCoordinator>(),
+            Mock.Of<IWinoRequestDelegator>(), Mock.Of<IContactService>(), Mock.Of<IPreferencesService>(),
+            Certificates(), Mock.Of<IActivationStateService>(), Mock.Of<IDraftSyncRetryService>(), Mock.Of<IDraftUpdateCoordinator>(),
             new DraftUpdateRegistry(), save, Mock.Of<IRecipientSuggestionService>(), Mock.Of<IRecipientHistoryService>());
 }

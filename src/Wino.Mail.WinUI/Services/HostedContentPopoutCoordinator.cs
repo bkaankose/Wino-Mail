@@ -1,7 +1,6 @@
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
-using Wino.Core.Domain.Interfaces;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 
@@ -33,27 +32,22 @@ public static class HostedContentPopoutCoordinator
         client.OnPopoutStateChanged(true);
         var detachedContent = source.DetachHostedContent();
 
-        HostedContentPopoutWindow? popoutWindow = null;
-
-        popoutWindow = (HostedContentPopoutWindow)windowManager.CreateWindow(
+        // The content is attached inside the factory so the window is complete before the
+        // window manager applies the theme and shows it.
+        await windowManager.ShowThemedWindowAsync(
             WinoWindowKind.HostedPopout,
-            () => new HostedContentPopoutWindow(descriptor, () =>
+            () =>
             {
-                source.OnHostedPopoutClosed(detachedContent, descriptor);
-            }),
+                var popoutWindow = new HostedContentPopoutWindow(descriptor, () =>
+                {
+                    source.OnHostedPopoutClosed(detachedContent, descriptor);
+                });
+
+                popoutWindow.SetHostedContent(detachedContent);
+                source.OnHostedContentPoppedOut(detachedContent, popoutWindow, descriptor);
+                return popoutWindow;
+            },
             descriptor.WindowName);
-
-        popoutWindow.SetHostedContent(detachedContent);
-        source.OnHostedContentPoppedOut(detachedContent, popoutWindow, descriptor);
-
-        var themeService = WinoApplication.Current.Services.GetService<INewThemeService>();
-        if (themeService != null)
-        {
-            await themeService.ApplyThemeToActiveWindowAsync();
-        }
-
-        // Do not expose the pop-out until its theme resources and backdrop are ready.
-        windowManager.ActivateWindow(popoutWindow);
 
         return true;
     }

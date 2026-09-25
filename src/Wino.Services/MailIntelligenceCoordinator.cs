@@ -45,7 +45,7 @@ public sealed class MailIntelligenceCoordinator(
     ITranslationService translationService,
     IIntelligenceMessageContextResolver messageResolver,
     IMessenger messenger,
-    IWinoIntelligenceEntitlementService? entitlementService = null)
+    IWinoAccountIntelligenceSnapshotService? entitlementService = null)
     : IMailIntelligenceCoordinator, IAsyncDisposable
 {
     /// <summary>
@@ -111,7 +111,7 @@ public sealed class MailIntelligenceCoordinator(
     /// Jobs are followed only while the add-on is usable. Quota exhaustion still downloads what
     /// was already paid for; an unknown or ended entitlement follows nothing and deletes nothing.
     /// </summary>
-    private bool CanFollowJobs => entitlementService is null || entitlementService.Current.CanAccessSurfaces;
+    private bool CanFollowJobs => entitlementService is null || entitlementService.CurrentEntitlement.CanAccessSurfaces;
 
     public Task InitializeAsync()
     {
@@ -367,7 +367,7 @@ public sealed class MailIntelligenceCoordinator(
             {
                 // The server disagrees with the local snapshot. Ask again and let the fresh
                 // answer drive the key lifecycle; one refusal never removes anything by itself.
-                _ = entitlementService?.RefreshAsync();
+                _ = entitlementService?.RefreshEntitlementAsync();
             }
 
             SetSnapshot(localMailAccountId, snapshot => snapshot with
@@ -824,7 +824,7 @@ public sealed class MailIntelligenceCoordinator(
         await CancelJobAsync(job.JobId, cancellationToken).ConfigureAwait(false);
         await resultKeys.DeleteAsync(keyId, cancellationToken).ConfigureAwait(false);
 
-        if (entitlementService?.Current is { State: WinoIntelligenceEntitlementState.Active, WinoAccountId: { } winoUserId })
+        if (entitlementService?.CurrentEntitlement is { State: WinoIntelligenceEntitlementState.Active, WinoAccountId: { } winoUserId })
         {
             await resultKeys.GetOrCreateAsync(winoUserId, cancellationToken).ConfigureAwait(false);
         }
@@ -1271,7 +1271,7 @@ public sealed class MailIntelligenceCoordinator(
                 return key;
             }
 
-            if (entitlementService is null || entitlementService.Current.CanConsumeQuota)
+            if (entitlementService is null || entitlementService.CurrentEntitlement.CanConsumeQuota)
             {
                 return await resultKeys.GetOrCreateAsync(winoUserId, cancellationToken).ConfigureAwait(false);
             }
@@ -1295,10 +1295,10 @@ public sealed class MailIntelligenceCoordinator(
             throw new InvalidOperationException("Mail intelligence is not accepting work.");
         }
 
-        if (entitlementService is not null && !entitlementService.Current.CanConsumeQuota)
+        if (entitlementService is not null && !entitlementService.CurrentEntitlement.CanConsumeQuota)
         {
             throw new InvalidOperationException(
-                $"Mail intelligence is unavailable: {entitlementService.Current.State}.");
+                $"Mail intelligence is unavailable: {entitlementService.CurrentEntitlement.State}.");
         }
     }
 

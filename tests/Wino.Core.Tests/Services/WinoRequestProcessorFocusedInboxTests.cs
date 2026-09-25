@@ -56,7 +56,7 @@ public sealed class WinoRequestProcessorFocusedInboxTests
     private static WinoRequestProcessor CreateProcessor()
         => new(
             Mock.Of<IFolderService>(),
-            Mock.Of<IKeyPressService>(),
+            Mock.Of<INativeAppService>(),
             Mock.Of<IPreferencesService>(),
             Mock.Of<IMailDialogService>(),
             Mock.Of<IMailService>());

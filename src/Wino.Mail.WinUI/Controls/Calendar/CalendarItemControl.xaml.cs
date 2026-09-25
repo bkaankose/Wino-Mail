@@ -16,7 +16,7 @@ public sealed partial class CalendarItemControl : UserControl
     [CommunityToolkit.WinUI.GeneratedDependencyProperty]
     public partial bool ProtectTitle { get; set; }
 
-    private readonly ICalendarContextMenuItemService _contextMenuItemService;
+    private readonly IContextMenuItemService _contextMenuItemService;
 #if DEBUG
     private readonly INotificationBuilder _notificationBuilder;
 #endif
@@ -51,7 +51,7 @@ public sealed partial class CalendarItemControl : UserControl
 
     public CalendarItemControl()
     {
-        _contextMenuItemService = WinoApplication.Current.Services.GetRequiredService<ICalendarContextMenuItemService>();
+        _contextMenuItemService = WinoApplication.Current.Services.GetRequiredService<IContextMenuItemService>();
 #if DEBUG
         _notificationBuilder = WinoApplication.Current.Services.GetRequiredService<INotificationBuilder>();
 #endif
@@ -175,7 +175,7 @@ public sealed partial class CalendarItemControl : UserControl
             return;
         }
 
-        flyout.SetMenuItems(_contextMenuItemService.GetContextMenuItems(CalendarItem.CalendarItem));
+        flyout.SetMenuItems(_contextMenuItemService.GetCalendarItemContextMenuItems(CalendarItem.CalendarItem));
 #if DEBUG
         flyout.AddTestNotificationCommand(
             () => _notificationBuilder.CreateTestCalendarReminderNotificationAsync(CalendarItem.CalendarItem));

@@ -41,11 +41,22 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     [ObservableProperty]
     public partial IAccountProviderDetailViewModel StartupAccount { get; set; }
 
+    /// <summary>
+    /// Stripe checkout needs a signed-in Wino Account. The Microsoft Store channel works either way.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PurchaseChannelsDescription))]
+    public partial bool IsWinoAccountSignedIn { get; set; }
+
+    public string PurchaseChannelsDescription => IsWinoAccountSignedIn
+        ? Translator.UnlimitedAccountsPurchaseChannels_SignedIn
+        : Translator.UnlimitedAccountsPurchaseChannels_SignedOut;
+
     public int FREE_ACCOUNT_COUNT { get; } = Constants.FreeAccountLimit;
     protected IDialogServiceBase DialogService { get; }
     protected INavigationService NavigationService { get; }
     protected IAccountService AccountService { get; }
-    protected IProviderService ProviderService { get; }
+    protected IKnownImapProviderCatalog ProviderCatalog { get; }
     protected IWinoBillingService BillingService { get; }
     protected IWinoAccountProfileService WinoAccountProfileService { get; }
     protected IAuthenticationProvider AuthenticationProvider { get; }
@@ -54,7 +65,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     public AccountManagementPageViewModelBase(IDialogServiceBase dialogService,
                                               INavigationService navigationService,
                                               IAccountService accountService,
-                                              IProviderService providerService,
+                                              IKnownImapProviderCatalog providerCatalog,
                                               IWinoBillingService billingService,
                                               IWinoAccountProfileService winoAccountProfileService,
                                               IAuthenticationProvider authenticationProvider,
@@ -63,7 +74,7 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
         DialogService = dialogService;
         NavigationService = navigationService;
         AccountService = accountService;
-        ProviderService = providerService;
+        ProviderCatalog = providerCatalog;
         BillingService = billingService;
         WinoAccountProfileService = winoAccountProfileService;
         AuthenticationProvider = authenticationProvider;
@@ -122,17 +133,19 @@ public abstract partial class AccountManagementPageViewModelBase : CoreBaseViewM
     public async Task ManageStorePurchasesAsync()
     {
         var hasUnlimitedAccountProduct = await BillingService.HasUnlimitedAccountsAsync().ConfigureAwait(false);
+        var isWinoAccountSignedIn = await WinoAccountProfileService.HasActiveAccountAsync().ConfigureAwait(false);
 
         await ExecuteUIThread(() =>
         {
             HasUnlimitedAccountProduct = hasUnlimitedAccountProduct;
+            IsWinoAccountSignedIn = isWinoAccountSignedIn;
             IsAccountCreationBlocked = !hasUnlimitedAccountProduct && UsedAccountCount >= FREE_ACCOUNT_COUNT;
         });
     }
 
     public AccountProviderDetailViewModel GetAccountProviderDetails(MailAccount account)
     {
-        var provider = ProviderService.GetProviderDetail(account.ProviderType);
+        var provider = ProviderCatalog.GetProviderDetail(account.ProviderType);
 
         return new AccountProviderDetailViewModel(provider, account);
     }

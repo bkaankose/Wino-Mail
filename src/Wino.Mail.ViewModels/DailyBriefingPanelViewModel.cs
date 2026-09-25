@@ -42,7 +42,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
     private readonly IMailService _mailService;
     private readonly IMimeFileService _mimeFileService;
     private readonly IWinoRequestDelegator _requestDelegator;
-    private readonly IClipboardService _clipboardService;
+    private readonly INativeAppService _nativeAppService;
 
     /// <summary>How many days the date strip offers, today included.</summary>
     public const int DayCount = 7;
@@ -101,7 +101,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
         IMailService mailService,
         IMimeFileService mimeFileService,
         IWinoRequestDelegator requestDelegator,
-        IClipboardService clipboardService)
+        INativeAppService nativeAppService)
     {
         _localService = localService;
         _dateContext = dateContext;
@@ -111,7 +111,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
         _mailService = mailService;
         _mimeFileService = mimeFileService;
         _requestDelegator = requestDelegator;
-        _clipboardService = clipboardService;
+        _nativeAppService = nativeAppService;
         IsShowingIgnored = preferencesService.IsDailyBriefingShowingIgnored;
         WeakReferenceMessenger.Default.Register<IntelligenceVisibilityChanged>(this);
         WeakReferenceMessenger.Default.Register<IntelligenceMetadataChanged>(this);
@@ -432,7 +432,7 @@ public sealed partial class DailyBriefingPanelViewModel : ObservableObject,
                 return;
             }
 
-            await _clipboardService.CopyClipboardAsync(code).ConfigureAwait(false);
+            await _nativeAppService.CopyClipboardAsync(code).ConfigureAwait(false);
             await _dispatcher.ExecuteOnUIThread(() => _dialogService.InfoBarMessage(
                 Translator.DailyBriefing_Title,
                 Translator.DailyBriefing_CodeCopied,

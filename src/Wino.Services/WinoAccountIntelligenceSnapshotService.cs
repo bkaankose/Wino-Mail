@@ -16,14 +16,120 @@ using Wino.Messaging.UI;
 
 namespace Wino.Services;
 
-public sealed class WinoAccountIntelligenceSnapshotService(
-    IWinoBillingService billingService,
-    IWinoAccountApiClient apiClient,
-    IMailIntelligenceStore localStore,
-    IWinoAccountSessionService sessions) : IWinoAccountIntelligenceSnapshotService
+public sealed class WinoAccountIntelligenceSnapshotService :
+    IWinoAccountIntelligenceSnapshotService,
+    IRecipient<WinoAccountSignedInMessage>,
+    IRecipient<WinoAccountSignedOutMessage>,
+    IRecipient<WinoAccountProfileUpdatedMessage>,
+    IRecipient<WinoIntelligenceEntitlementChanged>,
+    IDisposable
 {
+    private readonly IWinoBillingService billingService;
+    private readonly IWinoAccountApiClient apiClient;
+    private readonly IMailIntelligenceStore localStore;
+    private readonly IWinoAccountSessionService sessions;
+    private readonly IMessenger _messenger;
     private readonly ConcurrentDictionary<(Guid, long), Lazy<Task<WinoAccountIntelligenceRefreshResult?>>> _refreshes = new();
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
+    private readonly SemaphoreSlim _entitlementRefreshLock = new(1, 1);
+    private WinoIntelligenceEntitlementSnapshot _currentEntitlement =
+        WinoIntelligenceEntitlementSnapshot.SignedOut(DateTimeOffset.UtcNow);
+
+    public WinoAccountIntelligenceSnapshotService(
+        IWinoBillingService billingService,
+        IWinoAccountApiClient apiClient,
+        IMailIntelligenceStore localStore,
+        IWinoAccountSessionService sessions,
+        IMessenger? messenger = null)
+    {
+        this.billingService = billingService;
+        this.apiClient = apiClient;
+        this.localStore = localStore;
+        this.sessions = sessions;
+        _messenger = messenger ?? WeakReferenceMessenger.Default;
+        _messenger.Register<WinoAccountSignedInMessage>(this);
+        _messenger.Register<WinoAccountSignedOutMessage>(this);
+        _messenger.Register<WinoAccountProfileUpdatedMessage>(this);
+        _messenger.Register<WinoIntelligenceEntitlementChanged>(this);
+    }
+
+    #region Entitlement
+
+    public WinoIntelligenceEntitlementSnapshot CurrentEntitlement => Volatile.Read(ref _currentEntitlement);
+
+    public async Task<WinoIntelligenceEntitlementSnapshot> GetEntitlementAsync(CancellationToken cancellationToken = default)
+    {
+        var session = await sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
+        if (session is null)
+            return SetCurrentEntitlement(WinoIntelligenceEntitlementSnapshot.SignedOut(DateTimeOffset.UtcNow));
+
+        var cached = await GetCachedAsync(session.AccountId, cancellationToken).ConfigureAwait(false);
+        var evaluated = WinoIntelligenceEntitlementSnapshot.Evaluate(
+            session.AccountId, cached?.Billing, cached?.Usage, DateTimeOffset.UtcNow, isFreshBilling: false);
+        if (!await sessions.IsCurrentAsync(session, cancellationToken).ConfigureAwait(false))
+            return CurrentEntitlement;
+
+        return SetCurrentEntitlement(evaluated);
+    }
+
+    public async Task<WinoIntelligenceEntitlementSnapshot> RefreshEntitlementAsync(CancellationToken cancellationToken = default)
+    {
+        await _entitlementRefreshLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var session = await sessions.CaptureAsync(cancellationToken).ConfigureAwait(false);
+            if (session is null)
+                return SetCurrentEntitlement(WinoIntelligenceEntitlementSnapshot.SignedOut(DateTimeOffset.UtcNow));
+
+            var result = await RefreshAsync(cancellationToken).ConfigureAwait(false);
+            if (!await sessions.IsCurrentAsync(session, cancellationToken).ConfigureAwait(false))
+                return CurrentEntitlement;
+
+            var billingIsFresh = result?.BillingRefreshed == true;
+            var evaluated = WinoIntelligenceEntitlementSnapshot.Evaluate(
+                session.AccountId, result?.Snapshot.Billing, result?.Snapshot.Usage,
+                DateTimeOffset.UtcNow, billingIsFresh);
+            return SetCurrentEntitlement(evaluated);
+        }
+        finally
+        {
+            _entitlementRefreshLock.Release();
+        }
+    }
+
+    public void SetSignedOut()
+        => SetCurrentEntitlement(WinoIntelligenceEntitlementSnapshot.SignedOut(DateTimeOffset.UtcNow));
+
+    private WinoIntelligenceEntitlementSnapshot SetCurrentEntitlement(WinoIntelligenceEntitlementSnapshot value)
+    {
+        var previous = Interlocked.Exchange(ref _currentEntitlement, value);
+        // A fresh answer that confirms a cached state is still news: only an authoritative
+        // snapshot may move the device result key.
+        if (previous.State != value.State ||
+            previous.WinoAccountId != value.WinoAccountId ||
+            (value.IsAuthoritative && !previous.IsAuthoritative))
+            _messenger.Send(new WinoIntelligenceEntitlementChanged(value));
+
+        return value;
+    }
+
+    public void Receive(WinoAccountSignedInMessage message) => _ = RefreshEntitlementAsync();
+
+    public void Receive(WinoAccountSignedOutMessage message) => SetSignedOut();
+
+    public void Receive(WinoAccountProfileUpdatedMessage message) => _ = RefreshEntitlementAsync();
+
+    public void Receive(WinoIntelligenceEntitlementChanged message)
+        => Interlocked.Exchange(ref _currentEntitlement, message.Entitlement);
+
+    public void Dispose()
+    {
+        _messenger.UnregisterAll(this);
+        _refreshLock.Dispose();
+        _entitlementRefreshLock.Dispose();
+    }
+
+    #endregion
 
     public async Task<WinoAccountIntelligenceSnapshot?> GetCachedAsync(Guid winoAccountId, CancellationToken cancellationToken = default)
     {
@@ -183,7 +289,7 @@ public sealed class WinoAccountIntelligenceSnapshotService(
                 await SaveSnapshotAsync(snapshot, cancellationToken).ConfigureAwait(false);
                 if (billingRefreshed)
                 {
-                    WeakReferenceMessenger.Default.Send(new WinoIntelligenceEntitlementChanged(
+                    _messenger.Send(new WinoIntelligenceEntitlementChanged(
                         WinoIntelligenceEntitlementSnapshot.Evaluate(
                             accountId,
                             snapshot.Billing,
@@ -191,7 +297,7 @@ public sealed class WinoAccountIntelligenceSnapshotService(
                             now,
                             isFreshBilling: true)));
                 }
-                WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
+                _messenger.Send(new WinoIntelligenceAccessChanged());
             }, cancellationToken).ConfigureAwait(false)) return null;
         }
         return new(snapshot, changed, errors.FirstOrDefault()) { BillingRefreshed = billingRefreshed };

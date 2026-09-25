@@ -19,6 +19,7 @@ using WinRT;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Ai;
 using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Navigation;
@@ -499,9 +500,8 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private readonly INavigationService _navigationService = App.Current.Services.GetRequiredService<INavigationService>();
     private readonly IWinoIntelligenceCoordinator _intelligenceCoordinator = App.Current.Services.GetRequiredService<IWinoIntelligenceCoordinator>();
-    private readonly IAiActionOptionsService _aiActionOptionsService = App.Current.Services.GetRequiredService<IAiActionOptionsService>();
     private readonly IMailService _mailService = App.Current.Services.GetRequiredService<IMailService>();
-    private readonly IClipboardService _clipboardService = App.Current.Services.GetRequiredService<IClipboardService>();
+    private readonly INativeAppService _nativeAppService = App.Current.Services.GetRequiredService<INativeAppService>();
     private readonly HashSet<Guid> _liveFeatureRequestIds = [];
 
     private MailContentProjectionResult? _translationProjection;
@@ -519,7 +519,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         IntelligenceHeader.TranslationLanguages = new[]
         {
             new WinoIntelligenceLanguageOption(string.Empty, Translator.WinoIntelligence_DetectLanguage),
-        }.Concat(_aiActionOptionsService.GetTranslateLanguageOptions()
+        }.Concat(AiActionCatalog.GetTranslateLanguageOptions()
             .Select(x => new WinoIntelligenceLanguageOption(x.Code, x.Label))).ToArray();
         IntelligenceHeader.SelectedSourceLanguage = string.Empty;
         IntelligenceHeader.SelectedTargetLanguage = _preferencesService.AiDefaultTranslationLanguageCode;
@@ -694,7 +694,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private async void IntelligenceHeader_CopyCodeRequested(object? sender, EventArgs e)
     {
         if (!string.IsNullOrWhiteSpace(IntelligenceHeader.VerificationCode))
-            await _clipboardService.CopyClipboardAsync(IntelligenceHeader.VerificationCode);
+            await _nativeAppService.CopyClipboardAsync(IntelligenceHeader.VerificationCode);
     }
 
     private void ClearIntelligenceContext()

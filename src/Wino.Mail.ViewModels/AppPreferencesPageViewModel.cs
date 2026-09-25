@@ -18,7 +18,7 @@ namespace Wino.Mail.ViewModels;
 public partial class AppPreferencesPageViewModel : MailBaseViewModel
 {
     private readonly IMailDialogService _dialogService;
-    private readonly IStartupBehaviorService _startupBehaviorService;
+    private readonly INativeAppService _nativeAppService;
     private readonly ITranslationService _translationService;
 
     private bool _isLanguageInitialized;
@@ -27,12 +27,12 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     public AppPreferencesPageViewModel(
         IMailDialogService dialogService,
         IPreferencesService preferencesService,
-        IStartupBehaviorService startupBehaviorService,
+        INativeAppService nativeAppService,
         ITranslationService translationService)
     {
         _dialogService = dialogService;
         PreferencesService = preferencesService;
-        _startupBehaviorService = startupBehaviorService;
+        _nativeAppService = nativeAppService;
         _translationService = translationService;
 
         CloseBehaviorModes =
@@ -86,7 +86,7 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         base.OnNavigatedTo(mode, parameters);
 
         var availableLanguages = _translationService.GetAvailableLanguages();
-        var startupBehaviorResult = await _startupBehaviorService.GetCurrentStartupBehaviorAsync();
+        var startupBehaviorResult = await _nativeAppService.GetCurrentStartupBehaviorAsync();
 
         await ExecuteUIThread(() =>
         {
@@ -120,13 +120,13 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
 
     private async Task EnableStartupAsync()
     {
-        StartupBehaviorResult = await _startupBehaviorService.ToggleStartupBehavior(true);
+        StartupBehaviorResult = await _nativeAppService.ToggleStartupBehavior(true);
         NotifyCurrentStartupState();
     }
 
     private async Task DisableStartupAsync()
     {
-        StartupBehaviorResult = await _startupBehaviorService.ToggleStartupBehavior(false);
+        StartupBehaviorResult = await _nativeAppService.ToggleStartupBehavior(false);
         NotifyCurrentStartupState();
     }
 

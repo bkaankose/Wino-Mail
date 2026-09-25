@@ -25,7 +25,7 @@ public sealed class IntelligenceResultKeyLifecycleTests : IDisposable
     private readonly string _folder = Path.Combine(Path.GetTempPath(), $"wino-lifecycle-{Guid.NewGuid():N}");
     private readonly IntelligenceResultKeyPresence _presence;
     private readonly Mock<IMailIntelligenceCoordinator> _coordinator = new(MockBehavior.Strict);
-    private readonly Mock<IWinoIntelligenceEntitlementService> _entitlement = new();
+    private readonly Mock<IWinoAccountIntelligenceSnapshotService> _entitlement = new();
     private readonly StrongReferenceMessenger _messenger = new();
 
     public IntelligenceResultKeyLifecycleTests()

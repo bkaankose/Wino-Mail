@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using Moq;
 using Wino.Core.Domain.Entities.Shared;
@@ -25,13 +26,15 @@ public sealed class AccountProfilePictureBackfillServiceTests
             .Setup(manager => manager.SynchronizeProfileAsync(gmail.Id, default))
             .ReturnsAsync(MailSynchronizationResult.Completed(
                 new ProfileInformation("Gmail", ProfilePictureFetchResult.ConfirmedAbsent, gmail.Address)));
-        var fileService = new Mock<IAccountProfilePictureFileService>();
-        var service = new AccountProfilePictureBackfillService(
-            accountService.Object,
+        var fileService = new Mock<IPictureStorageService>();
+        var service = new AccountProfilePictureMaintenance(
+            Mock.Of<IDatabaseService>(),
             fileService.Object,
+            Mock.Of<IMessenger>(),
+            accountService.Object,
             synchronizationManager.Object);
 
-        await service.RunAsync();
+        await service.BackfillAsync();
 
         synchronizationManager.Verify(manager => manager.SynchronizeProfileAsync(gmail.Id, default), Times.Once);
         synchronizationManager.Verify(manager => manager.SynchronizeProfileAsync(resolvedOutlook.Id, default), Times.Never);

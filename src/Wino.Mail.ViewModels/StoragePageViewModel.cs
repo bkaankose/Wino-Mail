@@ -15,12 +15,14 @@ namespace Wino.Mail.ViewModels;
 
 public partial class StoragePageViewModel(
     IAccountService accountService,
-    IMimeStorageService mimeStorageService,
+    IMimeFileService mimeFileService,
+    IMailService mailService,
     IMailDialogService dialogService) : MailBaseViewModel
 {
     private readonly ILogger _logger = Log.ForContext<StoragePageViewModel>();
     private readonly IAccountService _accountService = accountService;
-    private readonly IMimeStorageService _mimeStorageService = mimeStorageService;
+    private readonly IMimeFileService _mimeFileService = mimeFileService;
+    private readonly IMailService _mailService = mailService;
     private readonly IMailDialogService _dialogService = dialogService;
 
     public ObservableCollection<AccountStorageItemViewModel> AccountStorageItems { get; } = [];
@@ -79,9 +81,9 @@ public partial class StoragePageViewModel(
 
         try
         {
-            var mimeRootPath = await _mimeStorageService.GetMimeRootPathAsync().ConfigureAwait(false);
+            var mimeRootPath = _mimeFileService.GetMimeRootPath();
             var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
-            var sizeMap = await _mimeStorageService.GetAccountsMimeStorageSizesAsync(accounts.Select(a => a.Id)).ConfigureAwait(false);
+            var sizeMap = await _mimeFileService.GetAccountsMimeStorageSizesAsync(accounts.Select(a => a.Id)).ConfigureAwait(false);
 
             var storageItems = accounts
                 .Select(account =>
@@ -140,7 +142,7 @@ public partial class StoragePageViewModel(
 
         try
         {
-            await _mimeStorageService.DeleteAccountMimeStorageAsync(accountItem.Account.Id).ConfigureAwait(false);
+            await _mimeFileService.DeleteUserMimeCacheAsync(accountItem.Account.Id).ConfigureAwait(false);
             await ExecuteUIThread(() =>
             {
                 _dialogService.InfoBarMessage(Translator.GeneralTitle_Info, Translator.SettingsStorage_DeleteAll_Success, Core.Domain.Enums.InfoBarMessageType.Success);
@@ -195,9 +197,14 @@ public partial class StoragePageViewModel(
         try
         {
             var cutoffDateUtc = DateTime.UtcNow.AddMonths(-months);
-            var deletedDirectoryCount = await _mimeStorageService
-                .DeleteAccountMimeStorageOlderThanAsync(accountItem.Account.Id, cutoffDateUtc)
+            var mailCopies = await _mailService
+                .GetMailCopiesBeforeDateAsync(accountItem.Account.Id, cutoffDateUtc)
                 .ConfigureAwait(false);
+            var deletedDirectoryCount = mailCopies.Count == 0
+                ? 0
+                : await _mimeFileService
+                    .DeleteMimeStorageAsync(accountItem.Account.Id, mailCopies.Select(copy => copy.FileId))
+                    .ConfigureAwait(false);
 
             await ExecuteUIThread(() =>
             {

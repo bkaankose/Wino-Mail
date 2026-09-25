@@ -3,26 +3,27 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
+using Wino.Messaging.UI;
 
 namespace Wino.Core.ViewModels;
 
 public partial class AboutPageViewModel : CoreBaseViewModel
 {
-    private readonly IStoreRatingService _storeRatingService;
+    private readonly IMicrosoftStoreService _storeService;
     private readonly IMailDialogService _dialogService;
     private readonly INativeAppService _nativeAppService;
+    private readonly IAppMetadataService _appMetadataService;
     private readonly IApplicationConfiguration _appInitializerService;
-    private readonly IClipboardService _clipboardService;
     private readonly IFileService _fileService;
     private readonly IWinoLogger _logInitializer;
-    private readonly IWhatsNewWindowLauncher _whatsNewWindowLauncher;
 
-    public string VersionName => _nativeAppService.GetFullAppVersion();
+    public string VersionName => _appMetadataService.AppVersion;
     public string WebsiteUrl => AppUrls.Website;
     public string DiscordChannelUrl => AppUrls.Discord;
     public string GitHubUrl => AppUrls.GitHub;
@@ -31,24 +32,22 @@ public partial class AboutPageViewModel : CoreBaseViewModel
 
     public IPreferencesService PreferencesService { get; }
 
-    public AboutPageViewModel(IStoreRatingService storeRatingService,
+    public AboutPageViewModel(IMicrosoftStoreService storeService,
                               IMailDialogService dialogService,
                               INativeAppService nativeAppService,
+                              IAppMetadataService appMetadataService,
                               IPreferencesService preferencesService,
                               IApplicationConfiguration appInitializerService,
-                              IClipboardService clipboardService,
                               IFileService fileService,
-                              IWinoLogger logInitializer,
-                              IWhatsNewWindowLauncher whatsNewWindowLauncher)
+                              IWinoLogger logInitializer)
     {
-        _storeRatingService = storeRatingService;
+        _storeService = storeService;
         _dialogService = dialogService;
         _nativeAppService = nativeAppService;
+        _appMetadataService = appMetadataService;
         _logInitializer = logInitializer;
         _appInitializerService = appInitializerService;
-        _clipboardService = clipboardService;
         _fileService = fileService;
-        _whatsNewWindowLauncher = whatsNewWindowLauncher;
 
         PreferencesService = preferencesService;
     }
@@ -77,14 +76,14 @@ public partial class AboutPageViewModel : CoreBaseViewModel
     }
 
     [RelayCommand]
-    private Task OpenWhatsNewAsync() => _whatsNewWindowLauncher.ShowAsync();
+    private void OpenWhatsNew() => WeakReferenceMessenger.Default.Send(new WhatsNewOpenRequested());
 
     [RelayCommand]
     private async Task CopyDiagnosticId()
     {
         try
         {
-            await _clipboardService.CopyClipboardAsync(PreferencesService.DiagnosticId);
+            await _nativeAppService.CopyClipboardAsync(PreferencesService.DiagnosticId);
             _dialogService.InfoBarMessage(Translator.Buttons_Copy, string.Format(Translator.ClipboardTextCopied_Message, "Id"), InfoBarMessageType.Success);
         }
         catch (Exception ex)
@@ -163,7 +162,7 @@ public partial class AboutPageViewModel : CoreBaseViewModel
         }
     }
 
-    private Task ShowRateDialogAsync() => _storeRatingService.LaunchStorePageForReviewAsync();
+    private Task ShowRateDialogAsync() => _storeService.LaunchStorePageForReviewAsync();
 
     private static string GetSafeFileName(string fileName)
     {

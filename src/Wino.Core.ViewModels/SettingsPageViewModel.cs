@@ -16,7 +16,7 @@ namespace Wino.Core.ViewModels;
 public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
 {
     private readonly IAccountService _accountService;
-    private readonly IWinoIntelligenceEntitlementService _entitlementService;
+    private readonly IWinoAccountIntelligenceSnapshotService _entitlementService;
     private IReadOnlyList<SettingsNavigationItemInfo> _accountSearchItems = [];
     private bool _isAccountSearchIndexInitialized;
 
@@ -24,7 +24,7 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
         INavigationService navigationService,
         IStatePersistanceService statePersistenceService,
         IAccountService accountService,
-        IWinoIntelligenceEntitlementService entitlementService,
+        IWinoAccountIntelligenceSnapshotService entitlementService,
         SettingsMenuProvider settingsMenuProvider)
     {
         NavigationService = navigationService;
@@ -63,7 +63,7 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
             await RefreshAccountSummaryAsync().ConfigureAwait(false);
 
         var results = SettingsNavigationInfoProvider.Search(query, ManageAccountsDescription, _accountSearchItems);
-        return _entitlementService.Current.CanAccessSurfaces
+        return _entitlementService.CurrentEntitlement.CanAccessSurfaces
             ? results
             : results.Where(item => item.PageType != WinoPage.WinoIntelligencePage &&
                                     item.PageType != WinoPage.WinoIntelligenceManagementPage &&
@@ -114,7 +114,7 @@ public partial class SettingsPageViewModel : CoreBaseViewModel, IShellMenuOwner
         if (!account.IsMailAccessGranted)
             yield break;
 
-        if (_entitlementService.Current.CanAccessSurfaces)
+        if (_entitlementService.CurrentEntitlement.CanAccessSurfaces)
         {
             yield return CreateAccountSearchItem(
                 account,

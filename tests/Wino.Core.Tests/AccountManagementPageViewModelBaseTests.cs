@@ -60,7 +60,7 @@ public class AccountManagementPageViewModelBaseTests
                 Mock.Of<IDialogServiceBase>(),
                 Mock.Of<INavigationService>(),
                 Mock.Of<IAccountService>(),
-                Mock.Of<IProviderService>(),
+                Mock.Of<IKnownImapProviderCatalog>(),
                 billingService,
                 Mock.Of<IWinoAccountProfileService>(),
                 Mock.Of<IAuthenticationProvider>(),

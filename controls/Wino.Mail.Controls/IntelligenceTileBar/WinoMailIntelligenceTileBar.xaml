@@ -17,7 +17,7 @@
                     <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Light">
-                    <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="SubtleFillColorSecondaryBrush" />
+                    <StaticResource x:Key="WinoMailIntelligenceTileBackgroundBrush" ResourceKey="ControlAltFillColorTertiaryBrush" />
                     <StaticResource x:Key="WinoMailIntelligenceTileBorderBrush" ResourceKey="CardStrokeColorDefaultBrush" />
                     <StaticResource x:Key="WinoMailIntelligenceTileForegroundBrush" ResourceKey="TextFillColorPrimaryBrush" />
                 </ResourceDictionary>

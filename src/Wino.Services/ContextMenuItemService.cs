@@ -1,8 +1,11 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.Menus;
 
@@ -236,4 +239,113 @@ public class ContextMenuItemService : IContextMenuItemService
         => mailItem?.AssignedAccount?.ProviderType == MailProviderType.Outlook
            && mailItem.AssignedFolder?.SpecialFolderType == SpecialFolderType.Inbox
            && !mailItem.IsDraft;
+
+    #region Calendar items
+
+    public IReadOnlyList<CalendarContextMenuItem> GetCalendarItemContextMenuItems(CalendarItem calendarItem)
+    {
+        if (calendarItem == null)
+            return [];
+
+        var items = new List<CalendarContextMenuItem>
+        {
+            new(new CalendarContextMenuAction(CalendarContextMenuActionType.Open, CalendarEventTargetType.Single), IsPrimary: true)
+        };
+
+        if (calendarItem.IsLocked)
+        {
+            items.Add(CreateRespondItem(calendarItem.IsRecurringChild));
+        }
+        else
+        {
+            items.Add(CreateShowAsItem(calendarItem.IsRecurringChild));
+        }
+
+        items.Add(CreateDeleteItem(calendarItem.IsRecurringChild));
+
+        if (calendarItem.IsRecurringChild)
+        {
+            items.Add(new CalendarContextMenuItem(
+                new CalendarContextMenuAction(CalendarContextMenuActionType.Open, CalendarEventTargetType.Series)));
+        }
+
+        if (CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _))
+        {
+            items.Add(new CalendarContextMenuItem(
+                new CalendarContextMenuAction(CalendarContextMenuActionType.JoinOnline)));
+        }
+
+        return items;
+    }
+
+    private static CalendarContextMenuItem CreateDeleteItem(bool isRecurringChild)
+        => isRecurringChild
+            ? new CalendarContextMenuItem(
+                new CalendarContextMenuAction(CalendarContextMenuActionType.Delete),
+                IsPrimary: true,
+                ChildItems:
+                 [
+                     CreateScopeLeaf(CalendarContextMenuActionType.Delete, CalendarEventTargetType.Single),
+                     CreateScopeLeaf(CalendarContextMenuActionType.Delete, CalendarEventTargetType.Series)
+                 ])
+            : new CalendarContextMenuItem(
+                new CalendarContextMenuAction(CalendarContextMenuActionType.Delete),
+                IsPrimary: true);
+
+    private static CalendarContextMenuItem CreateShowAsItem(bool isRecurringChild)
+        => new(
+            new CalendarContextMenuAction(CalendarContextMenuActionType.ShowAs),
+            IsPrimary: true,
+            ChildItems: isRecurringChild
+                ? [CreateScopedShowAsMenu(CalendarEventTargetType.Single), CreateScopedShowAsMenu(CalendarEventTargetType.Series)]
+                : CreateShowAsLeaves(CalendarEventTargetType.Single));
+
+    private static CalendarContextMenuItem CreateRespondItem(bool isRecurringChild)
+        => new(
+            new CalendarContextMenuAction(CalendarContextMenuActionType.Respond),
+            IsPrimary: true,
+            ChildItems: isRecurringChild
+                ? [CreateScopedResponseMenu(CalendarEventTargetType.Single), CreateScopedResponseMenu(CalendarEventTargetType.Series)]
+                : CreateResponseLeaves(CalendarEventTargetType.Single));
+
+    private static CalendarContextMenuItem CreateScopedShowAsMenu(CalendarEventTargetType targetType)
+        => new(
+            new CalendarContextMenuAction(CalendarContextMenuActionType.ShowAs, targetType),
+            ChildItems: CreateShowAsLeaves(targetType));
+
+    private static CalendarContextMenuItem CreateScopedResponseMenu(CalendarEventTargetType targetType)
+        => new(
+            new CalendarContextMenuAction(CalendarContextMenuActionType.Respond, targetType),
+            ChildItems: CreateResponseLeaves(targetType));
+
+    private static IReadOnlyList<CalendarContextMenuItem> CreateShowAsLeaves(CalendarEventTargetType targetType)
+    {
+        var items = new List<CalendarContextMenuItem>(CalendarItemActionOptions.ShowAsOptions.Count);
+
+        foreach (var showAs in CalendarItemActionOptions.ShowAsOptions)
+        {
+            items.Add(new CalendarContextMenuItem(
+                new CalendarContextMenuAction(CalendarContextMenuActionType.ShowAs, targetType, showAs)));
+        }
+
+        return items;
+    }
+
+    private static IReadOnlyList<CalendarContextMenuItem> CreateResponseLeaves(CalendarEventTargetType targetType)
+    {
+        var items = new List<CalendarContextMenuItem>(CalendarItemActionOptions.ResponseOptions.Count);
+
+        foreach (var responseStatus in CalendarItemActionOptions.ResponseOptions)
+        {
+            items.Add(new CalendarContextMenuItem(
+                new CalendarContextMenuAction(CalendarContextMenuActionType.Respond, targetType, ResponseStatus: responseStatus)));
+        }
+
+        return items;
+    }
+
+    private static CalendarContextMenuItem CreateScopeLeaf(CalendarContextMenuActionType actionType, CalendarEventTargetType targetType)
+        => new(new CalendarContextMenuAction(actionType, targetType));
+
+    #endregion
 }

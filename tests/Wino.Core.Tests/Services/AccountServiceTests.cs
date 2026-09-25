@@ -22,14 +22,14 @@ public class AccountServiceTests : IAsyncLifetime
 {
     private InMemoryDatabaseService _databaseService = null!;
     private AccountService _accountService = null!;
-    private Mock<IAccountProfilePictureFileService> _profilePictureFileService = null!;
+    private Mock<IPictureStorageService> _profilePictureFileService = null!;
     private Mock<IAuthenticationProvider> _authenticationProvider = null!;
 
     public async Task InitializeAsync()
     {
         _databaseService = new InMemoryDatabaseService();
         await _databaseService.InitializeAsync();
-        _profilePictureFileService = new Mock<IAccountProfilePictureFileService>();
+        _profilePictureFileService = new Mock<IPictureStorageService>();
         _authenticationProvider = new Mock<IAuthenticationProvider>();
         _accountService = CreateService(
             _databaseService,
@@ -308,7 +308,7 @@ public class AccountServiceTests : IAsyncLifetime
         var imageData = new byte[] { 1, 2, 3 };
         await _databaseService.Connection.InsertAsync(account);
         _profilePictureFileService
-            .Setup(service => service.SaveProfilePictureAsync(imageData, null, default))
+            .Setup(service => service.SavePictureAsync(PictureKind.AccountProfile, imageData, null, default))
             .ReturnsAsync(newFileId);
 
         await _accountService.UpdateProfileInformationAsync(
@@ -369,7 +369,7 @@ public class AccountServiceTests : IAsyncLifetime
         updated.ProfilePictureFileId.Should().BeNull();
         updated.IsProfilePictureBackfillComplete.Should().BeTrue();
         _profilePictureFileService.Verify(
-            service => service.DeleteProfilePictureAsync(currentFileId),
+            service => service.DeletePictureAsync(PictureKind.AccountProfile, currentFileId),
             Times.Once);
     }
 
@@ -464,7 +464,7 @@ public class AccountServiceTests : IAsyncLifetime
 
     private static AccountService CreateService(
         InMemoryDatabaseService databaseService,
-        IAccountProfilePictureFileService accountProfilePictureFileService = null,
+        IPictureStorageService pictureStorageService = null,
         IAuthenticationProvider authenticationProvider = null)
     {
         var signatureService = new Mock<ISignatureService>();
@@ -480,7 +480,6 @@ public class AccountServiceTests : IAsyncLifetime
 
         authenticationProvider ??= Mock.Of<IAuthenticationProvider>();
         var mimeFileService = new Mock<IMimeFileService>();
-        var contactPictureFileService = new Mock<IContactPictureFileService>();
 
         var preferencesService = new Mock<IPreferencesService>();
         preferencesService.SetupProperty(a => a.StartupEntityId);
@@ -491,7 +490,6 @@ public class AccountServiceTests : IAsyncLifetime
             authenticationProvider,
             mimeFileService.Object,
             preferencesService.Object,
-            contactPictureFileService.Object,
-            accountProfilePictureFileService: accountProfilePictureFileService);
+            pictureStorageService ?? Mock.Of<IPictureStorageService>());
     }
 }

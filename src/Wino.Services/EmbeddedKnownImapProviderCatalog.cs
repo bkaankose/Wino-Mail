@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Connectivity;
 
 namespace Wino.Services;
@@ -96,6 +97,29 @@ public class KnownImapProviderCatalog : IKnownImapProviderCatalog
             candidateDomain => string.Equals(candidateDomain, domain, StringComparison.OrdinalIgnoreCase)));
 
         return help == null ? null : new KnownAppPasswordHelp(help.DisplayName, help.HelpUrl);
+    }
+
+    public IProviderDetail GetProviderDetail(MailProviderType type)
+    {
+        var details = GetAvailableProviders();
+
+        return details.FirstOrDefault(a => a.Type == type) ?? throw new InvalidOperationException($"Provider detail not found for type: {type}");
+    }
+
+    public List<IProviderDetail> GetAvailableProviders()
+    {
+        var providerList = new List<IProviderDetail>
+        {
+            new ProviderDetail(MailProviderType.Outlook, SpecialImapProvider.None),
+            new ProviderDetail(MailProviderType.Gmail, SpecialImapProvider.None)
+        };
+
+        providerList.AddRange(SetupProviders.Select(provider =>
+            new ProviderDetail(MailProviderType.IMAP4, provider.SpecialImapProvider)));
+        providerList.Add(new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None));
+        providerList.Add(new ProviderDetail(MailProviderType.POP3, SpecialImapProvider.None));
+
+        return providerList;
     }
 
     private static string GetProviderDisplayName(SpecialImapProvider provider) => provider switch

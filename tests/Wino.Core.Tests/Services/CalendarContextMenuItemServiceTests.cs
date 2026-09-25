@@ -10,7 +10,7 @@ namespace Wino.Core.Tests.Services;
 
 public class CalendarContextMenuItemServiceTests
 {
-    private readonly CalendarContextMenuItemService _service = new();
+    private readonly ContextMenuItemService _service = new();
 
     [Fact]
     public void GetContextMenuItems_ForEditableSingleEvent_ReturnsOpenShowAsAndDeleteAsPrimary()
@@ -22,7 +22,7 @@ public class CalendarContextMenuItemServiceTests
             ShowAs = CalendarItemShowAs.Busy
         };
 
-        var items = _service.GetContextMenuItems(calendarItem);
+        var items = _service.GetCalendarItemContextMenuItems(calendarItem);
 
         items.Should().HaveCount(3);
         items.Should().ContainSingle(item => item.Action.ActionType == CalendarContextMenuActionType.Open && item.IsPrimary);
@@ -51,7 +51,7 @@ public class CalendarContextMenuItemServiceTests
             DirectJoinLink = "https://meet.google.com/abc-defg-hij"
         };
 
-        var items = _service.GetContextMenuItems(calendarItem);
+        var items = _service.GetCalendarItemContextMenuItems(calendarItem);
 
         items.Should().ContainSingle(item => item.Action.ActionType == CalendarContextMenuActionType.Open && item.IsPrimary);
         items.Should().ContainSingle(item => item.Action.ActionType == CalendarContextMenuActionType.Respond && item.IsPrimary);

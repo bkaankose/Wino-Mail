@@ -38,30 +38,30 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     private readonly IWinoLogger _winoLogger;
     private readonly ISpecialImapProviderConfigResolver _specialImapProviderConfigResolver;
     private readonly ICalDavClient _calDavClient;
-    private readonly IStoreManagementService _storeManagementService;
+    private readonly IMicrosoftStoreService _storeService;
 
     public IMailDialogService MailDialogService { get; }
 
     public AccountManagementViewModel(IMailDialogService dialogService,
                                       INavigationService navigationService,
                                       IAccountService accountService,
-                                      IProviderService providerService,
+                                      IKnownImapProviderCatalog providerCatalog,
                                       IWinoBillingService billingService,
                                       IWinoAccountProfileService winoAccountProfileService,
                                       IWinoAccountDataSyncService syncService,
                                       IWinoLogger winoLogger,
                                       ISpecialImapProviderConfigResolver specialImapProviderConfigResolver,
                                       ICalDavClient calDavClient,
-                                      IStoreManagementService storeManagementService,
+                                      IMicrosoftStoreService storeService,
                                       IAuthenticationProvider authenticationProvider,
-                                      IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerService, billingService, winoAccountProfileService, authenticationProvider, preferencesService)
+                                      IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerCatalog, billingService, winoAccountProfileService, authenticationProvider, preferencesService)
     {
         MailDialogService = dialogService;
         _syncService = syncService;
         _winoLogger = winoLogger;
         _specialImapProviderConfigResolver = specialImapProviderConfigResolver;
         _calDavClient = calDavClient;
-        _storeManagementService = storeManagementService;
+        _storeService = storeService;
     }
 
     [ObservableProperty]
@@ -128,40 +128,9 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         if (channel != UnlimitedAccountsPurchaseChannel.MicrosoftStore)
             return;
 
-        try
+        if (await UnlimitedAccountsStorePurchase.PurchaseAsync(_storeService, DialogService, _winoLogger).ConfigureAwait(false))
         {
-            var purchaseResult = await _storeManagementService
-                .PurchaseAsync(WinoAddOnProductType.UNLIMITED_ACCOUNTS)
-                .ConfigureAwait(false);
-
-            if (purchaseResult == StorePurchaseResult.Succeeded)
-            {
-                DialogService.InfoBarMessage(
-                    Translator.Info_PurchaseThankYouTitle,
-                    Translator.Info_PurchaseThankYouMessage,
-                    InfoBarMessageType.Success);
-            }
-            else if (purchaseResult == StorePurchaseResult.AlreadyPurchased)
-            {
-                DialogService.InfoBarMessage(
-                    Translator.Info_PurchaseExistsTitle,
-                    Translator.Info_PurchaseExistsMessage,
-                    InfoBarMessageType.Warning);
-            }
-            else
-            {
-                return;
-            }
-
             await ManageStorePurchasesAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _winoLogger.CaptureException(ex, nameof(PurchaseUnlimitedAccountAsync));
-            DialogService.InfoBarMessage(
-                Translator.GeneralTitle_Error,
-                Translator.UnlimitedAccountsPurchaseDialog_MicrosoftStorePurchaseFailed,
-                InfoBarMessageType.Error);
         }
     }
 

@@ -44,10 +44,10 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
     public SettingsPage()
     {
         InitializeComponent();
-        EntitlementService = WinoApplication.Current.Services.GetRequiredService<IWinoIntelligenceEntitlementService>();
+        EntitlementService = WinoApplication.Current.Services.GetRequiredService<IWinoAccountIntelligenceSnapshotService>();
     }
 
-    private IWinoIntelligenceEntitlementService EntitlementService { get; }
+    private IWinoAccountIntelligenceSnapshotService EntitlementService { get; }
 
     protected override async void OnNavigatedTo(NavigationEventArgs e)
     {
@@ -61,8 +61,8 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         var initialPage = activationContext?.TargetPage
                           ?? e.Parameter as WinoPage?
                           ?? WinoPage.SettingOptionsPage;
-        await EntitlementService.GetAsync();
-        if (IsIntelligencePage(initialPage) && !EntitlementService.Current.CanAccessSurfaces)
+        await EntitlementService.GetEntitlementAsync();
+        if (IsIntelligencePage(initialPage) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
             initialPage = WinoPage.WinoAccountManagementPage;
         NavigateToRootPage(initialPage, activationContext?.PageParameter);
     }
@@ -202,7 +202,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     public void Receive(SettingsRootNavigationRequested message)
     {
-        if (IsIntelligencePage(message.PageType) && !EntitlementService.Current.CanAccessSurfaces)
+        if (IsIntelligencePage(message.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
         {
             NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
             return;
@@ -276,7 +276,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void NavigateBreadcrumb(BreadcrumbNavigationRequested message)
     {
-        if (IsIntelligencePage(message.PageType) && !EntitlementService.Current.CanAccessSurfaces)
+        if (IsIntelligencePage(message.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
         {
             NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
             return;
@@ -292,7 +292,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
 
     private void NavigateToRootPage(WinoPage targetPage, object? pageParameter = null)
     {
-        if (IsIntelligencePage(targetPage) && !EntitlementService.Current.CanAccessSurfaces)
+        if (IsIntelligencePage(targetPage) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
         {
             NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
             return;
@@ -329,7 +329,7 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
             return;
 
         var destination = route.Destination;
-        if (IsIntelligencePage(destination.PageType) && !EntitlementService.Current.CanAccessSurfaces)
+        if (IsIntelligencePage(destination.PageType) && !EntitlementService.CurrentEntitlement.CanAccessSurfaces)
         {
             NavigateDirectlyToRootPage(WinoPage.WinoAccountManagementPage);
             return;

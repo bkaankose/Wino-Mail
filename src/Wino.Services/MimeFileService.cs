@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,15 +18,15 @@ namespace Wino.Services;
 
 public class MimeFileService : IMimeFileService
 {
-    private readonly INativeAppService _nativeAppService;
+    private readonly IApplicationConfiguration _applicationConfiguration;
     private ILogger _logger = Log.ForContext<MimeFileService>();
 
     private readonly DraftUpdateRegistry _draftUpdates;
     private readonly ConcurrentDictionary<(Guid, Guid), SemaphoreSlim> _writeLocks = new();
 
-    public MimeFileService(INativeAppService nativeAppService, DraftUpdateRegistry draftUpdates = null)
+    public MimeFileService(IApplicationConfiguration applicationConfiguration, DraftUpdateRegistry draftUpdates = null)
     {
-        _nativeAppService = nativeAppService;
+        _applicationConfiguration = applicationConfiguration;
         _draftUpdates = draftUpdates;
     }
 
@@ -99,15 +100,14 @@ public class MimeFileService : IMimeFileService
 
     private string GetEMLPath(string resourcePath) => $"{resourcePath}\\mail.eml";
 
-    public async Task<string> GetMimeResourcePathAsync(Guid accountId, Guid fileId)
+    public Task<string> GetMimeResourcePathAsync(Guid accountId, Guid fileId)
     {
-        var mimeFolderPath = await _nativeAppService.GetMimeMessageStoragePath().ConfigureAwait(false);
-        var mimeDirectory = Path.Combine(mimeFolderPath, accountId.ToString(), fileId.ToString());
+        var mimeDirectory = Path.Combine(_applicationConfiguration.MimeStorageFolderPath, accountId.ToString(), fileId.ToString());
 
         if (!Directory.Exists(mimeDirectory))
             Directory.CreateDirectory(mimeDirectory);
 
-        return mimeDirectory;
+        return Task.FromResult(mimeDirectory);
     }
 
     public async Task<bool> IsMimeExistAsync(Guid accountId, Guid fileId)
@@ -278,10 +278,9 @@ public class MimeFileService : IMimeFileService
         return renderingModel;
     }
 
-    public async Task DeleteUserMimeCacheAsync(Guid accountId)
+    public Task DeleteUserMimeCacheAsync(Guid accountId)
     {
-        var mimeFolderPath = await _nativeAppService.GetMimeMessageStoragePath().ConfigureAwait(false);
-        var mimeDirectory = Path.Combine(mimeFolderPath, accountId.ToString());
+        var mimeDirectory = Path.Combine(_applicationConfiguration.MimeStorageFolderPath, accountId.ToString());
 
         try
         {
@@ -294,6 +293,8 @@ public class MimeFileService : IMimeFileService
         {
             Log.Error(ex, "Failed to remove user's mime cache folder.");
         }
+
+        return Task.CompletedTask;
     }
 
     private async Task<string> GetTranslationMapPathAsync(Guid accountId, Guid fileId, string cacheKey)
@@ -357,5 +358,76 @@ public class MimeFileService : IMimeFileService
                 .Split([Environment.NewLine], StringSplitOptions.None)
                 .Select(line => line.Trim())
                 .Where(line => !string.IsNullOrWhiteSpace(line)));
+    }
+
+    public string GetMimeRootPath() => _applicationConfiguration.MimeStorageFolderPath;
+
+    public Task<Dictionary<Guid, long>> GetAccountsMimeStorageSizesAsync(IEnumerable<Guid> accountIds)
+    {
+        var mimeRoot = GetMimeRootPath();
+        var result = new Dictionary<Guid, long>();
+
+        foreach (var accountId in accountIds)
+        {
+            var accountPath = Path.Combine(mimeRoot, accountId.ToString());
+            result[accountId] = GetDirectorySizeSafe(accountPath);
+        }
+
+        return Task.FromResult(result);
+    }
+
+    public Task<int> DeleteMimeStorageAsync(Guid accountId, IEnumerable<Guid> fileIds)
+    {
+        var accountPath = Path.Combine(GetMimeRootPath(), accountId.ToString());
+        int deletedFolderCount = 0;
+
+        foreach (var fileId in fileIds.Distinct())
+        {
+            var mimeDirectory = Path.Combine(accountPath, fileId.ToString());
+
+            if (!Directory.Exists(mimeDirectory))
+                continue;
+
+            try
+            {
+                Directory.Delete(mimeDirectory, true);
+                deletedFolderCount++;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to delete MIME directory {DirectoryPath}", mimeDirectory);
+            }
+        }
+
+        return Task.FromResult(deletedFolderCount);
+    }
+
+    private static long GetDirectorySizeSafe(string directoryPath)
+    {
+        if (!Directory.Exists(directoryPath))
+            return 0;
+
+        long total = 0;
+
+        try
+        {
+            foreach (var filePath in Directory.EnumerateFiles(directoryPath, "*", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    total += new FileInfo(filePath).Length;
+                }
+                catch
+                {
+                    // Ignore unreadable files and continue calculating.
+                }
+            }
+        }
+        catch
+        {
+            return 0;
+        }
+
+        return total;
     }
 }

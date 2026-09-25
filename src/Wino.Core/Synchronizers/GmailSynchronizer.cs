@@ -109,7 +109,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
     private readonly DriveService _driveService;
     private readonly PeopleServiceService _peopleService;
     private readonly IContactService _contactService;
-    private readonly IContactPictureFileService _contactPictureFileService;
+    private readonly IPictureStorageService _contactPictureFileService;
     private readonly ICardDavSynchronizationEngine _cardDavSynchronizationEngine;
     private readonly ITaskService _taskService;
     private readonly GoogleTasksClient _googleTasksClient;
@@ -131,7 +131,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                              IGmailSynchronizerErrorHandlerFactory gmailSynchronizerErrorHandlerFactory,
                              IMailFilterExecutor mailFilterExecutor = null,
                              IContactService contactService = null,
-                             IContactPictureFileService contactPictureFileService = null,
+                             IPictureStorageService contactPictureFileService = null,
                              ITaskService taskService = null,
                              ICardDavSynchronizationEngine cardDavSynchronizationEngine = null)
         : this(
@@ -156,7 +156,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         IMailFilterExecutor mailFilterExecutor = null,
         HttpMessageHandler providerFeatureMessageHandler = null,
         IContactService contactService = null,
-        IContactPictureFileService contactPictureFileService = null,
+        IPictureStorageService contactPictureFileService = null,
         ITaskService taskService = null,
         ICardDavSynchronizationEngine cardDavSynchronizationEngine = null) : base(account, WeakReferenceMessenger.Default)
     {
@@ -857,7 +857,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                 {
                     var bytes = await _googleHttpClient.GetByteArrayAsync(contact.RemotePhotoKey, token).ConfigureAwait(false);
                     if (bytes?.Length > 0)
-                        contact.ContactPictureFileId = await _contactPictureFileService.SaveContactPictureAsync(bytes).ConfigureAwait(false);
+                        contact.ContactPictureFileId = await _contactPictureFileService.SavePictureAsync(PictureKind.Contact, bytes).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) { throw; }
                 catch (Exception ex) { _logger.Warning(ex, "Failed to cache Gmail contact photo {RemoteId}.", contact.RemoteId); }
@@ -922,7 +922,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                     case ContactSynchronizerOperation.SetPhoto:
                         await UpdateGoogleContactPhotoAsync(local.RemoteId, request.Photo, delete: false, cancellationToken).ConfigureAwait(false);
                         var photoContact = RequestEntityCloner.Contact(local);
-                        photoContact.ContactPictureFileId = await _contactPictureFileService.SaveContactPictureAsync(request.Photo).ConfigureAwait(false);
+                        photoContact.ContactPictureFileId = await _contactPictureFileService.SavePictureAsync(PictureKind.Contact, request.Photo).ConfigureAwait(false);
                         await _gmailChangeProcessor.CommitContactMutationAsync(local.Id, photoContact, false).ConfigureAwait(false);
                         break;
                     case ContactSynchronizerOperation.DeletePhoto:

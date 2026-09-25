@@ -21,7 +21,7 @@ namespace Wino.Core.ViewModels;
 /// </summary>
 public partial class SettingsMenuProvider(
     INavigationService navigationService,
-    IWinoIntelligenceEntitlementService entitlementService) :
+    IWinoAccountIntelligenceSnapshotService entitlementService) :
     CoreBaseViewModel,
     IShellMenuProvider,
     IRecipient<ActiveSettingsPageChanged>,
@@ -170,8 +170,8 @@ public partial class SettingsMenuProvider(
 
     private async Task RefreshEntitlementAsync()
     {
-        await entitlementService.GetAsync().ConfigureAwait(false);
-        await entitlementService.RefreshAsync().ConfigureAwait(false);
+        await entitlementService.GetEntitlementAsync().ConfigureAwait(false);
+        await entitlementService.RefreshEntitlementAsync().ConfigureAwait(false);
     }
 
     private void RebuildMenuItems()
@@ -193,7 +193,7 @@ public partial class SettingsMenuProvider(
 
         foreach (var node in SettingsNavigationInfoProvider.GetPaneNodes())
         {
-            if (!entitlementService.Current.CanAccessSurfaces &&
+            if (!entitlementService.CurrentEntitlement.CanAccessSurfaces &&
                 node.Item?.PageType == WinoPage.WinoIntelligencePage)
             {
                 continue;
