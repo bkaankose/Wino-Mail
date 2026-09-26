@@ -278,6 +278,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             Translator.WinoAccount_Management_FreeBadge,
             isFreeBadge: true,
             Translator.WinoAccount_Management_Benefit_Transfer_Lede,
+            (string[])
             [
                 Translator.WinoAccount_Management_Benefit_Transfer_Point1,
                 Translator.WinoAccount_Management_Benefit_Transfer_Point2,
@@ -295,6 +296,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             Translator.WinoAccount_Management_FreeBadge,
             isFreeBadge: true,
             Translator.WinoAccount_Management_Benefit_Entitlements_Lede,
+            (string[])
             [
                 Translator.WinoAccount_Management_Benefit_Entitlements_Point1,
                 Translator.WinoAccount_Management_Benefit_Entitlements_Point2,
@@ -312,6 +314,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             Translator.WinoAccount_Management_AddOnBadge,
             isFreeBadge: false,
             Translator.WinoAccount_Management_Benefit_Intelligence_Lede,
+            (string[])
             [
                 Translator.WinoAccount_Management_Benefit_Intelligence_Point1,
                 Translator.WinoAccount_Management_Benefit_Intelligence_Point2,
@@ -330,6 +333,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             Translator.WinoAccount_Management_AddOnBadge,
             isFreeBadge: false,
             string.Format(Translator.WinoAccount_Management_Benefit_Unlimited_Lede, Constants.FreeAccountLimit),
+            (string[])
             [
                 Translator.WinoAccount_Management_Benefit_Unlimited_Point1,
                 Translator.WinoAccount_Management_Benefit_Unlimited_Point2,
@@ -1520,7 +1524,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         return $"{display:0.##} {units[unit]}";
     }
 
-    private sealed class IntelligenceMailboxData : WinoIntelligenceMailboxItemViewModel
+    private sealed partial class IntelligenceMailboxData : WinoIntelligenceMailboxItemViewModel
     {
         public required long StorageSizeBytes { get; init; }
     }

@@ -50,7 +50,7 @@
                                 OnContent="" />
                             <Button
                                 AutomationProperties.AutomationId="UnreadBadgeAccountConfigureButton"
-                                Command="{Binding ElementName=PageRoot, Path=ViewModel.ConfigureAccountCommand}"
+                                Click="ConfigureAccountButton_Click"
                                 CommandParameter="{x:Bind}"
                                 Content="{x:Bind domain:Translator.UnreadBadges_Account_Configure, Mode=OneTime}" />
                         </StackPanel>

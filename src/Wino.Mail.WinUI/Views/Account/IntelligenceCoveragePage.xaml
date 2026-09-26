@@ -1,4 +1,4 @@
-<abstract:IntelligenceCoveragePageAbstract
+﻿<abstract:IntelligenceCoveragePageAbstract
     x:Class="Wino.Views.IntelligenceCoveragePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -72,9 +72,7 @@
                     Fill="{ThemeResource ControlStrongStrokeColorDisabledBrush}"
                     RadiusX="1"
                     RadiusY="1" />
-                <Rectangle
-                    Height="{x:Bind SelectedNotIndexedHeight, Mode=OneWay}"
-                    Fill="{ThemeResource AccentFillColorDefaultBrush}" />
+                <Rectangle Height="{x:Bind SelectedNotIndexedHeight, Mode=OneWay}" Fill="{ThemeResource AccentFillColorDefaultBrush}" />
                 <Rectangle Height="{x:Bind IndexedHeight, Mode=OneWay}" Fill="{ThemeResource SystemFillColorSuccessBrush}" />
             </StackPanel>
         </DataTemplate>
@@ -216,7 +214,10 @@
                             <controls:SegmentedItem Content="{x:Bind domain:Translator.SemanticIndex_CoverageModeDateRange, Mode=OneTime}" />
                         </controls:Segmented>
 
-                        <ItemsControl AutomationProperties.AutomationId="IntelligenceCoverageCountPresets" ItemsSource="{x:Bind ViewModel.CountPresets}" Visibility="{x:Bind ViewModel.IsLatestCountMode, Mode=OneWay}">
+                        <ItemsControl
+                            AutomationProperties.AutomationId="IntelligenceCoverageCountPresets"
+                            ItemsSource="{x:Bind ViewModel.CountPresets}"
+                            Visibility="{x:Bind ViewModel.IsLatestCountMode, Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <controls:WrapPanel HorizontalSpacing="6" VerticalSpacing="6" />
@@ -226,14 +227,17 @@
                                 <DataTemplate x:DataType="data:CoverageCountPresetOption">
                                     <Button
                                         AutomationProperties.AutomationId="IntelligenceCoverageCountPresetButton"
-                                        Command="{Binding ElementName=PageRoot, Path=ViewModel.ApplyCountPresetCommand}"
+                                        Click="CountPresetButton_Click"
                                         CommandParameter="{x:Bind}"
                                         Content="{x:Bind DisplayName}" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <ItemsControl AutomationProperties.AutomationId="IntelligenceCoverageDatePresets" ItemsSource="{x:Bind ViewModel.DatePresets}" Visibility="{x:Bind ViewModel.IsDateRangeMode, Mode=OneWay}">
+                        <ItemsControl
+                            AutomationProperties.AutomationId="IntelligenceCoverageDatePresets"
+                            ItemsSource="{x:Bind ViewModel.DatePresets}"
+                            Visibility="{x:Bind ViewModel.IsDateRangeMode, Mode=OneWay}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <controls:WrapPanel HorizontalSpacing="6" VerticalSpacing="6" />
@@ -243,7 +247,7 @@
                                 <DataTemplate x:DataType="data:CoverageDatePresetOption">
                                     <Button
                                         AutomationProperties.AutomationId="IntelligenceCoverageDatePresetButton"
-                                        Command="{Binding ElementName=PageRoot, Path=ViewModel.ApplyDatePresetCommand}"
+                                        Click="DatePresetButton_Click"
                                         CommandParameter="{x:Bind}"
                                         Content="{x:Bind DisplayName}" />
                                 </DataTemplate>
@@ -266,7 +270,7 @@
                                 ItemsSource="{x:Bind ViewModel.Buckets, Mode=OneWay}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
+                                        <StackPanel VerticalAlignment="Bottom" Orientation="Horizontal" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>
@@ -279,8 +283,8 @@
                             Maximum="{x:Bind ViewModel.RangeMaximum, Mode=OneWay}"
                             Minimum="0"
                             StepFrequency="1"
-                            Value="{x:Bind ViewModel.LatestCount, Mode=TwoWay}"
-                            Visibility="{x:Bind ViewModel.IsLatestCountMode, Mode=OneWay}" />
+                            Visibility="{x:Bind ViewModel.IsLatestCountMode, Mode=OneWay}"
+                            Value="{x:Bind ViewModel.LatestCount, Mode=TwoWay}" />
 
                         <controls:RangeSelector
                             AutomationProperties.AutomationId="IntelligenceCoverageRangeSelector"
@@ -314,7 +318,10 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
 
-                            <Border Padding="10" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4">
+                            <Border
+                                Padding="10"
+                                Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                                CornerRadius="4">
                                 <StackPanel Spacing="2">
                                     <StackPanel Orientation="Horizontal" Spacing="7">
                                         <Rectangle

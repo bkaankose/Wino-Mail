@@ -73,6 +73,26 @@ public sealed partial class ApplicationThemeEditorPage : ApplicationThemeEditorP
             : Color.FromArgb(0x4D, 0xFF, 0xFF, 0xFF));
     }
 
+    // Template buttons reach the page commands from code-behind: a reflection {Binding} to the
+    // page view model has no metadata in Native AOT builds.
+    private void ColorOptionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { CommandParameter: ThemePaletteColorOptionViewModel option })
+            ViewModel.ToggleOptionCommand.Execute(option);
+    }
+
+    private void ResetColorButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { CommandParameter: ThemePaletteColorOptionViewModel option })
+            ViewModel.ResetColorCommand.Execute(option);
+    }
+
+    private void BasePresetButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { CommandParameter: ThemeBasePreset preset })
+            ViewModel.ApplyBasePresetCommand.Execute(preset);
+    }
+
     private void EditorLoaded(object sender, RoutedEventArgs e)
     {
         ViewModel.PropertyChanged += EditorViewModelPropertyChanged;

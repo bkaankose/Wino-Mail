@@ -19,6 +19,20 @@ public sealed partial class IntelligenceCoveragePage : IntelligenceCoveragePageA
             ViewModel.SelectFolderCommand.Execute(node);
     }
 
+    // Preset buttons reach the page commands from code-behind: a reflection {Binding} to the
+    // page view model has no metadata in Native AOT builds.
+    private void CountPresetButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { CommandParameter: CoverageCountPresetOption preset })
+            ViewModel.ApplyCountPresetCommand.Execute(preset);
+    }
+
+    private void DatePresetButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button { CommandParameter: CoverageDatePresetOption preset })
+            ViewModel.ApplyDatePresetCommand.Execute(preset);
+    }
+
     /// <summary>
     /// The bar width is a pixel value rather than a star column, because the bars live in an
     /// items panel with no shared measuring pass to divide the space for them.

@@ -6,7 +6,7 @@ using Wino.Messaging.Client.Calendar;
 
 namespace Wino.Core.ViewModels;
 
-public class CalendarBaseViewModel : CoreBaseViewModel,
+public partial class CalendarBaseViewModel : CoreBaseViewModel,
     IRecipient<CalendarItemAdded>,
     IRecipient<CalendarItemUpdated>,
     IRecipient<CalendarItemDeleted>

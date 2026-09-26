@@ -2,7 +2,7 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.ViewModels;
 
-public class WelcomeHostPageViewModel : CoreBaseViewModel
+public partial class WelcomeHostPageViewModel : CoreBaseViewModel
 {
     public WelcomeHostPageViewModel(INavigationService navigationService)
     {

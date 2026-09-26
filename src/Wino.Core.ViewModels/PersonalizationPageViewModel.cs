@@ -299,7 +299,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
     [RelayCommand]
     private async Task ClearAvatarsCacheAsync() => await _thumbnailService.ClearCache();
 
-    private sealed class DemoMailItemDisplayInformation(
+    private sealed partial class DemoMailItemDisplayInformation(
         string fromName,
         string fromAddress,
         string subject,
@@ -330,6 +330,7 @@ public partial class PersonalizationPageViewModel : CoreBaseViewModel
         public string AccountColorHex { get; } = "#00FF00";
         public AccountNicknamePosition AccountNicknamePosition { get; } = Wino.Core.Domain.Enums.AccountNicknamePosition.Right;
         public IReadOnlyList<MailCategory> Categories { get; } =
+        (MailCategory[])
         [
             new()
             {

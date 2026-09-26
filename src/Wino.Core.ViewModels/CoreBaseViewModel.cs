@@ -8,7 +8,7 @@ using Wino.Core.Domain.Models.Navigation;
 
 namespace Wino.Core.ViewModels;
 
-public class CoreBaseViewModel : ObservableRecipient, INavigationAware
+public partial class CoreBaseViewModel : ObservableRecipient, INavigationAware
 {
     private IDispatcher _dispatcher;
     public IDispatcher Dispatcher

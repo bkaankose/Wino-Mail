@@ -50,19 +50,11 @@
             VerticalAlignment="Center"
             RowSpacing="12">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
-
-            <TextBlock
-                HorizontalAlignment="Center"
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource BodyStrongTextBlockStyle}"
-                Text="{x:Bind domain:Translator.WelcomeWindow_WhatsNewTitle, Mode=OneTime}" />
-
             <Border
-                Grid.Row="1"
+                Grid.Row="0"
                 Padding="0"
                 VerticalAlignment="Center"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -91,8 +83,8 @@
 
                                 <!--  Illustration  -->
                                 <Border
-                                    Width="280"
-                                    Height="150"
+                                    Width="400"
+                                    Height="250"
                                     VerticalAlignment="Center"
                                     Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                                     CornerRadius="12">
@@ -126,7 +118,7 @@
             <!--  PipsPager  -->
             <PipsPager
                 x:Name="FlipViewPager"
-                Grid.Row="2"
+                Grid.Row="1"
                 Margin="0,4,0,0"
                 HorizontalAlignment="Center"
                 AutomationProperties.AutomationId="FlipViewPager"

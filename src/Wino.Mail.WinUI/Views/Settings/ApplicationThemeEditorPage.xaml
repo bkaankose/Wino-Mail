@@ -28,7 +28,7 @@
                     AutomationProperties.Name="{x:Bind Label}"
                     Background="Transparent"
                     BorderThickness="0"
-                    Command="{Binding ElementName=Root, Path=ViewModel.ToggleOptionCommand}"
+                    Click="ColorOptionButton_Click"
                     CommandParameter="{x:Bind}">
                     <Grid ColumnSpacing="12">
                         <Grid.ColumnDefinitions>
@@ -164,7 +164,7 @@
                                 <Button
                                     VerticalAlignment="Center"
                                     AutomationProperties.AutomationId="ApplicationThemeEditorResetColorButton"
-                                    Command="{Binding ElementName=Root, Path=ViewModel.ResetColorCommand}"
+                                    Click="ResetColorButton_Click"
                                     CommandParameter="{x:Bind}"
                                     Content="{x:Bind domain:Translator.ApplicationThemeEditor_ResetToDefault, Mode=OneTime}"
                                     IsEnabled="{x:Bind IsOverridden, Mode=OneWay}" />
@@ -575,7 +575,7 @@
                                     Padding="6"
                                     AutomationProperties.AutomationId="ApplicationThemeEditorPresetButton"
                                     AutomationProperties.Name="{x:Bind Name}"
-                                    Command="{Binding ElementName=Root, Path=ViewModel.ApplyBasePresetCommand}"
+                                    Click="BasePresetButton_Click"
                                     CommandParameter="{x:Bind}">
                                     <StackPanel Spacing="6">
                                         <Grid

@@ -3,7 +3,7 @@ using Wino.Core.Domain;
 
 namespace Wino.Core.ViewModels.Data;
 
-public class AppColorViewModel : ObservableObject
+public partial class AppColorViewModel : ObservableObject
 {
     private string _hex;
 
