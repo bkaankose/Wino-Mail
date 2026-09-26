@@ -23,7 +23,7 @@ Register core services in `CoreContainerSetup`, shared services in `ServicesCont
 
 Published cross-repository dependencies must use unconditional `PackageReference` items. A sibling checkout must never change the dependency graph.
 
-If a change requires a new package, run the security audit and publish the new NuGet version during the task. Then update the centrally managed package version in every consumer. Do not substitute a local NuGet feed or sibling-project reference.
+If a change to a published cross-repository dependency requires a new version, run the security audit and publish that version during the task. Then update the centrally managed package version in every consumer. Do not substitute a local NuGet feed or sibling-project reference.
 
 ## Core implementation rules
 

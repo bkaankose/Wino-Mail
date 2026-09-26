@@ -88,20 +88,16 @@ Matching identity is necessary but not sufficient. The installed package must al
 WinApp refuses to replace a signed non-development installation with a development registration.
 If the publisher differs or a signed installation owns the identity, stop before building or stopping the app.
 
-The local check on 2026-09-15 found version 2.1.0.0 under `WindowsApps`, with `SignatureKind=Developer` and `IsDevelopmentMode=false`.
-Thus the current blocker is an installed signed package, not specifically a Store signature or an untrusted certificate.
-The recorded project-mode attempt returned `InstalledPackageConflict` behavior without launching the application.
-
 ### Coexistence with Store testing
 
-Use a dedicated Windows development VM for Debug deployment while retaining the existing installed app and its data on the host.
+When a signed installation owns the identity, use a dedicated Windows development VM for Debug deployment while retaining the existing installed app and its data on the host.
 Use the same checked-in manifest in the VM. Run `doctor app`, then the standard project-mode command.
 Configure test accounts explicitly in that environment. Do not copy production app storage as an automatic setup step.
 
 A separate Windows user can still encounter packages staged on the same machine, so it is not a guaranteed fix.
 Replacing the current installation requires a separate migration decision and a verified data backup/restore plan.
 The harness does not uninstall, unregister, create a VM, or change package identity automatically.
-Live verification remains pending until a suitable development environment is available.
+On a machine blocked this way, report live verification as pending.
 
 WinApp's package and data behavior is documented in its [command reference](https://github.com/microsoft/WinAppCli/blob/main/docs/usage.md).
 

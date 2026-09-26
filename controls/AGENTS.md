@@ -25,7 +25,7 @@ Start with the named control, feature folder, or playground page. Avoid mapping 
 
 ## Build Commands
 
-Run commands from the repository root (`D:\Wino-Mail`). Use x64 for routine verification.
+Run commands from the repository root. Use x64 for routine verification.
 
 Use the repository harness for normal control work:
 

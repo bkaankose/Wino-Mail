@@ -2,7 +2,7 @@
 
 `Run-WinoRegression.ps1` runs three finite scenarios with recorded commands and explicit state assertions.
 It reuses the earlier audit flows with fresh run prefixes, exact account selection, and current window discovery.
-The helpers have automated checks. Live scenario certification is pending the local Debug deployment conflict.
+The helpers have automated checks. A live run against the current Debug deployment is what certifies the scenarios.
 
 ## Commands
 

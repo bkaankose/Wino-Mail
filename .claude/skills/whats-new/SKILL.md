@@ -64,7 +64,7 @@ The PNG is the only output. The HTML scene is a scratch file: write it in the se
 5. Choose a descriptive kebab-case image name for the feature, for example `colorful-icon-style.png` or `calendar-work-week-view.png`. Do not use random text, numbers, or version numbers.
 6. Take a 1120x600 PNG of the scene with headless Edge. The scene is 560x300 CSS pixels, captured at scale 2:
    ```powershell
-   & "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe" --headless=new --disable-gpu --hide-scrollbars --user-data-dir="<scratchpad>\edge" --force-device-scale-factor=2 --window-size=560,300 --virtual-time-budget=2000 --screenshot="D:\Wino-Mail\src\Wino.Mail.WinUI\Assets\WhatsNew\<image-name>.png" "file:///<scratchpad>/<image-name>.html"
+   & "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe" --headless=new --disable-gpu --hide-scrollbars --user-data-dir="<scratchpad>\edge" --force-device-scale-factor=2 --window-size=560,300 --virtual-time-budget=2000 --screenshot="$PWD\src\Wino.Mail.WinUI\Assets\WhatsNew\<image-name>.png" "file:///<scratchpad>/<image-name>.html"
    ```
 7. Open the PNG with the Read tool and check it. Is the text readable? Does the feature stand out? Is the gradient visible and calm? Is nothing clipped by mistake? Fix the scene and render it again if needed.
 
@@ -93,5 +93,5 @@ The PNG is the only output. The HTML scene is a scratch file: write it in the se
 
 - The PNGs are packaged by the Windows App SDK `**/*.png` Content glob. The JSON is packaged by `<Content Include="Assets\WhatsNew\*.json" />` in `Wino.Mail.WinUI.csproj`. Do not add per-file csproj entries.
 - Run `pwsh -NoProfile -File .\scripts\whats-new\validate.ps1`. It checks the JSON, the version, the image names, the 1120x600 size, and the csproj rules. Fix every failure.
-- Show the user the final titles, descriptions, and each PNG (send the PNGs with SendUserFile) for approval before they run the release script.
+- Show the user the final titles, descriptions, and each PNG (send the PNGs to the user as files) for approval before they run the release script.
 - Do not build, deploy, or change `Package.appxmanifest`. The user runs `scripts/build-releases.ps1`.
