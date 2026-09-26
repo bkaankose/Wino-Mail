@@ -557,7 +557,10 @@
                                         Click="PlayAccountNotificationSoundButton_Click"
                                         Style="{StaticResource SubtleButtonStyle}"
                                         ToolTipService.ToolTip="{x:Bind domain:Translator.NotificationSound_Play, Mode=OneTime}">
-                                        <coreControls:WinoFontIcon FontSize="14" Icon="Play" />
+                                        <coreControls:WinoFontIcon
+                                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                                            FontSize="14"
+                                            Icon="Play" />
                                     </Button>
                                 </StackPanel>
                             </controls:SettingsCard>

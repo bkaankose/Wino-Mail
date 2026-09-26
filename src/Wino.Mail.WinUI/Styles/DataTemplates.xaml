@@ -35,7 +35,7 @@
             Content="{x:Bind domain:Translator.ContactsPage_Title}"
             DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="People" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="People" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>

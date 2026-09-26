@@ -22,7 +22,7 @@
                 Description="{x:Bind CountDescription, Mode=OneWay}"
                 Header="{x:Bind FolderName}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Folder" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Folder" />
                 </controls:SettingsCard.HeaderIcon>
                 <StackPanel Orientation="Horizontal" Spacing="16">
                     <CheckBox

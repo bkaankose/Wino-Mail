@@ -224,7 +224,9 @@ public sealed partial class MailListPage : MailListPageAbstract,
         SelectionModeToggle.IsChecked = false;
 
         MailListView.ClearSelection();
-        await MailListView.WaitForSelectionSyncAsync();
+
+        // The page can be torn down while the selection settles, e.g. when switching app modes.
+        if (!await MailListView.WaitForSelectionSyncAsync()) return;
 
         UpdateSelectAllButtonStatus();
         ViewModel.SelectedPivotChangedCommand.Execute(ViewModel.SelectedFolderPivot);

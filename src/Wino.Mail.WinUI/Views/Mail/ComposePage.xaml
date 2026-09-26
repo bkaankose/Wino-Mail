@@ -176,6 +176,7 @@
                                 VerticalAlignment="Center"
                                 AutomationProperties.AutomationId="ComposeAttachmentContentTypeWarning"
                                 AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
                                 FontSize="12"
                                 Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                 Icon="Warning"
@@ -201,6 +202,7 @@
                         Style="{StaticResource TransparentActionButtonStyle}"
                         ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AttachmentMoreOptions, Mode=OneTime}">
                         <coreControls:WinoFontIcon
+                            FontFamily="{ThemeResource WinoIconFontFamily}"
                             FontSize="14"
                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                             Icon="More" />

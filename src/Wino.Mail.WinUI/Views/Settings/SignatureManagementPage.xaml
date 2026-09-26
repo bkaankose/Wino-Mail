@@ -33,6 +33,7 @@
                             <coreControls:WinoFontIcon
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
                                 Icon="Signature" />
                         </controls1:SettingsExpander.HeaderIcon>
                         <controls1:SettingsExpander.Items>

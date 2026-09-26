@@ -47,7 +47,7 @@
                 Description="{x:Bind AccountAddresses}"
                 Header="{x:Bind MergedInbox.Name}">
                 <controls:SettingsExpander.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="People" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="People" />
                 </controls:SettingsExpander.HeaderIcon>
                 <controls:SettingsExpander.Items>
                     <controls:SettingsCard
@@ -58,7 +58,7 @@
                         Header="{x:Bind domain:Translator.SettingsEditLinkedInbox_Title}"
                         IsClickEnabled="True">
                         <controls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="Link" />
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Link" />
                         </controls:SettingsCard.HeaderIcon>
                     </controls:SettingsCard>
                     <controls:SettingsCard

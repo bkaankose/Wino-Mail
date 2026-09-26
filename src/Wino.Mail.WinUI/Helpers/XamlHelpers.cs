@@ -166,10 +166,9 @@ public static class XamlHelpers
     public static string ConditionalString(bool condition, string trueValue, string falseValue) => condition ? trueValue : falseValue;
 
     // Contacts
-    public static WinoIconGlyph GetFavoriteGlyph(bool isFavorite) => isFavorite ? WinoIconGlyph.StarFilled : WinoIconGlyph.Star;
+    // The favorite star itself is drawn by the pages: a brush resolved here would come from the
+    // application dictionary and follow the system theme instead of the page theme.
     public static string GetFavoriteTooltip(bool isFavorite) => isFavorite ? Translator.ContactAction_Unfavorite : Translator.ContactAction_Favorite;
-    public static Brush GetFavoriteBrush(bool isFavorite)
-        => (Brush)Application.Current.Resources[isFavorite ? "SystemFillColorCautionBrush" : "TextFillColorSecondaryBrush"];
     public static bool HasText(string value) => !string.IsNullOrWhiteSpace(value);
     public static ContactPhoneKind[] GetPhoneKinds() => Enum.GetValues<ContactPhoneKind>();
     /// <summary>Each postal address slot is labelled with the glyph for its kind.</summary>

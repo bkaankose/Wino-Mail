@@ -30,12 +30,27 @@ public sealed partial class WinoHotKeyInput : Button
 
     public event EventHandler<HotKeyCommittedEventArgs>? HotKeyCommitted;
 
+    /// <summary>
+    /// Raised when the control starts listening for a new shortcut. Hosts that register the
+    /// current shortcut globally should suspend it, or the system consumes the keystrokes.
+    /// </summary>
+    public event EventHandler? CaptureStarted;
+
+    /// <summary>
+    /// Raised when listening ends without a committed shortcut (Escape, focus loss or unload).
+    /// </summary>
+    public event EventHandler? CaptureCanceled;
+
     public WinoHotKeyInput()
     {
         DefaultStyleKey = typeof(Button);
         HorizontalAlignment = HorizontalAlignment.Stretch;
         HorizontalContentAlignment = HorizontalAlignment.Left;
-        Loaded += OnLoaded;
+
+        // Subscribe once for the control's lifetime. Subscribing in Loaded and removing in
+        // Unloaded loses the handler when a host (SettingsExpander items, ItemsRepeater)
+        // raises Loaded for the new placement before Unloaded for the old one.
+        Click += OnControlClicked;
         Unloaded += OnUnloaded;
         UpdateDisplay();
     }
@@ -48,17 +63,7 @@ public sealed partial class WinoHotKeyInput : Button
 
     partial void OnListeningPromptChanged(string newValue) => UpdateDisplay();
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
-    {
-        Click -= OnControlClicked;
-        Click += OnControlClicked;
-    }
-
-    private void OnUnloaded(object sender, RoutedEventArgs e)
-    {
-        Click -= OnControlClicked;
-        CancelCapture();
-    }
+    private void OnUnloaded(object sender, RoutedEventArgs e) => CancelCapture();
 
     protected override void OnKeyDown(KeyRoutedEventArgs e)
     {
@@ -121,6 +126,7 @@ public sealed partial class WinoHotKeyInput : Button
         _capturedKey = VirtualKey.None;
         _capturedModifiers = VirtualKeyModifiers.None;
         UpdateDisplay();
+        CaptureCanceled?.Invoke(this, EventArgs.Empty);
     }
 
     public static string Format(VirtualKey key, VirtualKeyModifiers modifiers)
@@ -143,10 +149,18 @@ public sealed partial class WinoHotKeyInput : Button
 
     private void BeginCapture()
     {
+        if (IsCapturing)
+            return;
+
         IsCapturing = true;
         _capturedKey = VirtualKey.None;
         _capturedModifiers = VirtualKeyModifiers.None;
         UpdateDisplay();
+
+        if (FocusState == FocusState.Unfocused)
+            Focus(FocusState.Programmatic);
+
+        CaptureStarted?.Invoke(this, EventArgs.Empty);
     }
 
     private void OnControlClicked(object sender, RoutedEventArgs e) => BeginCapture();

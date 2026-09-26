@@ -21,7 +21,7 @@
             LabelPosition="{x:Bind LabelPosition}"
             ToolTipService.ToolTip="{x:Bind ToolTip}">
             <AppBarButton.Icon>
-                <controls:WinoFontIcon Icon="{x:Bind Icon}" />
+                <controls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind Icon}" />
             </AppBarButton.Icon>
         </AppBarButton>
     </DataTemplate>
@@ -36,7 +36,7 @@
             LabelPosition="{x:Bind LabelPosition}"
             ToolTipService.ToolTip="{x:Bind ToolTip}">
             <AppBarButton.Icon>
-                <controls:WinoFontIcon Icon="{x:Bind Icon}" />
+                <controls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind Icon}" />
             </AppBarButton.Icon>
         </AppBarButton>
     </DataTemplate>
@@ -49,7 +49,10 @@
             LabelPosition="Collapsed"
             ToolTipService.ToolTip="{x:Bind ToolTip}">
             <AppBarToggleButton.Icon>
-                <controls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
+                <controls:WinoFontIcon
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                    Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}"
+                    Icon="WinoIntelligence" />
             </AppBarToggleButton.Icon>
         </AppBarToggleButton>
     </DataTemplate>
@@ -62,7 +65,7 @@
             LabelPosition="Collapsed"
             ToolTipService.ToolTip="{x:Bind ToolTip}">
             <AppBarButton.Icon>
-                <controls:WinoFontIcon Icon="{x:Bind Icon}" />
+                <controls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind Icon}" />
             </AppBarButton.Icon>
         </AppBarButton>
     </DataTemplate>

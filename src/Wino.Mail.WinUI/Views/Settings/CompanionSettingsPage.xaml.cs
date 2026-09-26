@@ -19,10 +19,10 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
     {
         InitializeComponent();
         HotKeyEnabledToggle.IsOn = ViewModel.PreferencesService.IsCompanionHotKeyEnabled;
-        AfterAppSessionRadioButton.IsChecked = ViewModel.PreferencesService.CompanionUnreadMessageBehavior
-            == CompanionUnreadMessageBehavior.AfterAppSession;
-        EverythingRadioButton.IsChecked = ViewModel.PreferencesService.CompanionUnreadMessageBehavior
-            == CompanionUnreadMessageBehavior.Everything;
+        UnreadBehaviorComboBox.SelectedItem = ViewModel.PreferencesService.CompanionUnreadMessageBehavior
+            == CompanionUnreadMessageBehavior.Everything
+                ? EverythingComboBoxItem
+                : AfterAppSessionComboBoxItem;
         RestoreHotKeyInput();
         UpdateHotKeyAvailability();
         UpdatePersonalizationAvailability();
@@ -50,16 +50,17 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
         }
     }
 
-    private void AfterAppSessionRadioButton_Checked(object sender, RoutedEventArgs e)
+    private void UnreadBehaviorComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (sender is RadioButton { IsLoaded: true })
-            ViewModel.PreferencesService.CompanionUnreadMessageBehavior = CompanionUnreadMessageBehavior.AfterAppSession;
-    }
+        if (sender is not ComboBox { IsLoaded: true } comboBox)
+            return;
 
-    private void EverythingRadioButton_Checked(object sender, RoutedEventArgs e)
-    {
-        if (sender is RadioButton { IsLoaded: true })
-            ViewModel.PreferencesService.CompanionUnreadMessageBehavior = CompanionUnreadMessageBehavior.Everything;
+        var behavior = ReferenceEquals(comboBox.SelectedItem, EverythingComboBoxItem)
+            ? CompanionUnreadMessageBehavior.Everything
+            : CompanionUnreadMessageBehavior.AfterAppSession;
+
+        if (ViewModel.PreferencesService.CompanionUnreadMessageBehavior != behavior)
+            ViewModel.PreferencesService.CompanionUnreadMessageBehavior = behavior;
     }
 
     private void HotKeyEnabled_Toggled(object sender, RoutedEventArgs e)
@@ -83,23 +84,35 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
         UpdateHotKeyAvailability();
     }
 
+    private void HotKeyInput_CaptureStarted(object? sender, EventArgs e)
+    {
+        HotKeyErrorInfoBar.IsOpen = false;
+
+        // A registered global hotkey never reaches the window as key input, so pressing the
+        // current shortcut while listening would open the companion instead of being captured.
+        TryConfigure(false, GetStoredGesture());
+    }
+
+    private void HotKeyInput_CaptureCanceled(object? sender, EventArgs e)
+    {
+        RestoreHotKeyInput();
+        ResumeStoredHotKey();
+    }
+
     private void HotKeyInput_HotKeyCommitted(object? sender, HotKeyCommittedEventArgs e)
     {
         HotKeyErrorInfoBar.IsOpen = false;
+
         var candidate = new HotKeyGesture(e.Key.ToString(), ToDomainModifiers(e.Modifiers)).Normalize();
         if (!candidate.IsValid)
         {
-            HotKeyErrorInfoBar.Message = Translator.CompanionSettings_HotKey_Invalid;
-            HotKeyErrorInfoBar.IsOpen = true;
-            RestoreHotKeyInput();
+            ShowHotKeyError(Translator.CompanionSettings_HotKey_Invalid);
             return;
         }
 
         if (!TryConfigure(ViewModel.PreferencesService.IsCompanionHotKeyEnabled, candidate))
         {
-            HotKeyErrorInfoBar.Message = Translator.CompanionSettings_HotKey_Conflict;
-            HotKeyErrorInfoBar.IsOpen = true;
-            RestoreHotKeyInput();
+            ShowHotKeyError(Translator.CompanionSettings_HotKey_Conflict);
             return;
         }
 
@@ -107,6 +120,24 @@ public sealed partial class CompanionSettingsPage : CompanionSettingsPageAbstrac
         ViewModel.PreferencesService.CompanionHotKeyModifiers = candidate.Modifiers;
         HotKeyInput.Key = e.Key;
         HotKeyInput.Modifiers = e.Modifiers;
+    }
+
+    private void ShowHotKeyError(string message)
+    {
+        RestoreHotKeyInput();
+        ResumeStoredHotKey();
+
+        HotKeyErrorInfoBar.Message = message;
+        HotKeyErrorInfoBar.IsOpen = true;
+    }
+
+    private void ResumeStoredHotKey()
+    {
+        if (TryConfigure(ViewModel.PreferencesService.IsCompanionHotKeyEnabled, GetStoredGesture()))
+            return;
+
+        HotKeyErrorInfoBar.Message = Translator.CompanionSettings_HotKey_Conflict;
+        HotKeyErrorInfoBar.IsOpen = true;
     }
 
     private bool TryConfigure(bool enabled, HotKeyGesture gesture) =>

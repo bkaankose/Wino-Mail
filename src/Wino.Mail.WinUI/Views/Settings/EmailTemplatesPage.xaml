@@ -35,7 +35,7 @@
                         IsClickEnabled="True"
                         Tag="{x:Bind}">
                         <controls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="Edit" />
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Edit" />
                         </controls:SettingsCard.HeaderIcon>
                     </controls:SettingsCard>
                 </DataTemplate>

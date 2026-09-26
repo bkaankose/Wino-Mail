@@ -89,6 +89,7 @@
                                             Spacing="4"
                                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(HasDueDate), Mode=OneWay}">
                                             <coreControls:WinoFontIcon
+                                                FontFamily="{ThemeResource WinoIconFontFamily}"
                                                 FontSize="11"
                                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                 Icon="Calendar" />
@@ -117,6 +118,7 @@
                                             Spacing="4"
                                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsInMyDay), Mode=OneWay}">
                                             <coreControls:WinoFontIcon
+                                                FontFamily="{ThemeResource WinoIconFontFamily}"
                                                 FontSize="11"
                                                 Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                                 Icon="WeatherSunny" />
@@ -127,6 +129,7 @@
                                         </StackPanel>
 
                                         <coreControls:WinoFontIcon
+                                            FontFamily="{ThemeResource WinoIconFontFamily}"
                                             FontSize="11"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                             Icon="Note"
@@ -145,11 +148,13 @@
                                     ToolTipService.ToolTip="{x:Bind ImportanceActionText, Mode=OneWay}">
                                     <Grid>
                                         <coreControls:WinoFontIcon
+                                            FontFamily="{ThemeResource WinoIconFontFamily}"
                                             FontSize="15"
                                             Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                             Icon="Star"
                                             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsImportant), Mode=OneWay}" />
                                         <coreControls:WinoFontIcon
+                                            FontFamily="{ThemeResource WinoIconFontFamily}"
                                             FontSize="15"
                                             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                             Icon="Star"
@@ -179,6 +184,7 @@
                                 <coreControls:WinoFontIcon
                                     Grid.Column="0"
                                     VerticalAlignment="Top"
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
                                     FontSize="14"
                                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                                     Icon="Add" />
@@ -241,7 +247,10 @@
                                 IsEnabled="{x:Bind IsEditable, Mode=OneTime}"
                                 Style="{StaticResource TransparentActionButtonStyle}"
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_DeleteStep, Mode=OneTime}">
-                                <coreControls:WinoFontIcon FontSize="13" Icon="Dismiss" />
+                                <coreControls:WinoFontIcon
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                    FontSize="13"
+                                    Icon="Dismiss" />
                             </Button>
                         </Grid>
                     </DataTemplate>
@@ -289,6 +298,7 @@
                                         </Grid.ColumnDefinitions>
                                         <coreControls:WinoFontIcon
                                             Grid.Column="0"
+                                            FontFamily="{ThemeResource WinoIconFontFamily}"
                                             FontSize="14"
                                             Icon="Folder" />
                                         <TextBlock

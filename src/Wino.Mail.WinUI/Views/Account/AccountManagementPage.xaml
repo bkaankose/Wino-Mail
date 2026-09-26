@@ -50,7 +50,7 @@
                         Header="{x:Bind domain:Translator.SettingsEditLinkedInbox_Title}"
                         IsClickEnabled="True">
                         <winuiControls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="Link" />
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Link" />
                         </winuiControls:SettingsCard.HeaderIcon>
                     </winuiControls:SettingsCard>
                     <!--  Individual accounts  -->
@@ -69,7 +69,7 @@
                     </winuiControls:SettingsCard>
                 </winuiControls:SettingsExpander.Items>
                 <winuiControls:SettingsExpander.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="People" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="People" />
                 </winuiControls:SettingsExpander.HeaderIcon>
             </winuiControls:SettingsExpander>
         </DataTemplate>

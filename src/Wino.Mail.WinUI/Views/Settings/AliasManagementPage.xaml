@@ -31,7 +31,7 @@
                 Description="{x:Bind DescriptionText}"
                 IsExpanded="False">
                 <controls:SettingsExpander.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Mail" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Mail" />
                 </controls:SettingsExpander.HeaderIcon>
 
                 <controls:SettingsExpander.Header>
@@ -53,6 +53,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <coreControls:WinoFontIcon
                                     VerticalAlignment="Center"
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
                                     FontSize="11"
                                     Foreground="{ThemeResource SystemFillColorAttentionBrush}"
                                     Icon="Star" />
@@ -73,6 +74,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <coreControls:WinoFontIcon
                                     VerticalAlignment="Center"
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
                                     FontSize="11"
                                     Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                                     Icon="Checkmark" />
@@ -93,6 +95,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <coreControls:WinoFontIcon
                                     VerticalAlignment="Center"
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
                                     FontSize="11"
                                     Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                     Icon="QuestionCircle" />
@@ -113,6 +116,7 @@
                             <StackPanel Orientation="Horizontal" Spacing="6">
                                 <coreControls:WinoFontIcon
                                     VerticalAlignment="Center"
+                                    FontFamily="{ThemeResource WinoIconFontFamily}"
                                     FontSize="11"
                                     Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                     Icon="Dismiss" />
@@ -136,7 +140,10 @@
                     AutomationProperties.Name="{x:Bind RowAutomationName}"
                     Style="{ThemeResource TransparentActionButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.AccountAlias_MoreActions, Mode=OneTime}">
-                    <coreControls:WinoFontIcon FontSize="14" Icon="More" />
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="14"
+                        Icon="More" />
                     <Button.Flyout>
                         <contextFlyout:WinoContextFlyout Placement="BottomEdgeAlignedRight">
                             <contextFlyout:WinoContextFlyoutItem
@@ -183,7 +190,7 @@
                         Description="{x:Bind domain:Translator.AccountAlias_Encryption_Description, Mode=OneTime}"
                         Header="{x:Bind domain:Translator.AccountAlias_Encryption_Title, Mode=OneTime}">
                         <controls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="LockClosed" />
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="LockClosed" />
                         </controls:SettingsCard.HeaderIcon>
                         <ToggleSwitch
                             AutomationProperties.AutomationId="{x:Bind EncryptionAutomationId}"
@@ -199,7 +206,7 @@
                         Header="{x:Bind domain:Translator.SettingsSignatureAndEncryption_SigningCertificate, Mode=OneTime}"
                         IsEnabled="{x:Bind IsSmimeEncryptionEnabled}">
                         <controls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="Certificate" />
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Certificate" />
                         </controls:SettingsCard.HeaderIcon>
                         <ComboBox
                             MinWidth="240"
@@ -224,7 +231,7 @@
                         Description="{x:Bind domain:Translator.AccountAlias_ReplyTo_Description, Mode=OneTime}"
                         Header="{x:Bind domain:Translator.AccountAlias_ReplyTo_Title, Mode=OneTime}">
                         <controls:SettingsCard.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="Reply" />
+                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Reply" />
                         </controls:SettingsCard.HeaderIcon>
                         <TextBlock
                             VerticalAlignment="Center"

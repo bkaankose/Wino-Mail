@@ -578,7 +578,10 @@
                                                 CommandParameter="{x:Bind}"
                                                 Style="{ThemeResource SubtleButtonStyle}"
                                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_Archive, Mode=OneTime}">
-                                                <coreControls:WinoFontIcon FontSize="14" Icon="Archive" />
+                                                <coreControls:WinoFontIcon
+                                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                    FontSize="14"
+                                                    Icon="Archive" />
                                             </Button>
                                             <Button
                                                 Width="28"
@@ -590,7 +593,10 @@
                                                 CommandParameter="{x:Bind}"
                                                 Style="{ThemeResource SubtleButtonStyle}"
                                                 ToolTipService.ToolTip="{x:Bind domain:Translator.Companion_MarkRead, Mode=OneTime}">
-                                                <coreControls:WinoFontIcon FontSize="14" Icon="MarkRead" />
+                                                <coreControls:WinoFontIcon
+                                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                    FontSize="14"
+                                                    Icon="MarkRead" />
                                             </Button>
                                         </StackPanel>
                                     </Grid>

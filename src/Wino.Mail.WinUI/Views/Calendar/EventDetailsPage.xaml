@@ -28,6 +28,7 @@
             <selectors:RsvpStatusIconTemplateSelector.NotRespondedTemplate>
                 <DataTemplate>
                     <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="20"
                         Foreground="{ThemeResource SystemAccentColor}"
                         Icon="EventRespond" />
@@ -36,6 +37,7 @@
             <selectors:RsvpStatusIconTemplateSelector.ConfirmedTemplate>
                 <DataTemplate>
                     <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="20"
                         Foreground="{ThemeResource SystemFillColorSuccessBrush}"
                         Icon="EventAccept" />
@@ -44,6 +46,7 @@
             <selectors:RsvpStatusIconTemplateSelector.TentativeTemplate>
                 <DataTemplate>
                     <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="20"
                         Foreground="{ThemeResource SystemFillColorAttentionBrush}"
                         Icon="EventTentative" />
@@ -52,6 +55,7 @@
             <selectors:RsvpStatusIconTemplateSelector.CancelledTemplate>
                 <DataTemplate>
                     <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="20"
                         Foreground="{ThemeResource DeleteBrush}"
                         Icon="EventDecline" />
@@ -616,6 +620,7 @@
                                             VerticalAlignment="Center"
                                             AutomationProperties.AutomationId="CalendarAttachmentContentTypeWarning"
                                             AutomationProperties.Name="{x:Bind ContentTypeWarningText, Mode=OneWay}"
+                                            FontFamily="{ThemeResource WinoIconFontFamily}"
                                             Foreground="{ThemeResource SystemFillColorCautionBrush}"
                                             Icon="Important"
                                             ToolTipService.ToolTip="{x:Bind ContentTypeWarningText, Mode=OneWay}"

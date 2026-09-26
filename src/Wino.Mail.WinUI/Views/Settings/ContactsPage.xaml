@@ -71,10 +71,21 @@
                     CommandParameter="{x:Bind}"
                     Style="{StaticResource SubtleButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind helpers:XamlHelpers.GetFavoriteTooltip(IsFavorite), Mode=OneWay}">
-                    <coreControls:WinoFontIcon
-                        FontSize="15"
-                        Foreground="{x:Bind helpers:XamlHelpers.GetFavoriteBrush(IsFavorite), Mode=OneWay}"
-                        Icon="{x:Bind helpers:XamlHelpers.GetFavoriteGlyph(IsFavorite), Mode=OneWay}" />
+                    <!--  Theme brushes resolve on the element so the star follows the page theme, not the system theme.  -->
+                    <Grid>
+                        <coreControls:WinoFontIcon
+                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                            FontSize="15"
+                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                            Icon="StarFilled"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsFavorite), Mode=OneWay}" />
+                        <coreControls:WinoFontIcon
+                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                            FontSize="15"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Icon="Star"
+                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(IsFavorite), Mode=OneWay}" />
+                    </Grid>
                 </Button>
             </Grid>
         </DataTemplate>
@@ -90,6 +101,7 @@
                     Grid.Column="0"
                     Margin="0,2,0,0"
                     VerticalAlignment="Top"
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
                     FontSize="14"
                     Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                     Icon="Mail" />
@@ -117,6 +129,7 @@
                     Grid.Column="0"
                     Margin="0,2,0,0"
                     VerticalAlignment="Top"
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
                     FontSize="14"
                     Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                     Icon="Phone" />
@@ -399,10 +412,19 @@
                             CommandParameter="{x:Bind ViewModel.SelectedContact, Mode=OneWay}"
                             Style="{StaticResource SubtleButtonStyle}"
                             ToolTipService.ToolTip="{x:Bind helpers:XamlHelpers.GetFavoriteTooltip(ViewModel.SelectedContact.IsFavorite), Mode=OneWay}">
-                            <coreControls:WinoFontIcon
-                                FontSize="17"
-                                Foreground="{x:Bind helpers:XamlHelpers.GetFavoriteBrush(ViewModel.SelectedContact.IsFavorite), Mode=OneWay}"
-                                Icon="{x:Bind helpers:XamlHelpers.GetFavoriteGlyph(ViewModel.SelectedContact.IsFavorite), Mode=OneWay}" />
+                            <!--  Theme brushes resolve on the element so the star follows the page theme, not the system theme.  -->
+                            <Grid>
+                                <coreControls:WinoFontIcon
+                                    FontSize="17"
+                                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                    Icon="StarFilled"
+                                    Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedContact.IsFavorite), Mode=OneWay}" />
+                                <coreControls:WinoFontIcon
+                                    FontSize="17"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Icon="Star"
+                                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.SelectedContact.IsFavorite), Mode=OneWay}" />
+                            </Grid>
                         </Button>
 
                         <StackPanel

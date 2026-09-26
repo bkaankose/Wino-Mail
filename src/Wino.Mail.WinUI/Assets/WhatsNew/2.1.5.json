@@ -1,0 +1,71 @@
+{
+  "version": "2.1.5",
+  "isStarred": false,
+  "features": [
+    {
+      "image": "wino-people.png",
+      "title": "Meet Wino People",
+      "description": "Your contacts now have a home of their own. Sync them from Outlook, Gmail or CardDAV, star your favorites and group people into lists. Open People from the switcher at the bottom of the menu, or from the Start menu."
+    },
+    {
+      "image": "wino-to-do.png",
+      "title": "Meet Wino To Do",
+      "description": "Plan your day right next to your mail. Tasks sync with Microsoft To Do and Google Tasks, with steps, due dates and notes. Pick what matters in My Day. Open To Do from the switcher at the bottom of the menu."
+    },
+    {
+      "image": "companion-flyout.png",
+      "title": "Your day at a glance",
+      "description": "Check your day without opening Wino. Click the Wino icon in the system tray or press Ctrl+Shift+Space to see your next meeting, unread mail and My Day tasks. Set it up in Settings > General > Companion."
+    },
+    {
+      "image": "wino-intelligence-briefing.png",
+      "title": "Wino Intelligence",
+      "description": "Let Wino read ahead for you. The daily briefing sums up the mail that matters, with actions like Pay invoice or Track shipment. You can also summarize and translate any message. Needs a Wino Account subscription."
+    },
+    {
+      "image": "account-profile-pictures.png",
+      "title": "Pictures for your accounts",
+      "description": "Tell your accounts apart at a glance. Choose your own picture for each account, or use your Gmail or Outlook photo. Change it in Manage Accounts > your account > Profile picture."
+    },
+    {
+      "image": "faster-everyday-performance.png",
+      "title": "Faster everywhere",
+      "description": "Wino starts faster and feels snappier. Folders open quicker, the mail list updates without reloading, and menus and settings respond right away."
+    },
+    {
+      "image": "mail-filters.png",
+      "title": "Sort mail automatically",
+      "description": "Create filters that handle new mail for you. Match the sender, subject or other details, then move, archive, flag or mark messages as read. Find them in Manage Accounts > your account > Mail filters."
+    },
+    {
+      "image": "new-app-themes.png",
+      "title": "15 new themes",
+      "description": "Give Wino a fresh look, from Aurora to Nebula. Or make a theme of your own with your wallpaper, accent color and surface colors. Pick one in Settings > Personalization > Application themes."
+    },
+    {
+      "image": "reworked-mail-list.png",
+      "title": "A smarter mail list",
+      "description": "Act on mail without opening it. Hover a message to archive, delete or flag it, and choose which buttons appear. Conversations expand in place. Try it all with the live preview in Settings > Mail > Message list."
+    },
+    {
+      "image": "notifications-and-badges.png",
+      "title": "Notifications on your terms",
+      "description": "Snooze notifications, set quiet hours and give each account its own sound. Choose which accounts and folders count toward unread badges. Find it in Settings > General > Notifications and Settings > Mail > Unread badges."
+    },
+    {
+      "image": "imap-and-sync-reliability.png",
+      "title": "Easier IMAP, steadier sync",
+      "description": "Adding an IMAP account is simpler: Wino finds your server settings and tests every connection at once. POP3 and CardDAV are now supported, and sync is more reliable for every account."
+    },
+    {
+      "image": "colorful-icon-style.png",
+      "title": "Colorful icons",
+      "description": "Give Wino a splash of color. Folders, flags, calendar views and reminders get a soft tint, so you can spot them at a glance. Turn it on in Settings > Personalization > Icon style."
+    },
+    {
+      "image": "whats-new-window.png",
+      "title": "See what's new",
+      "description": "Never miss an improvement. After an update, look for the megaphone in the title bar to see what changed. You can open these notes again at any time from Settings > About."
+    }
+  ]
+}

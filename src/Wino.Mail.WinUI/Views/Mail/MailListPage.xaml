@@ -830,7 +830,10 @@
                                                 CornerRadius="11"
                                                 Tag="{x:Bind}"
                                                 ToolTipService.ToolTip="{x:Bind RemoveText}">
-                                                <coreControls:WinoFontIcon FontSize="9" Icon="Dismiss" />
+                                                <coreControls:WinoFontIcon
+                                                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                    FontSize="9"
+                                                    Icon="Dismiss" />
                                             </Button>
                                         </StackPanel>
                                     </Border>

@@ -64,6 +64,7 @@
                         <coreControls:WinoFontIcon
                             HorizontalAlignment="Center"
                             VerticalAlignment="Center"
+                            FontFamily="{ThemeResource WinoIconFontFamily}"
                             FontSize="20"
                             Icon="{x:Bind Icon}" />
                     </Border>
@@ -129,6 +130,7 @@
                     Width="16"
                     Height="16"
                     VerticalAlignment="Top"
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
                     Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
                     Icon="Checkmark" />
                 <TextBlock

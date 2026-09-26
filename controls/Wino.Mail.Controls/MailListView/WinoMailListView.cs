@@ -351,8 +351,12 @@ public partial class WinoMailListView : ListView, IDisposable
             QueueSelectionRestore();
         }
 
-        await WaitForSelectionRestoreAsync();
-        if (scrollIntoView && _projection.FindRow(stableId) is { } row)
+        if (!await WaitForSelectionRestoreAsync())
+        {
+            return false;
+        }
+
+        if (scrollIntoView && _projection?.FindRow(stableId) is { } row)
         {
             ScrollIntoView(row);
         }
@@ -400,7 +404,11 @@ public partial class WinoMailListView : ListView, IDisposable
         QueueSelectionRestore();
     }
 
-    public Task WaitForSelectionSyncAsync() => WaitForSelectionRestoreAsync();
+    /// <summary>
+    /// Waits for a queued selection change to reach the native list. Returns false when the
+    /// control was disposed first, so callers can stop instead of handling a cancellation.
+    /// </summary>
+    public Task<bool> WaitForSelectionSyncAsync() => WaitForSelectionRestoreAsync();
 
     public void ExpandThreadFromExpander(string threadKey) => ExpandThread(threadKey);
 
@@ -430,7 +438,8 @@ public partial class WinoMailListView : ListView, IDisposable
         _contextMenuContainer = null;
         _pressedRow = null;
         _multiSelectRetainedItem = null;
-        _selectionRestoreCompletion?.TrySetCanceled();
+        // Waiters are fire-and-forget UI handlers; a canceled task would crash them.
+        _selectionRestoreCompletion?.TrySetResult(false);
         _selectionRestoreCompletion = null;
         GC.SuppressFinalize(this);
     }
@@ -1486,8 +1495,8 @@ public partial class WinoMailListView : ListView, IDisposable
         GroupStyle.Add(new GroupStyle { HeaderTemplate = GroupHeaderTemplate });
     }
 
-    private Task WaitForSelectionRestoreAsync() =>
-        _selectionRestoreCompletion?.Task ?? Task.CompletedTask;
+    private Task<bool> WaitForSelectionRestoreAsync() =>
+        _selectionRestoreCompletion?.Task ?? Task.FromResult(!_disposed);
 
     private static void ReplaceContents<T>(
         ObservableCollection<T> target,

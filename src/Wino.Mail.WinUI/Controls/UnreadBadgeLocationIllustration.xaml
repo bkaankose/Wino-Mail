@@ -221,6 +221,7 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <coreControls:WinoFontIcon
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
                                 FontSize="10"
                                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                 Icon="Folder" />

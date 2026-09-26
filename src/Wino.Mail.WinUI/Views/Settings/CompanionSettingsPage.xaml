@@ -91,20 +91,23 @@
                     Description="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_Description, Mode=OneTime}"
                     Header="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_Title, Mode=OneTime}"
                     IsEnabled="{x:Bind ViewModel.PreferencesService.ShowUnreadMailInCompanion, Mode=OneWay}">
-                    <RadioButtons x:Name="UnreadBehaviorPanel" AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_Title, Mode=OneTime}">
-                        <RadioButton
-                            x:Name="AfterAppSessionRadioButton"
-                            AutomationProperties.AutomationId="CompanionSettingsUnreadAfterSessionRadioButton"
+                    <ComboBox
+                        x:Name="UnreadBehaviorComboBox"
+                        MinWidth="200"
+                        AutomationProperties.AutomationId="CompanionSettingsUnreadBehaviorComboBox"
+                        AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_Title, Mode=OneTime}"
+                        SelectionChanged="UnreadBehaviorComboBox_SelectionChanged">
+                        <ComboBoxItem
+                            x:Name="AfterAppSessionComboBoxItem"
+                            AutomationProperties.AutomationId="CompanionSettingsUnreadAfterSessionItem"
                             AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_AfterAppSession, Mode=OneTime}"
-                            Checked="AfterAppSessionRadioButton_Checked"
                             Content="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_AfterAppSession, Mode=OneTime}" />
-                        <RadioButton
-                            x:Name="EverythingRadioButton"
-                            AutomationProperties.AutomationId="CompanionSettingsUnreadEverythingRadioButton"
+                        <ComboBoxItem
+                            x:Name="EverythingComboBoxItem"
+                            AutomationProperties.AutomationId="CompanionSettingsUnreadEverythingItem"
                             AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_Everything, Mode=OneTime}"
-                            Checked="EverythingRadioButton_Checked"
                             Content="{x:Bind domain:Translator.CompanionSettings_UnreadBehavior_Everything, Mode=OneTime}" />
-                    </RadioButtons>
+                    </ComboBox>
                 </controls:SettingsCard>
 
                 <controls:SettingsCard AutomationProperties.AutomationId="CompanionSettingsShowTasksCard" Header="{x:Bind domain:Translator.CompanionSettings_ShowTasks_Title, Mode=OneTime}">
@@ -144,6 +147,8 @@
                         MinWidth="240"
                         AutomationProperties.AutomationId="CompanionSettingsHotKeyInput"
                         AutomationProperties.Name="{x:Bind domain:Translator.CompanionSettings_HotKey_KeyCombination, Mode=OneTime}"
+                        CaptureCanceled="HotKeyInput_CaptureCanceled"
+                        CaptureStarted="HotKeyInput_CaptureStarted"
                         HotKeyCommitted="HotKeyInput_HotKeyCommitted"
                         ListeningPrompt="{x:Bind domain:Translator.CompanionSettings_HotKey_Listening, Mode=OneTime}"
                         NormalPrompt="{x:Bind domain:Translator.KeyboardShortcuts_PressKeysHere, Mode=OneTime}" />

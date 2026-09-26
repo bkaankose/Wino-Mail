@@ -26,6 +26,12 @@ public interface IMailShellClient : IShellMenuProvider
     Task NavigateFolderAsync(IBaseFolderMenuItem baseFolderMenuItem, TaskCompletionSource<bool>? folderInitAwaitTask = null);
     Task ChangeLoadedAccountAsync(IAccountMenuItem clickedBaseAccountMenuItem, bool navigateInbox = true);
     Task PerformFolderOperationAsync(FolderOperation operation, IBaseFolderMenuItem folderMenuItem);
+
+    /// <summary>
+    /// Marks every mail in the Inbox of each account held by the menu item as read.
+    /// A merged account covers the Inbox of every linked account.
+    /// </summary>
+    Task MarkAccountInboxesAsReadAsync(IAccountMenuItem accountMenuItem);
     Task PerformMoveOperationAsync(IEnumerable<MailCopy> items, IBaseFolderMenuItem targetFolderMenuItem);
     Task CreateRootFolderAsync(IAccountMenuItem accountMenuItem);
     Task CreateNewMailForAsync(MailAccount account);

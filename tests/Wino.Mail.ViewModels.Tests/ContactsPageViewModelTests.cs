@@ -56,7 +56,10 @@ public class ContactsPageViewModelTests
             Mock.Of<IWinoRequestDelegator>(),
             navigation.Object,
             Mock.Of<IMailDialogService>(),
-            Mock.Of<IActivationStateService>());
+            Mock.Of<IActivationStateService>())
+        {
+            HasCreateDestinations = true
+        };
         var details = ContactShortcut(KeyboardShortcutAction.NewContact);
 
         await viewModel.KeyboardShortcutHook(details);
@@ -712,6 +715,65 @@ public class ContactsPageViewModelTests
         viewModel.SelectedFilter.Should().NotBe(favorites);
     }
 
+    [Fact]
+    public async Task WithoutAWritableDestination_NewContactAndNewListAreUnavailable()
+    {
+        var contactService = PageService();
+        contactService.Setup(service => service.GetCreateDestinationsAsync()).ReturnsAsync(
+        [
+            new ContactCreateDestination(Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.CardDav, "Account", "Shared", false, true)
+        ]);
+        var navigation = new Mock<INavigationService>();
+        var accountService = new Mock<IAccountService>();
+        accountService.Setup(service => service.GetAccountsAsync()).ReturnsAsync([]);
+        var viewModel = new ContactsPageViewModel(contactService.Object, accountService.Object,
+            Mock.Of<ISynchronizationManager>(), Mock.Of<IWinoRequestDelegator>(), navigation.Object,
+            Mock.Of<IMailDialogService>(), Mock.Of<IActivationStateService>())
+        {
+            Dispatcher = new ImmediateDispatcher()
+        };
+
+        viewModel.OnNavigatedTo(NavigationMode.New, null);
+        await WaitUntilAsync(() => viewModel.ShellMenu?.Items.Count > 2);
+
+        viewModel.HasCreateDestinations.Should().BeFalse();
+        viewModel.AddContactCommand.CanExecute(null).Should().BeFalse();
+        viewModel.CreateListCommand.CanExecute(null).Should().BeFalse();
+        viewModel.ShellMenu.Items.OfType<NewContactMenuItem>().Single().IsEnabled.Should().BeFalse();
+        viewModel.ShellMenu.Items.OfType<NewAddressListMenuItem>().Single().IsEnabled.Should().BeFalse();
+
+        await viewModel.ShellMenuProvider.OnMenuItemInvokedAsync(viewModel.ShellMenu.Items.OfType<NewContactMenuItem>().Single());
+        var details = ContactShortcut(KeyboardShortcutAction.NewContact);
+        await viewModel.KeyboardShortcutHook(details);
+
+        details.Handled.Should().BeFalse();
+        navigation.Verify(service => service.Navigate(
+            WinoPage.ContactEditPage,
+            It.IsAny<object>(),
+            It.IsAny<NavigationReferenceFrame?>(),
+            It.IsAny<NavigationTransitionType>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task AnAddressBookAppearing_EnablesNewContactAndNewList()
+    {
+        var destinations = new List<ContactCreateDestination>();
+        var contactService = PageService();
+        contactService.Setup(service => service.GetCreateDestinationsAsync()).ReturnsAsync(() => destinations.ToList());
+        var viewModel = await NavigatedViewModelAsync(contactService);
+        viewModel.HasCreateDestinations.Should().BeFalse();
+
+        var addressBook = new ContactAddressBook { Id = Guid.NewGuid(), MailAccountId = Guid.NewGuid(), DisplayName = "People" };
+        destinations.Add(new ContactCreateDestination(addressBook.MailAccountId, addressBook.Id, ContactSourceKind.Local, "Account", "People", true));
+        ((IRecipient<ContactAddressBookStateChanged>)viewModel).Receive(
+            new ContactAddressBookStateChanged(addressBook, OptimisticEntityChange.Upsert, EntityUpdateSource.ClientUpdated));
+
+        await WaitUntilAsync(() => viewModel.HasCreateDestinations);
+        viewModel.AddContactCommand.CanExecute(null).Should().BeTrue();
+        viewModel.ShellMenu.Items.OfType<NewContactMenuItem>().Single().IsEnabled.Should().BeTrue();
+        viewModel.ShellMenu.Items.OfType<NewAddressListMenuItem>().Single().IsEnabled.Should().BeTrue();
+    }
+
     /// <summary>Every pane entry the user can actually invoke. Section captions are not one.</summary>
     private static IReadOnlyList<MenuItemBase> InteractivePaneEntries(ContactsPageViewModel viewModel)
         => viewModel.ShellMenu.Items.OfType<MenuItemBase>().Where(item => item is not ShellSectionHeaderMenuItem).ToList();
@@ -774,6 +836,10 @@ public class ContactsPageViewModelTests
         mock.Setup(service => service.GetContactListsAsync()).ReturnsAsync([]);
         mock.Setup(service => service.GetContactListCountsAsync()).ReturnsAsync([]);
         mock.Setup(service => service.GetFavoriteContactsCountAsync()).ReturnsAsync(0);
+        mock.Setup(service => service.GetCreateDestinationsAsync()).ReturnsAsync(
+        [
+            new ContactCreateDestination(Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.Local, "Account", "People", true)
+        ]);
         return mock;
     }
 

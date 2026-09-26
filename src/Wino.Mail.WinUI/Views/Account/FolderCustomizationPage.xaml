@@ -32,6 +32,7 @@
                 <coreControls:WinoFontIcon
                     Grid.Column="0"
                     VerticalAlignment="Center"
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
                     FontSize="14"
                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                     Icon="ReOrderDotsVertical" />
@@ -39,6 +40,7 @@
                 <coreControls:WinoFontIcon
                     Grid.Column="1"
                     VerticalAlignment="Center"
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
                     FontSize="18"
                     Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
 
@@ -57,6 +59,7 @@
                     <coreControls:WinoFontIcon
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         Icon="EyeOff" />
                 </ToggleButton>
 
@@ -66,7 +69,10 @@
                     Click="PinToggle_Click"
                     Style="{StaticResource SubtleButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.FolderCustomization_Pin}">
-                    <coreControls:WinoFontIcon FontSize="16" Icon="Pin" />
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="16"
+                        Icon="Pin" />
                 </Button>
             </Grid>
         </DataTemplate>

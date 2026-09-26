@@ -23,7 +23,7 @@
                 Description="{x:Bind AvailableSummary, Mode=OneWay}"
                 Header="{x:Bind DisplayName}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Icon="Folder" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Folder" />
                 </controls:SettingsCard.HeaderIcon>
 
                 <StackPanel
@@ -46,7 +46,7 @@
         <DataTemplate x:Key="IntelligenceIndicatorTemplate" x:DataType="data:IntelligenceIndicatorSettingsItem">
             <controls:SettingsCard AutomationProperties.AutomationId="{x:Bind CardAutomationId, Mode=OneWay}" Header="{x:Bind DisplayName, Mode=OneWay}">
                 <controls:SettingsCard.HeaderIcon>
-                    <coreControls:WinoFontIcon Glyph="{x:Bind Glyph, Mode=OneWay}" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Glyph="{x:Bind Glyph, Mode=OneWay}" />
                 </controls:SettingsCard.HeaderIcon>
                 <ToggleSwitch
                     AutomationProperties.AutomationId="{x:Bind AutomationId, Mode=OneWay}"

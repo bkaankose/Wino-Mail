@@ -1,4 +1,4 @@
-<ContentDialog
+﻿<ContentDialog
     x:Class="Wino.Dialogs.MoveMailDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -29,7 +29,10 @@
                     Height="36"
                     Orientation="Horizontal"
                     Spacing="14">
-                    <coreControls:WinoFontIcon FontSize="20" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="20"
+                        Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
                     <TextBlock
                         VerticalAlignment="Center"
                         Style="{ThemeResource BodyTextBlockStyle}"
@@ -56,9 +59,9 @@
         </Border>
 
         <TreeView
-            AutomationProperties.AutomationId="FolderTreeView"
             x:Name="FolderTreeView"
             Grid.Row="1"
+            AutomationProperties.AutomationId="FolderTreeView"
             CanDragItems="False"
             CanReorderItems="False"
             ItemTemplate="{StaticResource FolderStructureMenuFlyoutItemTemplate}"

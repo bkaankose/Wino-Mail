@@ -175,10 +175,30 @@ public sealed partial class ShellMenuTemplates
                 WinoIconGlyph.CreateFolder,
                 "AccountContextCreateFolder",
                 new AsyncRelayCommand(() => MailClient.CreateRootFolderAsync(mailAccount))));
+
+            items.Add(CreateMarkAccountInboxesAsReadCommand(mailAccount));
         }
 
         WinoContextFlyoutHelper.Show(target, args, items);
     }
+
+    private void MergedAccountContextRequested(UIElement sender, ContextRequestedEventArgs args)
+    {
+        if (sender is not FrameworkElement { DataContext: MergedAccountMenuItem mergedAccount } target)
+            return;
+
+        WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
+        [
+            CreateMarkAccountInboxesAsReadCommand(mergedAccount)
+        ]);
+    }
+
+    private static ContextFlyoutCommandEntry CreateMarkAccountInboxesAsReadCommand(IAccountMenuItem accountMenuItem)
+        => CreateContextCommand(
+            Translator.FolderOperation_MarkAllAsRead,
+            WinoIconGlyph.MarkRead,
+            "AccountContextMarkAllAsRead",
+            new AsyncRelayCommand(() => MailClient.MarkAccountInboxesAsReadAsync(accountMenuItem)));
 
     private void ContactListContextRequested(UIElement sender, ContextRequestedEventArgs args)
     {

@@ -164,7 +164,10 @@
                 <ComboBox.ItemTemplate>
                     <DataTemplate x:DataType="vm:MailFilterFolderOption">
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <coreControls:WinoFontIcon FontSize="14" Icon="Folder" />
+                            <coreControls:WinoFontIcon
+                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                FontSize="14"
+                                Icon="Folder" />
                             <TextBlock Text="{x:Bind DisplayName}" />
                         </StackPanel>
                     </DataTemplate>
@@ -241,6 +244,7 @@
                                             Background="{ThemeResource SystemFillColorAttentionBackgroundBrush}"
                                             CornerRadius="{StaticResource ControlCornerRadius}">
                                             <coreControls:WinoFontIcon
+                                                FontFamily="{ThemeResource WinoIconFontFamily}"
                                                 FontSize="14"
                                                 Foreground="{ThemeResource SystemFillColorAttentionBrush}"
                                                 Icon="{x:Bind helpers:XamlHelpers.GetFilterFieldGlyph(SelectedField.Value), Mode=OneWay}" />
@@ -254,7 +258,10 @@
                                             <ComboBox.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:MailFilterConditionFieldOption">
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <coreControls:WinoFontIcon FontSize="14" Icon="{x:Bind helpers:XamlHelpers.GetFilterFieldGlyph(Value), Mode=OneTime}" />
+                                                        <coreControls:WinoFontIcon
+                                                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                            FontSize="14"
+                                                            Icon="{x:Bind helpers:XamlHelpers.GetFilterFieldGlyph(Value), Mode=OneTime}" />
                                                         <TextBlock Text="{x:Bind DisplayName}" />
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -296,7 +303,10 @@
                                             AutomationProperties.Name="{x:Bind domain:Translator.MailFilterEditor_Remove, Mode=OneTime}"
                                             Click="RemoveConditionClicked"
                                             Tag="{x:Bind}">
-                                            <coreControls:WinoFontIcon FontSize="14" Icon="Delete" />
+                                            <coreControls:WinoFontIcon
+                                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                FontSize="14"
+                                                Icon="Delete" />
                                         </Button>
                                     </Grid>
                                 </StackPanel>
@@ -375,6 +385,7 @@
                                             Background="{x:Bind helpers:XamlHelpers.GetFilterActionIconBackground(SelectedAction.Value), Mode=OneWay}"
                                             CornerRadius="{StaticResource ControlCornerRadius}">
                                             <coreControls:WinoFontIcon
+                                                FontFamily="{ThemeResource WinoIconFontFamily}"
                                                 FontSize="14"
                                                 Foreground="{x:Bind helpers:XamlHelpers.GetFilterActionIconForeground(SelectedAction.Value), Mode=OneWay}"
                                                 Icon="{x:Bind helpers:XamlHelpers.GetFilterActionGlyph(SelectedAction.Value), Mode=OneWay}" />
@@ -388,7 +399,10 @@
                                             <ComboBox.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:MailFilterActionOption">
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <coreControls:WinoFontIcon FontSize="14" Icon="{x:Bind helpers:XamlHelpers.GetFilterActionGlyph(Value), Mode=OneTime}" />
+                                                        <coreControls:WinoFontIcon
+                                                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                            FontSize="14"
+                                                            Icon="{x:Bind helpers:XamlHelpers.GetFilterActionGlyph(Value), Mode=OneTime}" />
                                                         <TextBlock Text="{x:Bind DisplayName}" />
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -406,7 +420,10 @@
                                             <ComboBox.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:MailFilterFolderOption">
                                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                                        <coreControls:WinoFontIcon FontSize="14" Icon="Folder" />
+                                                        <coreControls:WinoFontIcon
+                                                            FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                            FontSize="14"
+                                                            Icon="Folder" />
                                                         <TextBlock Text="{x:Bind DisplayName}" />
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -418,7 +435,10 @@
                                             AutomationProperties.Name="{x:Bind domain:Translator.MailFilterEditor_Remove, Mode=OneTime}"
                                             Click="RemoveActionClicked"
                                             Tag="{x:Bind}">
-                                            <coreControls:WinoFontIcon FontSize="14" Icon="Delete" />
+                                            <coreControls:WinoFontIcon
+                                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                FontSize="14"
+                                                Icon="Delete" />
                                         </Button>
                                     </Grid>
                                     <StackPanel
@@ -427,6 +447,7 @@
                                         Spacing="6"
                                         Visibility="{x:Bind IsDestructive, Mode=OneWay}">
                                         <coreControls:WinoFontIcon
+                                            FontFamily="{ThemeResource WinoIconFontFamily}"
                                             FontSize="12"
                                             Foreground="{ThemeResource SystemFillColorCriticalBrush}"
                                             Icon="Warning" />

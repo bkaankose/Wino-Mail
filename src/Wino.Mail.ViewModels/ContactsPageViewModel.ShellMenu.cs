@@ -39,8 +39,13 @@ public partial class ContactsPageViewModel
 
         if (args.Action == KeyboardShortcutAction.NewContact)
         {
-            await AddContactAsync();
-            args.Handled = true;
+            // Without a writable address book the editor has nowhere to save to.
+            if (AddContactCommand.CanExecute(null))
+            {
+                await AddContactAsync();
+                args.Handled = true;
+            }
+
             return;
         }
 
@@ -154,9 +159,9 @@ public partial class ContactsPageViewModel
         switch (menuItem)
         {
             case NewContactMenuItem:
-                return AddContactAsync();
+                return AddContactCommand.CanExecute(null) ? AddContactAsync() : Task.CompletedTask;
             case NewAddressListMenuItem:
-                return CreateListCommand.ExecuteAsync(null);
+                return CreateListCommand.CanExecute(null) ? CreateListCommand.ExecuteAsync(null) : Task.CompletedTask;
             case ContactFilterViewModel filter:
                 SelectedFilter = filter;
                 break;
@@ -293,8 +298,10 @@ public partial class ContactsPageViewModel
 
     private void ApplyMenuInteractionState()
     {
-        _newContactMenuItem.IsEnabled = _isMenuInteractionEnabled;
-        _newAddressListMenuItem.IsEnabled = _isMenuInteractionEnabled;
+        // The pane templates hide these entries while disabled, so they only show while the
+        // page is on screen and there is at least one address book to create into.
+        _newContactMenuItem.IsEnabled = _isMenuInteractionEnabled && HasCreateDestinations;
+        _newAddressListMenuItem.IsEnabled = _isMenuInteractionEnabled && HasCreateDestinations;
 
         // A refresh already in flight must not be re-entered from the pane.
 

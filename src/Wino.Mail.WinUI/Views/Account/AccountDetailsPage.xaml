@@ -34,7 +34,10 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="300" />
                     </Grid.ColumnDefinitions>
-                    <coreControls:WinoFontIcon FontSize="20" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="20"
+                        Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(SpecialFolderType)}" />
                     <TextBlock
                         Grid.Column="1"
                         Margin="12,0"
@@ -688,7 +691,10 @@
                                 Header="{x:Bind Name, Mode=OneWay}"
                                 IsExpanded="False">
                                 <controls:SettingsExpander.HeaderIcon>
-                                    <coreControls:WinoFontIcon Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" Icon="Calendar" />
+                                    <coreControls:WinoFontIcon
+                                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                                        Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                                        Icon="Calendar" />
                                 </controls:SettingsExpander.HeaderIcon>
                                 <controls:SettingsExpander.Items>
 
@@ -697,7 +703,7 @@
                                         Description="{x:Bind domain:Translator.CalendarAccountSettings_AccountColorDescription, Mode=OneTime}"
                                         Header="{x:Bind domain:Translator.CalendarAccountSettings_AccountColor, Mode=OneTime}">
                                         <controls:SettingsCard.HeaderIcon>
-                                            <coreControls:WinoFontIcon Icon="Color" />
+                                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Color" />
                                         </controls:SettingsCard.HeaderIcon>
                                         <Button
                                             MinWidth="40"
@@ -732,7 +738,7 @@
                                         Description="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabledDescription, Mode=OneTime}"
                                         Header="{x:Bind domain:Translator.CalendarAccountSettings_SyncEnabled, Mode=OneTime}">
                                         <controls:SettingsCard.HeaderIcon>
-                                            <coreControls:WinoFontIcon Icon="Sync" />
+                                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Sync" />
                                         </controls:SettingsCard.HeaderIcon>
                                         <ToggleSwitch
                                             AutomationProperties.AutomationId="AccountDetailsPageToggleSwitch7"
@@ -746,7 +752,7 @@
                                         Description="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAsDescription, Mode=OneTime}"
                                         Header="{x:Bind domain:Translator.CalendarAccountSettings_DefaultShowAs, Mode=OneTime}">
                                         <controls:SettingsCard.HeaderIcon>
-                                            <coreControls:WinoFontIcon Icon="Calendar" />
+                                            <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Calendar" />
                                         </controls:SettingsCard.HeaderIcon>
                                         <ComboBox
                                             AutomationProperties.AutomationId="AccountDetailsPageComboBox3"

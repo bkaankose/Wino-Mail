@@ -67,7 +67,7 @@
                     IsChecked="{x:Bind IsFavorite, Mode=OneTime}"
                     Tag="{x:Bind}"
                     Unchecked="FavoriteCategoryUnchecked">
-                    <coreControls:WinoFontIcon Icon="Star" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Star" />
                 </ToggleButton>
 
                 <Button
@@ -75,7 +75,7 @@
                     AutomationProperties.AutomationId="MailCategoryManagementPageButton"
                     Click="EditCategoryClicked"
                     Tag="{x:Bind}">
-                    <coreControls:WinoFontIcon Icon="Edit" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Edit" />
                 </Button>
 
                 <Button
@@ -83,7 +83,7 @@
                     AutomationProperties.AutomationId="MailCategoryManagementPageButton2"
                     Click="DeleteCategoryClicked"
                     Tag="{x:Bind}">
-                    <coreControls:WinoFontIcon Icon="Delete" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Delete" />
                 </Button>
 
                 <Rectangle

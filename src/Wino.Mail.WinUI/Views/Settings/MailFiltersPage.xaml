@@ -123,7 +123,7 @@
                                         Click="MoveUpClicked"
                                         IsEnabled="{x:Bind CanReorder, Mode=OneTime}"
                                         Tag="{x:Bind}">
-                                        <coreControls:WinoFontIcon Icon="ChevronUp" />
+                                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="ChevronUp" />
                                     </Button>
                                     <Button
                                         AutomationProperties.AutomationId="MailFiltersPageButton2"
@@ -131,7 +131,7 @@
                                         Click="MoveDownClicked"
                                         IsEnabled="{x:Bind CanReorder, Mode=OneTime}"
                                         Tag="{x:Bind}">
-                                        <coreControls:WinoFontIcon Icon="ChevronDown" />
+                                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="ChevronDown" />
                                     </Button>
                                     <Button
                                         AutomationProperties.AutomationId="MailFiltersPageButton3"
@@ -139,21 +139,21 @@
                                         Click="EditClicked"
                                         IsEnabled="{x:Bind CanEdit, Mode=OneTime}"
                                         Tag="{x:Bind}">
-                                        <coreControls:WinoFontIcon Icon="Edit" />
+                                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Edit" />
                                     </Button>
                                     <Button
                                         AutomationProperties.AutomationId="MailFiltersPageButton4"
                                         AutomationProperties.Name="{x:Bind domain:Translator.MailFilters_Duplicate, Mode=OneTime}"
                                         Click="DuplicateClicked"
                                         Tag="{x:Bind}">
-                                        <coreControls:WinoFontIcon Icon="Copy" />
+                                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Copy" />
                                     </Button>
                                     <Button
                                         AutomationProperties.AutomationId="MailFiltersPageButton5"
                                         AutomationProperties.Name="{x:Bind domain:Translator.Buttons_Delete, Mode=OneTime}"
                                         Click="DeleteClicked"
                                         Tag="{x:Bind}">
-                                        <coreControls:WinoFontIcon Icon="Delete" />
+                                        <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Delete" />
                                     </Button>
                                 </StackPanel>
                             </Grid>

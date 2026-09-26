@@ -123,7 +123,7 @@
                     Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Info_AccountAttentionRequiredClickableMessage, Mode=OneTime}"
                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
-                    <coreControls:WinoFontIcon Icon="Wrench" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Wrench" />
                 </Button>
             </Grid>
         </controls:AccountNavigationItem>
@@ -194,7 +194,7 @@
                     Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Info_AccountAttentionRequiredClickableMessage, Mode=OneTime}"
                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
-                    <coreControls:WinoFontIcon Icon="Wrench" />
+                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Wrench" />
                 </Button>
             </Grid>
         </controls:AccountNavigationItem>
@@ -240,7 +240,7 @@
             DataContext="{x:Bind}"
             SelectsOnInvoked="False">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="NewMail" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="NewMail" />
             </muxc:NavigationViewItem.Icon>
             <TextBlock
                 Margin="0"
@@ -273,7 +273,7 @@
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(Parameter.SpecialFolderType)}" />
             </coreControls:WinoNavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -329,7 +329,10 @@
             SelectsOnInvoked="True"
             ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}" Icon="Tag" />
+                <coreControls:WinoFontIcon
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneWay}"
+                    Icon="Tag" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -361,7 +364,10 @@
             SelectsOnInvoked="True"
             ToolTipService.ToolTip="{x:Bind FolderName, Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}" Icon="Tag" />
+                <coreControls:WinoFontIcon
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(TextColorHex), Mode=OneWay}"
+                    Icon="Tag" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -410,6 +416,7 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             BindingData="{x:Bind}"
+            ContextRequested="MergedAccountContextRequested"
             DataContext="{x:Bind}"
             IsActiveAccount="{x:Bind IsSelected, Mode=TwoWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
@@ -431,7 +438,7 @@
                 </TransitionCollection>
             </coreControls:WinoNavigationViewItem.ContentTransitions>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="PeopleLink" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="PeopleLink" />
             </coreControls:WinoNavigationViewItem.Icon>
 
             <Grid Height="50">
@@ -510,7 +517,7 @@
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(FolderType)}" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(FolderType)}" />
             </coreControls:WinoNavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -550,7 +557,7 @@
                 <animations:ScaleAnimation Duration="0:0:0.5" />
             </animations:Implicit.Animations>
             <coreControls:WinoNavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(enums:SpecialFolderType.More)}" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind helpers:XamlHelpers.GetSpecialFolderPathIconGeometry(enums:SpecialFolderType.More)}" />
             </coreControls:WinoNavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
@@ -564,7 +571,7 @@
             DataContext="{x:Bind}"
             SelectsOnInvoked="False">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="NewMail" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="NewMail" />
             </muxc:NavigationViewItem.Icon>
             <TextBlock
                 VerticalAlignment="Center"
@@ -738,7 +745,7 @@
             SelectsOnInvoked="False"
             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsEnabled), Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="NewMail" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="NewMail" />
             </muxc:NavigationViewItem.Icon>
             <TextBlock
                 VerticalAlignment="Center"
@@ -757,7 +764,7 @@
             SelectsOnInvoked="False"
             Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsEnabled), Mode=OneWay}">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="PersonAdd" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="PersonAdd" />
             </muxc:NavigationViewItem.Icon>
             <TextBlock
                 VerticalAlignment="Center"
@@ -819,7 +826,7 @@
             DataContext="{x:Bind}"
             SelectsOnInvoked="False">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="Add" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Add" />
             </muxc:NavigationViewItem.Icon>
             <Grid HorizontalAlignment="Stretch" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
@@ -840,7 +847,10 @@
                     Style="{StaticResource TransparentActionButtonStyle}"
                     Tag="{x:Bind}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.ToDoPage_NewGroup, Mode=OneTime}">
-                    <coreControls:WinoFontIcon FontSize="14" Icon="Folder" />
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="14"
+                        Icon="Folder" />
                 </Button>
             </Grid>
         </coreControls:WinoNavigationViewItem>
@@ -855,7 +865,7 @@
             DataContext="{x:Bind}"
             SelectsOnInvoked="True">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="WeatherSunny" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="WeatherSunny" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -877,7 +887,7 @@
             DataContext="{x:Bind}"
             SelectsOnInvoked="True">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="Calendar" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Calendar" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -899,7 +909,7 @@
             DataContext="{x:Bind}"
             SelectsOnInvoked="True">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="Star" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Star" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -936,6 +946,7 @@
                 <coreControls:WinoFontIcon
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
                     Icon="PanelLeft" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
@@ -958,7 +969,10 @@
                 <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">20</x:Double>
             </coreControls:WinoNavigationViewItem.Resources>
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ColorHex), Mode=OneWay}" Icon="Dot" />
+                <coreControls:WinoFontIcon
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(ColorHex), Mode=OneWay}"
+                    Icon="Dot" />
             </muxc:NavigationViewItem.Icon>
             <muxc:NavigationViewItem.InfoBadge>
                 <muxc:InfoBadge
@@ -981,7 +995,7 @@
             Content="{x:Bind Title}"
             DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="{x:Bind Icon}" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind Icon}" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
@@ -1004,7 +1018,10 @@
             Content="{x:Bind Title}"
             DataContext="{x:Bind}">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
+                <coreControls:WinoFontIcon
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                    Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}"
+                    Icon="WinoIntelligence" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
@@ -1019,7 +1036,7 @@
             MenuItemsSource="{x:Bind SubMenuItems, Mode=OneWay}"
             SelectsOnInvoked="False">
             <muxc:NavigationViewItem.Icon>
-                <coreControls:WinoFontIcon Icon="{x:Bind Icon}" />
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="{x:Bind Icon}" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
@@ -1049,6 +1066,7 @@
                     <coreControls:WinoFontIcon
                         HorizontalAlignment="Center"
                         VerticalAlignment="Center"
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
                         FontSize="12"
                         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                         Icon="{x:Bind Icon}" />
@@ -1084,6 +1102,7 @@
                 <coreControls:WinoFontIcon
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
                     Icon="Heart" />
             </muxc:NavigationViewItem.Icon>
         </coreControls:WinoNavigationViewItem>

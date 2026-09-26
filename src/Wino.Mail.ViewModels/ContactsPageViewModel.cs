@@ -88,6 +88,16 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     [ObservableProperty] public partial bool IsConflictResolverOpen { get; set; }
     [ObservableProperty] public partial CardDavConflict CurrentConflict { get; set; }
 
+    /// <summary>
+    /// True when at least one writable address book can receive a new contact: the same
+    /// destinations the editor offers in its "Save to" picker. New contacts and new lists
+    /// are only offered while this holds.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AddContactCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CreateListCommand))]
+    public partial bool HasCreateDestinations { get; set; }
+
     public bool IsEmpty => !IsLoading && Contacts.Count == 0;
     public bool CanLoadMoreContacts => HasMoreContacts && !IsLoading && !IsLoadingMore;
     public bool CanDeleteSelectedContacts => SelectedContactsCount > 0;
@@ -142,6 +152,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
         if (mode == NavigationMode.Back && _isInitialized)
         {
+            await RefreshCreateDestinationAvailabilityAsync();
             await RefreshCardDavCreationAvailabilityAsync();
             await ReconcileContactsAsync();
             return;
@@ -155,6 +166,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         // is now something to synchronize.
         RefreshShellSynchronizationState();
 
+        await RefreshCreateDestinationAvailabilityAsync();
         await RefreshCardDavCreationAvailabilityAsync();
         await BuildFiltersAsync();
         await ReloadContactsAsync();
@@ -230,6 +242,21 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                 InfoBarMessageType.Error));
         }
     }
+
+    /// <summary>
+    /// Re-reads the editor's destinations. Address books come and go with account setup,
+    /// contact access changes and synchronization, so this runs on every arrival and after
+    /// each address book or synchronization change.
+    /// </summary>
+    private async Task RefreshCreateDestinationAvailabilityAsync()
+    {
+        var destinations = await _contactService.GetCreateDestinationsAsync().ConfigureAwait(false);
+        var hasDestinations = destinations?.Any(destination => !destination.IsReadOnly) == true;
+
+        await ExecuteUIThread(() => HasCreateDestinations = hasDestinations).ConfigureAwait(false);
+    }
+
+    partial void OnHasCreateDestinationsChanged(bool value) => ApplyMenuInteractionState();
 
     private async Task RefreshCardDavCreationAvailabilityAsync()
     {
@@ -591,6 +618,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     {
         if (_isPageActive && Volatile.Read(ref _explicitRefreshDepth) == 0)
             DebounceReconcile();
+
+        if (_isPageActive)
+            _ = RefreshCreateDestinationAvailabilityAsync();
     }
 
     void IRecipient<ContactStateChanged>.Receive(ContactStateChanged message)
@@ -603,7 +633,12 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         => _ = ExecuteUIThread(() => ApplyContactListMembershipState(message));
 
     void IRecipient<ContactAddressBookStateChanged>.Receive(ContactAddressBookStateChanged message)
-        => _ = ExecuteUIThread(() => ApplyContactAddressBookState(message));
+    {
+        _ = ExecuteUIThread(() => ApplyContactAddressBookState(message));
+
+        if (_isPageActive)
+            _ = RefreshCreateDestinationAvailabilityAsync();
+    }
 
     private void ApplyContactState(ContactStateChanged message)
     {
@@ -863,7 +898,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         return contact;
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasCreateDestinations))]
     private Task AddContactAsync()
     {
         _navigationService.Navigate(WinoPage.ContactEditPage, new ContactEditNavigationParameter());
@@ -1046,7 +1081,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         });
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(HasCreateDestinations))]
     private async Task CreateListAsync()
     {
         var name = await _dialogService.ShowTextInputDialogAsync(

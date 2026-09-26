@@ -33,8 +33,9 @@
 
         <Thickness x:Key="EditorSectionBodyMargin">44,12,0,0</Thickness>
 
-        <Style x:Key="EditorFieldIconStyle" TargetType="FontIcon">
-            <Setter Property="FontFamily" Value="{StaticResource SymbolThemeFontFamily}" />
+        <!--  An explicit Style replaces the implicit WinoFontIcon style, so it must carry the Wino icon font itself.  -->
+        <Style x:Key="EditorFieldIconStyle" TargetType="coreControls:WinoFontIcon">
+            <Setter Property="FontFamily" Value="{ThemeResource WinoIconFontFamily}" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -132,10 +133,19 @@
                     Command="{x:Bind ViewModel.ToggleFavoriteCommand}"
                     Style="{StaticResource SubtleButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind helpers:XamlHelpers.GetFavoriteTooltip(ViewModel.IsFavorite), Mode=OneWay}">
-                    <coreControls:WinoFontIcon
-                        FontSize="17"
-                        Foreground="{x:Bind helpers:XamlHelpers.GetFavoriteBrush(ViewModel.IsFavorite), Mode=OneWay}"
-                        Icon="{x:Bind helpers:XamlHelpers.GetFavoriteGlyph(ViewModel.IsFavorite), Mode=OneWay}" />
+                    <!--  Theme brushes resolve on the element so the star follows the page theme, not the system theme.  -->
+                    <Grid>
+                        <coreControls:WinoFontIcon
+                            FontSize="17"
+                            Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                            Icon="StarFilled"
+                            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsFavorite), Mode=OneWay}" />
+                        <coreControls:WinoFontIcon
+                            FontSize="17"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Icon="Star"
+                            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.IsFavorite), Mode=OneWay}" />
+                    </Grid>
                 </Button>
 
                 <Button
@@ -356,7 +366,10 @@
                                                             Click="RemoveEmail_Click"
                                                             Style="{StaticResource SubtleButtonStyle}"
                                                             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
-                                                            <coreControls:WinoFontIcon FontSize="14" Icon="Dismiss" />
+                                                            <coreControls:WinoFontIcon
+                                                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                                FontSize="14"
+                                                                Icon="Dismiss" />
                                                         </Button>
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -407,7 +420,10 @@
                                                             Click="RemovePhone_Click"
                                                             Style="{StaticResource SubtleButtonStyle}"
                                                             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
-                                                            <coreControls:WinoFontIcon FontSize="14" Icon="Dismiss" />
+                                                            <coreControls:WinoFontIcon
+                                                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                                FontSize="14"
+                                                                Icon="Dismiss" />
                                                         </Button>
                                                     </StackPanel>
                                                 </DataTemplate>
@@ -675,7 +691,10 @@
                                                             Click="RemoveImAddress_Click"
                                                             Style="{StaticResource SubtleButtonStyle}"
                                                             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
-                                                            <coreControls:WinoFontIcon FontSize="14" Icon="Dismiss" />
+                                                            <coreControls:WinoFontIcon
+                                                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                                FontSize="14"
+                                                                Icon="Dismiss" />
                                                         </Button>
                                                     </Grid>
                                                 </DataTemplate>
@@ -749,7 +768,10 @@
                                                             Click="RemoveRelation_Click"
                                                             Style="{StaticResource SubtleButtonStyle}"
                                                             ToolTipService.ToolTip="{x:Bind domain:Translator.Buttons_Remove, Mode=OneTime}">
-                                                            <coreControls:WinoFontIcon FontSize="14" Icon="Dismiss" />
+                                                            <coreControls:WinoFontIcon
+                                                                FontFamily="{ThemeResource WinoIconFontFamily}"
+                                                                FontSize="14"
+                                                                Icon="Dismiss" />
                                                         </Button>
                                                     </Grid>
                                                 </DataTemplate>

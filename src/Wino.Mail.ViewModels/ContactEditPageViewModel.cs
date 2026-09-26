@@ -333,9 +333,10 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
         if (_isSaveInProgress || !IsDirty)
             return true;
 
+        // The dialog API takes the question (body) first and the title second.
         return await _dialogService.ShowConfirmationDialogAsync(
-            Translator.ContactEditor_DiscardTitle,
             Translator.ContactEditor_DiscardMessage,
+            Translator.ContactEditor_DiscardTitle,
             Translator.ContactEditor_DiscardAction);
     }
 

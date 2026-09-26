@@ -850,6 +850,31 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         }
     }
 
+    public async Task MarkAccountInboxesAsReadAsync(IAccountMenuItem accountMenuItem)
+    {
+        if (accountMenuItem?.HoldingAccounts == null)
+            return;
+
+        foreach (var account in accountMenuItem.HoldingAccounts.ToList())
+        {
+            try
+            {
+                var inbox = await _folderService.GetSpecialFolderByAccountIdAsync(account.Id, SpecialFolderType.Inbox);
+                if (inbox == null)
+                {
+                    Log.Warning("Mark all as read skipped account {AccountId}: no Inbox folder is configured.", account.Id);
+                    continue;
+                }
+
+                await _winoRequestDelegator.ExecuteAsync(new FolderOperationPreperationRequest(FolderOperation.MarkAllAsRead, inbox));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Failed to mark the Inbox of account {AccountId} as read.", account.Id);
+            }
+        }
+    }
+
     public async Task CreateRootFolderAsync(IAccountMenuItem accountMenuItem)
     {
         var account = accountMenuItem?.HoldingAccounts?.FirstOrDefault();
