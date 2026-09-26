@@ -114,7 +114,7 @@ internal static class IntelligenceFlow
     public static async Task<bool> EnsureEntitlementAsync(ScenarioContext context, CancellationToken cancellationToken)
     {
         var entitlement = await ConsoleOutput.TimedAsync("Entitlement refresh",
-            () => context.Get<IWinoIntelligenceEntitlementService>().RefreshAsync(cancellationToken)).ConfigureAwait(false);
+            () => context.Get<IWinoAccountIntelligenceSnapshotService>().RefreshEntitlementAsync(cancellationToken)).ConfigureAwait(false);
 
         if (entitlement.CanConsumeQuota)
             return true;
@@ -220,8 +220,7 @@ internal static class IntelligenceFlow
     {
         try
         {
-            await context.Get<IWinoAccountIntelligenceSnapshotService>().RefreshAsync(cancellationToken).ConfigureAwait(false);
-            await context.Get<IWinoIntelligenceEntitlementService>().RefreshAsync(cancellationToken).ConfigureAwait(false);
+            await context.Get<IWinoAccountIntelligenceSnapshotService>().RefreshEntitlementAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

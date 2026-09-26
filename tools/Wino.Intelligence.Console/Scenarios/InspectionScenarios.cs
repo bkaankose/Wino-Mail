@@ -2,6 +2,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Intelligence.Keys;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Intelligence;
 using Wino.Intelligence.ConsoleApp.Hosting;
 using Wino.Services;
 
@@ -10,6 +11,8 @@ namespace Wino.Intelligence.ConsoleApp.Scenarios;
 /// <summary>Read-only views of the client and server state, plus mailbox registration.</summary>
 internal static class InspectionScenarios
 {
+    private const int BriefingLookbackDays = 30;
+
     /// <summary>
     /// Everything that decides whether indexing can run, from both sides. Server jobs are
     /// compared with the jobs this device tracks, so orphans and other devices' jobs stand out.
@@ -93,12 +96,21 @@ internal static class InspectionScenarios
             .ToArray();
         await ArtifactReport.PrintMessagesAsync(context, newest, cancellationToken).ConfigureAwait(false);
 
-        var briefing = await ConsoleOutput.TimedAsync("Briefing facts", () => context.Get<ILocalIntelligenceService>()
-            .GetBriefingFactsAsync(TimeZoneInfo.Local, cancellationToken: cancellationToken)).ConfigureAwait(false);
-        ConsoleOutput.Header($"Daily briefing (all accounts): {briefing.TotalCount} card(s), {briefing.IgnoredCount} ignored");
-        foreach (var day in briefing.Days.Take(7))
+        // The service answers one day at a time, as the briefing panel asks for it. Only days
+        // with cards are printed.
+        var intelligence = context.Get<ILocalIntelligenceService>();
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        var days = await ConsoleOutput.TimedAsync("Briefing facts", async () =>
         {
-            ConsoleOutput.Info($"  {day.LocalDate:ddd d MMM}");
+            var results = new List<DailyBriefingFactsResult>();
+            for (var offset = 0; offset < BriefingLookbackDays; offset++)
+                results.Add(await intelligence.GetBriefingFactsAsync(today.AddDays(-offset), TimeZoneInfo.Local, cancellationToken: cancellationToken).ConfigureAwait(false));
+            return results;
+        }).ConfigureAwait(false);
+        ConsoleOutput.Header($"Daily briefing, last {BriefingLookbackDays} days (all accounts): {days.Sum(static day => day.Facts.Count)} card(s), {days.Sum(static day => day.IgnoredCount)} ignored");
+        foreach (var day in days.Where(static day => day.Facts.Count > 0))
+        {
+            ConsoleOutput.Info($"  {day.Day:ddd d MMM}");
             foreach (var fact in day.Facts.Where(fact => fact.LocalAccountId == context.Account.Id).Take(10))
             {
                 ConsoleOutput.Info($"    [{fact.Priority}] {IndexingScenarios.Trim(fact.Headline is { Length: > 0 } headline ? headline : fact.Subject, 70)}");
@@ -156,7 +168,7 @@ internal static class WinoAccountStatus
 
         ConsoleOutput.KeyValue("Email", winoAccount.Email);
         ConsoleOutput.KeyValue("Access token expires", winoAccount.AccessTokenExpiresAtUtc.ToLocalTime().ToString("g"));
-        ConsoleOutput.KeyValue("Entitlement", context.Get<IWinoIntelligenceEntitlementService>().Current.State);
+        ConsoleOutput.KeyValue("Entitlement", context.Get<IWinoAccountIntelligenceSnapshotService>().CurrentEntitlement.State);
 
         var apiClient = context.Get<IWinoAccountApiClient>();
         var billing = await apiClient.GetBillingStatusAsync(cancellationToken).ConfigureAwait(false);

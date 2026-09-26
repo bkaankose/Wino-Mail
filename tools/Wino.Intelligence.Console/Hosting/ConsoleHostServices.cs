@@ -29,12 +29,6 @@ internal sealed class ConsoleConfigurationService : IConfigurationService
         => source.TryGetValue(key, out var value) && value is T typed ? typed : defaultValue;
 }
 
-internal sealed class ConsoleKeyPressService : IKeyPressService
-{
-    public bool IsCtrlKeyPressed() => false;
-    public bool IsShiftKeyPressed() => false;
-}
-
 internal sealed class ConsoleUserPresenceStateProvider : IUserPresenceStateProvider
 {
     public bool IsPresenting() => false;
@@ -148,12 +142,19 @@ internal static class ConsoleDefaults
     }
 }
 
-internal sealed class ConsoleStoreManagementService : IStoreManagementService
+internal sealed class ConsoleMicrosoftStoreService : IMicrosoftStoreService
 {
+    public bool HasAvailableUpdate => false;
+
     public Task<bool> HasProductAsync(WinoAddOnProductType productType) => Task.FromResult(false);
 
     public Task<StorePurchaseResult> PurchaseAsync(WinoAddOnProductType productType)
         => throw new NotSupportedException("Store purchases need the packaged app.");
+
+    public Task PromptRatingDialogAsync() => Task.CompletedTask;
+    public Task LaunchStorePageForReviewAsync() => Task.CompletedTask;
+    public Task<bool> RefreshAvailabilityAsync() => Task.FromResult(false);
+    public Task<bool> StartUpdateAsync() => Task.FromResult(false);
 }
 
 internal sealed class ConsoleNotificationBuilder : INotificationBuilder
@@ -220,6 +221,14 @@ internal sealed class ConsoleNativeAppService : INativeAppService, IAppMetadataS
         Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
         return Task.FromResult(true);
     }
+
+    public Task CopyClipboardAsync(string text) => Task.CompletedTask;
+    public bool IsCtrlKeyPressed() => false;
+    public bool IsShiftKeyPressed() => false;
+    public Task<StartupBehaviorResult> GetCurrentStartupBehaviorAsync() => Task.FromResult(StartupBehaviorResult.Disabled);
+    public Task<StartupBehaviorResult> ToggleStartupBehavior(bool isEnabled) => Task.FromResult(StartupBehaviorResult.Disabled);
+    public Task<bool> IsWebView2RuntimeAvailableAsync() => Task.FromResult(false);
+    public void PlayTaskCompletionSound() { }
 
     public bool IsAppRunning() => true;
     public string GetFullAppVersion() => AppVersion;

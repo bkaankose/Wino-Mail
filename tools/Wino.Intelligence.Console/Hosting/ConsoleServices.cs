@@ -44,10 +44,9 @@ internal static class ConsoleServices
         services.AddSingleton<INativeAppService>(nativeAppService);
         services.AddSingleton<IAppMetadataService>(nativeAppService);
         services.AddSingleton<INotificationBuilder, ConsoleNotificationBuilder>();
-        services.AddSingleton<IKeyPressService, ConsoleKeyPressService>();
         services.AddSingleton(ConsoleDialogProxy.Create());
         services.AddSingleton(ConsoleDefaultProxy<IStatePersistanceService>.Create());
-        services.AddSingleton<IStoreManagementService, ConsoleStoreManagementService>();
+        services.AddSingleton<IMicrosoftStoreService, ConsoleMicrosoftStoreService>();
         services.AddSingleton<IUserPresenceStateProvider, ConsoleUserPresenceStateProvider>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
 
@@ -96,9 +95,9 @@ internal static class ConsoleServices
         await ConsoleOutput.TimedAsync("Translations", () => services.GetRequiredService<ITranslationService>().InitializeAsync());
         await ConsoleOutput.TimedAsync("Synchronization manager", () => services.GetRequiredService<SynchronizationManagerInitializer>().InitializeAsync());
 
-        var entitlement = services.GetRequiredService<IWinoIntelligenceEntitlementService>();
-        await entitlement.GetAsync();
-        await ConsoleOutput.TimedAsync("Entitlement refresh", () => entitlement.RefreshAsync());
+        var entitlement = services.GetRequiredService<IWinoAccountIntelligenceSnapshotService>();
+        await entitlement.GetEntitlementAsync();
+        await ConsoleOutput.TimedAsync("Entitlement refresh", () => entitlement.RefreshEntitlementAsync());
 
         await services.GetRequiredService<IMailIntelligenceCoordinator>().InitializeAsync();
         await ConsoleOutput.TimedAsync("Result key lifecycle", () => services.GetRequiredService<IntelligenceResultKeyLifecycle>().InitializeAsync());
