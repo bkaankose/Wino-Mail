@@ -1,8 +1,8 @@
 ﻿using System;
 using CommunityToolkit.Mvvm.ComponentModel;
-using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Mail.ViewModels.Data;
 
@@ -39,13 +39,5 @@ public partial class AccountProviderDetailViewModel : ObservableObject, IAccount
     }
 
     private static string BuildCapabilitySummary(MailAccount account)
-    {
-        if (account?.IsMailAccessGranted == true && account.IsCalendarAccessGranted)
-            return Translator.AccountCapability_MailAndCalendar;
-
-        if (account?.IsMailAccessGranted == true)
-            return Translator.AccountCapability_MailOnly;
-
-        return Translator.AccountCapability_CalendarOnly;
-    }
+        => AccountCapabilitySummary.Build(account);
 }

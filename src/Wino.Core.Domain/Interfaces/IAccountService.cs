@@ -218,6 +218,13 @@ public interface IAccountService
     Task DeleteAccountMailCacheAsync(Guid accountId, AccountCacheResetReason accountCacheResetReason);
 
     /// <summary>
+    /// Removes the account's downloaded messages and MIME files and clears its delta identifiers,
+    /// so the next mail synchronization starts from scratch. Folders and their settings are kept.
+    /// Used when the mail mode is turned off for an account that keeps existing.
+    /// </summary>
+    Task DeleteAccountMailDataAsync(Guid accountId);
+
+    /// <summary>
     /// Updates the synchronization identifier for a specific account asynchronously.
     /// </summary>
     /// <param name="accountId">Identifies the account for which the synchronization identifier is being updated.</param>

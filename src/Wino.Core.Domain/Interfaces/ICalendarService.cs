@@ -16,6 +16,13 @@ public interface ICalendarService
     Task DeleteCalendarItemAsync(string calendarRemoteEventId, Guid calendarId);
 
     Task DeleteAccountCalendarAsync(AccountCalendar accountCalendar);
+
+    /// <summary>
+    /// Removes every calendar of the account together with its events, attendees, reminders,
+    /// attachments and invitation mappings, and notifies the UI for each removed calendar and event.
+    /// Used when the calendar mode is turned off for an account that keeps existing.
+    /// </summary>
+    Task DeleteAccountCalendarDataAsync(Guid accountId);
     Task InsertAccountCalendarAsync(AccountCalendar accountCalendar);
     Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
     Task SetPrimaryCalendarAsync(Guid accountId, Guid accountCalendarId);

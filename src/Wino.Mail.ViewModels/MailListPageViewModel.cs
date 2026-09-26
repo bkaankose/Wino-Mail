@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -3326,15 +3326,19 @@ public partial class MailListPageViewModel : MailBaseViewModel,
         await ExecuteUIThread(() =>
         {
             appliesToActiveFolder =
-                message.Reason == AccountCacheResetReason.ExpiredCache &&
+                message.Reason is AccountCacheResetReason.ExpiredCache or AccountCacheResetReason.MailAccessDisabled &&
                 ActiveFolder?.HandlingFolders.Any(a => a.MailAccountId == message.AccountId) == true;
         });
 
-        if (appliesToActiveFolder)
-        {
-            // ClearAsync already handles UI threading internally
-            await MailCollection.ClearAsync();
+        if (!appliesToActiveFolder)
+            return;
 
+        // ClearAsync already handles UI threading internally
+        await MailCollection.ClearAsync();
+
+        // Turning the mail mode off is the user's own action, so it needs no warning.
+        if (message.Reason == AccountCacheResetReason.ExpiredCache)
+        {
             await ExecuteUIThread(() =>
             {
                 _mailDialogService.InfoBarMessage(Translator.AccountCacheReset_Title, Translator.AccountCacheReset_Message, InfoBarMessageType.Warning);

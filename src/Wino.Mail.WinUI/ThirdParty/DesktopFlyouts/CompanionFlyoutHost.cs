@@ -131,6 +131,7 @@ internal sealed partial class CompanionFlyoutHost : IDisposable
 
         _surface.RequestedTheme = theme;
         _content.RequestedTheme = theme;
+        _surface.ApplyBackdropTheme(theme);
     }
 
     internal async Task ShowAsync(RectInt32? anchor, WindowsTaskbarPosition taskbarPosition)

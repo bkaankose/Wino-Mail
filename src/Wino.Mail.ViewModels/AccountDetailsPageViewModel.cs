@@ -342,26 +342,13 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     [RelayCommand(CanExecute = nameof(CanApplyCapabilities))]
     private async Task ApplyCapabilitiesAsync()
     {
-        var contactsChanged = Account.IsContactAccessGranted != IsContactsCapabilitySelected;
-        var tasksChanged = Account.IsTaskAccessGranted != IsTasksCapabilitySelected;
-        if (contactsChanged || tasksChanged)
+        if (!await ConfirmCapabilityTransitionsAsync())
         {
-            var confirmed = await _dialogService.ShowConfirmationDialogAsync(
-                contactsChanged ? Translator.AccountDetailsPage_ContactsTransitionTitle : Translator.AccountDetailsPage_TasksTransitionTitle,
-                contactsChanged
-                    ? (IsContactsCapabilitySelected
-                        ? Translator.AccountDetailsPage_EnableContactsConfirmation
-                        : Translator.AccountDetailsPage_DisableContactsConfirmation)
-                    : (IsTasksCapabilitySelected
-                        ? Translator.AccountDetailsPage_EnableTasksConfirmation
-                        : Translator.AccountDetailsPage_DisableTasksConfirmation),
-                Translator.Buttons_Apply);
-            if (!confirmed)
-            {
-                IsContactsCapabilitySelected = Account.IsContactAccessGranted;
-                IsTasksCapabilitySelected = Account.IsTaskAccessGranted;
-                return;
-            }
+            IsMailCapabilitySelected = Account.IsMailAccessGranted;
+            IsCalendarCapabilitySelected = Account.IsCalendarAccessGranted;
+            IsContactsCapabilitySelected = Account.IsContactAccessGranted;
+            IsTasksCapabilitySelected = Account.IsTaskAccessGranted;
+            return;
         }
 
         var previousMail = Account.IsMailAccessGranted;
@@ -395,6 +382,55 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         {
             IsApplyingCapabilities = false;
         }
+    }
+
+    /// <summary>
+    /// Asks once for every selected transition that removes data from this PC or changes where a
+    /// mode reads from. Turning mail or calendar off deletes their local data; turning contacts or
+    /// tasks off moves them to a local store. Enabling contacts or tasks replaces the local store.
+    /// </summary>
+    private async Task<bool> ConfirmCapabilityTransitionsAsync()
+    {
+        var titles = new List<string>();
+        var messages = new List<string>();
+
+        if (Account.IsMailAccessGranted && !IsMailCapabilitySelected)
+        {
+            titles.Add(Translator.AccountDetailsPage_MailTransitionTitle);
+            messages.Add(Translator.AccountDetailsPage_DisableMailConfirmation);
+        }
+
+        if (Account.IsCalendarAccessGranted && !IsCalendarCapabilitySelected)
+        {
+            titles.Add(Translator.AccountDetailsPage_CalendarTransitionTitle);
+            messages.Add(Translator.AccountDetailsPage_DisableCalendarConfirmation);
+        }
+
+        if (Account.IsContactAccessGranted != IsContactsCapabilitySelected)
+        {
+            titles.Add(Translator.AccountDetailsPage_ContactsTransitionTitle);
+            messages.Add(IsContactsCapabilitySelected
+                ? Translator.AccountDetailsPage_EnableContactsConfirmation
+                : Translator.AccountDetailsPage_DisableContactsConfirmation);
+        }
+
+        if (Account.IsTaskAccessGranted != IsTasksCapabilitySelected)
+        {
+            titles.Add(Translator.AccountDetailsPage_TasksTransitionTitle);
+            messages.Add(IsTasksCapabilitySelected
+                ? Translator.AccountDetailsPage_EnableTasksConfirmation
+                : Translator.AccountDetailsPage_DisableTasksConfirmation);
+        }
+
+        if (messages.Count == 0)
+            return true;
+
+        var title = titles.Count == 1 ? titles[0] : Translator.AccountDetailsPage_CapabilityTransitionTitle;
+
+        return await _dialogService.ShowConfirmationDialogAsync(
+            string.Join(Environment.NewLine + Environment.NewLine, messages),
+            title,
+            Translator.Buttons_Apply);
     }
 
     [RelayCommand]
@@ -545,8 +581,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
         var account = Account;
         var confirmation = await _dialogService.ShowConfirmationDialogAsync(
-            Translator.DialogMessage_DeleteAccountConfirmationTitle,
             string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, account.Name),
+            Translator.DialogMessage_DeleteAccountConfirmationTitle,
             Translator.Buttons_Delete);
 
         if (!confirmation)

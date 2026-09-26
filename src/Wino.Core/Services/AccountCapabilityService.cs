@@ -16,6 +16,7 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
     private readonly IAccountService _accountService;
     private readonly IContactService _contactService;
     private readonly ITaskService _taskService;
+    private readonly ICalendarService _calendarService;
     private readonly IAuthenticationProvider _authenticationProvider;
 
     public AccountCapabilityService(
@@ -23,12 +24,14 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
         IAccountService accountService,
         IContactService contactService,
         ITaskService taskService,
+        ICalendarService calendarService,
         IAuthenticationProvider authenticationProvider = null)
     {
         _synchronizationManager = synchronizationManager;
         _accountService = accountService;
         _contactService = contactService;
         _taskService = taskService;
+        _calendarService = calendarService;
         _authenticationProvider = authenticationProvider;
     }
 
@@ -57,16 +60,14 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
         if (includeContacts && account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook))
             throw new NotSupportedException("Provider contacts are available only for Gmail and Outlook accounts.");
 
-        var previousMail = account.IsMailAccessGranted;
-        var previousCalendar = account.IsCalendarAccessGranted;
-        var previousContacts = account.IsContactAccessGranted;
-        var previousTasks = account.IsTaskAccessGranted;
-        var previousContactReauthorization = account.IsContactReauthorizationRequired;
-        var previousTaskReauthorization = account.IsTaskReauthorizationRequired;
+        var previous = CapabilityFlags.Capture(account);
         var synchronizer = await _synchronizationManager.GetSynchronizerAsync(account.Id).ConfigureAwait(false);
         var synchronizerAccount = synchronizer?.Account;
+        var isOAuthProvider = account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook;
         var shouldRemoveProviderTasksAfterCommit = false;
-        HashSet<Guid> existingProviderTaskListIds = account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook
+        var shouldRemoveCalendarDataAfterCommit = !includeCalendar && previous.Calendar;
+        var shouldRemoveMailDataAfterCommit = !includeMail && previous.Mail;
+        HashSet<Guid> existingProviderTaskListIds = isOAuthProvider
             ? (await _taskService.GetTaskListsAsync(account.Id).ConfigureAwait(false))
                 .Where(list => list.SourceKind == (account.ProviderType == MailProviderType.Gmail
                     ? TaskSourceKind.Gmail
@@ -75,27 +76,19 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                 .ToHashSet()
             : [];
 
-        account.IsMailAccessGranted = includeMail;
-        account.IsCalendarAccessGranted = includeCalendar;
-        account.IsContactAccessGranted = includeContacts;
-        account.IsTaskAccessGranted = includeTasks;
+        ApplyFlags(account, includeMail, includeCalendar, includeContacts, includeTasks, previous, isOAuthProvider);
         if (synchronizerAccount is not null)
-        {
-            synchronizerAccount.IsMailAccessGranted = includeMail;
-            synchronizerAccount.IsCalendarAccessGranted = includeCalendar;
-            synchronizerAccount.IsContactAccessGranted = includeContacts;
-            synchronizerAccount.IsTaskAccessGranted = includeTasks;
-        }
+            ApplyFlags(synchronizerAccount, includeMail, includeCalendar, includeContacts, includeTasks, previous, isOAuthProvider);
 
         try
         {
-            var requiresInteractiveAuthorization = account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook &&
-                ((!previousMail && includeMail) ||
-                 (!previousCalendar && includeCalendar) ||
-                 (!previousContacts && includeContacts) ||
-                 (!previousTasks && includeTasks) ||
-                 (previousContactReauthorization && includeContacts) ||
-                 (previousTaskReauthorization && includeTasks));
+            var requiresInteractiveAuthorization = isOAuthProvider &&
+                ((!previous.Mail && includeMail) ||
+                 (!previous.Calendar && includeCalendar) ||
+                 (!previous.Contacts && includeContacts) ||
+                 (!previous.Tasks && includeTasks) ||
+                 (previous.ContactReauthorization && includeContacts) ||
+                 (previous.TaskReauthorization && includeTasks));
             if (requiresInteractiveAuthorization)
             {
                 await _synchronizationManager.HandleAuthorizationAsync(
@@ -119,7 +112,7 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                 }
             }
 
-            if (includeContacts && !previousContacts)
+            if (includeContacts && !previous.Contacts)
             {
                 var result = await _synchronizationManager.SynchronizeContactsAsync(new ContactSynchronizationOptions
                 {
@@ -131,17 +124,17 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
 
                 await _contactService.DeleteAddressBooksBySourceAsync(account.Id, ContactSourceKind.Local).ConfigureAwait(false);
             }
-            else if (!includeContacts && previousContacts)
+            else if (!includeContacts && previous.Contacts)
             {
+                // Provider contacts go away; the People mode stays on with a local address book.
                 var source = account.ProviderType == MailProviderType.Gmail ? ContactSourceKind.Gmail : ContactSourceKind.Outlook;
                 await _contactService.DeleteAddressBooksBySourceAsync(account.Id, source).ConfigureAwait(false);
                 await _contactService.EnsureLocalAddressBookAsync(account.Id, account.Name).ConfigureAwait(false);
             }
 
-            if (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook)
+            if (isOAuthProvider)
             {
-                var source = account.ProviderType == MailProviderType.Gmail ? TaskSourceKind.Gmail : TaskSourceKind.Outlook;
-                if (includeTasks && !previousTasks)
+                if (includeTasks && !previous.Tasks)
                 {
                     var result = await _synchronizationManager.SynchronizeTasksAsync(new TaskSynchronizationOptions
                     {
@@ -151,7 +144,7 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                     if (result.CompletedState != SynchronizationCompletedState.Success)
                         throw result.Exception ?? new InvalidOperationException("Task synchronization failed.");
                 }
-                else if (!includeTasks && previousTasks)
+                else if (!includeTasks && previous.Tasks)
                 {
                     // Defer cache removal until the account flags are committed. If the
                     // capability transition fails, the previous read-only cache remains
@@ -167,45 +160,54 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
             account.IsContactReauthorizationRequired = false;
             account.IsTaskReauthorizationRequired = false;
             await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
+
+            // Data removal runs only after the flags are committed, so a failed transition
+            // never leaves an account that still claims a mode whose data is gone.
             if (shouldRemoveProviderTasksAfterCommit)
             {
                 var source = account.ProviderType == MailProviderType.Gmail ? TaskSourceKind.Gmail : TaskSourceKind.Outlook;
                 await _taskService.DeleteTaskListsBySourceAsync(account.Id, source).ConfigureAwait(false);
+
+                // Provider tasks go away; the To Do mode stays on with a local list.
+                await _taskService.EnsureLocalTaskListAsync(account.Id, account.Name).ConfigureAwait(false);
             }
+
+            if (shouldRemoveCalendarDataAfterCommit)
+            {
+                await _synchronizationManager.CancelSynchronizationsAsync(account.Id).ConfigureAwait(false);
+                await _calendarService.DeleteAccountCalendarDataAsync(account.Id).ConfigureAwait(false);
+            }
+
+            if (shouldRemoveMailDataAfterCommit)
+            {
+                await _synchronizationManager.CancelSynchronizationsAsync(account.Id).ConfigureAwait(false);
+                await _accountService.DeleteAccountMailDataAsync(account.Id).ConfigureAwait(false);
+            }
+
             return await _accountService.GetAccountAsync(account.Id).ConfigureAwait(false);
         }
         catch
         {
-            account.IsMailAccessGranted = previousMail;
-            account.IsCalendarAccessGranted = previousCalendar;
-            account.IsContactAccessGranted = previousContacts;
-            account.IsTaskAccessGranted = previousTasks;
-            account.IsContactReauthorizationRequired = previousContactReauthorization;
-            account.IsTaskReauthorizationRequired = previousTaskReauthorization;
+            previous.Restore(account);
             if (synchronizerAccount is not null)
-            {
-                synchronizerAccount.IsMailAccessGranted = previousMail;
-                synchronizerAccount.IsCalendarAccessGranted = previousCalendar;
-                synchronizerAccount.IsContactAccessGranted = previousContacts;
-                synchronizerAccount.IsTaskAccessGranted = previousTasks;
-            }
+                previous.Restore(synchronizerAccount);
 
-            if (!previousContacts)
+            if (!previous.Contacts)
             {
                 var source = account.ProviderType == MailProviderType.Gmail ? ContactSourceKind.Gmail : ContactSourceKind.Outlook;
                 await _contactService.DeleteAddressBooksBySourceAsync(account.Id, source).ConfigureAwait(false);
             }
-            if (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook && !previousTasks)
+            if (isOAuthProvider && !previous.Tasks)
             {
                 var source = account.ProviderType == MailProviderType.Gmail ? TaskSourceKind.Gmail : TaskSourceKind.Outlook;
                 var currentProviderLists = await _taskService.GetTaskListsAsync(account.Id).ConfigureAwait(false);
                 foreach (var list in currentProviderLists.Where(list => list.SourceKind == source && !existingProviderTaskListIds.Contains(list.Id)))
                     await _taskService.RemoveTaskListAsync(list.Id).ConfigureAwait(false);
             }
-            else if (shouldRemoveProviderTasksAfterCommit)
+            else if (shouldRemoveProviderTasksAfterCommit || shouldRemoveCalendarDataAfterCommit || shouldRemoveMailDataAfterCommit)
             {
-                // The deferred delete has not run when the account update fails. Restore
-                // the persisted capability flags so the cached provider data stays usable.
+                // A deferred removal has not run when the account update fails. Restore
+                // the persisted flags so the cached data stays usable.
                 try
                 {
                     await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
@@ -217,6 +219,109 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                 }
             }
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Keeps the mode and backend flags in step with the granted flags. The details page only
+    /// offers on/off per mode, so on Gmail and Outlook "on" always means the provider backend.
+    /// Calendar turns fully off. People and To Do keep running against a local store, matching
+    /// the confirmation the page shows for those two modes.
+    /// </summary>
+    private static void ApplyFlags(
+        MailAccount account,
+        bool includeMail,
+        bool includeCalendar,
+        bool includeContacts,
+        bool includeTasks,
+        CapabilityFlags previous,
+        bool isOAuthProvider)
+    {
+        account.IsMailAccessGranted = includeMail;
+        account.IsCalendarAccessGranted = includeCalendar;
+        account.IsContactAccessGranted = includeContacts;
+        account.IsTaskAccessGranted = includeTasks;
+
+        if (!isOAuthProvider)
+            return;
+
+        if (includeCalendar)
+        {
+            account.IsCalendarAccessEnabled = true;
+            account.CalendarIntegrationSource = AccountIntegrationSource.Provider;
+        }
+        else if (previous.Calendar)
+        {
+            account.IsCalendarAccessEnabled = false;
+            account.CalendarIntegrationSource = AccountIntegrationSource.Local;
+        }
+
+        if (includeContacts)
+        {
+            account.IsContactAccessEnabled = true;
+            account.ContactIntegrationSource = AccountIntegrationSource.Provider;
+        }
+        else if (previous.Contacts)
+        {
+            account.IsContactAccessEnabled = true;
+            account.ContactIntegrationSource = AccountIntegrationSource.Local;
+        }
+
+        if (includeTasks)
+        {
+            account.IsTaskAccessEnabled = true;
+            account.TaskIntegrationSource = AccountIntegrationSource.Provider;
+        }
+        else if (previous.Tasks)
+        {
+            account.IsTaskAccessEnabled = true;
+            account.TaskIntegrationSource = AccountIntegrationSource.Local;
+        }
+    }
+
+    /// <summary>Snapshot of every capability flag, so a failed transition can put them all back.</summary>
+    private readonly record struct CapabilityFlags(
+        bool Mail,
+        bool Calendar,
+        bool Contacts,
+        bool Tasks,
+        bool ContactReauthorization,
+        bool TaskReauthorization,
+        bool CalendarEnabled,
+        AccountIntegrationSource CalendarSource,
+        bool ContactsEnabled,
+        AccountIntegrationSource ContactsSource,
+        bool TasksEnabled,
+        AccountIntegrationSource TasksSource)
+    {
+        public static CapabilityFlags Capture(MailAccount account) => new(
+            account.IsMailAccessGranted,
+            account.IsCalendarAccessGranted,
+            account.IsContactAccessGranted,
+            account.IsTaskAccessGranted,
+            account.IsContactReauthorizationRequired,
+            account.IsTaskReauthorizationRequired,
+            account.IsCalendarAccessEnabled,
+            account.CalendarIntegrationSource,
+            account.IsContactAccessEnabled,
+            account.ContactIntegrationSource,
+            account.IsTaskAccessEnabled,
+            account.TaskIntegrationSource);
+
+        public void Restore(MailAccount account)
+        {
+            account.IsMailAccessGranted = Mail;
+            account.IsCalendarAccessGranted = Calendar;
+            account.IsContactAccessGranted = Contacts;
+            account.IsTaskAccessGranted = Tasks;
+            account.IsContactReauthorizationRequired = ContactReauthorization;
+            account.IsTaskReauthorizationRequired = TaskReauthorization;
+            account.IsCalendarAccessEnabled = CalendarEnabled;
+            account.CalendarIntegrationSource = CalendarSource;
+            account.IsContactAccessEnabled = ContactsEnabled;
+            account.ContactIntegrationSource = ContactsSource;
+            account.IsTaskAccessEnabled = TasksEnabled;
+            account.TaskIntegrationSource = TasksSource;
         }
     }
 }

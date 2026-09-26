@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
@@ -460,6 +460,51 @@ public class AccountServiceTests : IAsyncLifetime
             SenderName = "IMAP Test",
             ProviderType = MailProviderType.IMAP4
         };
+    }
+
+    [Fact]
+    public async Task DeleteAccountMailDataAsync_ClearsMessagesAndDeltaIdentifiersButKeepsFolders()
+    {
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(),
+            Name = "Work",
+            ProviderType = MailProviderType.Outlook,
+            SynchronizationDeltaIdentifier = "history-42"
+        };
+        var otherAccount = new MailAccount { Id = Guid.NewGuid(), Name = "Other", SynchronizationDeltaIdentifier = "history-7" };
+        await _databaseService.Connection.InsertAsync(account);
+        await _databaseService.Connection.InsertAsync(otherAccount);
+
+        var folder = new MailItemFolder { Id = Guid.NewGuid(), MailAccountId = account.Id, RemoteFolderId = "inbox", FolderName = "Inbox", DeltaToken = "delta-1" };
+        var otherFolder = new MailItemFolder { Id = Guid.NewGuid(), MailAccountId = otherAccount.Id, RemoteFolderId = "inbox", FolderName = "Inbox", DeltaToken = "delta-2" };
+        await _databaseService.Connection.InsertAsync(folder);
+        await _databaseService.Connection.InsertAsync(otherFolder);
+        await _databaseService.Connection.InsertAsync(new MailCopy { UniqueId = Guid.NewGuid(), Id = "m1", FolderId = folder.Id });
+        await _databaseService.Connection.InsertAsync(new MailCopy { UniqueId = Guid.NewGuid(), Id = "m2", FolderId = otherFolder.Id });
+
+        AccountCacheResetMessage? notification = null;
+        var recipient = new object();
+        WeakReferenceMessenger.Default.Register<AccountCacheResetMessage>(recipient, (_, message) => notification = message);
+
+        try
+        {
+            await _accountService.DeleteAccountMailDataAsync(account.Id);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+
+        (await _databaseService.Connection.Table<MailCopy>().ToListAsync()).Should().ContainSingle(copy => copy.Id == "m2");
+        (await _databaseService.Connection.Table<MailItemFolder>().CountAsync()).Should().Be(2);
+        (await _databaseService.Connection.GetAsync<MailItemFolder>(folder.Id)).DeltaToken.Should().BeNull();
+        (await _databaseService.Connection.GetAsync<MailItemFolder>(otherFolder.Id)).DeltaToken.Should().Be("delta-2");
+        (await _databaseService.Connection.GetAsync<MailAccount>(account.Id)).SynchronizationDeltaIdentifier.Should().BeNull();
+        (await _databaseService.Connection.GetAsync<MailAccount>(otherAccount.Id)).SynchronizationDeltaIdentifier.Should().Be("history-7");
+        notification.Should().NotBeNull();
+        notification!.AccountId.Should().Be(account.Id);
+        notification.Reason.Should().Be(AccountCacheResetReason.MailAccessDisabled);
     }
 
     private static AccountService CreateService(

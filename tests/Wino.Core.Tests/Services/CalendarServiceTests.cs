@@ -1,7 +1,9 @@
+﻿using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using Itenso.TimePeriod;
 using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Tests.Helpers;
+using Wino.Messaging.Client.Calendar;
 using Wino.Services;
 using Xunit;
 
@@ -323,5 +325,61 @@ public class CalendarServiceTests : IAsyncLifetime
         result[0].Title.Should().Be("Occurrence Instance");
         result[0].IsRecurringChild.Should().BeTrue();
         result[0].RecurringCalendarItemId.Should().Be(parentId);
+    }
+    [Fact]
+    public async Task DeleteAccountCalendarDataAsync_RemovesCalendarsEventsAndChildRowsAndNotifies()
+    {
+        var otherCalendar = new AccountCalendar
+        {
+            Id = Guid.NewGuid(),
+            AccountId = Guid.NewGuid(),
+            Name = "Other account",
+            TimeZone = "UTC"
+        };
+        await _calendarService.InsertAccountCalendarAsync(otherCalendar);
+
+        var calendarItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Review",
+            StartDate = new DateTime(2026, 9, 28, 9, 0, 0, DateTimeKind.Utc),
+            DurationInSeconds = 1800,
+            CalendarId = _testCalendar.Id
+        };
+        var otherItem = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            Title = "Keep me",
+            StartDate = calendarItem.StartDate,
+            DurationInSeconds = 1800,
+            CalendarId = otherCalendar.Id
+        };
+        await _calendarService.CreateNewCalendarItemAsync(calendarItem, [new CalendarEventAttendee { Id = Guid.NewGuid(), CalendarItemId = calendarItem.Id, Email = "a@example.test" }]);
+        await _calendarService.CreateNewCalendarItemAsync(otherItem, null);
+        await _calendarService.SaveRemindersAsync(calendarItem.Id, [new Reminder { Id = Guid.NewGuid(), CalendarItemId = calendarItem.Id, DurationInSeconds = 600 }]);
+        await _calendarService.InsertOrReplaceAttachmentsAsync([new CalendarAttachment { Id = Guid.NewGuid(), CalendarItemId = calendarItem.Id, FileName = "agenda.pdf" }]);
+
+        var deletedItems = new List<CalendarItem>();
+        var deletedCalendars = new List<AccountCalendar>();
+        var recipient = new object();
+        WeakReferenceMessenger.Default.Register<CalendarItemDeleted>(recipient, (_, message) => deletedItems.Add(message.CalendarItem));
+        WeakReferenceMessenger.Default.Register<CalendarListDeleted>(recipient, (_, message) => deletedCalendars.Add(message.AccountCalendar));
+
+        try
+        {
+            await _calendarService.DeleteAccountCalendarDataAsync(_testCalendar.AccountId);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
+        }
+
+        (await _databaseService.Connection.Table<AccountCalendar>().ToListAsync()).Should().ContainSingle(calendar => calendar.Id == otherCalendar.Id);
+        (await _databaseService.Connection.Table<CalendarItem>().ToListAsync()).Should().ContainSingle(item => item.Id == otherItem.Id);
+        (await _databaseService.Connection.Table<CalendarEventAttendee>().CountAsync()).Should().Be(0);
+        (await _databaseService.Connection.Table<Reminder>().CountAsync()).Should().Be(0);
+        (await _databaseService.Connection.Table<CalendarAttachment>().CountAsync()).Should().Be(0);
+        deletedItems.Should().ContainSingle().Which.Id.Should().Be(calendarItem.Id);
+        deletedCalendars.Should().ContainSingle().Which.Id.Should().Be(_testCalendar.Id);
     }
 }

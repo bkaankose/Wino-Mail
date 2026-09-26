@@ -68,7 +68,7 @@
 				<uap5:StartupTask
 					TaskId="WinoStartupId"
 					Enabled="true"
-					DisplayName="Wino Startup Service" />
+					DisplayName="Wino Mail" />
 			</uap5:Extension>
 
 			<!-- Protocol activation: mailto -->

@@ -99,6 +99,53 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
     }
 
+    public async Task DeleteAccountCalendarDataAsync(Guid accountId)
+    {
+        var accountCalendars = await Connection.Table<AccountCalendar>()
+            .Where(calendar => calendar.AccountId == accountId)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var deletedCalendarItems = new List<CalendarItem>();
+        foreach (var accountCalendar in accountCalendars)
+        {
+            var calendarItems = await Connection.Table<CalendarItem>()
+                .Where(item => item.CalendarId == accountCalendar.Id)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            deletedCalendarItems.AddRange(calendarItems);
+        }
+
+        await Connection.RunInTransactionAsync(transaction =>
+        {
+            foreach (var calendarItem in deletedCalendarItems)
+            {
+                transaction.Execute("DELETE FROM CalendarEventAttendee WHERE CalendarItemId = ?", calendarItem.Id);
+                transaction.Execute("DELETE FROM Reminder WHERE CalendarItemId = ?", calendarItem.Id);
+                transaction.Execute("DELETE FROM CalendarAttachment WHERE CalendarItemId = ?", calendarItem.Id);
+            }
+
+            foreach (var accountCalendar in accountCalendars)
+            {
+                transaction.Execute("DELETE FROM CalendarItem WHERE CalendarId = ?", accountCalendar.Id);
+            }
+
+            transaction.Execute("DELETE FROM MailInvitationCalendarMapping WHERE AccountId = ?", accountId);
+            transaction.Execute("DELETE FROM AccountCalendar WHERE AccountId = ?", accountId);
+        }).ConfigureAwait(false);
+
+        foreach (var calendarItem in deletedCalendarItems)
+        {
+            WeakReferenceMessenger.Default.Send(new CalendarItemDeleted(calendarItem, EntityUpdateSource.Server));
+        }
+
+        foreach (var accountCalendar in accountCalendars)
+        {
+            WeakReferenceMessenger.Default.Send(new CalendarListDeleted(accountCalendar));
+        }
+    }
+
     public async Task DeleteCalendarItemAsync(Guid calendarItemId)
     {
         var calendarItem = await Connection.GetAsync<CalendarItem>(calendarItemId);

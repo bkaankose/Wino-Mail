@@ -10,6 +10,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Messaging.Client.Navigation;
 
@@ -140,9 +141,7 @@ public partial class TaskbarBadgeAccountViewModel : ObservableObject
         : $"{CapabilitySummary} | {Account.Address}";
     public int UnreadCount { get; }
     public string CountSourceDescription { get; }
-    private string CapabilitySummary => Account.IsCalendarAccessGranted
-        ? Translator.AccountCapability_MailAndCalendar
-        : Translator.AccountCapability_MailOnly;
+    private string CapabilitySummary => AccountCapabilitySummary.Build(Account);
 
     [ObservableProperty]
     public partial bool ContributesToTaskbar { get; set; }

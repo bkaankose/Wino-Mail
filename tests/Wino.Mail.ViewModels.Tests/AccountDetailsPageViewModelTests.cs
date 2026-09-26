@@ -1,4 +1,7 @@
-using Moq;
+﻿using Moq;
+using Wino.Core.Domain.Enums;
+using FluentAssertions;
+using System.Threading;
 using Wino.Core.Diagnostics;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
@@ -68,11 +71,83 @@ public class AccountDetailsPageViewModelTests
         accountService.Verify(service => service.DeleteAccountAsync(It.IsAny<MailAccount>()), Times.Never);
     }
 
+    [Fact]
+    public async Task ApplyCapabilities_WhenCalendarIsTurnedOff_AsksBeforeRemovingCalendarData()
+    {
+        var account = CreateOutlookAccount();
+        var dialogService = new Mock<IMailDialogService>();
+        dialogService
+            .Setup(service => service.ShowConfirmationDialogAsync(
+                Translator.AccountDetailsPage_DisableCalendarConfirmation,
+                Translator.AccountDetailsPage_CalendarTransitionTitle,
+                Translator.Buttons_Apply))
+            .ReturnsAsync(true);
+        var capabilityService = new Mock<IAccountCapabilityService>();
+        capabilityService
+            .Setup(service => service.ApplyAsync(account, true, false, true, true, default))
+            .ReturnsAsync(account);
+        var viewModel = CreateViewModel(
+            dialogService.Object,
+            Mock.Of<IAccountService>(),
+            Mock.Of<ISynchronizationManager>(),
+            capabilityService: capabilityService.Object);
+        viewModel.Account = account;
+
+        viewModel.IsCalendarCapabilitySelected = false;
+        await viewModel.ApplyCapabilitiesCommand.ExecuteAsync(null);
+
+        capabilityService.Verify(service => service.ApplyAsync(account, true, false, true, true, default), Times.Once);
+    }
+
+    [Fact]
+    public async Task ApplyCapabilities_WhenTheUserDeclines_RestoresEverySelectionAndChangesNothing()
+    {
+        var account = CreateOutlookAccount();
+        var dialogService = new Mock<IMailDialogService>();
+        dialogService
+            .Setup(service => service.ShowConfirmationDialogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .ReturnsAsync(false);
+        var capabilityService = new Mock<IAccountCapabilityService>();
+        var viewModel = CreateViewModel(
+            dialogService.Object,
+            Mock.Of<IAccountService>(),
+            Mock.Of<ISynchronizationManager>(),
+            capabilityService: capabilityService.Object);
+        viewModel.Account = account;
+
+        viewModel.IsMailCapabilitySelected = false;
+        viewModel.IsCalendarCapabilitySelected = false;
+        await viewModel.ApplyCapabilitiesCommand.ExecuteAsync(null);
+
+        // Two transitions share one dialog under the generic title.
+        dialogService.Verify(service => service.ShowConfirmationDialogAsync(
+            It.Is<string>(question => question.Contains(Translator.AccountDetailsPage_DisableMailConfirmation) && question.Contains(Translator.AccountDetailsPage_DisableCalendarConfirmation)),
+            Translator.AccountDetailsPage_CapabilityTransitionTitle,
+            Translator.Buttons_Apply), Times.Once);
+        capabilityService.Verify(service => service.ApplyAsync(
+            It.IsAny<MailAccount>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()), Times.Never);
+        viewModel.IsMailCapabilitySelected.Should().BeTrue();
+        viewModel.IsCalendarCapabilitySelected.Should().BeTrue();
+        viewModel.IsCapabilitySelectionChanged.Should().BeFalse();
+    }
+
+    private static MailAccount CreateOutlookAccount() => new()
+    {
+        Id = Guid.NewGuid(),
+        Name = "Work",
+        ProviderType = MailProviderType.Outlook,
+        IsMailAccessGranted = true,
+        IsCalendarAccessGranted = true,
+        IsContactAccessGranted = true,
+        IsTaskAccessGranted = true
+    };
+
     private static AccountDetailsPageViewModel CreateViewModel(
         IMailDialogService dialogService,
         IAccountService accountService,
         ISynchronizationManager synchronizationManager,
-        INotificationBuilder? notificationBuilder = null)
+        INotificationBuilder? notificationBuilder = null,
+        IAccountCapabilityService? capabilityService = null)
     {
         var themeService = new Mock<INewThemeService>();
         themeService.Setup(service => service.GetAvailableAccountColors()).Returns([]);
@@ -91,7 +166,7 @@ public class AccountDetailsPageViewModelTests
             Mock.Of<IPictureStorageService>(),
             Mock.Of<IPreferencesService>(),
             Mock.Of<IWinoLogger>(),
-            Mock.Of<IAccountCapabilityService>(),
+            capabilityService ?? Mock.Of<IAccountCapabilityService>(),
             synchronizationManager);
     }
 }

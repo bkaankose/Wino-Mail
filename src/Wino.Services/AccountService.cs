@@ -330,6 +330,16 @@ public class AccountService : BaseDatabaseService, IAccountService
         WeakReferenceMessenger.Default.Send(new AccountCacheResetMessage(accountId, accountCacheResetReason));
     }
 
+    public async Task DeleteAccountMailDataAsync(Guid accountId)
+    {
+        await _mimeFileService.DeleteUserMimeCacheAsync(accountId).ConfigureAwait(false);
+
+        await Connection.ExecuteAsync("UPDATE MailItemFolder SET DeltaToken = NULL WHERE MailAccountId = ?", accountId).ConfigureAwait(false);
+        await Connection.ExecuteAsync("UPDATE MailAccount SET SynchronizationDeltaIdentifier = NULL WHERE Id = ?", accountId).ConfigureAwait(false);
+
+        await DeleteAccountMailCacheAsync(accountId, AccountCacheResetReason.MailAccessDisabled).ConfigureAwait(false);
+    }
+
     public async Task DeleteAccountAsync(MailAccount account)
     {
         if (_semanticIndexJobRegistry is not null)

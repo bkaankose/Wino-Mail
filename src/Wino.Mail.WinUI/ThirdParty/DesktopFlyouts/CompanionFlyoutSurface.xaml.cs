@@ -8,17 +8,21 @@ namespace Wino.Mail.WinUI.ThirdParty.DesktopFlyouts;
 
 public sealed partial class CompanionFlyoutSurface : UserControl
 {
+    private readonly CompanionMicaBackdrop _backdrop = new();
+
     internal CompanionFlyoutSurface(FrameworkElement content)
     {
         InitializeComponent();
         SurfaceContent.Content = content;
-        SurfaceBackdrop.SystemBackdrop = new CompanionMicaBackdrop();
+        SurfaceBackdrop.SystemBackdrop = _backdrop;
 
         if (!BackdropControllerHelpers.IsAnyBackdropSupported())
             SurfaceFallbackBackground.Visibility = Visibility.Visible;
     }
 
     internal CompositeTransform AnimationTransform => SurfaceTransform;
+
+    internal void ApplyBackdropTheme(ElementTheme theme) => _backdrop.SetTheme(theme);
 
     internal void Detach()
     {
