@@ -191,6 +191,7 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
             ? Translator.WinoAccount_ForgotPasswordDialog_PrimaryButton
             : Translator.Buttons_SignIn;
 
+        HeroTextPanel.Visibility = _isForgotPasswordMode ? Visibility.Collapsed : Visibility.Visible;
         BenefitsPanel.Visibility = _isForgotPasswordMode ? Visibility.Collapsed : Visibility.Visible;
         PasswordPanel.Visibility = _isForgotPasswordMode ? Visibility.Collapsed : Visibility.Visible;
         ForgotPasswordInfoPanel.Visibility = _isForgotPasswordMode ? Visibility.Visible : Visibility.Collapsed;

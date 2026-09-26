@@ -96,8 +96,18 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     [ObservableProperty]
     public partial string IntelligenceResetText { get; set; } = string.Empty;
 
+    /// <summary>
+    /// How many of the mail accounts on this device take part in the briefing. Intelligence
+    /// results are device-local, so this is the only mailbox fact the account page reports.
+    /// </summary>
     [ObservableProperty]
-    public partial string IntelligenceStorageSummary { get; set; } = string.Empty;
+    public partial string IntelligenceMailboxesSummary { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The monthly allowance of the headline bucket, as "1,500 messages". Empty without usage data.
+    /// </summary>
+    [ObservableProperty]
+    public partial string IntelligenceIncludedText { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string IntelligenceConsentStatusText { get; set; } = string.Empty;
@@ -314,11 +324,13 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             Translator.WinoAccount_Management_AddOnBadge,
             isFreeBadge: false,
             Translator.WinoAccount_Management_Benefit_Intelligence_Lede,
+            // The briefing leads because it is the feature; the on-demand actions follow it.
             (string[])
             [
+                Translator.WinoAccount_Management_Benefit_Intelligence_PointBriefing,
+                Translator.WinoAccount_Management_Benefit_Intelligence_Point3,
                 Translator.WinoAccount_Management_Benefit_Intelligence_Point1,
                 Translator.WinoAccount_Management_Benefit_Intelligence_Point2,
-                Translator.WinoAccount_Management_Benefit_Intelligence_Point3,
                 Translator.WinoAccount_Management_Benefit_Intelligence_Point4,
                 Translator.WinoAccount_Management_Benefit_Intelligence_Point5
             ],
@@ -1076,7 +1088,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             }
             ApplyIntelligenceUsage(usage);
             IntelligenceResetText = usage?.ResetsAtUtc is DateTimeOffset reset ? string.Format(Translator.WinoAccount_Management_IntelligenceResets, reset.LocalDateTime) : string.Empty;
-            IntelligenceStorageSummary = string.Format(Translator.WinoAccount_Management_IntelligenceStorageSummary, mailboxItems.Count(item => item.HasServerIntelligence), FormatStorageSize(mailboxItems.Sum(item => item.StorageSizeBytes)));
+            IntelligenceMailboxesSummary = DescribeBriefingMailboxes(mailboxItems);
             IntelligenceLastUpdatedText = snapshot.LastSuccessfulRefreshUtc is DateTimeOffset updated ? updated.LocalDateTime.ToString("g") : string.Empty;
             IntelligenceRefreshError = string.IsNullOrWhiteSpace(refreshError) ? string.Empty : string.Format(
                 Translator.WinoIntelligence_CachedRefreshFailed,
@@ -1175,7 +1187,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         // Price is deliberately absent everywhere in the app. Stripe Checkout is the only
         // place that can state it correctly for the customer's currency and locale.
         AiPackSubtitleText = _aiPackAddOn.IsPurchased
-            ? Translator.WinoAccount_Management_SubscriptionLabel
+            ? Translator.WinoAccount_Management_AiPackOwnedSubtitle
             : Translator.WinoAccount_Management_AiPackUnownedSubtitle;
 
         UnlimitedAccountsSubtitleText = _unlimitedAccountsAddOn.IsPurchased
@@ -1382,7 +1394,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         var mailboxItems = localAccounts.Select(CreateLocalIntelligenceMailboxItem).ToArray();
 
         var usage = usageResponse?.IsSuccess == true ? usageResponse.Result : null;
-        var totalStorageSize = mailboxItems.Sum(item => item.StorageSizeBytes);
         await ExecuteUIThread(() =>
         {
             IntelligenceMailboxes.Clear();
@@ -1395,12 +1406,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             IntelligenceResetText = usage?.ResetsAtUtc is DateTimeOffset resetsAtUtc
                 ? string.Format(Translator.WinoAccount_Management_IntelligenceResets, resetsAtUtc.LocalDateTime)
                 : string.Empty;
-            IntelligenceStorageSummary = string.IsNullOrEmpty(mailboxError)
-                ? string.Format(
-                    Translator.WinoAccount_Management_IntelligenceStorageSummary,
-                    mailboxItems.Count(item => item.HasServerIntelligence),
-                    FormatStorageSize(totalStorageSize))
-                : Translator.WinoAccount_Management_IntelligenceStorageUnavailable;
+            IntelligenceMailboxesSummary = DescribeBriefingMailboxes(mailboxItems);
             IntelligenceDataError = mailboxError;
             if (consent != null)
                 ApplyIntelligenceConsent(consent);
@@ -1450,6 +1456,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
         var headline = IntelligenceUsage.Headline(usage);
         IntelligenceUsagePercentage = headline?.Percentage ?? 0;
+        IntelligenceIncludedText = headline is null
+            ? string.Empty
+            : string.Format(Translator.WinoAccount_Management_IncludedMessagesValue, headline.Limit);
         IntelligenceUsageSummary = headline is null
             ? Translator.WinoAccount_Management_IntelligenceUsageUnavailable
             : string.Format(
@@ -1462,7 +1471,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         ApplyIntelligenceUsage(null);
         IntelligenceUsageSummary = string.Empty;
         IntelligenceResetText = string.Empty;
-        IntelligenceStorageSummary = string.Empty;
+        IntelligenceMailboxesSummary = string.Empty;
         IntelligenceConsentStatusText = string.Empty;
         IsConsentGranted = false;
         IsConsentBusy = false;
@@ -1510,19 +1519,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         => consent.Status == ConsentStatuses.Active &&
            consent.AcceptedPolicyVersion == consent.CurrentPolicyVersion;
 
-    private static string FormatStorageSize(long bytes)
-    {
-        string[] units = ["B", "KB", "MB", "GB"];
-        var display = (double)Math.Max(0, bytes);
-        var unit = 0;
-        while (display >= 1024 && unit < units.Length - 1)
-        {
-            display /= 1024;
-            unit++;
-        }
-
-        return $"{display:0.##} {units[unit]}";
-    }
+    private static string DescribeBriefingMailboxes(IReadOnlyCollection<IntelligenceMailboxData> mailboxes)
+        => string.Format(
+            Translator.WinoAccount_Management_BriefingMailboxesSummary,
+            mailboxes.Count(mailbox => mailbox.IsEnabled),
+            mailboxes.Count);
 
     private sealed partial class IntelligenceMailboxData : WinoIntelligenceMailboxItemViewModel
     {

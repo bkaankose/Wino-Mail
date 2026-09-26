@@ -547,6 +547,7 @@ public static class XamlHelpers
         Translator.HoverActionOption_MoveJunk);
 
     public static Visibility StringToVisibilityConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Collapsed : Visibility.Visible;
+    public static object? ItemsWhen(bool condition, object items) => condition ? items : null;
     public static Visibility StringToVisibilityReversedConverter(string value) => string.IsNullOrWhiteSpace(value) ? Visibility.Visible : Visibility.Collapsed;
     public static bool IsAccountNicknameVisible(string accountNickname, AccountNicknamePosition position, AccountNicknamePosition targetPosition)
         => !string.IsNullOrWhiteSpace(accountNickname) && position == targetPosition;
