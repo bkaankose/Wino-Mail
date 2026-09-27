@@ -348,6 +348,11 @@
                 The list selects stable projected rows. These lightweight wrappers keep the
                 existing mail visuals bound to their original view-model types.
             -->
+            <!--
+                Each row wraps a template typed for MailItemViewModel. The presenter also gets the item
+                as its DataContext: while a recycled row has no Content yet, the inner template would
+                otherwise inherit the MailListRow, and its compiled binding cast crashes the app.
+            -->
             <DataTemplate x:Key="CompactSingleMailRowTemplate" x:DataType="mailListCore:MailListRow">
                 <Grid
                     Margin="{x:Bind helpers:XamlHelpers.GetCompactMailListRowMargin(Kind), Mode=OneTime}"
@@ -372,7 +377,8 @@
                     <ContentPresenter
                         Grid.Column="1"
                         Content="{x:Bind SourceItem}"
-                        ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
+                        ContentTemplate="{StaticResource CompactSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
                 </Grid>
             </DataTemplate>
 
@@ -400,7 +406,8 @@
                     <ContentPresenter
                         Grid.Column="1"
                         Content="{x:Bind SourceItem}"
-                        ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
+                        ContentTemplate="{StaticResource MediumSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
                 </Grid>
             </DataTemplate>
 
@@ -428,7 +435,8 @@
                     <ContentPresenter
                         Grid.Column="1"
                         Content="{x:Bind SourceItem}"
-                        ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
+                        ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
                 </Grid>
             </DataTemplate>
 
@@ -454,7 +462,8 @@
                     <ContentPresenter
                         Grid.Column="1"
                         Content="{x:Bind SourceItem}"
-                        ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
+                        ContentTemplate="{StaticResource CompactSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
                 </Grid>
             </DataTemplate>
 
@@ -480,7 +489,8 @@
                     <ContentPresenter
                         Grid.Column="1"
                         Content="{x:Bind SourceItem}"
-                        ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
+                        ContentTemplate="{StaticResource MediumSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
                 </Grid>
             </DataTemplate>
 
@@ -506,13 +516,17 @@
                     <ContentPresenter
                         Grid.Column="1"
                         Content="{x:Bind SourceItem}"
-                        ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
+                        ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
                 </Grid>
             </DataTemplate>
 
             <DataTemplate x:Key="CalendarMailRowTemplate" x:DataType="mailListCore:MailListRow">
                 <Grid Margin="{x:Bind helpers:XamlHelpers.GetDetailedMailListRowMargin(Kind), Mode=OneTime}">
-                    <ContentPresenter Content="{x:Bind SourceItem}" ContentTemplate="{StaticResource CalendarMailItemTemplate}" />
+                    <ContentPresenter
+                        Content="{x:Bind SourceItem}"
+                        ContentTemplate="{StaticResource CalendarMailItemTemplate}"
+                        DataContext="{x:Bind SourceItem}" />
                 </Grid>
             </DataTemplate>
 

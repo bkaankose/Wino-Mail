@@ -41,7 +41,8 @@
                 <ContentPresenter
                     Grid.Column="1"
                     Content="{x:Bind SourceItem}"
-                    ContentTemplate="{StaticResource CompactSingleMailItemTemplate}" />
+                    ContentTemplate="{StaticResource CompactSingleMailItemTemplate}"
+                    DataContext="{x:Bind SourceItem}" />
             </Grid>
         </DataTemplate>
 
@@ -65,7 +66,8 @@
                 <ContentPresenter
                     Grid.Column="1"
                     Content="{x:Bind SourceItem}"
-                    ContentTemplate="{StaticResource MediumSingleMailItemTemplate}" />
+                    ContentTemplate="{StaticResource MediumSingleMailItemTemplate}"
+                    DataContext="{x:Bind SourceItem}" />
             </Grid>
         </DataTemplate>
 
@@ -89,7 +91,8 @@
                 <ContentPresenter
                     Grid.Column="1"
                     Content="{x:Bind SourceItem}"
-                    ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}" />
+                    ContentTemplate="{StaticResource SpaciousSingleMailItemTemplate}"
+                    DataContext="{x:Bind SourceItem}" />
             </Grid>
         </DataTemplate>
 
