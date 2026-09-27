@@ -35,6 +35,11 @@ public interface IMailShellClient : IShellMenuProvider
     Task PerformMoveOperationAsync(IEnumerable<MailCopy> items, IBaseFolderMenuItem targetFolderMenuItem);
     Task CreateRootFolderAsync(IAccountMenuItem accountMenuItem);
     Task CreateNewMailForAsync(MailAccount account);
+
+    /// <summary>
+    /// Runs the fix for an account that needs attention, such as signing in again.
+    /// </summary>
+    Task HandleAccountAttentionAsync(MailAccount account);
 }
 
 /// <summary>

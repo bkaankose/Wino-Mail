@@ -66,15 +66,15 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
             await ExecuteUIThread(() => IsImportInProgress = true);
 
             var result = await _syncService.ImportAsync(new WinoAccountSyncSelection(), PromptSyncSecretAsync).ConfigureAwait(false);
+            if (result.ImportedMailboxCount > 0)
+            {
+                ReportUIChange(new WelcomeImportCompletedMessage(result.ImportedMailboxCount, result.Appearance));
+                return;
+            }
+
             if (result.Appearance != null)
             {
                 await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
-            }
-
-            if (result.ImportedMailboxCount > 0)
-            {
-                ReportUIChange(new WelcomeImportCompletedMessage(result.ImportedMailboxCount));
-                return;
             }
 
             await ExecuteUIThread(() => ImportStatusMessage = BuildInlineImportMessage(result));
@@ -109,15 +109,15 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
             await ExecuteUIThread(() => IsImportInProgress = true);
 
             var result = await _syncService.ImportFromFileAsync(fileContent, PromptSyncSecretAsync);
+            if (result.ImportedMailboxCount > 0)
+            {
+                ReportUIChange(new WelcomeImportCompletedMessage(result.ImportedMailboxCount, result.Appearance));
+                return;
+            }
+
             if (result.Appearance != null)
             {
                 await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
-            }
-
-            if (result.ImportedMailboxCount > 0)
-            {
-                ReportUIChange(new WelcomeImportCompletedMessage(result.ImportedMailboxCount));
-                return;
             }
 
             await ExecuteUIThread(() => ImportStatusMessage = BuildInlineImportMessage(result));

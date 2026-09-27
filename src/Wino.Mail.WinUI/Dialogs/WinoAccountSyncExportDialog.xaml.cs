@@ -3,7 +3,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
-using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Dialogs;
 

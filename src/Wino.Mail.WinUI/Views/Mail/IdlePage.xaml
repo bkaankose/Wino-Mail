@@ -1,4 +1,4 @@
-<abstract:IdlePageAbstract
+﻿<abstract:IdlePageAbstract
     x:Class="Wino.Views.Mail.IdlePage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -43,6 +43,36 @@
                     Command="{x:Bind ViewModel.ManageAccountsCommand}"
                     Content="{x:Bind ViewModel.ManageAccountsText, Mode=OneWay}" />
             </StackPanel>
+        </StackPanel>
+
+        <StackPanel
+            MaxWidth="440"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            AutomationProperties.AutomationId="MailAccountIdlePanel"
+            Spacing="12"
+            Visibility="{x:Bind ViewModel.IsAccountStateVisible, Mode=OneWay}">
+            <TextBlock
+                HorizontalAlignment="Center"
+                AutomationProperties.AutomationId="MailAccountIdleTitle"
+                Style="{StaticResource TitleTextBlockStyle}"
+                Text="{x:Bind ViewModel.AccountStateTitle, Mode=OneWay}"
+                TextAlignment="Center"
+                TextWrapping="WrapWholeWords" />
+            <TextBlock
+                HorizontalAlignment="Center"
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource BodyTextBlockStyle}"
+                Text="{x:Bind ViewModel.AccountStateMessage, Mode=OneWay}"
+                TextAlignment="Center"
+                TextWrapping="WrapWholeWords" />
+            <Button
+                HorizontalAlignment="Center"
+                AutomationProperties.AutomationId="MailAccountIdleSignInButton"
+                Command="{x:Bind ViewModel.SignInCommand}"
+                Content="{x:Bind ViewModel.SignInText, Mode=OneWay}"
+                Style="{ThemeResource AccentButtonStyle}"
+                Visibility="{x:Bind ViewModel.IsSignInVisible, Mode=OneWay}" />
         </StackPanel>
     </Grid>
 

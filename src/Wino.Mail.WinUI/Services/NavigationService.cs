@@ -604,7 +604,7 @@ public class NavigationService : INavigationService
         // Detail pages keep the menu their mode root published, so drilling into one does
         // not blank the navigation pane.
         if (innerShellFrame.Content is not BasePage page ||
-            page.AssociatedViewModel is not IShellMenuOwner menuOwner)
+            page.AssociatedViewModel is not IShellMenuOwner { ShellMenuProvider: not null } menuOwner)
         {
             return;
         }

@@ -2005,6 +2005,18 @@ public partial class App : WinoApplication,
 
             CloseWelcomeWindowIfPresent();
 
+            if (message.Appearance != null)
+            {
+                try
+                {
+                    Services.GetRequiredService<IWinoAccountDataSyncService>().ApplyAppearance(message.Appearance);
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Restored appearance could not be applied.");
+                }
+            }
+
             RestartAutoSynchronizationLoops();
             await UpdateJumpListOptionsSafeAsync();
 

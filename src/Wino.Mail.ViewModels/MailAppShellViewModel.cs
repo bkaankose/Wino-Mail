@@ -290,7 +290,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         else if (isModeReactivation)
         {
             await RecreateMenuItemsAsync();
-            await RestoreSelectedAccountAfterMenuRefreshAsync(false);
+            await RestoreSelectedAccountAfterMenuRefreshAsync(true);
         }
 
         var shouldProcessDefaultLaunch = !isModeReactivation || !hasExistingAccountMenuItems;
@@ -1199,7 +1199,38 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         if (inboxFolder != null)
         {
             await NavigateFolderAsync(inboxFolder, folderInitAwaitTask);
+            return;
         }
+
+        await NavigateToAccountIdleStateAsync(clickedBaseAccountMenuItem);
+    }
+
+    /// <summary>
+    /// An account restored from a backup has no folders until it is signed in and synced.
+    /// Mail mode must still land a page: the shell publishes the account list only when a
+    /// page arrives, and an empty frame keeps showing whatever the previous mode left.
+    /// </summary>
+    private async Task NavigateToAccountIdleStateAsync(IAccountMenuItem accountMenuItem)
+    {
+        var accounts = accountMenuItem.HoldingAccounts?.ToList() ?? [];
+        if (accounts.Count == 0)
+            return;
+
+        var account = accounts.FirstOrDefault(a => a.AttentionReason != AccountAttentionReason.None) ?? accounts[0];
+        var state = new MailAccountIdleState(
+            account.Id,
+            string.IsNullOrWhiteSpace(account.Name) ? account.Address : account.Name,
+            account.AttentionReason != AccountAttentionReason.None);
+
+        await ExecuteUIThread(() =>
+        {
+            SelectedMenuItem = null;
+            NavigationService.Navigate(
+                WinoPage.IdlePage,
+                state,
+                NavigationReferenceFrame.InnerShellFrame,
+                NavigationTransitionType.None);
+        }).ConfigureAwait(false);
     }
 
     public async Task HandleCreateNewMailAsync()
