@@ -1646,9 +1646,6 @@ public partial class App : WinoApplication,
     {
         LogActivation("Creating welcome window.");
 
-        // The welcome wizard only runs without accounts, which is the closest signal to a fresh install.
-        Services.GetRequiredService<IPreferencesService>().ApplyNewInstallDefaults();
-
         var windowManager = Services.GetRequiredService<IWinoWindowManager>();
         MainWindow = windowManager.CreateWindow(WinoWindowKind.Welcome, () => new WelcomeWindow());
         if (MainWindow is WelcomeWindow welcomeWindow)
