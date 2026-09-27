@@ -80,12 +80,12 @@ public sealed class WinoAccountApiClientFailureTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetSettingsAsync_WhenServiceIsUnreachable_ThrowsServiceUnavailable()
+    public async Task GetSyncSnapshotAsync_WhenServiceIsUnreachable_ThrowsServiceUnavailable()
     {
         await InsertAccountAsync(DateTime.UtcNow.AddHours(1));
         using var client = CreateClient(_ => throw new HttpRequestException("No connection could be made."));
 
-        var act = () => client.GetSettingsAsync();
+        var act = () => client.GetSyncSnapshotAsync();
 
         (await act.Should().ThrowAsync<WinoAccountApiException>())
             .Which.ErrorCode.Should().Be(WinoAccountClientErrorCodes.ServiceUnavailable);
@@ -104,11 +104,11 @@ public sealed class WinoAccountApiClientFailureTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task GetSettingsAsync_WithoutAccount_ThrowsSignInRequired()
+    public async Task GetSyncSnapshotAsync_WithoutAccount_ThrowsSignInRequired()
     {
         using var client = CreateClient(_ => throw new InvalidOperationException("No request expected."));
 
-        var act = () => client.GetSettingsAsync();
+        var act = () => client.GetSyncSnapshotAsync();
 
         (await act.Should().ThrowAsync<WinoAccountApiException>())
             .Which.ErrorCode.Should().Be(WinoAccountClientErrorCodes.SignInRequired);
@@ -135,7 +135,7 @@ public sealed class WinoAccountApiClientFailureTests : IAsyncLifetime
         using var client = CreateClient(_ => throw new HttpRequestException("No connection could be made."));
         var profileService = new WinoAccountProfileService(_database, client);
 
-        var getSettings = () => profileService.GetSettingsAsync();
+        var getSettings = () => profileService.GetSyncSnapshotAsync();
         var getAccount = () => profileService.GetAuthenticatedAccountAsync();
         var profile = await profileService.GetCurrentUserAsync();
 

@@ -10,4 +10,10 @@ public sealed class WinoAccountSyncExportResult
     /// Number of exported mailboxes that carried account settings, signatures or a folder layout.
     /// </summary>
     public int ExportedAccountDataCount { get; init; }
+
+    /// <summary>
+    /// Number of app data items (templates, rules, shortcuts, categories, aliases, merged inboxes)
+    /// carried by the snapshot.
+    /// </summary>
+    public int ExportedAppDataCount { get; init; }
 }

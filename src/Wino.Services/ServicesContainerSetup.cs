@@ -90,6 +90,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<ILocalIntelligenceService, LocalIntelligenceService>();
         services.AddSingleton<IContentEnvelopeEncryptor>(_ =>
             new PemContentEnvelopeEncryptor(EmbeddedIntelligencePublicKeyProvider.Load()));
+        services.AddSingleton<ISyncSnapshotKeyService, SyncSnapshotKeyService>();
         services.AddTransient<IWinoAccountDataSyncService, WinoAccountDataSyncService>();
         services.AddSingleton<IPictureStorageService, PictureStorageService>();
         services.AddSingleton<AccountProfilePictureMaintenance>();

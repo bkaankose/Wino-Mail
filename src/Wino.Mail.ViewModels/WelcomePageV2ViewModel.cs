@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -66,7 +65,12 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
             await ExecuteUIThread(() => IsImportInProgress = true);
 
-            var result = await _syncService.ImportAsync(new WinoAccountSyncSelection()).ConfigureAwait(false);
+            var result = await _syncService.ImportAsync(new WinoAccountSyncSelection(), PromptSyncSecretAsync).ConfigureAwait(false);
+            if (result.Appearance != null)
+            {
+                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+            }
+
             if (result.ImportedMailboxCount > 0)
             {
                 ReportUIChange(new WelcomeImportCompletedMessage(result.ImportedMailboxCount));
@@ -96,7 +100,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
         try
         {
-            var fileContent = await _dialogService.PickWindowsFileContentAsync(".json");
+            var fileContent = await _dialogService.PickWindowsFileContentAsync(".winosnap", ".json");
             if (fileContent.Length == 0)
             {
                 return;
@@ -104,8 +108,12 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
             await ExecuteUIThread(() => IsImportInProgress = true);
 
-            var jsonContent = Encoding.UTF8.GetString(fileContent);
-            var result = await _syncService.ImportFromJsonAsync(jsonContent);
+            var result = await _syncService.ImportFromFileAsync(fileContent, PromptSyncSecretAsync);
+            if (result.Appearance != null)
+            {
+                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+            }
+
             if (result.ImportedMailboxCount > 0)
             {
                 ReportUIChange(new WelcomeImportCompletedMessage(result.ImportedMailboxCount));
@@ -124,7 +132,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
         }
         catch (Exception ex)
         {
-            await _dialogService.ShowMessageAsync(ex.Message, Translator.GeneralTitle_Error, WinoCustomMessageDialogIcon.Error);
+            await _dialogService.ShowMessageAsync(WinoAccountApiErrorTranslator.Describe(ex), Translator.GeneralTitle_Error, WinoCustomMessageDialogIcon.Error);
         }
         finally
         {
@@ -133,6 +141,9 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
     }
 
     private bool CanOpenWelcomeActions() => !IsImportInProgress;
+
+    private Task<string?> PromptSyncSecretAsync(SyncSnapshotSecretRequest request)
+        => ExecuteUIThreadAsync(() => _dialogService.ShowWinoAccountSyncSecretDialogAsync(request));
 
     private static string BuildInlineImportMessage(WinoAccountSyncImportResult result)
     {

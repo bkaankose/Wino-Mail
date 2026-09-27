@@ -17,9 +17,14 @@ public static class WinoAccountApiErrorTranslator
     /// User-facing text for a failed Wino Account operation. API failures are translated by their error code.
     /// </summary>
     public static string Describe(System.Exception exception)
-        => exception is Exceptions.WinoAccountApiException apiException
-            ? Translate(apiException.ErrorCode)
-            : exception.Message;
+        => exception switch
+        {
+            Exceptions.WinoAccountApiException apiException => Translate(apiException.ErrorCode),
+            Exceptions.SyncSnapshotDecryptionException => Translator.WinoAccount_Sync_WrongSecret,
+            Exceptions.SyncSnapshotInvalidFileException => Translator.WinoAccount_Management_LocalDataInvalidFile,
+            Exceptions.SyncSnapshotKeyRequiredException => Translator.WinoAccount_Sync_KeyRequired,
+            _ => exception.Message
+        };
 
     public static string Translate(string? errorCode)
     {
@@ -30,6 +35,9 @@ public static class WinoAccountApiErrorTranslator
 
         return errorCode switch
         {
+            ApiErrorCodes.SyncSnapshotConflict => Translator.WinoAccount_Error_SyncSnapshotConflict,
+            ApiErrorCodes.SyncSnapshotTooLarge => Translator.WinoAccount_Error_SyncSnapshotTooLarge,
+            ApiErrorCodes.SyncSnapshotInvalid => Translator.WinoAccount_Error_SyncSnapshotInvalid,
             ApiErrorCodes.InvalidCredentials => Translator.WinoAccount_Error_InvalidCredentials,
             ApiErrorCodes.AccountLocked => Translator.WinoAccount_Error_AccountLocked,
             ApiErrorCodes.AccountBanned => Translator.WinoAccount_Error_AccountBanned,

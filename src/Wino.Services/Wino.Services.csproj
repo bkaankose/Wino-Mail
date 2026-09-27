@@ -16,6 +16,7 @@
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="HtmlAgilityPack" />
+		<PackageReference Include="Konscious.Security.Cryptography.Argon2" />
 		<PackageReference Include="Ical.Net" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
 		<PackageReference Include="Microsoft.Extensions.Logging" />

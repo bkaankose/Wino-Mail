@@ -2,16 +2,17 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
+using Serilog;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Users;
@@ -20,116 +21,131 @@ using Wino.Messaging.UI;
 
 namespace Wino.Services;
 
+/// <summary>
+/// Builds the sync snapshot from everything the app owns, encrypts it on this device and moves it
+/// through the Wino Account or a file. The service never sees the plaintext. Passwords, tokens
+/// and mail content are never part of the snapshot.
+/// </summary>
 public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 {
     private const int DefaultMaxConcurrentClients = 5;
-
-    /// <summary>
-    /// Version 2 added per-account preferences, signatures and folder layout to the exported mailboxes.
-    /// Version 1 files are still imported; they simply carry no account data.
-    /// </summary>
-    private const int LocalExportVersion = 2;
+    private const string FileNamePrefix = "wino-backup-";
 
     private readonly IWinoAccountProfileService _profileService;
     private readonly IPreferencesService _preferencesService;
     private readonly IAccountService _accountService;
     private readonly IFolderService _folderService;
     private readonly ISignatureService _signatureService;
+    private readonly ISyncSnapshotKeyService? _keyService;
+    private readonly IEmailTemplateService? _templateService;
+    private readonly IMailFilterService? _filterService;
+    private readonly IKeyboardShortcutService? _shortcutService;
+    private readonly IMailCategoryService? _categoryService;
+    private readonly INewThemeService? _themeService;
+    private readonly IStatePersistanceService? _stateService;
+    private readonly ILogger _logger = Log.ForContext<WinoAccountDataSyncService>();
 
     public WinoAccountDataSyncService(
         IWinoAccountProfileService profileService,
         IPreferencesService preferencesService,
         IAccountService accountService,
         IFolderService folderService,
-        ISignatureService signatureService)
+        ISignatureService signatureService,
+        ISyncSnapshotKeyService? keyService = null,
+        IEmailTemplateService? templateService = null,
+        IMailFilterService? filterService = null,
+        IKeyboardShortcutService? shortcutService = null,
+        IMailCategoryService? categoryService = null,
+        INewThemeService? themeService = null,
+        IStatePersistanceService? stateService = null)
     {
         _profileService = profileService;
         _preferencesService = preferencesService;
         _accountService = accountService;
         _folderService = folderService;
         _signatureService = signatureService;
+        _keyService = keyService;
+        _templateService = templateService;
+        _filterService = filterService;
+        _shortcutService = shortcutService;
+        _categoryService = categoryService;
+        _themeService = themeService;
+        _stateService = stateService;
     }
 
-    public async Task<WinoAccountSyncExportResult> ExportAsync(WinoAccountSyncSelection selection, CancellationToken cancellationToken = default)
+    public async Task<WinoAccountSyncExportResult> ExportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
     {
-        var preparedExport = await PrepareExportAsync(selection).ConfigureAwait(false);
+        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false)
+            ?? throw WinoAccountApiException.SignInRequired();
 
-        if (selection.IncludePreferences && preparedExport.PreferencesJson != null)
+        var key = await ResolveKeyForExportAsync(account, secretPrompt, cancellationToken).ConfigureAwait(false);
+        var prepared = await PrepareExportAsync(selection).ConfigureAwait(false);
+        var payload = Seal(prepared.Document, key);
+
+        await _profileService.PutSyncSnapshotAsync(payload, null, cancellationToken).ConfigureAwait(false);
+
+        // The structured mailbox list stays on the server in the clear: it holds no secrets and
+        // mail intelligence proves mailbox ownership against it.
+        if (selection.IncludeAccounts && prepared.Document.Mailboxes != null)
         {
-            await _profileService.SaveSettingsAsync(preparedExport.PreferencesJson, cancellationToken).ConfigureAwait(false);
+            await _profileService.ReplaceMailboxesAsync(new ReplaceUserMailboxesRequestDto { Mailboxes = prepared.Document.Mailboxes }, cancellationToken).ConfigureAwait(false);
         }
 
-        if (selection.IncludeAccounts)
-        {
-            var request = new ReplaceUserMailboxesRequestDto
-            {
-                Mailboxes = preparedExport.Mailboxes
-            };
-
-            await _profileService.ReplaceMailboxesAsync(request, cancellationToken).ConfigureAwait(false);
-        }
-
-        return preparedExport.ExportResult;
+        return prepared.ExportResult;
     }
 
-    public async Task<WinoAccountSyncFileExportResult> ExportToJsonAsync(WinoAccountSyncSelection selection, CancellationToken cancellationToken = default)
+    public async Task<WinoAccountSyncFileExportResult> ExportToFileAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+        var key = account != null
+            ? await ResolveKeyForExportAsync(account, secretPrompt, cancellationToken).ConfigureAwait(false)
+            : await DeriveFromPromptAsync(null, SyncSnapshotFormat.KeySourcePassphrase, secretPrompt, cancellationToken).ConfigureAwait(false);
 
-        var preparedExport = await PrepareExportAsync(selection).ConfigureAwait(false);
-
-        using var stream = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true }))
-        {
-            writer.WriteStartObject();
-            writer.WriteNumber("version", LocalExportVersion);
-            writer.WriteString("exportedAtUtc", DateTime.UtcNow);
-            writer.WriteBoolean("includesPreferences", preparedExport.ExportResult.IncludedPreferences);
-            writer.WriteBoolean("includesAccounts", preparedExport.ExportResult.IncludedAccounts);
-
-            writer.WritePropertyName("preferences");
-            if (!string.IsNullOrWhiteSpace(preparedExport.PreferencesJson))
-            {
-                using var preferencesDocument = JsonDocument.Parse(preparedExport.PreferencesJson);
-                preferencesDocument.RootElement.WriteTo(writer);
-            }
-            else
-            {
-                writer.WriteNullValue();
-            }
-
-            writer.WritePropertyName("mailboxes");
-            JsonSerializer.Serialize(writer, preparedExport.Mailboxes, WinoAccountApiJsonContext.Default.ListUserMailboxSyncItemDto);
-            writer.WriteEndObject();
-        }
+        var prepared = await PrepareExportAsync(selection).ConfigureAwait(false);
 
         return new WinoAccountSyncFileExportResult
         {
-            JsonContent = Encoding.UTF8.GetString(stream.ToArray()),
-            ExportResult = preparedExport.ExportResult
+            Content = Seal(prepared.Document, key),
+            FileName = $"{FileNamePrefix}{DateTime.Now:yyyyMMdd-HHmm}{SyncSnapshotFormat.FileExtension}",
+            ExportResult = prepared.ExportResult
         };
     }
 
-    public async Task<WinoAccountSyncImportResult> ImportAsync(WinoAccountSyncSelection selection, CancellationToken cancellationToken = default)
+    public async Task<WinoAccountSyncImportResult> ImportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
     {
-        string? settingsJson = null;
-        List<UserMailboxSyncItemDto> orderedMailboxes = [];
-
-        if (selection.IncludePreferences)
+        var download = await _profileService.GetSyncSnapshotAsync(cancellationToken).ConfigureAwait(false);
+        if (download == null)
         {
-            settingsJson = await _profileService.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
+            return new WinoAccountSyncImportResult
+            {
+                IncludedPreferences = selection.IncludePreferences,
+                IncludedAccounts = selection.IncludeAccounts
+            };
         }
 
-        if (selection.IncludeAccounts)
+        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+        var document = await OpenAsync(download.Payload, account?.Id, secretPrompt, cancellationToken).ConfigureAwait(false);
+
+        return await ApplyDocumentAsync(selection, document, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<WinoAccountSyncImportResult> ImportFromFileAsync(byte[] content, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(content);
+
+        if (!SyncSnapshotCryptography.IsSnapshot(content))
         {
-            var mailboxes = await _profileService.GetMailboxesAsync(cancellationToken).ConfigureAwait(false);
-            orderedMailboxes = mailboxes.Mailboxes
-                .OrderBy(a => a.SortOrder)
-                .ThenBy(a => a.Address, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            // Older builds exported plain JSON. Keep reading those files.
+            return await ImportFromJsonAsync(Encoding.UTF8.GetString(content), cancellationToken).ConfigureAwait(false);
         }
 
-        return await ImportDataAsync(selection, settingsJson, orderedMailboxes, cancellationToken).ConfigureAwait(false);
+        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+        var document = await OpenAsync(content, account?.Id, secretPrompt, cancellationToken).ConfigureAwait(false);
+        var selection = new WinoAccountSyncSelection(
+            IncludePreferences: !string.IsNullOrWhiteSpace(document.PreferencesJson),
+            IncludeAccounts: document.Mailboxes?.Count > 0);
+
+        return await ApplyDocumentAsync(selection, document, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<WinoAccountSyncImportResult> ImportFromJsonAsync(string jsonContent, CancellationToken cancellationToken = default)
@@ -137,14 +153,14 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         cancellationToken.ThrowIfCancellationRequested();
         jsonContent = TrimUtf8Bom(jsonContent);
 
-        using var document = JsonDocument.Parse(jsonContent);
-        if (document.RootElement.ValueKind != JsonValueKind.Object)
+        using var jsonDocument = JsonDocument.Parse(jsonContent);
+        if (jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
         {
             throw new JsonException("Invalid root element.");
         }
 
         string? settingsJson = null;
-        if (document.RootElement.TryGetProperty("preferences", out var preferencesElement))
+        if (jsonDocument.RootElement.TryGetProperty("preferences", out var preferencesElement))
         {
             settingsJson = preferencesElement.ValueKind switch
             {
@@ -156,7 +172,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         }
 
         var mailboxes = new List<UserMailboxSyncItemDto>();
-        if (document.RootElement.TryGetProperty("mailboxes", out var mailboxesElement))
+        if (jsonDocument.RootElement.TryGetProperty("mailboxes", out var mailboxesElement))
         {
             if (mailboxesElement.ValueKind is not (JsonValueKind.Array or JsonValueKind.Null or JsonValueKind.Undefined))
             {
@@ -165,7 +181,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
             if (mailboxesElement.ValueKind == JsonValueKind.Array)
             {
-                mailboxes = JsonSerializer.Deserialize(mailboxesElement.GetRawText(), WinoAccountApiJsonContext.Default.ListUserMailboxSyncItemDto) ?? [];
+                mailboxes = JsonSerializer.Deserialize(mailboxesElement.GetRawText(), WinoSyncSnapshotJsonContext.Default.ListUserMailboxSyncItemDto) ?? [];
             }
         }
 
@@ -173,76 +189,403 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             IncludePreferences: !string.IsNullOrWhiteSpace(settingsJson),
             IncludeAccounts: mailboxes.Count > 0);
 
-        return await ImportDataAsync(selection, settingsJson, mailboxes, cancellationToken).ConfigureAwait(false);
+        var document = new WinoSyncSnapshotDocument { PreferencesJson = settingsJson, Mailboxes = mailboxes };
+
+        return await ApplyDocumentAsync(selection, document, cancellationToken).ConfigureAwait(false);
     }
+
+    public void ApplyAppearance(SyncSnapshotAppearance appearance)
+    {
+        ArgumentNullException.ThrowIfNull(appearance);
+
+        if (_themeService != null)
+        {
+            if (Enum.IsDefined((WindowBackdropType)appearance.BackdropType))
+            {
+                _themeService.CurrentBackdropType = (WindowBackdropType)appearance.BackdropType;
+            }
+
+            if (Enum.IsDefined((ApplicationElementTheme)appearance.RootTheme))
+            {
+                _themeService.RootTheme = (ApplicationElementTheme)appearance.RootTheme;
+            }
+
+            if (appearance.AccentColor != null && !string.Equals(_themeService.AccentColor, appearance.AccentColor, StringComparison.OrdinalIgnoreCase))
+            {
+                _themeService.AccentColor = appearance.AccentColor;
+            }
+
+            // Built-in theme ids are the same on every device. A custom theme only exists where it
+            // was made, so an unknown id is left alone rather than selecting nothing.
+            if (appearance.ThemeId is { } themeId && themeId != _themeService.CurrentApplicationThemeId)
+            {
+                _themeService.CurrentApplicationThemeId = themeId;
+            }
+        }
+
+        if (_stateService != null)
+        {
+            if (appearance.OpenPaneLength > 0) _stateService.OpenPaneLength = appearance.OpenPaneLength;
+            if (appearance.MailListPaneLength > 0) _stateService.MailListPaneLength = appearance.MailListPaneLength;
+            if (Enum.IsDefined((CalendarDisplayType)appearance.CalendarDisplayType)) _stateService.CalendarDisplayType = (CalendarDisplayType)appearance.CalendarDisplayType;
+            if (appearance.DayDisplayCount > 0) _stateService.DayDisplayCount = appearance.DayDisplayCount;
+        }
+    }
+
+    #region Keys
+
+    private async Task<SyncSnapshotKey> ResolveKeyForExportAsync(WinoAccount account, SyncSnapshotSecretPrompt? secretPrompt, CancellationToken cancellationToken)
+    {
+        var keyService = RequireKeyService();
+        var cached = await keyService.GetCachedKeyAsync(account.Id, cancellationToken).ConfigureAwait(false);
+        if (cached != null) return cached;
+
+        var keySource = account.HasPassword ? SyncSnapshotFormat.KeySourceAccountPassword : SyncSnapshotFormat.KeySourcePassphrase;
+
+        return await DeriveFromPromptAsync(account.Id, keySource, secretPrompt, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<SyncSnapshotKey> DeriveFromPromptAsync(Guid? userId, byte keySource, SyncSnapshotSecretPrompt? secretPrompt, CancellationToken cancellationToken)
+    {
+        var keyService = RequireKeyService();
+        var secret = await AskSecretAsync(secretPrompt, keySource, wasRejected: false).ConfigureAwait(false);
+        var key = await keyService.DeriveAsync(secret, keyService.CreateDefaultParameters(userId, keySource), cancellationToken).ConfigureAwait(false);
+
+        if (userId is { } id)
+        {
+            await keyService.RememberAsync(id, key, cancellationToken).ConfigureAwait(false);
+        }
+
+        return key;
+    }
+
+    /// <summary>
+    /// Opens a snapshot with the cached key when its header matches, and otherwise asks for the
+    /// secret. A rejected answer gets one more try. The key that opened the snapshot is cached.
+    /// </summary>
+    private async Task<WinoSyncSnapshotDocument> OpenAsync(byte[] payload, Guid? userId, SyncSnapshotSecretPrompt? secretPrompt, CancellationToken cancellationToken)
+    {
+        var keyService = RequireKeyService();
+        var header = SyncSnapshotCryptography.ReadHeader(payload);
+        var parameters = header.ToKeyParameters();
+
+        if (userId is { } cachedUserId)
+        {
+            var cached = await keyService.GetCachedKeyAsync(cachedUserId, cancellationToken).ConfigureAwait(false);
+            if (cached != null && Matches(cached.Parameters, parameters))
+            {
+                try
+                {
+                    return Unseal(payload, cached.Key);
+                }
+                catch (SyncSnapshotDecryptionException)
+                {
+                    // The cached key came from another password. Fall through to the prompt.
+                }
+            }
+        }
+
+        var wasRejected = false;
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var secret = await AskSecretAsync(secretPrompt, header.KeySource, wasRejected).ConfigureAwait(false);
+            var key = await keyService.DeriveAsync(secret, parameters, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                var document = Unseal(payload, key.Key);
+
+                if (userId is { } id)
+                {
+                    await keyService.RememberAsync(id, key, cancellationToken).ConfigureAwait(false);
+                }
+
+                return document;
+            }
+            catch (SyncSnapshotDecryptionException) when (attempt == 0 && secretPrompt != null)
+            {
+                wasRejected = true;
+            }
+        }
+
+        throw new SyncSnapshotDecryptionException("The snapshot could not be unlocked.");
+    }
+
+    private static async Task<string> AskSecretAsync(SyncSnapshotSecretPrompt? secretPrompt, byte keySource, bool wasRejected)
+    {
+        if (secretPrompt == null)
+        {
+            throw new SyncSnapshotKeyRequiredException("No key is cached for this snapshot and no prompt was supplied.");
+        }
+
+        var secret = await secretPrompt(new SyncSnapshotSecretRequest(keySource == SyncSnapshotFormat.KeySourcePassphrase, wasRejected)).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(secret))
+        {
+            throw new SyncSnapshotKeyRequiredException("The snapshot was not unlocked.");
+        }
+
+        return secret;
+    }
+
+    private ISyncSnapshotKeyService RequireKeyService()
+        => _keyService ?? throw new InvalidOperationException("Sync snapshots need a key service.");
+
+    private static bool Matches(SyncSnapshotKeyParameters a, SyncSnapshotKeyParameters b)
+        => a.KeySource == b.KeySource
+            && a.MemoryKiB == b.MemoryKiB
+            && a.Iterations == b.Iterations
+            && a.Parallelism == b.Parallelism
+            && a.Salt.AsSpan().SequenceEqual(b.Salt);
+
+    private static byte[] Seal(WinoSyncSnapshotDocument document, SyncSnapshotKey key)
+    {
+        var plaintext = JsonSerializer.SerializeToUtf8Bytes(document, WinoSyncSnapshotJsonContext.Default.WinoSyncSnapshotDocument);
+
+        return SyncSnapshotCryptography.Encrypt(plaintext, key);
+    }
+
+    private static WinoSyncSnapshotDocument Unseal(byte[] payload, byte[] key)
+    {
+        var plaintext = SyncSnapshotCryptography.Decrypt(payload, key);
+
+        try
+        {
+            var document = JsonSerializer.Deserialize(plaintext, WinoSyncSnapshotJsonContext.Default.WinoSyncSnapshotDocument);
+
+            return document ?? throw new SyncSnapshotInvalidFileException("The snapshot is empty.");
+        }
+        catch (JsonException ex)
+        {
+            throw new SyncSnapshotInvalidFileException("The snapshot content could not be read.", ex);
+        }
+    }
+
+    #endregion
+
+    #region Export
 
     private async Task<PreparedSyncExport> PrepareExportAsync(WinoAccountSyncSelection selection)
     {
-        var preferencesJson = selection.IncludePreferences
-            ? _preferencesService.ExportPreferences()
-            : null;
-
-        var mailboxes = new List<UserMailboxSyncItemDto>();
+        var document = new WinoSyncSnapshotDocument { ExportedAtUtc = DateTime.UtcNow };
         var exportedAccountDataCount = 0;
+        var exportedAppDataCount = 0;
+
+        var accounts = (await _accountService.GetAccountsAsync().ConfigureAwait(false)).OrderBy(a => a.Order).ToList();
+
+        if (selection.IncludePreferences)
+        {
+            document.PreferencesJson = _preferencesService.ExportPreferences();
+            document.Templates = await ExportTemplatesAsync().ConfigureAwait(false);
+            document.Shortcuts = await ExportShortcutsAsync().ConfigureAwait(false);
+            document.Appearance = ExportAppearance();
+
+            exportedAppDataCount += (document.Templates?.Count ?? 0) + (document.Shortcuts?.Count ?? 0);
+        }
 
         if (selection.IncludeAccounts)
         {
-            var accounts = (await _accountService.GetAccountsAsync().ConfigureAwait(false)).OrderBy(a => a.Order);
+            document.Mailboxes = [];
 
             foreach (var account in accounts)
             {
                 var mailbox = await MapMailboxAsync(account).ConfigureAwait(false);
-                mailboxes.Add(mailbox);
+                document.Mailboxes.Add(mailbox);
 
                 if (mailbox.Signatures?.Count > 0 || mailbox.Folders?.Count > 0)
                 {
                     exportedAccountDataCount++;
                 }
             }
+
+            document.Filters = await ExportFiltersAsync(accounts).ConfigureAwait(false);
+            document.Categories = await ExportCategoriesAsync(accounts).ConfigureAwait(false);
+            document.Aliases = await ExportAliasesAsync(accounts).ConfigureAwait(false);
+            document.MergedInboxes = ExportMergedInboxes(accounts);
+
+            exportedAppDataCount += (document.Filters?.Count ?? 0) + (document.Categories?.Count ?? 0)
+                + (document.Aliases?.Count ?? 0) + (document.MergedInboxes?.Count ?? 0);
         }
 
         return new PreparedSyncExport(
-            preferencesJson,
-            mailboxes,
+            document,
             new WinoAccountSyncExportResult
             {
                 IncludedPreferences = selection.IncludePreferences,
                 IncludedAccounts = selection.IncludeAccounts,
-                ExportedMailboxCount = mailboxes.Count,
-                ExportedAccountDataCount = exportedAccountDataCount
+                ExportedMailboxCount = document.Mailboxes?.Count ?? 0,
+                ExportedAccountDataCount = exportedAccountDataCount,
+                ExportedAppDataCount = exportedAppDataCount
             });
     }
 
-    private async Task<WinoAccountSyncImportResult> ImportDataAsync(
-        WinoAccountSyncSelection selection,
-        string? settingsJson,
-        List<UserMailboxSyncItemDto> mailboxes,
-        CancellationToken cancellationToken)
+    private async Task<List<SnapshotTemplate>?> ExportTemplatesAsync()
     {
-        var result = new WinoAccountSyncImportResult
-        {
-            IncludedPreferences = selection.IncludePreferences,
-            IncludedAccounts = selection.IncludeAccounts
-        };
+        if (_templateService == null) return null;
 
-        if (selection.IncludePreferences && !string.IsNullOrWhiteSpace(settingsJson))
-        {
-            var (appliedCount, failedCount) = _preferencesService.ImportPreferences(settingsJson);
-            result = new WinoAccountSyncImportResult
+        var templates = await _templateService.GetEmailTemplatesAsync().ConfigureAwait(false);
+
+        return templates
+            .Where(a => !string.IsNullOrWhiteSpace(a.Name))
+            .Select(a => new SnapshotTemplate { Name = a.Name.Trim(), Description = a.Description ?? string.Empty, HtmlContent = a.HtmlContent ?? string.Empty })
+            .ToList();
+    }
+
+    private async Task<List<SnapshotShortcut>?> ExportShortcutsAsync()
+    {
+        if (_shortcutService == null) return null;
+
+        var shortcuts = await _shortcutService.GetKeyboardShortcutsAsync().ConfigureAwait(false);
+
+        return shortcuts
+            .Where(a => !string.IsNullOrWhiteSpace(a.Key))
+            .Select(a => new SnapshotShortcut
             {
-                IncludedPreferences = result.IncludedPreferences,
-                IncludedAccounts = result.IncludedAccounts,
-                HadRemotePreferences = true,
-                AppliedPreferenceCount = appliedCount,
-                FailedPreferenceCount = failedCount,
-                ImportedMailboxCount = result.ImportedMailboxCount,
-                SkippedDuplicateMailboxCount = result.SkippedDuplicateMailboxCount,
-                RemoteMailboxCount = result.RemoteMailboxCount
-            };
+                Mode = (int)a.Mode,
+                Key = a.Key,
+                ModifierKeys = (int)a.ModifierKeys,
+                Action = (int)a.Action,
+                IsEnabled = a.IsEnabled
+            })
+            .ToList();
+    }
+
+    private SyncSnapshotAppearance? ExportAppearance()
+    {
+        if (_themeService == null && _stateService == null) return null;
+
+        return new SyncSnapshotAppearance
+        {
+            RootTheme = (int)(_themeService?.RootTheme ?? ApplicationElementTheme.Default),
+            ThemeId = _themeService?.CurrentApplicationThemeId,
+            AccentColor = _themeService?.AccentColor,
+            BackdropType = (int)(_themeService?.CurrentBackdropType ?? WindowBackdropType.Mica),
+            OpenPaneLength = _stateService?.OpenPaneLength ?? 0,
+            MailListPaneLength = _stateService?.MailListPaneLength ?? 0,
+            CalendarDisplayType = (int)(_stateService?.CalendarDisplayType ?? CalendarDisplayType.Week),
+            DayDisplayCount = _stateService?.DayDisplayCount ?? 0
+        };
+    }
+
+    private async Task<List<SnapshotFilter>?> ExportFiltersAsync(List<MailAccount> accounts)
+    {
+        if (_filterService == null) return null;
+
+        var filters = new List<SnapshotFilter>();
+        foreach (var account in accounts)
+        {
+            // Provider rules live on the server and come back on sync. Only Wino's own rules travel.
+            var localFilters = (await _filterService.GetFiltersAsync(account.Id).ConfigureAwait(false))
+                .Where(a => a.ManagementType == MailFilterManagementType.WinoLocal && !string.IsNullOrWhiteSpace(a.Name));
+
+            filters.AddRange(localFilters.Select(a => new SnapshotFilter
+            {
+                AccountAddress = account.Address,
+                ProviderType = (int)account.ProviderType,
+                Name = a.Name.Trim(),
+                SourceRemoteFolderId = a.SourceRemoteFolderId ?? string.Empty,
+                MatchMode = (int)a.MatchMode,
+                IsEnabled = a.IsEnabled,
+                Sequence = a.Sequence,
+                StopProcessing = a.StopProcessing,
+                Conditions = a.Conditions.OrderBy(c => c.Order).Select(c => new SnapshotFilterCondition { Order = c.Order, Field = (int)c.Field, Operator = (int)c.Operator, Value = c.Value ?? string.Empty }).ToList(),
+                Actions = a.Actions.OrderBy(c => c.Order).Select(c => new SnapshotFilterAction { Order = c.Order, Type = (int)c.Type, TargetRemoteFolderId = c.TargetRemoteFolderId }).ToList()
+            }));
+        }
+
+        return filters;
+    }
+
+    private async Task<List<SnapshotCategory>?> ExportCategoriesAsync(List<MailAccount> accounts)
+    {
+        if (_categoryService == null) return null;
+
+        var categories = new List<SnapshotCategory>();
+        foreach (var account in accounts)
+        {
+            var localCategories = await _categoryService.GetCategoriesAsync(account.Id).ConfigureAwait(false);
+
+            categories.AddRange(localCategories
+                .Where(a => !string.IsNullOrWhiteSpace(a.Name))
+                .Select(a => new SnapshotCategory
+                {
+                    AccountAddress = account.Address,
+                    ProviderType = (int)account.ProviderType,
+                    Name = a.Name.Trim(),
+                    IsFavorite = a.IsFavorite,
+                    BackgroundColorHex = a.BackgroundColorHex,
+                    TextColorHex = a.TextColorHex,
+                    Source = (int)a.Source
+                }));
+        }
+
+        return categories;
+    }
+
+    private async Task<List<SnapshotAlias>> ExportAliasesAsync(List<MailAccount> accounts)
+    {
+        var aliases = new List<SnapshotAlias>();
+        foreach (var account in accounts)
+        {
+            var localAliases = await _accountService.GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
+
+            // The root alias is recreated with the account; provider-discovered ones come back on sync.
+            aliases.AddRange(localAliases
+                .Where(a => a.Source == AliasSource.Manual && !a.IsRootAlias && !string.IsNullOrWhiteSpace(a.AliasAddress))
+                .Select(a => new SnapshotAlias
+                {
+                    AccountAddress = account.Address,
+                    ProviderType = (int)account.ProviderType,
+                    AliasAddress = a.AliasAddress.Trim(),
+                    ReplyToAddress = a.ReplyToAddress,
+                    AliasSenderName = a.AliasSenderName
+                }));
+        }
+
+        return aliases;
+    }
+
+    private static List<SnapshotMergedInbox> ExportMergedInboxes(List<MailAccount> accounts)
+        => accounts
+            .Where(a => a.MergedInboxId.HasValue && !string.IsNullOrWhiteSpace(a.MergedInbox?.Name))
+            .GroupBy(a => a.MergedInboxId!.Value)
+            .Select(g => new SnapshotMergedInbox
+            {
+                Name = g.First().MergedInbox.Name.Trim(),
+                Members = g.Select(a => new SnapshotMailboxReference { AccountAddress = a.Address, ProviderType = (int)a.ProviderType }).ToList()
+            })
+            .ToList();
+
+    #endregion
+
+    #region Import
+
+    private async Task<WinoAccountSyncImportResult> ApplyDocumentAsync(WinoAccountSyncSelection selection, WinoSyncSnapshotDocument document, CancellationToken cancellationToken)
+    {
+        var hadRemotePreferences = false;
+        var appliedPreferenceCount = 0;
+        var failedPreferenceCount = 0;
+        var importedMailboxCount = 0;
+        var skippedDuplicateMailboxCount = 0;
+        var remoteMailboxCount = 0;
+        var appliedAccountDataCount = 0;
+        var appliedFolderConfigurationCount = 0;
+        var appliedAppDataCount = 0;
+
+        if (selection.IncludePreferences && !string.IsNullOrWhiteSpace(document.PreferencesJson))
+        {
+            (appliedPreferenceCount, failedPreferenceCount) = _preferencesService.ImportPreferences(document.PreferencesJson);
+            hadRemotePreferences = true;
+        }
+
+        if (selection.IncludePreferences)
+        {
+            appliedAppDataCount += await ApplyTemplatesAsync(document.Templates).ConfigureAwait(false);
+            appliedAppDataCount += await ApplyShortcutsAsync(document.Shortcuts).ConfigureAwait(false);
         }
 
         if (selection.IncludeAccounts)
         {
+            var mailboxes = document.Mailboxes ?? [];
             var orderedMailboxes = mailboxes
                 .OrderBy(a => a.SortOrder)
                 .ThenBy(a => a.Address, StringComparer.OrdinalIgnoreCase)
@@ -257,9 +600,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             // ones skipped as duplicates. Two devices holding the same mailboxes is the common case, and
             // that is exactly when the settings are out of date.
             var accountsByKey = localAccounts.ToDictionary(CreateMailboxKey, StringComparer.Ordinal);
-
-            var importedMailboxCount = 0;
-            var skippedDuplicateMailboxCount = 0;
 
             foreach (var mailbox in orderedMailboxes)
             {
@@ -301,9 +641,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 WeakReferenceMessenger.Default.Send(new AccountsMenuRefreshRequested(false));
             }
 
-            var appliedAccountDataCount = 0;
-            var appliedFolderConfigurationCount = 0;
-
             foreach (var mailbox in orderedMailboxes)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -323,24 +660,340 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 appliedFolderConfigurationCount += applied.AppliedFolderCount;
             }
 
-            result = new WinoAccountSyncImportResult
-            {
-                IncludedPreferences = result.IncludedPreferences,
-                IncludedAccounts = result.IncludedAccounts,
-                HadRemotePreferences = result.HadRemotePreferences,
-                AppliedPreferenceCount = result.AppliedPreferenceCount,
-                FailedPreferenceCount = result.FailedPreferenceCount,
-                ImportedMailboxCount = importedMailboxCount,
-                SkippedDuplicateMailboxCount = skippedDuplicateMailboxCount,
-                RemoteMailboxCount = orderedMailboxes.Count,
-                AppliedAccountDataCount = appliedAccountDataCount,
-                AppliedFolderConfigurationCount = appliedFolderConfigurationCount
-            };
+            remoteMailboxCount = orderedMailboxes.Count;
+
+            appliedAppDataCount += await ApplyFiltersAsync(document.Filters, accountsByKey).ConfigureAwait(false);
+            appliedAppDataCount += await ApplyCategoriesAsync(document.Categories, accountsByKey).ConfigureAwait(false);
+            appliedAppDataCount += await ApplyAliasesAsync(document.Aliases, accountsByKey).ConfigureAwait(false);
+            appliedAppDataCount += await ApplyMergedInboxesAsync(document.MergedInboxes).ConfigureAwait(false);
         }
 
         await RepairStartupEntityAsync().ConfigureAwait(false);
 
-        return result;
+        return new WinoAccountSyncImportResult
+        {
+            IncludedPreferences = selection.IncludePreferences,
+            IncludedAccounts = selection.IncludeAccounts,
+            HadRemotePreferences = hadRemotePreferences,
+            AppliedPreferenceCount = appliedPreferenceCount,
+            FailedPreferenceCount = failedPreferenceCount,
+            ImportedMailboxCount = importedMailboxCount,
+            SkippedDuplicateMailboxCount = skippedDuplicateMailboxCount,
+            RemoteMailboxCount = remoteMailboxCount,
+            AppliedAccountDataCount = appliedAccountDataCount,
+            AppliedFolderConfigurationCount = appliedFolderConfigurationCount,
+            AppliedAppDataCount = appliedAppDataCount,
+            Appearance = selection.IncludePreferences ? document.Appearance : null
+        };
+    }
+
+    /// <summary>Templates match by name. Existing ones are updated, missing ones created, none deleted.</summary>
+    private async Task<int> ApplyTemplatesAsync(List<SnapshotTemplate>? templates)
+    {
+        if (_templateService == null || templates == null || templates.Count == 0) return 0;
+
+        var applied = 0;
+        var local = await _templateService.GetEmailTemplatesAsync().ConfigureAwait(false);
+
+        foreach (var template in templates.Where(a => !string.IsNullOrWhiteSpace(a.Name)))
+        {
+            try
+            {
+                var existing = local.FirstOrDefault(a => string.Equals(a.Name?.Trim(), template.Name.Trim(), StringComparison.OrdinalIgnoreCase));
+                if (existing == null)
+                {
+                    var created = await _templateService.CreateEmailTemplateAsync(new EmailTemplate
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = template.Name.Trim(),
+                        Description = template.Description ?? string.Empty,
+                        HtmlContent = template.HtmlContent ?? string.Empty
+                    }).ConfigureAwait(false);
+
+                    local.Add(created);
+                    applied++;
+                }
+                else if (!string.Equals(existing.HtmlContent, template.HtmlContent, StringComparison.Ordinal)
+                    || !string.Equals(existing.Description, template.Description, StringComparison.Ordinal))
+                {
+                    existing.HtmlContent = template.HtmlContent ?? string.Empty;
+                    existing.Description = template.Description ?? string.Empty;
+                    await _templateService.UpdateEmailTemplateAsync(existing).ConfigureAwait(false);
+                    applied++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Template {Name} could not be restored.", template.Name);
+            }
+        }
+
+        return applied;
+    }
+
+    /// <summary>
+    /// Shortcuts match by mode and action. A key that is reserved or already taken locally leaves
+    /// the local binding alone; only the enabled flag follows the snapshot then.
+    /// </summary>
+    private async Task<int> ApplyShortcutsAsync(List<SnapshotShortcut>? shortcuts)
+    {
+        if (_shortcutService == null || shortcuts == null || shortcuts.Count == 0) return 0;
+
+        var applied = 0;
+        var local = (await _shortcutService.GetKeyboardShortcutsAsync().ConfigureAwait(false)).ToList();
+
+        foreach (var shortcut in shortcuts.Where(a => !string.IsNullOrWhiteSpace(a.Key)))
+        {
+            var mode = (WinoApplicationMode)shortcut.Mode;
+            var action = (KeyboardShortcutAction)shortcut.Action;
+            var modifiers = (ModifierKeys)shortcut.ModifierKeys;
+            if (!Enum.IsDefined(mode) || !Enum.IsDefined(action)) continue;
+
+            try
+            {
+                var existing = local.FirstOrDefault(a => a.Mode == mode && a.Action == action);
+                if (existing == null)
+                {
+                    var candidate = new KeyboardShortcut { Id = Guid.NewGuid(), Mode = mode, Key = shortcut.Key, ModifierKeys = modifiers, Action = action, IsEnabled = shortcut.IsEnabled };
+                    if (!_shortcutService.IsShortcutAllowed(candidate)
+                        || await _shortcutService.IsKeyCombinationInUseAsync(mode, shortcut.Key, modifiers).ConfigureAwait(false))
+                    {
+                        continue;
+                    }
+
+                    local.Add(await _shortcutService.SaveKeyboardShortcutAsync(candidate).ConfigureAwait(false));
+                    applied++;
+                    continue;
+                }
+
+                var bindingChanged = !string.Equals(existing.Key, shortcut.Key, StringComparison.OrdinalIgnoreCase) || existing.ModifierKeys != modifiers;
+                if (bindingChanged
+                    && !_shortcutService.IsReservedShortcut(mode, shortcut.Key, modifiers)
+                    && !await _shortcutService.IsKeyCombinationInUseAsync(mode, shortcut.Key, modifiers, existing.Id).ConfigureAwait(false))
+                {
+                    existing.Key = shortcut.Key;
+                    existing.ModifierKeys = modifiers;
+                    existing.IsEnabled = shortcut.IsEnabled;
+                    await _shortcutService.SaveKeyboardShortcutAsync(existing).ConfigureAwait(false);
+                    applied++;
+                }
+                else if (existing.IsEnabled != shortcut.IsEnabled)
+                {
+                    await _shortcutService.UpdateKeyboardShortcutEnabledAsync(existing.Id, shortcut.IsEnabled).ConfigureAwait(false);
+                    applied++;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Shortcut {Action} could not be restored.", action);
+            }
+        }
+
+        return applied;
+    }
+
+    /// <summary>Wino's own rules match by account and name; existing ones are rewritten in place.</summary>
+    private async Task<int> ApplyFiltersAsync(List<SnapshotFilter>? filters, Dictionary<string, MailAccount> accountsByKey)
+    {
+        if (_filterService == null || filters == null || filters.Count == 0) return 0;
+
+        var applied = 0;
+        foreach (var group in filters.Where(a => !string.IsNullOrWhiteSpace(a.Name)).GroupBy(a => CreateMailboxKey(a.AccountAddress, a.ProviderType)))
+        {
+            if (!accountsByKey.TryGetValue(group.Key, out var account)) continue;
+
+            var local = await _filterService.GetFiltersAsync(account.Id).ConfigureAwait(false);
+
+            foreach (var filter in group)
+            {
+                try
+                {
+                    var existing = local.FirstOrDefault(a => a.ManagementType == MailFilterManagementType.WinoLocal
+                        && string.Equals(a.Name?.Trim(), filter.Name.Trim(), StringComparison.OrdinalIgnoreCase));
+
+                    var target = existing ?? new MailFilter { Id = Guid.NewGuid(), MailAccountId = account.Id, ManagementType = MailFilterManagementType.WinoLocal, IsWinoCreated = true };
+                    target.Name = filter.Name.Trim();
+                    target.SourceRemoteFolderId = filter.SourceRemoteFolderId;
+                    target.MatchMode = (MailFilterMatchMode)filter.MatchMode;
+                    target.IsEnabled = filter.IsEnabled;
+                    target.Sequence = filter.Sequence;
+                    target.StopProcessing = filter.StopProcessing;
+                    target.Conditions = filter.Conditions.Select(c => new MailFilterCondition { Order = c.Order, Field = (MailFilterConditionField)c.Field, Operator = (MailFilterConditionOperator)c.Operator, Value = c.Value }).ToList();
+                    target.Actions = filter.Actions.Select(c => new MailFilterAction { Order = c.Order, Type = (MailFilterActionType)c.Type, TargetRemoteFolderId = c.TargetRemoteFolderId ?? string.Empty }).ToList();
+
+                    if (existing == null)
+                    {
+                        local.Add(await _filterService.CreateFilterAsync(target).ConfigureAwait(false));
+                    }
+                    else
+                    {
+                        await _filterService.UpdateFilterAsync(target).ConfigureAwait(false);
+                    }
+
+                    applied++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "Rule {Name} could not be restored.", filter.Name);
+                }
+            }
+        }
+
+        return applied;
+    }
+
+    /// <summary>
+    /// Categories match by account and name. Local categories are created; provider categories
+    /// come from the server, so only their favourite flag and colours are applied.
+    /// </summary>
+    private async Task<int> ApplyCategoriesAsync(List<SnapshotCategory>? categories, Dictionary<string, MailAccount> accountsByKey)
+    {
+        if (_categoryService == null || categories == null || categories.Count == 0) return 0;
+
+        var applied = 0;
+        foreach (var group in categories.Where(a => !string.IsNullOrWhiteSpace(a.Name)).GroupBy(a => CreateMailboxKey(a.AccountAddress, a.ProviderType)))
+        {
+            if (!accountsByKey.TryGetValue(group.Key, out var account)) continue;
+
+            var local = await _categoryService.GetCategoriesAsync(account.Id).ConfigureAwait(false);
+
+            foreach (var category in group)
+            {
+                try
+                {
+                    var existing = local.FirstOrDefault(a => string.Equals(a.Name?.Trim(), category.Name.Trim(), StringComparison.OrdinalIgnoreCase));
+                    if (existing == null)
+                    {
+                        if ((MailCategorySource)category.Source != MailCategorySource.Local) continue;
+
+                        local.Add(await _categoryService.CreateCategoryAsync(new MailCategory
+                        {
+                            Id = Guid.NewGuid(),
+                            MailAccountId = account.Id,
+                            RemoteId = string.Empty,
+                            Name = category.Name.Trim(),
+                            IsFavorite = category.IsFavorite,
+                            BackgroundColorHex = category.BackgroundColorHex ?? string.Empty,
+                            TextColorHex = category.TextColorHex ?? string.Empty,
+                            Source = MailCategorySource.Local
+                        }).ConfigureAwait(false));
+                        applied++;
+                        continue;
+                    }
+
+                    var changed = existing.IsFavorite != category.IsFavorite
+                        || !string.Equals(existing.BackgroundColorHex, category.BackgroundColorHex, StringComparison.OrdinalIgnoreCase)
+                        || !string.Equals(existing.TextColorHex, category.TextColorHex, StringComparison.OrdinalIgnoreCase);
+                    if (!changed) continue;
+
+                    existing.IsFavorite = category.IsFavorite;
+                    existing.BackgroundColorHex = category.BackgroundColorHex ?? existing.BackgroundColorHex;
+                    existing.TextColorHex = category.TextColorHex ?? existing.TextColorHex;
+                    await _categoryService.UpdateCategoryAsync(existing).ConfigureAwait(false);
+                    applied++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "Category {Name} could not be restored.", category.Name);
+                }
+            }
+        }
+
+        return applied;
+    }
+
+    /// <summary>Manual aliases match by account and address. Missing ones are added.</summary>
+    private async Task<int> ApplyAliasesAsync(List<SnapshotAlias>? aliases, Dictionary<string, MailAccount> accountsByKey)
+    {
+        if (aliases == null || aliases.Count == 0) return 0;
+
+        var applied = 0;
+        foreach (var group in aliases.Where(a => !string.IsNullOrWhiteSpace(a.AliasAddress)).GroupBy(a => CreateMailboxKey(a.AccountAddress, a.ProviderType)))
+        {
+            if (!accountsByKey.TryGetValue(group.Key, out var account)) continue;
+
+            var local = await _accountService.GetAccountAliasesAsync(account.Id).ConfigureAwait(false);
+            var localAddresses = local.Select(a => a.AliasAddress?.Trim().ToLowerInvariant()).ToHashSet(StringComparer.Ordinal);
+
+            foreach (var alias in group)
+            {
+                var address = alias.AliasAddress.Trim().ToLowerInvariant();
+                if (!localAddresses.Add(address)) continue;
+
+                try
+                {
+                    var added = await _accountService.AddAccountAliasAsync(account.Id, new MailAccountAlias
+                    {
+                        Id = Guid.NewGuid(),
+                        AccountId = account.Id,
+                        AliasAddress = address,
+                        ReplyToAddress = alias.ReplyToAddress ?? string.Empty,
+                        AliasSenderName = alias.AliasSenderName ?? string.Empty,
+                        Source = AliasSource.Manual
+                    }).ConfigureAwait(false);
+
+                    if (added) applied++;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "Alias {Address} could not be restored.", address);
+                }
+            }
+        }
+
+        return applied;
+    }
+
+    /// <summary>
+    /// Merged inboxes match by name. Members are resolved by address and provider; a merged inbox
+    /// with fewer than two members here is skipped, and accounts already in another merge stay there.
+    /// </summary>
+    private async Task<int> ApplyMergedInboxesAsync(List<SnapshotMergedInbox>? mergedInboxes)
+    {
+        if (mergedInboxes == null || mergedInboxes.Count == 0) return 0;
+
+        var applied = 0;
+        foreach (var mergedInbox in mergedInboxes.Where(a => !string.IsNullOrWhiteSpace(a.Name)))
+        {
+            try
+            {
+                var accounts = await _accountService.GetAccountsAsync().ConfigureAwait(false);
+                var accountsByKey = accounts.ToDictionary(CreateMailboxKey, StringComparer.Ordinal);
+                var name = mergedInbox.Name.Trim();
+
+                var members = mergedInbox.Members
+                    .Select(m => accountsByKey.GetValueOrDefault(CreateMailboxKey(m.AccountAddress, m.ProviderType)))
+                    .Where(a => a != null)
+                    .Select(a => a!)
+                    .ToList();
+                if (members.Count < 2) continue;
+
+                var existing = accounts.FirstOrDefault(a => a.MergedInboxId.HasValue && string.Equals(a.MergedInbox?.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase));
+                if (existing?.MergedInboxId is { } existingId)
+                {
+                    var linked = accounts.Where(a => a.MergedInboxId == existingId).Select(a => a.Id)
+                        .Union(members.Where(a => !a.MergedInboxId.HasValue || a.MergedInboxId == existingId).Select(a => a.Id))
+                        .Distinct()
+                        .ToList();
+
+                    await _accountService.UpdateMergedInboxAsync(existingId, linked).ConfigureAwait(false);
+                    applied++;
+                    continue;
+                }
+
+                var free = members.Where(a => !a.MergedInboxId.HasValue).ToList();
+                if (free.Count < 2) continue;
+
+                await _accountService.CreateMergeAccountsAsync(new MergedInbox { Name = name }, free).ConfigureAwait(false);
+                applied++;
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Merged inbox {Name} could not be restored.", mergedInbox.Name);
+            }
+        }
+
+        return applied;
     }
 
     /// <summary>
@@ -529,6 +1182,10 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         return true;
     }
 
+    #endregion
+
+    #region Mailbox mapping
+
     private async Task<UserMailboxSyncItemDto> MapMailboxAsync(MailAccount account)
     {
         var serverInformation = account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3
@@ -701,14 +1358,13 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         => $"{address?.Trim().ToLowerInvariant()}|{providerType}";
 
     private static string TrimUtf8Bom(string jsonContent)
-        => !string.IsNullOrEmpty(jsonContent) && jsonContent[0] == '\uFEFF'
+        => !string.IsNullOrEmpty(jsonContent) && jsonContent[0] == '﻿'
             ? jsonContent[1..]
             : jsonContent;
 
-    private sealed record PreparedSyncExport(
-        string? PreferencesJson,
-        List<UserMailboxSyncItemDto> Mailboxes,
-        WinoAccountSyncExportResult ExportResult);
+    #endregion
+
+    private sealed record PreparedSyncExport(WinoSyncSnapshotDocument Document, WinoAccountSyncExportResult ExportResult);
 
     private readonly record struct AppliedAccountData(bool AppliedAnything, int AppliedFolderCount);
 }

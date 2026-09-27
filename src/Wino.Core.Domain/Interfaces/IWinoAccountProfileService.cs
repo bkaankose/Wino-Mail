@@ -34,8 +34,8 @@ public interface IWinoAccountProfileService
     Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, CancellationToken cancellationToken = default);
-    Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default);
-    Task SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default);
+    Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default);
+    Task<UserSyncSnapshotStatusDto> PutSyncSnapshotAsync(byte[] payload, long? expectedRevision = null, CancellationToken cancellationToken = default);
     Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default);
     Task ReplaceMailboxesAsync(ReplaceUserMailboxesRequestDto request, CancellationToken cancellationToken = default);
     Task SignOutAsync(CancellationToken cancellationToken = default);

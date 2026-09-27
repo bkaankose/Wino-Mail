@@ -1,5 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
@@ -21,6 +24,14 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
     private InMemoryDatabaseService _databaseService = null!;
     private Mock<IWinoAccountProfileService> _profileService = null!;
     private Mock<IPreferencesService> _preferencesService = null!;
+    private Mock<ISyncSnapshotKeyService> _keyService = null!;
+    private byte[]? _uploadedSnapshot;
+
+    // A fixed key stands in for Argon2id: the service only needs a 32-byte key and its parameters.
+    private static readonly SyncSnapshotKey TestKey = new(
+        new SyncSnapshotKeyParameters(SyncSnapshotFormat.KeySourceAccountPassword, 1024, 1, 1, new byte[16]),
+        Enumerable.Range(1, 32).Select(a => (byte)a).ToArray());
+    private static readonly WinoAccount TestAccount = new() { Id = Guid.NewGuid(), Email = "owner@example.com", HasPassword = true };
     private AccountService _accountService = null!;
     private FolderService _folderService = null!;
     private SignatureService _signatureService = null!;
@@ -32,6 +43,18 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
         await _databaseService.InitializeAsync();
 
         _profileService = new Mock<IWinoAccountProfileService>(MockBehavior.Strict);
+        _profileService.Setup(a => a.GetActiveAccountAsync()).ReturnsAsync(TestAccount);
+        _profileService
+            .Setup(a => a.PutSyncSnapshotAsync(It.IsAny<byte[]>(), It.IsAny<long?>(), It.IsAny<CancellationToken>()))
+            .Callback<byte[], long?, CancellationToken>((payload, _, _) => _uploadedSnapshot = payload)
+            .ReturnsAsync(new UserSyncSnapshotStatusDto(1, 1, 1, 0, string.Empty, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null));
+
+        _keyService = new Mock<ISyncSnapshotKeyService>();
+        _keyService.Setup(a => a.GetCachedKeyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(TestKey);
+        _keyService.Setup(a => a.CreateDefaultParameters(It.IsAny<Guid?>(), It.IsAny<byte>())).Returns(TestKey.Parameters);
+        _keyService.Setup(a => a.DeriveAsync(It.IsAny<string>(), It.IsAny<SyncSnapshotKeyParameters>(), It.IsAny<CancellationToken>())).ReturnsAsync(TestKey);
+        _keyService.Setup(a => a.RememberAsync(It.IsAny<Guid>(), It.IsAny<SyncSnapshotKey>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+
         _preferencesService = new Mock<IPreferencesService>();
         _preferencesService.SetupProperty(a => a.StartupEntityId);
 
@@ -43,8 +66,25 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             _preferencesService.Object,
             _accountService,
             _folderService,
-            _signatureService);
+            _signatureService,
+            _keyService.Object);
     }
+
+    /// <summary>
+    /// Stores an encrypted snapshot holding the given mailboxes as the account's remote snapshot.
+    /// </summary>
+    private void SetupRemoteSnapshot(List<UserMailboxSyncItemDto> mailboxes)
+    {
+        var json = "{\"Version\":1,\"Mailboxes\":" + JsonSerializer.Serialize(mailboxes) + "}";
+        var payload = SyncSnapshotCryptography.Encrypt(Encoding.UTF8.GetBytes(json), TestKey);
+
+        _profileService
+            .Setup(a => a.GetSyncSnapshotAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WinoSyncSnapshotDownload(payload, 1));
+    }
+
+    private static string Unseal(byte[] payload)
+        => Encoding.UTF8.GetString(SyncSnapshotCryptography.Decrypt(payload, TestKey.Key));
 
     public async Task DisposeAsync()
     {
@@ -127,7 +167,8 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
         exportedMailbox.ProxyServerPort.Should().Be("8080");
         exportedMailbox.MaxConcurrentClients.Should().Be(7);
 
-        _profileService.Verify(a => a.SaveSettingsAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _profileService.Verify(a => a.PutSyncSnapshotAsync(It.IsAny<byte[]>(), It.IsAny<long?>(), It.IsAny<CancellationToken>()), Times.Once);
+        Unseal(_uploadedSnapshot!).Should().Contain("imap@example.com").And.NotContain("secret-incoming").And.NotContain("secret-caldav");
     }
 
     [Fact]
@@ -173,9 +214,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             },
             null!);
 
-        _profileService
-            .Setup(a => a.GetMailboxesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserMailboxSyncListDto(
+        SetupRemoteSnapshot(
             [
                 new UserMailboxSyncItemDto
                 {
@@ -189,7 +228,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
                     ProviderType = (int)MailProviderType.Outlook,
                     AccountName = "New Outlook"
                 }
-            ]));
+            ]);
 
         var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
 
@@ -204,9 +243,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
     [Fact]
     public async Task ImportAsync_ImapMailbox_CreatesRootAliasAndInvalidCredentialsAttentionWithoutPasswords()
     {
-        _profileService
-            .Setup(a => a.GetMailboxesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserMailboxSyncListDto(
+        SetupRemoteSnapshot(
             [
                 new UserMailboxSyncItemDto
                 {
@@ -230,7 +267,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
                     CalDavUsername = "dav-user",
                     MaxConcurrentClients = 9
                 }
-            ]));
+            ]);
 
         var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
 
@@ -352,9 +389,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
 
         var remoteSignatureId = Guid.NewGuid();
 
-        _profileService
-            .Setup(a => a.GetMailboxesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserMailboxSyncListDto(
+        SetupRemoteSnapshot(
             [
                 new UserMailboxSyncItemDto
                 {
@@ -385,7 +420,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
                         }
                     ]
                 }
-            ]));
+            ]);
 
         var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
 
@@ -414,9 +449,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
     [Fact]
     public async Task ImportAsync_NewMailbox_ParksFolderLayoutUntilTheFolderArrives()
     {
-        _profileService
-            .Setup(a => a.GetMailboxesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserMailboxSyncListDto(
+        SetupRemoteSnapshot(
             [
                 new UserMailboxSyncItemDto
                 {
@@ -436,7 +469,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
                         }
                     ]
                 }
-            ]));
+            ]);
 
         var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
 
@@ -491,9 +524,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
         await _accountService.UpdateAccountPreferencesAsync(preferences);
 
         // An older server does not send any of the new members.
-        _profileService
-            .Setup(a => a.GetMailboxesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new UserMailboxSyncListDto(
+        SetupRemoteSnapshot(
             [
                 new UserMailboxSyncItemDto
                 {
@@ -501,7 +532,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
                     ProviderType = (int)MailProviderType.Gmail,
                     AccountName = "Duplicate Gmail"
                 }
-            ]));
+            ]);
 
         var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
 
@@ -513,7 +544,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ImportFromJsonAsync_ReadsAccountDataFromVersionTwoFileAndAcceptsVersionOne()
+    public async Task ImportFromFileAsync_RoundTripsEncryptedSnapshotAndAcceptsLegacyJson()
     {
         var exportedAccountId = Guid.NewGuid();
 
@@ -539,11 +570,13 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             Order = 4
         });
 
-        var fileExport = await _service.ExportToJsonAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
-        fileExport.JsonContent.Should().Contain("\"RemoteFolderId\": \"INBOX\"");
+        var fileExport = await _service.ExportToFileAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        fileExport.FileName.Should().EndWith(SyncSnapshotFormat.FileExtension);
+        SyncSnapshotCryptography.IsSnapshot(fileExport.Content).Should().BeTrue();
+        Unseal(fileExport.Content).Should().Contain("\"RemoteFolderId\":\"INBOX\"");
 
         // Re-importing the same file resolves to the same account and reapplies the layout.
-        var roundTripResult = await _service.ImportFromJsonAsync(fileExport.JsonContent);
+        var roundTripResult = await _service.ImportFromFileAsync(fileExport.Content);
         roundTripResult.SkippedDuplicateMailboxCount.Should().Be(1);
         roundTripResult.AppliedFolderConfigurationCount.Should().Be(1);
 
@@ -558,7 +591,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
         }
         """;
 
-        var legacyResult = await _service.ImportFromJsonAsync(legacyJson);
+        var legacyResult = await _service.ImportFromFileAsync(Encoding.UTF8.GetBytes(legacyJson));
         legacyResult.ImportedMailboxCount.Should().Be(1);
         legacyResult.AppliedAccountDataCount.Should().Be(0);
     }

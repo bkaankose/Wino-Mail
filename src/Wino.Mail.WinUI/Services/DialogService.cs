@@ -413,7 +413,7 @@ public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<S
 
     public async Task<WinoAccountSyncExportResult?> ShowWinoAccountExportDialogAsync()
     {
-        var dialog = new WinoAccountSyncExportDialog(_winoAccountDataSyncService)
+        var dialog = new WinoAccountSyncExportDialog(_winoAccountDataSyncService, this)
         {
             RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
         };
@@ -424,6 +424,18 @@ public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<S
         {
             throw dialog.FailureException;
         }
+
+        return dialog.Result;
+    }
+
+    public async Task<string?> ShowWinoAccountSyncSecretDialogAsync(SyncSnapshotSecretRequest request)
+    {
+        var dialog = new WinoAccountSyncSecretDialog(request)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+
+        await HandleDialogPresentationAsync(dialog);
 
         return dialog.Result;
     }

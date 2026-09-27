@@ -22,5 +22,17 @@ public sealed class WinoAccountSyncImportResult
     /// </summary>
     public int AppliedFolderConfigurationCount { get; init; }
 
-    public bool HasAnyRemoteData => HadRemotePreferences || RemoteMailboxCount > 0 || AppliedAccountDataCount > 0;
+    /// <summary>
+    /// Number of app data items (templates, rules, shortcuts, categories, aliases, merged inboxes)
+    /// created or updated from the snapshot.
+    /// </summary>
+    public int AppliedAppDataCount { get; init; }
+
+    /// <summary>
+    /// Theme and layout carried by the snapshot. Applying it touches the window, so the caller
+    /// applies it on the UI thread through <see cref="Interfaces.IWinoAccountDataSyncService.ApplyAppearance"/>.
+    /// </summary>
+    public SyncSnapshotAppearance? Appearance { get; init; }
+
+    public bool HasAnyRemoteData => HadRemotePreferences || RemoteMailboxCount > 0 || AppliedAccountDataCount > 0 || AppliedAppDataCount > 0 || Appearance != null;
 }

@@ -26,6 +26,7 @@ namespace Wino.Services;
 public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccountProfileService
 {
     private readonly IWinoAccountApiClient _apiClient;
+    private readonly ISyncSnapshotKeyService? _snapshotKeys;
     private readonly ITranslationService? _translationService;
     private readonly IMailIntelligenceCoordinator? _semanticIndexCoordinator;
     private readonly IMailIntelligenceStore? _localIntelligenceStore;
@@ -39,8 +40,10 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
                                      IMailIntelligenceCoordinator? semanticIndexCoordinator = null,
                                      IMailIntelligenceStore? localIntelligenceStore = null,
                                      IWinoAccountSessionService? sessionService = null,
-                                     IWinoPendingCheckoutStore? pendingCheckouts = null) : base(databaseService)
+                                     IWinoPendingCheckoutStore? pendingCheckouts = null,
+                                     ISyncSnapshotKeyService? snapshotKeys = null) : base(databaseService)
     {
+        _snapshotKeys = snapshotKeys;
         _apiClient = apiClient;
         _translationService = translationService;
         _semanticIndexCoordinator = semanticIndexCoordinator;
@@ -69,6 +72,20 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
         if (result.IsSuccess && result.Account != null)
         {
+            // The password is only in hand here. Deriving the sync snapshot key now means later
+            // exports and imports need no prompt. The password itself is never stored.
+            if (_snapshotKeys != null)
+            {
+                try
+                {
+                    await _snapshotKeys.RememberPasswordAsync(result.Account.Id, password, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "Sync snapshot key could not be cached at sign-in.");
+                }
+            }
+
             PublishProfileUpdated(result.Account);
             ReportUIChange(new WinoAccountSignedInMessage(result.Account));
         }
@@ -233,18 +250,18 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
             "rewrite",
             cancellationToken).ConfigureAwait(false);
 
-    public async Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default)
+    public async Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default)
     {
         await RequireAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
 
-        return await _apiClient.GetSettingsAsync(cancellationToken).ConfigureAwait(false);
+        return await _apiClient.GetSyncSnapshotAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default)
+    public async Task<UserSyncSnapshotStatusDto> PutSyncSnapshotAsync(byte[] payload, long? expectedRevision = null, CancellationToken cancellationToken = default)
     {
         await RequireAuthenticatedAccountAsync(cancellationToken).ConfigureAwait(false);
 
-        await _apiClient.SaveSettingsAsync(settingsJson, cancellationToken).ConfigureAwait(false);
+        return await _apiClient.PutSyncSnapshotAsync(payload, expectedRevision, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default)
@@ -275,6 +292,11 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
         if (account != null)
         {
+            if (_snapshotKeys != null)
+            {
+                await _snapshotKeys.ForgetAsync(account.Id).ConfigureAwait(false);
+            }
+
             ReportUIChange(new WinoAccountProfileDeletedMessage(account));
             ReportUIChange(new WinoAccountSignedOutMessage(account));
         }

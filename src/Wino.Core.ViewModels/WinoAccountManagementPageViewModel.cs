@@ -837,7 +837,12 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
 
         try
         {
-            var result = await _syncService.ImportAsync(new WinoAccountSyncSelection());
+            var result = await _syncService.ImportAsync(new WinoAccountSyncSelection(), PromptSyncSecretAsync);
+
+            if (result.Appearance != null)
+            {
+                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+            }
 
             if (!result.HasAnyRemoteData)
             {
@@ -1204,6 +1209,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         addOn.RenewalText = string.Empty;
     }
 
+    private Task<string?> PromptSyncSecretAsync(SyncSnapshotSecretRequest request)
+        => ExecuteUIThreadAsync(() => _dialogService.ShowWinoAccountSyncSecretDialogAsync(request));
+
     private static string BuildExportSuccessMessage(WinoAccountSyncExportResult result)
     {
         var parts = new Collection<string>();
@@ -1221,6 +1229,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         if (result.ExportedAccountDataCount > 0)
         {
             parts.Add(string.Format(Translator.WinoAccount_Management_ExportAccountDataSucceeded, result.ExportedAccountDataCount));
+        }
+
+        if (result.ExportedAppDataCount > 0)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ExportAppDataSucceeded, result.ExportedAppDataCount));
         }
 
         if (parts.Count == 0)
@@ -1255,6 +1268,11 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         if (result.AppliedAccountDataCount > 0)
         {
             parts.Add(string.Format(Translator.WinoAccount_Management_ImportAccountDataSucceeded, result.AppliedAccountDataCount));
+        }
+
+        if (result.AppliedAppDataCount > 0)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ImportAppDataSucceeded, result.AppliedAppDataCount));
         }
 
         if (parts.Count == 0)

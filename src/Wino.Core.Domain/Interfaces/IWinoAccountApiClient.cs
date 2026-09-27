@@ -31,8 +31,10 @@ public interface IWinoAccountApiClient
     Task<ApiEnvelope<CheckoutSessionResultDto>> CreateCheckoutSessionAsync(string productCode, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<BillingStatusResultDto>> GetBillingStatusAsync(CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiUsageStatusDto>> GetAiUsageAsync(CancellationToken cancellationToken = default);
-    Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default);
-    Task SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default);
+    /// <summary>The stored sync snapshot bytes and revision, or null when the account has none.</summary>
+    Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default);
+    /// <summary>Uploads the encrypted snapshot. A non-null expected revision makes the write conditional.</summary>
+    Task<UserSyncSnapshotStatusDto> PutSyncSnapshotAsync(byte[] payload, long? expectedRevision = null, CancellationToken cancellationToken = default);
     Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default);
     Task ReplaceMailboxesAsync(ReplaceUserMailboxesRequestDto request, CancellationToken cancellationToken = default);
     // Mail intelligence. Jobs are submitted per mailbox; results are collected as two

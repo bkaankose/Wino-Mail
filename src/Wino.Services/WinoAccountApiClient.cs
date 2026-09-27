@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -207,10 +208,10 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             WinoAccountApiJsonContext.Default.ApiEnvelopeAiUsageStatusDto,
             cancellationToken);
 
-    public async Task<string?> GetSettingsAsync(CancellationToken cancellationToken = default)
+    public async Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default)
     {
         using var response = await SendAuthorizedAsync(
-            () => CreateAuthorizedRequestAsync(HttpMethod.Get, "api/v1/users/me/settings"),
+            () => CreateAuthorizedRequestAsync(HttpMethod.Get, "api/v1/users/me/snapshot"),
             cancellationToken).ConfigureAwait(false);
 
         if (response.StatusCode == HttpStatusCode.NoContent)
@@ -220,25 +221,76 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
 
-        var payload = await ReadPayloadAsync(response, cancellationToken).ConfigureAwait(false);
-        if (!string.IsNullOrWhiteSpace(payload) && IsHtmlResponse(response))
+        if (IsHtmlResponse(response))
         {
             throw NonApiResponse(response.StatusCode, null);
         }
 
-        return payload;
+        byte[] payload;
+        try
+        {
+            payload = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException)
+        {
+            throw ServiceUnavailable(ex, response.StatusCode);
+        }
+
+        if (payload.Length == 0)
+        {
+            return null;
+        }
+
+        return new WinoSyncSnapshotDownload(payload, ReadRevision(response));
     }
 
-    public async Task SaveSettingsAsync(string settingsJson, CancellationToken cancellationToken = default)
+    public async Task<UserSyncSnapshotStatusDto> PutSyncSnapshotAsync(byte[] payload, long? expectedRevision = null, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(payload);
+
         using var response = await SendAuthorizedAsync(
-            () => CreateAuthorizedRequestAsync(
-                HttpMethod.Put,
-                "api/v1/users/me/settings",
-                () => new StringContent(settingsJson, Encoding.UTF8, "application/json")),
+            async () =>
+            {
+                var request = await CreateAuthorizedRequestAsync(
+                    HttpMethod.Put,
+                    "api/v1/users/me/snapshot",
+                    () =>
+                    {
+                        var content = new ByteArrayContent(payload);
+                        content.Headers.ContentType = new MediaTypeHeaderValue(SyncSnapshotFormat.ContentType);
+                        return content;
+                    }).ConfigureAwait(false);
+
+                if (request != null && expectedRevision is { } revision)
+                {
+                    request.Headers.IfMatch.Add(new EntityTagHeaderValue($"\"{revision}\""));
+                }
+
+                return request;
+            },
             cancellationToken).ConfigureAwait(false);
 
         await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+
+        var envelope = await ReadEnvelopeAsync(response, WinoAccountApiJsonContext.Default.ApiEnvelopeUserSyncSnapshotStatusDto, cancellationToken).ConfigureAwait(false);
+        if (envelope.IsSuccess && envelope.Result != null)
+        {
+            return envelope.Result;
+        }
+
+        throw new WinoAccountApiException(envelope.ErrorCode ?? "Snapshot upload failed.", response.StatusCode);
+    }
+
+    private static long ReadRevision(HttpResponseMessage response)
+    {
+        if (response.Headers.TryGetValues(SyncSnapshotFormat.RevisionHeaderName, out var values)
+            && long.TryParse(values.FirstOrDefault(), out var revision))
+        {
+            return revision;
+        }
+
+        var tag = response.Headers.ETag?.Tag?.Trim('"');
+        return long.TryParse(tag, out var etagRevision) ? etagRevision : 0;
     }
 
     public async Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default)
@@ -950,6 +1002,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(ApiEnvelope<BillingStatusResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiUsageStatusDto>))]
 [JsonSerializable(typeof(ApiEnvelope<UserMailboxSyncListDto>))]
+[JsonSerializable(typeof(ApiEnvelope<UserSyncSnapshotStatusDto>))]
 [JsonSerializable(typeof(ApiEnvelope<JsonElement>))]
 [JsonSerializable(typeof(ReplaceUserMailboxesRequestDto))]
 [JsonSerializable(typeof(List<UserMailboxSyncItemDto>))]

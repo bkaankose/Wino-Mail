@@ -102,5 +102,11 @@ public interface IMailDialogService : IDialogServiceBase
 
     Task<WinoAccountSyncExportResult?> ShowWinoAccountExportDialogAsync();
 
+    /// <summary>
+    /// Asks for the Wino Account password or the sync passphrase that unlocks a sync snapshot.
+    /// Returns null when the user cancels.
+    /// </summary>
+    Task<string?> ShowWinoAccountSyncSecretDialogAsync(SyncSnapshotSecretRequest request);
+
     Task<UnlimitedAccountsPurchaseChannel?> ShowUnlimitedAccountsPurchaseChannelDialogAsync();
 }

@@ -1,7 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -20,8 +19,7 @@ namespace Wino.Mail.ViewModels;
 /// </summary>
 public partial class BackupRestorePageViewModel : CoreBaseViewModel
 {
-    private const string LocalExportFileName = "wino-data-export.json";
-    private static readonly UTF8Encoding Utf8WithoutBom = new(false);
+    private const string LocalExportFileName = "wino-backup.winosnap";
 
     private readonly IMailDialogService _dialogService;
     private readonly IWinoAccountDataSyncService _syncService;
@@ -53,8 +51,9 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel
 
             await ExecuteUIThread(() => IsDataTransferInProgress = true);
 
-            var exportResult = await _syncService.ExportToJsonAsync(new()).ConfigureAwait(false);
-            await File.WriteAllTextAsync(exportPath, exportResult.JsonContent, Utf8WithoutBom).ConfigureAwait(false);
+            var exportResult = await _syncService.ExportToFileAsync(new(), PromptSyncSecretAsync).ConfigureAwait(false);
+            exportPath = Path.Combine(Path.GetDirectoryName(exportPath) ?? exportPath, exportResult.FileName);
+            await File.WriteAllBytesAsync(exportPath, exportResult.Content).ConfigureAwait(false);
 
             _dialogService.InfoBarMessage(
                 Translator.GeneralTitle_Info,
@@ -63,7 +62,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, WinoAccountApiErrorTranslator.Describe(ex), InfoBarMessageType.Error);
         }
         finally
         {
@@ -77,7 +76,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel
         try
         {
             var fileContent = await ExecuteUIThreadAsync(
-                () => _dialogService.PickWindowsFileContentAsync(".json"))
+                () => _dialogService.PickWindowsFileContentAsync(".winosnap", ".json"))
                 .ConfigureAwait(false);
 
             if (fileContent.Length == 0)
@@ -87,8 +86,11 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel
 
             await ExecuteUIThread(() => IsDataTransferInProgress = true);
 
-            var jsonContent = Encoding.UTF8.GetString(fileContent);
-            var result = await _syncService.ImportFromJsonAsync(jsonContent).ConfigureAwait(false);
+            var result = await _syncService.ImportFromFileAsync(fileContent, PromptSyncSecretAsync).ConfigureAwait(false);
+            if (result.Appearance != null)
+            {
+                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+            }
 
             var messageType = result.FailedPreferenceCount > 0
                 ? InfoBarMessageType.Warning
@@ -108,7 +110,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel
         }
         catch (Exception ex)
         {
-            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, ex.Message, InfoBarMessageType.Error);
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, WinoAccountApiErrorTranslator.Describe(ex), InfoBarMessageType.Error);
         }
         finally
         {
@@ -117,6 +119,9 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel
     }
 
     private bool CanTransferLocalData() => !IsDataTransferInProgress;
+
+    private Task<string?> PromptSyncSecretAsync(SyncSnapshotSecretRequest request)
+        => ExecuteUIThreadAsync(() => _dialogService.ShowWinoAccountSyncSecretDialogAsync(request));
 
     private static string BuildExportSuccessMessage(WinoAccountSyncExportResult result)
     {
@@ -135,6 +140,11 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel
         if (result.ExportedAccountDataCount > 0)
         {
             parts.Add(string.Format(Translator.WinoAccount_Management_ExportAccountDataSucceeded, result.ExportedAccountDataCount));
+        }
+
+        if (result.ExportedAppDataCount > 0)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ExportAppDataSucceeded, result.ExportedAppDataCount));
         }
 
         if (parts.Count == 0)
@@ -169,6 +179,11 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel
         if (result.AppliedAccountDataCount > 0)
         {
             parts.Add(string.Format(Translator.WinoAccount_Management_ImportAccountDataSucceeded, result.AppliedAccountDataCount));
+        }
+
+        if (result.AppliedAppDataCount > 0)
+        {
+            parts.Add(string.Format(Translator.WinoAccount_Management_ImportAppDataSucceeded, result.AppliedAppDataCount));
         }
 
         if (parts.Count == 0)

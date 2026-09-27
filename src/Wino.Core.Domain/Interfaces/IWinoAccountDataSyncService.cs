@@ -1,13 +1,31 @@
+#nullable enable
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Core.Domain.Interfaces;
 
+/// <summary>
+/// Moves the app's preferences, accounts and user-authored data between installs as one encrypted
+/// snapshot. The snapshot is encrypted on this device; the Wino Account service only stores it.
+/// </summary>
 public interface IWinoAccountDataSyncService
 {
-    Task<WinoAccountSyncExportResult> ExportAsync(WinoAccountSyncSelection selection, CancellationToken cancellationToken = default);
-    Task<WinoAccountSyncFileExportResult> ExportToJsonAsync(WinoAccountSyncSelection selection, CancellationToken cancellationToken = default);
-    Task<WinoAccountSyncImportResult> ImportAsync(WinoAccountSyncSelection selection, CancellationToken cancellationToken = default);
+    /// <summary>Encrypts the selected data and uploads it to the signed-in Wino Account.</summary>
+    Task<WinoAccountSyncExportResult> ExportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Encrypts the selected data for a file. Works without a signed-in account when a passphrase is supplied.</summary>
+    Task<WinoAccountSyncFileExportResult> ExportToFileAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Downloads and applies the snapshot stored for the signed-in Wino Account.</summary>
+    Task<WinoAccountSyncImportResult> ImportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Applies a snapshot file, or a legacy plain JSON export.</summary>
+    Task<WinoAccountSyncImportResult> ImportFromFileAsync(byte[] content, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default);
+
+    /// <summary>Applies a legacy plain JSON export produced by older builds.</summary>
     Task<WinoAccountSyncImportResult> ImportFromJsonAsync(string jsonContent, CancellationToken cancellationToken = default);
+
+    /// <summary>Applies theme and layout from an import. Must run on the UI thread.</summary>
+    void ApplyAppearance(SyncSnapshotAppearance appearance);
 }
