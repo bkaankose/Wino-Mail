@@ -46,9 +46,9 @@ Personal skills and installed plugin files remain unchanged.
 
 1. Repair the personal `wino-winapp-testing` skill. It still forbids `winapp run` and describes CLI 0.3.1 limitations.
    The repository override resolves this project conflict, but the global skill can still mislead other projects.
-2. Turn frequent audit flows into executable scenarios with stable selectors and state assertions.
+2. Expand executable UI scenarios with stable selectors and state assertions.
    Existing UI tests cover startup, settings, compose navigation, and mail rendering navigation.
-   Contacts, To Do persistence, and activation audit flows still need agent-guided replay.
+   The scripted regression subset covers selected Contacts, To Do persistence, and activation flows.
 3. Establish a supported local Debug deployment path alongside the user's Store testing workflow.
    Diagnose package ownership and signatures before runtime work. Preserve the existing identity and application data.
 4. Trim overlapping personal WinUI skill descriptions and use narrow triggers.
@@ -91,7 +91,7 @@ The user chose to preserve that installation and leave live verification pending
 
 The new [scripted regression subset](../../scripts/ui-audit/REGRESSION.md) covers task/step restart persistence, contact save/edit/restart/discard/deletion, and protocol routing.
 It records exact commands and synthetic record states, rejects ambiguous selectors, and stops on failed assertions.
-This subset does not replace the full provider/theme/activation audit.
+Provider, theme, and activation coverage remains limited to the implemented scripted scenarios.
 
 Eight personal skills were updated: runtime testing, WinUI fixes, general WinUI architecture, localization, activation, IMAP, messenger, and memory debugging.
 Descriptions are narrower, old repository paths are corrected, and the runtime skill now uses WinApp project mode.

@@ -55,7 +55,16 @@ public sealed class ComposerRewriteSessionTests
         harness.Session.HasResult.Should().BeTrue();
         harness.Session.IsShowingRewrite.Should().BeTrue();
         harness.Session.IsPanelVisible.Should().BeTrue();
-        harness.Session.StatusText.Should().Be(string.Format(Translator.WinoIntelligence_RewriteAppliedFormat, Translator.Composer_AiRewriteFormal));
+        harness.Session.StatusText.Should().Be("Rewritten: Formal");
+    }
+
+    [Fact]
+    public void Modes_AreTheApiModes_WithBareToneLabels()
+    {
+        var session = new Harness(available: true).Session;
+
+        session.Modes.Select(x => x.Mode).Should().Equal("polite", "angry", "happy", "formal", "friendly", "shorter", "clearer");
+        session.Modes.Select(x => x.Label).Should().Equal("Polite", "Angry", "Happy", "Formal", "Friendly", "Shorter", "Clearer");
     }
 
     [Fact]

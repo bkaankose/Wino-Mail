@@ -102,9 +102,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 Command = ViewModel.RewriteSession.RewriteCommand,
                 CommandParameter = mode.Mode,
             };
-            ToolTipService.SetToolTip(item, mode.Description);
             AutomationProperties.SetAutomationId(item, $"ComposeRewriteMode_{mode.Mode}");
-            AutomationProperties.SetHelpText(item, mode.Description);
             ComposeRewriteModesFlyout.Items.Add(item);
         }
     }

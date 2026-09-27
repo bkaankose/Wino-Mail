@@ -30,7 +30,6 @@ Read only references that apply to the task:
 | New UI feature or visual pattern | [Wino design guideline](docs/wino-design-guideline.md) |
 | Reusable controls or playground | [controls/AGENTS.md](controls/AGENTS.md) |
 | Icons, icon fonts, or the colorful icon style | [icons/README.md](icons/README.md) and the Icons section of the [implementation rules](docs/harness/implementation-rules.md) |
-| Contacts, To Do, or activation audit replay | [replay contract](scripts/ui-audit/REPLAY.md) |
 | Intelligence jobs, artifacts, or the daily briefing | [mail intelligence](docs/mail-intelligence.md) |
 | Release packaging | [release guide](docs/releases.md) |
 | What's New notes and illustrations | [whats-new skill](.claude/skills/whats-new/SKILL.md) |

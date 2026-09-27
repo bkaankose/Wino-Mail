@@ -1,8 +1,0 @@
-webcal://example.invalid/winoaudit-0913/calendar.ics
-webcals://example.invalid/winoaudit-0913/calendar.ics
-webcal://example.invalid/winoaudit%20encoded/calendar.ics?name=Audit%20Test
-webcal:
-webcals:
-carddav://example.invalid/addressbooks/winoaudit/
-caldav://example.invalid/calendars/winoaudit/
-

@@ -28,27 +28,13 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
         new() { DisplayName = "Marta Rossi", Initials = "MR", Subject = "Payment terms alignment", Meta = "Marta Rossi · 9 Jul", ScoreText = "76%", Tag = Guid.NewGuid() },
     ];
 
-    private const string SampleRewrite =
-        "Nordic Supply renewed the framework agreement for 12 months. Only the logistics line changes, "
-        + "by 4%. Please return the countersigned copy before the current contract ends.";
-
-    private static readonly WinoIntelligenceRewriteModeOption[] SampleRewriteModes =
-    [
-        new("clearer", "Make it clearer", "Improves readability and makes the message easier to follow."),
-        new("shorter", "Make it shorter", "Tightens the text and removes unnecessary detail."),
-        new("formal", "Make it formal", "Makes the message sound more professional and structured."),
-    ];
-
     private readonly DispatcherTimer _hostTimer = new() { Interval = TimeSpan.FromMilliseconds(1200) };
-    private readonly DispatcherTimer _rewriteTimer = new() { Interval = TimeSpan.FromMilliseconds(1600) };
     private readonly DispatcherTimer _processingTimer = new() { Interval = TimeSpan.FromMilliseconds(1400) };
 
     private Guid? _pendingSummaryId;
     private Guid? _pendingRepliesId;
     private Guid? _pendingSimilarId;
     private WinoIntelligenceFeature _pendingFeature;
-    private string? _pendingRewriteMode;
-    private string? _rewrittenMode;
     private bool _isSynchronizing;
     private bool _isInitialized;
     private int _messageIndex;
@@ -79,7 +65,6 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
 
         _hostTimer.Tick += OnHostTimerTick;
         _processingTimer.Tick += OnProcessingTimerTick;
-        _rewriteTimer.Tick += OnRewriteTimerTick;
 
         HeaderVariantComboBox.SelectedIndex = 0;
 
@@ -95,10 +80,6 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
         };
         IntelligenceHeader.SelectedSourceLanguage = string.Empty;
         IntelligenceHeader.SelectedTargetLanguage = "en-US";
-
-        // Rewrite modes are host data as well; the app takes them from AiActionCatalog.
-        IntelligenceHeader.RewriteModes = SampleRewriteModes;
-        IntelligenceHeader.SelectedRewriteMode = SampleRewriteModes[0].Mode;
 
         IntelligenceHeader.ContentKey = Guid.NewGuid().ToString();
         IntelligenceHeader.IntelligenceTiles = new WinoIntelligenceTile[]
@@ -154,7 +135,6 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
 
         IntelligenceHeader.IsAddToCalendarAvailable = AddToCalendarToggle.IsOn;
         IntelligenceHeader.IsTranslateAvailable = TranslateToggle.IsOn;
-        IntelligenceHeader.IsRewriteAvailable = RewriteToggle.IsOn;
         IntelligenceHeader.IsFindSimilarMailAvailable = FindSimilarToggle.IsOn;
     }
 
@@ -250,16 +230,7 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
         CompletePending();
     }
 
-    private void CompletePendingClicked(object sender, RoutedEventArgs e)
-    {
-        if (_pendingRewriteMode is not null)
-        {
-            CompleteRewrite();
-            return;
-        }
-
-        CompletePending();
-    }
+    private void CompletePendingClicked(object sender, RoutedEventArgs e) => CompletePending();
 
     private void CompletePending()
     {
@@ -313,17 +284,6 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
     {
         _hostTimer.Stop();
 
-        if (_pendingRewriteMode is not null)
-        {
-            _rewriteTimer.Stop();
-            _pendingRewriteMode = null;
-            IntelligenceHeader.IsRewriteBusy = false;
-            RestoreRewriteStatus();
-            AddTrace("Rewrite failed");
-            ResultSummary.Text = "Rewrite failed. The previous result, if any, stays usable; the shell shows the error.";
-            return;
-        }
-
         var id = _pendingFeature switch
         {
             WinoIntelligenceFeature.Summary => _pendingSummaryId,
@@ -360,7 +320,6 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
         _pendingSummaryId = null;
         _pendingRepliesId = null;
         _pendingSimilarId = null;
-        StopRewrite();
         _messageIndex++;
 
         // Assigning a new content key resets the control, which is what invalidates in-flight ids.
@@ -401,7 +360,6 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
         _pendingSummaryId = null;
         _pendingRepliesId = null;
         _pendingSimilarId = null;
-        StopRewrite();
         IntelligenceHeader.Reset();
 
         _isSynchronizing = true;
@@ -422,79 +380,6 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
     {
         AddTrace($"Action · {e.Action}");
         ResultSummary.Text = $"The host would now handle {e.Action}.";
-
-        switch (e.Action)
-        {
-            case WinoIntelligenceAction.Rewrite when IntelligenceHeader.IsRewriteApplied:
-                IntelligenceHeader.IsRewriteApplied = false;
-                ResultSummary.Text = "The host put the original message back on screen.";
-                break;
-            case WinoIntelligenceAction.Rewrite when IntelligenceHeader.HasRewriteResult
-                && string.Equals(_rewrittenMode, IntelligenceHeader.SelectedRewriteMode, StringComparison.Ordinal):
-                IntelligenceHeader.IsRewriteApplied = true;
-                ResultSummary.Text = "The host showed its cached rewrite without a new request.";
-                break;
-            case WinoIntelligenceAction.Rewrite:
-                StartRewrite(IntelligenceHeader.SelectedRewriteMode);
-                break;
-            case WinoIntelligenceAction.RegenerateRewrite:
-                StartRewrite(_rewrittenMode ?? IntelligenceHeader.SelectedRewriteMode);
-                break;
-            case WinoIntelligenceAction.CancelRewrite:
-                _rewriteTimer.Stop();
-                _pendingRewriteMode = null;
-                IntelligenceHeader.IsRewriteBusy = false;
-                RestoreRewriteStatus();
-                ResultSummary.Text = "The user cancelled the rewrite. The host cancels its own work.";
-                break;
-        }
-    }
-
-    private void StartRewrite(string mode)
-    {
-        _pendingRewriteMode = mode;
-        IntelligenceHeader.IsRewriteBusy = true;
-        IntelligenceHeader.RewriteStatusText = "Rewriting…";
-        if (AutoCompleteToggle.IsOn) _rewriteTimer.Start();
-    }
-
-    private void OnRewriteTimerTick(object? sender, object e)
-    {
-        _rewriteTimer.Stop();
-        CompleteRewrite();
-    }
-
-    private void CompleteRewrite()
-    {
-        if (_pendingRewriteMode is not { } mode)
-        {
-            AddTrace("No pending rewrite request.");
-            return;
-        }
-
-        _rewriteTimer.Stop();
-        _pendingRewriteMode = null;
-        _rewrittenMode = mode;
-        IntelligenceHeader.IsRewriteBusy = false;
-        IntelligenceHeader.HasRewriteResult = true;
-        IntelligenceHeader.IsRewriteApplied = true;
-        IntelligenceHeader.RewriteResultText = SampleRewrite;
-        RestoreRewriteStatus();
-        AddTrace($"Rewrite applied · {mode}");
-        ResultSummary.Text = "Rewrite applied. Copy, regenerate and show original are now offered.";
-    }
-
-    private void RestoreRewriteStatus()
-    {
-        var label = SampleRewriteModes.FirstOrDefault(x => x.Mode == _rewrittenMode)?.Label;
-        IntelligenceHeader.RewriteStatusText = label is null ? string.Empty : $"Rewritten: {label}";
-    }
-
-    private void StopRewrite()
-    {
-        _rewriteTimer.Stop();
-        _pendingRewriteMode = null;
-        _rewrittenMode = null;
     }
 
     private void HeaderSuggestedReplyChosen(object? sender, WinoIntelligenceReplyChosenEventArgs e)
@@ -547,10 +432,8 @@ public sealed partial class IntelligenceHeaderPage : Page, IDisposable
         _disposed = true;
         _hostTimer.Stop();
         _processingTimer.Stop();
-        _rewriteTimer.Stop();
         _hostTimer.Tick -= OnHostTimerTick;
         _processingTimer.Tick -= OnProcessingTimerTick;
-        _rewriteTimer.Tick -= OnRewriteTimerTick;
         Bindings.StopTracking();
         GC.SuppressFinalize(this);
     }

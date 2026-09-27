@@ -1,7 +1,7 @@
 # Read-only recorder acceptance checks. Does not launch or mutate Wino.
 #requires -Version 7.0
 $ErrorActionPreference='Stop'
-$run=& "$PSScriptRoot/New-WinoAuditRun.ps1"
+$run=& "$PSScriptRoot/New-WinoRegressionRun.ps1"
 $recorder="$PSScriptRoot/Invoke-WinoRecorded.ps1"
 & $recorder -RunDirectory $run -ScenarioId RECORDER-VERSION -ArgumentList @('--version') | Out-Null
 $argsToPreserve=@('--this-option-does-not-exist','literal argument with spaces',"apostrophe's",'literal $value; no execution')

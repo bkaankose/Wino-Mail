@@ -1,7 +1,7 @@
 # Scripted Wino regression subset
 
 `Run-WinoRegression.ps1` runs three finite scenarios with recorded commands and explicit state assertions.
-It reuses the earlier audit flows with fresh run prefixes, exact account selection, and current window discovery.
+It uses fresh run prefixes, exact account selection, and current window discovery.
 The helpers have automated checks. A live run against the current Debug deployment is what certifies the scenarios.
 
 ## Commands
@@ -22,7 +22,7 @@ Add `-Restore` when project/package inputs changed or restore assets are missing
 The runner always builds Debug once. Its restart checks reuse that same output.
 `-NoBuild` and `-UseRunning` are not accepted for this runner.
 
-Current navigation discovery uses the English mode names from the recorded baseline.
+Current navigation discovery uses the English mode names.
 Use the English app language and a wide shell with visible account navigation for this subset.
 `-Theme` records the caller-reported environment; it does not certify visual correctness or a theme matrix.
 
@@ -57,8 +57,6 @@ Delete only records whose exact identity is established through the UI.
 Create `PAUSE` in the run directory to stop further recorded commands.
 A dispatched mutation may still finish. Remove `PAUSE` only after explicit resume and reconciliation.
 Never replay a mutation solely because its completion event is absent.
-
-For the full, agent-guided baseline and activation matrix, use [REPLAY.md](REPLAY.md).
 
 ## Script checks
 

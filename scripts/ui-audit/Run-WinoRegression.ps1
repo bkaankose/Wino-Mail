@@ -31,7 +31,7 @@ $project = Join-Path $repositoryRoot 'src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
 Import-Module (Join-Path $PSScriptRoot 'Regression.Common.psm1') -Force -DisableNameChecking
 $originalLocation = Get-Location
 Set-Location $repositoryRoot
-$run = & (Join-Path $PSScriptRoot 'New-WinoAuditRun.ps1') -Accounts @($Account)
+$run = & (Join-Path $PSScriptRoot 'New-WinoRegressionRun.ps1') -Accounts @($Account)
 $config = Get-Content (Join-Path $run 'run.json') -Raw | ConvertFrom-Json
 $config.execution = 'scripted-regression'
 $config | Add-Member -NotePropertyName selectedScenarios -NotePropertyValue $Scenario
@@ -158,7 +158,7 @@ finally {
         currentSourceDeployed=$deployed; reportedTheme=$Theme; themeVerified=$false
         processId=$context.ProcessId; window=$context.Window; results=@($results); error=$failure
         remainingRecords=$leftovers; evidence='commands.jsonl'
-        limits='Only selected scripted scenarios. Persistence means local restart assertions, not independent server verification. Contact deletion is checked immediately. Full baseline and visual theme audit are not claimed.'
+        limits='Only selected scripted scenarios. Persistence means local restart assertions, not independent server verification. Contact deletion is checked immediately. Visual theme behavior is not verified.'
     }
     $summary | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $run 'summary.json')
     @"

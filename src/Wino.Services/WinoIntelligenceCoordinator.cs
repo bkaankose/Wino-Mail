@@ -238,27 +238,6 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
             return translated;
         }, cancellationToken);
 
-    public Task<WinoIntelligenceOperationResult<string>> RewriteAsync(
-        WinoIntelligenceContext context,
-        Guid requestId,
-        string mode,
-        CancellationToken cancellationToken = default)
-        => RunAsync(context, requestId, async token =>
-        {
-            var snapshot = await GetSnapshotAsync(context, token).ConfigureAwait(false);
-            if (!snapshot.IsRewriteAvailable)
-                throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
-            if (string.IsNullOrWhiteSpace(mode))
-                throw new InvalidOperationException(ApiErrorCodes.ValidationFailed);
-            var projection = context.InferenceProjection ??
-                             _contentProjector.Project(context.Html, MailContentProjectionProfile.Inference).Projection;
-            var html = ReaderRewriteContent.BuildRequestHtml(projection.Segments);
-            if (string.IsNullOrWhiteSpace(html))
-                throw new InvalidOperationException(ApiErrorCodes.AiHtmlEmpty);
-            var response = await _profileService.RewriteAsync(html, mode, RewriteContexts.Reading, token).ConfigureAwait(false);
-            return RequireRewrite(response, "Rewrite request failed.");
-        }, cancellationToken);
-
     public async Task<bool> IsDraftRewriteAvailableAsync(Guid localAccountId, CancellationToken cancellationToken = default)
     {
         try
@@ -293,7 +272,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
 
             // A draft is sent whole, quoted history included, so the model can leave that history
             // alone. Cutting it to fit would silently drop part of the user's message.
-            if (html.Length > ReaderRewriteContent.ApiMaximumHtmlLength)
+            if (html.Length > DraftRewriteLimits.MaximumHtmlLength)
                 throw new InvalidOperationException(ApiErrorCodes.AiHtmlTooLarge);
 
             var response = await _profileService.RewriteAsync(html, mode, RewriteContexts.Composing, token).ConfigureAwait(false);
@@ -303,7 +282,7 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
     /// <summary>Content key used to correlate and cancel draft rewrites for one account.</summary>
     public static string CreateDraftContentKey(Guid localAccountId) => $"draft:{localAccountId:N}";
 
-    /// <summary>The same gate summarize, translate and the reader rewrite use.</summary>
+    /// <summary>The same gate summarize and translate use.</summary>
     private static bool IsRewriteEligible(AccessSnapshot access)
         => access.HasAiPack && access.CanConsumeQuota && access.HasIntelligenceConsent;
 

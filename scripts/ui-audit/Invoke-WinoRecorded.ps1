@@ -9,7 +9,7 @@ param(
 )
 $ErrorActionPreference='Stop'
 $run=[IO.Path]::GetFullPath($RunDirectory)
-if(-not (Test-Path -LiteralPath (Join-Path $run 'run.json'))){throw 'Initialize a run with New-WinoAuditRun.ps1 first.'}
+if(-not (Test-Path -LiteralPath (Join-Path $run 'run.json'))){throw 'Initialize a run with New-WinoRegressionRun.ps1 first.'}
 $config=Get-Content -LiteralPath (Join-Path $run 'run.json') -Raw | ConvertFrom-Json
 if($config.schemaVersion -ne 1){throw 'Unsupported run schema.'}
 if(Test-Path -LiteralPath (Join-Path $run 'PAUSE')){throw 'Audit paused. Reconcile the checkpoint before resuming.'}

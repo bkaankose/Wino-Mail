@@ -105,12 +105,6 @@
                         IsOn="True"
                         Toggled="AvailabilityToggled" />
                     <ToggleSwitch
-                        x:Name="RewriteToggle"
-                        AutomationProperties.AutomationId="IntelligenceHeaderRewriteToggle"
-                        Header="Rewrite available"
-                        IsOn="True"
-                        Toggled="AvailabilityToggled" />
-                    <ToggleSwitch
                         x:Name="FindSimilarToggle"
                         AutomationProperties.AutomationId="IntelligenceHeaderFindSimilarToggle"
                         Header="Find similar available"

@@ -17,12 +17,6 @@ public interface IWinoIntelligenceCoordinator
     Task<WinoIntelligenceOperationResult<MailTranslationResult>> TranslateAsync(WinoIntelligenceContext context, Guid requestId, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Rewrites the message in the given preset mode and returns the sanitized HTML the API sent
-    /// back. Uses the same eligibility as summarize and translate.
-    /// </summary>
-    Task<WinoIntelligenceOperationResult<string>> RewriteAsync(WinoIntelligenceContext context, Guid requestId, string mode, CancellationToken cancellationToken = default);
-
-    /// <summary>
     /// Whether the composer may offer rewrite for drafts of this account: AI Pack, current consent
     /// and quota that can still be consumed. Never contacts the server.
     /// </summary>
