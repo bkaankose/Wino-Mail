@@ -260,6 +260,26 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         return new WinoSyncSnapshotDownload(payload, ReadRevision(response));
     }
 
+    public async Task<UserSyncSnapshotStatusDto?> GetSyncSnapshotStatusAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAuthorizedAsync(
+            () => CreateAuthorizedRequestAsync(HttpMethod.Get, "api/v1/users/me/snapshot/status"),
+            cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            return null;
+        }
+
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+        var envelope = await ReadEnvelopeAsync(
+            response,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeUserSyncSnapshotStatusDto,
+            cancellationToken).ConfigureAwait(false);
+
+        return envelope.IsSuccess ? envelope.Result : null;
+    }
+
     public async Task<UserSyncSnapshotStatusDto> PutSyncSnapshotAsync(byte[] payload, long? expectedRevision = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(payload);
@@ -1052,4 +1072,3 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(RevokeIntelligenceConsentRequest))]
 [JsonSerializable(typeof(ApiEnvelope<IntelligenceConsentDto>))]
 internal sealed partial class WinoAccountApiJsonContext : JsonSerializerContext;
-

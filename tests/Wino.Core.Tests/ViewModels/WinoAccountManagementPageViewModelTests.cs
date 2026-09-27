@@ -20,6 +20,39 @@ namespace Wino.Core.Tests.ViewModels;
 
 public sealed class WinoAccountManagementPageViewModelTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ChangePassword_WarnsAboutBackupOnlyWhenSnapshotExists(bool hasBackup)
+    {
+        var account = new WinoAccount { Id = Guid.NewGuid(), Email = "password@example.test" };
+        var profile = new Mock<IWinoAccountProfileService>();
+        profile.Setup(x => x.GetActiveAccountAsync()).ReturnsAsync(account);
+        profile.Setup(x => x.ForgotPasswordAsync(account.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ApiEnvelope<System.Text.Json.JsonElement>.Success(default));
+        var api = new Mock<IWinoAccountApiClient>();
+        api.Setup(x => x.GetSyncSnapshotStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
+            hasBackup
+                ? new Wino.Mail.Api.Contracts.Users.UserSyncSnapshotStatusDto(
+                    1, 1, 1, 100, "hash", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null)
+                : null);
+        string? question = null;
+        var dialogs = new Mock<IMailDialogService>();
+        dialogs.Setup(x => x.ShowConfirmationDialogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Callback<string, string, string>((value, _, _) => question = value)
+            .ReturnsAsync(true);
+        var viewModel = new WinoAccountManagementPageViewModel(
+            profile.Object, Mock.Of<IWinoAccountDataSyncService>(), dialogs.Object,
+            Mock.Of<IWinoBillingService>(), api.Object, Mock.Of<IAccountService>(),
+            Mock.Of<IMailIntelligenceCoordinator>(), Mock.Of<IPreferencesService>());
+
+        await viewModel.ChangePasswordCommand.ExecuteAsync(null);
+
+        question.Should().NotBeNull();
+        question!.Contains("backup", StringComparison.OrdinalIgnoreCase).Should().Be(hasBackup);
+        profile.Verify(x => x.ForgotPasswordAsync(account.Email, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     [Fact]
     public async Task SignOutDuringBackgroundRefresh_QueuesResetAndRejectsLateSnapshot()
     {

@@ -60,7 +60,19 @@ public sealed class MailIntelligenceCoordinator(
     private static readonly int DocumentPreparationConcurrency = Math.Clamp(Environment.ProcessorCount, 4, 16);
 
     private readonly ConcurrentDictionary<Guid, MailIntelligenceJobSnapshot> _snapshots = new();
-    private readonly ConcurrentDictionary<Guid, List<string>> _synchronizedQueues = new();
+
+    /// <summary>
+    /// Mails the server delivered since the last drain, per account and keyed by remote message
+    /// id and folder. Drained after every mail synchronization; kept while the add-on cannot
+    /// take work so the messages are not lost.
+    /// </summary>
+    private readonly ConcurrentDictionary<Guid, OrderedDictionary<string, SynchronizedMailCapture>> _synchronizedQueues = new();
+
+    /// <summary>
+    /// Bound on a queue that cannot drain (no quota, signed out). The oldest capture gives way;
+    /// a manual run still finds those messages because they never got an artifact.
+    /// </summary>
+    private const int MaxQueuedCapturesPerAccount = 10_000;
     private readonly ConcurrentDictionary<string, Task> _singleMessageRuns = new(StringComparer.Ordinal);
     private readonly CancellationTokenSource _lifecycle = new();
     private readonly Lock _resumeLoopGate = new();
@@ -129,9 +141,16 @@ public sealed class MailIntelligenceCoordinator(
             ((MailIntelligenceCoordinator)recipient).ResumeWork());
         messenger.Register<WinoIntelligenceEntitlementChanged>(this, static (recipient, message) =>
         {
+            var coordinator = (MailIntelligenceCoordinator)recipient;
             if (message.Entitlement.CanAccessSurfaces)
             {
-                ((MailIntelligenceCoordinator)recipient).EnsureResumeLoopRunning();
+                coordinator.EnsureResumeLoopRunning();
+            }
+
+            if (message.Entitlement.CanConsumeQuota)
+            {
+                // Mails that arrived while the add-on could not take work were held back.
+                coordinator.DrainAllSynchronizedQueues();
             }
         });
 
@@ -345,10 +364,19 @@ public sealed class MailIntelligenceCoordinator(
 
             SetSnapshot(localMailAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Uploading });
 
+            var submitted = false;
             foreach (var chunk in pending.Chunk(MaxMessagesPerJob))
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                await SubmitJobAsync(account, context, resultKey, chunk, cancellationToken).ConfigureAwait(false);
+                submitted |= await SubmitJobAsync(account, context, resultKey, chunk, cancellationToken).ConfigureAwait(false);
+            }
+
+            if (!submitted)
+            {
+                // Nothing was uploaded (no readable candidate among the ids), so there is no job
+                // to wait for. Reporting Waiting here left the account on that status for good.
+                SetSnapshot(localMailAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Completed });
+                return;
             }
 
             SetSnapshot(localMailAccountId, snapshot => snapshot with { Status = MailIntelligenceJobStatus.Waiting });
@@ -378,7 +406,8 @@ public sealed class MailIntelligenceCoordinator(
         }
     }
 
-    private async Task SubmitJobAsync(
+    /// <returns>Whether a job was uploaded. False when none of the ids had a readable candidate.</returns>
+    private async Task<bool> SubmitJobAsync(
         MailAccount account,
         MailIntelligenceContext context,
         IntelligenceResultKey resultKey,
@@ -402,14 +431,14 @@ public sealed class MailIntelligenceCoordinator(
 
         if (candidates.Count == 0)
         {
-            return;
+            return false;
         }
 
         var prepared = await PrepareAsync(account, candidates, cancellationToken).ConfigureAwait(false);
         var preparedMs = clock.ElapsedMilliseconds;
         if (prepared.Count == 0)
         {
-            return;
+            return false;
         }
 
         var language = translationService.CurrentLanguageModel?.Code ?? "en-US";
@@ -451,6 +480,8 @@ public sealed class MailIntelligenceCoordinator(
         {
             ResultKeyId = resultKey.KeyId,
         }, cancellationToken).ConfigureAwait(false);
+
+        return true;
     }
 
     /// <summary>
@@ -1168,54 +1199,170 @@ public sealed class MailIntelligenceCoordinator(
         foreach (var mail in mails)
         {
             var accountId = mail.AssignedAccount?.Id;
-            var remoteMessageId = RemoteMessageIdentity.TryCreate(mail);
-            if (accountId is null || remoteMessageId is null)
+            var capture = AutomaticIndexingSelection.TryCapture(mail);
+            if (accountId is null || capture is null)
             {
                 continue;
             }
 
-            var queue = _synchronizedQueues.GetOrAdd(accountId.Value, static _ => []);
+            var queue = _synchronizedQueues.GetOrAdd(accountId.Value, static _ => new OrderedDictionary<string, SynchronizedMailCapture>(StringComparer.Ordinal));
             lock (queue)
             {
-                queue.Add(remoteMessageId);
+                Enqueue(queue, capture);
             }
         }
     }
 
-    private async Task HandleSynchronizationCompletedAsync(AccountSynchronizationCompleted message)
+    /// <summary>
+    /// Adds a capture under the queue's lock. Every folder copy of a message is kept, because
+    /// which folders it sits in decides whether it is included; the selection dedupes by
+    /// message. The oldest capture gives way at the bound.
+    /// </summary>
+    private static void Enqueue(OrderedDictionary<string, SynchronizedMailCapture> queue, SynchronizedMailCapture capture)
+    {
+        if (!queue.TryAdd($"{capture.RemoteMessageId}\u001f{capture.RemoteFolderId}", capture))
+        {
+            return;
+        }
+
+        while (queue.Count > MaxQueuedCapturesPerAccount)
+        {
+            queue.RemoveAt(0);
+        }
+    }
+
+    private Task HandleSynchronizationCompletedAsync(AccountSynchronizationCompleted message)
+        => DrainSynchronizedQueueAsync(message.AccountId);
+
+    private void DrainAllSynchronizedQueues()
+    {
+        foreach (var accountId in _synchronizedQueues.Keys)
+        {
+            _ = DrainSynchronizedQueueAsync(accountId);
+        }
+    }
+
+    /// <summary>
+    /// Submits the captured mails of one account as a job. When a submission for the account is
+    /// already running (a manual run, or the previous automatic batch), the captures are put
+    /// back and submitted once it ends; they used to be dropped. When the add-on cannot take
+    /// work they stay queued for the next drain. Only the user turning the setting off
+    /// discards them.
+    /// </summary>
+    private async Task DrainSynchronizedQueueAsync(Guid accountId)
     {
         try
         {
-            if (!_acceptingWork ||
-                !_synchronizedQueues.TryRemove(message.AccountId, out var queue))
+            while (!_lifecycle.IsCancellationRequested)
             {
-                return;
-            }
+                if (!_synchronizedQueues.TryGetValue(accountId, out var queue))
+                {
+                    return;
+                }
 
-            string[] pending;
-            lock (queue)
-            {
-                pending = [.. queue];
-                queue.Clear();
-            }
+                if (!await CanSubmitAutomaticallyAsync(_lifecycle.Token).ConfigureAwait(false))
+                {
+                    return;
+                }
 
-            if (pending.Length == 0 ||
-                !await localIntelligenceService.ShouldAutomaticallyProcessAsync(message.AccountId).ConfigureAwait(false))
-            {
-                return;
-            }
+                if (!await localIntelligenceService.ShouldAutomaticallyProcessAsync(accountId, _lifecycle.Token).ConfigureAwait(false))
+                {
+                    _synchronizedQueues.TryRemove(accountId, out _);
+                    return;
+                }
 
-            // Newly discovered messages become their own job, so several jobs for one
-            // mailbox can be in flight at once.
-            await StartProcessingAsync(message.AccountId, pending, _lifecycle.Token).ConfigureAwait(false);
+                SynchronizedMailCapture[] captured;
+                lock (queue)
+                {
+                    captured = [.. queue.Values];
+                    queue.Clear();
+                }
+
+                if (captured.Length == 0)
+                {
+                    return;
+                }
+
+                var account = await accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+                if (account is null)
+                {
+                    _synchronizedQueues.TryRemove(accountId, out _);
+                    return;
+                }
+
+                var remoteMessageIds = AutomaticIndexingSelection.Select(account.Preferences, captured);
+                if (remoteMessageIds.Count == 0)
+                {
+                    // Nothing landed in an included folder. Loop once more in case captures
+                    // arrived meanwhile; an empty queue ends it.
+                    continue;
+                }
+
+                if (jobRegistry.TryStart(
+                        accountId,
+                        token => RunSubmissionAsync(accountId, remoteMessageIds, token),
+                        out var running))
+                {
+                    return;
+                }
+
+                lock (queue)
+                {
+                    foreach (var capture in captured)
+                    {
+                        Enqueue(queue, capture);
+                    }
+                }
+
+                await running.ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
         }
         catch
         {
-            // Intelligence must never break mail synchronization.
+            // Intelligence must never break mail synchronization. The captures that were taken
+            // are gone; the next manual run still finds the messages without artifacts.
         }
     }
 
-    private void ResumeWork() => _acceptingWork = true;
+    /// <summary>
+    /// Whether an automatic submission can be made right now. Unlike a manual run this never
+    /// throws: a queue that cannot drain simply waits for the next trigger.
+    /// </summary>
+    private async Task<bool> CanSubmitAutomaticallyAsync(CancellationToken cancellationToken)
+    {
+        if (!_acceptingWork)
+        {
+            return false;
+        }
+
+        if (entitlementService is null)
+        {
+            return true;
+        }
+
+        var entitlement = entitlementService.CurrentEntitlement;
+        if (!entitlement.CanConsumeQuota || entitlement.WinoAccountId is not { } winoAccountId)
+        {
+            return false;
+        }
+
+        // Consent is checked from the cached account snapshot, the same source the reading pane
+        // uses. Without a snapshot the server decides; its refusal refreshes the entitlement.
+        var snapshot = await entitlementService.GetCachedAsync(winoAccountId, cancellationToken).ConfigureAwait(false);
+        return snapshot is null ||
+               snapshot.Consent is { } consent &&
+               consent.Status == ConsentStatuses.Active &&
+               consent.AcceptedPolicyVersion == consent.CurrentPolicyVersion;
+    }
+
+    private void ResumeWork()
+    {
+        _acceptingWork = true;
+        DrainAllSynchronizedQueues();
+    }
 
     // ---- helpers -------------------------------------------------------------------
 

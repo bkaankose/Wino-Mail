@@ -2271,6 +2271,7 @@
   "WinoAccount_ChangePassword_Description": "Send a password reset email to this Wino Account.",
   "WinoAccount_ChangePassword_Action": "Send reset email",
   "WinoAccount_ChangePassword_ConfirmationMessage": "Do you want Wino to send a password reset email to {0}?",
+  "WinoAccount_ChangePassword_BackupConfirmationMessage": "Do you want Wino to send a password reset email to {0}? Changing your password will remove your existing encrypted backup because it can only be opened with your current password.",
   "WinoAccount_SignOut_SuccessMessage": "Signed out from Wino Account {0}.",
   "WinoAccount_SignOut_NoAccountMessage": "There is no active Wino Account to sign out.",
   "WinoAccount_Titlebar_SignedOutTitle": "Wino Account",

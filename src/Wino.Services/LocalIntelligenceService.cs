@@ -305,19 +305,20 @@ public sealed class LocalIntelligenceService : ILocalIntelligenceService,
 
     public Task InvalidateAccessSnapshotsAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
 
+    /// <summary>
+    /// Only the user's own choice is decided here. The add-on, consent and the server mailbox id
+    /// belong to the coordinator: the persisted access row used to be required as well, but it is
+    /// only written by the first submission, so an account nobody had indexed by hand never
+    /// indexed anything automatically, and the row kept saying "consented" after consent ended.
+    /// </summary>
     public async Task<bool> ShouldAutomaticallyProcessAsync(Guid localAccountId, CancellationToken cancellationToken = default)
     {
         var account = await _accountService.GetAccountAsync(localAccountId).ConfigureAwait(false);
-        if (account is null ||
-            !account.IsMailAccessGranted ||
-            account.Preferences?.IsSemanticIndexingEnabled != true ||
-            account.Preferences?.AutomaticallyIndexNewMessages != true)
+        return account is
         {
-            return false;
-        }
-
-        var access = await _store.GetAccessAsync(localAccountId, cancellationToken).ConfigureAwait(false);
-        return access is { HasAiPack: true, HasConsent: true } && access.Value.MailboxId != Guid.Empty;
+            IsMailAccessGranted: true,
+            Preferences: { IsSemanticIndexingEnabled: true, AutomaticallyIndexNewMessages: true },
+        };
     }
 
     public void Receive(IntelligenceMetadataChanged message) { }

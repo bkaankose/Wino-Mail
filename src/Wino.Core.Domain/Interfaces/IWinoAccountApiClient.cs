@@ -38,6 +38,8 @@ public interface IWinoAccountApiClient
     Task<ApiEnvelope<AiUsageStatusDto>> GetAiUsageAsync(CancellationToken cancellationToken = default);
     /// <summary>The stored sync snapshot bytes and revision, or null when the account has none.</summary>
     Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default);
+    /// <summary>Metadata for the stored sync snapshot without downloading its encrypted payload.</summary>
+    Task<UserSyncSnapshotStatusDto?> GetSyncSnapshotStatusAsync(CancellationToken cancellationToken = default);
     /// <summary>Uploads the encrypted snapshot. A non-null expected revision makes the write conditional.</summary>
     Task<UserSyncSnapshotStatusDto> PutSyncSnapshotAsync(byte[] payload, long? expectedRevision = null, CancellationToken cancellationToken = default);
     Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default);

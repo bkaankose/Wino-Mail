@@ -19,7 +19,12 @@ public sealed class SemanticIndexJobRegistry : ISemanticIndexJobRegistry
         if (!_jobs.TryAdd(accountId, job))
         {
             cancellation.Dispose();
-            task = _jobs[accountId].Completion.Task;
+
+            // The running job can finish between the failed add and this read; a caller that
+            // waits on the returned task then retries at once instead of failing on a lookup.
+            task = _jobs.TryGetValue(accountId, out var running)
+                ? running.Completion.Task
+                : Task.CompletedTask;
             return false;
         }
 
