@@ -8,4 +8,6 @@ public sealed partial class ImapCalDavSettingsPage : ImapCalDavSettingsPageAbstr
     {
         InitializeComponent();
     }
+
+    public double GetContentMaxWidth(bool isSignInStepVisible) => isSignInStepVisible ? 440 : 1000;
 }

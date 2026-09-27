@@ -31,7 +31,7 @@
     </Page.Resources>
 
     <StackPanel
-        MaxWidth="1000"
+        MaxWidth="{x:Bind GetContentMaxWidth(ViewModel.IsSignInStepVisible), Mode=OneWay}"
         Padding="0,0,0,24"
         HorizontalAlignment="Stretch"
         Spacing="12">
@@ -153,7 +153,7 @@
             <!--  One column, so each label sits directly above its field.  -->
             <StackPanel
                 MaxWidth="440"
-                HorizontalAlignment="Left"
+                HorizontalAlignment="Stretch"
                 Spacing="16">
                 <TextBox
                     AutomationProperties.AutomationId="ImapSetupSenderNameTextBox"
