@@ -105,6 +105,13 @@ public sealed class MicrosoftStoreService : IMicrosoftStoreService
         };
     }
 
+    public async Task<string> GetCustomerCollectionsIdAsync(string serviceTicket, string publisherUserId)
+    {
+        // No Store UI is shown, so the context needs no window.
+        var storeIdKey = await GetContext().GetCustomerCollectionsIdAsync(serviceTicket, publisherUserId);
+        return string.IsNullOrWhiteSpace(storeIdKey) ? null : storeIdKey;
+    }
+
     #endregion
 
     #region Rating

@@ -40,7 +40,9 @@ public static class CoreContainerSetup
         services.AddTransient<IMailFilterProviderService, MailFilterProviderService>();
         services.AddTransient<IProviderFeatureAuthorizationService, ProviderFeatureAuthorizationService>();
         services.AddTransient<IMigrationAccountAuthorizationService, MigrationAccountAuthorizationService>();
+        services.AddTransient<IAccountReauthenticationService, AccountReauthenticationService>();
         services.AddTransient<IAccountCapabilityService, AccountCapabilityService>();
+        services.AddSingleton<IAppModeReadinessService, AppModeReadinessService>();
         services.AddTransient<IDraftSaveService, DraftSaveService>();
         services.AddSingleton<IDraftUpdateCoordinator, DraftUpdateCoordinator>();
         services.AddTransient<IDraftSyncRetryService, DraftSyncRetryService>();

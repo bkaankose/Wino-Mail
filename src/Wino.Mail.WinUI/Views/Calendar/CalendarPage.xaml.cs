@@ -174,6 +174,10 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
             return;
         }
 
+        // Clicking or dragging an empty slot creates an event; not while Calendar is blocked.
+        if (!ViewModel.Readiness.IsReady)
+            return;
+
         var isAllDay = ViewModel.CurrentVisibleRange?.DisplayType == CalendarDisplayType.Month;
         ViewModel.SelectQuickEventRange(e.ClickedDate,
             e.EndDate ?? (isAllDay ? e.ClickedDate.Date.AddDays(1) : e.ClickedDate.AddMinutes(30)), isAllDay);
@@ -298,6 +302,10 @@ public sealed partial class CalendarPage : CalendarPageAbstract, ITitleBarSearch
         if (e.PropertyName == nameof(ViewModel.VisibleDateRangeText))
         {
             RefreshCalendarToolbar();
+        }
+        else if (e.PropertyName == nameof(ViewModel.IsCalendarModeReady) && !ViewModel.IsCalendarModeReady)
+        {
+            CloseQuickEventPopup(clearSelection: true);
         }
     }
 

@@ -1,4 +1,6 @@
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
@@ -173,6 +175,7 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
     {
         ErrorTextBlock.Text = message;
         ErrorTextBlock.Visibility = Visibility.Visible;
+        FrameworkElementAutomationPeer.FromElement(ErrorTextBlock)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
     }
 
     private void HideError()
@@ -183,16 +186,19 @@ public sealed partial class WinoAccountLoginDialog : ContentDialog
 
     private void UpdateMode()
     {
-        Title = _isForgotPasswordMode
+        // The title lives in the content header under the logo, so the dialog keeps its accessible name in sync by hand.
+        var title = _isForgotPasswordMode
             ? Translator.WinoAccount_ForgotPasswordDialog_Title
             : Translator.WinoAccount_LoginDialog_Title;
+
+        HeaderTitleTextBlock.Text = title;
+        AutomationProperties.SetName(this, title);
 
         PrimaryButtonText = _isForgotPasswordMode
             ? Translator.WinoAccount_ForgotPasswordDialog_PrimaryButton
             : Translator.Buttons_SignIn;
 
-        HeroTextPanel.Visibility = _isForgotPasswordMode ? Visibility.Collapsed : Visibility.Visible;
-        BenefitsPanel.Visibility = _isForgotPasswordMode ? Visibility.Collapsed : Visibility.Visible;
+        SignInDescriptionTextBlock.Visibility = _isForgotPasswordMode ? Visibility.Collapsed : Visibility.Visible;
         PasswordPanel.Visibility = _isForgotPasswordMode ? Visibility.Collapsed : Visibility.Visible;
         ForgotPasswordInfoPanel.Visibility = _isForgotPasswordMode ? Visibility.Visible : Visibility.Collapsed;
         ModeToggleButton.Content = _isForgotPasswordMode

@@ -394,12 +394,13 @@ public sealed partial class WinoIntelligenceHeader : Control
     public bool IsBusy => SummaryState == WinoIntelligenceFeatureState.Busy
                           || SuggestedRepliesState == WinoIntelligenceFeatureState.Busy
                           || SimilarMailState == WinoIntelligenceFeatureState.Busy
-                          || IsTranslationBusy;
+                          || IsTranslationBusy
+                          || IsRewriteBusy;
 
     private bool HasInsights => IsProcessingAvailable && ProcessingState == WinoIntelligenceProcessingState.Processed;
     private bool CanRequestProcessing => IsProcessingAvailable && ProcessingState is WinoIntelligenceProcessingState.NotProcessed or WinoIntelligenceProcessingState.Failed;
     private bool IsProcessingRunning => IsProcessingAvailable && ProcessingState is WinoIntelligenceProcessingState.Queued or WinoIntelligenceProcessingState.Processing;
-    private bool CanExpand => IsSummaryAvailable || IsTranslateAvailable || CanRequestProcessing
+    private bool CanExpand => IsSummaryAvailable || IsTranslateAvailable || IsRewriteAvailable || CanRequestProcessing
         || (HasInsights && (NeedsReply || !string.IsNullOrWhiteSpace(DeadlineText)
             || !string.IsNullOrWhiteSpace(BriefingFactText)
             || IsSuggestedRepliesAvailable || IsFindSimilarMailAvailable));
@@ -475,6 +476,7 @@ public sealed partial class WinoIntelligenceHeader : Control
         _repliesCloseButton = GetTemplateChild(PartRepliesCloseButtonName) as Button;
         _translateCloseButton = GetTemplateChild(PartTranslateCloseButtonName) as Button;
         _similarCloseButton = GetTemplateChild(PartSimilarCloseButtonName) as Button;
+        GetRewriteTemplateParts();
 
         if (_suggestedRepliesList is not null) _suggestedRepliesList.ItemsSource = _replies;
         if (_similarMailList is not null) _similarMailList.ItemsSource = _similarItems;
@@ -531,6 +533,7 @@ public sealed partial class WinoIntelligenceHeader : Control
         if (_repliesCloseButton is not null) _repliesCloseButton.Click += OnRepliesCloseClicked;
         if (_translateCloseButton is not null) _translateCloseButton.Click += OnTranslateCloseClicked;
         if (_similarCloseButton is not null) _similarCloseButton.Click += OnSimilarCloseClicked;
+        AttachRewriteHandlers();
     }
 
     private void DetachTemplateHandlers()
@@ -565,6 +568,7 @@ public sealed partial class WinoIntelligenceHeader : Control
         if (_repliesCloseButton is not null) _repliesCloseButton.Click -= OnRepliesCloseClicked;
         if (_translateCloseButton is not null) _translateCloseButton.Click -= OnTranslateCloseClicked;
         if (_similarCloseButton is not null) _similarCloseButton.Click -= OnSimilarCloseClicked;
+        DetachRewriteHandlers();
     }
 
     private static void AttachFeatureHandlers(FeatureParts? parts, RoutedEventHandler main, RoutedEventHandler cancel)
@@ -661,6 +665,7 @@ public sealed partial class WinoIntelligenceHeader : Control
         HasTranslationResult = false;
         IsTranslationApplied = false;
         TranslationStatusText = string.Empty;
+        ResetRewriteState();
         IsExpanded = false;
         SyncAll(animateExpansion: false);
     }
@@ -718,6 +723,7 @@ public sealed partial class WinoIntelligenceHeader : Control
         SyncFactVisuals();
         SyncFeatureVisuals();
         SyncTranslationVisuals();
+        SyncRewriteVisuals();
     }
 
     private void SyncIntelligenceTiles()
@@ -989,6 +995,8 @@ public sealed partial class WinoIntelligenceHeader : Control
         {
             _translationAppliedPanel.Visibility = ToVisibility(translateOpen && HasTranslationResult && !IsTranslationBusy);
         }
+
+        SyncRewritePanel();
     }
 
     private static void SetPanel(FrameworkElement? panel, bool visible)

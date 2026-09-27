@@ -10,6 +10,7 @@ using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
+using Wino.Mail.Api.Contracts.Store;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Mail.Contracts.Intelligence;
 using Wino.Mail.AI.Abstractions;
@@ -27,9 +28,13 @@ public interface IWinoAccountApiClient
     Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default);
-    Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string language, CancellationToken cancellationToken = default);
+    /// <param name="context">A <see cref="RewriteContexts"/> value: reading a received message or composing a draft.</param>
+    Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string language, string context, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<CheckoutSessionResultDto>> CreateCheckoutSessionAsync(string productCode, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<BillingStatusResultDto>> GetBillingStatusAsync(CancellationToken cancellationToken = default);
+    Task<ApiEnvelope<StoreCollectionsIdTicketResultDto>> CreateStoreCollectionsIdTicketAsync(CancellationToken cancellationToken = default);
+    /// <summary>Moves a Microsoft Store Unlimited Accounts purchase onto the signed-in Wino Account.</summary>
+    Task<ApiEnvelope<StorePurchaseRedeemResultDto>> RedeemStoreUnlimitedAccountsAsync(string storeIdKey, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiUsageStatusDto>> GetAiUsageAsync(CancellationToken cancellationToken = default);
     /// <summary>The stored sync snapshot bytes and revision, or null when the account has none.</summary>
     Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default);

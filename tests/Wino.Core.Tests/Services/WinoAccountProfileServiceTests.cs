@@ -295,15 +295,15 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
             .Setup(x => x.LoginAsync("rewrite@example.com", "pw", default))
             .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(authResult));
         _apiClient
-            .Setup(x => x.RewriteAsync("<p>Hello</p>", "polite", "tr-TR", default))
+            .Setup(x => x.RewriteAsync("<p>Hello</p>", "polite", "tr-TR", RewriteContexts.Composing, default))
             .ReturnsAsync(ApiEnvelope<AiTextResultDto>.Success(new AiTextResultDto("<p>Merhaba</p>")));
 
         await localizedService.LoginAsync("rewrite@example.com", "pw");
-        var response = await localizedService.RewriteAsync("<p>Hello</p>", "polite");
+        var response = await localizedService.RewriteAsync("<p>Hello</p>", "polite", RewriteContexts.Composing);
 
         response.IsSuccess.Should().BeTrue();
         response.Result?.Html.Should().Be("<p>Merhaba</p>");
-        _apiClient.Verify(x => x.RewriteAsync("<p>Hello</p>", "polite", "tr-TR", default), Times.Once);
+        _apiClient.Verify(x => x.RewriteAsync("<p>Hello</p>", "polite", "tr-TR", RewriteContexts.Composing, default), Times.Once);
     }
 
     private static AuthResultDto CreateAuthResult(string email)

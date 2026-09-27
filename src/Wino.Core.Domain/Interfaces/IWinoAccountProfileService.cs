@@ -33,7 +33,8 @@ public interface IWinoAccountProfileService
     Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiSummaryResultDto>> SummarizeAsync(IReadOnlyList<MailContentSegment> segments, string targetLanguage, CancellationToken cancellationToken = default);
     Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default);
-    Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, CancellationToken cancellationToken = default);
+    /// <param name="context">A <see cref="RewriteContexts"/> value: reading a received message or composing a draft.</param>
+    Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string context, CancellationToken cancellationToken = default);
     Task<WinoSyncSnapshotDownload?> GetSyncSnapshotAsync(CancellationToken cancellationToken = default);
     Task<UserSyncSnapshotStatusDto> PutSyncSnapshotAsync(byte[] payload, long? expectedRevision = null, CancellationToken cancellationToken = default);
     Task<UserMailboxSyncListDto> GetMailboxesAsync(CancellationToken cancellationToken = default);

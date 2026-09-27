@@ -8,7 +8,6 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography.X509Certificates;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
@@ -26,6 +25,7 @@ using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Billing;
 using Wino.Mail.Api.Contracts.Common;
+using Wino.Mail.Api.Contracts.Store;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Mail.Contracts.Intelligence;
 
@@ -50,8 +50,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     private readonly ILogger _logger = Log.ForContext<WinoAccountApiClient>();
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromMinutes(10);
 
-    // private const string ApiUrl = "https://localhost:7204/";
-    private const string ApiUrl = "https://api.winomail.app/";
+    private const string ApiUrl = "https://localhost:7204/";
+    // private const string ApiUrl = "https://api.winomail.app/";
 
     public WinoAccountApiClient(
         IDatabaseService databaseService,
@@ -178,11 +178,11 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
             WinoAccountApiJsonContext.Default.ApiEnvelopeAiTranslationResultDto,
             cancellationToken);
 
-    public Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string language, CancellationToken cancellationToken = default)
+    public Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string language, string context, CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync(
             HttpMethod.Post,
             "api/v1/ai/rewrite",
-            new LocalizedRewriteRequest(html, mode, language),
+            new LocalizedRewriteRequest(html, mode, language, context),
             WinoAccountApiJsonContext.Default.LocalizedRewriteRequest,
             WinoAccountApiJsonContext.Default.ApiEnvelopeAiTextResultDto,
             cancellationToken);
@@ -200,6 +200,22 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         => SendAuthorizedRequestAsync(
             "api/v1/billing/status",
             WinoAccountApiJsonContext.Default.ApiEnvelopeBillingStatusResultDto,
+            cancellationToken);
+
+    public Task<ApiEnvelope<StoreCollectionsIdTicketResultDto>> CreateStoreCollectionsIdTicketAsync(CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/store/collections-id-ticket",
+            WinoAccountApiJsonContext.Default.ApiEnvelopeStoreCollectionsIdTicketResultDto,
+            cancellationToken);
+
+    public Task<ApiEnvelope<StorePurchaseRedeemResultDto>> RedeemStoreUnlimitedAccountsAsync(string storeIdKey, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(
+            HttpMethod.Post,
+            "api/v1/store/unlimited-accounts/redeem",
+            new RedeemStorePurchaseRequest(storeIdKey),
+            WinoAccountApiJsonContext.Default.RedeemStorePurchaseRequest,
+            WinoAccountApiJsonContext.Default.ApiEnvelopeStorePurchaseRedeemResultDto,
             cancellationToken);
 
     public Task<ApiEnvelope<AiUsageStatusDto>> GetAiUsageAsync(CancellationToken cancellationToken = default)
@@ -1000,6 +1016,9 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 [JsonSerializable(typeof(MailTranslationResult))]
 [JsonSerializable(typeof(ApiEnvelope<CheckoutSessionResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<BillingStatusResultDto>))]
+[JsonSerializable(typeof(RedeemStorePurchaseRequest))]
+[JsonSerializable(typeof(ApiEnvelope<StoreCollectionsIdTicketResultDto>))]
+[JsonSerializable(typeof(ApiEnvelope<StorePurchaseRedeemResultDto>))]
 [JsonSerializable(typeof(ApiEnvelope<AiUsageStatusDto>))]
 [JsonSerializable(typeof(ApiEnvelope<UserMailboxSyncListDto>))]
 [JsonSerializable(typeof(ApiEnvelope<UserSyncSnapshotStatusDto>))]

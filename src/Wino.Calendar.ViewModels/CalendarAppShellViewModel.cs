@@ -153,6 +153,12 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
             OnPropertyChanged(nameof(VisibleDateRangeText));
             UpdateDateNavigationHeaderItems();
         }
+
+        if (e.PropertyName == nameof(CalendarPageViewModel.IsCalendarModeReady))
+        {
+            // Unavailable commands stay visible and disabled.
+            _newEventMenuItem.IsEnabled = CalendarPage.IsCalendarModeReady;
+        }
     }
 
     private void PrefefencesChanged(object sender, string e)
@@ -526,6 +532,14 @@ public partial class CalendarAppShellViewModel : CalendarBaseViewModel,
     [RelayCommand]
     private async Task NewEventAsync()
     {
+        // The pane entry, the shortcut and the command all land here.
+        var readiness = CalendarPage.Readiness;
+        if (!await readiness.EnsureReadyAsync())
+        {
+            _dialogService.InfoBarMessage(readiness.Title, readiness.Message, InfoBarMessageType.Warning);
+            return;
+        }
+
         var pickedCalendar = TryResolveConfiguredNewEventCalendar();
 
         if (pickedCalendar == null)

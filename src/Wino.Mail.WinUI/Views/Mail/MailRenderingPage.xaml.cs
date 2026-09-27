@@ -147,6 +147,9 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
         Interlocked.Increment(ref _activeRenderCount);
 
+        if (!string.Equals(_currentRenderedHtml, htmlBody ?? string.Empty, StringComparison.Ordinal))
+            ResetRewriteState();
+
         _currentRenderedHtml = htmlBody ?? string.Empty;
         _translationProjection = _contentProjector.Project(_currentRenderedHtml, MailContentProjectionProfile.Translation);
         _inferenceProjection = _contentProjector.Project(_currentRenderedHtml, MailContentProjectionProfile.Inference).Projection;
@@ -179,9 +182,11 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private async Task RenderActiveContentAsync()
     {
-        var html = _isShowingTranslation && _translationProjection is not null && _translationMap is not null
-            ? _translationProjection.ApplyTranslations(_translationMap)
-            : _currentRenderedHtml;
+        var html = _shownRewriteMode is { } rewriteMode && _rewriteResults.TryGetValue(rewriteMode, out var rewrittenHtml)
+            ? rewrittenHtml
+            : _isShowingTranslation && _translationProjection is not null && _translationMap is not null
+                ? _translationProjection.ApplyTranslations(_translationMap)
+                : _currentRenderedHtml;
         var renderMode = IsReaderViewEnabled
             ? HtmlMailRenderMode.Readability
             : HtmlMailRenderMode.Original;
@@ -259,6 +264,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _inferenceProjection = null;
         _translationMap = null;
         _isShowingTranslation = false;
+        ResetRewriteState();
     }
 
     public async Task PrepareForIdleAsync()
@@ -517,9 +523,20 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private WinoIntelligenceSnapshot? _intelligenceSnapshot;
     private CancellationTokenSource? _intelligenceContextCancellation;
     private Guid? _translationRequestId;
+    private Guid? _rewriteRequestId;
+    private readonly Dictionary<string, string> _rewriteResults = new(StringComparer.OrdinalIgnoreCase);
+    private string? _shownRewriteMode;
+    private string? _lastRewriteMode;
+    private IReadOnlyList<AiRewriteModeOption> _rewriteModeOptions = [];
 
     private void InitializeWinoIntelligenceHeader()
     {
+        _rewriteModeOptions = AiActionCatalog.GetReaderRewriteModeOptions();
+        IntelligenceHeader.RewriteModes = _rewriteModeOptions
+            .Select(x => new WinoIntelligenceRewriteModeOption(x.Mode, x.Label, x.Description))
+            .ToArray();
+        IntelligenceHeader.SelectedRewriteMode = _rewriteModeOptions.FirstOrDefault()?.Mode ?? string.Empty;
+
         IntelligenceHeader.TranslationLanguages = new[]
         {
             new WinoIntelligenceLanguageOption(string.Empty, Translator.WinoIntelligence_DetectLanguage),
@@ -616,6 +633,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
         IntelligenceHeader.IsSummaryAvailable = false;
         IntelligenceHeader.IsTranslateAvailable = false;
+        IntelligenceHeader.IsRewriteAvailable = false;
         IntelligenceHeader.IsProcessingAvailable = false;
         IntelligenceHeader.IsSuggestedRepliesAvailable = false;
         IntelligenceHeader.IsFindSimilarMailAvailable = false;
@@ -645,6 +663,9 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     {
         IntelligenceHeader.IsSummaryAvailable = snapshot.IsSummaryAvailable;
         IntelligenceHeader.IsTranslateAvailable = snapshot.IsTranslateAvailable;
+        IntelligenceHeader.IsRewriteAvailable = snapshot.IsRewriteAvailable;
+        if (!snapshot.IsRewriteAvailable)
+            RevertRewrite();
         IntelligenceHeader.IsProcessingAvailable = snapshot.IsProcessingAvailable;
         IntelligenceHeader.IsSuggestedRepliesAvailable = false;
         IntelligenceHeader.IsFindSimilarMailAvailable = false;
@@ -710,6 +731,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         IntelligenceHeader.HasTranslationResult = false;
         IntelligenceHeader.IsTranslationApplied = false;
         IntelligenceHeader.TranslationStatusText = string.Empty;
+        ResetRewriteState();
         _intelligenceContextCancellation?.Cancel();
         _intelligenceContextCancellation?.Dispose();
         _intelligenceContextCancellation = null;
@@ -803,6 +825,15 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
                 case WinoIntelligenceAction.CancelTranslation:
                     CancelTranslation();
                     break;
+                case WinoIntelligenceAction.Rewrite:
+                    await RewriteCurrentMessageAsync(context, regenerate: false);
+                    break;
+                case WinoIntelligenceAction.RegenerateRewrite:
+                    await RewriteCurrentMessageAsync(context, regenerate: true);
+                    break;
+                case WinoIntelligenceAction.CancelRewrite:
+                    CancelRewrite();
+                    break;
                 case WinoIntelligenceAction.AddDeadlineToCalendar:
                     // Deadlines are no longer produced, so the header never offers this.
                     break;
@@ -828,6 +859,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
         if (_translationMap is not null)
         {
+            HideRewrite();
             _isShowingTranslation = true;
             IntelligenceHeader.IsTranslationApplied = true;
             await RenderActiveContentAsync();
@@ -867,6 +899,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         if (result.Value is null)
             throw new InvalidOperationException("Translation response was empty.");
         _translationMap = result.Value.Translations.ToDictionary(x => x.Id, x => x.Text, StringComparer.Ordinal);
+        HideRewrite();
         _isShowingTranslation = true;
         IntelligenceHeader.HasTranslationResult = true;
         IntelligenceHeader.IsTranslationApplied = true;
@@ -882,6 +915,139 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _translationRequestId = null;
         IntelligenceHeader.IsTranslationBusy = false;
         IntelligenceHeader.TranslationStatusText = Translator.WinoIntelligence_TranslationCanceled;
+    }
+
+    /// <summary>
+    /// Runs, shows or hides the rewrite. Results are kept per mode for the current message, so
+    /// switching between the rewrite and the original never spends quota twice; regenerate
+    /// always asks the API again for the mode of the last result.
+    /// </summary>
+    private async Task RewriteCurrentMessageAsync(WinoIntelligenceContext context, bool regenerate)
+    {
+        if (!regenerate && _shownRewriteMode is not null)
+        {
+            _shownRewriteMode = null;
+            IntelligenceHeader.IsRewriteApplied = false;
+            await RenderActiveContentAsync();
+            return;
+        }
+
+        var mode = regenerate
+            ? _lastRewriteMode ?? IntelligenceHeader.SelectedRewriteMode
+            : IntelligenceHeader.SelectedRewriteMode;
+        if (string.IsNullOrWhiteSpace(mode))
+            return;
+
+        if (!regenerate && _rewriteResults.TryGetValue(mode, out var cachedHtml))
+        {
+            await ShowRewriteAsync(mode, cachedHtml);
+            return;
+        }
+
+        var requestId = Guid.NewGuid();
+        _rewriteRequestId = requestId;
+        IntelligenceHeader.IsRewriteBusy = true;
+        IntelligenceHeader.RewriteStatusText = Translator.WinoIntelligence_Rewriting;
+        WinoIntelligenceOperationResult<string> result;
+        try
+        {
+            result = await _intelligenceCoordinator.RewriteAsync(context, requestId, mode);
+        }
+        catch
+        {
+            if (_rewriteRequestId == requestId)
+                RestoreRewriteStatus();
+            throw;
+        }
+        finally
+        {
+            if (_rewriteRequestId == requestId)
+            {
+                _rewriteRequestId = null;
+                IntelligenceHeader.IsRewriteBusy = false;
+            }
+        }
+
+        if (!IsCurrent(result.ContentKey) || result.IsCanceled)
+            return;
+        if (!result.IsSuccess || string.IsNullOrWhiteSpace(result.Value))
+        {
+            RestoreRewriteStatus();
+            throw new InvalidOperationException(result.Error ?? Translator.WinoIntelligence_ActionFailed);
+        }
+
+        _rewriteResults[mode] = result.Value;
+        await ShowRewriteAsync(mode, result.Value);
+    }
+
+    private async Task ShowRewriteAsync(string mode, string html)
+    {
+        _isShowingTranslation = false;
+        IntelligenceHeader.IsTranslationApplied = false;
+        _shownRewriteMode = mode;
+        _lastRewriteMode = mode;
+        IntelligenceHeader.HasRewriteResult = true;
+        IntelligenceHeader.IsRewriteApplied = true;
+        IntelligenceHeader.RewriteResultText = ReaderRewriteContent.ToPlainText(html);
+        RestoreRewriteStatus();
+        await RenderActiveContentAsync();
+    }
+
+    private void RestoreRewriteStatus()
+    {
+        var label = _rewriteModeOptions.FirstOrDefault(x => string.Equals(x.Mode, _lastRewriteMode, StringComparison.OrdinalIgnoreCase))?.Label;
+        IntelligenceHeader.RewriteStatusText = _lastRewriteMode is null
+            ? string.Empty
+            : string.Format(Translator.WinoIntelligence_RewriteAppliedFormat, label ?? _lastRewriteMode);
+    }
+
+    private void CancelRewrite()
+    {
+        if (_rewriteRequestId is not { } requestId)
+            return;
+        _intelligenceCoordinator.CancelRequest(requestId);
+        _rewriteRequestId = null;
+        IntelligenceHeader.IsRewriteBusy = false;
+        RestoreRewriteStatus();
+    }
+
+    /// <summary>Stops showing the rewrite without discarding it, used when a translation takes over.</summary>
+    private void HideRewrite()
+    {
+        _shownRewriteMode = null;
+        IntelligenceHeader.IsRewriteApplied = false;
+    }
+
+    /// <summary>Puts the original back on screen when rewrite access is lost while a rewrite is shown.</summary>
+    private void RevertRewrite()
+    {
+        if (_rewriteRequestId is { } requestId)
+        {
+            _intelligenceCoordinator.CancelRequest(requestId);
+            _rewriteRequestId = null;
+            IntelligenceHeader.IsRewriteBusy = false;
+        }
+
+        if (_shownRewriteMode is null)
+            return;
+
+        HideRewrite();
+        _ = RenderActiveContentAsync();
+    }
+
+    private void ResetRewriteState()
+    {
+        if (_rewriteRequestId is { } requestId)
+            _intelligenceCoordinator.CancelRequest(requestId);
+        _rewriteRequestId = null;
+        _rewriteResults.Clear();
+        _shownRewriteMode = null;
+        _lastRewriteMode = null;
+        IntelligenceHeader.IsRewriteBusy = false;
+        IntelligenceHeader.HasRewriteResult = false;
+        IntelligenceHeader.IsRewriteApplied = false;
+        IntelligenceHeader.RewriteStatusText = string.Empty;
+        IntelligenceHeader.RewriteResultText = string.Empty;
     }
 
     private void ReportFeatureFailure(Guid requestId, string? error)
@@ -937,6 +1103,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             if (!message.Entitlement.CanAccessSurfaces)
             {
                 _intelligenceCoordinator.CancelContext(_intelligenceContext?.ContentKey ?? string.Empty);
+                RevertRewrite();
                 IntelligenceHeader.Visibility = Visibility.Collapsed;
                 return;
             }

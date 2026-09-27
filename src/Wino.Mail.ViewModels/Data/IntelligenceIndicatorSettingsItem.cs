@@ -15,7 +15,6 @@ namespace Wino.Mail.ViewModels.Data;
 public static class IntelligenceIndicatorIds
 {
     public const string Priority = IntelligenceIndicatorId.FactPriority;
-    public const string Headline = IntelligenceIndicatorId.FactHeadline;
     public const string Briefing = IntelligenceIndicatorId.FactBriefing;
 
     public static string ForSmartLabel(MailSmartLabel label) => IntelligenceIndicatorId.ForSmartLabel(label).Value;
@@ -67,11 +66,11 @@ public sealed partial class IntelligenceIndicatorSettingsItem : ObservableObject
 public static class IntelligenceIndicatorSettingsCatalog
 {
     // Each entry carries the same glyph the header tile uses, so the checklist row reads as the
-    // indicator it turns on or off.
+    // indicator it turns on or off. The headline has no toggle of its own: the reading header shows it
+    // as the briefing fact, so the Briefing toggle covers it together with the Daily Briefing.
     private static readonly (string Identifier, string DisplayName, string Glyph)[] FactIndicators =
     [
         (IntelligenceIndicatorIds.Priority, Translator.IntelligenceSettings_Priority, MailIntelligenceTileFactory.PriorityGlyph),
-        (IntelligenceIndicatorIds.Headline, Translator.IntelligenceSettings_BriefingFact, DailyBriefingIcons.Information),
         (IntelligenceIndicatorIds.Briefing, Translator.IntelligenceSettings_BriefingFact, DailyBriefingIcons.Information),
     ];
 

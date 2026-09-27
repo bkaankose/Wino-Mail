@@ -18,6 +18,7 @@ using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Contact;
+using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
@@ -99,6 +100,13 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     public partial bool HasCreateDestinations { get; set; }
 
     public bool IsEmpty => !IsLoading && Contacts.Count == 0;
+
+    /// <summary>
+    /// Blocked state while People cannot be used: no account, People turned off everywhere,
+    /// a sign-in pending, or the first sync still running. Creation is already gated on
+    /// <see cref="HasCreateDestinations"/>, which follows the same address books.
+    /// </summary>
+    public ModeReadinessViewModel Readiness { get; }
     public bool CanLoadMoreContacts => HasMoreContacts && !IsLoading && !IsLoadingMore;
     public bool CanDeleteSelectedContacts => SelectedContactsCount > 0;
     public bool IsDetailVisible => SelectedContact is not null;
@@ -125,8 +133,17 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         INavigationService navigationService, IMailDialogService dialogService,
         IActivationStateService activationStateService,
         ICardDavSynchronizationStore cardDavSynchronizationStore = null,
-        IPreferencesService preferencesService = null)
+        IPreferencesService preferencesService = null,
+        IAppModeReadinessService appModeReadinessService = null,
+        IMailShellClient mailShell = null)
     {
+        Readiness = new ModeReadinessViewModel(
+            WinoApplicationMode.Contacts,
+            appModeReadinessService,
+            navigationService,
+            mailShell,
+            ExecuteUIThread);
+        Readiness.ReadinessChanged += ReadinessChanged;
         _contactService = contactService;
         _accountService = accountService;
         _synchronizationManager = synchronizationManager;
@@ -149,6 +166,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         SetMenuInteractionEnabled(true);
         SelectedContacts.CollectionChanged -= SelectedContactsChanged;
         SelectedContacts.CollectionChanged += SelectedContactsChanged;
+        _ = Readiness.ActivateAsync();
 
         if (mode == NavigationMode.Back && _isInitialized)
         {
@@ -197,6 +215,34 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                         InfoBarMessageType.Warning);
                 }
             });
+        }
+    }
+
+    /// <summary>
+    /// People just became usable: a sign-in finished, an account was added or People was
+    /// turned on. The account set this page loaded on arrival is stale, so load it again.
+    /// </summary>
+    private async void ReadinessChanged(object sender, EventArgs e)
+    {
+        if (!Readiness.IsReady || !_isPageActive)
+            return;
+
+        try
+        {
+            _accounts = (await _accountService.GetAccountsAsync())
+                .Where(account => account.IsContactAccessEnabled)
+                .ToDictionary(account => account.Id);
+
+            RefreshShellSynchronizationState();
+
+            await RefreshCreateDestinationAvailabilityAsync();
+            await RefreshCardDavCreationAvailabilityAsync();
+            await BuildFiltersAsync();
+            await ReloadContactsAsync();
+        }
+        catch (Exception ex)
+        {
+            Serilog.Log.Warning(ex, "Failed to reload People after it became available.");
         }
     }
 
@@ -587,6 +633,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     {
         base.OnNavigatedFrom(mode, parameters);
         _isPageActive = false;
+        Readiness.Deactivate();
         SetMenuInteractionEnabled(false);
         SelectedContacts.CollectionChanged -= SelectedContactsChanged;
         CancelPendingReload();

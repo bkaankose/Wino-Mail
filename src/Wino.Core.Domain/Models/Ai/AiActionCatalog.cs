@@ -43,4 +43,32 @@ public static class AiActionCatalog
             new("clearer", Translator.Composer_AiRewriteClearer, Translator.Composer_AiRewriteClearerDescription),
         };
     }
+
+    /// <summary>
+    /// Modes offered when rewriting a received message in the reading pane. The order puts the
+    /// reading aids first, and "angry" is left out because it does not help anyone read. Every mode
+    /// here must also be in the API's <c>AiEmail:AllowedRewriteModes</c> list, or the request fails
+    /// validation. The composer offers the full <see cref="GetRewriteModeOptions"/> list, which
+    /// matches that API list exactly.
+    /// </summary>
+    public static IReadOnlyList<AiRewriteModeOption> GetReaderRewriteModeOptions()
+    {
+        var options = GetRewriteModeOptions();
+        var result = new List<AiRewriteModeOption>(ReaderRewriteModes.Length);
+        foreach (var mode in ReaderRewriteModes)
+        {
+            foreach (var option in options)
+            {
+                if (option.Mode == mode)
+                {
+                    result.Add(option);
+                    break;
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static readonly string[] ReaderRewriteModes = ["clearer", "shorter", "formal", "friendly", "polite", "happy"];
 }

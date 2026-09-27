@@ -151,6 +151,9 @@ internal sealed class ConsoleMicrosoftStoreService : IMicrosoftStoreService
     public Task<StorePurchaseResult> PurchaseAsync(WinoAddOnProductType productType)
         => throw new NotSupportedException("Store purchases need the packaged app.");
 
+    public Task<string?> GetCustomerCollectionsIdAsync(string serviceTicket, string publisherUserId)
+        => Task.FromResult<string?>(null);
+
     public Task PromptRatingDialogAsync() => Task.CompletedTask;
     public Task LaunchStorePageForReviewAsync() => Task.CompletedTask;
     public Task<bool> RefreshAvailabilityAsync() => Task.FromResult(false);

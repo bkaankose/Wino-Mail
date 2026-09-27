@@ -24,8 +24,8 @@ public class AccountDetailsPageViewModelTests
         var dialogService = new Mock<IMailDialogService>();
         dialogService
             .Setup(service => service.ShowConfirmationDialogAsync(
-                string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, account.Name),
                 Translator.DialogMessage_DeleteAccountConfirmationTitle,
+                string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, account.Name),
                 Translator.Buttons_Delete))
             .ReturnsAsync(true);
         var accountService = new Mock<IAccountService>();

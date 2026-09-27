@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:abstract="using:Wino.Calendar.Views.Abstract"
     xmlns:calendarControls="using:Wino.Calendar.Controls"
+    xmlns:controls="using:Wino.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:data="using:Wino.Calendar.ViewModels.Data"
     xmlns:domain="using:Wino.Core.Domain"
@@ -28,7 +29,8 @@
             Margin="4,0,7,7"
             BorderBrush="{StaticResource CardStrokeColorDefaultBrush}"
             BorderThickness="1"
-            CornerRadius="7">
+            CornerRadius="7"
+            Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.Readiness.IsBlocked), Mode=OneWay}">
             <calendarControls:CalendarPeriodControl
                 x:Name="CalendarSurface"
                 CalendarItemDropped="CalendarSurfaceCalendarItemDropped"
@@ -45,6 +47,13 @@
                 VisibleRange="{x:Bind ViewModel.CurrentVisibleRange, Mode=OneWay}"
                 WorkHourBackground="{ThemeResource CalendarWorkHourBackgroundBrush}" />
         </Border>
+
+        <!--  Blocked state. Replaces the time grid while Calendar cannot be used yet.  -->
+        <controls:ModeReadinessPanel
+            Grid.Row="1"
+            AutomationProperties.AutomationId="CalendarModeReadinessPanel"
+            ViewModel="{x:Bind ViewModel.Readiness}"
+            Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.Readiness.IsBlocked), Mode=OneWay}" />
 
         <Canvas
             x:Name="CalendarOverlayCanvas"

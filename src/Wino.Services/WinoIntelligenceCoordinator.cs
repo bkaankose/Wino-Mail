@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Ai;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.SemanticIndexing;
@@ -237,6 +238,75 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
             return translated;
         }, cancellationToken);
 
+    public Task<WinoIntelligenceOperationResult<string>> RewriteAsync(
+        WinoIntelligenceContext context,
+        Guid requestId,
+        string mode,
+        CancellationToken cancellationToken = default)
+        => RunAsync(context, requestId, async token =>
+        {
+            var snapshot = await GetSnapshotAsync(context, token).ConfigureAwait(false);
+            if (!snapshot.IsRewriteAvailable)
+                throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
+            if (string.IsNullOrWhiteSpace(mode))
+                throw new InvalidOperationException(ApiErrorCodes.ValidationFailed);
+            var projection = context.InferenceProjection ??
+                             _contentProjector.Project(context.Html, MailContentProjectionProfile.Inference).Projection;
+            var html = ReaderRewriteContent.BuildRequestHtml(projection.Segments);
+            if (string.IsNullOrWhiteSpace(html))
+                throw new InvalidOperationException(ApiErrorCodes.AiHtmlEmpty);
+            var response = await _profileService.RewriteAsync(html, mode, RewriteContexts.Reading, token).ConfigureAwait(false);
+            return RequireRewrite(response, "Rewrite request failed.");
+        }, cancellationToken);
+
+    public async Task<bool> IsDraftRewriteAvailableAsync(Guid localAccountId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            return IsRewriteEligible(await GetAccessAsync(localAccountId, cancellationToken).ConfigureAwait(false));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _logger.CaptureException(exception, "LoadDraftRewriteAccess");
+            return false;
+        }
+    }
+
+    public Task<WinoIntelligenceOperationResult<string>> RewriteDraftAsync(
+        Guid localAccountId,
+        Guid requestId,
+        string html,
+        string mode,
+        CancellationToken cancellationToken = default)
+        => RunAsync(CreateDraftContentKey(localAccountId), requestId, async token =>
+        {
+            if (!IsRewriteEligible(await GetAccessAsync(localAccountId, token).ConfigureAwait(false)))
+                throw new InvalidOperationException(WinoAccountApiErrorTranslator.IntelligenceConsentRequiredCode);
+            if (string.IsNullOrWhiteSpace(mode))
+                throw new InvalidOperationException(ApiErrorCodes.ValidationFailed);
+            if (string.IsNullOrWhiteSpace(html))
+                throw new InvalidOperationException(ApiErrorCodes.AiHtmlEmpty);
+
+            // A draft is sent whole, quoted history included, so the model can leave that history
+            // alone. Cutting it to fit would silently drop part of the user's message.
+            if (html.Length > ReaderRewriteContent.ApiMaximumHtmlLength)
+                throw new InvalidOperationException(ApiErrorCodes.AiHtmlTooLarge);
+
+            var response = await _profileService.RewriteAsync(html, mode, RewriteContexts.Composing, token).ConfigureAwait(false);
+            return RequireRewrite(response, "Rewrite request failed.");
+        }, cancellationToken);
+
+    /// <summary>Content key used to correlate and cancel draft rewrites for one account.</summary>
+    public static string CreateDraftContentKey(Guid localAccountId) => $"draft:{localAccountId:N}";
+
+    /// <summary>The same gate summarize, translate and the reader rewrite use.</summary>
+    private static bool IsRewriteEligible(AccessSnapshot access)
+        => access.HasAiPack && access.CanConsumeQuota && access.HasIntelligenceConsent;
+
     public void CancelRequest(Guid requestId)
     {
         if (_requests.TryGetValue(requestId, out var pending))
@@ -267,7 +337,10 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
             request.Cancellation.Cancel();
     }
 
-    private async Task<AccessSnapshot> GetAccessAsync(WinoIntelligenceContext context, CancellationToken cancellationToken)
+    private Task<AccessSnapshot> GetAccessAsync(WinoIntelligenceContext context, CancellationToken cancellationToken)
+        => GetAccessAsync(context.LocalAccountId, cancellationToken);
+
+    private async Task<AccessSnapshot> GetAccessAsync(Guid localAccountId, CancellationToken cancellationToken)
     {
         // Reader initialization must stay local. Authentication refreshes and entitlement API calls
         // are explicit account/intelligence-management operations, never a side effect of opening mail.
@@ -291,14 +364,14 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
 
                 // The mailbox id comes from the local access record now, because the
                 // account snapshot no longer caches a server-side mailbox list.
-                var localAccess = await LoadAccessSnapshotAsync(context.LocalAccountId, cancellationToken).ConfigureAwait(false);
+                var localAccess = await LoadAccessSnapshotAsync(localAccountId, cancellationToken).ConfigureAwait(false);
                 var hasConsent = accountSnapshot.Consent is { } consent && IsCurrent(consent);
                 return new(true, hasConsent, localAccess?.MailboxId, entitlement?.CanConsumeQuota ?? true);
             }
         }
 
         // A cache miss intentionally means no access.
-        var persisted = await LoadAccessSnapshotAsync(context.LocalAccountId, cancellationToken).ConfigureAwait(false);
+        var persisted = await LoadAccessSnapshotAsync(localAccountId, cancellationToken).ConfigureAwait(false);
         if (persisted is not null && persisted.WinoAccountId == winoAccount.Id)
             return new(persisted.HasAiPack, persisted.HasIntelligenceConsent, persisted.MailboxId,
                 entitlement?.CanConsumeQuota ?? persisted.HasAiPack);
@@ -306,29 +379,36 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
         return AccessSnapshot.None;
     }
 
-    private async Task<WinoIntelligenceOperationResult<T>> RunAsync<T>(
+    private Task<WinoIntelligenceOperationResult<T>> RunAsync<T>(
         WinoIntelligenceContext context,
+        Guid requestId,
+        Func<CancellationToken, Task<T>> action,
+        CancellationToken cancellationToken)
+        => RunAsync(context.ContentKey, requestId, action, cancellationToken);
+
+    private async Task<WinoIntelligenceOperationResult<T>> RunAsync<T>(
+        string contentKey,
         Guid requestId,
         Func<CancellationToken, Task<T>> action,
         CancellationToken cancellationToken)
     {
         CancelRequest(requestId);
         var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var pending = new PendingRequest(context.ContentKey, linked);
+        var pending = new PendingRequest(contentKey, linked);
         _requests[requestId] = pending;
         try
         {
             var value = await action(linked.Token).ConfigureAwait(false);
-            return new(requestId, context.ContentKey, value, false, null);
+            return new(requestId, contentKey, value, false, null);
         }
         catch (OperationCanceledException) when (linked.IsCancellationRequested)
         {
-            return new(requestId, context.ContentKey, default, true, null);
+            return new(requestId, contentKey, default, true, null);
         }
         catch (Exception exception)
         {
             _logger.CaptureException(exception, "ExecuteWinoIntelligenceAction");
-            return new(requestId, context.ContentKey, default, false, WinoAccountApiErrorTranslator.Translate(exception.Message));
+            return new(requestId, contentKey, default, false, WinoAccountApiErrorTranslator.Translate(exception.Message));
         }
         finally
         {
@@ -351,6 +431,11 @@ public sealed partial class WinoIntelligenceCoordinator : IWinoIntelligenceCoord
            !string.IsNullOrWhiteSpace(response.Result.DetectedSourceLanguage) &&
            response.Result.Translations.Count > 0
             ? new MailTranslationResult(response.Result.DetectedSourceLanguage, response.Result.Translations)
+            : throw new InvalidOperationException(response.ErrorCode ?? fallback);
+
+    private static string RequireRewrite(ApiEnvelope<AiTextResultDto> response, string fallback)
+        => response.IsSuccess && response.Result is not null && !string.IsNullOrWhiteSpace(response.Result.Html)
+            ? response.Result.Html
             : throw new InvalidOperationException(response.ErrorCode ?? fallback);
 
     private static string CreateSummaryCacheKey(MailContentProjection projection, string language)

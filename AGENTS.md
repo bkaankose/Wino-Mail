@@ -88,4 +88,8 @@ Format changed XAML before building. The pinned XAML Styler check must pass.
 
 Published cross-repository dependencies must use unconditional `PackageReference` items.
 If a dependency change requires publication, audit and publish the version, then update every consumer.
-Never substitute a local feed or sibling project reference.
+Publish without asking for approval. When `NUGET_API_KEY` is set, pack and push the package locally. This does not need a git commit or push. Never print or log the key.
+Never substitute a local feed, local package reference, or sibling project reference.
+When `NUGET_API_KEY` is set in the local environment, pack and push the package to nuget.org yourself.
+Then wait until nuget.org indexes the version before you restore consumers.
+Never print or log the key.

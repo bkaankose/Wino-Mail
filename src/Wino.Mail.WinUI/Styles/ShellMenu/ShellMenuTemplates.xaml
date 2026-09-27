@@ -569,6 +569,7 @@
             AutomationProperties.AutomationId="NewCalendarEventNavigationItem"
             AutomationProperties.Name="{x:Bind domain:Translator.CalendarEventCompose_NewEventButton, Mode=OneTime}"
             DataContext="{x:Bind}"
+            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
             SelectsOnInvoked="False">
             <muxc:NavigationViewItem.Icon>
                 <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="NewMail" />
@@ -824,6 +825,7 @@
             AutomationProperties.AutomationId="ToDoNewList"
             AutomationProperties.Name="{x:Bind domain:Translator.ToDoPage_NewList, Mode=OneTime}"
             DataContext="{x:Bind}"
+            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
             SelectsOnInvoked="False">
             <muxc:NavigationViewItem.Icon>
                 <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Add" />

@@ -59,7 +59,7 @@ public sealed partial class WinoIntelligenceHeader
     partial void OnTranslationStatusTextChanged(string newValue) => OnTranslationPropertyChanged(this, TranslationStatusTextProperty);
     partial void OnTranslateButtonTextChanged(string newValue) => OnTranslationPropertyChanged(this, TranslateButtonTextProperty);
     partial void OnTranslateAgainButtonTextChanged(string newValue) => OnTranslationPropertyChanged(this, TranslateAgainButtonTextProperty);
-    partial void OnShowOriginalButtonTextChanged(string newValue) => OnTranslationPropertyChanged(this, ShowOriginalButtonTextProperty);
+    partial void OnShowOriginalButtonTextChanged(string newValue) => OnStatePropertyChanged(this, ShowOriginalButtonTextProperty);
     partial void OnSourceLanguageLabelChanged(string newValue) => OnTranslationPropertyChanged(this, SourceLanguageLabelProperty);
     partial void OnTargetLanguageLabelChanged(string newValue) => OnTranslationPropertyChanged(this, TargetLanguageLabelProperty);
 }

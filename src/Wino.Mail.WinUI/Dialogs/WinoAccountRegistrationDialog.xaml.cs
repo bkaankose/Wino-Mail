@@ -1,5 +1,6 @@
 using System;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Windows.System;
@@ -12,7 +13,6 @@ namespace Wino.Dialogs;
 
 public sealed partial class WinoAccountRegistrationDialog : ContentDialog
 {
-    private const string PrivacyPolicyUrl = "https://www.winomail.app/accounts_policy.html";
     private readonly IWinoAccountProfileService _profileService;
 
     public WinoAccountRegistrationDialog(IWinoAccountProfileService profileService)
@@ -95,11 +95,6 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
             return Translator.WinoAccount_Validation_PasswordMismatch;
         }
 
-        if (PrivacyPolicyCheckBox.IsChecked != true)
-        {
-            return Translator.WinoAccount_Validation_PrivacyConsentRequired;
-        }
-
         return string.Empty;
     }
 
@@ -132,7 +127,7 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
 
     private async void PrivacyPolicyLink_Click(object sender, RoutedEventArgs e)
     {
-        await Launcher.LaunchUriAsync(new Uri(PrivacyPolicyUrl));
+        await Launcher.LaunchUriAsync(new Uri(AppUrls.PrivacyPolicy));
     }
 
     private void InputChanged(TextBox sender, TextBoxTextChangingEventArgs args) => HideError();
@@ -151,6 +146,7 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
     {
         ErrorTextBlock.Text = message;
         ErrorTextBlock.Visibility = Visibility.Visible;
+        FrameworkElementAutomationPeer.FromElement(ErrorTextBlock)?.RaiseAutomationEvent(AutomationEvents.LiveRegionChanged);
     }
 
     private void HideError()

@@ -401,6 +401,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             document.Categories = await ExportCategoriesAsync(accounts).ConfigureAwait(false);
             document.Aliases = await ExportAliasesAsync(accounts).ConfigureAwait(false);
             document.MergedInboxes = ExportMergedInboxes(accounts);
+            document.AccountCapabilities = ExportAccountCapabilities(accounts);
 
             exportedAppDataCount += (document.Filters?.Count ?? 0) + (document.Categories?.Count ?? 0)
                 + (document.Aliases?.Count ?? 0) + (document.MergedInboxes?.Count ?? 0);
@@ -521,6 +522,21 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         return categories;
     }
 
+    private static List<SnapshotAccountCapabilities> ExportAccountCapabilities(List<MailAccount> accounts)
+        => accounts
+            .Select(account => new SnapshotAccountCapabilities
+            {
+                AccountAddress = account.Address,
+                ProviderType = (int)account.ProviderType,
+                IsCalendarEnabled = account.IsCalendarAccessEnabled,
+                CalendarIntegrationSource = (int)account.CalendarIntegrationSource,
+                IsContactsEnabled = account.IsContactAccessEnabled,
+                ContactIntegrationSource = (int)account.ContactIntegrationSource,
+                IsTasksEnabled = account.IsTaskAccessEnabled,
+                TaskIntegrationSource = (int)account.TaskIntegrationSource
+            })
+            .ToList();
+
     private async Task<List<SnapshotAlias>> ExportAliasesAsync(List<MailAccount> accounts)
     {
         var aliases = new List<SnapshotAlias>();
@@ -601,6 +617,10 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             // that is exactly when the settings are out of date.
             var accountsByKey = localAccounts.ToDictionary(CreateMailboxKey, StringComparer.Ordinal);
 
+            var capabilitiesByKey = (document.AccountCapabilities ?? [])
+                .GroupBy(a => CreateMailboxKey(a.AccountAddress, a.ProviderType), StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
+
             foreach (var mailbox in orderedMailboxes)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -612,7 +632,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                     continue;
                 }
 
-                var account = CreateImportedAccount(mailbox);
+                var account = CreateImportedAccount(mailbox, capabilitiesByKey.GetValueOrDefault(mailboxKey));
                 var serverInformation = CreateImportedServerInformation(mailbox, account.Id);
 
                 await _accountService.CreateAccountAsync(account, serverInformation).ConfigureAwait(false);
@@ -1257,11 +1277,11 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         };
     }
 
-    private static MailAccount CreateImportedAccount(UserMailboxSyncItemDto mailbox)
+    private static MailAccount CreateImportedAccount(UserMailboxSyncItemDto mailbox, SnapshotAccountCapabilities? capabilities)
     {
         var providerType = (MailProviderType)mailbox.ProviderType;
 
-        return new MailAccount
+        var account = new MailAccount
         {
             Id = Guid.NewGuid(),
             Address = mailbox.Address.Trim(),
@@ -1274,15 +1294,82 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             CreatedAt = DateTime.UtcNow,
             InitialSynchronizationRange = InitialSynchronizationRange.SixMonths,
             IsMailAccessGranted = mailbox.IsMailAccessGranted ?? true,
-            IsCalendarAccessGranted = mailbox.IsCalendarAccessGranted,
-            IsCalendarAccessEnabled = mailbox.IsCalendarAccessGranted,
-            IsContactAccessEnabled = true,
-            IsTaskAccessEnabled = false,
             SynchronizationDeltaIdentifier = string.Empty,
             CalendarSynchronizationDeltaIdentifier = string.Empty,
             AttentionReason = AccountAttentionReason.InvalidCredentials
         };
+
+        ApplyImportedCapabilities(account, mailbox, capabilities);
+
+        return account;
     }
+
+    /// <summary>
+    /// Restores the modes the user had turned on. All three flags of each mode are set together.
+    /// Provider modes of an OAuth mailbox are restored as granted but awaiting re-authorization,
+    /// the same state a failed token refresh leaves behind, so nothing syncs and no local store
+    /// is created before Fix account signs in again with exactly these modes.
+    /// </summary>
+    private static void ApplyImportedCapabilities(MailAccount account, UserMailboxSyncItemDto mailbox, SnapshotAccountCapabilities? capabilities)
+    {
+        var isOAuthProvider = account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook;
+
+        if (capabilities == null)
+        {
+            // Snapshots without the capability section record only calendar consent. Contacts and
+            // To Do stay off, matching the account defaults of the 2.x database migration.
+            var calendarSource = !mailbox.IsCalendarAccessGranted
+                ? AccountIntegrationSource.Local
+                : isOAuthProvider
+                    ? AccountIntegrationSource.Provider
+                    : account.ProviderType == MailProviderType.IMAP4 && !string.IsNullOrWhiteSpace(mailbox.CalDavServiceUrl)
+                        ? AccountIntegrationSource.Dav
+                        : AccountIntegrationSource.Local;
+
+            capabilities = new SnapshotAccountCapabilities
+            {
+                IsCalendarEnabled = mailbox.IsCalendarAccessGranted,
+                CalendarIntegrationSource = (int)calendarSource,
+                IsContactsEnabled = false,
+                ContactIntegrationSource = (int)(isOAuthProvider ? AccountIntegrationSource.Provider : AccountIntegrationSource.Local),
+                IsTasksEnabled = false,
+                TaskIntegrationSource = (int)(isOAuthProvider ? AccountIntegrationSource.Provider : AccountIntegrationSource.Local)
+            };
+        }
+
+        var calendarIntegrationSource = ToIntegrationSource(capabilities.CalendarIntegrationSource);
+        account.IsCalendarAccessEnabled = capabilities.IsCalendarEnabled;
+        account.CalendarIntegrationSource = calendarIntegrationSource;
+        account.IsCalendarAccessGranted = capabilities.IsCalendarEnabled && IsRemoteSource(isOAuthProvider, calendarIntegrationSource);
+
+        var contactIntegrationSource = ToIntegrationSource(capabilities.ContactIntegrationSource);
+        var isRemoteContacts = capabilities.IsContactsEnabled && IsRemoteSource(isOAuthProvider, contactIntegrationSource);
+        account.IsContactAccessEnabled = capabilities.IsContactsEnabled;
+        account.ContactIntegrationSource = contactIntegrationSource;
+        account.IsContactAccessGranted = isRemoteContacts;
+        account.IsContactReauthorizationRequired = isRemoteContacts && isOAuthProvider;
+
+        var taskIntegrationSource = ToIntegrationSource(capabilities.TaskIntegrationSource);
+        var isRemoteTasks = capabilities.IsTasksEnabled && IsRemoteSource(isOAuthProvider, taskIntegrationSource);
+        account.IsTaskAccessEnabled = capabilities.IsTasksEnabled;
+        account.TaskIntegrationSource = taskIntegrationSource;
+        account.IsTaskAccessGranted = isRemoteTasks;
+        account.IsTaskReauthorizationRequired = isRemoteTasks && isOAuthProvider;
+    }
+
+    /// <summary>
+    /// A local-backed mode is never granted and never waits for consent. OAuth mailboxes only
+    /// sign in to their own provider; custom mailboxes use DAV.
+    /// </summary>
+    private static bool IsRemoteSource(bool isOAuthProvider, AccountIntegrationSource source)
+        => isOAuthProvider
+            ? source == AccountIntegrationSource.Provider
+            : source != AccountIntegrationSource.Local;
+
+    private static AccountIntegrationSource ToIntegrationSource(int value)
+        => Enum.IsDefined((AccountIntegrationSource)value)
+            ? (AccountIntegrationSource)value
+            : AccountIntegrationSource.Local;
 
     private static CustomServerInformation? CreateImportedServerInformation(UserMailboxSyncItemDto mailbox, Guid accountId)
     {

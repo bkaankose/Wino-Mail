@@ -14,6 +14,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models;
@@ -93,6 +94,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     private readonly IWinoRequestDelegator _winoRequestDelegator;
     private readonly IMailDialogService _dialogService;
     private readonly IMimeFileService _mimeFileService;
+    private readonly IAccountReauthenticationService _accountReauthenticationService;
 
     private readonly INativeAppService _nativeAppService;
     private readonly IMailService _mailService;
@@ -123,7 +125,8 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                              IFolderService folderService,
                              IUnreadBadgeService unreadBadgeService,
                              IStatePersistanceService statePersistanceService,
-                             IConfigurationService configurationService)
+                             IConfigurationService configurationService,
+                             IAccountReauthenticationService accountReauthenticationService)
     {
         StatePersistenceService = statePersistanceService;
 
@@ -144,6 +147,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
         _activationStateService = activationStateService;
         _notificationBuilder = notificationBuilder;
         _winoRequestDelegator = winoRequestDelegator;
+        _accountReauthenticationService = accountReauthenticationService;
     }
 
     protected override void OnDispatcherAssigned()
@@ -925,28 +929,25 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
     {
         try
         {
+            // Expired Gmail/Outlook credentials and enabled contacts or To Do waiting for provider
+            // consent share one sign-in. Sign-in alone leaves a restored account without its profile
+            // picture, folders, aliases and non-mail data, so the post-authentication work of
+            // account setup is replayed too.
+            if (account.CanBeFixedBySigningIn())
+            {
+                await _accountReauthenticationService.ReauthenticateAsync(account.Id);
+
+                _dialogService.InfoBarMessage(
+                    Translator.Info_AccountIssueFixSuccessTitle,
+                    Translator.Info_AccountIssueFixSuccessMessage,
+                    InfoBarMessageType.Success);
+
+                await _accountReauthenticationService.SynchronizeAfterReauthenticationAsync(account.Id);
+                return;
+            }
+
             if (account.AttentionReason is AccountAttentionReason.InvalidCredentials or AccountAttentionReason.CertificateValidationFailed)
             {
-                if (account.AttentionReason == AccountAttentionReason.InvalidCredentials &&
-                    (account.ProviderType is MailProviderType.Gmail or MailProviderType.Outlook))
-                {
-                    await SynchronizationManager.Instance.HandleAuthorizationAsync(
-                        account.ProviderType,
-                        account,
-                        account.ProviderType == MailProviderType.Gmail,
-                        forceInteractive: true);
-
-                    await _accountService.ClearAccountAttentionAsync(account.Id);
-
-                    _dialogService.InfoBarMessage(
-                        Translator.Info_AccountIssueFixSuccessTitle,
-                        Translator.Info_AccountIssueFixSuccessMessage,
-                        InfoBarMessageType.Success);
-
-                    TriggerFullSynchronization(account);
-                    return;
-                }
-
                 NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.ManageAccountsPage);
                 Messenger.Send(new BreadcrumbNavigationRequested(
                     Translator.ImapCalDavSettingsPage_TitleEdit,
@@ -1327,6 +1328,28 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
             if (draftFolder == null)
             {
+                // An account restored from a backup, or one whose sign-in expired, has no
+                // folders yet. Configuring special folders cannot help there; signing in can.
+                if (Wino.Core.Domain.Models.Accounts.AppModeReadiness.NeedsSignIn(account, WinoApplicationMode.Mail))
+                {
+                    var accountName = string.IsNullOrWhiteSpace(account.Name) ? account.Address : account.Name;
+                    _dialogService.InfoBarMessage(string.Format(Translator.MailAccountIdle_SignInTitle, accountName),
+                                                 Translator.AppModeReadiness_Mail_SignInMessage,
+                                                 InfoBarMessageType.Warning,
+                                                 Translator.MailAccountIdle_SignIn,
+                                                 () => _ = HandleAccountAttentionAsync(account));
+                    return;
+                }
+
+                var accountFolders = await _folderService.GetFoldersAsync(account.Id);
+                if (accountFolders == null || accountFolders.Count == 0)
+                {
+                    _dialogService.InfoBarMessage(Translator.AppModeReadiness_Mail_WaitingTitle,
+                                                 Translator.AppModeReadiness_Mail_WaitingMessage,
+                                                 InfoBarMessageType.Information);
+                    return;
+                }
+
                 _dialogService.InfoBarMessage(Translator.Info_DraftFolderMissingTitle,
                                              Translator.Info_DraftFolderMissingMessage,
                                              InfoBarMessageType.Error,

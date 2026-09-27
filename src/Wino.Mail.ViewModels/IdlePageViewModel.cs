@@ -2,11 +2,13 @@ using System;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels;
+using Wino.Messaging.UI;
 
 namespace Wino.Mail.ViewModels;
 
@@ -14,7 +16,7 @@ namespace Wino.Mail.ViewModels;
 /// The blank page. In the mail page area it also stands in for mail content that cannot be
 /// shown yet, and then it owns the mail account list so the pane is never left empty.
 /// </summary>
-public partial class IdlePageViewModel : CoreBaseViewModel, IShellMenuOwner
+public partial class IdlePageViewModel : CoreBaseViewModel, IShellMenuOwner, IRecipient<AccountUpdatedMessage>
 {
     public const string MailEmptyStateParameter = "mail-empty-state";
 
@@ -71,13 +73,7 @@ public partial class IdlePageViewModel : CoreBaseViewModel, IShellMenuOwner
         {
             _idleAccountId = state.AccountId;
             IsAccountStateVisible = true;
-            IsSignInVisible = state.NeedsSignIn;
-            AccountStateTitle = state.NeedsSignIn
-                ? string.Format(Translator.MailAccountIdle_SignInTitle, state.AccountName)
-                : Translator.MailAccountIdle_LoadingTitle;
-            AccountStateMessage = state.NeedsSignIn
-                ? Translator.MailAccountIdle_SignInMessage
-                : Translator.MailAccountIdle_LoadingMessage;
+            ApplyAccountState(state.AccountName, state.NeedsSignIn);
         }
         else
         {
@@ -85,6 +81,48 @@ public partial class IdlePageViewModel : CoreBaseViewModel, IShellMenuOwner
             IsAccountStateVisible = false;
             IsSignInVisible = false;
         }
+    }
+
+    protected override void RegisterRecipients()
+    {
+        base.RegisterRecipients();
+        Messenger.Register<AccountUpdatedMessage>(this);
+    }
+
+    protected override void UnregisterRecipients()
+    {
+        Messenger.Unregister<AccountUpdatedMessage>(this);
+        base.UnregisterRecipients();
+    }
+
+    /// <summary>
+    /// A successful sign-in clears the account's attention flag while this page is still up.
+    /// Switch from "Sign in" to "Loading" right away; the shell replaces the page with the
+    /// Inbox once the folder sync lands.
+    /// </summary>
+    public void Receive(AccountUpdatedMessage message)
+    {
+        var account = message?.Account;
+        if (account == null || _idleAccountId != account.Id)
+            return;
+
+        var accountName = string.IsNullOrWhiteSpace(account.Name) ? account.Address : account.Name;
+        _ = ExecuteUIThread(() =>
+        {
+            if (_idleAccountId == account.Id && IsAccountStateVisible)
+                ApplyAccountState(accountName, account.AttentionReason != AccountAttentionReason.None);
+        });
+    }
+
+    private void ApplyAccountState(string accountName, bool needsSignIn)
+    {
+        IsSignInVisible = needsSignIn;
+        AccountStateTitle = needsSignIn
+            ? string.Format(Translator.MailAccountIdle_SignInTitle, accountName)
+            : Translator.MailAccountIdle_LoadingTitle;
+        AccountStateMessage = needsSignIn
+            ? Translator.MailAccountIdle_SignInMessage
+            : Translator.MailAccountIdle_LoadingMessage;
     }
 
     [RelayCommand]

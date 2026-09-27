@@ -36,6 +36,12 @@ public sealed record WinoIntelligenceSnapshot(
     MailIntelligenceMetadata? Metadata,
     string? CachedSummary)
 {
+    /// <summary>
+    /// Rewrite shares the summarize and translate gate: AI Pack, current consent and quota that
+    /// can still be consumed. The API enforces the same three checks for its rewrite endpoint.
+    /// </summary>
+    public bool IsRewriteAvailable => IsSummaryAvailable;
+
     public static WinoIntelligenceSnapshot Hidden { get; } = new(
         false, false, false, false,
         MailMessageIntelligenceState.Unsupported, null, null, null, null);

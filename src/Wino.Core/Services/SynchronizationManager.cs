@@ -882,7 +882,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             if (result.Exception is AuthenticationAttentionException authenticationException)
             {
                 var account = authenticationException.Account ?? await _accountService.GetAccountAsync(options.AccountId).ConfigureAwait(false);
-                if (account is not null)
+                // A local-backed mode has no provider consent to renew, so it never asks for a sign-in.
+                if (account is not null && account.ContactIntegrationSource != AccountIntegrationSource.Local)
                 {
                     account.IsContactReauthorizationRequired = true;
                     await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
@@ -893,7 +894,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         catch (AuthenticationAttentionException ex)
         {
             var account = ex.Account ?? await _accountService.GetAccountAsync(options.AccountId).ConfigureAwait(false);
-            if (account is not null)
+            // A local-backed mode has no provider consent to renew, so it never asks for a sign-in.
+            if (account is not null && account.ContactIntegrationSource != AccountIntegrationSource.Local)
             {
                 account.IsContactReauthorizationRequired = true;
                 await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
@@ -947,7 +949,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             if (result.Exception is AuthenticationAttentionException authenticationException)
             {
                 var account = authenticationException.Account ?? await _accountService.GetAccountAsync(options.AccountId).ConfigureAwait(false);
-                if (account is not null)
+                // A local-backed mode has no provider consent to renew, so it never asks for a sign-in.
+                if (account is not null && account.TaskIntegrationSource != AccountIntegrationSource.Local)
                 {
                     account.IsTaskReauthorizationRequired = true;
                     await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);
@@ -970,7 +973,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         catch (AuthenticationAttentionException ex)
         {
             var account = ex.Account ?? await _accountService.GetAccountAsync(options.AccountId).ConfigureAwait(false);
-            if (account is not null)
+            // A local-backed mode has no provider consent to renew, so it never asks for a sign-in.
+            if (account is not null && account.TaskIntegrationSource != AccountIntegrationSource.Local)
             {
                 account.IsTaskReauthorizationRequired = true;
                 await _accountService.UpdateAccountAsync(account).ConfigureAwait(false);

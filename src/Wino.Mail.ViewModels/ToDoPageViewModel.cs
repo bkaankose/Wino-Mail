@@ -20,6 +20,7 @@ using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Misc;
 using Wino.Core.Requests;
 using Wino.Core.Requests.Tasks;
+using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
 using Wino.Messaging.UI;
 
@@ -251,7 +252,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     public bool IsEmpty => !IsLoading && TaskGroups.Sum(group => group.Count) == 0;
     public bool HasSuggestions => Suggestions.Count > 0;
     public bool IsDetailVisible => SelectedTasks.Count > 0;
-    public bool IsTaskListSurfaceVisible => !IsCompactLayout || SelectedTasks.Count == 0;
+    public bool IsTaskListSurfaceVisible => Readiness.IsReady && (!IsCompactLayout || SelectedTasks.Count == 0);
     /// <summary>The drawer collapses to zero width when nothing is selected, in either layout.</summary>
     public bool IsDetailSurfaceVisible => SelectedTasks.Count > 0;
     public bool IsSingleTaskSelection => SelectedTasks.Count == 1;
@@ -259,8 +260,18 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     public int SelectedTaskCount => SelectedTasks.Count;
     public string SelectedTaskCountText => string.Format(Translator.ToDoPage_SelectedTaskCount, SelectedTaskCount);
     public bool CanEditSelectedTasks => SelectedTasks.Count > 1 && SelectedTasks.All(item => !item.IsReadOnly);
-    public bool CanCreateTask => SelectedList is { IsReadOnly: false } ||
-                                 (SelectedList is null && SelectedView != TaskViewKind.Completed && GetWritableDestinationList() is not null);
+    public bool CanCreateTask => Readiness.IsReady &&
+                                 (SelectedList is { IsReadOnly: false } ||
+                                  (SelectedList is null && SelectedView != TaskViewKind.Completed && GetWritableDestinationList() is not null));
+
+    /// <summary>A new list needs an account that can hold it and a mode that is ready.</summary>
+    public bool CanCreateList => Readiness.IsReady && Accounts.Count > 0;
+
+    /// <summary>
+    /// Blocked state while To Do cannot be used: no account, To Do turned off everywhere, a
+    /// sign-in pending, or the first sync still running.
+    /// </summary>
+    public ModeReadinessViewModel Readiness { get; }
     public bool IsQuickAddVisible => SelectedList is not null || SelectedView != TaskViewKind.Completed;
     public bool IsNamedListSelected => SelectedList is not null;
     public bool IsSmartViewSelected => SelectedList is null;
@@ -458,7 +469,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         ICalendarService calendarService,
         IMailDialogService dialogService,
         IPreferencesService preferencesService = null,
-        INativeAppService nativeAppService = null)
+        INativeAppService nativeAppService = null,
+        IAppModeReadinessService appModeReadinessService = null,
+        IMailShellClient mailShell = null)
     {
         _taskService = taskService;
         _taskMutationService = taskService as ITaskService;
@@ -470,6 +483,33 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _preferencesService = preferencesService;
         _nativeAppService = nativeAppService;
         TaskGroups = new ReadOnlyObservableCollection<TaskGroup>(_taskGroups);
+        Readiness = new ModeReadinessViewModel(
+            WinoApplicationMode.Tasks,
+            appModeReadinessService,
+            navigationService,
+            mailShell,
+            ExecuteUIThread);
+        Readiness.ReadinessChanged += ReadinessChanged;
+        Accounts.CollectionChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(CanCreateList));
+            CreateListCommand.NotifyCanExecuteChanged();
+        };
+    }
+
+    private void ReadinessChanged(object sender, EventArgs e)
+    {
+        _newListMenuItem.IsEnabled = Readiness.IsReady;
+        OnPropertyChanged(nameof(CanCreateTask));
+        OnPropertyChanged(nameof(CanCreateList));
+        OnPropertyChanged(nameof(IsTaskListSurfaceVisible));
+        AddTaskCommand.NotifyCanExecuteChanged();
+        CreateListCommand.NotifyCanExecuteChanged();
+
+        // Lists that arrived with the first sync, or the local list a newly enabled account
+        // gets, only show after a full reload.
+        if (Readiness.IsReady)
+            _ = ReloadAsync();
     }
 
     protected override void OnDispatcherAssigned()
@@ -869,11 +909,13 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
         _isPreparedForShellShutdown = false;
         _applyStartViewOnReload = parameters is null && _preferencesService is not null;
         _ = ReloadAsync();
+        _ = Readiness.ActivateAsync();
     }
 
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
+        Readiness.Deactivate();
 
         // The selection is kept. The list view keeps its own selected containers across a mode
         // switch, so clearing only this side left the row highlighted with an empty drawer.
@@ -1258,6 +1300,10 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     [RelayCommand(CanExecute = nameof(CanCreateTask))]
     private async Task AddTaskAsync()
     {
+        // Enter in the composer executes the command directly, without its CanExecute.
+        if (!CanCreateTask)
+            return;
+
         var destination = SelectedList ?? (_preferencesService is null
             ? GetWritableDestinationList()
             : await ResolveNewTaskDestinationAsync().ConfigureAwait(false));
@@ -1718,9 +1764,13 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
             OriginalStep: step.Step)).ConfigureAwait(false);
     }
 
-    [RelayCommand]
+    [RelayCommand(CanExecute = nameof(CanCreateList))]
     private async Task CreateListAsync()
     {
+        // The pane entry and the command both land here, so the guard covers every route.
+        if (!await Readiness.EnsureReadyAsync())
+            return;
+
         var account = Accounts.FirstOrDefault(account => account.Id == _selectedAccountId)
             ?? Accounts.FirstOrDefault(account => account.IsTaskAccessEnabled);
         if (account is null)
@@ -1760,6 +1810,9 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
 
     private async Task CreateGroupAsync()
     {
+        if (!await Readiness.EnsureReadyAsync())
+            return;
+
         var account = Accounts.FirstOrDefault(candidate => candidate.Id == _selectedAccountId)
             ?? (SelectedList is null
                 ? Accounts.FirstOrDefault(candidate => candidate.IsTaskAccessEnabled)

@@ -433,103 +433,18 @@
                                 AutomationProperties.AccessibilityView="Raw"
                                 IsActive="{x:Bind ViewModel.IsJobActive, Mode=OneWay}" />
 
-                            <!--
-                                Two sequential stages. Labels and priority always land first; summaries
-                                only start arriving after them, so the second row waits on the first.
-                            -->
+                            <!--  Indeterminate by design: the card says how many messages the job covers, never how many are done.  -->
                             <StackPanel
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
-                                Spacing="8">
-                                <StackPanel Spacing="2">
-                                    <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.SemanticIndex_ProgressTitle, Mode=OneTime}" />
-                                    <TextBlock
-                                        AutomationProperties.AutomationId="WinoIntelligenceProgressSummary"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Style="{ThemeResource CaptionTextBlockStyle}"
-                                        Text="{x:Bind ViewModel.ProgressSummary, Mode=OneWay}" />
-                                </StackPanel>
-
-                                <Grid ColumnSpacing="8" RowSpacing="4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="16" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto" />
-                                        <RowDefinition Height="Auto" />
-                                    </Grid.RowDefinitions>
-
-                                    <!--  Classification: labels and priority.  -->
-                                    <Grid
-                                        Width="16"
-                                        Height="16"
-                                        VerticalAlignment="Center">
-                                        <coreControls:WinoFontIcon
-                                            FontSize="12"
-                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                            Icon="Circle"
-                                            Visibility="{x:Bind ViewModel.IsClassificationStageWaiting, Mode=OneWay}" />
-                                        <ProgressRing
-                                            Width="16"
-                                            Height="16"
-                                            IsActive="{x:Bind ViewModel.IsClassificationStageInProgress, Mode=OneWay}"
-                                            Visibility="{x:Bind ViewModel.IsClassificationStageInProgress, Mode=OneWay}" />
-                                        <coreControls:WinoFontIcon
-                                            FontSize="14"
-                                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                            Icon="Checkmark"
-                                            Visibility="{x:Bind ViewModel.IsClassificationStageDone, Mode=OneWay}" />
-                                    </Grid>
-                                    <TextBlock
-                                        Grid.Column="1"
-                                        VerticalAlignment="Center"
-                                        Text="{x:Bind domain:Translator.Intelligence_ClassificationTitle, Mode=OneTime}" />
-                                    <TextBlock
-                                        Grid.Column="2"
-                                        VerticalAlignment="Center"
-                                        AutomationProperties.AutomationId="WinoIntelligenceClassificationStageState"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Style="{ThemeResource CaptionTextBlockStyle}"
-                                        Text="{x:Bind ViewModel.ClassificationStageText, Mode=OneWay}" />
-
-                                    <!--  Enrichment: headlines and summaries.  -->
-                                    <Grid
-                                        Grid.Row="1"
-                                        Width="16"
-                                        Height="16"
-                                        VerticalAlignment="Center">
-                                        <coreControls:WinoFontIcon
-                                            FontSize="12"
-                                            Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                            Icon="Circle"
-                                            Visibility="{x:Bind ViewModel.IsEnrichmentStageWaiting, Mode=OneWay}" />
-                                        <ProgressRing
-                                            Width="16"
-                                            Height="16"
-                                            IsActive="{x:Bind ViewModel.IsEnrichmentStageInProgress, Mode=OneWay}"
-                                            Visibility="{x:Bind ViewModel.IsEnrichmentStageInProgress, Mode=OneWay}" />
-                                        <coreControls:WinoFontIcon
-                                            FontSize="14"
-                                            Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                            Icon="Checkmark"
-                                            Visibility="{x:Bind ViewModel.IsEnrichmentStageDone, Mode=OneWay}" />
-                                    </Grid>
-                                    <TextBlock
-                                        Grid.Row="1"
-                                        Grid.Column="1"
-                                        VerticalAlignment="Center"
-                                        Text="{x:Bind domain:Translator.Intelligence_SummarizationTitle, Mode=OneTime}" />
-                                    <TextBlock
-                                        Grid.Row="1"
-                                        Grid.Column="2"
-                                        VerticalAlignment="Center"
-                                        AutomationProperties.AutomationId="WinoIntelligenceEnrichmentStageState"
-                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                        Style="{ThemeResource CaptionTextBlockStyle}"
-                                        Text="{x:Bind ViewModel.EnrichmentStageText, Mode=OneWay}" />
-                                </Grid>
+                                Spacing="2">
+                                <TextBlock Style="{ThemeResource BodyStrongTextBlockStyle}" Text="{x:Bind domain:Translator.SemanticIndex_ProgressTitle, Mode=OneTime}" />
+                                <TextBlock
+                                    AutomationProperties.AutomationId="WinoIntelligenceProgressSummary"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    Style="{ThemeResource CaptionTextBlockStyle}"
+                                    Text="{x:Bind ViewModel.ProgressSummary, Mode=OneWay}"
+                                    TextWrapping="Wrap" />
                             </StackPanel>
 
                             <Button

@@ -38,6 +38,40 @@ public sealed class WinoPurchaseReconciliationServiceTests : IAsyncLifetime
     public async Task DisposeAsync() => await _database.DisposeAsync();
 
     [Fact]
+    public async Task Refresh_RedeemsStorePurchase_WhenFreshProfileLacksUnlimitedAccounts()
+    {
+        var redeem = new Mock<IWinoStorePurchaseRedeemService>();
+        redeem.Setup(x => x.RedeemUnlimitedAccountsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WinoStorePurchaseRedeemOutcome.Redeemed);
+        var unlocked = new WinoAccount { Id = _account.Id, Email = _account.Email, IsUnlimitedAccountsEnabled = true };
+        _profile.SetupSequence(x => x.RefreshProfileAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WinoAccountOperationResult.Success(_account))
+            .ReturnsAsync(WinoAccountOperationResult.Success(unlocked));
+        var service = new WinoPurchaseReconciliationService(_profile.Object, _snapshots.Object, _sessions, _pending.Object,
+            Mock.Of<IWinoLogger>(), _time, redeem.Object);
+
+        var result = await service.RefreshAsync();
+
+        result.Outcome.Should().Be(WinoPurchaseRefreshOutcome.Refreshed);
+        result.StoreRedeem.Should().Be(WinoStorePurchaseRedeemOutcome.Redeemed);
+        result.Account!.IsUnlimitedAccountsEnabled.Should().BeTrue();
+        redeem.Verify(x => x.RedeemUnlimitedAccountsAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Refresh_SkipsStoreRedeem_WhenProfileAlreadyHasUnlimitedAccounts()
+    {
+        var redeem = new Mock<IWinoStorePurchaseRedeemService>();
+        _profile.Setup(x => x.RefreshProfileAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(WinoAccountOperationResult.Success(new WinoAccount { Id = _account.Id, Email = _account.Email, IsUnlimitedAccountsEnabled = true }));
+        var service = new WinoPurchaseReconciliationService(_profile.Object, _snapshots.Object, _sessions, _pending.Object,
+            Mock.Of<IWinoLogger>(), _time, redeem.Object);
+
+        (await service.RefreshAsync()).StoreRedeem.Should().Be(WinoStorePurchaseRedeemOutcome.NotNeeded);
+        redeem.Verify(x => x.RedeemUnlimitedAccountsAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task Refresh_RequiresFreshProfileEvenWhenCachedBillingGrantsAccess()
     {
         _profile.Setup(x => x.RefreshProfileAsync(It.IsAny<CancellationToken>()))

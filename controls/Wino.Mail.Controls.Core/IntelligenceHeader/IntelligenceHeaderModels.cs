@@ -59,6 +59,18 @@ public enum WinoIntelligenceAction
     Translate,
     CancelTranslation,
     FindSimilarMail,
+
+    /// <summary>
+    /// Runs the rewrite for the header's <c>SelectedRewriteMode</c>, or toggles
+    /// between the rewritten and original message when a result for that mode is on screen.
+    /// </summary>
+    Rewrite,
+
+    /// <summary>Cancels the running rewrite request.</summary>
+    CancelRewrite,
+
+    /// <summary>Discards the current rewrite and requests a new one for the same mode.</summary>
+    RegenerateRewrite,
 }
 
 // Bound by property path from the language DataTemplates in Generic.xaml. Keep the generated
@@ -67,6 +79,13 @@ public enum WinoIntelligenceAction
 [GeneratedBindableCustomProperty]
 #endif
 public sealed partial record WinoIntelligenceLanguageOption(string Code, string Label);
+
+// Bound by property path from the rewrite-mode DataTemplate in Generic.xaml. Keep the generated
+// WinRT binding metadata so the labels remain available after trimming and Native AOT compilation.
+#if WINRT_EXPOSED
+[GeneratedBindableCustomProperty]
+#endif
+public sealed partial record WinoIntelligenceRewriteModeOption(string Mode, string Label, string Description);
 
 // Bound by property path from the reply DataTemplate in Generic.xaml, which a resource
 // dictionary cannot express with x:Bind. The attribute keeps those paths trimming and AOT safe.

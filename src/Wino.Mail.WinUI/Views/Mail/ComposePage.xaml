@@ -15,6 +15,7 @@
     xmlns:editor="using:Wino.Editor"
     xmlns:entities="using:Wino.Core.Domain.Entities.Shared"
     xmlns:helpers="using:Wino.Helpers"
+    xmlns:intelligenceProgress="using:Wino.Mail.Controls.IntelligenceProgressRing"
     xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
     xmlns:mailkit="using:MimeKit"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
@@ -317,6 +318,23 @@
                                 </StackPanel>
                             </AppBarElementContainer>
 
+                            <!--  Wino Intelligence rewrite. The tones are added from code so they follow the shared catalog.  -->
+                            <AppBarButton
+                                x:Name="ComposeRewriteButton"
+                                MinWidth="40"
+                                AutomationProperties.AutomationId="ComposeRewriteButton"
+                                AutomationProperties.Name="{x:Bind domain:Translator.Composer_AiRewrite, Mode=OneTime}"
+                                IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.RewriteSession.IsBusy), Mode=OneWay}"
+                                LabelPosition="Collapsed"
+                                ToolTipService.ToolTip="{x:Bind domain:Translator.Composer_AiRewrite, Mode=OneTime}"
+                                Visibility="{x:Bind ViewModel.RewriteSession.IsAvailable, Mode=OneWay}">
+                                <AppBarButton.Icon>
+                                    <coreControls:WinoFontIcon Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}" Icon="WinoIntelligence" />
+                                </AppBarButton.Icon>
+                                <AppBarButton.Flyout>
+                                    <MenuFlyout x:Name="ComposeRewriteModesFlyout" Placement="Bottom" />
+                                </AppBarButton.Flyout>
+                            </AppBarButton>
                             <AppBarButton
                                 MinWidth="40"
                                 AutomationProperties.AutomationId="XBindDomainTranslatorButtonsPopOutModeOneTime"
@@ -704,6 +722,94 @@
                         PreviewKeyDown="SubjectTextBoxPreviewKeyDown"
                         TabIndex="5"
                         Text="{x:Bind ViewModel.Subject, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <!--  Rewrite status. Shown while a rewrite runs and until the user keeps or undoes it.  -->
+                    <Border
+                        x:Name="ComposeRewritePanel"
+                        Grid.Row="5"
+                        Grid.ColumnSpan="2"
+                        Margin="0,6,0,0"
+                        Padding="10,6"
+                        AutomationProperties.AutomationId="ComposeRewritePanel"
+                        AutomationProperties.LiveSetting="Polite"
+                        Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Visibility="{x:Bind ViewModel.RewriteSession.IsPanelVisible, Mode=OneWay}">
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Grid
+                                Width="24"
+                                Height="24"
+                                VerticalAlignment="Center">
+                                <intelligenceProgress:WinoIntelligenceProgressRing
+                                    Width="24"
+                                    Height="24"
+                                    Animation="Rewrite"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    IsActive="{x:Bind ViewModel.RewriteSession.IsBusy, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsBusy, Mode=OneWay}" />
+                                <coreControls:WinoFontIcon
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    AutomationProperties.AccessibilityView="Raw"
+                                    FontSize="14"
+                                    Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}"
+                                    Icon="WinoIntelligence"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsResultVisible, Mode=OneWay}" />
+                            </Grid>
+
+                            <TextBlock
+                                x:Name="ComposeRewriteStatusText"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="ComposeRewriteStatusText"
+                                Style="{StaticResource CaptionTextBlockStyle}"
+                                Text="{x:Bind ViewModel.RewriteSession.StatusText, Mode=OneWay}"
+                                TextTrimming="CharacterEllipsis" />
+
+                            <StackPanel
+                                Grid.Column="2"
+                                Orientation="Horizontal"
+                                Spacing="4">
+                                <Button
+                                    AutomationProperties.AutomationId="ComposeRewriteCancelButton"
+                                    Command="{x:Bind ViewModel.RewriteSession.CancelCommand}"
+                                    Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsBusy, Mode=OneWay}" />
+                                <Button
+                                    AutomationProperties.AutomationId="ComposeRewriteToggleOriginalButton"
+                                    AutomationProperties.Name="{x:Bind ViewModel.RewriteSession.ToggleText, Mode=OneWay}"
+                                    Command="{x:Bind ViewModel.RewriteSession.ToggleOriginalCommand}"
+                                    Content="{x:Bind ViewModel.RewriteSession.ToggleText, Mode=OneWay}"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsResultVisible, Mode=OneWay}" />
+                                <Button
+                                    Width="32"
+                                    Height="32"
+                                    Padding="0"
+                                    AutomationProperties.AutomationId="ComposeRewriteRegenerateButton"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.WinoIntelligence_Regenerate, Mode=OneTime}"
+                                    Command="{x:Bind ViewModel.RewriteSession.RegenerateCommand}"
+                                    Style="{StaticResource TransparentActionButtonStyle}"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.WinoIntelligence_Regenerate, Mode=OneTime}"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsResultVisible, Mode=OneWay}">
+                                    <coreControls:WinoFontIcon FontSize="14" Icon="ArrowClockwise" />
+                                </Button>
+                                <Button
+                                    AutomationProperties.AutomationId="ComposeRewriteKeepButton"
+                                    Command="{x:Bind ViewModel.RewriteSession.KeepCommand}"
+                                    Content="{x:Bind domain:Translator.Composer_AiRewriteKeep, Mode=OneTime}"
+                                    Style="{StaticResource AccentButtonStyle}"
+                                    Visibility="{x:Bind ViewModel.RewriteSession.IsResultVisible, Mode=OneWay}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
 
                     <!--  Attachments  -->
                     <Grid

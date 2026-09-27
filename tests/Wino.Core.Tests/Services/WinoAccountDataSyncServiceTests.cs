@@ -596,6 +596,110 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
         legacyResult.AppliedAccountDataCount.Should().Be(0);
     }
 
+    [Fact]
+    public async Task ImportAsync_SnapshotWithoutCapabilities_RestoresContactsAndToDoTurnedOff()
+    {
+        SetupRemoteSnapshot(
+            [
+                new UserMailboxSyncItemDto
+                {
+                    Address = "legacy-caps@example.com",
+                    ProviderType = (int)MailProviderType.Gmail,
+                    AccountName = "Legacy",
+                    IsCalendarAccessGranted = true,
+                    IsMailAccessGranted = true
+                }
+            ]);
+
+        await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+
+        var importedAccount = (await _accountService.GetAccountsAsync()).Single();
+        importedAccount.IsCalendarAccessEnabled.Should().BeTrue();
+        importedAccount.IsCalendarAccessGranted.Should().BeTrue();
+        importedAccount.CalendarIntegrationSource.Should().Be(AccountIntegrationSource.Provider);
+        importedAccount.IsContactAccessEnabled.Should().BeFalse();
+        importedAccount.IsContactAccessGranted.Should().BeFalse();
+        importedAccount.IsTaskAccessEnabled.Should().BeFalse();
+        importedAccount.IsTaskAccessGranted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ImportAsync_SnapshotWithCapabilities_RestoresTheUsersModes()
+    {
+        var mailboxes = new List<UserMailboxSyncItemDto>
+        {
+            new()
+            {
+                Address = "caps@example.com",
+                ProviderType = (int)MailProviderType.Outlook,
+                AccountName = "Caps",
+                IsCalendarAccessGranted = false,
+                IsMailAccessGranted = true
+            }
+        };
+        var capabilities = $$"""
+        [ {
+          "AccountAddress": "CAPS@example.com",
+          "ProviderType": {{(int)MailProviderType.Outlook}},
+          "IsCalendarEnabled": false,
+          "CalendarIntegrationSource": {{(int)AccountIntegrationSource.Local}},
+          "IsContactsEnabled": true,
+          "ContactIntegrationSource": {{(int)AccountIntegrationSource.Provider}},
+          "IsTasksEnabled": true,
+          "TaskIntegrationSource": {{(int)AccountIntegrationSource.Local}}
+        } ]
+        """;
+        var json = "{\"Version\":1,\"Mailboxes\":" + JsonSerializer.Serialize(mailboxes) + ",\"AccountCapabilities\":" + capabilities + "}";
+        _profileService
+            .Setup(a => a.GetSyncSnapshotAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WinoSyncSnapshotDownload(SyncSnapshotCryptography.Encrypt(Encoding.UTF8.GetBytes(json), TestKey), 1));
+
+        await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+
+        var importedAccount = (await _accountService.GetAccountsAsync()).Single();
+        importedAccount.IsCalendarAccessEnabled.Should().BeFalse();
+        importedAccount.IsCalendarAccessGranted.Should().BeFalse();
+
+        // Provider contacts wait for Fix account; nothing syncs before the new sign-in.
+        importedAccount.IsContactAccessEnabled.Should().BeTrue();
+        importedAccount.ContactIntegrationSource.Should().Be(AccountIntegrationSource.Provider);
+        importedAccount.IsContactAccessGranted.Should().BeTrue();
+        importedAccount.IsContactReauthorizationRequired.Should().BeTrue();
+
+        importedAccount.IsTaskAccessEnabled.Should().BeTrue();
+        importedAccount.TaskIntegrationSource.Should().Be(AccountIntegrationSource.Local);
+        importedAccount.IsTaskAccessGranted.Should().BeFalse();
+        importedAccount.IsTaskReauthorizationRequired.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ExportAsync_WritesEachAccountsModes()
+    {
+        await _accountService.CreateAccountAsync(
+            new MailAccount
+            {
+                Id = Guid.NewGuid(),
+                Name = "Modes",
+                SenderName = "Modes",
+                Address = "modes@example.com",
+                ProviderType = MailProviderType.Gmail,
+                IsContactAccessEnabled = false,
+                IsTaskAccessEnabled = true,
+                IsTaskAccessGranted = true,
+                TaskIntegrationSource = AccountIntegrationSource.Provider
+            },
+            null!);
+
+        var fileExport = await _service.ExportToFileAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+
+        using var snapshot = JsonDocument.Parse(Unseal(fileExport.Content));
+        var entry = snapshot.RootElement.GetProperty("AccountCapabilities").EnumerateArray().Single();
+        entry.GetProperty("AccountAddress").GetString().Should().Be("modes@example.com");
+        entry.GetProperty("IsContactsEnabled").GetBoolean().Should().BeFalse();
+        entry.GetProperty("IsTasksEnabled").GetBoolean().Should().BeTrue();
+        entry.GetProperty("TaskIntegrationSource").GetInt32().Should().Be((int)AccountIntegrationSource.Provider);
+    }
+
     private static AccountService CreateAccountService(InMemoryDatabaseService databaseService, IPreferencesService preferencesService)
     {
         var signatureService = new Mock<ISignatureService>();

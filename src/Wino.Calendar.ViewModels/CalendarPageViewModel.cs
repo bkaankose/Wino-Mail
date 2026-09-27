@@ -148,7 +148,8 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     {
         get
         {
-            if (SelectedQuickEventAccountCalendar == null ||
+            if (!Readiness.IsReady ||
+                SelectedQuickEventAccountCalendar == null ||
                 SelectedQuickEventAccountCalendar.IsReadOnly ||
                 SelectedQuickEventDate == null ||
                 string.IsNullOrWhiteSpace(EventName) ||
@@ -234,6 +235,32 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     public IAccountCalendarStateService AccountCalendarStateService { get; }
 
     /// <summary>
+    /// Blocked state while Calendar cannot be used: no account, Calendar turned off everywhere,
+    /// a sign-in pending, or the first sync still running. Event creation waits for it.
+    /// </summary>
+    public Wino.Core.ViewModels.Data.ModeReadinessViewModel Readiness { get; }
+
+    /// <summary>Mirrors <see cref="Readiness"/> for the shell, which follows this view model's property changes.</summary>
+    public bool IsCalendarModeReady => Readiness.IsReady;
+
+    private void ReadinessChanged(object sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(IsCalendarModeReady));
+        OnPropertyChanged(nameof(CanSaveQuickEvent));
+        SaveQuickEventCommand.NotifyCanExecuteChanged();
+
+        if (!Readiness.IsReady)
+        {
+            // Drop a half-made quick event; there is nowhere to save it any more.
+            SelectedQuickEventDate = null;
+            return;
+        }
+
+        EnsureSelectedQuickEventAccountCalendar();
+        _ = ReloadCurrentVisibleRangeAsync();
+    }
+
+    /// <summary>
     /// The calendar pane belongs to the calendar mode view model. The page hands it to the
     /// shell when the inner frame navigates here.
     /// </summary>
@@ -251,8 +278,17 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         IMailDialogService dialogService,
         IDateContextProvider dateContextProvider,
         ICalendarRangeTextFormatter calendarRangeTextFormatter,
-        ICalendarShellClient shellMenuProvider)
+        ICalendarShellClient shellMenuProvider,
+        IAppModeReadinessService appModeReadinessService = null,
+        IMailShellClient mailShell = null)
     {
+        Readiness = new Wino.Core.ViewModels.Data.ModeReadinessViewModel(
+            WinoApplicationMode.Calendar,
+            appModeReadinessService,
+            navigationService,
+            mailShell,
+            ExecuteUIThread);
+        Readiness.ReadinessChanged += ReadinessChanged;
         ShellMenuProvider = shellMenuProvider;
         StatePersistanceService = statePersistanceService;
         AccountCalendarStateService = accountCalendarStateService;
@@ -367,11 +403,13 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         RefreshSettings();
         IsCalendarEnabled = true;
         EnsureSelectedQuickEventAccountCalendar();
+        _ = Readiness.ActivateAsync();
     }
 
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
+        Readiness.Deactivate();
 
         if (StatePersistanceService.ApplicationMode == WinoApplicationMode.Calendar)
         {
@@ -575,7 +613,7 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
     [RelayCommand]
     private void GoToEventComposePage()
     {
-        if (SelectedQuickEventDate == null)
+        if (SelectedQuickEventDate == null || !Readiness.IsReady)
             return;
 
         var startDate = SelectedQuickEventDate.Value;

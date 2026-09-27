@@ -218,33 +218,6 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     [ObservableProperty]
     public partial int ActiveJobCount { get; set; }
 
-    // Classification (labels and priority) always arrives before Enrichment (headlines and
-    // summaries), so the progress card shows two sequential stages rather than two parallel bars.
-
-    [ObservableProperty]
-    public partial bool IsClassificationStageWaiting { get; set; } = true;
-
-    [ObservableProperty]
-    public partial bool IsClassificationStageInProgress { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsClassificationStageDone { get; set; }
-
-    [ObservableProperty]
-    public partial string ClassificationStageText { get; set; } = Translator.SemanticIndex_StageWaiting;
-
-    [ObservableProperty]
-    public partial bool IsEnrichmentStageWaiting { get; set; } = true;
-
-    [ObservableProperty]
-    public partial bool IsEnrichmentStageInProgress { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsEnrichmentStageDone { get; set; }
-
-    [ObservableProperty]
-    public partial string EnrichmentStageText { get; set; } = Translator.SemanticIndex_StageWaiting;
-
     /// <summary>Jobs still in flight, so the screen can show, retry and cancel each one.</summary>
     public ObservableCollection<MailIntelligenceJobState> ActiveJobs { get; } = [];
 
@@ -1064,11 +1037,7 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
                     FormatDuration(TimeSpan.FromSeconds(TotalMissingMessageCount)));
             ProgressSummary = TotalMissingMessageCount == 0
                 ? Translator.SemanticIndex_PlanEmpty
-                : string.Format(
-                    Translator.SemanticIndex_OverallProgress,
-                    0,
-                    TotalMissingMessageCount,
-                    TotalMissingMessageCount);
+                : FormatMessagesBeingIndexed(TotalMissingMessageCount);
         });
     }
 
@@ -1224,16 +1193,12 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
         JobStatus = snapshot.Status;
         IsJobActive = snapshot.IsActive;
         ActiveJobCount = snapshot.ActiveJobCount;
-        ApplyStages(snapshot);
 
-        var remainingMessageCount = Math.Max(snapshot.SelectedMessageCount - snapshot.ProcessedMessageCount, 0);
-        ProgressSummary = snapshot.SelectedMessageCount == 0
-            ? Translator.SemanticIndex_PlanEmpty
-            : string.Format(
-                Translator.SemanticIndex_OverallProgress,
-                snapshot.ProcessedMessageCount,
-                snapshot.SelectedMessageCount,
-                remainingMessageCount);
+        // Progress is presented as indeterminate: the card states how many messages the job
+        // covers, never how many of them are done.
+        ProgressSummary = snapshot.IsActive || snapshot.SelectedMessageCount > 0
+            ? FormatMessagesBeingIndexed(snapshot.SelectedMessageCount)
+            : Translator.SemanticIndex_PlanEmpty;
 
         if (snapshot.Status == MailIntelligenceJobStatus.PausedForQuota)
         {
@@ -1249,34 +1214,13 @@ public partial class WinoIntelligenceManagementPageViewModel : MailBaseViewModel
     }
 
     /// <summary>
-    /// Classification is published and imported before Enrichment, so the stages are sequential:
-    /// Enrichment only counts as running once Classification has landed on this device.
+    /// "{n} messages are being indexed", with the singular form for one message and a
+    /// count-free line when the job has not reported its size yet.
     /// </summary>
-    private void ApplyStages(MailIntelligenceJobSnapshot snapshot)
-    {
-        var isEnrichmentDone = IsStageDone(snapshot.Enrichment);
-        var isClassificationDone = isEnrichmentDone || IsStageDone(snapshot.Classification);
-        var isClassificationRunning = snapshot.IsActive && !isClassificationDone;
-        var isEnrichmentRunning = snapshot.IsActive && isClassificationDone && !isEnrichmentDone;
-
-        IsClassificationStageDone = isClassificationDone;
-        IsClassificationStageInProgress = isClassificationRunning;
-        IsClassificationStageWaiting = !isClassificationDone && !isClassificationRunning;
-        ClassificationStageText = StageText(isClassificationDone, isClassificationRunning);
-
-        IsEnrichmentStageDone = isEnrichmentDone;
-        IsEnrichmentStageInProgress = isEnrichmentRunning;
-        IsEnrichmentStageWaiting = !isEnrichmentDone && !isEnrichmentRunning;
-        EnrichmentStageText = StageText(isEnrichmentDone, isEnrichmentRunning);
-    }
-
-    private static bool IsStageDone(MailIntelligenceStageProgress stage)
-        => stage.IsImported || stage.IsAcknowledged;
-
-    private static string StageText(bool isDone, bool isRunning)
-        => isDone ? Translator.SemanticIndex_StageDone
-            : isRunning ? Translator.SemanticIndex_StageInProgress
-            : Translator.SemanticIndex_StageWaiting;
+    private static string FormatMessagesBeingIndexed(int messageCount)
+        => messageCount <= 0 ? Translator.SemanticIndex_MessagesBeingIndexed_Unknown
+            : messageCount == 1 ? string.Format(Translator.SemanticIndex_MessagesBeingIndexed_Singular, messageCount)
+            : string.Format(Translator.SemanticIndex_MessagesBeingIndexed_Plural, messageCount);
 
     /// <remarks>
     /// Deliberately local-only where coverage is concerned. Indexing writes each artifact to the

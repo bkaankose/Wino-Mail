@@ -26,6 +26,12 @@ internal sealed class WinoSyncSnapshotDocument
     public List<SnapshotCategory>? Categories { get; set; }
     public List<SnapshotAlias>? Aliases { get; set; }
     public List<SnapshotMergedInbox>? MergedInboxes { get; set; }
+
+    /// <summary>
+    /// Which modes each mailbox had turned on. The server mailbox contract only carries calendar
+    /// consent, so the rest travels here. A missing section restores with contacts and To Do off.
+    /// </summary>
+    public List<SnapshotAccountCapabilities>? AccountCapabilities { get; set; }
     public SyncSnapshotAppearance? Appearance { get; set; }
 }
 
@@ -98,6 +104,18 @@ internal sealed class SnapshotMergedInbox
 {
     public string Name { get; set; } = string.Empty;
     public List<SnapshotMailboxReference> Members { get; set; } = [];
+}
+
+internal sealed class SnapshotAccountCapabilities
+{
+    public string AccountAddress { get; set; } = string.Empty;
+    public int ProviderType { get; set; }
+    public bool IsCalendarEnabled { get; set; }
+    public int CalendarIntegrationSource { get; set; }
+    public bool IsContactsEnabled { get; set; }
+    public int ContactIntegrationSource { get; set; }
+    public bool IsTasksEnabled { get; set; }
+    public int TaskIntegrationSource { get; set; }
 }
 
 internal sealed class SnapshotMailboxReference

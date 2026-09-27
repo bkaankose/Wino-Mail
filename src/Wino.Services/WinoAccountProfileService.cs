@@ -8,18 +8,17 @@ using System.Threading.Tasks;
 using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Intelligence;
+using Wino.Mail.AI.Abstractions;
 using Wino.Mail.Api.Contracts.Ai;
 using Wino.Mail.Api.Contracts.Auth;
 using Wino.Mail.Api.Contracts.Common;
 using Wino.Mail.Api.Contracts.Users;
 using Wino.Messaging.UI;
-using Wino.Mail.AI.Abstractions;
-using Wino.Mail.Contracts.Intelligence;
 
 namespace Wino.Services;
 
@@ -32,6 +31,7 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     private readonly IMailIntelligenceStore? _localIntelligenceStore;
     private readonly IWinoAccountSessionService _sessions;
     private readonly IWinoPendingCheckoutStore? _pendingCheckouts;
+    private readonly IWinoStorePurchaseRedeemService? _storePurchaseRedeem;
     private readonly ILogger _logger = Log.ForContext<WinoAccountProfileService>();
 
     public WinoAccountProfileService(IDatabaseService databaseService,
@@ -41,8 +41,10 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
                                      IMailIntelligenceStore? localIntelligenceStore = null,
                                      IWinoAccountSessionService? sessionService = null,
                                      IWinoPendingCheckoutStore? pendingCheckouts = null,
-                                     ISyncSnapshotKeyService? snapshotKeys = null) : base(databaseService)
+                                     ISyncSnapshotKeyService? snapshotKeys = null,
+                                     IWinoStorePurchaseRedeemService? storePurchaseRedeem = null) : base(databaseService)
     {
+        _storePurchaseRedeem = storePurchaseRedeem;
         _snapshotKeys = snapshotKeys;
         _apiClient = apiClient;
         _translationService = translationService;
@@ -88,9 +90,30 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
             PublishProfileUpdated(result.Account);
             ReportUIChange(new WinoAccountSignedInMessage(result.Account));
+            await RedeemStorePurchaseAfterSignInAsync(result.Account).ConfigureAwait(false);
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Moves a Microsoft Store Unlimited Accounts purchase onto the account that just signed in.
+    /// A successful redeem refreshes the profile, which publishes the unlocked add-on.
+    /// </summary>
+    private async Task RedeemStorePurchaseAfterSignInAsync(WinoAccount account)
+    {
+        if (_storePurchaseRedeem is null || account.IsUnlimitedAccountsEnabled)
+            return;
+
+        try
+        {
+            if (await _storePurchaseRedeem.RedeemUnlimitedAccountsAsync().ConfigureAwait(false) == WinoStorePurchaseRedeemOutcome.Redeemed)
+                await RefreshProfileAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Microsoft Store purchase could not be redeemed after sign-in.");
+        }
     }
 
     public Task<ApiEnvelope<EmailConfirmationResendResultDto>> ResendEmailConfirmationAsync(string endpoint, string ticket, CancellationToken cancellationToken = default)
@@ -240,12 +263,13 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     public async Task<ApiEnvelope<AiTranslationResultDto>> TranslateAsync(IReadOnlyList<MailContentSegment> segments, string? sourceLanguage, string targetLanguage, CancellationToken cancellationToken = default)
         => await ExecuteAiOperationAsync(account => _apiClient.TranslateAsync(segments, sourceLanguage, targetLanguage, cancellationToken), "translate", cancellationToken).ConfigureAwait(false);
 
-    public async Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, CancellationToken cancellationToken = default)
+    public async Task<ApiEnvelope<AiTextResultDto>> RewriteAsync(string html, string mode, string context, CancellationToken cancellationToken = default)
         => await ExecuteAiOperationAsync(
             account => _apiClient.RewriteAsync(
                 html,
                 mode,
                 _translationService?.CurrentLanguageModel?.Code ?? CultureInfo.CurrentUICulture.Name ?? "en-US",
+                context,
                 cancellationToken),
             "rewrite",
             cancellationToken).ConfigureAwait(false);

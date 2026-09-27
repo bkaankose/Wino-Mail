@@ -21,6 +21,12 @@ public interface IMicrosoftStoreService
     Task<StorePurchaseResult> PurchaseAsync(WinoAddOnProductType productType);
 
     /// <summary>
+    /// Gets a Store ID key for the Microsoft account signed in to the Store on this device,
+    /// so the Wino Account API can check that account's purchases. Null when the Store returns none.
+    /// </summary>
+    Task<string?> GetCustomerCollectionsIdAsync(string serviceTicket, string publisherUserId);
+
+    /// <summary>
     /// Asks the user to rate Wino once the asking threshold has passed, then opens the Store review flow.
     /// </summary>
     Task PromptRatingDialogAsync();
