@@ -580,9 +580,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             return;
 
         var account = Account;
+
+        // Question and title is reverted on purpose. We messed up the language translations for this one.
         var confirmation = await _dialogService.ShowConfirmationDialogAsync(
-            string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, account.Name),
             Translator.DialogMessage_DeleteAccountConfirmationTitle,
+            string.Format(Translator.DialogMessage_DeleteAccountConfirmationMessage, account.Name),
             Translator.Buttons_Delete);
 
         if (!confirmation)
