@@ -31,7 +31,6 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
     private readonly IMailIntelligenceStore? _localIntelligenceStore;
     private readonly IWinoAccountSessionService _sessions;
     private readonly IWinoPendingCheckoutStore? _pendingCheckouts;
-    private readonly IWinoStorePurchaseRedeemService? _storePurchaseRedeem;
     private readonly ILogger _logger = Log.ForContext<WinoAccountProfileService>();
 
     public WinoAccountProfileService(IDatabaseService databaseService,
@@ -41,10 +40,8 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
                                      IMailIntelligenceStore? localIntelligenceStore = null,
                                      IWinoAccountSessionService? sessionService = null,
                                      IWinoPendingCheckoutStore? pendingCheckouts = null,
-                                     ISyncSnapshotKeyService? snapshotKeys = null,
-                                     IWinoStorePurchaseRedeemService? storePurchaseRedeem = null) : base(databaseService)
+                                     ISyncSnapshotKeyService? snapshotKeys = null) : base(databaseService)
     {
-        _storePurchaseRedeem = storePurchaseRedeem;
         _snapshotKeys = snapshotKeys;
         _apiClient = apiClient;
         _translationService = translationService;
@@ -90,30 +87,9 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
             PublishProfileUpdated(result.Account);
             ReportUIChange(new WinoAccountSignedInMessage(result.Account));
-            await RedeemStorePurchaseAfterSignInAsync(result.Account).ConfigureAwait(false);
         }
 
         return result;
-    }
-
-    /// <summary>
-    /// Moves a Microsoft Store Unlimited Accounts purchase onto the account that just signed in.
-    /// A successful redeem refreshes the profile, which publishes the unlocked add-on.
-    /// </summary>
-    private async Task RedeemStorePurchaseAfterSignInAsync(WinoAccount account)
-    {
-        if (_storePurchaseRedeem is null || account.IsUnlimitedAccountsEnabled)
-            return;
-
-        try
-        {
-            if (await _storePurchaseRedeem.RedeemUnlimitedAccountsAsync().ConfigureAwait(false) == WinoStorePurchaseRedeemOutcome.Redeemed)
-                await RefreshProfileAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Microsoft Store purchase could not be redeemed after sign-in.");
-        }
     }
 
     public Task<ApiEnvelope<EmailConfirmationResendResultDto>> ResendEmailConfirmationAsync(string endpoint, string ticket, CancellationToken cancellationToken = default)

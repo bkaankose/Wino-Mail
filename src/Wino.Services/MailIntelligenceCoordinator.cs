@@ -45,9 +45,12 @@ public sealed class MailIntelligenceCoordinator(
     ITranslationService translationService,
     IIntelligenceMessageContextResolver messageResolver,
     IMessenger messenger,
-    IWinoAccountIntelligenceSnapshotService? entitlementService = null)
+    IWinoAccountIntelligenceSnapshotService? entitlementService = null,
+    IApplicationConfiguration? applicationConfiguration = null)
     : IMailIntelligenceCoordinator, IAsyncDisposable
 {
+    private readonly MailIntelligenceDatasetWriter _datasetWriter = new(applicationConfiguration);
+
     /// <summary>
     /// Server cap per job. A larger selection is split so no single upload is rejected.
     /// </summary>
@@ -127,10 +130,6 @@ public sealed class MailIntelligenceCoordinator(
 
     public Task InitializeAsync()
     {
-        // The content projection loads its tokenizer on first use, which takes seconds. Doing
-        // that now keeps it off the first indexing run of the session.
-        _ = Task.Run(WarmContentProcessor);
-
         messenger.Register<AccountSynchronizationCompleted>(this, static (recipient, message) =>
             _ = ((MailIntelligenceCoordinator)recipient).HandleSynchronizationCompletedAsync(message));
         messenger.Register<MailAddedMessage>(this, static (recipient, message) =>
@@ -167,19 +166,23 @@ public sealed class MailIntelligenceCoordinator(
         return Task.CompletedTask;
     }
 
-    public async Task ResumeAsync(CancellationToken cancellationToken = default)
+    public Task ResumeAsync(CancellationToken cancellationToken = default)
     {
         EnsureResumeLoopRunning();
 
-        if (Interlocked.Exchange(ref _orphanSweepStarted, 1) == 0)
+        // The sweep is a network round trip and runs during app activation. Awaiting it held
+        // the first window back for as long as the service took to answer or refuse.
+        if (Interlocked.Exchange(ref _orphanSweepStarted, 1) == 0 && !_lifecycle.IsCancellationRequested)
         {
-            await SweepOrphanedJobsAsync(cancellationToken).ConfigureAwait(false);
+            _ = Task.Run(() => SweepOrphanedJobsAsync(_lifecycle.Token));
         }
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
     /// Deletes server jobs this device does not track, such as those left behind by a wiped
-    /// install. Best effort: the server's own expiry is the backstop.
+    /// install. Best effort and never awaited: the server's own expiry is the backstop.
     /// TODO: filter by resultKeyId once Contracts 3.0.0-alpha.1 carries it on the job list.
     /// </summary>
     private async Task SweepOrphanedJobsAsync(CancellationToken cancellationToken)
@@ -199,13 +202,9 @@ public sealed class MailIntelligenceCoordinator(
                 await apiClient.CancelMailIntelligenceJobAsync(job.MailboxId, job.JobId, cancellationToken).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException)
-        {
-            throw;
-        }
         catch
         {
-            // The server expires these on its own.
+            // Includes cancellation at shutdown. The server expires these on its own.
         }
     }
 
@@ -573,14 +572,13 @@ public sealed class MailIntelligenceCoordinator(
             ? content.From
             : [new MailAddress(candidate.Sender, candidate.SenderName)];
 
-        // The content profile pins the canonical projection and the hash. It has nothing
-        // to do with vectors any more.
+        // Bound the upload content before deriving its identity.
         var processed = new MailContentProcessor(new HtmlContentSanitizer())
             .Prepare(from, candidate.Subject, content.Body, ContentProfile);
 
         _preparedHashes[(account.Id, candidate.RemoteMessageId)] = (processed.ContentHash, DateTime.UtcNow);
 
-        return Task.FromResult(new MailIntelligenceUploadEnvelopeDto
+        var envelope = new MailIntelligenceUploadEnvelopeDto
         {
             RemoteMessageId = candidate.RemoteMessageId,
             ContentHash = processed.ContentHash,
@@ -595,23 +593,10 @@ public sealed class MailIntelligenceCoordinator(
             ProviderImportance = candidate.ProviderImportance,
             RemoteFolderIds = candidate.RemoteFolderIds,
             HasListUnsubscribe = content.HasListUnsubscribe,
-        });
-    }
+        };
 
-    private static void WarmContentProcessor()
-    {
-        try
-        {
-            new MailContentProcessor(new HtmlContentSanitizer()).Prepare(
-                [new MailAddress("warmup@wino.invalid", "Wino")],
-                "Warm-up",
-                new MailBodyContent(MailBodyFormat.PlainText, "Warm-up"),
-                ContentProfile);
-        }
-        catch
-        {
-            // Only a warm-up; the real call reports its own failure.
-        }
+        _datasetWriter.Write(account.Id, account.Address, candidate, content, envelope);
+        return Task.FromResult(envelope);
     }
 
     // ---- polling and import --------------------------------------------------------
@@ -953,14 +938,7 @@ public sealed class MailIntelligenceCoordinator(
                 : MailIntelligenceStageKind.Classification,
             failure.ErrorCode))];
 
-    /// <summary>
-    /// Tokenizer, token limit and hash version for the upload projection. The published
-    /// package only exposes the old embedding profile type, so the values the app used before
-    /// (o200k_base, 12,000 tokens, content version 1) are pinned here. Model and dimensions
-    /// are unused by the processor.
-    /// </summary>
-    private static readonly EmbeddingProfile ContentProfile =
-        new("wino-intelligence-content-v1", "none", 768, 1, "o200k_base", 12_000);
+    private static readonly MailContentProfile ContentProfile = MailContentProfile.Default;
 
     internal static ClassificationArtifact MapClassification(MailClassificationArtifactDto item) => new(
         new MailArtifactKey(item.Identity.RemoteMessageId, item.Identity.ContentHash),

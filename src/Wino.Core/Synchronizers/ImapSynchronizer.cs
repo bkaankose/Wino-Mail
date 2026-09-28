@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -79,6 +80,9 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     /// <summary>
     /// N/A for IMAP as it doesn't support batch modifications natively.
     /// </summary>
+    protected override bool SerializeMailOperations => true;
+    protected override bool DequeueMailRequestsBeforeExecution => false;
+
     public override uint BatchModificationSize => 1000;
     public override uint InitialMessageDownloadCountPerFolder => 500;
 
@@ -88,6 +92,12 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     private readonly object _idleDebounceLock = new();
     private CancellationTokenSource _idleLoopCancellationTokenSource;
     private Task _idleLoopTask;
+    private readonly SemaphoreSlim _idleLifecycle = new(1, 1);
+    private readonly object _idleDoneLock = new();
+    private CancellationTokenSource _idleDoneCancellationTokenSource;
+    private volatile bool _idleStopping;
+    private Task _idleNotificationTask;
+    private bool _idleChangePending;
     private int _lastIdleInboxCount = -1;
     private DateTime _lastIdleSyncRequestUtc = DateTime.MinValue;
     private readonly TimeSpan _idleSyncDebounceWindow = TimeSpan.FromSeconds(15);
@@ -163,9 +173,20 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     private UniqueId GetUniqueId(string mailCopyId) => new(MailkitClientExtensions.ResolveUid(mailCopyId));
     private UniqueId GetUniqueId(MailCopy mailCopy) => MailkitClientExtensions.ResolveUidStruct(mailCopy);
 
+    internal static void EnsureMessageUidValidity(IMailFolder remoteFolder, IEnumerable<MailCopy> mails)
+    {
+        foreach (var mail in mails)
+        {
+            var expected = mail.ImapUidValidity != 0 ? mail.ImapUidValidity : mail.AssignedFolder?.UidValidity ?? 0;
+            if (expected == 0 || expected != remoteFolder.UidValidity)
+                throw new InvalidOperationException("The IMAP mailbox identity changed. Synchronize the folder before retrying this operation.");
+        }
+    }
+
     private async Task DeleteLocalCopiesMissingFromRemoteAsync(
         IMailFolder remoteFolder,
-        IEnumerable<(MailCopy MailCopy, UniqueId UniqueId)> candidates)
+        IEnumerable<(MailCopy MailCopy, UniqueId UniqueId)> candidates,
+        CancellationToken cancellationToken = default)
     {
         var candidateList = candidates?
             .Where(candidate => candidate.MailCopy != null && candidate.UniqueId.IsValid)
@@ -178,7 +199,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
         var requestedUids = candidateList.Select(candidate => candidate.UniqueId).ToList();
         var existingUids = await remoteFolder
-            .SearchAsync(SearchQuery.Uids(new UniqueIdSet(requestedUids, SortOrder.Ascending)))
+            .SearchAsync(SearchQuery.Uids(new UniqueIdSet(requestedUids, SortOrder.Ascending)).And(SearchQuery.NotDeleted), cancellationToken)
             .ConfigureAwait(false);
 
         var existingUidSet = existingUids.Select(uid => uid.Id).ToHashSet();
@@ -212,22 +233,33 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         if (requests == null || requests.Count == 0)
             return [];
 
-        return CreateSingleTaskBundle(async (client, _) =>
+        return CreateSingleTaskBundle(async (client, _, cancellationToken) =>
         {
-            var sourceFolder = await client.GetFolderAsync(requests[0].FromFolder.RemoteFolderId).ConfigureAwait(false);
-            var destinationFolder = await client.GetFolderAsync(requests[0].ToFolder.RemoteFolderId).ConfigureAwait(false);
+            var sourceFolder = await client.GetFolderAsync(requests[0].FromFolder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
+            var destinationFolder = await client.GetFolderAsync(requests[0].ToFolder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
             var candidates = requests.Select(item => (item.Item, UniqueId: GetUniqueId(item.Item))).ToList();
             var uniqueIds = candidates.Select(item => item.UniqueId).ToList();
 
-            await sourceFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
+            await sourceFolder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
             try
             {
-                await sourceFolder.MoveToAsync(uniqueIds, destinationFolder).ConfigureAwait(false);
-                await DeleteLocalCopiesMissingFromRemoteAsync(sourceFolder, candidates).ConfigureAwait(false);
+                EnsureMessageUidValidity(sourceFolder, requests.Select(request => request.Item));
+                if (client.Capabilities.HasFlag(ImapCapabilities.Move) || client.Capabilities.HasFlag(ImapCapabilities.UidPlus))
+                {
+                    await sourceFolder.MoveToAsync(uniqueIds, destinationFolder, cancellationToken).ConfigureAwait(false);
+                }
+                else
+                {
+                    // Legacy servers cannot atomically expunge just our UIDs. Keep other clients' deletions safe.
+                    await sourceFolder.CopyToAsync(uniqueIds, destinationFolder, cancellationToken).ConfigureAwait(false);
+                    await sourceFolder.StoreAsync(uniqueIds,
+                        new StoreFlagsRequest(StoreAction.Add, MessageFlags.Deleted) { Silent = true }, cancellationToken).ConfigureAwait(false);
+                }
+                await DeleteLocalCopiesMissingFromRemoteAsync(sourceFolder, candidates, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
-                await sourceFolder.CloseAsync().ConfigureAwait(false);
+                await client.CloseSelectedMailboxAsync(sourceFolder, _logger, cancellationToken).ConfigureAwait(false);
             }
         }, requests[0], requests);
     }
@@ -237,24 +269,25 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         if (requests == null || requests.Count == 0)
             return [];
 
-        return CreateSingleTaskBundle(async (client, _) =>
+        return CreateSingleTaskBundle(async (client, _, cancellationToken) =>
         {
             var folder = requests[0].Item.AssignedFolder;
-            var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
+            var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
             var uniqueIds = requests.Select(item => GetUniqueId(item.Item)).ToList();
             var request = new StoreFlagsRequest(requests[0].IsFlagged ? StoreAction.Add : StoreAction.Remove, MessageFlags.Flagged)
             {
                 Silent = true
             };
 
-            await remoteFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
+            await remoteFolder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
             try
             {
-                await remoteFolder.StoreAsync(uniqueIds, request).ConfigureAwait(false);
+                EnsureMessageUidValidity(remoteFolder, requests.Select(request => request.Item));
+                await remoteFolder.StoreAsync(uniqueIds, request, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
-                await client.CloseSelectedMailboxAsync(remoteFolder, _logger).ConfigureAwait(false);
+                await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);
             }
         }, requests[0], requests);
     }
@@ -264,24 +297,26 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         if (requests == null || requests.Count == 0)
             return [];
 
-        return CreateSingleTaskBundle(async (client, _) =>
+        return CreateSingleTaskBundle(async (client, _, cancellationToken) =>
         {
             var folder = requests[0].Item.AssignedFolder;
-            var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
+            var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
             var candidates = requests.Select(request => (request.Item, UniqueId: GetUniqueId(request.Item))).ToList();
             var uniqueIds = candidates.Select(item => item.UniqueId).ToList();
             var storeRequest = new StoreFlagsRequest(StoreAction.Add, MessageFlags.Deleted) { Silent = true };
 
-            await remoteFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
+            await remoteFolder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
             try
             {
-                await remoteFolder.StoreAsync(uniqueIds, storeRequest).ConfigureAwait(false);
-                await remoteFolder.ExpungeAsync(uniqueIds).ConfigureAwait(false);
-                await DeleteLocalCopiesMissingFromRemoteAsync(remoteFolder, candidates).ConfigureAwait(false);
+                EnsureMessageUidValidity(remoteFolder, requests.Select(request => request.Item));
+                await remoteFolder.StoreAsync(uniqueIds, storeRequest, cancellationToken).ConfigureAwait(false);
+                if (client.Capabilities.HasFlag(ImapCapabilities.UidPlus))
+                    await remoteFolder.ExpungeAsync(uniqueIds, cancellationToken).ConfigureAwait(false);
+                await DeleteLocalCopiesMissingFromRemoteAsync(remoteFolder, candidates, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
-                await client.CloseSelectedMailboxAsync(remoteFolder, _logger).ConfigureAwait(false);
+                await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);
             }
         }, requests[0], requests);
     }
@@ -291,24 +326,25 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         if (requests == null || requests.Count == 0)
             return [];
 
-        return CreateSingleTaskBundle(async (client, _) =>
+        return CreateSingleTaskBundle(async (client, _, cancellationToken) =>
         {
             var folder = requests[0].Item.AssignedFolder;
-            var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId).ConfigureAwait(false);
+            var remoteFolder = await client.GetFolderAsync(folder.RemoteFolderId, cancellationToken).ConfigureAwait(false);
             var uniqueIds = requests.Select(request => GetUniqueId(request.Item)).ToList();
             var storeRequest = new StoreFlagsRequest(requests[0].IsRead ? StoreAction.Add : StoreAction.Remove, MessageFlags.Seen)
             {
                 Silent = true
             };
 
-            await remoteFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
+            await remoteFolder.OpenAsync(FolderAccess.ReadWrite, cancellationToken).ConfigureAwait(false);
             try
             {
-                await remoteFolder.StoreAsync(uniqueIds, storeRequest).ConfigureAwait(false);
+                EnsureMessageUidValidity(remoteFolder, requests.Select(request => request.Item));
+                await remoteFolder.StoreAsync(uniqueIds, storeRequest, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
-                await client.CloseSelectedMailboxAsync(remoteFolder, _logger).ConfigureAwait(false);
+                await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);
             }
         }, requests[0], requests);
     }
@@ -345,9 +381,8 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                         await remoteDraftFolder
                             .AddFlagsAsync(appendedUid.Value, MessageFlags.Deleted, true)
                             .ConfigureAwait(false);
-                        await remoteDraftFolder
-                            .ExpungeAsync([appendedUid.Value])
-                            .ConfigureAwait(false);
+                        if (client.Capabilities.HasFlag(ImapCapabilities.UidPlus))
+                            await remoteDraftFolder.ExpungeAsync([appendedUid.Value]).ConfigureAwait(false);
                     }
                 }
             }
@@ -361,15 +396,28 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     public override List<IRequestBundle<ImapRequest>> Archive(BatchArchiveRequest request)
     {
         var batchMoveRequest = new BatchMoveRequest(request.Select(item => new MoveRequest(item.Item, item.FromFolder, item.ToFolder)));
-        return Move(batchMoveRequest);
+        return BindOriginalRequests(Move(batchMoveRequest), request.Cast<IRequestBase>().ToList());
     }
 
-
     public override List<IRequestBundle<ImapRequest>> EmptyFolder(EmptyFolderRequest request)
-        => Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a))));
+        => BindOriginalRequests(Delete(new BatchDeleteRequest(request.MailsToDelete.Select(a => new DeleteRequest(a)))), new[] { request });
 
     public override List<IRequestBundle<ImapRequest>> MarkFolderAsRead(MarkFolderAsReadRequest request)
-        => MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true))));
+        => BindOriginalRequests(MarkRead(new BatchMarkReadRequest(request.MailsToMarkRead.Select(a => new MarkReadRequest(a, true)))), new[] { request });
+
+    private static List<IRequestBundle<ImapRequest>> BindOriginalRequests(
+        List<IRequestBundle<ImapRequest>> bundles, IReadOnlyList<IRequestBase> originals)
+    {
+        if (bundles.Count == 0 && originals.Count > 0)
+        {
+            var request = originals[0];
+            bundles.Add(new ImapRequestBundle(new ImapRequest((_, _) => Task.CompletedTask, request,
+                requiresConnectedClient: false), request, request));
+        }
+        foreach (var bundle in bundles)
+            bundle.NativeRequest.QueuedRequests = originals;
+        return bundles;
+    }
 
     public override List<IRequestBundle<ImapRequest>> SendDraft(SendDraftRequest request)
     {
@@ -402,7 +450,9 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             await remoteDraftFolder.OpenAsync(FolderAccess.ReadWrite).ConfigureAwait(false);
             try
             {
-                await DeleteRemoteDraftIfPresentAsync(remoteDraftFolder, draftUid).ConfigureAwait(false);
+                EnsureMessageUidValidity(remoteDraftFolder, new[] { draft });
+                await DeleteRemoteDraftIfPresentAsync(remoteDraftFolder, draftUid,
+                    canExpunge: client.Capabilities.HasFlag(ImapCapabilities.UidPlus)).ConfigureAwait(false);
             }
             finally
             {
@@ -464,7 +514,8 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     internal static async Task<bool> DeleteRemoteDraftIfPresentAsync(
         IMailFolder remoteDraftFolder,
         UniqueId draftUid,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool canExpunge = false)
     {
         ArgumentNullException.ThrowIfNull(remoteDraftFolder);
 
@@ -483,9 +534,8 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         await remoteDraftFolder
             .StoreAsync([draftUid], storeRequest, cancellationToken)
             .ConfigureAwait(false);
-        await remoteDraftFolder
-            .ExpungeAsync([draftUid], cancellationToken)
-            .ConfigureAwait(false);
+        if (canExpunge)
+            await remoteDraftFolder.ExpungeAsync([draftUid], cancellationToken).ConfigureAwait(false);
 
         return true;
     }
@@ -507,7 +557,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         var destroyClient = false;
         try
         {
-            client = await _clientPool.GetClientAsync().ConfigureAwait(false);
+            client = await _clientPool.GetClientAsync(cancellationToken, purpose: "SemanticBody").ConfigureAwait(false);
             var remoteFolder = await client.GetFolderAsync(locator.RemoteFolderId, cancellationToken).ConfigureAwait(false);
             await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
             if (remoteFolder.UidValidity != expectedUidValidity)
@@ -565,8 +615,9 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         var folder = mailItem.AssignedFolder;
         var remoteFolderId = folder.RemoteFolderId;
 
-        var client = await _clientPool.GetClientAsync().ConfigureAwait(false);
+        var client = await _clientPool.GetClientAsync(cancellationToken, purpose: "MimeDownload").ConfigureAwait(false);
 
+        bool faulted = true;
         try
         {
             var remoteFolder = await client.GetFolderAsync(remoteFolderId, cancellationToken).ConfigureAwait(false);
@@ -575,26 +626,16 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
             await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
 
+            EnsureMessageUidValidity(remoteFolder, new[] { mailItem });
             var message = await remoteFolder.GetMessageAsync(uniqueId, cancellationToken, transferProgress).ConfigureAwait(false);
 
             await _imapChangeProcessor.SaveMimeFileAsync(mailItem.FileId, message, Account.Id, mailItem.Id).ConfigureAwait(false);
-            await remoteFolder.CloseAsync(false, cancellationToken).ConfigureAwait(false);
-        }
-        catch (FolderNotFoundException ex)
-        {
-            _logger.Warning("IMAP folder {FolderId} not found during MIME download for {MailId}. Deleting locally.", remoteFolderId, mailItem.Id);
-            await _imapChangeProcessor.DeleteMailAsync(Account.Id, mailItem.Id).ConfigureAwait(false);
-            throw new SynchronizerEntityNotFoundException(ex.Message);
-        }
-        catch (ImapCommandException ex) when (ex.Response == ImapCommandResponse.No)
-        {
-            _logger.Warning("IMAP message {MailId} not found during MIME download (NO response). Deleting locally.", mailItem.Id);
-            await _imapChangeProcessor.DeleteMailAsync(Account.Id, mailItem.Id).ConfigureAwait(false);
-            throw new SynchronizerEntityNotFoundException(ex.Message);
+            await client.CloseSelectedMailboxAsync(remoteFolder, _logger, cancellationToken).ConfigureAwait(false);
+            faulted = false;
         }
         finally
         {
-            _clientPool.Release(client);
+            _clientPool.Release(client, destroyClient: faulted);
         }
     }
 
@@ -919,58 +960,92 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
                 var totalFolders = synchronizationFolders.Count;
                 const int maxParallelFolderSyncClients = 3;
-                var folderSyncSemaphore = new SemaphoreSlim(maxParallelFolderSyncClients, maxParallelFolderSyncClients);
                 using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 var linkedToken = linkedCancellationTokenSource.Token;
                 var resultLock = new object();
+                var pendingFolders = new ConcurrentQueue<MailItemFolder>(synchronizationFolders);
                 int completedFolders = 0;
 
-                var syncTasks = synchronizationFolders.Select(async folder =>
+                // A delta sync of an already-synchronized folder costs a few round trips, which is far
+                // less than the TLS and AUTH handshake for an extra socket. One warm client walks the
+                // queue; extra workers only join when a spare connection already exists in the pool.
+                // Only an initial sync with long FETCH streams justifies opening more sockets.
+                // Folders synchronized before this stamp existed have no date but do carry a UID checkpoint.
+                var isInitialSync = synchronizationFolders.Any(folder =>
+                    !folder.LastSynchronizedDate.HasValue && folder.HighestKnownUid == 0);
+                var workerCount = Math.Min(maxParallelFolderSyncClients, Math.Max(1, totalFolders));
+
+                async Task RunFolderWorkerAsync(bool allowCreate)
                 {
-                    await folderSyncSemaphore.WaitAsync(linkedToken).ConfigureAwait(false);
+                    var client = await _clientPool.RentForReadAsync(linkedToken, allowCreate, "FolderSync").ConfigureAwait(false);
+                    if (client == null) return;
 
                     try
                     {
-                        IImapClient client = null;
-
-                        try
+                        while (!linkedToken.IsCancellationRequested && pendingFolders.TryDequeue(out var folder))
                         {
-                            var wasPreviouslySynchronized = folder.LastSynchronizedDate.HasValue;
-                            client = await _clientPool.GetClientAsync(linkedToken).ConfigureAwait(false);
-                            var folderResult = await _unifiedSynchronizer
-                                .SynchronizeFolderAsync(
-                                    client,
-                                    folder,
-                                    this,
-                                    Account.ServerInformation?.IncomingServer,
-                                    linkedToken,
-                                    suppressMatchingLocalFilters: wasPreviouslySynchronized)
-                                .ConfigureAwait(false);
+                            // A retired connection is replaced even by a secondary worker; the pool did not grow.
+                            client ??= await _clientPool.RentForReadAsync(linkedToken, purpose: "FolderSyncReplacement").ConfigureAwait(false);
 
-                            List<string> folderDownloadedIds = null;
-                            if (folderResult.Success && folderResult.DownloadedCount > 0)
+                            var healthy = await SynchronizeQueuedFolderAsync(client, folder).ConfigureAwait(false);
+                            if (!healthy)
                             {
+                                _clientPool.Release(client, destroyClient: true);
+                                client = null;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        if (client != null)
+                        {
+                            _clientPool.Release(client, destroyClient: true);
+                            client = null;
+                        }
+                        throw;
+                    }
+                    finally
+                    {
+                        if (client != null) _clientPool.Release(client);
+                    }
+                }
+
+                async Task<bool> SynchronizeQueuedFolderAsync(IImapClient client, MailItemFolder folder)
+                {
+                    try
+                    {
+                        var wasPreviouslySynchronized = folder.LastSynchronizedDate.HasValue;
+                        var folderResult = await _unifiedSynchronizer
+                            .SynchronizeFolderAsync(
+                                client,
+                                folder,
+                                this,
+                                Account.ServerInformation?.IncomingServer,
+                                linkedToken,
+                                suppressMatchingLocalFilters: wasPreviouslySynchronized)
+                            .ConfigureAwait(false);
+
+                        List<string> folderDownloadedIds = null;
+                        if (folderResult.Success)
+                        {
+                            if (folderResult.DownloadedCount > 0)
                                 folderDownloadedIds = await GetDownloadedIdsForFolderAsync(folder, folderResult.DownloadedCount).ConfigureAwait(false);
-                            }
 
-                            lock (resultLock)
-                            {
-                                folderResults.Add(folderResult);
-                                if (folderDownloadedIds != null && folderDownloadedIds.Count > 0)
-                                {
-                                    downloadedMessageIds.AddRange(folderDownloadedIds);
-                                    if (wasPreviouslySynchronized)
-                                        filterCandidateIds.AddRange(folderDownloadedIds);
-                                }
-                            }
+                            await _imapChangeProcessor.UpdateFolderLastSyncDateAsync(folder.Id).ConfigureAwait(false);
                         }
-                        finally
+
+                        lock (resultLock)
                         {
-                            if (client != null)
+                            folderResults.Add(folderResult);
+                            if (folderDownloadedIds != null && folderDownloadedIds.Count > 0)
                             {
-                                _clientPool.Release(client);
+                                downloadedMessageIds.AddRange(folderDownloadedIds);
+                                if (wasPreviouslySynchronized)
+                                    filterCandidateIds.AddRange(folderDownloadedIds);
                             }
                         }
+
+                        return folderResult.Success;
                     }
                     catch (OperationCanceledException)
                     {
@@ -996,7 +1071,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                             folderResults.Add(failedResult);
                         }
 
-                        if (!errorContext.CanContinueSync)
+                        if (!errorContext.CanContinueSync && errorContext.Severity != SynchronizerErrorSeverity.Transient && !ImapClientPool.IsConnectionFailure(ex))
                         {
                             _logger.Error(ex, "Folder {FolderName} sync failed with fatal error", folder.FolderName);
                             linkedCancellationTokenSource.Cancel();
@@ -1004,15 +1079,18 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                         }
 
                         _logger.Warning(ex, "Folder {FolderName} sync failed, continuing with other folders", folder.FolderName);
+                        return false;
                     }
                     finally
                     {
-                        folderSyncSemaphore.Release();
-
                         var completed = Interlocked.Increment(ref completedFolders);
                         UpdateSyncProgress(totalFolders, totalFolders - completed, $"Syncing {folder.FolderName}...");
                     }
-                }).ToList();
+                }
+
+                var syncTasks = new List<Task>(workerCount) { RunFolderWorkerAsync(allowCreate: true) };
+                for (var i = 1; i < workerCount; i++)
+                    syncTasks.Add(RunFolderWorkerAsync(allowCreate: isInitialSync));
 
                 await Task.WhenAll(syncTasks).ConfigureAwait(false);
 
@@ -1033,6 +1111,10 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         {
             // Reset progress
             ResetSyncProgress();
+
+            // Spare connections for interactive work are opened only after the sync no longer
+            // competes for the creation gate.
+            _ = _clientPool.PreWarmPoolAsync();
         }
 
         // Get all unread new downloaded items and return in the result.
@@ -1060,60 +1142,32 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
     public override async Task ExecuteNativeRequestsAsync(List<IRequestBundle<ImapRequest>> batchedRequests, CancellationToken cancellationToken = default)
     {
-        // First apply the UI changes for each bundle.
-        // This is important to reflect changes to the UI before the network call is done.
-
-        ApplyOptimisticUiChanges(batchedRequests, ShouldApplyOptimisticUIChanges);
-
-        // All task bundles will execute on the same client.
-        // Tasks themselves don't pull the client from the pool
-        // because exception handling is easier this way.
-        // Also we might parallelize these bundles later on for additional performance.
-
         foreach (var item in batchedRequests)
         {
-            // At this point this client is ready to execute async commands.
-            // Each task bundle will await and execution will continue in case of error.
-
+            cancellationToken.ThrowIfCancellationRequested();
             IImapClient executorClient = null;
-
-            bool isCrashed = false;
-
+            var isCrashed = false;
+            var started = false;
             try
             {
                 if (item.NativeRequest.RequiresConnectedClient)
-                {
-                    executorClient = await _clientPool.GetClientAsync();
-                }
-            }
-            catch (ImapClientPoolException)
-            {
-                // Client pool failed to get a client.
-                // Requests may not be executed at this point.
+                    executorClient = await _clientPool.GetClientAsync(cancellationToken, purpose: "RequestExecution").ConfigureAwait(false);
 
-                if (ShouldApplyOptimisticUIChanges(item.Request))
-                {
-                    RequestUiChangeCoordinator.RevertBundle(item);
-                }
-
+                cancellationToken.ThrowIfCancellationRequested();
+                // Keep unstarted work in memory if acquiring a connection or an earlier bundle fails.
+                // Once execution starts, an ambiguous mutation must be reconciled, never blindly replayed.
+                RemoveQueuedRequests(item.NativeRequest.QueuedRequests);
+                started = true;
+                ApplyOptimisticUiChanges(new List<IRequestBundle<ImapRequest>> { item }, ShouldApplyOptimisticUIChanges);
                 isCrashed = true;
-                throw;
-            }
-            finally
-            {
-                // Make sure that the client is released from the pool for next usages if error occurs.
-                if (isCrashed && executorClient != null)
-                {
-                    _clientPool.Release(executorClient);
-                }
-            }
-
-            try
-            {
-                await item.NativeRequest.IntegratorTask(executorClient, item.Request).ConfigureAwait(false);
+                await item.NativeRequest.ExecuteAsync(executorClient, item.Request, cancellationToken).ConfigureAwait(false);
+                isCrashed = false;
             }
             catch (Exception ex)
             {
+                if (!started)
+                    throw;
+
                 if (item.Request is CreateDraftRequest createDraftRequest)
                 {
                     await _imapChangeProcessor
@@ -1130,27 +1184,25 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                     RequestBundle = item,
                     Request = item.Request,
                     OperationType = "RequestExecution",
-                    IsEntityNotFound = ex is FolderNotFoundException || ex is SynchronizerEntityNotFoundException
+                    IsEntityNotFound = ex is SynchronizerEntityNotFoundException
                 };
 
                 var handled = await _errorHandlerFactory.HandleErrorAsync(errorContext).ConfigureAwait(false);
+                CaptureSynchronizationIssue(errorContext);
 
-                if (!handled)
-                {
-                    CaptureSynchronizationIssue(errorContext);
+                if (ShouldApplyOptimisticUIChanges(item.Request))
+                    RequestUiChangeCoordinator.RevertBundle(item);
 
-                    if (ShouldApplyOptimisticUIChanges(item.Request))
-                    {
-                        RequestUiChangeCoordinator.RevertBundle(item);
-                    }
+                // Handled describes error classification, not successful completion. The issue remains
+                // visible and the normal source/destination synchronization resolves an uncertain mutation.
+                if (!handled || ex is OperationCanceledException)
                     throw;
-                }
             }
             finally
             {
                 if (executorClient != null)
                 {
-                    _clientPool.Release(executorClient);
+                    _clientPool.Release(executorClient, destroyClient: isCrashed);
                 }
             }
         }
@@ -1181,6 +1233,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         var localFolders = await _imapChangeProcessor.GetLocalFoldersAsync(Account.Id).ConfigureAwait(false);
 
         IImapClient executorClient = null;
+        bool faulted = true;
 
         try
         {
@@ -1188,73 +1241,34 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             List<MailItemFolder> updatedFolders = new();
             List<MailItemFolder> deletedFolders = new();
 
-            executorClient = await _clientPool.GetClientAsync().ConfigureAwait(false);
-
             var remoteFolders = new List<IMailFolder>();
-            foreach (var personalNamespace in executorClient.PersonalNamespaces)
+            executorClient = await _clientPool.RentForReadAsync(async (candidate, token) =>
             {
-                var namespaceFolders = await executorClient
-                    .GetFoldersAsync(personalNamespace, cancellationToken: cancellationToken)
-                    .ConfigureAwait(false);
-                remoteFolders.AddRange(namespaceFolders);
-            }
+                remoteFolders.Clear();
+                foreach (var personalNamespace in candidate.PersonalNamespaces)
+                    remoteFolders.AddRange(await candidate.GetFoldersAsync(personalNamespace,
+                        cancellationToken: token).ConfigureAwait(false));
+            }, cancellationToken, purpose: "FolderStructure").ConfigureAwait(false);
 
             remoteFolders = remoteFolders
                 .GroupBy(folder => folder.FullName, StringComparer.Ordinal)
                 .Select(group => group.First())
                 .ToList();
 
-            // 1. First check deleted folders.
+            // A successful listing can establish folder absence. UIDVALIDITY is checked during
+            // message synchronization so the folder identity and user preferences survive a reset.
+            if (executorClient.Inbox != null && !remoteFolders.Any(remote => remote.FullName == executorClient.Inbox.FullName))
+                remoteFolders.Add(executorClient.Inbox);
 
-            // 1.a If local folder doesn't exists remotely, delete it.
-            // 1.b If local folder exists remotely, check if it is still a valid folder. If UidValidity is changed, delete it.
-
-            foreach (var localFolder in localFolders)
+            foreach (var localFolder in localFolders.ToList())
             {
-                IMailFolder remoteFolder = null;
-
-                try
+                if (!remoteFolders.Any(remote => remote.FullName == localFolder.RemoteFolderId))
                 {
-                    remoteFolder = remoteFolders.FirstOrDefault(a => a.FullName == localFolder.RemoteFolderId);
-
-                    bool shouldDeleteLocalFolder = false;
-
-                    // Check UidValidity of the remote folder if exists.
-
-                    if (remoteFolder != null)
-                    {
-                        // UidValidity won't be available until it's opened.
-                        await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken).ConfigureAwait(false);
-
-                        shouldDeleteLocalFolder = remoteFolder.UidValidity != localFolder.UidValidity;
-                    }
-                    else
-                    {
-                        // Remote folder doesn't exist. Delete it.
-                        shouldDeleteLocalFolder = true;
-                    }
-
-                    if (shouldDeleteLocalFolder)
-                    {
-                        await _imapChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
-
-                        deletedFolders.Add(localFolder);
-                    }
-                }
-                catch (Exception)
-                {
-                    throw;
-                }
-                finally
-                {
-                    if (remoteFolder != null)
-                    {
-                        await remoteFolder.CloseAsync().ConfigureAwait(false);
-                    }
+                    await _imapChangeProcessor.DeleteFolderAsync(Account.Id, localFolder.RemoteFolderId).ConfigureAwait(false);
+                    deletedFolders.Add(localFolder);
+                    localFolders.Remove(localFolder);
                 }
             }
-
-            deletedFolders.ForEach(a => localFolders.Remove(a));
 
             // 2. Get all remote folders and insert/update each of them.
 
@@ -1300,14 +1314,8 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                     if (remoteFolder.ParentFolder == executorClient.Inbox)
                         localFolder.ParentRemoteFolderId = string.Empty;
 
-                    // Set UidValidity for cache expiration.
-                    // Folder must be opened for this.
-
-                    await remoteFolder.OpenAsync(FolderAccess.ReadOnly, cancellationToken);
-
-                    localFolder.UidValidity = remoteFolder.UidValidity;
-
-                    await remoteFolder.CloseAsync(cancellationToken: cancellationToken);
+                    // A new folder starts without a UID checkpoint. SELECT during sync establishes it.
+                    localFolder.UidValidity = 0;
 
                     insertedFolders.Add(localFolder);
                 }
@@ -1315,10 +1323,9 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                 {
                     // Update existing folder. Right now we only update the name.
 
-                    // TODO: Moving folders around different parents. This is not supported right now.
-                    // We will need more comphrensive folder update mechanism to support this.
-
-                    var needsUpdate = false;
+                    var parentId = remoteFolder.ParentFolder == executorClient.Inbox ? string.Empty : remoteFolder.ParentFolder?.FullName;
+                    var needsUpdate = existingLocalFolder.ParentRemoteFolderId != parentId;
+                    existingLocalFolder.ParentRemoteFolderId = parentId;
                     if (ShouldUpdateFolder(remoteFolder, existingLocalFolder))
                     {
                         existingLocalFolder.FolderName = remoteFolder.Name;
@@ -1363,6 +1370,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             {
                 _isFolderStructureChanged = true;
             }
+            faulted = false;
         }
         catch (Exception ex)
         {
@@ -1374,7 +1382,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         {
             if (executorClient != null)
             {
-                _clientPool.Release(executorClient);
+                _clientPool.Release(executorClient, destroyClient: faulted);
             }
         }
     }
@@ -1403,10 +1411,11 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     public override async Task<List<MailCopy>> OnlineSearchAsync(RemoteMailSearchCriteria criteria, List<IMailItemFolder> folders, CancellationToken cancellationToken = default)
     {
         IImapClient client = null;
+        bool faulted = true;
 
         try
         {
-            client = await _clientPool.GetClientAsync().ConfigureAwait(false);
+            client = await _clientPool.GetClientAsync(cancellationToken, purpose: "OnlineSearch").ConfigureAwait(false);
 
             var distinctFolders = folders?
                 .Where(folder => folder != null)
@@ -1462,7 +1471,9 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                 await remoteFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
             }
 
-            return await _imapChangeProcessor.GetMailCopiesAsync(searchResultFolderMailUids);
+            var result = await _imapChangeProcessor.GetMailCopiesAsync(searchResultFolderMailUids);
+            faulted = false;
+            return result;
         }
         catch (Exception ex)
         {
@@ -1471,7 +1482,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         }
         finally
         {
-            _clientPool.Release(client);
+            _clientPool.Release(client, destroyClient: faulted);
         }
     }
 
@@ -2464,25 +2475,25 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         };
     }
 
-    public Task StartIdleClientAsync()
+    public async Task StartIdleClientAsync()
     {
-        if (IsDisposing)
-            return Task.CompletedTask;
-
-        if (_idleLoopTask != null && !_idleLoopTask.IsCompleted)
-            return Task.CompletedTask;
-
-        _idleLoopCancellationTokenSource = new CancellationTokenSource();
-        _idleLoopTask = RunIdleLoopAsync(_idleLoopCancellationTokenSource.Token);
-
-        return Task.CompletedTask;
+        await _idleLifecycle.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (IsDisposing || _idleLoopTask is { IsCompleted: false }) return;
+            _idleLoopCancellationTokenSource?.Dispose();
+            _idleStopping = false;
+            _idleLoopCancellationTokenSource = new CancellationTokenSource();
+            _idleLoopTask = RunIdleLoopAsync(_idleLoopCancellationTokenSource.Token);
+        }
+        finally { _idleLifecycle.Release(); }
     }
 
     private async Task RunIdleLoopAsync(CancellationToken cancellationToken)
     {
         int reconnectAttempt = 0;
 
-        while (!cancellationToken.IsCancellationRequested && !IsDisposing)
+        while (!cancellationToken.IsCancellationRequested && !IsDisposing && !_idleStopping)
         {
             IImapClient idleClient = null;
             IMailFolder inboxFolder = null;
@@ -2494,8 +2505,9 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
                 if (idleClient == null)
                 {
-                    _logger.Warning("Dedicated IDLE client could not be allocated for {AccountName}.", Account.Name);
-                    return;
+                    if (!_clientPool.SupportsIdle) return;
+                    // Capacity may be occupied by foreground work. Try again after backoff.
+                    throw new IOException("No pool capacity for IDLE yet.");
                 }
 
                 if (!idleClient.Capabilities.HasFlag(ImapCapabilities.Idle))
@@ -2516,14 +2528,40 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
                 _lastIdleInboxCount = inboxFolder.Count;
                 inboxFolder.CountChanged += IdleInboxCountChanged;
+                inboxFolder.MessageFlagsChanged += IdleInboxChanged;
+                inboxFolder.MessageExpunged += IdleInboxChanged;
+                inboxFolder.MessagesVanished += IdleInboxChanged;
 
-                reconnectAttempt = 0;
+                // Reconcile changes that arrived while this listener was disconnected.
+                if (reconnectAttempt > 0) RequestIdleChangeSynchronization();
                 _logger.Debug("Started dedicated IDLE loop for {AccountName}.", Account.Name);
 
-                while (!cancellationToken.IsCancellationRequested && !IsDisposing && idleClient.IsConnected)
+                while (!cancellationToken.IsCancellationRequested && !IsDisposing && !_idleStopping && idleClient.IsConnected)
                 {
                     using var idleDoneTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(9));
-                    await idleClient.IdleAsync(idleDoneTokenSource.Token, cancellationToken).ConfigureAwait(false);
+                    var started = DateTime.UtcNow;
+                    lock (_idleDoneLock)
+                    {
+                        if (_idleStopping) break;
+                        _idleDoneCancellationTokenSource = idleDoneTokenSource;
+                    }
+                    try
+                    {
+                        try
+                        {
+                            await idleClient.IdleAsync(idleDoneTokenSource.Token, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (ImapCommandException ex)
+                        {
+                            _logger.Information(ex, "{AccountName} rejected IDLE despite advertising it. Updates will use scheduled synchronization.", Account.Name);
+                            return;
+                        }
+                        if (DateTime.UtcNow - started >= TimeSpan.FromMinutes(1)) reconnectAttempt = 0;
+                    }
+                    finally
+                    {
+                        lock (_idleDoneLock) _idleDoneCancellationTokenSource = null;
+                    }
                 }
             }
             catch (ImapProtocolException protocolException)
@@ -2554,20 +2592,15 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                 if (inboxFolder != null)
                 {
                     inboxFolder.CountChanged -= IdleInboxCountChanged;
-
-                    if (inboxFolder.IsOpen && !cancellationToken.IsCancellationRequested)
-                    {
-                        await inboxFolder.CloseAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
-                    }
+                    inboxFolder.MessageFlagsChanged -= IdleInboxChanged;
+                    inboxFolder.MessageExpunged -= IdleInboxChanged;
+                    inboxFolder.MessagesVanished -= IdleInboxChanged;
                 }
-
+                // This socket is retired; no UNSELECT or LOGOUT is needed during cleanup.
                 _clientPool.ReleaseIdleClient(isFaulted: shouldReconnect);
             }
 
-            if (!shouldReconnect)
-            {
-                break;
-            }
+            if (cancellationToken.IsCancellationRequested || IsDisposing || _idleStopping) break;
 
             reconnectAttempt++;
             var reconnectDelay = GetIdleReconnectDelay(reconnectAttempt);
@@ -2586,7 +2619,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
     private static TimeSpan GetIdleReconnectDelay(int attempt)
     {
-        var backoffSeconds = Math.Min(60, Math.Pow(2, Math.Min(attempt, 6)));
+        var backoffSeconds = Math.Min(300, Math.Pow(2, Math.Min(attempt, 9)));
         int jitterMs;
 
         lock (IdleReconnectJitter)
@@ -2599,29 +2632,51 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
     private void RequestIdleChangeSynchronization()
     {
-        if (!ShouldTriggerIdleSynchronization(DateTime.UtcNow))
-            return;
-
-        var options = new MailSynchronizationOptions()
-        {
-            AccountId = Account.Id,
-            Type = MailSynchronizationType.IMAPIdle
-        };
-
-        WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(options));
-    }
-
-    internal bool ShouldTriggerIdleSynchronization(DateTime nowUtc)
-    {
         lock (_idleDebounceLock)
         {
-            if (nowUtc - _lastIdleSyncRequestUtc < _idleSyncDebounceWindow)
-            {
-                return false;
-            }
+            if (_idleStopping || IsDisposing || _idleLoopCancellationTokenSource == null) return;
+            _idleChangePending = true;
+            _idleNotificationTask ??= Task.Run(FlushIdleChangesAsync);
+        }
+    }
 
-            _lastIdleSyncRequestUtc = nowUtc;
-            return true;
+    private async Task FlushIdleChangesAsync()
+    {
+        try
+        {
+            while (true)
+            {
+                TimeSpan delay;
+                lock (_idleDebounceLock)
+                {
+                    if (!_idleChangePending || _idleStopping || IsDisposing) return;
+                    delay = _idleSyncDebounceWindow - (DateTime.UtcNow - _lastIdleSyncRequestUtc);
+                }
+                if (delay > TimeSpan.Zero)
+                    await Task.Delay(delay, _idleLoopCancellationTokenSource.Token).ConfigureAwait(false);
+                lock (_idleDebounceLock)
+                {
+                    if (_idleStopping || IsDisposing) return;
+                    _idleChangePending = false;
+                    _lastIdleSyncRequestUtc = DateTime.UtcNow;
+                }
+                WeakReferenceMessenger.Default.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+                {
+                    AccountId = Account.Id,
+                    Type = MailSynchronizationType.IMAPIdle
+                }));
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { _logger.Warning(ex, "Failed to request IDLE synchronization for {AccountName}.", Account.Name); }
+        finally
+        {
+            lock (_idleDebounceLock)
+            {
+                _idleNotificationTask = null;
+                if (_idleChangePending && !_idleStopping && !IsDisposing)
+                    _idleNotificationTask = Task.Run(FlushIdleChangesAsync);
+            }
         }
     }
 
@@ -2634,43 +2689,57 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         var previousCount = _lastIdleInboxCount;
         _lastIdleInboxCount = currentCount;
 
-        if (currentCount > previousCount)
+        if (currentCount != previousCount)
         {
             RequestIdleChangeSynchronization();
         }
     }
 
+    protected override void OnIdleSynchronizationDeferred() => RequestIdleChangeSynchronization();
+
+    private void IdleInboxChanged(object sender, EventArgs e) => RequestIdleChangeSynchronization();
+
     public async Task StopIdleClientAsync()
     {
-        if (_idleLoopCancellationTokenSource != null)
+        await _idleLifecycle.WaitAsync().ConfigureAwait(false);
+        try
         {
-            _idleLoopCancellationTokenSource.Cancel();
-        }
-
-        if (_idleLoopTask != null)
-        {
+            _idleStopping = true;
+            lock (_idleDoneLock)
+            {
+                // MailKit requires DONE before canceling the command token on TLS streams.
+                if (_idleDoneCancellationTokenSource != null)
+                {
+                    _idleDoneCancellationTokenSource.Cancel();
+                    _idleLoopCancellationTokenSource?.CancelAfter(TimeSpan.FromSeconds(5));
+                }
+                else _idleLoopCancellationTokenSource?.Cancel();
+            }
             try
             {
-                await _idleLoopTask.ConfigureAwait(false);
+                if (_idleLoopTask != null) await _idleLoopTask.ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) { }
+            finally
             {
-                // no-op
+                _idleLoopCancellationTokenSource?.Cancel();
+                Task notifications;
+                lock (_idleDebounceLock) notifications = _idleNotificationTask;
+                if (notifications != null) await notifications.ConfigureAwait(false);
+                _idleLoopCancellationTokenSource?.Dispose();
+                _idleLoopCancellationTokenSource = null;
+                _idleLoopTask = null;
+                _idleChangePending = false;
             }
         }
-
-        _idleLoopCancellationTokenSource?.Dispose();
-        _idleLoopCancellationTokenSource = null;
-        _idleLoopTask = null;
+        finally { _idleLifecycle.Release(); }
     }
 
     public override async Task KillSynchronizerAsync()
     {
-        await base.KillSynchronizerAsync();
-        await StopIdleClientAsync();
-
-        // Make sure the client pool safely disconnects all ImapClients.
-        _clientPool.Dispose();
+        await base.KillSynchronizerAsync().ConfigureAwait(false);
+        try { await StopIdleClientAsync().ConfigureAwait(false); }
+        finally { await _clientPool.DisposeAsync().ConfigureAwait(false); }
     }
 
     public Task PreWarmClientPoolAsync() => _clientPool.PreWarmPoolAsync();

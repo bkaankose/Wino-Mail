@@ -42,7 +42,7 @@ public sealed class WinoAccountManagementPageViewModelTests
             .Callback<string, string, string>((value, _, _) => question = value)
             .ReturnsAsync(true);
         var viewModel = new WinoAccountManagementPageViewModel(
-            profile.Object, Mock.Of<IWinoAccountDataSyncService>(), dialogs.Object,
+            profile.Object, dialogs.Object,
             Mock.Of<IWinoBillingService>(), api.Object, Mock.Of<IAccountService>(),
             Mock.Of<IMailIntelligenceCoordinator>(), Mock.Of<IPreferencesService>());
 
@@ -71,8 +71,7 @@ public sealed class WinoAccountManagementPageViewModelTests
             started.SetResult();
             return release.Task;
         });
-        var viewModel = new WinoAccountManagementPageViewModel(profile.Object,
-            Mock.Of<IWinoAccountDataSyncService>(), Mock.Of<IMailDialogService>(),
+        var viewModel = new WinoAccountManagementPageViewModel(profile.Object, Mock.Of<IMailDialogService>(),
             Mock.Of<IWinoBillingService>(), Mock.Of<IWinoAccountApiClient>(), Mock.Of<IAccountService>(),
             Mock.Of<IMailIntelligenceCoordinator>(), Mock.Of<IPreferencesService>(),
             snapshots.Object, sessions: sessions);
@@ -149,7 +148,7 @@ public sealed class WinoAccountManagementPageViewModelTests
     {
         var profile = new Mock<IWinoAccountProfileService>();
         profile.Setup(x => x.GetActiveAccountAsync()).ReturnsAsync(account);
-        return new(profile.Object, Mock.Of<IWinoAccountDataSyncService>(), Mock.Of<IMailDialogService>(),
+        return new(profile.Object, Mock.Of<IMailDialogService>(),
             Mock.Of<IWinoBillingService>(), Mock.Of<IWinoAccountApiClient>(), Mock.Of<IAccountService>(),
             Mock.Of<IMailIntelligenceCoordinator>(), Mock.Of<IPreferencesService>(),
             snapshots, reconciliation);
@@ -190,7 +189,6 @@ public sealed class WinoAccountManagementPageViewModelTests
 
         var viewModel = new WinoAccountManagementPageViewModel(
             profileService.Object,
-            Mock.Of<IWinoAccountDataSyncService>(),
             Mock.Of<IMailDialogService>(),
             billingService.Object,
             Mock.Of<IWinoAccountApiClient>(),
@@ -267,7 +265,6 @@ public sealed class WinoAccountManagementPageViewModelTests
         var coordinator = new Mock<IMailIntelligenceCoordinator>();
         var viewModel = new WinoAccountManagementPageViewModel(
             profileService.Object,
-            Mock.Of<IWinoAccountDataSyncService>(),
             Mock.Of<IMailDialogService>(),
             billingService.Object,
             apiClient.Object,
@@ -519,7 +516,6 @@ public sealed class WinoAccountManagementPageViewModelTests
 
         return new WinoAccountManagementPageViewModel(
             profileService.Object,
-            Mock.Of<IWinoAccountDataSyncService>(),
             Mock.Of<IMailDialogService>(),
             billingService.Object,
             apiClient.Object,
@@ -552,7 +548,6 @@ public sealed class WinoAccountManagementPageViewModelTests
 
         return new WinoAccountManagementPageViewModel(
             profileService.Object,
-            Mock.Of<IWinoAccountDataSyncService>(),
             Mock.Of<IMailDialogService>(),
             billingService.Object,
             apiClient.Object,

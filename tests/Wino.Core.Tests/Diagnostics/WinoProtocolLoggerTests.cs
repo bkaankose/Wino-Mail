@@ -101,9 +101,9 @@ public sealed class WinoProtocolLoggerTests
             }
 
             var accountFolder = WinoProtocolLogger.GetAccountLogFolder(applicationDataPath, accountId);
-            var imapPath = Path.Combine(accountFolder, WinoProtocolLogger.ImapProtocolLogFileName);
-            var smtpPath = Path.Combine(accountFolder, WinoProtocolLogger.SmtpProtocolLogFileName);
-            var pop3Path = Path.Combine(accountFolder, WinoProtocolLogger.Pop3ProtocolLogFileName);
+            var imapPath = Directory.GetFiles(accountFolder, "imap-*.log").Single();
+            var smtpPath = Directory.GetFiles(accountFolder, "smtp-*.log").Single();
+            var pop3Path = Directory.GetFiles(accountFolder, "pop3-*.log").Single();
 
             File.ReadAllText(imapPath).Should().Contain("A1 NOOP").And.NotContain("EHLO localhost").And.NotContain("UIDL");
             File.ReadAllText(smtpPath).Should().Contain("EHLO localhost").And.NotContain("A1 NOOP").And.NotContain("UIDL");
@@ -114,6 +114,30 @@ public sealed class WinoProtocolLoggerTests
             if (Directory.Exists(applicationDataPath))
                 Directory.Delete(applicationDataPath, recursive: true);
         }
+    }
+
+    [Fact]
+    public void ConcurrentConnections_PreserveEachTranscriptAndConnectionId()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"wino-protocol-{Guid.NewGuid():N}");
+        var account = Guid.NewGuid();
+        try
+        {
+            using (var first = WinoProtocolLogger.CreateAccountLogger(root, account, MailProtocol.Imap))
+            using (var second = WinoProtocolLogger.CreateAccountLogger(root, account, MailProtocol.Imap))
+            {
+                Parallel.Invoke(() => LogClient(first, "A1 NOOP\r\n"), () => LogClient(second, "B2 NOOP\r\n"));
+                first.ConnectionId.Should().NotBe(second.ConnectionId);
+            }
+            var files = Directory.GetFiles(WinoProtocolLogger.GetAccountLogFolder(root, account), "imap-*.log");
+            files.Should().HaveCount(2);
+            var contents = files.Select(File.ReadAllText).ToArray();
+            contents.Should().ContainSingle(text => text.Contains("A1 NOOP"));
+            contents.Should().ContainSingle(text => text.Contains("B2 NOOP"));
+            foreach (var file in files)
+                File.ReadAllText(file).Should().Contain(Path.GetFileNameWithoutExtension(file)[5..]);
+        }
+        finally { Directory.Delete(root, recursive: true); }
     }
 
     private static void LogClient(WinoProtocolLogger logger, string value)

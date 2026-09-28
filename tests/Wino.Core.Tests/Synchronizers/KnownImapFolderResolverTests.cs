@@ -29,6 +29,8 @@ public class KnownImapFolderResolverTests
             Folder("Archive")
         };
         var client = Client(folders[0]);
+        client.Setup(value => value.GetFolder(It.IsAny<SpecialFolder>()))
+            .Throws(new NotSupportedException("The IMAP server does not support the SPECIAL-USE nor XLIST extensions."));
         var account = Account(SpecialImapProvider.iCloud, "person@icloud.com", "imap.mail.me.com");
 
         var result = CreateSut().ResolveKnownFolders(client.Object, account, folders, []);
@@ -42,6 +44,7 @@ public class KnownImapFolderResolverTests
             ["Junk"] = SpecialFolderType.Junk,
             ["Archive"] = SpecialFolderType.Archive
         });
+        client.Verify(value => value.GetFolder(It.IsAny<SpecialFolder>()), Times.Never);
     }
 
     [Fact]
@@ -77,11 +80,14 @@ public class KnownImapFolderResolverTests
         result.Values.Should().NotContain(SpecialFolderType.Draft);
     }
 
-    [Fact]
-    public void ResolveKnownFolders_UsesSpecialFolderReferenceWithoutCapabilities()
+    [Theory]
+    [InlineData(ImapCapabilities.SpecialUse)]
+    [InlineData(ImapCapabilities.XList)]
+    public void ResolveKnownFolders_UsesSpecialFolderReferenceWithSupportedExtension(ImapCapabilities capabilities)
     {
         var sent = Folder("Provider Sent");
         var client = Client();
+        client.SetupGet(value => value.Capabilities).Returns(capabilities);
         client.Setup(value => value.GetFolder(SpecialFolder.Sent)).Returns(sent);
 
         var result = CreateSut().ResolveKnownFolders(

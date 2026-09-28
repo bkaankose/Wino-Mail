@@ -1,4 +1,4 @@
-﻿using CommunityToolkit.Mvvm.Messaging;
+using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using MimeKit;
 using Moq;
@@ -156,7 +156,7 @@ public class MailCopyPersistenceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CreateMailAsync_ForImapMessageIdInOtherFolder_RemovesStaleFolderCopy()
+    public async Task CreateMailAsync_ForImapMessageIdInOtherFolder_PreservesIndependentCopies()
     {
         const string messageId = "same-message@test.local";
         var existingFileId = Guid.NewGuid();
@@ -196,10 +196,13 @@ public class MailCopyPersistenceTests : IAsyncLifetime
         inserted.Should().BeTrue();
 
         var allCopies = await _databaseService.Connection.Table<MailCopy>().ToListAsync();
-        allCopies.Should().ContainSingle();
-        allCopies[0].FolderId.Should().Be(_deletedFolder.Id);
-        allCopies[0].MessageId.Should().Be(messageId);
-        allCopies[0].FileId.Should().Be(existingFileId);
+        allCopies.Should().HaveCount(2);
+        allCopies.Single(copy => copy.FolderId == _inboxFolder.Id).FileId.Should().Be(existingFileId);
+        var savedCopy = allCopies.Single(copy => copy.FolderId == _deletedFolder.Id);
+        savedCopy.MessageId.Should().Be(messageId);
+        savedCopy.FileId.Should().Be(deletedCopy.FileId).And.NotBe(existingFileId);
+        savedCopy.ImapUid.Should().Be(77);
+        savedCopy.ImapUidValidity.Should().Be(456);
     }
 
     [Fact]

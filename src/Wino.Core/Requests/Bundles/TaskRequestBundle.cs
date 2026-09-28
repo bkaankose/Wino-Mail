@@ -1,5 +1,7 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Threading;
 using MailKit.Net.Imap;
 using Wino.Core.Domain.Interfaces;
 
@@ -8,6 +10,21 @@ namespace Wino.Core.Requests.Bundles;
 public class ImapRequest
 {
     public Func<IImapClient, IRequestBase, Task> IntegratorTask { get; }
+    private readonly Func<IImapClient, IRequestBase, CancellationToken, Task> cancellableTask;
+
+    public Task ExecuteAsync(IImapClient client, IRequestBase request, CancellationToken cancellationToken)
+        => cancellableTask != null ? cancellableTask(client, request, cancellationToken) : IntegratorTask(client, request);
+
+    public ImapRequest(Func<IImapClient, IRequestBase, CancellationToken, Task> action, IRequestBase request, bool requiresConnectedClient = true)
+    {
+        cancellableTask = action;
+        IntegratorTask = (client, item) => action(client, item, CancellationToken.None);
+        Request = request;
+        QueuedRequests = new[] { request };
+        RequiresConnectedClient = requiresConnectedClient;
+    }
+
+    public IReadOnlyList<IRequestBase> QueuedRequests { get; set; }
     public IRequestBase Request { get; }
     public bool RequiresConnectedClient { get; }
 
@@ -15,6 +32,7 @@ public class ImapRequest
     {
         IntegratorTask = integratorTask;
         Request = request;
+        QueuedRequests = new[] { request };
         RequiresConnectedClient = requiresConnectedClient;
     }
 }

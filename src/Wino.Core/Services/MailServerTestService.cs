@@ -35,7 +35,7 @@ public sealed class MailServerTestService : IMailServerTestService
                 () => new WinoProtocolLogger(protocolLogStream, MailProtocol.Imap),
                 _certificateTrustService);
 
-            using (var clientPool = new ImapClientPool(poolOptions))
+            await using (var clientPool = new ImapClientPool(poolOptions))
             {
                 // This call will make sure that everything is authenticated + connected successfully.
                 var client = await clientPool.GetClientAsync();

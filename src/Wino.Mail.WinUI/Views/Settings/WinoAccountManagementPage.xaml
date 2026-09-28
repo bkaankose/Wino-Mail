@@ -22,13 +22,6 @@
             <GradientStop Offset="1" Color="#D97706" />
         </LinearGradientBrush>
 
-        <LinearGradientBrush x:Key="WinoIntelligencePromoBrush" StartPoint="0,0" EndPoint="1,1">
-            <GradientStop Offset="0" Color="#062A65" />
-            <GradientStop Offset="0.4" Color="#075FCC" />
-            <GradientStop Offset="0.75" Color="#168FEA" />
-            <GradientStop Offset="1" Color="#71CBFF" />
-        </LinearGradientBrush>
-
         <!--
             One feature chip. Control fill and stroke keep it readable on the subtle promo
             surface in Light, Dark, and Contrast themes; only the glyph carries the brand.
@@ -795,8 +788,9 @@
                                 Width="64"
                                 Height="64"
                                 VerticalAlignment="Center"
-                                Background="{StaticResource WinoIntelligencePromoBrush}"
-                                DisplayName="{x:Bind ViewModel.AccountEmail, Mode=OneWay}" />
+                                Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                DisplayName="{x:Bind ViewModel.AccountEmail, Mode=OneWay}"
+                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
 
                             <StackPanel
                                 Grid.Column="1"
@@ -1222,6 +1216,33 @@
                         </StackPanel>
                     </controls:SettingsCard>
 
+                    <!--  Redeeming a Microsoft Store purchase is the user's choice; the card appears only while a redeem is possible.  -->
+                    <controls:SettingsCard
+                        x:Name="StoreRedeemCard"
+                        AutomationProperties.AutomationId="WinoAccountRedeemStorePurchaseCard"
+                        Description="{x:Bind domain:Translator.WinoAccount_StoreRedeem_Description, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.WinoAccount_StoreRedeem_Title, Mode=OneTime}"
+                        Visibility="{x:Bind ViewModel.ShowStoreRedeemCard, Mode=OneWay}">
+                        <controls:SettingsCard.HeaderIcon>
+                            <coreControls:WinoFontIcon Icon="MicrosoftStore" />
+                        </controls:SettingsCard.HeaderIcon>
+
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <ProgressRing
+                                Width="18"
+                                Height="18"
+                                VerticalAlignment="Center"
+                                IsActive="{x:Bind ViewModel.IsStoreRedeemInProgress, Mode=OneWay}"
+                                Visibility="{x:Bind ViewModel.IsStoreRedeemInProgress, Mode=OneWay}" />
+                            <Button
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="WinoAccountRedeemStorePurchaseButton"
+                                Command="{x:Bind ViewModel.RedeemStorePurchaseCommand}"
+                                Content="{x:Bind domain:Translator.WinoAccount_StoreRedeem_Button, Mode=OneTime}"
+                                Style="{StaticResource AccentButtonStyle}" />
+                        </StackPanel>
+                    </controls:SettingsCard>
+
                     <!--  ─── Sync and backup ───  -->
                     <TextBlock
                         Margin="0,22,0,4"
@@ -1229,22 +1250,14 @@
                         Text="{x:Bind domain:Translator.WinoAccount_Management_SyncSectionHeader, Mode=OneTime}" />
 
                     <controls:SettingsCard
-                        AutomationProperties.AutomationId="WinoAccountSyncDataCard"
-                        Description="{x:Bind domain:Translator.WinoAccount_Management_SyncPreferencesDescription, Mode=OneTime}"
-                        Header="{x:Bind domain:Translator.WinoAccount_Management_SyncRowTitle, Mode=OneTime}">
+                        AutomationProperties.AutomationId="WinoAccountBackupRestoreCard"
+                        Command="{x:Bind ViewModel.OpenBackupRestoreCommand}"
+                        Description="{x:Bind domain:Translator.WinoAccount_Management_BackupRestoreDescription, Mode=OneTime}"
+                        Header="{x:Bind domain:Translator.SettingsBackupRestore_Title, Mode=OneTime}"
+                        IsClickEnabled="True">
                         <controls:SettingsCard.HeaderIcon>
                             <coreControls:WinoFontIcon Foreground="{ThemeResource SystemFillColorAttentionBrush}" Icon="Sync" />
                         </controls:SettingsCard.HeaderIcon>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button
-                                AutomationProperties.AutomationId="WinoAccountExportButton"
-                                Command="{x:Bind ViewModel.ExportSettingsCommand}"
-                                Content="{x:Bind domain:Translator.Buttons_Export, Mode=OneTime}" />
-                            <Button
-                                AutomationProperties.AutomationId="WinoAccountImportButton"
-                                Command="{x:Bind ViewModel.ImportSettingsCommand}"
-                                Content="{x:Bind domain:Translator.Buttons_Import, Mode=OneTime}" />
-                        </StackPanel>
                     </controls:SettingsCard>
 
                 </StackPanel>

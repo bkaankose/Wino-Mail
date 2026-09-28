@@ -10,7 +10,7 @@ namespace Wino.Controls;
 public sealed partial class ModeReadinessPanel : UserControl
 {
     [GeneratedDependencyProperty]
-    public partial ModeReadinessViewModel ViewModel { get; set; }
+    public partial ModeReadinessViewModel? ViewModel { get; set; }
 
     public ModeReadinessPanel()
     {

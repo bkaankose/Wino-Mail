@@ -209,6 +209,69 @@ public sealed class WinoSynchronizerMailRequestTests
         synchronizer.HasPendingContactOperation(second.Id).Should().BeFalse();
     }
 
+    [Fact]
+    public async Task IgnoredIdleAndCanceledWaiterDoNotReleaseAnotherRequestsSemaphore()
+    {
+        var synchronizer = new TestMailSynchronizer { BlockMailSync = true };
+        var active = synchronizer.SynchronizeMailsAsync(new() { Type = MailSynchronizationType.IMAPIdle });
+        await synchronizer.MailSyncStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var ignored = await synchronizer.SynchronizeMailsAsync(new() { Type = MailSynchronizationType.IMAPIdle });
+        ignored.CompletedState.Should().Be(SynchronizationCompletedState.Canceled);
+        using var canceled = new CancellationTokenSource();
+        canceled.Cancel();
+        await synchronizer.SynchronizeMailsAsync(new() { Type = MailSynchronizationType.FoldersOnly }, canceled.Token);
+        var waiting = synchronizer.SynchronizeMailsAsync(new() { Type = MailSynchronizationType.FoldersOnly });
+        waiting.IsCompleted.Should().BeFalse();
+        synchronizer.MailSyncInvocationCount.Should().Be(1);
+        synchronizer.ReleaseMailSync.TrySetResult();
+        await Task.WhenAll(active, waiting).WaitAsync(TimeSpan.FromSeconds(5));
+        synchronizer.MailSyncInvocationCount.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task SerializedMailRequests_WaitForActiveSyncBeforeExecutingMutations()
+    {
+        var synchronizer = new TestMailSynchronizer { BlockMailSync = true, SerializeRequests = true };
+        var active = synchronizer.SynchronizeMailsAsync(new() { Type = MailSynchronizationType.IMAPIdle });
+        await synchronizer.MailSyncStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        synchronizer.QueueRequest(new MarkReadRequest(new MailCopy { UniqueId = Guid.NewGuid(), FolderId = Guid.NewGuid() }, true));
+        var waiting = synchronizer.SynchronizeMailsAsync(new() { Type = MailSynchronizationType.ExecuteRequests });
+        synchronizer.ExecuteNativeRequestsInvocationCount.Should().Be(0);
+        synchronizer.ReleaseMailSync.TrySetResult();
+        await Task.WhenAll(active, waiting).WaitAsync(TimeSpan.FromSeconds(5));
+        synchronizer.ExecuteNativeRequestsInvocationCount.Should().Be(1);
+        synchronizer.HasQueuedRequests().Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task RequestEnqueuedDuringBatchPreparation_RemainsQueuedAndTracked()
+    {
+        var synchronizer = new TestMailSynchronizer { SerializeRequests = true };
+        var mail = new MailCopy { UniqueId = Guid.NewGuid(), FolderId = Guid.NewGuid() };
+        synchronizer.QueueRequest(new MarkReadRequest(mail, true));
+        synchronizer.OnMarkRead = () => synchronizer.QueueRequest(new MarkReadRequest(mail, false));
+        await synchronizer.SynchronizeMailsAsync(new() { Type = MailSynchronizationType.ExecuteRequests });
+        synchronizer.HasQueuedRequests().Should().BeTrue();
+        synchronizer.HasPendingOperation(mail.UniqueId).Should().BeTrue();
+        synchronizer.OnMarkRead = null;
+        await synchronizer.SynchronizeMailsAsync(new() { Type = MailSynchronizationType.ExecuteRequests });
+        synchronizer.MarkReadInvocationCount.Should().Be(2);
+        synchronizer.HasQueuedRequests().Should().BeFalse();
+        synchronizer.HasPendingOperation(mail.UniqueId).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SerializedMailRequests_PreserveToggleOrder()
+    {
+        var synchronizer = new TestMailSynchronizer { SerializeRequests = true };
+        var mail = new MailCopy { UniqueId = Guid.NewGuid(), FolderId = Guid.NewGuid() };
+        synchronizer.QueueRequest(new MarkReadRequest(mail, true));
+        synchronizer.QueueRequest(new MarkReadRequest(mail, false));
+        synchronizer.QueueRequest(new MarkReadRequest(mail, true));
+        await synchronizer.SynchronizeMailsAsync(new() { Type = MailSynchronizationType.ExecuteRequests });
+        synchronizer.MarkReadStates.Should().Equal(true, false, true);
+    }
+
     private sealed class TestMailSynchronizer
         : WinoSynchronizer<object, object, object, object>
     {
@@ -227,6 +290,14 @@ public sealed class WinoSynchronizerMailRequestTests
         public int LastNativeRequestCount { get; private set; }
         public int ContactRequestInvocationCount { get; private set; }
         public int ContactSyncInvocationCount { get; private set; }
+        public bool BlockMailSync { get; set; }
+        public bool SerializeRequests { get; set; }
+        protected override bool SerializeMailOperations => SerializeRequests;
+        public Action? OnMarkRead { get; set; }
+        public List<bool> MarkReadStates { get; } = [];
+        public int MailSyncInvocationCount { get; private set; }
+        public TaskCompletionSource MailSyncStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource ReleaseMailSync { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public bool ThrowOnContactRequests { get; set; }
         public bool BlockContactRequests { get; set; }
         public TaskCompletionSource ContactRequestsStarted { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -262,6 +333,8 @@ public sealed class WinoSynchronizerMailRequestTests
         public override List<IRequestBundle<object>> MarkRead(BatchMarkReadRequest request)
         {
             MarkReadInvocationCount++;
+            MarkReadStates.Add(request[0].IsRead);
+            OnMarkRead?.Invoke();
             LastMarkReadBatchCount = request.Count;
             return [new TestRequestBundle(new object(), request[0])];
         }
@@ -285,10 +358,19 @@ public sealed class WinoSynchronizerMailRequestTests
             CancellationToken cancellationToken = default)
             => Task.FromResult(new List<NewMailItemPackage>());
 
-        protected override Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(
+        protected override async Task<MailSynchronizationResult> SynchronizeMailsInternalAsync(
             MailSynchronizationOptions options,
             CancellationToken cancellationToken = default)
-            => Task.FromResult(MailSynchronizationResult.Empty);
+        {
+            MailSyncInvocationCount++;
+            if (BlockMailSync)
+            {
+                BlockMailSync = false;
+                MailSyncStarted.TrySetResult();
+                await ReleaseMailSync.Task.WaitAsync(cancellationToken);
+            }
+            return MailSynchronizationResult.Empty;
+        }
 
         protected override Task<CalendarSynchronizationResult> SynchronizeCalendarEventsInternalAsync(
             CalendarSynchronizationOptions options,

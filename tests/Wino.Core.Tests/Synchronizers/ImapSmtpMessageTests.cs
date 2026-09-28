@@ -50,8 +50,10 @@ public class ImapSmtpMessageTests
             It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    [Fact]
-    public async Task DeleteRemoteDraftIfPresentAsync_WhenDraftStillExists_DeletesOnlyItsUid()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task DeleteRemoteDraftIfPresentAsync_WhenDraftStillExists_ExpungesOnlyWithUidPlus(bool canExpunge)
     {
         var draftUid = new UniqueId(33);
         var folder = new Mock<IMailFolder>(MockBehavior.Strict);
@@ -70,9 +72,12 @@ public class ImapSmtpMessageTests
                 It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        var wasPresent = await ImapSynchronizer.DeleteRemoteDraftIfPresentAsync(folder.Object, draftUid);
+        var wasPresent = await ImapSynchronizer.DeleteRemoteDraftIfPresentAsync(folder.Object, draftUid, canExpunge: canExpunge);
 
         wasPresent.Should().BeTrue();
-        folder.VerifyAll();
+        folder.Verify(x => x.StoreAsync(It.IsAny<IList<UniqueId>>(), It.IsAny<IStoreFlagsRequest>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+        folder.Verify(x => x.ExpungeAsync(It.IsAny<IList<UniqueId>>(), It.IsAny<CancellationToken>()),
+            canExpunge ? Times.Once() : Times.Never());
     }
 }

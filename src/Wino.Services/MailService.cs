@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -159,6 +159,11 @@ public class MailService : BaseDatabaseService, IMailService
 
         return await HydrateMailCopiesAsync(mails).ConfigureAwait(false);
     }
+
+    public Task<List<MailCopy>> GetImapSynchronizationMailsAsync(Guid folderId)
+        => Connection.QueryAsync<MailCopy>(
+            "SELECT Id, UniqueId, FolderId, ImapUid, ImapUidValidity, IsRead, IsFlagged, IsDraft, DraftId FROM MailCopy WHERE FolderId = ?",
+            folderId);
 
     public async Task<bool> HasAccountAnyDraftAsync(Guid accountId)
     {
@@ -1448,58 +1453,6 @@ public class MailService : BaseDatabaseService, IMailService
         return mailCopy;
     }
 
-    private async Task RemoveOtherImapCopiesWithSameMessageIdAsync(
-        MailAccount account,
-        MailItemFolder assignedFolder,
-        MailCopy mailCopy,
-        bool hasFreshMime,
-        bool reportUiChange)
-    {
-        if (account?.ProviderType != MailProviderType.IMAP4 || assignedFolder == null || mailCopy == null)
-            return;
-
-        var normalizedMessageId = MailHeaderExtensions.NormalizeMessageId(mailCopy.MessageId);
-        if (string.IsNullOrWhiteSpace(normalizedMessageId))
-            return;
-
-        mailCopy.MessageId = normalizedMessageId;
-
-        var duplicates = await Connection.QueryAsync<MailCopy>(
-            "SELECT MailCopy.* FROM MailCopy " +
-            "INNER JOIN MailItemFolder ON MailCopy.FolderId = MailItemFolder.Id " +
-            "WHERE MailItemFolder.MailAccountId = ? " +
-            "AND MailCopy.MessageId = ? " +
-            "AND MailCopy.FolderId <> ? " +
-            "AND MailCopy.IsDraft = 0",
-            account.Id,
-            normalizedMessageId,
-            assignedFolder.Id).ConfigureAwait(false);
-
-        duplicates = await HydrateMailCopiesAsync(duplicates).ConfigureAwait(false);
-
-        if (duplicates.Count == 0)
-            return;
-
-        if (!hasFreshMime)
-        {
-            var reusableMimeCopy = duplicates.FirstOrDefault(duplicate => duplicate.FileId != Guid.Empty);
-            if (reusableMimeCopy != null)
-                mailCopy.FileId = reusableMimeCopy.FileId;
-        }
-
-        var removedMails = new List<MailCopy>();
-
-        foreach (var duplicate in duplicates)
-        {
-            var removedMail = await DeleteMailInternalAsync(duplicate, preserveMimeFile: true, reportUiChange: false).ConfigureAwait(false);
-            if (removedMail != null)
-                removedMails.Add(removedMail);
-        }
-
-        if (reportUiChange)
-            ReportRemovedMails(removedMails);
-    }
-
     private async Task<List<MailCopy>> DeleteMailCopiesAsync(IReadOnlyList<MailCopy> mailCopies, bool preserveMimeFile, bool reportUiChange)
     {
         if (mailCopies == null || mailCopies.Count == 0)
@@ -2153,15 +2106,11 @@ public class MailService : BaseDatabaseService, IMailService
         mailCopy.SenderContact = await GetSenderContactForAccountAsync(account, mailCopy.FromAddress).ConfigureAwait(false);
         mailCopy.FolderId = assignedFolder.Id;
 
-        // Decide before other copies are removed below, or a moved IMAP message would count twice.
+        // Count message history once even when several IMAP folders contain a copy.
         var isFirstCopyForHistory = await IsFirstCopyForRecipientHistoryAsync(accountId, mailCopy).ConfigureAwait(false);
 
-        await RemoveOtherImapCopiesWithSameMessageIdAsync(
-            account,
-            assignedFolder,
-            mailCopy,
-            mimeMessage != null,
-            reportUiChange: !package.SuppressUiChange).ConfigureAwait(false);
+        // Message-ID identifies message content, not folder membership. A server COPY
+        // can leave valid copies in both folders with different UIDs and flags.
 
         // Only save MIME files if they don't exists.
         // This is because 1 mail may have multiple copies in different folders.

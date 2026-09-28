@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
@@ -40,7 +42,11 @@ public class SynchronizerFactory : ISynchronizerFactory
     private readonly ISmtpTransport _smtpTransport;
     private readonly IMimeFileService _mimeFileService;
 
-    private readonly List<IWinoSynchronizerBase> synchronizerCache = new();
+    private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizers = new();
+    internal IReadOnlyDictionary<Guid, IWinoSynchronizerBase> CachedSynchronizers => _synchronizers;
+    private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _accountGates = new();
+
+    private SemaphoreSlim GetAccountGate(Guid accountId) => _accountGates.GetOrAdd(accountId, _ => new SemaphoreSlim(1, 1));
 
     public SynchronizerFactory(IOutlookChangeProcessor outlookChangeProcessor,
                                IGmailChangeProcessor gmailChangeProcessor,
@@ -99,22 +105,22 @@ public class SynchronizerFactory : ISynchronizerFactory
 
     public async Task<IWinoSynchronizerBase> GetAccountSynchronizerAsync(Guid accountId)
     {
-        var synchronizer = synchronizerCache.Find(a => a.Account.Id == accountId);
-
-        if (synchronizer == null)
+        var gate = GetAccountGate(accountId);
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
         {
-            var account = await _accountService.GetAccountAsync(accountId);
-
-            if (account != null)
+            var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
+            if (account == null) return null;
+            if (_synchronizers.TryGetValue(accountId, out var existing))
             {
-                synchronizer = CreateNewSynchronizer(account);
-
-
-                return await GetAccountSynchronizerAsync(accountId);
+                if (!SynchronizationManager.RequiresSynchronizerRefresh(existing.Account, account)) return existing;
+                // Complete teardown before publishing a replacement for this account.
+                try { await existing.KillSynchronizerAsync().ConfigureAwait(false); }
+                finally { _synchronizers.TryRemove(accountId, out _); }
             }
+            return CreateAndCache(account);
         }
-
-        return synchronizer;
+        finally { gate.Release(); }
     }
 
     private IWinoSynchronizerBase CreateIntegratorWithDefaultProcessor(MailAccount mailAccount)
@@ -164,19 +170,27 @@ public class SynchronizerFactory : ISynchronizerFactory
 
     public IWinoSynchronizerBase CreateNewSynchronizer(MailAccount account)
     {
-        var synchronizer = CreateIntegratorWithDefaultProcessor(account);
+        var gate = GetAccountGate(account.Id);
+        // This legacy synchronous entry point must not block the UI on async teardown.
+        if (!gate.Wait(0))
+            throw new InvalidOperationException("Synchronizer lifecycle is busy. Use GetAccountSynchronizerAsync.");
+        try
+        {
+            return _synchronizers.TryGetValue(account.Id, out var existing) ? existing : CreateAndCache(account);
+        }
+        finally { gate.Release(); }
+    }
 
+    private IWinoSynchronizerBase CreateAndCache(MailAccount account)
+    {
+        var synchronizer = CreateIntegratorWithDefaultProcessor(account);
+        _synchronizers[account.Id] = synchronizer;
         if (synchronizer is IImapSynchronizer imapSynchronizer)
         {
-            // Start the idle client for IMAP synchronizer.
+            // The pool is warmed after the first synchronization so startup opens
+            // only the IDLE socket and one worker instead of competing handshakes.
             _ = imapSynchronizer.StartIdleClientAsync();
-
-            // Pre-warm the client pool for IMAP synchronizer.
-            _ = imapSynchronizer.PreWarmClientPoolAsync();
         }
-
-        synchronizerCache.Add(synchronizer);
-
         return synchronizer;
     }
 
@@ -196,14 +210,16 @@ public class SynchronizerFactory : ISynchronizerFactory
 
     public async Task DeleteSynchronizerAsync(Guid accountId)
     {
-        var synchronizer = synchronizerCache.Find(a => a.Account.Id == accountId);
-
-        if (synchronizer != null)
+        var gate = GetAccountGate(accountId);
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
         {
-            // Stop the current synchronization.
-            await synchronizer.KillSynchronizerAsync();
-
-            synchronizerCache.Remove(synchronizer);
+            if (_synchronizers.TryGetValue(accountId, out var synchronizer))
+            {
+                try { await synchronizer.KillSynchronizerAsync().ConfigureAwait(false); }
+                finally { _synchronizers.TryRemove(accountId, out _); }
+            }
         }
+        finally { gate.Release(); }
     }
 }

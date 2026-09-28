@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -131,6 +131,7 @@ public interface IMailService
     /// </summary>
     /// <param name="folderId">Folder id to get mails for</param>
     Task<List<MailCopy>> GetMailsByFolderIdAsync(Guid folderId);
+    Task<List<MailCopy>> GetImapSynchronizationMailsAsync(Guid folderId);
 
     /// <summary>
     /// Returns all unread mails for given folder id.

@@ -84,7 +84,6 @@ public sealed class WinoAccountUnlimitedAccountsPurchaseChannelTests
 
         var viewModel = new WinoAccountManagementPageViewModel(
             profile.Object,
-            Mock.Of<IWinoAccountDataSyncService>(),
             dialogs.Object,
             billing.Object,
             Mock.Of<IWinoAccountApiClient>(),

@@ -24,7 +24,8 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     protected SemaphoreSlim synchronizationSemaphore = new(1);
     protected CancellationToken activeSynchronizationCancellationToken;
 
-    protected List<IRequestBase> changeRequestQueue = [];
+    private readonly List<IRequestBase> changeRequestQueue = [];
+    private readonly object requestQueueLock = new();
     private readonly ConcurrentDictionary<Guid, byte> _pendingMailOperationIds = new();
     private readonly ConcurrentDictionary<Guid, byte> _pendingCalendarOperationIds = new();
     private readonly ConcurrentDictionary<Guid, byte> _pendingContactOperationIds = new();
@@ -133,11 +134,37 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     /// <param name="request">Request to execute.</param>
     public void QueueRequest(IRequestBase request)
     {
-        changeRequestQueue.Add(request);
-        TrackQueuedRequest(request);
+        lock (requestQueueLock)
+        {
+            TrackQueuedRequest(request);
+            changeRequestQueue.Add(request);
+        }
     }
 
-    public bool HasQueuedRequests() => changeRequestQueue.Count > 0;
+    public bool HasQueuedRequests()
+    {
+        lock (requestQueueLock)
+            return changeRequestQueue.Count > 0;
+    }
+
+    protected List<IRequestBase> GetQueuedRequests()
+    {
+        lock (requestQueueLock)
+            return changeRequestQueue.ToList();
+    }
+
+    protected void RemoveQueuedRequests(IEnumerable<IRequestBase> requests)
+    {
+        lock (requestQueueLock)
+        {
+            foreach (var request in requests)
+            {
+                var index = changeRequestQueue.FindIndex(queued => ReferenceEquals(queued, request));
+                if (index >= 0)
+                    changeRequestQueue.RemoveAt(index);
+            }
+        }
+    }
 
     public bool HasPendingOperation(Guid mailUniqueId) => _pendingMailOperationIds.ContainsKey(mailUniqueId);
 
@@ -192,8 +219,14 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
 
     protected void UntrackProcessedRequests(IEnumerable<IRequestBase> requests)
     {
-        foreach (var request in requests)
-            UntrackProcessedRequest(request);
+        lock (requestQueueLock)
+        {
+            foreach (var request in requests)
+                UntrackProcessedRequest(request);
+            // A newer action for the same message, or an unstarted batch, is still pending.
+            foreach (var queued in changeRequestQueue)
+                TrackQueuedRequest(queued);
+        }
     }
 
     protected void ResetCapturedSynchronizationIssues()

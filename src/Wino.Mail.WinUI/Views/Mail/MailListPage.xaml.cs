@@ -157,6 +157,15 @@ public sealed partial class MailListPage : MailListPageAbstract,
         MailGroupNavigator.ItemsSource = MailCollectionViewSource.View?.CollectionGroups;
     }
 
+    public override void PrepareForClose()
+    {
+        base.PrepareForClose();
+
+        // Mode switches clear Frame.Content without OnNavigatedFrom. The generated
+        // listeners otherwise retain this ViewModel through the singleton preferences.
+        Bindings.StopTracking();
+    }
+
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
@@ -810,16 +819,24 @@ public sealed partial class MailListPage : MailListPageAbstract,
     }
 
     public void Receive(WinoIntelligenceAccessChanged message)
-        => DispatcherQueue.TryEnqueue(Bindings.Update);
+        => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!IsPreparedForClose)
+                Bindings.Update();
+        });
 
     public void Receive(WinoIntelligenceEntitlementChanged message)
         => DispatcherQueue.TryEnqueue(async () => await ApplyIntelligenceEntitlementAsync(message.Entitlement.CanAccessSurfaces));
 
     private async Task ApplyIntelligenceEntitlementAsync(bool canAccess)
     {
+        if (IsPreparedForClose)
+            return;
+
         await ViewModel.ApplyIntelligenceEntitlementAsync(canAccess);
 
-        Bindings.Update();
+        if (!IsPreparedForClose)
+            Bindings.Update();
     }
 
     protected override void RegisterRecipients()

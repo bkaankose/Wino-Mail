@@ -11,10 +11,18 @@
     mc:Ignorable="d">
 
     <StackPanel Spacing="{StaticResource SettingsCardSpacing}">
+        <!--  ─── This PC ───  -->
+        <TextBlock
+            Margin="1,0,0,6"
+            AutomationProperties.AutomationId="BackupRestoreThisPcHeader"
+            AutomationProperties.HeadingLevel="Level2"
+            Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+            Text="{x:Bind domain:Translator.SettingsBackupRestore_ThisPcHeader, Mode=OneTime}" />
+
         <controls:SettingsCard
             AutomationProperties.AutomationId="BackupRestoreLocalDataCard"
-            Description="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionDescription}"
-            Header="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionTitle}">
+            Description="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionTitle, Mode=OneTime}">
             <controls:SettingsCard.HeaderIcon>
                 <coreControls:WinoFontIcon Icon="Sync" />
             </controls:SettingsCard.HeaderIcon>
@@ -22,18 +30,69 @@
                 <Button
                     AutomationProperties.AutomationId="BackupRestoreImportButton"
                     Command="{x:Bind ViewModel.ImportLocalDataCommand}"
-                    Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction}" />
+                    Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction, Mode=OneTime}" />
                 <Button
                     AutomationProperties.AutomationId="BackupRestoreExportButton"
                     Command="{x:Bind ViewModel.ExportLocalDataCommand}"
-                    Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction}" />
-                <ProgressRing
-                    Width="20"
-                    Height="20"
-                    AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_Management_LocalDataSectionTitle}"
-                    IsActive="{x:Bind ViewModel.IsDataTransferInProgress, Mode=OneWay}"
-                    Visibility="{x:Bind ViewModel.IsDataTransferInProgress, Mode=OneWay}" />
+                    Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction, Mode=OneTime}" />
             </StackPanel>
         </controls:SettingsCard>
+
+        <!--  ─── Wino Account ───  -->
+        <TextBlock
+            AutomationProperties.AutomationId="BackupRestoreWinoAccountHeader"
+            AutomationProperties.HeadingLevel="Level2"
+            Style="{StaticResource SettingsSectionHeaderTextBlockStyle}"
+            Text="{x:Bind domain:Translator.SettingsBackupRestore_WinoAccountHeader, Mode=OneTime}" />
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="BackupRestoreWinoAccountCard"
+            Description="{x:Bind domain:Translator.WinoAccount_Management_SyncPreferencesDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsBackupRestore_WinoAccountCardTitle, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.IsWinoAccountSignedIn, Mode=OneWay}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="ArrowSyncCircle" />
+            </controls:SettingsCard.HeaderIcon>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button
+                    AutomationProperties.AutomationId="BackupRestoreWinoAccountImportButton"
+                    Command="{x:Bind ViewModel.ImportFromWinoAccountCommand}"
+                    Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataImportAction, Mode=OneTime}" />
+                <Button
+                    AutomationProperties.AutomationId="BackupRestoreWinoAccountExportButton"
+                    Command="{x:Bind ViewModel.ExportToWinoAccountCommand}"
+                    Content="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction, Mode=OneTime}" />
+            </StackPanel>
+        </controls:SettingsCard>
+
+        <controls:SettingsCard
+            AutomationProperties.AutomationId="BackupRestoreWinoAccountSignInCard"
+            Description="{x:Bind domain:Translator.SettingsBackupRestore_WinoAccountSignInDescription, Mode=OneTime}"
+            Header="{x:Bind domain:Translator.SettingsBackupRestore_WinoAccountCardTitle, Mode=OneTime}"
+            Visibility="{x:Bind ViewModel.IsWinoAccountSignedOut, Mode=OneWay}">
+            <controls:SettingsCard.HeaderIcon>
+                <coreControls:WinoFontIcon Icon="ArrowSyncCircle" />
+            </controls:SettingsCard.HeaderIcon>
+            <Button
+                AutomationProperties.AutomationId="BackupRestoreWinoAccountSignInButton"
+                Command="{x:Bind ViewModel.OpenWinoAccountManagementCommand}"
+                Content="{x:Bind domain:Translator.Buttons_SignIn, Mode=OneTime}" />
+        </controls:SettingsCard>
+
+        <StackPanel
+            AutomationProperties.AutomationId="BackupRestoreProgressPanel"
+            AutomationProperties.LiveSetting="Polite"
+            Orientation="Horizontal"
+            Spacing="8"
+            Visibility="{x:Bind ViewModel.IsDataTransferInProgress, Mode=OneWay}">
+            <ProgressRing
+                Width="16"
+                Height="16"
+                IsActive="{x:Bind ViewModel.IsDataTransferInProgress, Mode=OneWay}" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="{x:Bind domain:Translator.SettingsBackupRestore_InProgress, Mode=OneTime}" />
+        </StackPanel>
     </StackPanel>
 </abstract:BackupRestorePageAbstract>

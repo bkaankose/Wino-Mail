@@ -18,7 +18,6 @@ public sealed partial class WinoAccountSyncExportDialog : ContentDialog
         _syncService = syncService;
         _dialogService = dialogService;
         InitializeComponent();
-        UpdateButtonState();
     }
 
     public WinoAccountSyncExportResult? Result { get; private set; }
@@ -29,7 +28,7 @@ public sealed partial class WinoAccountSyncExportDialog : ContentDialog
     {
         args.Cancel = true;
 
-        if (!HasSelection())
+        if (_isBusy)
         {
             return;
         }
@@ -40,9 +39,7 @@ public sealed partial class WinoAccountSyncExportDialog : ContentDialog
         {
             SetBusyState(true);
             FailureException = null;
-            Result = await _syncService.ExportAsync(new WinoAccountSyncSelection(
-                PreferencesCheckBox.IsChecked == true,
-                AccountsCheckBox.IsChecked == true), PromptSecretAsync);
+            Result = await _syncService.ExportAsync(new WinoAccountSyncSelection(), PromptSecretAsync);
             Hide();
         }
         catch (Exception ex)
@@ -56,9 +53,6 @@ public sealed partial class WinoAccountSyncExportDialog : ContentDialog
             deferral.Complete();
         }
     }
-
-    private void SelectionChanged(object sender, RoutedEventArgs e)
-        => UpdateButtonState();
 
     // The key is normally cached at sign-in. Only an account that signed in before this build,
     // or one without a password, has to answer here. The dialog hides while the prompt is shown.
@@ -79,13 +73,7 @@ public sealed partial class WinoAccountSyncExportDialog : ContentDialog
     {
         _isBusy = isBusy;
         ProgressPanel.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
+        IsPrimaryButtonEnabled = !isBusy;
         IsSecondaryButtonEnabled = !isBusy;
-        UpdateButtonState();
     }
-
-    private void UpdateButtonState()
-        => IsPrimaryButtonEnabled = !_isBusy && HasSelection();
-
-    private bool HasSelection()
-        => PreferencesCheckBox.IsChecked == true || AccountsCheckBox.IsChecked == true;
 }

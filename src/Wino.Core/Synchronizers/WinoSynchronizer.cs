@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -30,9 +31,12 @@ namespace Wino.Core.Synchronizers;
 
 public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType, TContactType> : BaseSynchronizer<TBaseRequest>, IWinoSynchronizerBase
 {
+    protected virtual bool SerializeMailOperations => false;
+    protected virtual bool DequeueMailRequestsBeforeExecution => true;
+
     protected bool IsDisposing { get; private set; }
 
-    protected Dictionary<MailSynchronizationOptions, CancellationTokenSource> PendingSynchronizationRequest = new();
+    protected ConcurrentDictionary<MailSynchronizationOptions, CancellationTokenSource> PendingSynchronizationRequest = new();
 
     protected ILogger Logger = Log.ForContext<WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEventType, TContactType>>();
 
@@ -145,7 +149,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
         if (request is null)
             return;
 
-        changeRequestQueue.Remove(request);
+        RemoveQueuedRequests(new[] { request });
         UntrackProcessedRequest(request);
     }
 
@@ -168,7 +172,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 // Capture after entering the semaphore. A request can be queued while another
                 // synchronization is running; capturing before the wait can execute it twice or
                 // let an earlier run remove a request that it never processed.
-                var requests = changeRequestQueue.OfType<IContactActionRequest>().ToList();
+                var requests = GetQueuedRequests().OfType<IContactActionRequest>().ToList();
                 if (requests.Count == 0)
                     return ContactSynchronizationResult.Empty;
 
@@ -191,7 +195,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                     }
                     finally
                     {
-                        changeRequestQueue.Remove(request);
+                        RemoveQueuedRequests(new[] { request });
                         UntrackProcessedRequest(request);
                     }
                 }
@@ -285,7 +289,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
             if (options?.Type == TaskSynchronizationType.ExecuteRequests)
             {
-                var requests = changeRequestQueue.OfType<ITaskActionRequest>().ToList();
+                var requests = GetQueuedRequests().OfType<ITaskActionRequest>().ToList();
                 if (requests.Count == 0)
                 {
                     Messenger.Send(new TaskSynchronizationCompleted(Account.Id, SynchronizationCompletedState.Success));
@@ -315,7 +319,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                     }
                     finally
                     {
-                        changeRequestQueue.Remove(request);
+                        RemoveQueuedRequests(new[] { request });
                         UntrackProcessedRequest(request);
                     }
                 }
@@ -407,21 +411,32 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// <returns>Synchronization result that contains summary of the sync.</returns>
     public async Task<MailSynchronizationResult> SynchronizeMailsAsync(MailSynchronizationOptions options, CancellationToken cancellationToken = default)
     {
-        ResetCapturedSynchronizationIssues();
         List<IRequestBase> requestCopies = null;
+        bool semaphoreEntered = false;
+        CancellationTokenSource requestCancellation = null;
+        var registeredOptions = options;
 
         try
         {
-            if (!ShouldQueueMailSynchronization(options))
+            if (IsDisposing || !ShouldQueueMailSynchronization(options))
             {
                 Log.Debug($"{options.Type} synchronization is ignored.");
                 return FinalizeMailResult(MailSynchronizationResult.Canceled);
             }
 
-            var newCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (!PendingSynchronizationRequest.TryAdd(options, requestCancellation))
+                return FinalizeMailResult(MailSynchronizationResult.Canceled);
+            var requestToken = requestCancellation.Token;
+            if (IsDisposing) requestCancellation.Cancel();
 
-            PendingSynchronizationRequest.Add(options, newCancellationTokenSource);
-            activeSynchronizationCancellationToken = newCancellationTokenSource.Token;
+            if (SerializeMailOperations)
+            {
+                await synchronizationSemaphore.WaitAsync(requestToken).ConfigureAwait(false);
+                semaphoreEntered = true;
+            }
+
+            ResetCapturedSynchronizationIssues();
 
             // Only explicit ExecuteRequests runs are allowed to drain the queued request list.
             // Other sync types (for example the follow-up FoldersOnly refresh after folder actions)
@@ -431,19 +446,20 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             bool shouldDelayExecution = false;
             int maxExecutionDelay = 0;
 
-            if (shouldExecuteRequests && changeRequestQueue.Any(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest))
+            if (shouldExecuteRequests && GetQueuedRequests().Any(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest))
             {
                 CurrentSynchronizationProgressCategory = SynchronizationProgressCategory.Mail;
                 State = AccountSynchronizerState.ExecutingRequests;
 
                 List<IRequestBundle<TBaseRequest>> nativeRequests = new();
 
-                requestCopies = new(changeRequestQueue.Where(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest));
+                requestCopies = new(GetQueuedRequests().Where(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest));
                 LogTracedRequests("provider-batch-prepared", requestCopies);
 
-                var keys = changeRequestQueue
-                    .Where(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest)
-                    .GroupBy(a => a.GroupingKey());
+                // Preserve IMAP mutation order, including read/unread/read toggles and move dependencies.
+                var keys = SerializeMailOperations
+                    ? requestCopies.GroupAdjacent(a => a.GroupingKey())
+                    : requestCopies.GroupBy(a => a.GroupingKey());
 
                 foreach (var group in keys)
                 {
@@ -537,13 +553,14 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                     }
                 }
 
-                changeRequestQueue.RemoveAll(request => request is IMailActionRequest or IFolderActionRequest or ICategoryActionRequest);
+                if (DequeueMailRequestsBeforeExecution)
+                    RemoveQueuedRequests(requestCopies);
 
                 Console.WriteLine($"Prepared {nativeRequests.Count()} native requests");
 
                 try
                 {
-                    await ExecuteNativeRequestsAsync(nativeRequests, activeSynchronizationCancellationToken).ConfigureAwait(false);
+                    await ExecuteNativeRequestsAsync(nativeRequests, requestToken).ConfigureAwait(false);
                     LogTracedRequests("provider-batch-completed", requestCopies);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -589,7 +606,11 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 options.ExcludeMustHaveFolders = requestCopies.All(a => a is ICustomFolderSynchronizationRequest request && request.ExcludeMustHaveFolders);
             }
 
-            await synchronizationSemaphore.WaitAsync(activeSynchronizationCancellationToken);
+            if (!semaphoreEntered)
+            {
+                await synchronizationSemaphore.WaitAsync(requestToken).ConfigureAwait(false);
+                semaphoreEntered = true;
+            }
 
             // Set indeterminate progress for initial state
             CurrentSynchronizationProgressCategory = SynchronizationProgressCategory.Mail;
@@ -656,7 +677,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
                 try
                 {
-                    await SynchronizeCategoriesAsync(activeSynchronizationCancellationToken);
+                    await SynchronizeCategoriesAsync(requestToken);
 
                     return FinalizeMailResult(MailSynchronizationResult.Empty);
                 }
@@ -679,7 +700,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
             }
 
             // Start the internal synchronization.
-            var synchronizationResult = await SynchronizeMailsInternalAsync(options, activeSynchronizationCancellationToken).ConfigureAwait(false);
+            var synchronizationResult = await SynchronizeMailsInternalAsync(options, requestToken).ConfigureAwait(false);
 
             PublishUnreadItemChanges();
 
@@ -703,20 +724,18 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
         }
         finally
         {
-            // Find the request and remove it from the pending list.
+            if (requestCancellation != null &&
+                PendingSynchronizationRequest.TryGetValue(registeredOptions, out var registered) &&
+                ReferenceEquals(registered, requestCancellation))
+                PendingSynchronizationRequest.TryRemove(registeredOptions, out _);
+            requestCancellation?.Dispose();
 
-            var pendingRequest = PendingSynchronizationRequest.FirstOrDefault(a => a.Key.Id == options.Id);
-
-            if (pendingRequest.Key != null)
+            if (semaphoreEntered || requestCopies != null)
             {
-                PendingSynchronizationRequest.Remove(pendingRequest.Key);
+                ResetSyncProgress();
+                State = AccountSynchronizerState.Idle;
             }
-
-            // Reset synchronization progress
-            ResetSyncProgress();
-
-            State = AccountSynchronizerState.Idle;
-            synchronizationSemaphore.Release();
+            if (semaphoreEntered) synchronizationSemaphore.Release();
         }
     }
 
@@ -734,7 +753,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
         try
         {
-            bool shouldExecuteRequests = changeRequestQueue.Any(r => r is ICalendarActionRequest);
+            bool shouldExecuteRequests = GetQueuedRequests().Any(r => r is ICalendarActionRequest);
             bool shouldDelayExecution = false;
             int maxExecutionDelay = 0;
 
@@ -745,7 +764,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 State = AccountSynchronizerState.ExecutingRequests;
 
                 List<IRequestBundle<TBaseRequest>> nativeRequests = new();
-                requestCopies = new(changeRequestQueue.Where(r => r is ICalendarActionRequest));
+                requestCopies = new(GetQueuedRequests().Where(r => r is ICalendarActionRequest));
                 LogTracedRequests("provider-batch-prepared", requestCopies);
 
                 var keys = requestCopies.GroupBy(a => a.GroupingKey());
@@ -809,7 +828,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 }
 
                 // Remove processed calendar requests from queue
-                changeRequestQueue.RemoveAll(r => r is ICalendarActionRequest);
+                RemoveQueuedRequests(requestCopies);
 
                 Console.WriteLine($"Prepared {nativeRequests.Count()} native calendar requests");
 
@@ -963,6 +982,7 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
         if (options.Type == MailSynchronizationType.IMAPIdle &&
             PendingSynchronizationRequest.Any(a => a.Key.Type == MailSynchronizationType.IMAPIdle))
         {
+            OnIdleSynchronizationDeferred();
             return false;
         }
 
@@ -975,11 +995,14 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
         if (options.Type == MailSynchronizationType.IMAPIdle &&
             PendingSynchronizationRequest.Any(a => a.Key.Type == MailSynchronizationType.ExecuteRequests))
         {
+            OnIdleSynchronizationDeferred();
             return false;
         }
 
         return true;
     }
+
+    protected virtual void OnIdleSynchronizationDeferred() { }
 
     #region Mail/Folder Operations
 
@@ -1057,9 +1080,19 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     /// <exception cref="NotSupportedException"></exception>
     public virtual Task<List<MailCopy>> OnlineSearchAsync(RemoteMailSearchCriteria criteria, List<IMailItemFolder> folders, CancellationToken cancellationToken = default) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
 
+    public List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(
+        Func<IImapClient, IRequestBase, CancellationToken, Task> action, IRequestBase request, IUIChangeRequest uiChangeRequest)
+        => new() { new ImapRequestBundle(new ImapRequest(action, request)
+        {
+            QueuedRequests = uiChangeRequest is IEnumerable<IRequestBase> batch ? batch.ToList() : new[] { request }
+        }, request, uiChangeRequest) };
+
     public List<IRequestBundle<ImapRequest>> CreateSingleTaskBundle(Func<IImapClient, IRequestBase, Task> action, IRequestBase request, IUIChangeRequest uIChangeRequest)
     {
-        return [new ImapRequestBundle(new ImapRequest(action, request), request, uIChangeRequest)];
+        return [new ImapRequestBundle(new ImapRequest(action, request)
+        {
+            QueuedRequests = uIChangeRequest is IEnumerable<IRequestBase> batch ? batch.ToList() : new[] { request }
+        }, request, uIChangeRequest)];
     }
 
     public List<IRequestBundle<ImapRequest>> CreateTaskBundle<TSingeRequestType>(Func<IImapClient, TSingeRequestType, Task> value,
@@ -1088,8 +1121,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     {
         foreach (var request in PendingSynchronizationRequest)
         {
-            request.Value.Cancel();
-            request.Value.Dispose();
+            try { request.Value.Cancel(); }
+            catch (ObjectDisposedException) { }
         }
     }
 

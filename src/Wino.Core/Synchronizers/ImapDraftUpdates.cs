@@ -28,7 +28,7 @@ public partial class ImapSynchronizer
             if (recovered != null) recovered.Apply(draft);
         }
 
-        var client = await _clientPool.GetClientAsync(cancellationToken).ConfigureAwait(false);
+        var client = await _clientPool.GetClientAsync(cancellationToken, purpose: "DraftUpdate").ConfigureAwait(false);
         var destroy = false;
         try
         {
@@ -94,7 +94,7 @@ public partial class ImapSynchronizer
     private async Task<DraftUpdateIdentity> RecoverDraftReplacementAsync(Guid uniqueId, MailCopy draft, CancellationToken token)
     {
         if (!_draftReplacements.TryGetValue(uniqueId, out var replacement)) return null;
-        var client = await _clientPool.GetClientAsync(token).ConfigureAwait(false);
+        var client = await _clientPool.GetClientAsync(token, purpose: "DraftUpdate").ConfigureAwait(false);
         var destroy = false;
         try
         {

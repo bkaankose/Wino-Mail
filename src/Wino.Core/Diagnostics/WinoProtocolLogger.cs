@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -25,7 +24,6 @@ public sealed class WinoProtocolLogger : IProtocolLogger
     public const string SmtpProtocolLogFileName = "smtp.log";
     public const string Pop3ProtocolLogFileName = "pop3.log";
 
-    private static readonly ConcurrentDictionary<string, object> FileLocks = new(StringComparer.OrdinalIgnoreCase);
     private static readonly Regex LiteralMarkerRegex = new(@"\{(?<length>\d+)\+?\}\r?\n$", RegexOptions.Compiled);
     private static readonly Regex BdatRegex = new(@"^BDAT\s+(?<length>\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
@@ -36,6 +34,8 @@ public sealed class WinoProtocolLogger : IProtocolLogger
     private readonly DirectionState _serverState = new();
     private bool _pop3MessageResponseExpected;
     private bool _disposed;
+
+    public string ConnectionId { get; } = Guid.NewGuid().ToString("N");
 
     public IAuthenticationSecretDetector AuthenticationSecretDetector
     {
@@ -60,14 +60,12 @@ public sealed class WinoProtocolLogger : IProtocolLogger
         var accountFolder = GetAccountLogFolder(applicationDataFolderPath, accountId);
         Directory.CreateDirectory(accountFolder);
 
-        var logPath = GetAccountLogFilePath(applicationDataFolderPath, accountId, protocol);
-        var stream = new FileStream(logPath, FileMode.Append, FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
-
-        return new WinoProtocolLogger(
-            stream,
-            protocol,
-            leaveOpen: false,
-            FileLocks.GetOrAdd(logPath, static _ => new object()));
+        // Each socket owns a file: independent append streams can overwrite one another.
+        var connectionId = Guid.NewGuid().ToString("N");
+        var fileName = $"{protocol.ToString().ToLowerInvariant()}-{connectionId}.log";
+        var stream = new FileStream(Path.Combine(accountFolder, fileName), FileMode.CreateNew,
+            FileAccess.Write, FileShare.ReadWrite | FileShare.Delete);
+        return new WinoProtocolLogger(stream, protocol, leaveOpen: false, connectionId);
     }
 
     private static string GetProtocolLogFileName(MailProtocol protocol)
@@ -80,20 +78,21 @@ public sealed class WinoProtocolLogger : IProtocolLogger
         };
 
     public WinoProtocolLogger(Stream stream, MailProtocol protocol, bool leaveOpen = true)
-        : this(stream, protocol, leaveOpen, new object())
+        : this(stream, protocol, leaveOpen, Guid.NewGuid().ToString("N"))
     {
     }
 
-    private WinoProtocolLogger(Stream stream, MailProtocol protocol, bool leaveOpen, object writeLock)
+    private WinoProtocolLogger(Stream stream, MailProtocol protocol, bool leaveOpen, string connectionId)
     {
         ArgumentNullException.ThrowIfNull(stream);
 
         _protocol = protocol;
-        _writeLock = writeLock;
+        _writeLock = new object();
+        ConnectionId = connectionId;
         _inner = new ProtocolLogger(stream, leaveOpen)
         {
-            ClientPrefix = $"{protocol.ToString().ToUpperInvariant()} C: ",
-            ServerPrefix = $"{protocol.ToString().ToUpperInvariant()} S: ",
+            ClientPrefix = $"{_protocol.ToString().ToUpperInvariant()} [{ConnectionId}] C: ",
+            ServerPrefix = $"{_protocol.ToString().ToUpperInvariant()} [{ConnectionId}] S: ",
             LogTimestamps = true,
             RedactSecrets = true
         };

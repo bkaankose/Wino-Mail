@@ -32,7 +32,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     IRecipient<WinoIntelligenceEntitlementChanged>
 {
     private readonly IWinoAccountProfileService _profileService;
-    private readonly IWinoAccountDataSyncService _syncService;
     private readonly IMailDialogService _dialogService;
     private readonly IWinoBillingService _billingService;
     private readonly IWinoAccountApiClient _apiClient;
@@ -48,6 +47,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     private readonly IWinoAccountSessionService? _sessions;
     private readonly IWinoLogger? _logger;
     private readonly IMicrosoftStoreService? _storeService;
+    private readonly IWinoStorePurchaseRedeemService? _storeRedeemService;
+    private WinoStoreRedeemCandidate? _storeRedeemCandidate;
     private string _intelligencePolicyVersion = string.Empty;
 
     public ObservableCollection<WinoAddOnItemViewModel> AddOns { get; } = [];
@@ -169,6 +170,17 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     [ObservableProperty]
     public partial string UnlimitedAccountsSubtitleText { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Shown when this device has a Microsoft Store Unlimited Accounts purchase that the signed-in
+    /// Wino Account can redeem. Redeeming is always the user's choice.
+    /// </summary>
+    [ObservableProperty]
+    public partial bool ShowStoreRedeemCard { get; set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RedeemStorePurchaseCommand))]
+    public partial bool IsStoreRedeemInProgress { get; set; }
+
     [ObservableProperty]
     public partial string AccountUsageText { get; set; } = string.Empty;
 
@@ -235,7 +247,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     public bool IsSignedOut => !IsSignedIn;
 
     public WinoAccountManagementPageViewModel(IWinoAccountProfileService profileService,
-                                               IWinoAccountDataSyncService syncService,
                                                IMailDialogService dialogService,
                                                IWinoBillingService billingService,
                                                IWinoAccountApiClient apiClient,
@@ -246,10 +257,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                                                IWinoPurchaseReconciliationService? purchaseReconciliation = null,
                                                IWinoAccountSessionService? sessions = null,
                                                IWinoLogger? logger = null,
-                                               IMicrosoftStoreService? storeService = null)
+                                               IMicrosoftStoreService? storeService = null,
+                                               IWinoStorePurchaseRedeemService? storeRedeemService = null)
     {
         _profileService = profileService;
-        _syncService = syncService;
         _dialogService = dialogService;
         _billingService = billingService;
         _apiClient = apiClient;
@@ -261,6 +272,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         _sessions = sessions;
         _logger = logger;
         _storeService = storeService;
+        _storeRedeemService = storeRedeemService;
 
         _aiPackAddOn = CreateAddOnItem(WinoAddOnProductType.AI_PACK);
         _unlimitedAccountsAddOn = CreateAddOnItem(WinoAddOnProductType.UNLIMITED_ACCOUNTS);
@@ -542,7 +554,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             {
                 if (await UnlimitedAccountsStorePurchase.PurchaseAsync(_storeService, _dialogService, _logger).ConfigureAwait(false))
                 {
-                    // A forced refresh also moves the new Store purchase onto a signed-in Wino Account.
+                    // A forced refresh offers the redeem card when a Wino Account is signed in.
                     await LoadAsync(forceProfileRefresh: true).ConfigureAwait(false);
                 }
 
@@ -653,6 +665,13 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         if (HasIntelligenceAccess)
             Messenger.Send(new SettingsRootNavigationRequested(WinoPage.WinoIntelligencePage));
     }
+
+    /// <summary>
+    /// Wino Account backups live on the Backup and restore page, next to the backup file.
+    /// </summary>
+    [RelayCommand]
+    private void OpenBackupRestore()
+        => Messenger.Send(new SettingsRootNavigationRequested(WinoPage.BackupRestorePage));
 
     public async Task<bool> SetIntelligenceConsentAsync(bool granted)
     {
@@ -819,76 +838,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         }
     }
 
-    [RelayCommand]
-    private async Task ExportSettingsAsync()
-    {
-        try
-        {
-            var result = await _dialogService.ShowWinoAccountExportDialogAsync().ConfigureAwait(false);
-            if (result == null)
-            {
-                return;
-            }
-
-            _dialogService.InfoBarMessage(
-                Translator.GeneralTitle_Info,
-                BuildExportSuccessMessage(result),
-                InfoBarMessageType.Success);
-        }
-        catch (Exception ex)
-        {
-            _dialogService.InfoBarMessage(
-                Translator.GeneralTitle_Error,
-                WinoAccountApiErrorTranslator.Describe(ex),
-                InfoBarMessageType.Error);
-        }
-    }
-
-    [RelayCommand]
-    private async Task ImportSettingsAsync()
-    {
-        await ExecuteUIThread(() => IsBusy = true);
-
-        try
-        {
-            var result = await _syncService.ImportAsync(new WinoAccountSyncSelection(), PromptSyncSecretAsync);
-
-            if (result.Appearance != null)
-            {
-                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
-            }
-
-            if (!result.HasAnyRemoteData)
-            {
-                _dialogService.InfoBarMessage(
-                    Translator.GeneralTitle_Info,
-                    Translator.WinoAccount_Management_NoRemoteSettings,
-                    InfoBarMessageType.Information);
-                return;
-            }
-
-            var messageType = result.FailedPreferenceCount > 0
-                ? InfoBarMessageType.Warning
-                : InfoBarMessageType.Success;
-
-            _dialogService.InfoBarMessage(
-                result.FailedPreferenceCount > 0 ? Translator.GeneralTitle_Warning : Translator.GeneralTitle_Info,
-                BuildImportMessage(result),
-                messageType);
-        }
-        catch (Exception ex)
-        {
-            _dialogService.InfoBarMessage(
-                Translator.GeneralTitle_Error,
-                WinoAccountApiErrorTranslator.Describe(ex),
-                InfoBarMessageType.Error);
-        }
-        finally
-        {
-            await ExecuteUIThread(() => IsBusy = false);
-        }
-    }
-
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();
@@ -986,6 +935,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 catch { }
                 await ApplyAccountStateAsync(resolvedAccount, session).ConfigureAwait(false);
                 await LoadAddOnsAsync(resolvedAccount).ConfigureAwait(false);
+                await RefreshStoreRedeemCandidateAsync(session).ConfigureAwait(false);
                 return;
             }
 
@@ -996,6 +946,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 await ExecuteUIThread(() => IsBusy = true);
 
             await RefreshAccountIntelligenceSnapshotAsync(forceProfileRefresh, checkoutCompleted, session).ConfigureAwait(false);
+            await RefreshStoreRedeemCandidateAsync(session).ConfigureAwait(false);
         }
         catch (Exception)
         {
@@ -1048,7 +999,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                     PurchaseStatusMessage = purchase.Outcome == WinoPurchaseRefreshOutcome.Pending ? Translator.WinoAccount_PurchasePending : string.Empty;
                     IntelligenceRefreshError = purchase.Outcome == WinoPurchaseRefreshOutcome.Failed ? Translator.WinoAccount_PurchaseRefreshFailed : string.Empty;
                 });
-                ReportStorePurchaseRedeem(purchase.StoreRedeem);
                 if (purchase.Outcome != WinoPurchaseRefreshOutcome.Refreshed) return;
             }
             else if (forceProfileRefresh)
@@ -1080,6 +1030,74 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         }
     }
 
+    /// <summary>
+    /// Looks for a Store purchase to redeem after the profile is known. The service returns nothing
+    /// when signed out, when the account already has the add-on, or when the user hid the card.
+    /// </summary>
+    private async Task RefreshStoreRedeemCandidateAsync(WinoAccountSession? session)
+    {
+        if (_storeRedeemService is null)
+            return;
+
+        WinoStoreRedeemCandidate? candidate = null;
+        try
+        {
+            candidate = await _storeRedeemService.GetRedeemCandidateAsync(session?.CancellationToken ?? default).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { return; }
+        catch (Exception exception)
+        {
+            _logger?.CaptureException(exception, nameof(RefreshStoreRedeemCandidateAsync));
+        }
+
+        await ApplySessionUIAsync(session, () =>
+        {
+            _storeRedeemCandidate = candidate;
+            ShowStoreRedeemCard = IsSignedIn && candidate is not null;
+        });
+    }
+
+    private bool CanRedeemStorePurchase() => !IsStoreRedeemInProgress;
+
+    [RelayCommand(CanExecute = nameof(CanRedeemStorePurchase))]
+    private async Task RedeemStorePurchaseAsync()
+    {
+        var candidate = _storeRedeemCandidate;
+        if (_storeRedeemService is null || candidate is null)
+            return;
+
+        await ExecuteUIThread(() => IsStoreRedeemInProgress = true);
+
+        var outcome = WinoStorePurchaseRedeemOutcome.Failed;
+        try
+        {
+            outcome = await _storeRedeemService.RedeemUnlimitedAccountsAsync(candidate).ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            _logger?.CaptureException(exception, nameof(RedeemStorePurchaseAsync));
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsStoreRedeemInProgress = false);
+        }
+
+        // Only a failure keeps the card, so the user can try again.
+        if (outcome != WinoStorePurchaseRedeemOutcome.Failed)
+        {
+            await ExecuteUIThread(() =>
+            {
+                _storeRedeemCandidate = null;
+                ShowStoreRedeemCard = false;
+            });
+        }
+
+        ReportStorePurchaseRedeem(outcome);
+
+        if (outcome == WinoStorePurchaseRedeemOutcome.Redeemed)
+            await LoadAsync(forceProfileRefresh: true).ConfigureAwait(false);
+    }
+
     private void ReportStorePurchaseRedeem(WinoStorePurchaseRedeemOutcome outcome)
     {
         if (outcome == WinoStorePurchaseRedeemOutcome.Redeemed)
@@ -1093,6 +1111,12 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             _dialogService.InfoBarMessage(Translator.GeneralTitle_Warning,
                                           Translator.WinoAccount_StorePurchaseAlreadyLinked,
                                           InfoBarMessageType.Warning);
+        }
+        else if (outcome == WinoStorePurchaseRedeemOutcome.Failed)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error,
+                                          Translator.WinoAccount_StorePurchaseRedeemFailed,
+                                          InfoBarMessageType.Error);
         }
     }
 
@@ -1157,6 +1181,8 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             PurchaseStatusMessage = string.Empty;
             AccountEmail = string.Empty;
             IsCheckoutInProgress = false;
+            _storeRedeemCandidate = null;
+            ShowStoreRedeemCard = false;
             PurchaseAddOnCommand.NotifyCanExecuteChanged();
         });
 
@@ -1239,85 +1265,6 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         addOn.IsPurchaseInProgress = false;
         addOn.ErrorText = string.Empty;
         addOn.RenewalText = string.Empty;
-    }
-
-    private Task<string?> PromptSyncSecretAsync(SyncSnapshotSecretRequest request)
-        => ExecuteUIThreadAsync(() => _dialogService.ShowWinoAccountSyncSecretDialogAsync(request));
-
-    private static string BuildExportSuccessMessage(WinoAccountSyncExportResult result)
-    {
-        var parts = new Collection<string>();
-
-        if (result.IncludedPreferences)
-        {
-            parts.Add(Translator.WinoAccount_Management_ExportPreferencesSucceeded);
-        }
-
-        if (result.IncludedAccounts)
-        {
-            parts.Add(string.Format(Translator.WinoAccount_Management_ExportAccountsSucceeded, result.ExportedMailboxCount));
-        }
-
-        if (result.ExportedAccountDataCount > 0)
-        {
-            parts.Add(string.Format(Translator.WinoAccount_Management_ExportAccountDataSucceeded, result.ExportedAccountDataCount));
-        }
-
-        if (result.ExportedAppDataCount > 0)
-        {
-            parts.Add(string.Format(Translator.WinoAccount_Management_ExportAppDataSucceeded, result.ExportedAppDataCount));
-        }
-
-        if (parts.Count == 0)
-        {
-            parts.Add(Translator.WinoAccount_Management_ExportSucceeded);
-        }
-
-        return string.Join(" ", parts);
-    }
-
-    private static string BuildImportMessage(WinoAccountSyncImportResult result)
-    {
-        var parts = new Collection<string>();
-
-        if (result.HadRemotePreferences)
-        {
-            parts.Add(result.FailedPreferenceCount > 0
-                ? string.Format(Translator.WinoAccount_Management_ImportPartial, result.AppliedPreferenceCount, result.FailedPreferenceCount)
-                : string.Format(Translator.WinoAccount_Management_ImportPreferencesSucceeded, result.AppliedPreferenceCount));
-        }
-
-        if (result.ImportedMailboxCount > 0)
-        {
-            parts.Add(string.Format(Translator.WinoAccount_Management_ImportAccountsSucceeded, result.ImportedMailboxCount));
-        }
-
-        if (result.SkippedDuplicateMailboxCount > 0)
-        {
-            parts.Add(string.Format(Translator.WinoAccount_Management_ImportDuplicateAccountsSkipped, result.SkippedDuplicateMailboxCount));
-        }
-
-        if (result.AppliedAccountDataCount > 0)
-        {
-            parts.Add(string.Format(Translator.WinoAccount_Management_ImportAccountDataSucceeded, result.AppliedAccountDataCount));
-        }
-
-        if (result.AppliedAppDataCount > 0)
-        {
-            parts.Add(string.Format(Translator.WinoAccount_Management_ImportAppDataSucceeded, result.AppliedAppDataCount));
-        }
-
-        if (parts.Count == 0)
-        {
-            parts.Add(Translator.WinoAccount_Management_ImportEmpty);
-        }
-
-        if (result.ImportedMailboxCount > 0)
-        {
-            parts.Add(Translator.WinoAccount_Management_ImportReloginReminder);
-        }
-
-        return string.Join(" ", parts);
     }
 
     private static bool IsAccessTokenExpired(WinoAccount account)

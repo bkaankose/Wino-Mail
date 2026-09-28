@@ -30,10 +30,10 @@ public class ImapConnectionLostHandler : ISynchronizerErrorHandler
     public Task<bool> HandleAsync(SynchronizerErrorContext error)
     {
         _logger.Warning(error.Exception,
-            "IMAP connection lost for account {AccountName} ({AccountId}). Folder: {FolderName}. Operation: {Operation}. Will retry.",
+            "IMAP connection lost for account {AccountName} ({AccountId}). Folder: {FolderName}. Operation: {Operation}.",
             error.Account?.Name, error.Account?.Id, error.FolderName ?? "N/A", error.OperationType ?? "N/A");
 
-        // Mark as transient - the RetryExecutor will handle the retry logic
+        // The caller decides whether its operation is safe to retry.
         error.Severity = SynchronizerErrorSeverity.Transient;
         error.Category = SynchronizerErrorCategory.Network;
 

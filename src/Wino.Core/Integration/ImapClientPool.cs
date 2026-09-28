@@ -1,12 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Net;
-using System.Net.Security;
 using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
 using System.Threading;
-using System.Threading.Channels;
+using System.IO;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using MailKit;
 using MailKit.Net.Imap;
@@ -34,19 +33,19 @@ public enum ImapClientState
 }
 
 /// <summary>
-/// Provides an enhanced pooling mechanism for ImapClient with Channel-based async rental.
+/// Provides exclusive leases for IMAP operations and maintenance.
 /// Maintains minimum active connections and a dedicated IDLE client.
 /// </summary>
-public class ImapClientPool : IDisposable
+public class ImapClientPool : IDisposable, IAsyncDisposable
 {
     private const int DefaultAcquireTimeoutMs = 45_000;
-    private const int KeepAliveIntervalMs = 4 * 60 * 1000;
-    private const int MaintenanceIntervalMs = 60 * 1000;
+    internal static readonly TimeSpan NoOpTimeout = TimeSpan.FromSeconds(10);
 
     private readonly ILogger _logger = Log.ForContext<ImapClientPool>();
     private readonly CustomServerInformation _customServerInformation;
     private readonly ConcurrentDictionary<WinoImapClient, ImapClientState> _clientStates = new();
-    private readonly Channel<WinoImapClient> _availableClients;
+    private readonly SemaphoreSlim _creationSemaphore = new(1, 1);
+    private readonly object _disposeLock = new();
     private readonly CancellationTokenSource _maintenanceCts = new();
     private readonly SemaphoreSlim _initializeSemaphore = new(1, 1);
     private readonly object _idleClientLock = new();
@@ -56,10 +55,10 @@ public class ImapClientPool : IDisposable
     private readonly int _maxConnections;
     private readonly int _targetMinimumConnections;
 
-    private DateTime _lastKeepAliveSentUtc = DateTime.MinValue;
-    private Exception _lastConnectionException;
+    private bool _supportsIdle;
+    private Task _disposeTask;
     private WinoImapClient _dedicatedIdleClient;
-    private bool _disposedValue;
+    private volatile bool _disposedValue;
     private bool _initialized;
     private Task _maintenanceTask;
     private Task _initialWarmupTask = Task.CompletedTask;
@@ -78,55 +77,33 @@ public class ImapClientPool : IDisposable
 
         _quirks = ImapServerQuirks.Resolve(_customServerInformation.IncomingServer);
 
-        // Keep connection counts conservative by default and always cap by provider limits.
+        // Honor the configured maximum, including connections still being established.
         _maxConnections = CalculateMaxConnections(_customServerInformation.MaxConcurrentClients);
         _targetMinimumConnections = CalculateTargetMinimumConnections(_maxConnections, _quirks.UseConservativeConnections);
 
         _implementation = CreateImplementation();
-
-        _availableClients = Channel.CreateUnbounded<WinoImapClient>(new UnboundedChannelOptions
-        {
-            SingleReader = false,
-            SingleWriter = false,
-            AllowSynchronousContinuations = false
-        });
     }
 
-    /// <summary>
-    /// Initializes the pool by creating minimum connections and starting maintenance.
-    /// </summary>
+    public bool SupportsIdle => _supportsIdle && _maxConnections > 1 && !ImapClientPoolOptions.IsTestPool;
+
+    // Available -> InUse is the lease. Maintenance uses the same transition as borrowers.
+    // A client stays owned until the caller's entire mailbox operation has finished.
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
-        if (_initialized) return;
-
-        await _initializeSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
-
+        ObjectDisposedException.ThrowIf(_disposedValue, this);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _maintenanceCts.Token);
+        deadline.CancelAfter(DefaultAcquireTimeoutMs);
+        await _initializeSemaphore.WaitAsync(deadline.Token).ConfigureAwait(false);
         try
         {
             if (_initialized) return;
-
-            _logger.Information("Initializing IMAP client pool with {MinimumConnections} minimum active connections (max: {MaxConnections})", _targetMinimumConnections, _maxConnections);
-
-            // Fast-path startup: create one client eagerly so first RentAsync() is not blocked by full warm-up.
-            var initialClient = await CreateAndConnectClientAsync(cancellationToken).ConfigureAwait(false);
-            if (initialClient == null)
-            {
-                throw CreatePoolException("Failed to create initial IMAP connection for the pool.", _lastConnectionException);
-            }
-
-            _clientStates[initialClient] = ImapClientState.Available;
-            await _availableClients.Writer.WriteAsync(initialClient, cancellationToken).ConfigureAwait(false);
-
-            _maintenanceTask = Task.Run(() => MaintenanceLoopAsync(_maintenanceCts.Token), _maintenanceCts.Token);
+            var client = await CreateAndConnectClientAsync(deadline.Token, "Initialize").ConfigureAwait(false)
+                ?? throw CreatePoolException("No capacity for the initial IMAP connection.");
+            _supportsIdle = client.Capabilities.HasFlag(ImapCapabilities.Idle);
+            Return(client);
             _initialized = true;
-
-            ScheduleInitialWarmup();
-            _logger.Information("IMAP client pool initialized. Health: {Health}", Health.Summary);
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "Failed to initialize IMAP client pool");
-            throw CreatePoolException("IMAP client pool initialization failed.", ex);
+            if (!ImapClientPoolOptions.IsTestPool)
+                _maintenanceTask = MaintenanceLoopAsync(_maintenanceCts.Token);
         }
         finally
         {
@@ -134,205 +111,267 @@ public class ImapClientPool : IDisposable
         }
     }
 
-    /// <summary>
-    /// Pre-warms the pool (legacy compatibility method).
-    /// </summary>
     public async Task PreWarmPoolAsync()
     {
-        await InitializeAsync(CancellationToken.None).ConfigureAwait(false);
-
-        Task warmupTask;
-        lock (_initialWarmupLock)
+        try
         {
-            warmupTask = _initialWarmupTask;
+            await InitializeAsync(_maintenanceCts.Token).ConfigureAwait(false);
+            if (ImapClientPoolOptions.IsTestPool) return;
+            Task warmup;
+            lock (_initialWarmupLock)
+            {
+                if (_initialWarmupTask.IsCompleted)
+                    _initialWarmupTask = EnsureMinimumConnectionsAsync(_maintenanceCts.Token);
+                warmup = _initialWarmupTask;
+            }
+            await warmup.ConfigureAwait(false);
         }
-
-        if (warmupTask != null)
+        catch (OperationCanceledException) when (_maintenanceCts.IsCancellationRequested) { }
+        catch (Exception ex)
         {
-            await warmupTask.ConfigureAwait(false);
+            _logger.Warning(ex, "IMAP pool warm-up failed for {Server}.", _customServerInformation.IncomingServer);
         }
     }
 
-    /// <summary>
-    /// Rents a client from the pool with the default timeout.
-    /// </summary>
     public Task<WinoImapClient> RentAsync(CancellationToken cancellationToken = default)
         => RentAsync(TimeSpan.FromMilliseconds(DefaultAcquireTimeoutMs), cancellationToken);
 
-    /// <summary>
-    /// Rents a client from the pool with explicit timeout and cancellation.
-    /// </summary>
-    public async Task<WinoImapClient> RentAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+    // The purpose only names the requester in the connection log so a pool that grows can be explained.
+    public async Task<WinoImapClient> RentAsync(TimeSpan timeout, CancellationToken cancellationToken = default, string purpose = null)
     {
-        if (!_initialized)
-            await InitializeAsync(cancellationToken).ConfigureAwait(false);
-
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        linkedCts.CancelAfter(timeout);
-        var token = linkedCts.Token;
-
-        int createFailures = 0;
-
+        ObjectDisposedException.ThrowIf(_disposedValue, this);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _maintenanceCts.Token);
+        deadline.CancelAfter(timeout);
+        var token = deadline.Token;
         try
         {
-            while (!token.IsCancellationRequested)
+            await InitializeAsync(token).ConfigureAwait(false);
+            while (true)
             {
-                if (_availableClients.Reader.TryRead(out var pooledClient))
+                token.ThrowIfCancellationRequested();
+                ObjectDisposedException.ThrowIf(_disposedValue, this);
+                foreach (var candidate in _clientStates)
                 {
-                    if (pooledClient != null && _clientStates.TryGetValue(pooledClient, out var state) && state == ImapClientState.Available)
+                    if (!_clientStates.TryUpdate(candidate.Key, ImapClientState.InUse, ImapClientState.Available))
+                        continue;
+                    var client = candidate.Key;
+                    try
                     {
-                        try
-                        {
-                            await EnsureClientReadyAsync(pooledClient, token).ConfigureAwait(false);
-                            _clientStates[pooledClient] = ImapClientState.InUse;
-                            return pooledClient;
-                        }
-                        catch (Exception ex)
-                        {
-                            _lastConnectionException = ex;
-                            _logger.Warning(ex, "Pooled IMAP client was not ready. Marking as failed.");
-                            MarkClientAsFailed(pooledClient);
-                        }
+                        if (!client.IsConnected)
+                            throw new ServiceNotConnectedException("The pooled IMAP connection is closed.");
+                        if (DateTime.UtcNow - client.LastUsedUtc >= _quirks.KeepAliveInterval)
+                            await NoOpAsync(client, token).ConfigureAwait(false);
+                        token.ThrowIfCancellationRequested();
+                        return client;
+                    }
+                    catch (Exception ex) when (IsConnectionFailure(ex) || ex is OperationCanceledException)
+                    {
+                        Retire(client);
+                        token.ThrowIfCancellationRequested();
+                        _logger.Debug(ex, "Discarded stale IMAP connection {ConnectionId}.", client.ConnectionId);
+                    }
+                    catch
+                    {
+                        Retire(client);
+                        throw;
                     }
                 }
-
-                if (CanCreateAdditionalConnection())
-                {
-                    var newClient = await CreateAndConnectClientAsync(token).ConfigureAwait(false);
-                    if (newClient != null)
-                    {
-                        _clientStates[newClient] = ImapClientState.InUse;
-                        return newClient;
-                    }
-
-                    createFailures++;
-                }
-
-                await Task.Delay(150, token).ConfigureAwait(false);
+                var created = await CreateAndConnectClientAsync(token, purpose).ConfigureAwait(false);
+                if (created != null) return created;
+                await Task.Delay(100, token).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested && !_maintenanceCts.IsCancellationRequested)
         {
-            throw CreatePoolException($"Timed out while acquiring an IMAP client after {timeout.TotalSeconds:F1} seconds. Failures: {createFailures}.", _lastConnectionException);
+            throw CreatePoolException($"Timed out while acquiring an IMAP client after {timeout.TotalSeconds:F1} seconds.");
         }
+    }
 
-        throw cancellationToken.IsCancellationRequested
-            ? new OperationCanceledException(cancellationToken)
-            : CreatePoolException($"Failed to acquire IMAP client within {timeout.TotalSeconds:F1} seconds. Failures: {createFailures}.", _lastConnectionException);
+    public Task<IImapClient> GetClientAsync() => GetClientAsync(CancellationToken.None);
+    public async Task<IImapClient> GetClientAsync(CancellationToken cancellationToken, TimeSpan? timeout = null, string purpose = null)
+        => await RentAsync(timeout ?? TimeSpan.FromMilliseconds(DefaultAcquireTimeoutMs), cancellationToken, purpose).ConfigureAwait(false);
+
+    internal Task<IImapClient> RentForReadAsync(CancellationToken cancellationToken, bool allowCreate = true, string purpose = null)
+        => RentForReadAsync(NoOpIfStaleAsync, cancellationToken, allowCreate, purpose);
+
+    // A connection that was used inside the keep-alive window was already validated by the rent path.
+    // A second NOOP on it is a wasted round trip on every folder sync.
+    private Task NoOpIfStaleAsync(IImapClient client, CancellationToken cancellationToken)
+    {
+        var winoClient = (WinoImapClient)client;
+        return DateTime.UtcNow - winoClient.LastUsedUtc < _quirks.KeepAliveInterval
+            ? Task.CompletedTask
+            : NoOpAsync(winoClient, cancellationToken);
     }
 
     /// <summary>
-    /// Gets a client from the pool (legacy compatibility method).
+    /// Leases an already-connected idle client without opening a new socket.
+    /// Returns null when no validated spare connection exists.
     /// </summary>
-    public Task<IImapClient> GetClientAsync()
-        => GetClientAsync(CancellationToken.None, null);
+    public async Task<WinoImapClient> TryRentAvailableAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposedValue, this);
+        if (!_initialized) return null;
+        foreach (var candidate in _clientStates)
+        {
+            if (!_clientStates.TryUpdate(candidate.Key, ImapClientState.InUse, ImapClientState.Available))
+                continue;
+            var client = candidate.Key;
+            try
+            {
+                if (!client.IsConnected)
+                    throw new ServiceNotConnectedException("The pooled IMAP connection is closed.");
+                if (DateTime.UtcNow - client.LastUsedUtc >= _quirks.KeepAliveInterval)
+                    await NoOpAsync(client, cancellationToken).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                return client;
+            }
+            catch (Exception ex) when (IsConnectionFailure(ex) || ex is OperationCanceledException)
+            {
+                Retire(client);
+                cancellationToken.ThrowIfCancellationRequested();
+                _logger.Debug(ex, "Discarded stale IMAP connection {ConnectionId}.", client.ConnectionId);
+            }
+            catch
+            {
+                Retire(client);
+                throw;
+            }
+        }
+        return null;
+    }
 
-    /// <summary>
-    /// Gets a client from the pool with explicit cancellation and timeout control.
-    /// </summary>
-    public async Task<IImapClient> GetClientAsync(CancellationToken cancellationToken, TimeSpan? timeout = null)
-        => await RentAsync(timeout ?? TimeSpan.FromMilliseconds(DefaultAcquireTimeoutMs), cancellationToken).ConfigureAwait(false);
+    // Only preparation reads may be replayed. The lease is returned to the caller before
+    // local sync state or remote mutations are changed.
+    // With allowCreate false, only a spare connection is leased and null means none exists.
+    internal async Task<IImapClient> RentForReadAsync(
+        Func<IImapClient, CancellationToken, Task> prepare, CancellationToken cancellationToken, bool allowCreate = true, string purpose = null)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _maintenanceCts.Token);
+        deadline.CancelAfter(DefaultAcquireTimeoutMs);
+        var callerToken = cancellationToken;
+        cancellationToken = deadline.Token;
+        try
+        {
+            for (var attempt = 0; ; attempt++)
+            {
+                IImapClient client;
+                if (!allowCreate)
+                {
+                    client = await TryRentAvailableAsync(cancellationToken).ConfigureAwait(false);
+                    if (client == null) return null;
+                }
+                else
+                {
+                    client = attempt == 0
+                        ? await GetClientAsync(cancellationToken, purpose: purpose).ConfigureAwait(false)
+                        : await RentFreshAsync(cancellationToken, purpose).ConfigureAwait(false);
+                }
+                try
+                {
+                    await prepare(client, cancellationToken).ConfigureAwait(false);
+                    return client;
+                }
+                catch (Exception ex) when (attempt == 0 && !cancellationToken.IsCancellationRequested && IsConnectionFailure(ex))
+                {
+                    Release(client, destroyClient: true);
+                    _logger.Information("Retrying IMAP read on a fresh connection for {Server}.", _customServerInformation.IncomingServer);
+                }
+                catch
+                {
+                    Release(client, destroyClient: true);
+                    throw;
+                }
+            }
+        }
+        catch (OperationCanceledException ex) when (!callerToken.IsCancellationRequested && !_maintenanceCts.IsCancellationRequested)
+        {
+            throw new IOException("Timed out preparing the IMAP read connection.", ex);
+        }
+    }
 
-    /// <summary>
-    /// Returns a client to the pool.
-    /// </summary>
+    private async Task<IImapClient> RentFreshAsync(CancellationToken cancellationToken, string purpose)
+    {
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _maintenanceCts.Token);
+        deadline.CancelAfter(DefaultAcquireTimeoutMs);
+        while (true)
+        {
+            deadline.Token.ThrowIfCancellationRequested();
+            // Replace an unused socket if another borrower filled the released slot.
+            if (_clientStates.Count >= _maxConnections)
+            {
+                foreach (var entry in _clientStates)
+                    if (_clientStates.TryUpdate(entry.Key, ImapClientState.InUse, ImapClientState.Available))
+                    {
+                        Retire(entry.Key);
+                        break;
+                    }
+            }
+            var client = await CreateAndConnectClientAsync(deadline.Token, purpose).ConfigureAwait(false);
+            if (client != null) return client;
+            await Task.Delay(100, deadline.Token).ConfigureAwait(false);
+        }
+    }
+
+    internal static bool IsConnectionFailure(Exception exception)
+        => exception is IOException or SocketException or ServiceNotConnectedException or ImapProtocolException;
+
     public void Return(WinoImapClient client, bool isFaulted = false)
     {
-        if (client == null || _disposedValue)
+        if (client == null) return;
+        if (_disposedValue || isFaulted || !client.IsConnected)
         {
-            if (client != null)
-                DisposeClient(client);
+            Retire(client);
             return;
         }
-
-        if (isFaulted || !client.IsConnected)
-        {
-            MarkClientAsFailed(client);
-            return;
-        }
-
-        if (!_clientStates.TryGetValue(client, out var state) || state != ImapClientState.InUse)
-        {
-            _logger.Debug("Ignoring IMAP client return because it is in {State} state.", state);
-            return;
-        }
-
-        if (_clientStates.TryUpdate(client, ImapClientState.Available, ImapClientState.InUse))
-        {
-            _availableClients.Writer.TryWrite(client);
-        }
+        client.LastUsedUtc = DateTime.UtcNow;
+        _clientStates.TryUpdate(client, ImapClientState.Available, ImapClientState.InUse);
     }
 
-    /// <summary>
-    /// Releases a client (legacy compatibility method).
-    /// </summary>
     public void Release(IImapClient item, bool destroyClient = false)
     {
-        if (item is WinoImapClient winoClient)
-        {
-            Return(winoClient, destroyClient);
-        }
-        else if (item != null)
-        {
-            DisposeClient(item);
-        }
+        if (item is WinoImapClient client) Return(client, destroyClient);
+        else item?.Dispose();
     }
 
-    /// <summary>
-    /// Gets the dedicated IDLE client. Creates one if not available.
-    /// </summary>
     public async Task<WinoImapClient> GetIdleClientAsync(CancellationToken cancellationToken = default)
     {
-        lock (_idleClientLock)
-        {
-            if (_dedicatedIdleClient != null && _dedicatedIdleClient.IsConnected)
-            {
-                return _dedicatedIdleClient;
-            }
-        }
-
-        if (!CanCreateAdditionalConnection())
-        {
-            _logger.Warning("Unable to allocate a dedicated IDLE client because pool is at max capacity ({MaxConnections}).", _maxConnections);
-            return null;
-        }
-
-        var idleClient = await CreateAndConnectClientAsync(cancellationToken).ConfigureAwait(false);
-        if (idleClient == null)
-            return null;
-
+        await InitializeAsync(cancellationToken).ConfigureAwait(false);
+        if (!SupportsIdle) return null;
         lock (_idleClientLock)
         {
             if (_dedicatedIdleClient != null)
-            {
-                MarkClientAsFailed(_dedicatedIdleClient);
-            }
-
-            _dedicatedIdleClient = idleClient;
-            _clientStates[idleClient] = ImapClientState.Idle;
+                throw new InvalidOperationException("The dedicated IMAP IDLE client already has an owner.");
         }
-
-        return idleClient;
+        WinoImapClient client = null;
+        foreach (var entry in _clientStates)
+            if (_clientStates.TryUpdate(entry.Key, ImapClientState.InUse, ImapClientState.Available))
+            {
+                client = entry.Key;
+                break;
+            }
+        client ??= await CreateAndConnectClientAsync(cancellationToken, "Idle").ConfigureAwait(false);
+        if (client == null) return null;
+        lock (_idleClientLock)
+        {
+            if (_disposedValue || _dedicatedIdleClient != null)
+            {
+                Retire(client);
+                return null;
+            }
+            _dedicatedIdleClient = client;
+            _clientStates[client] = ImapClientState.Idle;
+        }
+        return client;
     }
 
-    /// <summary>
-    /// Releases the IDLE client for reconnection.
-    /// </summary>
     public void ReleaseIdleClient(bool isFaulted = false)
     {
         lock (_idleClientLock)
         {
-            if (_dedicatedIdleClient == null)
-                return;
-
-            if (isFaulted || !_dedicatedIdleClient.IsConnected)
-            {
-                MarkClientAsFailed(_dedicatedIdleClient);
-                _dedicatedIdleClient = null;
-                return;
-            }
-
-            _clientStates[_dedicatedIdleClient] = ImapClientState.Idle;
+            if (_dedicatedIdleClient == null) return;
+            Retire(_dedicatedIdleClient);
+            _dedicatedIdleClient = null;
         }
     }
 
@@ -341,201 +380,114 @@ public class ImapClientPool : IDisposable
         var health = new ConnectionPoolHealth
         {
             LastHealthCheck = DateTime.UtcNow,
-            IdleConnectionActive = _dedicatedIdleClient?.IsConnected ?? false
+            IdleConnectionActive = _dedicatedIdleClient?.IsIdle == true
         };
-
-        foreach (var kvp in _clientStates)
+        foreach (var entry in _clientStates)
         {
             health.TotalConnections++;
-            switch (kvp.Value)
+            switch (entry.Value)
             {
-                case ImapClientState.Available:
-                    health.AvailableConnections++;
-                    break;
-                case ImapClientState.InUse:
-                    health.InUseConnections++;
-                    break;
-                case ImapClientState.Failed:
-                    health.FailedConnections++;
-                    break;
-                case ImapClientState.Reconnecting:
-                    health.ReconnectingConnections++;
-                    break;
+                case ImapClientState.Available: health.AvailableConnections++; break;
+                case ImapClientState.InUse: health.InUseConnections++; break;
+                case ImapClientState.Failed: health.FailedConnections++; break;
+                case ImapClientState.Reconnecting: health.ReconnectingConnections++; break;
             }
         }
-
         return health;
     }
 
     private async Task MaintenanceLoopAsync(CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            try
+            using var timer = new PeriodicTimer(_quirks.KeepAliveInterval);
+            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
             {
-                await Task.Delay(MaintenanceIntervalMs, cancellationToken).ConfigureAwait(false);
-
-                var keepAliveElapsedMs = (DateTime.UtcNow - _lastKeepAliveSentUtc).TotalMilliseconds;
-                if (keepAliveElapsedMs >= KeepAliveIntervalMs)
-                {
-                    await SendNoOpToAvailableClientsAsync(cancellationToken).ConfigureAwait(false);
-                    _lastKeepAliveSentUtc = DateTime.UtcNow;
-                }
-
-                await EnsureMinimumConnectionsAsync(cancellationToken).ConfigureAwait(false);
-                await CleanupFailedConnectionsAsync().ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.Warning(ex, "Error in pool maintenance loop");
+                await SendNoOpToAvailableClientsAsync(cancellationToken).ConfigureAwait(false);
             }
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
     }
 
-    private async Task SendNoOpToAvailableClientsAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Sends a NOOP bounded by the pool's keepalive timeout. Usable as a read preparation step.
+    /// </summary>
+    internal Task ValidateAsync(IImapClient client, CancellationToken cancellationToken)
+        => NoOpAsync((WinoImapClient)client, cancellationToken);
+
+    private async Task NoOpAsync(WinoImapClient client, CancellationToken cancellationToken)
     {
-        foreach (var kvp in _clientStates)
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(NoOpTimeout);
+        try
         {
-            if (kvp.Value != ImapClientState.Available)
-                continue;
+            await client.NoOpAsync(timeout.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new IOException("IMAP NOOP timed out.", ex);
+        }
+        client.LastUsedUtc = DateTime.UtcNow;
+        _logger.Verbose("IMAP keepalive succeeded for {Server}, connection {ConnectionId}.",
+            _customServerInformation.IncomingServer, client.ConnectionId);
+    }
 
-            if (!kvp.Key.IsConnected || kvp.Key.IsBusy())
-                continue;
-
+    internal Task SendNoOpToAvailableClientsAsync(CancellationToken cancellationToken)
+        => Task.WhenAll(_clientStates.Keys.Select(async client =>
+        {
+            if (!_clientStates.TryUpdate(client, ImapClientState.InUse, ImapClientState.Available)) return;
             try
             {
-                await kvp.Key.NoOpAsync(cancellationToken).ConfigureAwait(false);
+                await NoOpAsync(client, cancellationToken).ConfigureAwait(false);
+                Return(client);
             }
             catch (Exception ex)
             {
-                _logger.Debug(ex, "NOOP failed for pooled client. Marking as failed.");
-                MarkClientAsFailed(kvp.Key);
+                Retire(client);
+                cancellationToken.ThrowIfCancellationRequested();
+                _logger.Debug(ex, "IMAP keepalive failed for connection {ConnectionId}.", client.ConnectionId);
             }
-        }
-    }
+        }));
 
     private async Task EnsureMinimumConnectionsAsync(CancellationToken cancellationToken)
     {
-        var availableConnections = _clientStates.Count(kvp => kvp.Value == ImapClientState.Available);
-        var neededConnections = _targetMinimumConnections - availableConnections;
-
-        if (neededConnections <= 0)
-            return;
-
-        for (int i = 0; i < neededConnections; i++)
+        while (_clientStates.Count < _targetMinimumConnections)
         {
-            if (!CanCreateAdditionalConnection())
-                break;
+            var client = await CreateAndConnectClientAsync(cancellationToken, "WarmUp").ConfigureAwait(false);
+            if (client == null) return;
+            Return(client);
+        }
+    }
 
+    private async Task<WinoImapClient> CreateAndConnectClientAsync(CancellationToken cancellationToken, string purpose = null)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _maintenanceCts.Token);
+        timeout.CancelAfter(DefaultAcquireTimeoutMs);
+        await _creationSemaphore.WaitAsync(timeout.Token).ConfigureAwait(false);
+        try
+        {
+            ObjectDisposedException.ThrowIf(_disposedValue, this);
+            if (_clientStates.Count >= _maxConnections) return null;
+            var client = CreateNewClient(purpose);
+            _clientStates[client] = ImapClientState.Reconnecting;
             try
             {
-                var client = await CreateAndConnectClientAsync(cancellationToken).ConfigureAwait(false);
-                if (client == null)
-                    continue;
-
-                _clientStates[client] = ImapClientState.Available;
-                await _availableClients.Writer.WriteAsync(client, cancellationToken).ConfigureAwait(false);
+                await EnsureClientReadyAsync(client, timeout.Token).ConfigureAwait(false);
+                timeout.Token.ThrowIfCancellationRequested();
+                ObjectDisposedException.ThrowIf(_disposedValue, this);
+                client.LastUsedUtc = DateTime.UtcNow;
+                _clientStates[client] = ImapClientState.InUse;
+                return client;
             }
-            catch (Exception ex)
+            catch
             {
-                _logger.Warning(ex, "Failed to create minimum pool connection during maintenance.");
-                break;
+                Retire(client);
+                throw;
             }
         }
-    }
-
-    private void ScheduleInitialWarmup()
-    {
-        lock (_initialWarmupLock)
+        finally
         {
-            if (_initialWarmupTask != null && !_initialWarmupTask.IsCompleted)
-                return;
-
-            _initialWarmupTask = Task.Run(() => EnsureWarmBaselineAsync(_maintenanceCts.Token), _maintenanceCts.Token);
-        }
-    }
-
-    private async Task EnsureWarmBaselineAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            await EnsureMinimumConnectionsAsync(cancellationToken).ConfigureAwait(false);
-
-            lock (_idleClientLock)
-            {
-                if (_dedicatedIdleClient != null && _dedicatedIdleClient.IsConnected)
-                    return;
-            }
-
-            if (!CanCreateAdditionalConnection())
-                return;
-
-            var idleCandidate = await CreateAndConnectClientAsync(cancellationToken).ConfigureAwait(false);
-            if (idleCandidate == null)
-                return;
-
-            bool assignedAsIdle = false;
-            lock (_idleClientLock)
-            {
-                if (_dedicatedIdleClient == null || !_dedicatedIdleClient.IsConnected)
-                {
-                    _dedicatedIdleClient = idleCandidate;
-                    _clientStates[idleCandidate] = ImapClientState.Idle;
-                    assignedAsIdle = true;
-                }
-            }
-
-            if (!assignedAsIdle)
-            {
-                _clientStates[idleCandidate] = ImapClientState.Available;
-                _availableClients.Writer.TryWrite(idleCandidate);
-            }
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            // Pool is shutting down.
-        }
-        catch (Exception ex)
-        {
-            _logger.Warning(ex, "Initial IMAP pool warm-up failed. Pool will continue with maintenance recovery.");
-        }
-    }
-
-    private Task CleanupFailedConnectionsAsync()
-    {
-        foreach (var kvp in _clientStates)
-        {
-            if (kvp.Value != ImapClientState.Failed && kvp.Value != ImapClientState.Disposed)
-                continue;
-
-            DisposeClient(kvp.Key);
-            _clientStates.TryRemove(kvp.Key, out _);
-        }
-
-        return Task.CompletedTask;
-    }
-
-    private async Task<WinoImapClient> CreateAndConnectClientAsync(CancellationToken cancellationToken)
-    {
-        var client = CreateNewClient();
-        _lastConnectionException = null;
-
-        try
-        {
-            await EnsureClientReadyAsync(client, cancellationToken).ConfigureAwait(false);
-            _lastConnectionException = null;
-            return client;
-        }
-        catch (Exception ex)
-        {
-            _lastConnectionException = ex;
-            _logger.Warning(ex, "Failed to create and connect IMAP client.");
-            DisposeClient(client);
-            return null;
+            _creationSemaphore.Release();
         }
     }
 
@@ -571,7 +523,7 @@ public class ImapClientPool : IDisposable
                 {
                     await client.CompressAsync(cancellationToken).ConfigureAwait(false);
                 }
-                catch (Exception ex)
+                catch (ImapCommandException ex) when (client.IsConnected)
                 {
                     _logger.Debug(ex, "Failed to enable IMAP compression. Continuing without compression.");
                 }
@@ -619,12 +571,14 @@ public class ImapClientPool : IDisposable
                     await client.EnableQuickResyncAsync(cancellationToken).ConfigureAwait(false);
                     client.IsQResyncEnabled = true;
                 }
-                catch (Exception ex)
+                catch (ImapCommandException ex) when (client.IsConnected)
                 {
                     _logger.Debug(ex, "Failed to enable QRESYNC for {Server}. Falling back to non-QRESYNC synchronization.", _customServerInformation.IncomingServer);
                 }
             }
         }
+        if (!client.IsConnected)
+            throw new ServiceNotConnectedException("The IMAP connection closed during negotiation.");
     }
 
     private async Task TryIdentifyAsync(WinoImapClient client, CancellationToken cancellationToken)
@@ -636,17 +590,13 @@ public class ImapClientPool : IDisposable
         {
             await client.IdentifyAsync(_implementation, cancellationToken).ConfigureAwait(false);
         }
-        catch (ImapCommandException)
+        catch (ImapCommandException) when (client.IsConnected)
         {
             // Some servers refuse ID even if advertised. Ignore and continue.
         }
-        catch (Exception ex)
-        {
-            _logger.Debug(ex, "Failed to send IMAP ID payload. Continuing without Identify().");
-        }
     }
 
-    private WinoImapClient CreateNewClient()
+    private WinoImapClient CreateNewClient(string purpose)
     {
         var client = ImapClientPoolOptions.ProtocolLoggerFactory == null
             ? new WinoImapClient()
@@ -659,45 +609,25 @@ public class ImapClientPool : IDisposable
                 int.Parse(_customServerInformation.ProxyServerPort));
         }
 
-        _logger.Debug("Created new IMAP client. Current tracked pool size: {Count}", _clientStates.Count);
+        _logger.Debug("Created IMAP connection {ConnectionId} for {Server} ({Purpose}). Tracked pool size: {Count}.",
+            client.ConnectionId, _customServerInformation.IncomingServer, purpose ?? "unspecified", _clientStates.Count);
         return client;
     }
 
-    private void DisposeClient(IImapClient client)
+    private void Retire(WinoImapClient client)
     {
-        if (client == null)
-            return;
-
+        if (!_clientStates.TryGetValue(client, out var state) || state == ImapClientState.Disposed ||
+            !_clientStates.TryUpdate(client, ImapClientState.Disposed, state)) return;
         try
         {
-            if (client.IsConnected)
-            {
-                lock (client.SyncRoot)
-                {
-                    client.Disconnect(quit: true);
-                }
-            }
-
+            // Do not enqueue LOGOUT on a faulted or canceled connection.
             client.Dispose();
+            _logger.Debug("Retired IMAP connection {ConnectionId} for {Server}.", client.ConnectionId, _customServerInformation.IncomingServer);
         }
-        catch (Exception ex)
+        finally
         {
-            _logger.Debug(ex, "Error disposing IMAP client.");
+            _clientStates.TryRemove(client, out _);
         }
-    }
-
-    private void MarkClientAsFailed(WinoImapClient client)
-    {
-        if (client == null)
-            return;
-
-        _clientStates[client] = ImapClientState.Failed;
-    }
-
-    private bool CanCreateAdditionalConnection()
-    {
-        var activeCount = _clientStates.Count(kvp => kvp.Value != ImapClientState.Failed && kvp.Value != ImapClientState.Disposed);
-        return activeCount < _maxConnections;
     }
 
     private ImapClientPoolException CreatePoolException(string message, Exception innerException = null)
@@ -755,40 +685,38 @@ public class ImapClientPool : IDisposable
     public Task EnsureAuthenticatedAsync(IImapClient client) =>
         Task.CompletedTask;
 
-    protected virtual void Dispose(bool disposing)
+    public ValueTask DisposeAsync()
     {
-        if (_disposedValue)
-            return;
-
-        if (disposing)
+        lock (_disposeLock)
         {
-            _maintenanceCts.Cancel();
-            _maintenanceTask?.Wait(TimeSpan.FromSeconds(5));
-            _maintenanceCts.Dispose();
-            _initializeSemaphore.Dispose();
-
-            _availableClients.Writer.Complete();
-
-            foreach (var kvp in _clientStates)
+            if (_disposeTask == null)
             {
-                DisposeClient(kvp.Key);
+                _disposedValue = true;
+                _maintenanceCts.Cancel();
+                _disposeTask = DisposeCoreAsync();
             }
-
-            _clientStates.Clear();
-
-            lock (_idleClientLock)
-            {
-                _dedicatedIdleClient = null;
-            }
-
+            return new ValueTask(_disposeTask);
         }
-
-        _disposedValue = true;
     }
 
-    public void Dispose()
+    private async Task DisposeCoreAsync()
     {
-        Dispose(disposing: true);
-        GC.SuppressFinalize(this);
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        try
+        {
+            await Task.WhenAll(_maintenanceTask ?? Task.CompletedTask, _initialWarmupTask)
+                .WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or TimeoutException) { }
+        finally
+        {
+            while (_clientStates.Any(entry => entry.Value is ImapClientState.InUse or ImapClientState.Reconnecting or ImapClientState.Idle)
+                   && DateTime.UtcNow < deadline)
+                await Task.Delay(25).ConfigureAwait(false);
+            foreach (var client in _clientStates.Keys) Retire(client);
+            lock (_idleClientLock) _dedicatedIdleClient = null;
+        }
     }
+
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
 }

@@ -13,6 +13,67 @@ namespace Wino.Core.Tests.Services;
 
 public sealed class DatabaseMigrationTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task InitializeAsync_BackfillsLegacyImapIdentityWithoutReplacingCachedMail(bool missingColumns)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"wino-imap-schema-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        DatabaseService database = null;
+        var accountId = Guid.NewGuid();
+        var folderId = Guid.NewGuid();
+        var uniqueId = Guid.NewGuid();
+        var fileId = Guid.NewGuid();
+        try
+        {
+            var legacy = new SQLiteAsyncConnection(Path.Combine(directory, DatabaseService.CurrentDatabaseName));
+            await legacy.CreateTableAsync<MailAccount>();
+            await legacy.CreateTableAsync<MailItemFolder>();
+            await legacy.CreateTableAsync<MailCopy>();
+            await legacy.InsertAsync(new MailAccount { Id = accountId, ProviderType = MailProviderType.IMAP4 });
+            await legacy.InsertAsync(new MailItemFolder { Id = folderId, MailAccountId = accountId, UidValidity = 123, HighestKnownUid = 800, IsSticky = true });
+            await legacy.InsertAsync(new MailCopy
+            {
+                UniqueId = uniqueId, Id = $"{folderId}_42", FolderId = folderId, FileId = fileId,
+                Subject = "Keep my cached mail", IsRead = true, IsFlagged = true
+            });
+            var draftId = Guid.NewGuid();
+            await legacy.InsertAsync(new MailCopy { UniqueId = draftId, Id = "localDraft_77", FolderId = folderId, IsDraft = true, DraftId = "localDraft_77" });
+            if (missingColumns)
+            {
+                await legacy.ExecuteAsync("ALTER TABLE MailCopy DROP COLUMN ImapUid");
+                await legacy.ExecuteAsync("ALTER TABLE MailCopy DROP COLUMN ImapUidValidity");
+            }
+            await MarkCompleted210Async(legacy);
+            await legacy.CloseAsync();
+            var configuration = new Mock<IApplicationConfiguration>();
+            configuration.SetupProperty(x => x.ApplicationDataFolderPath, directory);
+            database = new DatabaseService(configuration.Object);
+            await database.InitializeAsync();
+            var saved = await database.Connection.FindAsync<MailCopy>(uniqueId);
+            saved.ImapUid.Should().Be(42);
+            saved.ImapUidValidity.Should().Be(123);
+            saved.FileId.Should().Be(fileId);
+            saved.Subject.Should().Be("Keep my cached mail");
+            saved.IsRead.Should().BeTrue();
+            saved.IsFlagged.Should().BeTrue();
+            (await database.Connection.FindAsync<MailCopy>(draftId)).ImapUid.Should().Be(0);
+            (await database.Connection.FindAsync<MailItemFolder>(folderId)).HighestKnownUid.Should().Be(800);
+            (await database.Connection.Table<MailCopy>().CountAsync()).Should().Be(2);
+            await database.Connection.CloseAsync();
+            database = new DatabaseService(configuration.Object);
+            await database.InitializeAsync();
+            (await database.Connection.FindAsync<MailCopy>(uniqueId)).ImapUidValidity.Should().Be(123);
+            (await database.Connection.Table<MailCopy>().CountAsync()).Should().Be(2);
+        }
+        finally
+        {
+            if (database?.Connection != null) await database.Connection.CloseAsync();
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Fact]
     public async Task InitializeAsync_AddsAndBackfillsCalendarDirectJoinLink()
     {

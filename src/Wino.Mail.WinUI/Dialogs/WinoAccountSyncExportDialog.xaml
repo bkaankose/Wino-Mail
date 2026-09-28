@@ -9,7 +9,7 @@
     DefaultButton="Primary"
     PrimaryButtonClick="ExportClicked"
     PrimaryButtonStyle="{ThemeResource AccentButtonStyle}"
-    PrimaryButtonText="{x:Bind domain:Translator.Buttons_Export, Mode=OneTime}"
+    PrimaryButtonText="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction, Mode=OneTime}"
     SecondaryButtonText="{x:Bind domain:Translator.Buttons_Close, Mode=OneTime}"
     Style="{StaticResource WinoDialogStyle}"
     mc:Ignorable="d">
@@ -21,7 +21,10 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Spacing="16">
-            <TextBlock Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_Description, Mode=OneTime}" TextWrapping="WrapWholeWords" />
+            <TextBlock
+                AutomationProperties.AutomationId="ExportConfirmationText"
+                Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_Confirmation, Mode=OneTime}"
+                TextWrapping="WrapWholeWords" />
 
             <TextBlock
                 AutomationProperties.AutomationId="ExportEncryptionNotice"
@@ -30,42 +33,23 @@
                 Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_EncryptionNotice, Mode=OneTime}"
                 TextWrapping="WrapWholeWords" />
 
-            <StackPanel Spacing="12">
-                <CheckBox
-                    x:Name="PreferencesCheckBox"
-                    AutomationProperties.AutomationId="PreferencesCheckBox"
-                    Checked="SelectionChanged"
-                    Content="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_IncludePreferences, Mode=OneTime}"
-                    IsChecked="True"
-                    Unchecked="SelectionChanged" />
-
-                <StackPanel Spacing="8">
-                    <CheckBox
-                        x:Name="AccountsCheckBox"
-                        AutomationProperties.AutomationId="AccountsCheckBox"
-                        Checked="SelectionChanged"
-                        Content="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_IncludeAccounts, Mode=OneTime}"
-                        IsChecked="True"
-                        Unchecked="SelectionChanged" />
-
-                    <Border
-                        Padding="12"
-                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                        CornerRadius="10">
-                        <StackPanel Spacing="6">
-                            <TextBlock
-                                Style="{StaticResource BodyStrongTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_AccountsDisclaimer, Mode=OneTime}"
-                                TextWrapping="WrapWholeWords" />
-                            <TextBlock
-                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                Style="{StaticResource CaptionTextBlockStyle}"
-                                Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_AccountsRelogin, Mode=OneTime}"
-                                TextWrapping="WrapWholeWords" />
-                        </StackPanel>
-                    </Border>
+            <Border
+                Padding="12"
+                AutomationProperties.AutomationId="ExportAccountsDisclaimer"
+                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
+                CornerRadius="10">
+                <StackPanel Spacing="6">
+                    <TextBlock
+                        Style="{StaticResource BodyStrongTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_AccountsDisclaimer, Mode=OneTime}"
+                        TextWrapping="WrapWholeWords" />
+                    <TextBlock
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                        Style="{StaticResource CaptionTextBlockStyle}"
+                        Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_AccountsRelogin, Mode=OneTime}"
+                        TextWrapping="WrapWholeWords" />
                 </StackPanel>
-            </StackPanel>
+            </Border>
 
             <StackPanel
                 x:Name="ProgressPanel"

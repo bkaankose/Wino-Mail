@@ -272,35 +272,29 @@ SET {nameof(MailCopy.DraftSyncAttemptCount)} = 0
 WHERE {nameof(MailCopy.DraftSyncAttemptCount)} IS NULL").ConfigureAwait(false);
 
         if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.ImapUid)))
-        {
-            await Connection
-                .ExecuteAsync($"ALTER TABLE {nameof(MailCopy)} ADD COLUMN {nameof(MailCopy.ImapUid)} INTEGER NOT NULL DEFAULT 0")
-                .ConfigureAwait(false);
-
-            await Connection.ExecuteAsync($@"
-UPDATE {nameof(MailCopy)}
-SET {nameof(MailCopy.ImapUid)} = CAST(SUBSTR({nameof(MailCopy.Id)}, INSTR({nameof(MailCopy.Id)}, '_') + 1) AS INTEGER)
-WHERE {nameof(MailCopy.Id)} IS NOT NULL
-  AND INSTR({nameof(MailCopy.Id)}, '_') > 0
-  AND SUBSTR({nameof(MailCopy.Id)}, INSTR({nameof(MailCopy.Id)}, '_') + 1) <> ''
-  AND SUBSTR({nameof(MailCopy.Id)}, INSTR({nameof(MailCopy.Id)}, '_') + 1) NOT GLOB '*[^0-9]*'").ConfigureAwait(false);
-        }
-
+            await Connection.ExecuteAsync("ALTER TABLE MailCopy ADD COLUMN ImapUid INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
         if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.ImapUidValidity)))
-        {
-            await Connection
-                .ExecuteAsync($"ALTER TABLE {nameof(MailCopy)} ADD COLUMN {nameof(MailCopy.ImapUidValidity)} INTEGER NOT NULL DEFAULT 0")
-                .ConfigureAwait(false);
+            await Connection.ExecuteAsync("ALTER TABLE MailCopy ADD COLUMN ImapUidValidity INTEGER NOT NULL DEFAULT 0").ConfigureAwait(false);
 
-            await Connection.ExecuteAsync($@"
-UPDATE {nameof(MailCopy)}
-SET {nameof(MailCopy.ImapUidValidity)} = COALESCE((
-    SELECT {nameof(MailItemFolder.UidValidity)}
-    FROM {nameof(MailItemFolder)}
-    WHERE {nameof(MailItemFolder)}.{nameof(MailItemFolder.Id)} = {nameof(MailCopy)}.{nameof(MailCopy.FolderId)}
-), 0)
-WHERE {nameof(MailCopy.ImapUid)} > 0").ConfigureAwait(false);
-        }
+        // SQLite-net can add columns before this migration runs. Backfill zero/NULL values as well,
+        // including databases upgraded by earlier versions. Keep identity, MIME files and user state.
+        await Connection.ExecuteAsync(@"
+UPDATE MailCopy
+SET ImapUid = CAST(SUBSTR(Id, LENGTH(FolderId) + 2) AS INTEGER)
+WHERE COALESCE(ImapUid, 0) = 0
+  AND SUBSTR(Id, 1, LENGTH(FolderId) + 1) = FolderId || '_'
+  AND SUBSTR(Id, LENGTH(FolderId) + 2) <> ''
+  AND SUBSTR(Id, LENGTH(FolderId) + 2) NOT GLOB '*[^0-9]*'
+  AND CAST(SUBSTR(Id, LENGTH(FolderId) + 2) AS INTEGER) BETWEEN 1 AND 4294967295
+  AND EXISTS (SELECT 1 FROM MailItemFolder f JOIN MailAccount a ON a.Id = f.MailAccountId
+              WHERE f.Id = MailCopy.FolderId AND a.ProviderType = ?)", (int)MailProviderType.IMAP4).ConfigureAwait(false);
+
+        await Connection.ExecuteAsync(@"
+UPDATE MailCopy
+SET ImapUidValidity = COALESCE((SELECT UidValidity FROM MailItemFolder WHERE Id = MailCopy.FolderId), 0)
+WHERE ImapUid > 0 AND COALESCE(ImapUidValidity, 0) = 0
+  AND EXISTS (SELECT 1 FROM MailItemFolder f JOIN MailAccount a ON a.Id = f.MailAccountId
+              WHERE f.Id = MailCopy.FolderId AND a.ProviderType = ?)", (int)MailProviderType.IMAP4).ConfigureAwait(false);
 
         if (!mailCopyColumns.Any(c => c.Name == nameof(MailCopy.Pop3Uidl)))
         {

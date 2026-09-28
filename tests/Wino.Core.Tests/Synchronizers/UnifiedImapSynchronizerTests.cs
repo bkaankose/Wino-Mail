@@ -6,7 +6,9 @@ using System.Linq;
 using System.Reflection;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Extensions;
 using Wino.Core.Synchronizers.ImapSync;
@@ -18,6 +20,29 @@ namespace Wino.Core.Tests.Synchronizers;
 
 public class UnifiedImapSynchronizerTests
 {
+    [Fact]
+    public async Task TransientFolderFailureReturnsResultWithAccountAndPreservesCursor()
+    {
+        var account = new MailAccount { Id = Guid.NewGuid(), Name = "Test" };
+        var owner = new Mock<IImapSynchronizer>();
+        owner.As<IWinoSynchronizerBase>().SetupGet(x => x.Account).Returns(account);
+        var errors = new Mock<IImapSynchronizerErrorHandlerFactory>();
+        errors.Setup(x => x.HandleErrorAsync(It.IsAny<SynchronizerErrorContext>()))
+            .Callback<SynchronizerErrorContext>(context => context.Severity = SynchronizerErrorSeverity.Transient)
+            .ReturnsAsync(true);
+        var client = new Mock<IImapClient>();
+        client.Setup(x => x.GetFolderAsync("INBOX", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new IOException("Connection reset"));
+        var folder = new MailItemFolder { Id = Guid.NewGuid(), MailAccountId = account.Id, RemoteFolderId = "INBOX", HighestKnownUid = 42 };
+        var sut = new UnifiedImapSynchronizer(Mock.Of<IFolderService>(), Mock.Of<IMailService>(), errors.Object);
+        var result = await sut.SynchronizeFolderAsync(client.Object, folder, owner.Object, "imap.example.com");
+        result.Success.Should().BeFalse();
+        folder.HighestKnownUid.Should().Be(42);
+        errors.Verify(x => x.HandleErrorAsync(It.Is<SynchronizerErrorContext>(error => error.Account == account)), Times.Once);
+        var combined = MailSynchronizationResult.CompletedWithFolderResults([], [result, FolderSyncResult.Successful(Guid.NewGuid(), "Other", 0)]);
+        combined.CompletedState.Should().Be(SynchronizationCompletedState.PartiallyCompleted);
+    }
+
     private static UnifiedImapSynchronizer CreateSut()
     {
         return new UnifiedImapSynchronizer(
@@ -26,15 +51,18 @@ public class UnifiedImapSynchronizerTests
             Mock.Of<IImapSynchronizerErrorHandlerFactory>());
     }
 
-    [Fact]
-    public void DetermineSyncStrategy_ShouldPrioritizeQResync_WhenEnabledAndSupported()
+    [Theory]
+    [InlineData("imap.example.com")]
+    [InlineData("imap.126.com")]
+    [InlineData("126.com")]
+    public void DetermineSyncStrategy_ShouldPrioritizeQResync_WhenEnabledAndSupported(string host)
     {
         var sut = CreateSut();
 
         var strategy = sut.DetermineSyncStrategy(
             ImapCapabilities.QuickResync | ImapCapabilities.CondStore,
             isQResyncEnabled: true,
-            serverHost: "imap.example.com");
+            serverHost: host);
 
         strategy.Should().Be(ImapSyncStrategy.QResync);
     }
@@ -52,15 +80,17 @@ public class UnifiedImapSynchronizerTests
         strategy.Should().Be(ImapSyncStrategy.Condstore);
     }
 
-    [Fact]
-    public void DetermineSyncStrategy_ShouldUseUidFallback_WhenNoAdvancedCapability()
+    [Theory]
+    [InlineData("imap.example.com")]
+    [InlineData("imap.126.com")]
+    public void DetermineSyncStrategy_ShouldUseUidFallback_WhenNoAdvancedCapability(string host)
     {
         var sut = CreateSut();
 
         var strategy = sut.DetermineSyncStrategy(
             ImapCapabilities.None,
             isQResyncEnabled: false,
-            serverHost: "imap.example.com");
+            serverHost: host);
 
         strategy.Should().Be(ImapSyncStrategy.UidBased);
     }

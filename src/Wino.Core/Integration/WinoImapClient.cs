@@ -1,8 +1,8 @@
 using System;
-using System.Threading;
 using MailKit;
 using MailKit.Net.Imap;
 using Serilog;
+using Wino.Core.Diagnostics;
 
 namespace Wino.Core.Integration;
 
@@ -11,7 +11,8 @@ namespace Wino.Core.Integration;
 /// </summary>
 public class WinoImapClient : ImapClient
 {
-    private int _busyCount;
+    internal DateTime LastUsedUtc { get; set; } = DateTime.UtcNow;
+    public string ConnectionId { get; } = Guid.NewGuid().ToString("N");
 
     /// <summary>
     /// Gets or internally sets whether the QRESYNC extension is enabled.
@@ -26,6 +27,7 @@ public class WinoImapClient : ImapClient
 
     public WinoImapClient(IProtocolLogger protocolLogger) : base(protocolLogger)
     {
+        if (protocolLogger is WinoProtocolLogger logger) ConnectionId = logger.ConnectionId;
         HookEvents();
     }
 
@@ -43,39 +45,11 @@ public class WinoImapClient : ImapClient
     {
         if (e.IsRequested)
         {
-            Log.Debug("Imap client is disconnected on request.");
+            Log.Debug("IMAP connection {ConnectionId} disconnected on request.", ConnectionId);
         }
         else
         {
-            Log.Debug("Imap client connection is dropped by server.");
-        }
-    }
-
-    public bool IsBusy() => _busyCount > 0;
-
-    public IDisposable GetBusyScope()
-    {
-        Interlocked.Increment(ref _busyCount);
-        return new BusyScope(this);
-    }
-
-    private class BusyScope : IDisposable
-    {
-        private readonly WinoImapClient _client;
-        private bool _disposed;
-
-        public BusyScope(WinoImapClient client)
-        {
-            _client = client;
-        }
-
-        public void Dispose()
-        {
-            if (!_disposed)
-            {
-                Interlocked.Decrement(ref _client._busyCount);
-                _disposed = true;
-            }
+            Log.Debug("IMAP connection {ConnectionId} disconnected unexpectedly.", ConnectionId);
         }
     }
 

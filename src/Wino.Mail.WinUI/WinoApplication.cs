@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -108,7 +109,8 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
 
     public bool IsInteractiveLaunchArgs(object args) => args is IActivatedEventArgs;
 
-    public void LogActivation(string log) => Log.Information($"{WinoLaunchLogPrefix}{log}");
+    public void LogActivation(string log)
+        => Log.Information($"{WinoLaunchLogPrefix}{log} (T+{Stopwatch.GetElapsedTime(Program.StartupTimestamp).TotalMilliseconds:F0} ms)");
 
     protected override void OnLaunched(Microsoft.UI.Xaml.LaunchActivatedEventArgs args)
     {

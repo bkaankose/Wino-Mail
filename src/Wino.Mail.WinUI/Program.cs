@@ -25,9 +25,16 @@ public class Program
     private static Mutex? _mailHostRunningMutex;
     private static PendingBootstrapActivation? _pendingBootstrapActivation;
 
+    /// <summary>
+    /// Process entry time. Launch log lines report their offset from it.
+    /// </summary>
+    internal static long StartupTimestamp { get; private set; }
+
     [STAThread]
     static int Main(string[] args)
     {
+        StartupTimestamp = Stopwatch.GetTimestamp();
+
         WinRT.ComWrappersSupport.InitializeComWrappers();
 
         var package = Windows.ApplicationModel.Package.Current;

@@ -37,7 +37,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private static readonly Lazy<SynchronizationManager> _instance = new(() => new SynchronizationManager());
     public static SynchronizationManager Instance => _instance.Value;
 
-    private readonly ConcurrentDictionary<Guid, IWinoSynchronizerBase> _synchronizerCache = new();
+    private IReadOnlyDictionary<Guid, IWinoSynchronizerBase> _synchronizerCache => _concreteSynchronizerFactory.CachedSynchronizers;
     private readonly ConcurrentDictionary<Guid, CancellationTokenSource> _accountSynchronizationCancellationSources = new();
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _calendarSynchronizationLocks = new();
     private readonly ConcurrentDictionary<Guid, AccountSynchronizationProgress> _mailSynchronizationProgress = new();
@@ -1256,7 +1256,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         try
         {
             var synchronizer = _concreteSynchronizerFactory.CreateNewSynchronizer(account);
-            _synchronizerCache.TryAdd(account.Id, synchronizer);
 
             _logger.Information("Created new synchronizer for account {AccountName} ({AccountId})",
                               account.Name, account.Id);
@@ -1318,11 +1317,11 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         if (_draftUpdateCoordinator != null) await _draftUpdateCoordinator.StopAccountAsync(accountId).ConfigureAwait(false);
         await CancelSynchronizationsAsync(accountId);
 
-        if (_synchronizerCache.TryRemove(accountId, out var synchronizer))
+        if (_synchronizerCache.ContainsKey(accountId))
         {
             try
             {
-                await synchronizer.KillSynchronizerAsync();
+                await _concreteSynchronizerFactory.DeleteSynchronizerAsync(accountId).ConfigureAwait(false);
                 _logger.Information("Destroyed synchronizer for account {AccountId}", accountId);
             }
             catch (OperationCanceledException)
@@ -1574,29 +1573,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _ => "1000+"
         };
 
-    private async Task<IWinoSynchronizerBase> GetOrCreateSynchronizerAsync(Guid accountId)
-    {
-        if (_synchronizerCache.TryGetValue(accountId, out var existingSynchronizer))
-        {
-            var currentAccount = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-            if (currentAccount != null && RequiresSynchronizerRefresh(existingSynchronizer.Account, currentAccount))
-            {
-                await DestroySynchronizerAsync(accountId).ConfigureAwait(false);
-                return CreateSynchronizerForAccount(currentAccount);
-            }
-
-            return existingSynchronizer;
-        }
-
-        // Try to create a new synchronizer if not found
-        var account = await _accountService.GetAccountAsync(accountId);
-        if (account != null)
-        {
-            return CreateSynchronizerForAccount(account);
-        }
-
-        return null;
-    }
+    private Task<IWinoSynchronizerBase> GetOrCreateSynchronizerAsync(Guid accountId)
+        => _concreteSynchronizerFactory.GetAccountSynchronizerAsync(accountId);
 
     public static bool CanSynchronizeCalendar(MailAccount account)
         => account?.IsCalendarAccessGranted == true;
@@ -1604,6 +1582,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     public static bool RequiresSynchronizerRefresh(MailAccount cachedAccount, MailAccount currentAccount)
         => cachedAccount == null ||
            currentAccount == null ||
+           cachedAccount.IsProtocolLogEnabled != currentAccount.IsProtocolLogEnabled ||
            cachedAccount.IsMailAccessGranted != currentAccount.IsMailAccessGranted ||
            cachedAccount.IsCalendarAccessGranted != currentAccount.IsCalendarAccessGranted ||
            cachedAccount.IsContactAccessGranted != currentAccount.IsContactAccessGranted ||

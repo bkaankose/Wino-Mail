@@ -1,4 +1,6 @@
-using FluentAssertions;
+﻿using FluentAssertions;
+using CommunityToolkit.Mvvm.Messaging;
+using Wino.Messaging.Server;
 using Moq;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -13,33 +15,72 @@ namespace Wino.Core.Tests.Synchronizers;
 public class ImapSynchronizerIdleTests
 {
     [Fact]
-    public async Task ShouldTriggerIdleSynchronization_ShouldDebounceBurstSignals()
+    public async Task FlagAndExpungeEventsDuringDebounceProduceTrailingSynchronization()
     {
-        var tempDirectory = Path.Combine(Path.GetTempPath(), "wino-imap-idle-tests", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(tempDirectory);
-
-        var synchronizer = CreateSynchronizer(tempDirectory);
-
+        await using var server = new TestImapServer { SupportsIdle = true };
+        var synchronizer = CreateSynchronizer(Path.GetTempPath(), server.Settings(max: 2));
+        var recipient = new object();
+        var first = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var trailing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int count = 0;
+        WeakReferenceMessenger.Default.Register<NewMailSynchronizationRequested>(recipient, (_, message) =>
+        {
+            if (message.Options.AccountId != synchronizer.Account.Id) return;
+            if (Interlocked.Increment(ref count) == 1) first.TrySetResult();
+            else trailing.TrySetResult();
+        });
         try
         {
-            var baseTime = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-            synchronizer.ShouldTriggerIdleSynchronization(baseTime).Should().BeTrue();
-            synchronizer.ShouldTriggerIdleSynchronization(baseTime.AddSeconds(5)).Should().BeFalse();
-            synchronizer.ShouldTriggerIdleSynchronization(baseTime.AddSeconds(16)).Should().BeTrue();
+            await synchronizer.StartIdleClientAsync();
+            await server.IdleReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await server.IdleUpdates.Writer.WriteAsync("* 1 EXISTS");
+            await first.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await server.IdleUpdates.Writer.WriteAsync("* 1 FETCH (FLAGS (\\Seen))");
+            await server.IdleUpdates.Writer.WriteAsync("* 1 EXPUNGE");
+            await trailing.Task.WaitAsync(TimeSpan.FromSeconds(20));
+            count.Should().Be(2);
         }
         finally
         {
             await synchronizer.KillSynchronizerAsync();
-
-            if (Directory.Exists(tempDirectory))
-            {
-                Directory.Delete(tempDirectory, recursive: true);
-            }
+            WeakReferenceMessenger.Default.UnregisterAll(recipient);
         }
     }
 
-    private static ImapSynchronizer CreateSynchronizer(string appDataFolder)
+    [Fact]
+    public async Task ConcurrentStartsUseOneListenerAndStopSendsDone()
+    {
+        await using var server = new TestImapServer { SupportsIdle = true };
+        var synchronizer = CreateSynchronizer(Path.GetTempPath(), server.Settings(max: 2));
+        try
+        {
+            await Task.WhenAll(Enumerable.Range(0, 8).Select(_ => synchronizer.StartIdleClientAsync()));
+            await server.IdleReceived.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await synchronizer.StopIdleClientAsync().WaitAsync(TimeSpan.FromSeconds(8));
+            await server.DoneReceived.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            server.Commands.Count(command => command == "IDLE").Should().Be(1);
+            server.Commands.Should().NotContain("LOGOUT").And.NotContain("CLOSE");
+        }
+        finally { await synchronizer.KillSynchronizerAsync(); }
+    }
+
+    [Fact]
+    public async Task ServerWithoutIdleOpensOnlyOneConnection()
+    {
+        await using var server = new TestImapServer();
+        var synchronizer = CreateSynchronizer(Path.GetTempPath(), server.Settings(max: 2));
+        try
+        {
+            await synchronizer.StartIdleClientAsync();
+            await server.Accepted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await synchronizer.StopIdleClientAsync().WaitAsync(TimeSpan.FromSeconds(5));
+            server.ConnectionCount.Should().Be(1);
+            server.Commands.Should().NotContain("IDLE");
+        }
+        finally { await synchronizer.KillSynchronizerAsync(); }
+    }
+
+    private static ImapSynchronizer CreateSynchronizer(string appDataFolder, CustomServerInformation? settings = null)
     {
         var account = new MailAccount
         {
@@ -47,7 +88,7 @@ public class ImapSynchronizerIdleTests
             Name = "IMAP Test",
             Address = "test@example.com",
             ProviderType = MailProviderType.IMAP4,
-            ServerInformation = new CustomServerInformation
+            ServerInformation = settings ?? new CustomServerInformation
             {
                 Id = Guid.NewGuid(),
                 IncomingServer = "imap.example.com",
