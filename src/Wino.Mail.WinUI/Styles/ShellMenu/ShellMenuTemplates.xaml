@@ -112,18 +112,19 @@
                     Width="28"
                     Height="28"
                     MinWidth="0"
-                    Padding="4"
+                    Padding="0"
                     VerticalAlignment="Center"
                     AutomationProperties.AutomationId="AccountAttentionButton"
                     AutomationProperties.Name="{x:Bind domain:Translator.Info_AccountAttentionRequiredAction, Mode=OneTime}"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource InfoBarWarningSeverityIconBackground}"
-                    BorderThickness="1"
                     Click="AttentionIconClicked"
                     Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
+                    Style="{ThemeResource SubtleButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Info_AccountAttentionRequiredClickableMessage, Mode=OneTime}"
                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
-                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Wrench" />
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="18"
+                        Icon="Warning" />
                 </Button>
             </Grid>
         </controls:AccountNavigationItem>
@@ -183,18 +184,19 @@
                     Width="28"
                     Height="28"
                     MinWidth="0"
-                    Padding="4"
+                    Padding="0"
                     VerticalAlignment="Center"
                     AutomationProperties.AutomationId="CompactAccountAttentionButton"
                     AutomationProperties.Name="{x:Bind domain:Translator.Info_AccountAttentionRequiredAction, Mode=OneTime}"
-                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                    BorderBrush="{ThemeResource InfoBarWarningSeverityIconBackground}"
-                    BorderThickness="1"
                     Click="AttentionIconClicked"
                     Foreground="{ThemeResource InfoBarWarningSeverityIconBackground}"
+                    Style="{ThemeResource SubtleButtonStyle}"
                     ToolTipService.ToolTip="{x:Bind domain:Translator.Info_AccountAttentionRequiredClickableMessage, Mode=OneTime}"
                     Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(IsAttentionRequired), Mode=OneWay}">
-                    <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Wrench" />
+                    <coreControls:WinoFontIcon
+                        FontFamily="{ThemeResource WinoIconFontFamily}"
+                        FontSize="18"
+                        Icon="Warning" />
                 </Button>
             </Grid>
         </controls:AccountNavigationItem>

@@ -241,20 +241,23 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
 
             await ExecuteUIThread(() => IsDataTransferInProgress = true);
 
-            var result = await _syncService.ImportFromFileAsync(fileContent, PromptSyncSecretAsync).ConfigureAwait(false);
-            if (result.Appearance != null)
+            await ExecuteUIThreadAsync(async () =>
             {
-                await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
-            }
+                var result = await _syncService.ImportFromFileAsync(fileContent, PromptSyncSecretAsync).ConfigureAwait(false);
+                if (result.Appearance != null)
+                {
+                    await ExecuteUIThread(() => _syncService.ApplyAppearance(result.Appearance));
+                }
 
-            var messageType = result.FailedPreferenceCount > 0
-                ? InfoBarMessageType.Warning
-                : InfoBarMessageType.Success;
+                var messageType = result.FailedPreferenceCount > 0
+               ? InfoBarMessageType.Warning
+               : InfoBarMessageType.Success;
 
-            _dialogService.InfoBarMessage(
-                result.FailedPreferenceCount > 0 ? Translator.GeneralTitle_Warning : Translator.GeneralTitle_Info,
-                BuildImportMessage(result),
-                messageType);
+                _dialogService.InfoBarMessage(
+                    result.FailedPreferenceCount > 0 ? Translator.GeneralTitle_Warning : Translator.GeneralTitle_Info,
+                    BuildImportMessage(result),
+                    messageType);
+            });
         }
         catch (JsonException)
         {

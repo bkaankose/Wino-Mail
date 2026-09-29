@@ -948,11 +948,11 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
             if (account.AttentionReason is AccountAttentionReason.InvalidCredentials or AccountAttentionReason.CertificateValidationFailed)
             {
-                NavigationService.Navigate(WinoPage.SettingsPage, WinoPage.ManageAccountsPage);
-                Messenger.Send(new BreadcrumbNavigationRequested(
-                    Translator.ImapCalDavSettingsPage_TitleEdit,
-                    WinoPage.ImapCalDavSettingsPage,
-                    ImapCalDavSettingsNavigationContext.CreateForEditMode(account.Id)));
+                // Settings > Accounts > account (General tab) > server settings, so back and the
+                // breadcrumb lead through the account the user is fixing.
+                NavigationService.Navigate(WinoPage.SettingsPage, new SettingsPageActivationContext(
+                    WinoPage.ManageAccountsPage,
+                    new AccountDetailsNavigationContext(account.Id, AccountDetailsTab.General, OpenServerSettings: true)));
 
                 _dialogService.InfoBarMessage(
                     Translator.Info_AccountIssueFixSuccessTitle,

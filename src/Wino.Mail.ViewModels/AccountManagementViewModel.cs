@@ -326,7 +326,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
 
         await InitializeAccountsAsync();
 
-        if (parameters is AccountDetailsNavigationContext accountDetailsContext)
+        // Returning here from the account must not forward into it again.
+        if (mode != NavigationMode.Back && parameters is AccountDetailsNavigationContext accountDetailsContext)
         {
             NavigateToRequestedAccountDetails(accountDetailsContext);
         }

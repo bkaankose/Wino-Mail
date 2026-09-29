@@ -25,4 +25,5 @@ public enum AccountDetailsTab
     ToDo
 }
 
-public sealed record AccountDetailsNavigationContext(Guid AccountId, AccountDetailsTab SelectedTab);
+/// <param name="OpenServerSettings">Opens the IMAP/CalDAV server settings on top of the General tab once the page loads.</param>
+public sealed record AccountDetailsNavigationContext(Guid AccountId, AccountDetailsTab SelectedTab, bool OpenServerSettings = false);

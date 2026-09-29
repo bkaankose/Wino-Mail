@@ -873,6 +873,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
             ? navigationContext.SelectedTab
             : (AccountDetailsTab?)null;
 
+        // Coming back from the server settings page must not open it again.
+        var shouldOpenServerSettings = mode != NavigationMode.Back &&
+                                       parameters is AccountDetailsNavigationContext { OpenServerSettings: true };
+
         if (accountId != Guid.Empty)
         {
             Account = await _accountService.GetAccountAsync(accountId);
@@ -927,6 +931,11 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                         ? (int)AccountDetailsTab.Mail
                         : (int)AccountDetailsTab.General;
             EnsureSelectedTabForCapabilities();
+
+            if (shouldOpenServerSettings && IsImapServer)
+            {
+                await ExecuteUIThread(EditImapCalDavSettings);
+            }
 
             var folderStructures = (await _folderService.GetFolderStructureForAccountAsync(Account.Id, true)).Folders;
 
