@@ -54,8 +54,7 @@ public sealed partial class WinoAccountSyncExportDialog : ContentDialog
         }
     }
 
-    // The key is normally cached at sign-in. Only an account that signed in before this build,
-    // or one without a password, has to answer here. The dialog hides while the prompt is shown.
+    // Every backup asks for its own password. The dialog hides while the prompt is shown.
     private async System.Threading.Tasks.Task<string?> PromptSecretAsync(SyncSnapshotSecretRequest request)
     {
         Hide();

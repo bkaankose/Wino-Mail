@@ -20,10 +20,8 @@ namespace Wino.Core.Tests.ViewModels;
 
 public sealed class WinoAccountManagementPageViewModelTests
 {
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ChangePassword_WarnsAboutBackupOnlyWhenSnapshotExists(bool hasBackup)
+    [Fact]
+    public async Task ChangePassword_DoesNotWarnAboutBackup()
     {
         var account = new WinoAccount { Id = Guid.NewGuid(), Email = "password@example.test" };
         var profile = new Mock<IWinoAccountProfileService>();
@@ -31,11 +29,6 @@ public sealed class WinoAccountManagementPageViewModelTests
         profile.Setup(x => x.ForgotPasswordAsync(account.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(ApiEnvelope<System.Text.Json.JsonElement>.Success(default));
         var api = new Mock<IWinoAccountApiClient>();
-        api.Setup(x => x.GetSyncSnapshotStatusAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
-            hasBackup
-                ? new Wino.Mail.Api.Contracts.Users.UserSyncSnapshotStatusDto(
-                    1, 1, 1, 100, "hash", DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null)
-                : null);
         string? question = null;
         var dialogs = new Mock<IMailDialogService>();
         dialogs.Setup(x => x.ShowConfirmationDialogAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
@@ -48,8 +41,9 @@ public sealed class WinoAccountManagementPageViewModelTests
 
         await viewModel.ChangePasswordCommand.ExecuteAsync(null);
 
-        question.Should().NotBeNull();
-        question!.Contains("backup", StringComparison.OrdinalIgnoreCase).Should().Be(hasBackup);
+        // Backups have their own password, so a reset leaves them readable.
+        question.Should().Be(string.Format(Translator.WinoAccount_ChangePassword_ConfirmationMessage, account.Email));
+        api.Verify(x => x.GetSyncSnapshotStatusAsync(It.IsAny<CancellationToken>()), Times.Never);
         profile.Verify(x => x.ForgotPasswordAsync(account.Email, It.IsAny<CancellationToken>()), Times.Once);
     }
 

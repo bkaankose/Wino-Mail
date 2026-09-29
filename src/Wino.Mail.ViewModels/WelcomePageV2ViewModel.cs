@@ -100,7 +100,7 @@ public partial class WelcomePageV2ViewModel : MailBaseViewModel
 
         try
         {
-            var fileContent = await _dialogService.PickWindowsFileContentAsync(".winosnap", ".json");
+            var fileContent = await _dialogService.PickWindowsFileContentAsync(".winosnap");
             if (fileContent.Length == 0)
             {
                 return;

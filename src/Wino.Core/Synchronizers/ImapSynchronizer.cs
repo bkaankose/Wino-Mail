@@ -160,7 +160,8 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                     Account.Id,
                     MailProtocol.Imap)
                 : null,
-            _serverCertificateTrustService);
+            _serverCertificateTrustService,
+            Account);
 
         _clientPool = new ImapClientPool(poolOptions);
         _localCalendarOperationHandler = new LocalCalendarOperationHandler(Account, _imapChangeProcessor, _calendarService, _applicationConfiguration.ApplicationDataFolderPath, "local");
@@ -2495,6 +2496,13 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
         while (!cancellationToken.IsCancellationRequested && !IsDisposing && !_idleStopping)
         {
+            // Resumed by SynchronizerFactory once the attention is cleared.
+            if (Account.IsNetworkAccessBlocked())
+            {
+                _logger.Information("Stopped IDLE loop for {AccountName}: the account needs attention.", Account.Name);
+                return;
+            }
+
             IImapClient idleClient = null;
             IMailFolder inboxFolder = null;
             bool shouldReconnect = false;
@@ -2582,6 +2590,19 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             {
                 shouldReconnect = true;
             }
+            catch (AccountAttentionRequiredException)
+            {
+                _logger.Information("Stopped IDLE loop for {AccountName}: the account needs attention.", Account.Name);
+                return;
+            }
+            catch (Exception ex) when (ex is MailKit.Security.AuthenticationException or MailKit.Security.SaslException)
+            {
+                // Rejected credentials cannot recover by reconnecting. Record the attention so every
+                // other path stops too; the loop restarts after the user fixes the account.
+                _logger.Warning(ex, "IDLE sign-in was rejected for {AccountName}. Stopping the IDLE loop.", Account.Name);
+                await ReportIdleAuthenticationFailureAsync(ex).ConfigureAwait(false);
+                return;
+            }
             catch (Exception ex)
             {
                 _logger.Error(ex, "Idle client loop failed for {AccountName}.", Account.Name);
@@ -2614,6 +2635,24 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             {
                 break;
             }
+        }
+    }
+
+    private async Task ReportIdleAuthenticationFailureAsync(Exception exception)
+    {
+        try
+        {
+            await _errorHandlerFactory.HandleErrorAsync(new SynchronizerErrorContext
+            {
+                Account = Account,
+                ErrorMessage = exception.Message,
+                Exception = exception,
+                OperationType = "ImapIdle"
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to record IDLE sign-in failure for {AccountName}.", Account.Name);
         }
     }
 
@@ -2743,6 +2782,12 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
     }
 
     public Task PreWarmClientPoolAsync() => _clientPool.PreWarmPoolAsync();
+
+    public async Task SuspendNetworkAccessAsync()
+    {
+        await StopIdleClientAsync().ConfigureAwait(false);
+        _clientPool.RetireAvailableConnections();
+    }
 }
 
 

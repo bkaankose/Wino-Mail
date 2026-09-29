@@ -80,20 +80,6 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
         if (result.IsSuccess && result.Account != null)
         {
-            // The password is only in hand here. Deriving the sync snapshot key now means later
-            // exports and imports need no prompt. The password itself is never stored.
-            if (_snapshotKeys != null)
-            {
-                try
-                {
-                    await _snapshotKeys.RememberPasswordAsync(result.Account.Id, password, cancellationToken).ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    _logger.Warning(ex, "Sync snapshot key could not be cached at sign-in.");
-                }
-            }
-
             PublishProfileUpdated(result.Account);
             ReportUIChange(new WinoAccountSignedInMessage(result.Account));
         }
@@ -327,10 +313,9 @@ public sealed class WinoAccountProfileService : BaseDatabaseService, IWinoAccoun
 
         if (account != null)
         {
-            if (_snapshotKeys != null)
-            {
-                await _snapshotKeys.ForgetAsync(account.Id).ConfigureAwait(false);
-            }
+            // Earlier builds cached a key derived from the account password. Backups now use their
+            // own password, so nothing account-bound is left to keep.
+            _snapshotKeys?.DeleteLegacyKeyCache();
 
             ReportUIChange(new WinoAccountProfileDeletedMessage(account));
             ReportUIChange(new WinoAccountSignedOutMessage(account));

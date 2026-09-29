@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
@@ -6,6 +7,7 @@ namespace Wino.Services;
 public class ApplicationConfiguration : IApplicationConfiguration
 {
     public const string SharedFolderName = "WinoShared";
+    public const string OfflineDemoMarkerFileName = "wino-offline-demo";
 
     private string _applicationDataFolderPath;
     private string _mimeStorageFolderPath;
@@ -19,6 +21,8 @@ public class ApplicationConfiguration : IApplicationConfiguration
             _applicationDataFolderPath = value;
             _mimeStorageFolderPath = null;
             _calendarAttachmentsFolderPath = null;
+            MailAccountReauthenticationExtensions.IsOfflineDemoMode =
+                !string.IsNullOrEmpty(value) && File.Exists(Path.Combine(value, OfflineDemoMarkerFileName));
         }
     }
 

@@ -491,21 +491,9 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             return;
         }
 
-        var hasBackup = false;
-        try
-        {
-            hasBackup = await _apiClient.GetSyncSnapshotStatusAsync() is not null;
-        }
-        catch (Exception exception)
-        {
-            _logger?.CaptureException(exception, nameof(ChangePasswordAsync));
-        }
-
-        var confirmationMessage = hasBackup
-            ? string.Format(Translator.WinoAccount_ChangePassword_BackupConfirmationMessage, account.Email)
-            : string.Format(Translator.WinoAccount_ChangePassword_ConfirmationMessage, account.Email);
+        // Backups have their own password, so a new account password leaves them readable.
         var shouldContinue = await _dialogService.ShowConfirmationDialogAsync(
-            confirmationMessage,
+            string.Format(Translator.WinoAccount_ChangePassword_ConfirmationMessage, account.Email),
             Translator.WinoAccount_ChangePassword_Title,
             Translator.WinoAccount_ChangePassword_Action);
 

@@ -10,6 +10,7 @@ using Moq;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Tests.Helpers;
@@ -29,8 +30,12 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
 
     // A fixed key stands in for Argon2id: the service only needs a 32-byte key and its parameters.
     private static readonly SyncSnapshotKey TestKey = new(
-        new SyncSnapshotKeyParameters(SyncSnapshotFormat.KeySourceAccountPassword, 1024, 1, 1, new byte[16]),
+        new SyncSnapshotKeyParameters(SyncSnapshotFormat.KeySourcePassphrase, 1024, 1, 1, new byte[16]),
         Enumerable.Range(1, 32).Select(a => (byte)a).ToArray());
+    private const string BackupPassword = "backup-password";
+
+    private static Task<string?> Prompt(SyncSnapshotSecretRequest request) => Task.FromResult<string?>(BackupPassword);
+
     private static readonly WinoAccount TestAccount = new() { Id = Guid.NewGuid(), Email = "owner@example.com", HasPassword = true };
     private AccountService _accountService = null!;
     private FolderService _folderService = null!;
@@ -50,10 +55,8 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             .ReturnsAsync(new UserSyncSnapshotStatusDto(1, 1, 1, 0, string.Empty, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null));
 
         _keyService = new Mock<ISyncSnapshotKeyService>();
-        _keyService.Setup(a => a.GetCachedKeyAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(TestKey);
-        _keyService.Setup(a => a.CreateDefaultParameters(It.IsAny<Guid?>(), It.IsAny<byte>())).Returns(TestKey.Parameters);
+        _keyService.Setup(a => a.CreateParameters()).Returns(TestKey.Parameters);
         _keyService.Setup(a => a.DeriveAsync(It.IsAny<string>(), It.IsAny<SyncSnapshotKeyParameters>(), It.IsAny<CancellationToken>())).ReturnsAsync(TestKey);
-        _keyService.Setup(a => a.RememberAsync(It.IsAny<Guid>(), It.IsAny<SyncSnapshotKey>(), It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
 
         _preferencesService = new Mock<IPreferencesService>();
         _preferencesService.SetupProperty(a => a.StartupEntityId);
@@ -143,7 +146,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             .Callback<ReplaceUserMailboxesRequestDto, CancellationToken>((request, _) => capturedRequest = request)
             .Returns(Task.CompletedTask);
 
-        var result = await _service.ExportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        var result = await _service.ExportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
 
         result.ExportedMailboxCount.Should().Be(1);
         capturedRequest.Should().NotBeNull();
@@ -191,7 +194,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             .Callback<ReplaceUserMailboxesRequestDto, CancellationToken>((request, _) => capturedRequest = request)
             .Returns(Task.CompletedTask);
 
-        await _service.ExportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        await _service.ExportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
 
         var exportedMailbox = capturedRequest!.Mailboxes.Single();
         exportedMailbox.IncomingServer.Should().BeNull();
@@ -230,7 +233,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
                 }
             ]);
 
-        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
 
         result.ImportedMailboxCount.Should().Be(1);
         result.SkippedDuplicateMailboxCount.Should().Be(1);
@@ -269,7 +272,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
                 }
             ]);
 
-        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
 
         result.ImportedMailboxCount.Should().Be(1);
 
@@ -341,7 +344,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             .Callback<ReplaceUserMailboxesRequestDto, CancellationToken>((request, _) => capturedRequest = request)
             .Returns(Task.CompletedTask);
 
-        var exportResult = await _service.ExportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        var exportResult = await _service.ExportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
 
         exportResult.ExportedAccountDataCount.Should().Be(1);
 
@@ -422,7 +425,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
                 }
             ]);
 
-        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
 
         result.ImportedMailboxCount.Should().Be(0);
         result.SkippedDuplicateMailboxCount.Should().Be(1);
@@ -471,7 +474,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
                 }
             ]);
 
-        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
 
         result.ImportedMailboxCount.Should().Be(1);
 
@@ -534,7 +537,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
                 }
             ]);
 
-        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        var result = await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
 
         result.AppliedAccountDataCount.Should().Be(0);
         result.AppliedFolderConfigurationCount.Should().Be(0);
@@ -544,7 +547,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ImportFromFileAsync_RoundTripsEncryptedSnapshotAndAcceptsLegacyJson()
+    public async Task ImportFromFileAsync_RoundTripsEncryptedSnapshotAndRejectsLegacyJson()
     {
         var exportedAccountId = Guid.NewGuid();
 
@@ -570,17 +573,17 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             Order = 4
         });
 
-        var fileExport = await _service.ExportToFileAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        var fileExport = await _service.ExportToFileAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
         fileExport.FileName.Should().EndWith(SyncSnapshotFormat.FileExtension);
         SyncSnapshotCryptography.IsSnapshot(fileExport.Content).Should().BeTrue();
         Unseal(fileExport.Content).Should().Contain("\"RemoteFolderId\":\"INBOX\"");
 
         // Re-importing the same file resolves to the same account and reapplies the layout.
-        var roundTripResult = await _service.ImportFromFileAsync(fileExport.Content);
+        var roundTripResult = await _service.ImportFromFileAsync(fileExport.Content, Prompt);
         roundTripResult.SkippedDuplicateMailboxCount.Should().Be(1);
         roundTripResult.AppliedFolderConfigurationCount.Should().Be(1);
 
-        // A version 1 file has no account data at all and must still import.
+        // Plain JSON exports from older builds are no longer accepted.
         const string legacyJson = """
         {
           "version": 1,
@@ -591,9 +594,9 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
         }
         """;
 
-        var legacyResult = await _service.ImportFromFileAsync(Encoding.UTF8.GetBytes(legacyJson));
-        legacyResult.ImportedMailboxCount.Should().Be(1);
-        legacyResult.AppliedAccountDataCount.Should().Be(0);
+        var legacyImport = () => _service.ImportFromFileAsync(Encoding.UTF8.GetBytes(legacyJson));
+        await legacyImport.Should().ThrowAsync<SyncSnapshotInvalidFileException>();
+        (await _accountService.GetAccountsAsync()).Should().NotContain(a => a.Address == "legacy@example.com");
     }
 
     [Fact]
@@ -611,7 +614,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
                 }
             ]);
 
-        await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
 
         var importedAccount = (await _accountService.GetAccountsAsync()).Single();
         importedAccount.IsCalendarAccessEnabled.Should().BeTrue();
@@ -654,7 +657,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             .Setup(a => a.GetSyncSnapshotAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WinoSyncSnapshotDownload(SyncSnapshotCryptography.Encrypt(Encoding.UTF8.GetBytes(json), TestKey), 1));
 
-        await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
 
         var importedAccount = (await _accountService.GetAccountsAsync()).Single();
         importedAccount.IsCalendarAccessEnabled.Should().BeFalse();
@@ -690,7 +693,7 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
             },
             null!);
 
-        var fileExport = await _service.ExportToFileAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true));
+        var fileExport = await _service.ExportToFileAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
 
         using var snapshot = JsonDocument.Parse(Unseal(fileExport.Content));
         var entry = snapshot.RootElement.GetProperty("AccountCapabilities").EnumerateArray().Single();
@@ -698,6 +701,78 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
         entry.GetProperty("IsContactsEnabled").GetBoolean().Should().BeFalse();
         entry.GetProperty("IsTasksEnabled").GetBoolean().Should().BeTrue();
         entry.GetProperty("TaskIntegrationSource").GetInt32().Should().Be((int)AccountIntegrationSource.Provider);
+    }
+
+    [Fact]
+    public async Task ExportAsync_AsksForNewBackupPasswordEveryTime()
+    {
+        var requests = new List<SyncSnapshotSecretRequest>();
+        Task<string?> Record(SyncSnapshotSecretRequest request)
+        {
+            requests.Add(request);
+            return Task.FromResult<string?>(BackupPassword);
+        }
+
+        await _service.ExportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: false), Record);
+        await _service.ExportToFileAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: false), Record);
+
+        requests.Should().HaveCount(2).And.OnlyContain(a => a.IsNewBackup && a.IsPassphrase && !a.WasRejected);
+        _keyService.Verify(a => a.CreateParameters(), Times.Exactly(2));
+        _keyService.Verify(a => a.DeriveAsync(BackupPassword, TestKey.Parameters, It.IsAny<CancellationToken>()), Times.Exactly(2));
+        SyncSnapshotCryptography.ReadHeader(_uploadedSnapshot!).KeySource.Should().Be(SyncSnapshotFormat.KeySourcePassphrase);
+    }
+
+    [Fact]
+    public async Task ImportAsync_WrongPassword_AsksAgainUntilItOpens()
+    {
+        SetupRemoteSnapshot([]);
+        var wrongKey = new SyncSnapshotKey(TestKey.Parameters, new byte[32]);
+        _keyService.Setup(a => a.DeriveAsync("wrong", It.IsAny<SyncSnapshotKeyParameters>(), It.IsAny<CancellationToken>())).ReturnsAsync(wrongKey);
+
+        var answers = new Queue<string>(["wrong", "wrong", BackupPassword]);
+        var requests = new List<SyncSnapshotSecretRequest>();
+        Task<string?> Answer(SyncSnapshotSecretRequest request)
+        {
+            requests.Add(request);
+            return Task.FromResult<string?>(answers.Dequeue());
+        }
+
+        await _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Answer);
+
+        requests.Select(a => a.WasRejected).Should().Equal(false, true, true);
+        requests.Should().OnlyContain(a => a.IsPassphrase && !a.IsNewBackup);
+    }
+
+    [Fact]
+    public async Task ImportAsync_CancelledPrompt_ThrowsKeyRequired()
+    {
+        SetupRemoteSnapshot([]);
+
+        var cancelled = () => _service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), _ => Task.FromResult<string?>(null));
+
+        await cancelled.Should().ThrowAsync<Wino.Core.Domain.Exceptions.SyncSnapshotKeyRequiredException>();
+    }
+
+    [Fact]
+    public async Task ImportAsync_LegacyAccountPasswordSnapshot_AsksForAccountPassword()
+    {
+        var legacyKey = new SyncSnapshotKey(TestKey.Parameters with { KeySource = SyncSnapshotFormat.KeySourceAccountPassword }, TestKey.Key);
+        var payload = SyncSnapshotCryptography.Encrypt(Encoding.UTF8.GetBytes("{\"Version\":1,\"Mailboxes\":[]}"), legacyKey);
+        _profileService
+            .Setup(a => a.GetSyncSnapshotAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WinoSyncSnapshotDownload(payload, 1));
+
+        SyncSnapshotSecretRequest? request = null;
+        await _service.ImportAsync(
+            new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true),
+            value =>
+            {
+                request = value;
+                return Task.FromResult<string?>(BackupPassword);
+            });
+
+        request.Should().NotBeNull();
+        request!.IsPassphrase.Should().BeFalse();
     }
 
     private static AccountService CreateAccountService(InMemoryDatabaseService databaseService, IPreferencesService preferencesService)

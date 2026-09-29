@@ -1,5 +1,6 @@
-using Wino.Core.Domain.Entities.Shared;
+﻿using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Exceptions;
 
 namespace Wino.Core.Domain.Extensions;
 
@@ -45,6 +46,26 @@ public static class MailAccountReauthenticationExtensions
             WinoApplicationMode.Tasks => account.CanBeFixedBySigningIn() && IsTaskConsentPending(account),
             _ => false
         };
+    }
+
+    /// <summary>
+    /// Whether the account must not reach its servers. Any attention reason blocks all
+    /// synchronization and background connections (IDLE, keepalive) until the user fixes it;
+    /// only the fix itself (sign-in or connectivity test) talks to the server meanwhile.
+    /// </summary>
+    public static bool IsNetworkAccessBlocked(this MailAccount account)
+        => account != null && (IsOfflineDemoMode || account.AttentionReason != AccountAttentionReason.None);
+
+    /// <summary>
+    /// Set when the data folder holds an offline demo marker. Every account then stays off the
+    /// network without showing attention UI, so recordings can use fabricated local data.
+    /// </summary>
+    public static bool IsOfflineDemoMode { get; set; }
+
+    public static void ThrowIfNetworkAccessBlocked(this MailAccount account)
+    {
+        if (account.IsNetworkAccessBlocked())
+            throw new AccountAttentionRequiredException(account);
     }
 
     private static bool IsContactConsentPending(MailAccount account)

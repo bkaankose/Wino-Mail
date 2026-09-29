@@ -12,27 +12,36 @@ public class ImapClientPoolOptions
     public Func<IProtocolLogger> ProtocolLoggerFactory { get; }
     public IServerCertificateTrustService CertificateTrustService { get; }
 
+    /// <summary>
+    /// The account the pool connects for. While it needs attention the pool opens no
+    /// connection and sends no keepalive. Null for connectivity tests.
+    /// </summary>
+    public MailAccount Account { get; }
+
     protected ImapClientPoolOptions(
         CustomServerInformation serverInformation,
         bool isTestPool,
         Func<IProtocolLogger> protocolLoggerFactory,
-        IServerCertificateTrustService certificateTrustService)
+        IServerCertificateTrustService certificateTrustService,
+        MailAccount account)
     {
         ServerInformation = serverInformation;
         IsTestPool = isTestPool;
         ProtocolLoggerFactory = protocolLoggerFactory;
         CertificateTrustService = certificateTrustService;
+        Account = account;
     }
 
     public static ImapClientPoolOptions CreateDefault(
         CustomServerInformation serverInformation,
         Func<IProtocolLogger> protocolLoggerFactory = null,
-        IServerCertificateTrustService certificateTrustService = null)
-        => new(serverInformation, false, protocolLoggerFactory, certificateTrustService);
+        IServerCertificateTrustService certificateTrustService = null,
+        MailAccount account = null)
+        => new(serverInformation, false, protocolLoggerFactory, certificateTrustService, account);
 
     public static ImapClientPoolOptions CreateTestPool(
         CustomServerInformation serverInformation,
         Func<IProtocolLogger> protocolLoggerFactory = null,
         IServerCertificateTrustService certificateTrustService = null)
-        => new(serverInformation, true, protocolLoggerFactory, certificateTrustService);
+        => new(serverInformation, true, protocolLoggerFactory, certificateTrustService, null);
 }

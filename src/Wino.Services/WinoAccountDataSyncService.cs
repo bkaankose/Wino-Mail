@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -75,10 +74,10 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
     public async Task<WinoAccountSyncExportResult> ExportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
     {
-        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false)
+        _ = await _profileService.GetActiveAccountAsync().ConfigureAwait(false)
             ?? throw WinoAccountApiException.SignInRequired();
 
-        var key = await ResolveKeyForExportAsync(account, secretPrompt, cancellationToken).ConfigureAwait(false);
+        var key = await DeriveNewKeyAsync(secretPrompt, cancellationToken).ConfigureAwait(false);
         var prepared = await PrepareExportAsync(selection).ConfigureAwait(false);
         var payload = Seal(prepared.Document, key);
 
@@ -96,11 +95,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
     public async Task<WinoAccountSyncFileExportResult> ExportToFileAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
     {
-        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
-        var key = account != null
-            ? await ResolveKeyForExportAsync(account, secretPrompt, cancellationToken).ConfigureAwait(false)
-            : await DeriveFromPromptAsync(null, SyncSnapshotFormat.KeySourcePassphrase, secretPrompt, cancellationToken).ConfigureAwait(false);
-
+        var key = await DeriveNewKeyAsync(secretPrompt, cancellationToken).ConfigureAwait(false);
         var prepared = await PrepareExportAsync(selection).ConfigureAwait(false);
 
         return new WinoAccountSyncFileExportResult
@@ -123,8 +118,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             };
         }
 
-        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
-        var document = await OpenAsync(download.Payload, account?.Id, secretPrompt, cancellationToken).ConfigureAwait(false);
+        var document = await OpenAsync(download.Payload, secretPrompt, cancellationToken).ConfigureAwait(false);
 
         return await ApplyDocumentAsync(selection, document, cancellationToken).ConfigureAwait(false);
     }
@@ -135,61 +129,14 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
         if (!SyncSnapshotCryptography.IsSnapshot(content))
         {
-            // Older builds exported plain JSON. Keep reading those files.
-            return await ImportFromJsonAsync(Encoding.UTF8.GetString(content), cancellationToken).ConfigureAwait(false);
+            // Plain JSON exports from older builds are no longer accepted.
+            throw new SyncSnapshotInvalidFileException("The file is not a Wino backup.");
         }
 
-        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
-        var document = await OpenAsync(content, account?.Id, secretPrompt, cancellationToken).ConfigureAwait(false);
+        var document = await OpenAsync(content, secretPrompt, cancellationToken).ConfigureAwait(false);
         var selection = new WinoAccountSyncSelection(
             IncludePreferences: !string.IsNullOrWhiteSpace(document.PreferencesJson),
             IncludeAccounts: document.Mailboxes?.Count > 0);
-
-        return await ApplyDocumentAsync(selection, document, cancellationToken).ConfigureAwait(false);
-    }
-
-    public async Task<WinoAccountSyncImportResult> ImportFromJsonAsync(string jsonContent, CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        jsonContent = TrimUtf8Bom(jsonContent);
-
-        using var jsonDocument = JsonDocument.Parse(jsonContent);
-        if (jsonDocument.RootElement.ValueKind != JsonValueKind.Object)
-        {
-            throw new JsonException("Invalid root element.");
-        }
-
-        string? settingsJson = null;
-        if (jsonDocument.RootElement.TryGetProperty("preferences", out var preferencesElement))
-        {
-            settingsJson = preferencesElement.ValueKind switch
-            {
-                JsonValueKind.Object => preferencesElement.GetRawText(),
-                JsonValueKind.String => preferencesElement.GetString(),
-                JsonValueKind.Null or JsonValueKind.Undefined => null,
-                _ => throw new JsonException("Invalid preferences payload.")
-            };
-        }
-
-        var mailboxes = new List<UserMailboxSyncItemDto>();
-        if (jsonDocument.RootElement.TryGetProperty("mailboxes", out var mailboxesElement))
-        {
-            if (mailboxesElement.ValueKind is not (JsonValueKind.Array or JsonValueKind.Null or JsonValueKind.Undefined))
-            {
-                throw new JsonException("Invalid mailboxes payload.");
-            }
-
-            if (mailboxesElement.ValueKind == JsonValueKind.Array)
-            {
-                mailboxes = JsonSerializer.Deserialize(mailboxesElement.GetRawText(), WinoSyncSnapshotJsonContext.Default.ListUserMailboxSyncItemDto) ?? [];
-            }
-        }
-
-        var selection = new WinoAccountSyncSelection(
-            IncludePreferences: !string.IsNullOrWhiteSpace(settingsJson),
-            IncludeAccounts: mailboxes.Count > 0);
-
-        var document = new WinoSyncSnapshotDocument { PreferencesJson = settingsJson, Mailboxes = mailboxes };
 
         return await ApplyDocumentAsync(selection, document, cancellationToken).ConfigureAwait(false);
     }
@@ -234,91 +181,56 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
     #region Keys
 
-    private async Task<SyncSnapshotKey> ResolveKeyForExportAsync(WinoAccount account, SyncSnapshotSecretPrompt? secretPrompt, CancellationToken cancellationToken)
+    /// <summary>
+    /// Asks for a new backup password and derives a key with a fresh salt. Nothing is cached.
+    /// </summary>
+    private async Task<SyncSnapshotKey> DeriveNewKeyAsync(SyncSnapshotSecretPrompt? secretPrompt, CancellationToken cancellationToken)
     {
         var keyService = RequireKeyService();
-        var cached = await keyService.GetCachedKeyAsync(account.Id, cancellationToken).ConfigureAwait(false);
-        if (cached != null) return cached;
+        keyService.DeleteLegacyKeyCache();
 
-        var keySource = account.HasPassword ? SyncSnapshotFormat.KeySourceAccountPassword : SyncSnapshotFormat.KeySourcePassphrase;
+        var secret = await AskSecretAsync(secretPrompt, new SyncSnapshotSecretRequest(IsPassphrase: true, WasRejected: false, IsNewBackup: true)).ConfigureAwait(false);
 
-        return await DeriveFromPromptAsync(account.Id, keySource, secretPrompt, cancellationToken).ConfigureAwait(false);
-    }
-
-    private async Task<SyncSnapshotKey> DeriveFromPromptAsync(Guid? userId, byte keySource, SyncSnapshotSecretPrompt? secretPrompt, CancellationToken cancellationToken)
-    {
-        var keyService = RequireKeyService();
-        var secret = await AskSecretAsync(secretPrompt, keySource, wasRejected: false).ConfigureAwait(false);
-        var key = await keyService.DeriveAsync(secret, keyService.CreateDefaultParameters(userId, keySource), cancellationToken).ConfigureAwait(false);
-
-        if (userId is { } id)
-        {
-            await keyService.RememberAsync(id, key, cancellationToken).ConfigureAwait(false);
-        }
-
-        return key;
+        return await keyService.DeriveAsync(secret, keyService.CreateParameters(), cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Opens a snapshot with the cached key when its header matches, and otherwise asks for the
-    /// secret. A rejected answer gets one more try. The key that opened the snapshot is cached.
+    /// Asks for the password the snapshot was made with until it opens or the user cancels.
+    /// Snapshots from earlier builds are locked with the Wino Account password of that time.
     /// </summary>
-    private async Task<WinoSyncSnapshotDocument> OpenAsync(byte[] payload, Guid? userId, SyncSnapshotSecretPrompt? secretPrompt, CancellationToken cancellationToken)
+    private async Task<WinoSyncSnapshotDocument> OpenAsync(byte[] payload, SyncSnapshotSecretPrompt? secretPrompt, CancellationToken cancellationToken)
     {
         var keyService = RequireKeyService();
+        keyService.DeleteLegacyKeyCache();
+
         var header = SyncSnapshotCryptography.ReadHeader(payload);
         var parameters = header.ToKeyParameters();
+        var isPassphrase = header.KeySource == SyncSnapshotFormat.KeySourcePassphrase;
 
-        if (userId is { } cachedUserId)
+        for (var wasRejected = false; ; wasRejected = true)
         {
-            var cached = await keyService.GetCachedKeyAsync(cachedUserId, cancellationToken).ConfigureAwait(false);
-            if (cached != null && Matches(cached.Parameters, parameters))
-            {
-                try
-                {
-                    return Unseal(payload, cached.Key);
-                }
-                catch (SyncSnapshotDecryptionException)
-                {
-                    // The cached key came from another password. Fall through to the prompt.
-                }
-            }
-        }
-
-        var wasRejected = false;
-        for (var attempt = 0; attempt < 2; attempt++)
-        {
-            var secret = await AskSecretAsync(secretPrompt, header.KeySource, wasRejected).ConfigureAwait(false);
+            var secret = await AskSecretAsync(secretPrompt, new SyncSnapshotSecretRequest(isPassphrase, wasRejected)).ConfigureAwait(false);
             var key = await keyService.DeriveAsync(secret, parameters, cancellationToken).ConfigureAwait(false);
 
             try
             {
-                var document = Unseal(payload, key.Key);
-
-                if (userId is { } id)
-                {
-                    await keyService.RememberAsync(id, key, cancellationToken).ConfigureAwait(false);
-                }
-
-                return document;
+                return Unseal(payload, key.Key);
             }
-            catch (SyncSnapshotDecryptionException) when (attempt == 0 && secretPrompt != null)
+            catch (SyncSnapshotDecryptionException)
             {
-                wasRejected = true;
+                // Wrong password. Ask again; cancelling the prompt ends the loop.
             }
         }
-
-        throw new SyncSnapshotDecryptionException("The snapshot could not be unlocked.");
     }
 
-    private static async Task<string> AskSecretAsync(SyncSnapshotSecretPrompt? secretPrompt, byte keySource, bool wasRejected)
+    private static async Task<string> AskSecretAsync(SyncSnapshotSecretPrompt? secretPrompt, SyncSnapshotSecretRequest request)
     {
         if (secretPrompt == null)
         {
-            throw new SyncSnapshotKeyRequiredException("No key is cached for this snapshot and no prompt was supplied.");
+            throw new SyncSnapshotKeyRequiredException("A backup password is needed and no prompt was supplied.");
         }
 
-        var secret = await secretPrompt(new SyncSnapshotSecretRequest(keySource == SyncSnapshotFormat.KeySourcePassphrase, wasRejected)).ConfigureAwait(false);
+        var secret = await secretPrompt(request).ConfigureAwait(false);
         if (string.IsNullOrEmpty(secret))
         {
             throw new SyncSnapshotKeyRequiredException("The snapshot was not unlocked.");
@@ -329,13 +241,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
 
     private ISyncSnapshotKeyService RequireKeyService()
         => _keyService ?? throw new InvalidOperationException("Sync snapshots need a key service.");
-
-    private static bool Matches(SyncSnapshotKeyParameters a, SyncSnapshotKeyParameters b)
-        => a.KeySource == b.KeySource
-            && a.MemoryKiB == b.MemoryKiB
-            && a.Iterations == b.Iterations
-            && a.Parallelism == b.Parallelism
-            && a.Salt.AsSpan().SequenceEqual(b.Salt);
 
     private static byte[] Seal(WinoSyncSnapshotDocument document, SyncSnapshotKey key)
     {
@@ -1444,10 +1349,6 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
     private static string CreateMailboxKey(string? address, int providerType)
         => $"{address?.Trim().ToLowerInvariant()}|{providerType}";
 
-    private static string TrimUtf8Bom(string jsonContent)
-        => !string.IsNullOrEmpty(jsonContent) && jsonContent[0] == '﻿'
-            ? jsonContent[1..]
-            : jsonContent;
 
     #endregion
 

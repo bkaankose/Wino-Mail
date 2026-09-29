@@ -243,7 +243,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         try
         {
             var fileContent = await ExecuteUIThreadAsync(
-                () => MailDialogService.PickWindowsFileContentAsync(".winosnap", ".json"))
+                () => MailDialogService.PickWindowsFileContentAsync(".winosnap"))
                 .ConfigureAwait(false);
 
             if (fileContent.Length == 0)

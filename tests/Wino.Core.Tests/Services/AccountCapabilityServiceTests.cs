@@ -59,7 +59,7 @@ public class AccountCapabilityServiceTests : IAsyncLifetime
         _synchronizationManager = new Mock<ISynchronizationManager>();
         _synchronizationManager
             .Setup(manager => manager.HandleAuthorizationAsync(
-                It.IsAny<MailProviderType>(), It.IsAny<MailAccount>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<IReadOnlyCollection<ProviderFeature>>()))
+                It.IsAny<MailProviderType>(), It.IsAny<MailAccount>(), It.IsAny<bool>(), It.IsAny<IReadOnlyCollection<ProviderFeature>>()))
             .ReturnsAsync(new TokenInformationEx("access-token", "work@example.test", "work@example.test"));
         _contactService = new Mock<IContactService>();
         _taskService = new Mock<ITaskService>();
@@ -98,7 +98,7 @@ public class AccountCapabilityServiceTests : IAsyncLifetime
             deletedCalendars.Should().ContainSingle().Which.Id.Should().Be(calendar.Id);
             _synchronizationManager.Verify(manager => manager.CancelSynchronizationsAsync(_account.Id), Times.Once);
             _synchronizationManager.Verify(manager => manager.HandleAuthorizationAsync(
-                It.IsAny<MailProviderType>(), It.IsAny<MailAccount>(), It.IsAny<bool>(), It.IsAny<bool>(), It.IsAny<IReadOnlyCollection<ProviderFeature>>()), Times.Never);
+                It.IsAny<MailProviderType>(), It.IsAny<MailAccount>(), It.IsAny<bool>(), It.IsAny<IReadOnlyCollection<ProviderFeature>>()), Times.Never);
         }
         finally
         {
@@ -135,7 +135,7 @@ public class AccountCapabilityServiceTests : IAsyncLifetime
         result.IsCalendarAccessEnabled.Should().BeTrue();
         result.CalendarIntegrationSource.Should().Be(AccountIntegrationSource.Provider);
         _synchronizationManager.Verify(manager => manager.HandleAuthorizationAsync(
-            MailProviderType.Outlook, _account, false, true, It.IsAny<IReadOnlyCollection<ProviderFeature>>()), Times.Once);
+            MailProviderType.Outlook, _account, true, It.IsAny<IReadOnlyCollection<ProviderFeature>>()), Times.Once);
     }
 
     [Fact]

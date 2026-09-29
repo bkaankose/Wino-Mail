@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Authentication;
 
@@ -32,6 +33,9 @@ internal sealed class GmailClientMessageHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        // Every Google API call of the synchronizer passes here; an account waiting for a fix stays offline.
+        _mailAccount.ThrowIfNetworkAccessBlocked();
+
         var tokenInformation = await _gmailAuthenticator.GetTokenInformationAsync(_mailAccount, _requiredFeatures);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenInformation.AccessToken);
 

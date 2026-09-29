@@ -14,4 +14,9 @@ public interface IImapSynchronizer
     Task StartIdleClientAsync();
     Task StopIdleClientAsync();
     Task PreWarmClientPoolAsync();
+
+    /// <summary>
+    /// Stops IDLE and closes unused connections after the account starts needing attention.
+    /// </summary>
+    Task SuspendNetworkAccessAsync();
 }

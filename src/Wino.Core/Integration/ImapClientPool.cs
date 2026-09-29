@@ -15,6 +15,7 @@ using Serilog;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Connectivity;
 
 namespace Wino.Core.Integration;
@@ -91,6 +92,7 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(_disposedValue, this);
+        ThrowIfNetworkAccessBlocked();
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _maintenanceCts.Token);
         deadline.CancelAfter(DefaultAcquireTimeoutMs);
         await _initializeSemaphore.WaitAsync(deadline.Token).ConfigureAwait(false);
@@ -150,6 +152,7 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
             {
                 token.ThrowIfCancellationRequested();
                 ObjectDisposedException.ThrowIf(_disposedValue, this);
+                ThrowIfNetworkAccessBlocked();
                 foreach (var candidate in _clientStates)
                 {
                     if (!_clientStates.TryUpdate(candidate.Key, ImapClientState.InUse, ImapClientState.Available))
@@ -212,6 +215,7 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposedValue, this);
         if (!_initialized) return null;
+        ThrowIfNetworkAccessBlocked();
         foreach (var candidate in _clientStates)
         {
             if (!_clientStates.TryUpdate(candidate.Key, ImapClientState.InUse, ImapClientState.Available))
@@ -319,7 +323,7 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
     public void Return(WinoImapClient client, bool isFaulted = false)
     {
         if (client == null) return;
-        if (_disposedValue || isFaulted || !client.IsConnected)
+        if (_disposedValue || isFaulted || !client.IsConnected || IsNetworkAccessBlocked)
         {
             Retire(client);
             return;
@@ -403,6 +407,12 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
             using var timer = new PeriodicTimer(_quirks.KeepAliveInterval);
             while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
             {
+                if (IsNetworkAccessBlocked)
+                {
+                    RetireAvailableConnections();
+                    continue;
+                }
+
                 await SendNoOpToAvailableClientsAsync(cancellationToken).ConfigureAwait(false);
             }
         }
@@ -467,6 +477,7 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
         try
         {
             ObjectDisposedException.ThrowIf(_disposedValue, this);
+            ThrowIfNetworkAccessBlocked();
             if (_clientStates.Count >= _maxConnections) return null;
             var client = CreateNewClient(purpose);
             _clientStates[client] = ImapClientState.Reconnecting;
@@ -627,6 +638,24 @@ public class ImapClientPool : IDisposable, IAsyncDisposable
         finally
         {
             _clientStates.TryRemove(client, out _);
+        }
+    }
+
+    private bool IsNetworkAccessBlocked => ImapClientPoolOptions.Account.IsNetworkAccessBlocked();
+
+    // Every connection and keepalive passes here, so no caller can reach a server
+    // whose account is waiting for the user to fix it.
+    private void ThrowIfNetworkAccessBlocked() => ImapClientPoolOptions.Account?.ThrowIfNetworkAccessBlocked();
+
+    /// <summary>
+    /// Closes every connection nobody is using. Leased connections close when they are returned.
+    /// </summary>
+    public void RetireAvailableConnections()
+    {
+        foreach (var entry in _clientStates)
+        {
+            if (_clientStates.TryUpdate(entry.Key, ImapClientState.InUse, ImapClientState.Available))
+                Retire(entry.Key);
         }
     }
 

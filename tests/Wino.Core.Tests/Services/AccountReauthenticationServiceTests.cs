@@ -34,11 +34,10 @@ public sealed class AccountReauthenticationServiceTests
             .Setup(manager => manager.HandleAuthorizationAsync(
                 MailProviderType.Outlook,
                 account,
-                false,
                 true,
                 It.IsAny<IReadOnlyCollection<ProviderFeature>>()))
-            .Callback<MailProviderType, MailAccount, bool, bool, IReadOnlyCollection<ProviderFeature>>(
-                (_, _, _, _, features) => requestedFeatures = features)
+            .Callback<MailProviderType, MailAccount, bool, IReadOnlyCollection<ProviderFeature>>(
+                (_, _, _, features) => requestedFeatures = features)
             .ReturnsAsync(new TokenInformationEx("token", account.Address, "login@example.com"));
         var service = CreateService(accountService, featureService, synchronizationManager, new WeakReferenceMessenger());
 
@@ -75,10 +74,9 @@ public sealed class AccountReauthenticationServiceTests
                 MailProviderType.Gmail,
                 account,
                 true,
-                true,
                 It.IsAny<IReadOnlyCollection<ProviderFeature>>()))
-            .Callback<MailProviderType, MailAccount, bool, bool, IReadOnlyCollection<ProviderFeature>>(
-                (_, requestedAccount, _, _, _) =>
+            .Callback<MailProviderType, MailAccount, bool, IReadOnlyCollection<ProviderFeature>>(
+                (_, requestedAccount, _, _) =>
                 {
                     // Scopes follow the Granted flags, so they must match Enabled before the sign-in.
                     var request = ProviderAuthorizationRequest.ForAccount(requestedAccount);
@@ -117,11 +115,10 @@ public sealed class AccountReauthenticationServiceTests
             .Setup(manager => manager.HandleAuthorizationAsync(
                 MailProviderType.Outlook,
                 account,
-                false,
                 true,
                 It.IsAny<IReadOnlyCollection<ProviderFeature>>()))
-            .Callback<MailProviderType, MailAccount, bool, bool, IReadOnlyCollection<ProviderFeature>>(
-                (_, requestedAccount, _, _, _) =>
+            .Callback<MailProviderType, MailAccount, bool, IReadOnlyCollection<ProviderFeature>>(
+                (_, requestedAccount, _, _) =>
                 {
                     var request = ProviderAuthorizationRequest.ForAccount(requestedAccount);
                     Assert.True(request.IncludeMail);
@@ -156,7 +153,6 @@ public sealed class AccountReauthenticationServiceTests
                 It.IsAny<MailProviderType>(),
                 It.IsAny<MailAccount>(),
                 It.IsAny<bool>(),
-                It.IsAny<bool>(),
                 It.IsAny<IReadOnlyCollection<ProviderFeature>>()))
             .ReturnsAsync(new TokenInformationEx("token", account.Address));
         var service = CreateService(accountService, CreateFeatureService(account.Id), synchronizationManager, new WeakReferenceMessenger());
@@ -164,7 +160,7 @@ public sealed class AccountReauthenticationServiceTests
         await service.ReauthenticateAsync(account.Id);
 
         synchronizationManager.Verify(manager => manager.HandleAuthorizationAsync(
-            MailProviderType.Outlook, account, false, true, It.IsAny<IReadOnlyCollection<ProviderFeature>>()), Times.Once);
+            MailProviderType.Outlook, account, true, It.IsAny<IReadOnlyCollection<ProviderFeature>>()), Times.Once);
         Assert.Equal(AccountAttentionReason.None, account.AttentionReason);
         Assert.True(account.IsContactAccessGranted);
         Assert.False(account.IsContactReauthorizationRequired);
@@ -213,10 +209,9 @@ public sealed class AccountReauthenticationServiceTests
                 MailProviderType.Gmail,
                 account,
                 true,
-                true,
                 It.IsAny<IReadOnlyCollection<ProviderFeature>>()))
-            .Callback<MailProviderType, MailAccount, bool, bool, IReadOnlyCollection<ProviderFeature>>(
-                (_, requestedAccount, _, _, _) =>
+            .Callback<MailProviderType, MailAccount, bool, IReadOnlyCollection<ProviderFeature>>(
+                (_, requestedAccount, _, _) =>
                     Assert.False(ProviderAuthorizationRequest.ForAccount(requestedAccount).IncludeContacts))
             .ReturnsAsync(new TokenInformationEx("token", account.Address));
         var service = CreateService(accountService, CreateFeatureService(account.Id), synchronizationManager, new WeakReferenceMessenger());
@@ -244,7 +239,6 @@ public sealed class AccountReauthenticationServiceTests
             .Setup(manager => manager.HandleAuthorizationAsync(
                 It.IsAny<MailProviderType>(),
                 It.IsAny<MailAccount>(),
-                It.IsAny<bool>(),
                 It.IsAny<bool>(),
                 It.IsAny<IReadOnlyCollection<ProviderFeature>>()))
             .ReturnsAsync(new TokenInformationEx("token", "other@example.com", "other@example.com"));

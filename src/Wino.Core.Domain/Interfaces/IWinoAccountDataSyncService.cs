@@ -20,11 +20,8 @@ public interface IWinoAccountDataSyncService
     /// <summary>Downloads and applies the snapshot stored for the signed-in Wino Account.</summary>
     Task<WinoAccountSyncImportResult> ImportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default);
 
-    /// <summary>Applies a snapshot file, or a legacy plain JSON export.</summary>
+    /// <summary>Applies an encrypted snapshot file. Plain JSON exports are rejected.</summary>
     Task<WinoAccountSyncImportResult> ImportFromFileAsync(byte[] content, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default);
-
-    /// <summary>Applies a legacy plain JSON export produced by older builds.</summary>
-    Task<WinoAccountSyncImportResult> ImportFromJsonAsync(string jsonContent, CancellationToken cancellationToken = default);
 
     /// <summary>Applies theme and layout from an import. Must run on the UI thread.</summary>
     void ApplyAppearance(SyncSnapshotAppearance appearance);

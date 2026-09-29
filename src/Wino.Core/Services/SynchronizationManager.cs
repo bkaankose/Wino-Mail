@@ -32,7 +32,7 @@ namespace Wino.Core.Services;
 /// Singleton manager that handles synchronizer instances and operations for all accounts.
 /// Replaces the old WinoServerConnectionManager functionality.
 /// </summary>
-public class SynchronizationManager : ISynchronizationManager, IRecipient<AccountSynchronizerStateChanged>
+public class SynchronizationManager : ISynchronizationManager, IRecipient<AccountSynchronizerStateChanged>, IRecipient<AccountUpdatedMessage>
 {
     private static readonly Lazy<SynchronizationManager> _instance = new(() => new SynchronizationManager());
     public static SynchronizationManager Instance => _instance.Value;
@@ -107,6 +107,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             if (!_isRegisteredForProgressMessages)
             {
                 WeakReferenceMessenger.Default.Register<AccountSynchronizerStateChanged>(this);
+                WeakReferenceMessenger.Default.Register<AccountUpdatedMessage>(this);
                 _isRegisteredForProgressMessages = true;
             }
 
@@ -235,7 +236,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
         {
-            _logger.Information("Skipping mail synchronization for account {AccountId} because it requires credential attention.", options.AccountId);
+            _logger.Information("Skipping mail synchronization for account {AccountId} because it needs attention.", options.AccountId);
             var result = MailSynchronizationResult.Canceled;
             TrackMailSynchronizationSummary(options, null, result, stopwatch.Elapsed);
             return result;
@@ -304,6 +305,13 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         catch (OperationCanceledException)
         {
             _logger.Information("Mail synchronization canceled for account {AccountId}", options.AccountId);
+            var result = MailSynchronizationResult.Canceled;
+            TrackMailSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
+            return result;
+        }
+        catch (AccountAttentionRequiredException)
+        {
+            _logger.Information("Mail synchronization stopped for account {AccountId} because it needs attention.", options.AccountId);
             var result = MailSynchronizationResult.Canceled;
             TrackMailSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
             return result;
@@ -862,7 +870,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         // Same gate as mail and calendar: a sign-in the user has not redone yet can only fail.
         if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
         {
-            _logger.Information("Skipping contact synchronization for account {AccountId} because it requires credential attention.", options.AccountId);
+            _logger.Information("Skipping contact synchronization for account {AccountId} because it needs attention.", options.AccountId);
             return ContactSynchronizationResult.Canceled;
         }
 
@@ -936,7 +944,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
         {
-            _logger.Information("Skipping task synchronization for account {AccountId} because it requires credential attention.", options.AccountId);
+            _logger.Information("Skipping task synchronization for account {AccountId} because it needs attention.", options.AccountId);
             return TaskSynchronizationResult.Canceled;
         }
 
@@ -1069,7 +1077,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
         if (await IsSynchronizationBlockedByAttentionAsync(options.AccountId).ConfigureAwait(false))
         {
-            _logger.Information("Skipping calendar synchronization for account {AccountId} because it requires credential attention.", options.AccountId);
+            _logger.Information("Skipping calendar synchronization for account {AccountId} because it needs attention.", options.AccountId);
             var result = CalendarSynchronizationResult.Canceled;
             TrackCalendarSynchronizationSummary(options, null, result, stopwatch.Elapsed);
             return result;
@@ -1127,6 +1135,13 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             TrackCalendarSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
             return result;
         }
+        catch (AccountAttentionRequiredException)
+        {
+            _logger.Information("Calendar synchronization stopped for account {AccountId} because it needs attention.", options.AccountId);
+            var result = CalendarSynchronizationResult.Canceled;
+            TrackCalendarSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
+            return result;
+        }
         catch (AuthenticationAttentionException authEx)
         {
             _logger.Warning("Account {AccountId} requires attention due to authentication issues", options.AccountId);
@@ -1167,6 +1182,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             return null;
 
         cancellationToken.ThrowIfCancellationRequested();
+        if (await IsSynchronizationBlockedByAttentionAsync(snapshot.AccountId).ConfigureAwait(false))
+            return null;
+
         var synchronizer = _synchronizerCache.TryGetValue(snapshot.AccountId, out var existing)
             ? existing : await GetOrCreateSynchronizerAsync(snapshot.AccountId).ConfigureAwait(false);
         if (synchronizer == null) throw new InvalidOperationException("Draft account is unavailable.");
@@ -1184,6 +1202,12 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                                        CancellationToken cancellationToken = default)
     {
         EnsureInitialized();
+
+        if (await IsSynchronizationBlockedByAttentionAsync(accountId).ConfigureAwait(false))
+        {
+            _logger.Information("Skipping MIME download for mail item {MailItemId} because account {AccountId} needs attention.", mailItem.Id, accountId);
+            return null;
+        }
 
         var synchronizer = await GetOrCreateSynchronizerAsync(accountId);
         if (synchronizer == null)
@@ -1231,6 +1255,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         var accountId = calendarItem.AssignedCalendar?.AccountId ?? Guid.Empty;
         if (accountId == Guid.Empty)
             throw new InvalidOperationException("Calendar item does not have an assigned account.");
+
+        if (await _accountService.GetAccountAsync(accountId).ConfigureAwait(false) is { } account && account.IsNetworkAccessBlocked())
+            throw new AccountAttentionRequiredException(account);
 
         var synchronizer = await GetOrCreateSynchronizerAsync(accountId);
 
@@ -1734,7 +1761,27 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             return false;
 
         var account = await _accountService.GetAccountAsync(accountId).ConfigureAwait(false);
-        return account?.AttentionReason is AccountAttentionReason.InvalidCredentials or AccountAttentionReason.CertificateValidationFailed;
+        return account.IsNetworkAccessBlocked();
+    }
+
+    public void Receive(AccountUpdatedMessage message)
+    {
+        if (!_isInitialized || message.Account == null)
+            return;
+
+        // Runs off the sender: the update may come from a synchronizer that the suspension waits for.
+        var account = message.Account;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _concreteSynchronizerFactory.ApplyAccountAttentionAsync(account).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "Failed to apply attention state for account {AccountId}", account.Id);
+            }
+        });
     }
 
     private void PublishSynchronizationProgress(AccountSynchronizationProgress progress)

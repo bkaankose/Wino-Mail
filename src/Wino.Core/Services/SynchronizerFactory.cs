@@ -3,7 +3,9 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Serilog;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Integration.Processors;
 using Wino.Core.Synchronizers.ImapSync;
@@ -113,7 +115,11 @@ public class SynchronizerFactory : ISynchronizerFactory
             if (account == null) return null;
             if (_synchronizers.TryGetValue(accountId, out var existing))
             {
-                if (!SynchronizationManager.RequiresSynchronizerRefresh(existing.Account, account)) return existing;
+                if (!SynchronizationManager.RequiresSynchronizerRefresh(existing.Account, account))
+                {
+                    await ApplyAttentionStateAsync(existing, account).ConfigureAwait(false);
+                    return existing;
+                }
                 // Complete teardown before publishing a replacement for this account.
                 try { await existing.KillSynchronizerAsync().ConfigureAwait(false); }
                 finally { _synchronizers.TryRemove(accountId, out _); }
@@ -185,13 +191,54 @@ public class SynchronizerFactory : ISynchronizerFactory
     {
         var synchronizer = CreateIntegratorWithDefaultProcessor(account);
         _synchronizers[account.Id] = synchronizer;
-        if (synchronizer is IImapSynchronizer imapSynchronizer)
+        if (synchronizer is IImapSynchronizer imapSynchronizer && !account.IsNetworkAccessBlocked())
         {
             // The pool is warmed after the first synchronization so startup opens
             // only the IDLE socket and one worker instead of competing handshakes.
             _ = imapSynchronizer.StartIdleClientAsync();
         }
         return synchronizer;
+    }
+
+    /// <summary>
+    /// Copies the persisted attention state into the cached synchronizer. Its transports read
+    /// that state before every connection, so this is what takes an account offline or back online.
+    /// </summary>
+    public async Task ApplyAccountAttentionAsync(MailAccount account)
+    {
+        if (account == null) return;
+
+        var gate = GetAccountGate(account.Id);
+        await gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_synchronizers.TryGetValue(account.Id, out var existing))
+                await ApplyAttentionStateAsync(existing, account).ConfigureAwait(false);
+        }
+        finally { gate.Release(); }
+    }
+
+    private static async Task ApplyAttentionStateAsync(IWinoSynchronizerBase synchronizer, MailAccount current)
+    {
+        var cached = synchronizer.Account;
+        if (cached == null || cached.AttentionReason == current.AttentionReason) return;
+
+        var wasBlocked = cached.IsNetworkAccessBlocked();
+        cached.AttentionReason = current.AttentionReason;
+        var isBlocked = cached.IsNetworkAccessBlocked();
+
+        if (wasBlocked == isBlocked || synchronizer is not IImapSynchronizer imapSynchronizer) return;
+
+        if (isBlocked)
+        {
+            Log.Information("Account {AccountId} needs attention ({AttentionReason}). Suspending its IMAP connections.", cached.Id, cached.AttentionReason);
+            await imapSynchronizer.SuspendNetworkAccessAsync().ConfigureAwait(false);
+        }
+        else
+        {
+            Log.Information("Account {AccountId} no longer needs attention. Resuming IMAP IDLE.", cached.Id);
+            await imapSynchronizer.StartIdleClientAsync().ConfigureAwait(false);
+        }
     }
 
     public async Task InitializeAsync()

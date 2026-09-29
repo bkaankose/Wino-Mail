@@ -50,20 +50,13 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     [NotifyCanExecuteChangedFor(nameof(ImportFromWinoAccountCommand))]
     public partial bool IsDataTransferInProgress { get; set; }
 
+    /// <summary>
+    /// Enables the Wino Account options. False keeps both cards disabled until the profile is read.
+    /// </summary>
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsWinoAccountSignedOut))]
     [NotifyCanExecuteChangedFor(nameof(ExportToWinoAccountCommand))]
     [NotifyCanExecuteChangedFor(nameof(ImportFromWinoAccountCommand))]
     public partial bool IsWinoAccountSignedIn { get; set; }
-
-    /// <summary>
-    /// False until the sign-in state is known, so neither Wino Account card flashes on load.
-    /// </summary>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsWinoAccountSignedOut))]
-    public partial bool IsWinoAccountStateLoaded { get; set; }
-
-    public bool IsWinoAccountSignedOut => IsWinoAccountStateLoaded && !IsWinoAccountSignedIn;
 
     public override void OnNavigatedTo(NavigationMode mode, object parameters)
     {
@@ -104,14 +97,10 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
         }
         catch (Exception)
         {
-            // Treat an unreadable profile as signed out. The sign-in card still leads somewhere useful.
+            // Treat an unreadable profile as signed out. The Wino Account options stay disabled.
         }
 
-        await ExecuteUIThread(() =>
-        {
-            IsWinoAccountSignedIn = isSignedIn;
-            IsWinoAccountStateLoaded = true;
-        });
+        await ExecuteUIThread(() => IsWinoAccountSignedIn = isSignedIn);
     }
 
     [RelayCommand]
@@ -231,7 +220,7 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
         try
         {
             var fileContent = await ExecuteUIThreadAsync(
-                () => _dialogService.PickWindowsFileContentAsync(".winosnap", ".json"))
+                () => _dialogService.PickWindowsFileContentAsync(".winosnap"))
                 .ConfigureAwait(false);
 
             if (fileContent.Length == 0)

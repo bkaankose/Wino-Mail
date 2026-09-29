@@ -13,8 +13,8 @@ namespace Wino.Core.Tests.Services;
 public sealed class SyncSnapshotCryptographyTests
 {
     // Small Argon2 parameters keep the tests fast; the format carries them in the header.
-    private static SyncSnapshotKeyParameters TestParameters(byte keySource = SyncSnapshotFormat.KeySourceAccountPassword, Guid? userId = null)
-        => new(keySource, 1024, 1, 1, userId is { } id ? SyncSnapshotCryptography.CreateUserSalt(id) : SyncSnapshotCryptography.CreateSalt());
+    private static SyncSnapshotKeyParameters TestParameters(byte keySource = SyncSnapshotFormat.KeySourceAccountPassword)
+        => new(keySource, 1024, 1, 1, SyncSnapshotCryptography.CreateSalt());
 
     [Fact]
     public async Task EncryptThenDecrypt_RoundTripsPlaintext_AndHeaderCarriesParameters()
@@ -79,16 +79,6 @@ public sealed class SyncSnapshotCryptographyTests
         future[SyncSnapshotFormat.FormatVersionOffset] = SyncSnapshotFormat.CurrentFormatVersion + 1;
         var tooNew = () => SyncSnapshotCryptography.ReadHeader(future);
         tooNew.Should().Throw<SyncSnapshotInvalidFileException>();
-    }
-
-    [Fact]
-    public void CreateUserSalt_IsStablePerUser_AndDiffersBetweenUsers()
-    {
-        var user = Guid.NewGuid();
-
-        SyncSnapshotCryptography.CreateUserSalt(user).Should().Equal(SyncSnapshotCryptography.CreateUserSalt(user));
-        SyncSnapshotCryptography.CreateUserSalt(user).Should().NotEqual(SyncSnapshotCryptography.CreateUserSalt(Guid.NewGuid()));
-        SyncSnapshotCryptography.CreateUserSalt(user).Should().HaveCount(SyncSnapshotFormat.SaltLength);
     }
 
     [Fact]

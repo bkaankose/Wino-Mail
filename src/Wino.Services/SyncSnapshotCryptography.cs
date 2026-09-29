@@ -16,8 +16,9 @@ namespace Wino.Services;
 
 /// <summary>
 /// The sync snapshot wire format: a 48-byte header (authenticated data) followed by AES-256-GCM
-/// ciphertext and tag. The key is Argon2id over the account password or a sync passphrase with the
-/// parameters written into the header, so any device with the secret can open it. The layout is
+/// ciphertext and tag. The key is Argon2id over the backup password with the parameters written
+/// into the header, so any device with the password can open it. Snapshots from earlier builds
+/// used the Wino Account password instead. The layout is
 /// fixed by <see cref="SyncSnapshotFormat"/> and described in the API repository's
 /// docs/sync-snapshot-format.md.
 /// </summary>
@@ -50,14 +51,6 @@ public static class SyncSnapshotCryptography
         RandomNumberGenerator.Fill(salt);
         return salt;
     }
-
-    /// <summary>
-    /// A salt that is the same for the user on every device, so the derived key can be cached
-    /// per device and still open snapshots made elsewhere. The salt is not secret; it only
-    /// has to differ between users.
-    /// </summary>
-    public static byte[] CreateUserSalt(Guid userId)
-        => SHA256.HashData(Encoding.UTF8.GetBytes($"Wino.SyncSnapshot.Salt.{userId:D}"))[..SyncSnapshotFormat.SaltLength];
 
     public static async Task<byte[]> DeriveKeyAsync(string secret, SyncSnapshotKeyParameters parameters, CancellationToken cancellationToken = default)
     {

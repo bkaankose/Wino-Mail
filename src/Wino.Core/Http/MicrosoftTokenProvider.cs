@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Kiota.Abstractions.Authentication;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Core.Http;
@@ -31,6 +32,9 @@ public class MicrosoftTokenProvider : IAccessTokenProvider
                                                    Dictionary<string, object> additionalAuthenticationContext = null,
                                                    CancellationToken cancellationToken = default)
     {
+        // Every Graph call of the synchronizer asks for a token first; an account waiting for a fix stays offline.
+        _account.ThrowIfNetworkAccessBlocked();
+
         var tokenInfo = await _authenticator.GetTokenInformationAsync(_account, _requiredFeatures);
 
         return tokenInfo.AccessToken;
