@@ -24,47 +24,44 @@ public partial class WinoAccountManagementPageViewModel
     public partial string AccountDisplayName { get; set; } = string.Empty;
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(SaveProfileNameCommand))]
-    public partial string ProfileNameDraft { get; set; } = string.Empty;
-
-    [ObservableProperty]
     public partial string? AccountAvatarPath { get; set; }
 
+    /// <summary>The photo being uploaded. It stays in the preview until the server confirms it.</summary>
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(UploadProfilePhotoCommand))]
-    [NotifyCanExecuteChangedFor(nameof(CancelProfilePhotoCommand))]
     public partial byte[]? ProfilePhotoDraft { get; set; }
 
     [ObservableProperty]
     public partial string ProfileMessage { get; set; } = string.Empty;
 
     [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(SaveProfileNameCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RenameProfileCommand))]
     [NotifyCanExecuteChangedFor(nameof(ChooseProfilePhotoCommand))]
-    [NotifyCanExecuteChangedFor(nameof(UploadProfilePhotoCommand))]
     [NotifyCanExecuteChangedFor(nameof(RemoveProfilePhotoCommand))]
-    [NotifyCanExecuteChangedFor(nameof(CancelProfilePhotoCommand))]
     public partial bool IsProfileBusy { get; set; }
 
     private bool CanEditProfile() => IsSignedIn && _profileAccountId is not null && !IsProfileBusy;
-    private bool CanSaveProfileName() => CanEditProfile() && ProfileNameDraft != AccountDisplayName;
-    private bool CanUploadProfilePhoto() => CanEditProfile() && ProfilePhotoDraft is not null;
     private bool CanRemoveProfilePhoto() => CanEditProfile() && _avatarRevision is not null;
 
-    [RelayCommand(CanExecute = nameof(CanSaveProfileName))]
-    private Task SaveProfileNameAsync()
-        => EditProfileAsync(token => _profileService.UpdateProfileAsync(ProfileNameDraft, token), false);
+    /// <summary>Asks for a new display name in the shared text input dialog and saves it when it changed.</summary>
+    [RelayCommand(CanExecute = nameof(CanEditProfile))]
+    private async Task RenameProfileAsync()
+    {
+        var name = await _dialogService.ShowTextInputDialogAsync(
+            AccountDisplayName,
+            Translator.WinoAccount_Profile_EditName,
+            Translator.WinoAccount_Profile_NameHelp,
+            Translator.Buttons_Save);
 
-    [RelayCommand(CanExecute = nameof(CanUploadProfilePhoto))]
-    private Task UploadProfilePhotoAsync()
-        => EditProfileAsync(token => _profileService.UploadAvatarAsync(ProfilePhotoDraft!, token), true);
+        // The dialog returns an empty string for cancel and for an unchanged name.
+        name = name?.Trim() ?? string.Empty;
+        if (name.Length == 0 || name == AccountDisplayName) return;
+
+        await EditProfileAsync(token => _profileService.UpdateProfileAsync(name, token), false);
+    }
 
     [RelayCommand(CanExecute = nameof(CanRemoveProfilePhoto))]
     private Task RemoveProfilePhotoAsync()
         => EditProfileAsync(token => _profileService.DeleteAvatarAsync(token), true);
-
-    [RelayCommand(CanExecute = nameof(CanUploadProfilePhoto))]
-    private void CancelProfilePhoto() => ProfilePhotoDraft = null;
 
     [RelayCommand(CanExecute = nameof(CanEditProfile))]
     private async Task ChooseProfilePhotoAsync()
@@ -73,6 +70,7 @@ public partial class WinoAccountManagementPageViewModel
         if (_sessions is not null && (session is null || !await _sessions.IsCurrentAsync(session))) return;
         IsProfileBusy = true;
         ProfileMessage = string.Empty;
+        var upload = false;
         try
         {
             var files = await _dialogService.PickFilesMetadataAsync(".jpg", ".jpeg", ".png");
@@ -86,6 +84,7 @@ public partial class WinoAccountManagementPageViewModel
             await stream.ReadExactlyAsync(bytes);
             var preview = await _profileService.PrepareAvatarAsync(bytes);
             await ApplySessionUIAsync(session, () => ProfilePhotoDraft = preview);
+            upload = true;
         }
         catch (Exception exception)
         {
@@ -93,6 +92,10 @@ public partial class WinoAccountManagementPageViewModel
             await ApplySessionUIAsync(session, () => ProfileMessage = ProfileError(exception.Message));
         }
         finally { await ApplySessionUIAsync(session, () => IsProfileBusy = false); }
+
+        // The picked photo uploads right away; the preview shows it until the server answers.
+        if (upload && ProfilePhotoDraft is { } draft)
+            await EditProfileAsync(token => _profileService.UploadAvatarAsync(draft, token), true);
     }
 
     private async Task EditProfileAsync(Func<CancellationToken, Task<ApiEnvelope<AuthUserDto>>> operation, bool photo)
@@ -109,14 +112,19 @@ public partial class WinoAccountManagementPageViewModel
             await ApplySessionUIAsync(session, () =>
             {
                 if (photo) ProfilePhotoDraft = null;
-                else ProfileNameDraft = response.Result.DisplayName ?? response.Result.Email;
+                else AccountDisplayName = response.Result.DisplayName ?? response.Result.Email;
                 ProfileMessage = Translator.WinoAccount_Profile_Saved;
             });
         }
         catch (Exception exception)
         {
             _logger?.CaptureException(exception, nameof(EditProfileAsync));
-            await ApplySessionUIAsync(session, () => ProfileMessage = ProfileError(exception.Message));
+            await ApplySessionUIAsync(session, () =>
+            {
+                // Nothing changed on the server, so the preview goes back to the saved photo.
+                if (photo) ProfilePhotoDraft = null;
+                ProfileMessage = ProfileError(exception.Message);
+            });
         }
         finally { await ApplySessionUIAsync(session, () => IsProfileBusy = false); }
     }
@@ -136,19 +144,15 @@ public partial class WinoAccountManagementPageViewModel
             ProfilePhotoDraft = null;
             ProfileMessage = string.Empty;
             IsProfileBusy = false;
-            ProfileNameDraft = name;
             AccountAvatarPath = null;
         }
-        else if (ProfileNameDraft == AccountDisplayName) ProfileNameDraft = name;
         if (_avatarRevision != account?.AvatarRevision) AccountAvatarPath = null;
         _profileEditorSession = session;
         _profileAccountId = account?.Id;
         _avatarRevision = account?.AvatarRevision;
         AccountDisplayName = name;
-        SaveProfileNameCommand.NotifyCanExecuteChanged();
+        RenameProfileCommand.NotifyCanExecuteChanged();
         ChooseProfilePhotoCommand.NotifyCanExecuteChanged();
-        UploadProfilePhotoCommand.NotifyCanExecuteChanged();
         RemoveProfilePhotoCommand.NotifyCanExecuteChanged();
-        CancelProfilePhotoCommand.NotifyCanExecuteChanged();
     }
 }

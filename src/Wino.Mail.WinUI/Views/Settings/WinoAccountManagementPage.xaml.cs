@@ -13,6 +13,13 @@ public sealed partial class WinoAccountManagementPage : WinoAccountManagementPag
     }
 
     /// <summary>
+    /// Auto-sized columns keep the rename button glued to the name, so the name itself has to be
+    /// capped from the panel's real width for a long one to trim instead of pushing the button out.
+    /// </summary>
+    private void ProfileIdentityPanel_SizeChanged(object sender, SizeChangedEventArgs e)
+        => ProfileNameText.MaxWidth = System.Math.Max(0, e.NewSize.Width - 36);
+
+    /// <summary>
     /// The view model already decides which offer opens first. The grid has no selection
     /// of its own until something selects one, so mirror that choice once it exists.
     /// </summary>

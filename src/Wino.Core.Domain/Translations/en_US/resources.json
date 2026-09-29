@@ -1,9 +1,6 @@
 {
-  "WinoAccount_Profile_Description": "Your name and photo are shown to the people you write to and across Wino.",
-  "WinoAccount_Profile_PhotoTitle": "Profile photo",
-  "WinoAccount_Profile_NameTitle": "Display name",
+  "WinoAccount_Profile_EditName": "Edit display name",
   "WinoAccount_Profile_Saving": "Saving…",
-  "WinoAccount_Profile_PendingBadge": "New",
   "WinoAccount_Profile_NameOptional": "Display name (optional)",
   "WinoAccount_Profile_Title": "Profile",
   "WinoAccount_Profile_SaveName": "Save name",

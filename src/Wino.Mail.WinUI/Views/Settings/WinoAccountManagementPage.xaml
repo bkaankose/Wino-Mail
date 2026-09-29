@@ -770,53 +770,146 @@
                     x:Load="{x:Bind ViewModel.IsSignedIn, Mode=OneWay}"
                     Spacing="4">
 
-                    <!--  Account header  -->
+                    <!--
+                        Account header. The name is renamed through the shared text input dialog,
+                        and a picked photo uploads right away.
+                    -->
                     <Border
                         Padding="20"
+                        AutomationProperties.AutomationId="WinoAccountProfileCard"
                         Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                         BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
                         BorderThickness="1"
                         CornerRadius="8">
-                        <Grid ColumnSpacing="18">
+                        <Grid ColumnSpacing="16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <PersonPicture
-                                Width="64"
-                                Height="64"
-                                VerticalAlignment="Center"
-                                Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                DisplayName="{x:Bind ViewModel.AccountDisplayName, Mode=OneWay}"
-                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                ProfilePicture="{x:Bind helpers:XamlHelpers.AccountAvatarToBitmapImage(ViewModel.AccountAvatarPath), Mode=OneWay}" />
+                            <!--  Photo actions sit on the picture itself, like the contact editor.  -->
+                            <Grid
+                                Width="72"
+                                Height="72"
+                                VerticalAlignment="Center">
+                                <PersonPicture
+                                    Width="72"
+                                    Height="72"
+                                    AutomationProperties.AutomationId="WinoProfilePhotoPreview"
+                                    AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_Profile_Preview, Mode=OneTime}"
+                                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                                    DisplayName="{x:Bind ViewModel.AccountDisplayName, Mode=OneWay}"
+                                    Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                                    ProfilePicture="{x:Bind helpers:XamlHelpers.GetContactEditorPreviewPicture(ViewModel.ProfilePhotoDraft, ViewModel.AccountAvatarPath), Mode=OneWay}" />
+                                <Border
+                                    Background="{ThemeResource SmokeFillColorDefaultBrush}"
+                                    CornerRadius="36"
+                                    Visibility="{x:Bind ViewModel.IsProfileBusy, Mode=OneWay}">
+                                    <ProgressRing
+                                        Width="28"
+                                        Height="28"
+                                        IsActive="{x:Bind ViewModel.IsProfileBusy, Mode=OneWay}" />
+                                </Border>
+
+                                <Button
+                                    Width="28"
+                                    Height="28"
+                                    Padding="0"
+                                    HorizontalAlignment="Right"
+                                    VerticalAlignment="Bottom"
+                                    AutomationProperties.AutomationId="WinoProfilePhotoOptions"
+                                    CornerRadius="14"
+                                    IsEnabled="{x:Bind helpers:XamlHelpers.ReverseBoolConverter(ViewModel.IsProfileBusy), Mode=OneWay}"
+                                    ToolTipService.ToolTip="{x:Bind domain:Translator.ContactAction_PhotoOptions, Mode=OneTime}">
+                                    <coreControls:WinoFontIcon FontSize="13" Icon="Edit" />
+                                    <Button.Flyout>
+                                        <MenuFlyout Placement="BottomEdgeAlignedLeft">
+                                            <MenuFlyoutItem
+                                                AutomationProperties.AutomationId="WinoProfileChoosePhoto"
+                                                Command="{x:Bind ViewModel.ChooseProfilePhotoCommand}"
+                                                Text="{x:Bind domain:Translator.ContactAction_ChangePhoto, Mode=OneTime}">
+                                                <MenuFlyoutItem.Icon>
+                                                    <coreControls:WinoFontIcon Icon="Camera" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                            <MenuFlyoutItem
+                                                AutomationProperties.AutomationId="WinoProfileRemovePhoto"
+                                                Command="{x:Bind ViewModel.RemoveProfilePhotoCommand}"
+                                                Text="{x:Bind domain:Translator.WinoAccount_Profile_RemovePhoto, Mode=OneTime}">
+                                                <MenuFlyoutItem.Icon>
+                                                    <coreControls:WinoFontIcon Icon="Delete" />
+                                                </MenuFlyoutItem.Icon>
+                                            </MenuFlyoutItem>
+                                        </MenuFlyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </Grid>
 
                             <StackPanel
+                                x:Name="ProfileIdentityPanel"
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
+                                SizeChanged="ProfileIdentityPanel_SizeChanged"
                                 Spacing="2">
-                                <TextBlock
-                                    Style="{StaticResource SubtitleTextBlockStyle}"
-                                    Text="{x:Bind ViewModel.AccountDisplayName, Mode=OneWay}"
-                                    TextTrimming="CharacterEllipsis" />
+                                <!--  Auto columns keep the pencil glued to the name; SizeChanged caps the name so a long one trims.  -->
+                                <Grid ColumnSpacing="4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock
+                                        x:Name="ProfileNameText"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.AutomationId="WinoProfileName"
+                                        MaxLines="1"
+                                        Style="{StaticResource SubtitleTextBlockStyle}"
+                                        Text="{x:Bind ViewModel.AccountDisplayName, Mode=OneWay}"
+                                        TextTrimming="CharacterEllipsis"
+                                        TextWrapping="NoWrap" />
+                                    <Button
+                                        Grid.Column="1"
+                                        Width="28"
+                                        Height="28"
+                                        Padding="0"
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.AutomationId="WinoProfileRenameButton"
+                                        AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_Profile_EditName, Mode=OneTime}"
+                                        Command="{x:Bind ViewModel.RenameProfileCommand}"
+                                        Style="{StaticResource SubtleButtonStyle}"
+                                        ToolTipService.ToolTip="{x:Bind domain:Translator.WinoAccount_Profile_EditName, Mode=OneTime}">
+                                        <coreControls:WinoFontIcon FontSize="13" Icon="Edit" />
+                                    </Button>
+                                </Grid>
                                 <TextBlock
                                     Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                     Style="{StaticResource CaptionTextBlockStyle}"
                                     Text="{x:Bind ViewModel.AccountEmail, Mode=OneWay}" />
                                 <StackPanel
-                                    Margin="0,8,0,0"
+                                    Margin="0,6,0,0"
                                     Orientation="Horizontal"
-                                    Spacing="8">
-                                    <Button
-                                        AutomationProperties.AutomationId="WinoAccountChangePasswordButton"
-                                        Command="{x:Bind ViewModel.ChangePasswordCommand}"
-                                        Content="{x:Bind domain:Translator.WinoAccount_ChangePassword_Title, Mode=OneTime}" />
-                                    <Button
-                                        AutomationProperties.AutomationId="WinoAccountSignOutButton"
-                                        Command="{x:Bind ViewModel.SignOutCommand}"
-                                        Content="{x:Bind domain:Translator.WinoAccount_Management_SignOutTitle, Mode=OneTime}" />
+                                    Spacing="6"
+                                    Visibility="{x:Bind helpers:XamlHelpers.GetProfileStatusVisibility(ViewModel.IsProfileBusy, ViewModel.ProfileMessage), Mode=OneWay}">
+                                    <coreControls:WinoFontIcon
+                                        VerticalAlignment="Center"
+                                        FontSize="12"
+                                        Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                        Icon="Checkmark"
+                                        Visibility="{x:Bind helpers:XamlHelpers.GetProfileSavedVisibility(ViewModel.ProfileMessage), Mode=OneWay}" />
+                                    <coreControls:WinoFontIcon
+                                        VerticalAlignment="Center"
+                                        FontSize="12"
+                                        Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                                        Icon="Warning"
+                                        Visibility="{x:Bind helpers:XamlHelpers.GetProfileFailedVisibility(ViewModel.ProfileMessage), Mode=OneWay}" />
+                                    <TextBlock
+                                        VerticalAlignment="Center"
+                                        AutomationProperties.AutomationId="WinoProfileStatus"
+                                        AutomationProperties.LiveSetting="Polite"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                        Style="{StaticResource CaptionTextBlockStyle}"
+                                        Text="{x:Bind helpers:XamlHelpers.GetProfileStatusText(ViewModel.IsProfileBusy, ViewModel.ProfileMessage), Mode=OneWay}"
+                                        TextWrapping="Wrap" />
                                 </StackPanel>
                             </StackPanel>
 
@@ -824,213 +917,25 @@
                                 Grid.Column="2"
                                 VerticalAlignment="Center"
                                 Orientation="Horizontal"
-                                Spacing="24">
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <coreControls:WinoFontIcon
-                                        VerticalAlignment="Center"
-                                        Foreground="{ThemeResource WinoIntelligenceBrandIconBrush}"
-                                        Icon="Sparkle" />
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.WinoAddOn_AI_PACK_Name, Mode=OneTime}" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="{x:Bind ViewModel.IntelligenceStatusShortText, Mode=OneWay}" />
-                                    </StackPanel>
-                                </StackPanel>
-
-                                <StackPanel Orientation="Horizontal" Spacing="10">
-                                    <coreControls:WinoFontIcon
-                                        VerticalAlignment="Center"
-                                        FontSize="18"
-                                        Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                        Icon="Mail" />
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock FontWeight="SemiBold" Text="{x:Bind domain:Translator.WinoAccount_Management_StatMailAccounts, Mode=OneTime}" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="{x:Bind ViewModel.AccountUsageText, Mode=OneWay}" />
-                                    </StackPanel>
-                                </StackPanel>
-
+                                Spacing="8">
                                 <ProgressRing
                                     Width="18"
                                     Height="18"
+                                    Margin="0,0,8,0"
                                     VerticalAlignment="Center"
                                     IsActive="{x:Bind ViewModel.IsBusy, Mode=OneWay}"
                                     Visibility="{x:Bind ViewModel.IsBusy, Mode=OneWay}" />
+                                <Button
+                                    AutomationProperties.AutomationId="WinoAccountChangePasswordButton"
+                                    Command="{x:Bind ViewModel.ChangePasswordCommand}"
+                                    Content="{x:Bind domain:Translator.WinoAccount_ChangePassword_Title, Mode=OneTime}" />
+                                <Button
+                                    AutomationProperties.AutomationId="WinoAccountSignOutButton"
+                                    Command="{x:Bind ViewModel.SignOutCommand}"
+                                    Content="{x:Bind domain:Translator.WinoAccount_Management_SignOutTitle, Mode=OneTime}" />
                             </StackPanel>
                         </Grid>
                     </Border>
-
-                    <!--  Profile: photo card, name card, status footer. Only the state-relevant photo actions are shown.  -->
-                    <controls:SettingsExpander
-                        AutomationProperties.AutomationId="WinoProfileEditor"
-                        Description="{x:Bind domain:Translator.WinoAccount_Profile_Description, Mode=OneTime}"
-                        Header="{x:Bind domain:Translator.WinoAccount_Profile_Title, Mode=OneTime}"
-                        IsExpanded="True">
-                        <controls:SettingsExpander.HeaderIcon>
-                            <coreControls:WinoFontIcon Icon="Person" />
-                        </controls:SettingsExpander.HeaderIcon>
-                        <controls:SettingsExpander.Items>
-                            <controls:SettingsCard
-                                HorizontalContentAlignment="Stretch"
-                                AutomationProperties.AutomationId="WinoProfilePhotoCard"
-                                ContentAlignment="Left">
-                                <Grid ColumnSpacing="16">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-
-                                    <!--  The draft, when there is one, replaces the saved avatar in the preview.  -->
-                                    <Grid
-                                        Width="56"
-                                        Height="56"
-                                        VerticalAlignment="Center">
-                                        <PersonPicture
-                                            Width="56"
-                                            Height="56"
-                                            AutomationProperties.AutomationId="WinoProfilePhotoPreview"
-                                            AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_Profile_Preview, Mode=OneTime}"
-                                            Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                            DisplayName="{x:Bind ViewModel.AccountDisplayName, Mode=OneWay}"
-                                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                            ProfilePicture="{x:Bind helpers:XamlHelpers.GetContactEditorPreviewPicture(ViewModel.ProfilePhotoDraft, ViewModel.AccountAvatarPath), Mode=OneWay}" />
-                                        <Ellipse
-                                            Margin="-3"
-                                            Stroke="{ThemeResource AccentFillColorDefaultBrush}"
-                                            StrokeThickness="2"
-                                            Visibility="{x:Bind helpers:XamlHelpers.NotNullToVisibility(ViewModel.ProfilePhotoDraft), Mode=OneWay}" />
-                                        <Border
-                                            Margin="0,0,-6,-2"
-                                            Padding="6,1"
-                                            HorizontalAlignment="Right"
-                                            VerticalAlignment="Bottom"
-                                            Background="{ThemeResource AccentFillColorDefaultBrush}"
-                                            BorderBrush="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                                            BorderThickness="2"
-                                            CornerRadius="9"
-                                            Visibility="{x:Bind helpers:XamlHelpers.NotNullToVisibility(ViewModel.ProfilePhotoDraft), Mode=OneWay}">
-                                            <TextBlock
-                                                FontSize="10"
-                                                FontWeight="SemiBold"
-                                                Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
-                                                Text="{x:Bind domain:Translator.WinoAccount_Profile_PendingBadge, Mode=OneTime}" />
-                                        </Border>
-                                    </Grid>
-
-                                    <StackPanel
-                                        Grid.Column="1"
-                                        VerticalAlignment="Center"
-                                        Spacing="2">
-                                        <TextBlock Text="{x:Bind domain:Translator.WinoAccount_Profile_PhotoTitle, Mode=OneTime}" />
-                                        <TextBlock
-                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                            Style="{StaticResource CaptionTextBlockStyle}"
-                                            Text="{x:Bind domain:Translator.WinoAccount_Profile_PhotoLimit, Mode=OneTime}"
-                                            TextWrapping="Wrap" />
-                                    </StackPanel>
-
-                                    <StackPanel
-                                        Grid.Column="2"
-                                        VerticalAlignment="Center"
-                                        Orientation="Horizontal"
-                                        Spacing="8"
-                                        Visibility="{x:Bind helpers:XamlHelpers.NullToVisibility(ViewModel.ProfilePhotoDraft), Mode=OneWay}">
-                                        <Button
-                                            AutomationProperties.AutomationId="WinoProfileChoosePhoto"
-                                            Command="{x:Bind ViewModel.ChooseProfilePhotoCommand}"
-                                            Content="{x:Bind domain:Translator.WinoAccount_Profile_ChoosePhoto, Mode=OneTime}" />
-                                        <Button
-                                            AutomationProperties.AutomationId="WinoProfileRemovePhoto"
-                                            Command="{x:Bind ViewModel.RemoveProfilePhotoCommand}"
-                                            Content="{x:Bind domain:Translator.WinoAccount_Profile_RemovePhoto, Mode=OneTime}" />
-                                    </StackPanel>
-
-                                    <StackPanel
-                                        Grid.Column="2"
-                                        VerticalAlignment="Center"
-                                        Orientation="Horizontal"
-                                        Spacing="8"
-                                        Visibility="{x:Bind helpers:XamlHelpers.NotNullToVisibility(ViewModel.ProfilePhotoDraft), Mode=OneWay}">
-                                        <Button
-                                            AutomationProperties.AutomationId="WinoProfileUploadPhoto"
-                                            Command="{x:Bind ViewModel.UploadProfilePhotoCommand}"
-                                            Content="{x:Bind domain:Translator.WinoAccount_Profile_UploadPhoto, Mode=OneTime}"
-                                            Style="{StaticResource AccentButtonStyle}" />
-                                        <Button
-                                            AutomationProperties.AutomationId="WinoProfileCancelPhoto"
-                                            Command="{x:Bind ViewModel.CancelProfilePhotoCommand}"
-                                            Content="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}" />
-                                    </StackPanel>
-                                </Grid>
-                            </controls:SettingsCard>
-
-                            <controls:SettingsCard
-                                AutomationProperties.AutomationId="WinoProfileNameCard"
-                                Description="{x:Bind domain:Translator.WinoAccount_Profile_NameHelp, Mode=OneTime}"
-                                Header="{x:Bind domain:Translator.WinoAccount_Profile_NameTitle, Mode=OneTime}">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBox
-                                        Width="260"
-                                        AutomationProperties.AutomationId="WinoProfileName"
-                                        AutomationProperties.Name="{x:Bind domain:Translator.WinoAccount_Profile_NameTitle, Mode=OneTime}"
-                                        IsReadOnly="{x:Bind ViewModel.IsProfileBusy, Mode=OneWay}"
-                                        MaxLength="320"
-                                        PlaceholderText="{x:Bind ViewModel.AccountEmail, Mode=OneWay}"
-                                        Text="{x:Bind ViewModel.ProfileNameDraft, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                                    <Button
-                                        MinWidth="80"
-                                        AutomationProperties.AutomationId="WinoProfileSaveName"
-                                        Command="{x:Bind ViewModel.SaveProfileNameCommand}"
-                                        Content="{x:Bind domain:Translator.Buttons_Save, Mode=OneTime}" />
-                                </StackPanel>
-                            </controls:SettingsCard>
-                        </controls:SettingsExpander.Items>
-                        <controls:SettingsExpander.ItemsFooter>
-                            <Grid
-                                Padding="58,10,16,10"
-                                Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
-                                BorderThickness="0,1,0,0"
-                                ColumnSpacing="10"
-                                Visibility="{x:Bind helpers:XamlHelpers.GetProfileStatusVisibility(ViewModel.IsProfileBusy, ViewModel.ProfileMessage), Mode=OneWay}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <ProgressRing
-                                    Width="16"
-                                    Height="16"
-                                    VerticalAlignment="Center"
-                                    IsActive="{x:Bind ViewModel.IsProfileBusy, Mode=OneWay}"
-                                    Visibility="{x:Bind ViewModel.IsProfileBusy, Mode=OneWay}" />
-                                <coreControls:WinoFontIcon
-                                    VerticalAlignment="Center"
-                                    FontSize="14"
-                                    Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                    Icon="Checkmark"
-                                    Visibility="{x:Bind helpers:XamlHelpers.GetProfileSavedVisibility(ViewModel.ProfileMessage), Mode=OneWay}" />
-                                <coreControls:WinoFontIcon
-                                    VerticalAlignment="Center"
-                                    FontSize="14"
-                                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
-                                    Icon="Warning"
-                                    Visibility="{x:Bind helpers:XamlHelpers.GetProfileFailedVisibility(ViewModel.ProfileMessage), Mode=OneWay}" />
-                                <TextBlock
-                                    Grid.Column="1"
-                                    VerticalAlignment="Center"
-                                    AutomationProperties.AutomationId="WinoProfileStatus"
-                                    AutomationProperties.LiveSetting="Polite"
-                                    Style="{StaticResource CaptionTextBlockStyle}"
-                                    Text="{x:Bind helpers:XamlHelpers.GetProfileStatusText(ViewModel.IsProfileBusy, ViewModel.ProfileMessage), Mode=OneWay}"
-                                    TextWrapping="Wrap" />
-                            </Grid>
-                        </controls:SettingsExpander.ItemsFooter>
-                    </controls:SettingsExpander>
 
                     <!--  ─── Wino add-ons ───  -->
                     <Grid Margin="0,22,0,4">
