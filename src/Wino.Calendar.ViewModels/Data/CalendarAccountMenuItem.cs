@@ -1,6 +1,8 @@
 using System.ComponentModel;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Navigation;
@@ -28,13 +30,15 @@ public sealed partial class CalendarAccountMenuItem : MenuItemBase<GroupedAccoun
     public bool IsSynchronizationProgressVisible => Parameter.IsSynchronizationProgressVisible;
     public bool IsProgressIndeterminate => Parameter.IsProgressIndeterminate;
     public double SynchronizationProgressValue => Parameter.SynchronizationProgressValue;
-    public bool IsAttentionRequired => false;
+    public bool IsAttentionRequired => Account.RequiresAttention(WinoApplicationMode.Calendar);
     public bool SupportsMailAccountActions => false;
     public AccountDetailsTab AccountDetailsTab => global::Wino.Core.Domain.Models.Navigation.AccountDetailsTab.Calendar;
-    public bool SupportsAccountSynchronization => true;
+    public bool SupportsAccountSynchronization => !IsAttentionRequired;
     public bool SelectsOnInvoked => true;
 
-    public Task SynchronizeAccountAsync() => _synchronizeAccount(Account.Id);
+    /// <summary>A sign-in that is still pending can only fail, so the row offers Fix instead.</summary>
+    public Task SynchronizeAccountAsync()
+        => SupportsAccountSynchronization ? _synchronizeAccount(Account.Id) : Task.CompletedTask;
 
     public void UpdateGroup(GroupedAccountCalendarViewModel group)
     {
@@ -70,5 +74,7 @@ public sealed partial class CalendarAccountMenuItem : MenuItemBase<GroupedAccoun
         OnPropertyChanged(nameof(Account));
         OnPropertyChanged(nameof(AccountName));
         OnPropertyChanged(nameof(AccountAddress));
+        OnPropertyChanged(nameof(IsAttentionRequired));
+        OnPropertyChanged(nameof(SupportsAccountSynchronization));
     }
 }

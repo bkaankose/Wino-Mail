@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Διόρθωση",
     "Info_AccountAttentionRequiredActionHint": "Κάντε κλικ στη Διόρθωση για να επιλύσετε αυτό το ζήτημα του λογαριασμού.",
     "Info_AccountIssueFixSuccessMessage": "Επιδιορθώθηκαν όλα τα ζητήματα λογαριασμού.",
+    "Info_AccountIssueFixAppliedMessage": "Το πρόβλημα του λογαριασμού αντιμετωπίστηκε. Το Wino συγχρονίζει ξανά αυτόν τον λογαριασμό.",
     "Info_AccountIssueFixSuccessTitle": "Επιτυχία",
     "Info_AttachmentOpenFailedMessage": "Αδυναμία ανοίγματος αυτού του συνημμένου.",
     "Info_AttachmentOpenFailedTitle": "Αποτυχία",

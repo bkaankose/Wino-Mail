@@ -66,10 +66,14 @@ public sealed partial class WelcomeWindow : WindowEx, IWinoFrameProvider
 
     private void OnAppWindowClosing(object sender, AppWindowClosingEventArgs e)
     {
-        if (_allowClose || (Application.Current as App)?.IsExiting == true)
+        var app = Application.Current as App;
+        if (_allowClose || app?.IsExiting == true)
             return;
 
-        (Application.Current as App)?.ExitApplication();
+        // Keep this window alive while the app shuts down. Letting the last XAML window close here
+        // ends the dispatcher before the exit sequence (tray companion, Application.Exit) can finish.
+        if (app?.TryExitApplicationOnWelcomeWindowClose(this) == true)
+            e.Cancel = true;
     }
 
     public void AllowClose()

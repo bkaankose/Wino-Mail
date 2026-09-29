@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Opravit",
     "Info_AccountAttentionRequiredActionHint": "Klikněte na Opravit, aby se vyřešil problém s tímto účtem.",
     "Info_AccountIssueFixSuccessMessage": "Opraveny všechny problémy s účtem.",
+    "Info_AccountIssueFixAppliedMessage": "Problém s účtem byl vyřešen. Wino tento účet znovu synchronizuje.",
     "Info_AccountIssueFixSuccessTitle": "Úspěšně dokončeno",
     "Info_AttachmentOpenFailedMessage": "Tuto přílohu nelze otevřít.",
     "Info_AttachmentOpenFailedTitle": "Chyba",

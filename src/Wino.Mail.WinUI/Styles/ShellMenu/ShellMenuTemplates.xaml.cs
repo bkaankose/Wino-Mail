@@ -159,7 +159,16 @@ public sealed partial class ShellMenuTemplates
                 new RelayCommand(() => OpenAccountSettings(account)))
         };
 
-        if (account.SupportsAccountSynchronization)
+        // A pending sign-in can only make Sync fail, so the menu offers the fix in its place.
+        if (account.IsAttentionRequired)
+        {
+            items.Add(CreateContextCommand(
+                Translator.Buttons_FixAccount,
+                WinoIconGlyph.Warning,
+                "AccountContextFixAccount",
+                new AsyncRelayCommand(() => FixAccountAsync(account))));
+        }
+        else if (account.SupportsAccountSynchronization)
         {
             items.Add(CreateContextCommand(
                 Translator.Buttons_Sync,
@@ -401,16 +410,23 @@ public sealed partial class ShellMenuTemplates
         }
     }
 
+    /// <summary>
+    /// The Fix button on the shared account row. Mail, calendar, contacts and To Do rows all
+    /// run the mail shell's fix, so every mode signs in again or opens the server settings the
+    /// same way.
+    /// </summary>
     private async void AttentionIconClicked(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { DataContext: AccountMenuItem accountMenuItem })
+        if (sender is not FrameworkElement { DataContext: IAccountNavigationMenuItem accountMenuItem })
             return;
 
-        if (MailClient is Wino.Mail.ViewModels.MailAppShellViewModel mailClient)
-        {
-            await mailClient.HandleAccountAttentionAsync(accountMenuItem.Parameter);
-        }
+        await FixAccountAsync(accountMenuItem);
     }
+
+    private static Task FixAccountAsync(IAccountNavigationMenuItem accountMenuItem)
+        => accountMenuItem.Account is { } account
+            ? MailClient.HandleAccountAttentionAsync(account)
+            : Task.CompletedTask;
 
     #endregion
 

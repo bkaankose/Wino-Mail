@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Виправити",
     "Info_AccountAttentionRequiredActionHint": "Натисніть Виправити, щоб вирішити проблему з цим обліковим записом.",
     "Info_AccountIssueFixSuccessMessage": "Виправлено всі проблеми з обліковим записом.",
+    "Info_AccountIssueFixAppliedMessage": "Проблему з обліковим записом вирішено. Wino знову синхронізує цей обліковий запис.",
     "Info_AccountIssueFixSuccessTitle": "Виконано",
     "Info_AttachmentOpenFailedMessage": "Не вдається відкрити вкладення.",
     "Info_AttachmentOpenFailedTitle": "Не вдалося",

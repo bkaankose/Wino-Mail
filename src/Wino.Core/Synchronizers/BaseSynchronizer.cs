@@ -21,7 +21,23 @@ namespace Wino.Core.Synchronizers;
 
 public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject, IBaseSynchronizer
 {
+    /// <summary>
+    /// Serializes mail synchronization for the account.
+    /// </summary>
     protected SemaphoreSlim synchronizationSemaphore = new(1);
+
+    /// <summary>
+    /// Serializes contact synchronization for the account. Contacts do not share the mail gate:
+    /// an initial mail download can take minutes, and contacts must not wait for it.
+    /// Calendar already runs under its own per-account lock in the synchronization manager.
+    /// </summary>
+    protected readonly SemaphoreSlim contactSynchronizationSemaphore = new(1, 1);
+
+    /// <summary>
+    /// Serializes task synchronization for the account, independently from mail and contacts.
+    /// </summary>
+    protected readonly SemaphoreSlim taskSynchronizationSemaphore = new(1, 1);
+
     protected CancellationToken activeSynchronizationCancellationToken;
 
     private readonly List<IRequestBase> changeRequestQueue = [];
@@ -29,7 +45,15 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
     private readonly ConcurrentDictionary<Guid, byte> _pendingMailOperationIds = new();
     private readonly ConcurrentDictionary<Guid, byte> _pendingCalendarOperationIds = new();
     private readonly ConcurrentDictionary<Guid, byte> _pendingContactOperationIds = new();
-    private readonly ConcurrentQueue<SynchronizationIssue> _capturedSynchronizationIssues = new();
+
+    // Modes of one account synchronize concurrently, so each top-level synchronization call keeps
+    // its own issue list in its async flow. The shared queue only catches issues captured outside
+    // any synchronization call.
+    private readonly ConcurrentQueue<SynchronizationIssue> _sharedCapturedSynchronizationIssues = new();
+    private readonly AsyncLocal<ConcurrentQueue<SynchronizationIssue>> _flowCapturedSynchronizationIssues = new();
+
+    private ConcurrentQueue<SynchronizationIssue> CapturedSynchronizationIssues
+        => _flowCapturedSynchronizationIssues.Value ?? _sharedCapturedSynchronizationIssues;
     protected readonly IMessenger Messenger;
     protected SynchronizationProgressCategory CurrentSynchronizationProgressCategory { get; set; } = SynchronizationProgressCategory.Mail;
     
@@ -229,9 +253,17 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
         }
     }
 
+    /// <summary>
+    /// Starts a fresh issue list for the calling synchronization flow. This is a synchronous
+    /// method on purpose: the AsyncLocal value it sets stays visible to the rest of the calling
+    /// async method and everything it awaits, but never leaks into a concurrent synchronization
+    /// of another mode on the same account.
+    /// </summary>
     protected void ResetCapturedSynchronizationIssues()
     {
-        while (_capturedSynchronizationIssues.TryDequeue(out _))
+        _flowCapturedSynchronizationIssues.Value = new ConcurrentQueue<SynchronizationIssue>();
+
+        while (_sharedCapturedSynchronizationIssues.TryDequeue(out _))
         {
         }
     }
@@ -241,14 +273,14 @@ public abstract partial class BaseSynchronizer<TBaseRequest> : ObservableObject,
         if (issue == null || string.IsNullOrWhiteSpace(issue.Message))
             return;
 
-        _capturedSynchronizationIssues.Enqueue(issue);
+        CapturedSynchronizationIssues.Enqueue(issue);
     }
 
     protected void CaptureSynchronizationIssue(SynchronizerErrorContext errorContext)
         => CaptureSynchronizationIssue(SynchronizationIssue.FromErrorContext(errorContext));
 
     protected IReadOnlyList<SynchronizationIssue> GetCapturedSynchronizationIssues()
-        => _capturedSynchronizationIssues.ToArray();
+        => CapturedSynchronizationIssues.ToArray();
 
     /// <summary>
     /// Runs existing queued requests in the queue.

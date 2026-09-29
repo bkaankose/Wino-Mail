@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Opraviť",
     "Info_AccountAttentionRequiredActionHint": "Kliknite na Opraviť, aby sa vyriešil problém s týmto účtom.",
     "Info_AccountIssueFixSuccessMessage": "Boli opravené všetky problémy s účtom.",
+    "Info_AccountIssueFixAppliedMessage": "Problém s účtom bol vyriešený. Wino túto konto znova synchronizuje.",
     "Info_AccountIssueFixSuccessTitle": "Úspešné",
     "Info_AttachmentOpenFailedMessage": "Túto prílohu sa nepodarilo otvoriť.",
     "Info_AttachmentOpenFailedTitle": "Neúspešné",

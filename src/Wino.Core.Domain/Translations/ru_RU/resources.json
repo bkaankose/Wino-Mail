@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Исправить",
     "Info_AccountAttentionRequiredActionHint": "Нажмите «Исправить», чтобы устранить проблему этой учетной записи.",
     "Info_AccountIssueFixSuccessMessage": "Исправлены все проблемы с учетной записью.",
+    "Info_AccountIssueFixAppliedMessage": "Проблема с учетной записью устранена. Wino снова синхронизирует эту учетную запись.",
     "Info_AccountIssueFixSuccessTitle": "Успешно",
     "Info_AttachmentOpenFailedMessage": "Не удается открыть это вложение.",
     "Info_AttachmentOpenFailedTitle": "Ошибка",

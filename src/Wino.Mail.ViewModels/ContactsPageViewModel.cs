@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Launch;
@@ -31,6 +32,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     IRecipient<ContactListStateChanged>,
     IRecipient<ContactListMembershipStateChanged>,
     IRecipient<ContactAddressBookStateChanged>,
+    IRecipient<AccountUpdatedMessage>,
     IBackNavigationAware,
     IShellMenuOwner,
     IShellMenuProvider
@@ -648,6 +650,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         Messenger.Register<ContactListStateChanged>(this);
         Messenger.Register<ContactListMembershipStateChanged>(this);
         Messenger.Register<ContactAddressBookStateChanged>(this);
+        Messenger.Register<AccountUpdatedMessage>(this);
     }
 
     protected override void UnregisterRecipients()
@@ -659,6 +662,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         Messenger.Unregister<ContactListStateChanged>(this);
         Messenger.Unregister<ContactListMembershipStateChanged>(this);
         Messenger.Unregister<ContactAddressBookStateChanged>(this);
+        Messenger.Unregister<AccountUpdatedMessage>(this);
     }
 
     void IRecipient<ContactSynchronizationCompleted>.Receive(ContactSynchronizationCompleted message)
@@ -685,6 +689,29 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
         if (_isPageActive)
             _ = RefreshCreateDestinationAvailabilityAsync();
+    }
+
+    void IRecipient<AccountUpdatedMessage>.Receive(AccountUpdatedMessage message)
+        => _ = ExecuteUIThread(() => ApplyAccountUpdate(message.Account));
+
+    /// <summary>
+    /// Keeps the address book rows on the latest account copy, so a finished Fix account
+    /// removes their Fix button and lets them synchronize again.
+    /// </summary>
+    private void ApplyAccountUpdate(MailAccount account)
+    {
+        if (account is null || !_accounts.ContainsKey(account.Id))
+            return;
+
+        if (account.IsContactAccessEnabled)
+            _accounts[account.Id] = account;
+
+        foreach (var filter in _addressBookFilterGroup.Where(item => item.AccountId == account.Id))
+        {
+            filter.UpdateAccount(account);
+        }
+
+        RefreshShellSynchronizationState();
     }
 
     private void ApplyContactState(ContactStateChanged message)
@@ -803,12 +830,19 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     [RelayCommand]
     private async Task RefreshContactsAsync()
-        => await SynchronizeAccountsAsync(_accounts.Values.Where(account => account.IsContactAccessGranted)).ConfigureAwait(false);
+        => await SynchronizeAccountsAsync(_accounts.Values.Where(CanSynchronizeContacts)).ConfigureAwait(false);
 
     private Task SynchronizeAccountAsync(Guid accountId)
-        => _accounts.TryGetValue(accountId, out var account) && account.IsContactAccessGranted
+        => _accounts.TryGetValue(accountId, out var account) && CanSynchronizeContacts(account)
             ? SynchronizeAccountsAsync(new[] { account })
             : Task.CompletedTask;
+
+    /// <summary>
+    /// An account waiting for a sign-in is left to its Fix account entry, because
+    /// synchronizing it can only fail.
+    /// </summary>
+    private static bool CanSynchronizeContacts(MailAccount account)
+        => account.IsContactAccessGranted && !account.RequiresAttention(WinoApplicationMode.Contacts);
 
     private async Task SynchronizeAccountsAsync(IEnumerable<MailAccount> accounts)
     {

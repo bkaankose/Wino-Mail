@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Поправи",
     "Info_AccountAttentionRequiredActionHint": "Кликнете върху Поправи, за да разрешите проблема с този акаунт.",
     "Info_AccountIssueFixSuccessMessage": "Отстранени са всички проблеми с акаунтите.",
+    "Info_AccountIssueFixAppliedMessage": "Проблемът с акаунта беше отстранен. Wino отново синхронизира този акаунт.",
     "Info_AccountIssueFixSuccessTitle": "Успешно",
     "Info_AttachmentOpenFailedMessage": "Не може да се отвори този прикачен файл.",
     "Info_AttachmentOpenFailedTitle": "Неуспешно",

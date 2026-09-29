@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Napraw",
     "Info_AccountAttentionRequiredActionHint": "Kliknij Napraw, aby rozwiązać ten problem z kontem.",
     "Info_AccountIssueFixSuccessMessage": "Naprawiono wszystkie problemy z kontem.",
+    "Info_AccountIssueFixAppliedMessage": "Problem z kontem został rozwiązany. Wino ponownie synchronizuje to konto.",
     "Info_AccountIssueFixSuccessTitle": "Zakończono pomyślnie",
     "Info_AttachmentOpenFailedMessage": "Nie można otworzyć tego załącznika.",
     "Info_AttachmentOpenFailedTitle": "Nie powiodło się",

@@ -6,6 +6,7 @@ using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
 using Wino.Core.Domain.Models.Contacts;
@@ -47,7 +48,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public string Glyph { get; init; }
     public Guid? AddressBookId { get; init; }
     public Guid? AccountId { get; init; }
-    public MailAccount Account { get; init; }
+    public MailAccount Account { get; private set; }
     public ContactList List { get; init; }
     public ContactAddressBook AddressBook { get; init; }
 
@@ -59,8 +60,8 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     #region Account navigation presentation
 
     // Address book entries are drawn by the shell's shared account row, so they read
-    // the same as an account does in mail and tasks. Nothing here syncs or needs
-    // attention, and the mail-only context actions stay hidden.
+    // the same as an account does in mail and tasks, including the Fix account button
+    // while the owning account waits for a sign-in. The mail-only context actions stay hidden.
 
     public string AccountName => Name;
     public string AccountAddress => Account?.Address ?? string.Empty;
@@ -68,10 +69,12 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public bool IsSynchronizationProgressVisible => false;
     public bool IsProgressIndeterminate => false;
     public double SynchronizationProgressValue => 0;
-    public bool IsAttentionRequired => false;
+    public bool IsAttentionRequired => HasAccountIcon && Account.RequiresAttention(WinoApplicationMode.Contacts);
     public bool SupportsMailAccountActions => false;
     public AccountDetailsTab AccountDetailsTab => global::Wino.Core.Domain.Models.Navigation.AccountDetailsTab.People;
-    public bool SupportsAccountSynchronization => HasAccountIcon && Account.IsContactAccessGranted;
+
+    // A pending sign-in can only fail, so the row offers Fix instead of Sync.
+    public bool SupportsAccountSynchronization => HasAccountIcon && Account.IsContactAccessGranted && !IsAttentionRequired;
 
     /// <summary>An address book is the destination itself, not a parent of one.</summary>
     public bool SelectsOnInvoked => true;
@@ -82,6 +85,22 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
             : Task.CompletedTask;
 
     #endregion
+
+    /// <summary>
+    /// Takes the latest copy of the owning account, so a finished sign-in clears the Fix
+    /// account button without rebuilding the pane.
+    /// </summary>
+    public void UpdateAccount(MailAccount account)
+    {
+        if (account is null || Account is null || account.Id != Account.Id)
+            return;
+
+        Account = account;
+        OnPropertyChanged(nameof(Account));
+        OnPropertyChanged(nameof(AccountAddress));
+        OnPropertyChanged(nameof(IsAttentionRequired));
+        OnPropertyChanged(nameof(SupportsAccountSynchronization));
+    }
 
     public bool IsList => Kind == ContactFilterKind.List;
     public bool CanManageRemoteAddressBook => AddressBook?.SourceKind == ContactSourceKind.CardDav && !AddressBook.IsReadOnly;

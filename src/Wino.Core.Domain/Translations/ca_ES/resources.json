@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Solucionar",
     "Info_AccountAttentionRequiredActionHint": "Feu clic a Solucionar per resoldre aquest problema del compte.",
     "Info_AccountIssueFixSuccessMessage": "S'han solucionat tots els problemes del compte.",
+    "Info_AccountIssueFixAppliedMessage": "S'ha resolt el problema del compte. Wino està sincronitzant aquest compte de nou.",
     "Info_AccountIssueFixSuccessTitle": "Èxit",
     "Info_AttachmentOpenFailedMessage": "No es pot obrir aquest adjunt.",
     "Info_AttachmentOpenFailedTitle": "Fallat",

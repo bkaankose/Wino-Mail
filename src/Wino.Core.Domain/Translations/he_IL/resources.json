@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "לִקְבּוֹעַ",
     "Info_AccountAttentionRequiredActionHint": "לחץ על תקן כדי לפתור בעיה זו בחשבון.",
     "Info_AccountIssueFixSuccessMessage": "תוקן את כל הבעיות בחשבון.",
+    "Info_AccountIssueFixAppliedMessage": "הבעיה בחשבון טופלה. Wino מסנכרן חשבון זה שוב.",
     "Info_AccountIssueFixSuccessTitle": "הַצלָחָה",
     "Info_AttachmentOpenFailedMessage": "לא ניתן לפתוח את הקובץ המצורף הזה.",
     "Info_AttachmentOpenFailedTitle": "נִכשָׁל",

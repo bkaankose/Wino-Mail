@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Serilog;
 using WinUIEx;
@@ -130,6 +131,11 @@ public partial class WinoWindowManager : IWinoWindowManager
         }
 
         LeaveBackgroundResourceSavingMode();
+
+        // Show and Activate do not restore a minimized window. A relaunch or tray request must
+        // bring it back on screen, for example the welcome window after a taskbar relaunch.
+        if (window.AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } presenter)
+            presenter.Restore();
 
         window.Show();
         window.BringToFront();

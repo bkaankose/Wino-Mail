@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Navigation;
 
@@ -53,10 +54,12 @@ public sealed class AccountTaskListAccountMenuItem : MenuItemBase<MailAccount, I
     public bool IsSynchronizationProgressVisible => false;
     public bool IsProgressIndeterminate => false;
     public double SynchronizationProgressValue => 0;
-    public bool IsAttentionRequired => false;
+    public bool IsAttentionRequired => Parameter.RequiresAttention(WinoApplicationMode.Tasks);
     public bool SupportsMailAccountActions => false;
     public AccountDetailsTab AccountDetailsTab => global::Wino.Core.Domain.Models.Navigation.AccountDetailsTab.ToDo;
-    public bool SupportsAccountSynchronization => Parameter is
+
+    // A pending sign-in can only fail, so the row offers Fix instead of Sync.
+    public bool SupportsAccountSynchronization => !IsAttentionRequired && Parameter is
     {
         ProviderType: MailProviderType.Gmail or MailProviderType.Outlook,
         IsTaskAccessGranted: true,
@@ -78,6 +81,8 @@ public sealed class AccountTaskListAccountMenuItem : MenuItemBase<MailAccount, I
         OnPropertyChanged(nameof(AccountName));
         OnPropertyChanged(nameof(AccountAddress));
         OnPropertyChanged(nameof(Account));
+        OnPropertyChanged(nameof(IsAttentionRequired));
+        OnPropertyChanged(nameof(SupportsAccountSynchronization));
     }
 }
 

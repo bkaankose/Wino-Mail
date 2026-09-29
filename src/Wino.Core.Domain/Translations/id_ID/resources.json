@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Perbaiki",
     "Info_AccountAttentionRequiredActionHint": "Klik Perbaiki untuk menyelesaikan masalah akun ini.",
     "Info_AccountIssueFixSuccessMessage": "Semua masalah akun diperbaiki.",
+    "Info_AccountIssueFixAppliedMessage": "Masalah akun telah ditangani. Wino sedang menyinkronkan akun ini kembali.",
     "Info_AccountIssueFixSuccessTitle": "Berhasil",
     "Info_AttachmentOpenFailedMessage": "Tidak dapat membuka lampiran ini.",
     "Info_AttachmentOpenFailedTitle": "Gagal",

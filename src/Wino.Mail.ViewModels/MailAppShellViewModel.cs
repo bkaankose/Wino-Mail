@@ -939,7 +939,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
                 _dialogService.InfoBarMessage(
                     Translator.Info_AccountIssueFixSuccessTitle,
-                    Translator.Info_AccountIssueFixSuccessMessage,
+                    Translator.Info_AccountIssueFixAppliedMessage,
                     InfoBarMessageType.Success);
 
                 await _accountReauthenticationService.SynchronizeAfterReauthenticationAsync(account.Id);
@@ -967,7 +967,7 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
 
                 _dialogService.InfoBarMessage(
                     Translator.Info_AccountIssueFixSuccessTitle,
-                    Translator.Info_AccountIssueFixSuccessMessage,
+                    Translator.Info_AccountIssueFixAppliedMessage,
                     InfoBarMessageType.Success);
 
                 TriggerFullSynchronization(account);

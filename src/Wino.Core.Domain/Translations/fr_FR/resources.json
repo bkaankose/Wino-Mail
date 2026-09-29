@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Corriger",
     "Info_AccountAttentionRequiredActionHint": "Cliquez sur Corriger pour résoudre ce problème de compte.",
     "Info_AccountIssueFixSuccessMessage": "Tous les problèmes de compte ont étés corrigés",
+    "Info_AccountIssueFixAppliedMessage": "Le problème du compte a été résolu. Wino synchronise à nouveau ce compte.",
     "Info_AccountIssueFixSuccessTitle": "Succès",
     "Info_AttachmentOpenFailedMessage": "Impossible d'ouvrir la pièce-jointe.",
     "Info_AttachmentOpenFailedTitle": "Échec",

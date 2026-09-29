@@ -249,8 +249,15 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
     /// <summary>
     /// The catalog counts as a sub-step of the provider step, so the wizard's Back leaves it too.
+    /// In the welcome wizard the provider step is not the first page: Back returns to the welcome page.
     /// </summary>
-    public bool CanGoBack => CurrentStep != ProviderSelectionWizardStep.Provider || IsCatalogVisible;
+    public bool CanGoBack => CurrentStep != ProviderSelectionWizardStep.Provider || IsCatalogVisible || IsHostBackAvailable;
+
+    /// <summary>
+    /// The welcome wizard host has the welcome page behind this one, and its breadcrumb does not list it.
+    /// Settings shows its own breadcrumb back to the previous settings page.
+    /// </summary>
+    private bool IsHostBackAvailable => _hostMode == ProviderSelectionHostMode.Wizard;
 
     public string PageTitle => CurrentStep switch
     {
@@ -484,6 +491,10 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
         // A provider that has no tile of its own is only reachable through the catalog.
         IsCatalogVisible = SelectedProvider is { IsFeatured: false };
+
+        // The host mode is not observable, and the step may not have changed, so refresh Back explicitly.
+        OnPropertyChanged(nameof(CanGoBack));
+        GoBackCommand.NotifyCanExecuteChanged();
     }
 
     public bool IsCustomServerSelected => SelectedProvider != null && SelectedProvider == CustomServerProvider;
@@ -665,7 +676,14 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
 
         if (CurrentStep == ProviderSelectionWizardStep.Provider)
         {
-            ShowFeatured();
+            if (IsCatalogVisible)
+            {
+                ShowFeatured();
+                return;
+            }
+
+            // First step of the page: leave it for the page behind it in the wizard frame.
+            Messenger.Send(new BackBreadcrumNavigationRequested(NavigationTransitionEffect.FromLeft));
             return;
         }
 

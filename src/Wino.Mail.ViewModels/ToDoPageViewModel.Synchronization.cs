@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Services;
 
@@ -41,10 +43,19 @@ public partial class ToDoPageViewModel
     /// </summary>
     private IReadOnlyList<Guid> TaskAccountIds
         => Accounts
-            .Where(account => account.ProviderType is (MailProviderType.Gmail or MailProviderType.Outlook) &&
-                              account.IsTaskAccessGranted && !account.IsTaskReauthorizationRequired)
+            .Where(CanSynchronizeTasks)
             .Select(account => account.Id)
             .ToList();
+
+    /// <summary>
+    /// Provider-backed To Do with its consent in place. An account waiting for a sign-in is left
+    /// to its Fix account entry, because synchronizing it can only fail.
+    /// </summary>
+    private static bool CanSynchronizeTasks(MailAccount account)
+        => account.ProviderType is (MailProviderType.Gmail or MailProviderType.Outlook) &&
+           account.IsTaskAccessGranted &&
+           !account.IsTaskReauthorizationRequired &&
+           !account.RequiresAttention(WinoApplicationMode.Tasks);
 
     internal void RefreshShellSynchronizationState()
     {

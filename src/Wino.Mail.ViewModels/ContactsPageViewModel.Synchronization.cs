@@ -38,7 +38,7 @@ public partial class ContactsPageViewModel
     /// </summary>
     private IReadOnlyList<Guid> ContactAccountIds
         => _accounts.Values
-            .Where(account => account.IsContactAccessGranted)
+            .Where(CanSynchronizeContacts)
             .Select(account => account.Id)
             .ToList();
 

@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using CommunityToolkit.Mvvm.Messaging;
 using FluentAssertions;
 using Moq;
 using Wino.Core.Domain;
@@ -8,6 +10,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Messaging.Client.Navigation;
 using Wino.Services;
 using Xunit;
 
@@ -138,17 +141,87 @@ public sealed class ProviderSelectionPageViewModelTests
             new WelcomeWizardContext());
         viewModel.OnNavigatedTo(NavigationMode.New, ProviderSelectionNavigationContext.CreateForWizard());
 
-        viewModel.CanGoBack.Should().BeFalse();
-
         viewModel.ShowCatalogCommand.Execute(null);
         viewModel.CanGoBack.Should().BeTrue();
         viewModel.GoBackCommand.CanExecute(null).Should().BeTrue();
 
-        viewModel.GoBackCommand.Execute(null);
+        var recorder = new BackNavigationRecorder();
+        WeakReferenceMessenger.Default.Register<BackBreadcrumNavigationRequested>(recorder);
 
-        viewModel.IsCatalogVisible.Should().BeFalse();
-        viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Provider);
+        try
+        {
+            viewModel.GoBackCommand.Execute(null);
+
+            viewModel.IsCatalogVisible.Should().BeFalse();
+            viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Provider);
+            recorder.Messages.Should().BeEmpty();
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recorder);
+        }
+    }
+
+    [Fact]
+    public void WizardBack_FromTheFirstProviderStep_ReturnsToTheWelcomePage()
+    {
+        var catalog = new EmbeddedKnownImapProviderCatalog(new KnownImapProviderCatalogLoader());
+        var themeService = new Mock<INewThemeService>();
+        themeService.Setup(service => service.GetAvailableAccountColors()).Returns([]);
+        var viewModel = new ProviderSelectionPageViewModel(
+            Mock.Of<IAccountService>(),
+            Mock.Of<IDialogServiceBase>(),
+            catalog,
+            themeService.Object,
+            new WelcomeWizardContext());
+        viewModel.OnNavigatedTo(NavigationMode.New, ProviderSelectionNavigationContext.CreateForWizard());
+
+        viewModel.CanGoBack.Should().BeTrue();
+        viewModel.GoBackCommand.CanExecute(null).Should().BeTrue();
+
+        var recorder = new BackNavigationRecorder();
+        WeakReferenceMessenger.Default.Register<BackBreadcrumNavigationRequested>(recorder);
+
+        try
+        {
+            viewModel.GoBackCommand.Execute(null);
+
+            recorder.Messages.Should().ContainSingle()
+                .Which.SlideEffect.Should().Be(NavigationTransitionEffect.FromLeft);
+            viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Provider);
+        }
+        finally
+        {
+            WeakReferenceMessenger.Default.UnregisterAll(recorder);
+        }
+    }
+
+    [Fact]
+    public void SettingsHost_HidesBackOnTheFirstProviderStep()
+    {
+        var catalog = new EmbeddedKnownImapProviderCatalog(new KnownImapProviderCatalogLoader());
+        var themeService = new Mock<INewThemeService>();
+        themeService.Setup(service => service.GetAvailableAccountColors()).Returns([]);
+        var viewModel = new ProviderSelectionPageViewModel(
+            Mock.Of<IAccountService>(),
+            Mock.Of<IDialogServiceBase>(),
+            catalog,
+            themeService.Object,
+            new WelcomeWizardContext());
+        viewModel.OnNavigatedTo(NavigationMode.New, ProviderSelectionNavigationContext.CreateForSettingsAddAccount());
+
         viewModel.CanGoBack.Should().BeFalse();
+        viewModel.GoBackCommand.CanExecute(null).Should().BeFalse();
+
+        viewModel.ShowCatalogCommand.Execute(null);
+        viewModel.CanGoBack.Should().BeTrue();
+    }
+
+    internal sealed class BackNavigationRecorder : IRecipient<BackBreadcrumNavigationRequested>
+    {
+        public List<BackBreadcrumNavigationRequested> Messages { get; } = [];
+
+        public void Receive(BackBreadcrumNavigationRequested message) => Messages.Add(message);
     }
 
     [Fact]
@@ -348,7 +421,6 @@ public sealed class ProviderSelectionPageViewModelTests
         viewModel.GoBackCommand.Execute(null);
 
         viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Provider);
-        viewModel.CanGoBack.Should().BeFalse();
         viewModel.IsAccountSummaryVisible.Should().BeFalse();
     }
 

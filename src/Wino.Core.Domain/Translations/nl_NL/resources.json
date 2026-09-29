@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Oplossen",
     "Info_AccountAttentionRequiredActionHint": "Klik op Oplossen om dit accountprobleem op te lossen.",
     "Info_AccountIssueFixSuccessMessage": "Alle accountproblemen zijn opgelost.",
+    "Info_AccountIssueFixAppliedMessage": "Het accountprobleem is opgelost. Wino synchroniseert dit account opnieuw.",
     "Info_AccountIssueFixSuccessTitle": "Gelukt",
     "Info_AttachmentOpenFailedMessage": "Deze bijlage kan niet geopend worden.",
     "Info_AttachmentOpenFailedTitle": "Mislukt",

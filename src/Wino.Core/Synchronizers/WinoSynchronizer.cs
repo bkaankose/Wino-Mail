@@ -162,10 +162,11 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
         try
         {
-            await synchronizationSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            // Contacts have their own gate so they never queue behind a long mail download.
+            // Progress for this mode is published per category by the synchronization manager;
+            // the shared State and progress fields belong to mail and are left untouched here.
+            await contactSynchronizationSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
             semaphoreEntered = true;
-            activeSynchronizationCancellationToken = cancellationToken;
-            CurrentSynchronizationProgressCategory = SynchronizationProgressCategory.Contacts;
 
             if (options.Type == ContactSynchronizationType.ExecuteRequests)
             {
@@ -176,7 +177,6 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 if (requests.Count == 0)
                     return ContactSynchronizationResult.Empty;
 
-                State = AccountSynchronizerState.ExecutingRequests;
                 Exception firstFailure = null;
 
                 foreach (var request in requests)
@@ -225,8 +225,6 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 return requestResult;
             }
 
-            State = AccountSynchronizerState.Synchronizing;
-            UpdateSyncProgress(0, 0, "Synchronizing contacts...");
             var result = await SynchronizeContactsInternalAsync(options, cancellationToken).ConfigureAwait(false)
                 ?? ContactSynchronizationResult.Empty;
 
@@ -267,9 +265,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
         }
         finally
         {
-            State = AccountSynchronizerState.Idle;
             if (semaphoreEntered)
-                synchronizationSemaphore.Release();
+                contactSynchronizationSemaphore.Release();
         }
     }
 
@@ -282,10 +279,11 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
         try
         {
-            await synchronizationSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+            // Tasks have their own gate so they never queue behind a long mail download.
+            // Progress for this mode is published per category by the synchronization manager;
+            // the shared State and progress fields belong to mail and are left untouched here.
+            await taskSynchronizationSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
             semaphoreEntered = true;
-            activeSynchronizationCancellationToken = cancellationToken;
-            CurrentSynchronizationProgressCategory = SynchronizationProgressCategory.Tasks;
 
             if (options?.Type == TaskSynchronizationType.ExecuteRequests)
             {
@@ -296,7 +294,6 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                     return TaskSynchronizationResult.Empty;
                 }
 
-                State = AccountSynchronizerState.ExecutingRequests;
                 Exception firstFailure = null;
 
                 foreach (var request in requests)
@@ -339,8 +336,6 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 // Provider mutations are followed by a reconciliation pass. This commits
                 // remote identities/ETags and makes provider-authoritative conflict handling
                 // deterministic before the visible task list is refreshed.
-                State = AccountSynchronizerState.Synchronizing;
-                UpdateSyncProgress(0, 0, "Synchronizing tasks...");
                 var reconciliationResult = await SynchronizeTasksInternalAsync(new TaskSynchronizationOptions
                 {
                     AccountId = Account.Id,
@@ -358,8 +353,6 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 return combinedResult;
             }
 
-            State = AccountSynchronizerState.Synchronizing;
-            UpdateSyncProgress(0, 0, "Synchronizing tasks...");
             var result = await SynchronizeTasksInternalAsync(options, cancellationToken).ConfigureAwait(false)
                 ?? TaskSynchronizationResult.Empty;
             result = result.MergeIssues(GetCapturedSynchronizationIssues());
@@ -397,9 +390,8 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
         }
         finally
         {
-            State = AccountSynchronizerState.Idle;
             if (semaphoreEntered)
-                synchronizationSemaphore.Release();
+                taskSynchronizationSemaphore.Release();
         }
     }
 

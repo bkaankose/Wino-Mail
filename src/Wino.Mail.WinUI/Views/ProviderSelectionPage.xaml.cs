@@ -9,8 +9,8 @@ using Wino.Mail.WinUI.Views.Abstract;
 namespace Wino.Views;
 
 /// <summary>
-/// Fills the wizard viewport: the provider list takes the free height and the buttons stay at the bottom,
-/// so the host must not scroll this page as a whole.
+/// Sizes to its content: the Back and Continue buttons sit directly beneath the active step,
+/// and the host scrolls the page when it is taller than the window.
 /// </summary>
 public sealed partial class ProviderSelectionPage : ProviderSelectionPageAbstract
 {

@@ -2240,9 +2240,7 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     [RelayCommand]
     private void Synchronize()
     {
-        foreach (var account in Accounts.Where(account =>
-                     account.ProviderType is (MailProviderType.Gmail or MailProviderType.Outlook) &&
-                     account.IsTaskAccessGranted && !account.IsTaskReauthorizationRequired))
+        foreach (var account in Accounts.Where(CanSynchronizeTasks))
         {
             WeakReferenceMessenger.Default.Send(new Wino.Messaging.Server.NewTaskSynchronizationRequested(new TaskSynchronizationOptions
             {
@@ -2255,12 +2253,8 @@ public partial class ToDoPageViewModel : MailBaseViewModel, IShellMenuOwner, ISh
     private Task SynchronizeAccountAsync(Guid accountId)
     {
         var account = Accounts.FirstOrDefault(candidate => candidate.Id == accountId);
-        if (account is null ||
-            account.ProviderType is not (MailProviderType.Gmail or MailProviderType.Outlook) ||
-            !account.IsTaskAccessGranted || account.IsTaskReauthorizationRequired)
-        {
+        if (account is null || !CanSynchronizeTasks(account))
             return Task.CompletedTask;
-        }
 
         WeakReferenceMessenger.Default.Send(new Wino.Messaging.Server.NewTaskSynchronizationRequested(new TaskSynchronizationOptions
         {

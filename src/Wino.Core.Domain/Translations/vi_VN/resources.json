@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Khắc phục",
     "Info_AccountAttentionRequiredActionHint": "Nhấp vào Khắc phục để giải quyết sự cố tài khoản này.",
     "Info_AccountIssueFixSuccessMessage": "Đã khắc phục tất cả sự cố tài khoản.",
+    "Info_AccountIssueFixAppliedMessage": "Sự cố tài khoản đã được khắc phục. Wino đang đồng bộ hóa lại tài khoản này.",
     "Info_AccountIssueFixSuccessTitle": "Thành công",
     "Info_AttachmentOpenFailedMessage": "Không thể mở tệp đính kèm này.",
     "Info_AttachmentOpenFailedTitle": "Không thành công",

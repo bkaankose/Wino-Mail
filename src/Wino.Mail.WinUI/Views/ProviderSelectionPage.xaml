@@ -15,11 +15,15 @@
     x:Name="root"
     mc:Ignorable="d">
 
-    <!--  Header, a content row that takes the remaining height, and the buttons pinned to the bottom  -->
+    <!--
+        Header, content, then the buttons directly beneath the content. Top alignment keeps the grid at its
+        content height, so the buttons follow the content instead of the bottom of the window.
+    -->
     <Grid
         MaxWidth="880"
         Margin="0,12"
         HorizontalAlignment="Stretch"
+        VerticalAlignment="Top"
         RowSpacing="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -161,7 +165,7 @@
                 </Grid>
             </Border>
 
-            <!--  Catalog: fills the content row; the provider list takes whatever height is left and scrolls  -->
+            <!--  Catalog: hugs its content; the provider list is capped and scrolls inside  -->
             <Border
                 Padding="12"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
@@ -291,7 +295,7 @@
                             Text="{x:Bind ViewModel.CatalogResultCountText, Mode=OneWay}" />
                     </Grid>
 
-                    <!--  Star row: takes the height left under the search box and scrolls inside  -->
+                    <!--  Star row: capped by MaxHeight and scrolls inside  -->
                     <ItemsView
                         x:Name="CatalogProvidersView"
                         Grid.Row="4"

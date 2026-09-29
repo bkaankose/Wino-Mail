@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "수정",
     "Info_AccountAttentionRequiredActionHint": "이 계정 문제를 해결하려면 수정 버튼을 클릭하세요.",
     "Info_AccountIssueFixSuccessMessage": "모든 계정 문제가 해결되었습니다.",
+    "Info_AccountIssueFixAppliedMessage": "계정 문제가 해결되었습니다. Wino에서 이 계정을 다시 동기화하고 있습니다.",
     "Info_AccountIssueFixSuccessTitle": "성공",
     "Info_AttachmentOpenFailedMessage": "이 첨부파일을 열 수 없습니다.",
     "Info_AttachmentOpenFailedTitle": "실패",

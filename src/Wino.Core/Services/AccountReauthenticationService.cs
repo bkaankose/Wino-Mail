@@ -105,17 +105,22 @@ public sealed class AccountReauthenticationService(
             return;
         }
 
-        if (account.IsMailAccessGranted)
-        {
-            await SynchronizeMailSetupDataAsync(account, cancellationToken).ConfigureAwait(false);
-        }
+        // Calendar, contacts and To Do do not depend on mail folders, profile or aliases. They are
+        // queued before the mail setup steps so a restored account shows its non-mail data while
+        // mail is still downloading. Each mode runs under its own per-account gate.
+        QueueNonMailInitialSynchronizations(account);
+
+        if (!account.IsMailAccessGranted)
+            return;
+
+        await SynchronizeMailSetupDataAsync(account, cancellationToken).ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();
 
         // Re-read: profile sync can change the address and the synchronizers may have updated flags.
         account = await accountService.GetAccountAsync(accountId).ConfigureAwait(false) ?? account;
 
-        QueueInitialSynchronizations(account);
+        QueueMailInitialSynchronization(account);
     }
 
     private async Task SynchronizeMailSetupDataAsync(MailAccount account, CancellationToken cancellationToken)
@@ -162,20 +167,27 @@ public sealed class AccountReauthenticationService(
     }
 
     /// <summary>
-    /// Mirrors the initial synchronization that runs after account setup, through the same
-    /// messages the app host already handles.
+    /// Mirrors the initial mail synchronization that runs after account setup, through the same
+    /// message the app host already handles.
     /// </summary>
-    private void QueueInitialSynchronizations(MailAccount account)
+    private void QueueMailInitialSynchronization(MailAccount account)
     {
-        if (account.IsMailAccessGranted)
-        {
-            messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
-            {
-                AccountId = account.Id,
-                Type = MailSynchronizationType.FullFolders
-            }));
-        }
+        if (!account.IsMailAccessGranted)
+            return;
 
+        messenger.Send(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+        {
+            AccountId = account.Id,
+            Type = MailSynchronizationType.FullFolders
+        }));
+    }
+
+    /// <summary>
+    /// Mirrors the initial calendar, contact and task synchronization that runs after account
+    /// setup. The app host runs each request on the thread pool without awaiting the others.
+    /// </summary>
+    private void QueueNonMailInitialSynchronizations(MailAccount account)
+    {
         if (account.IsCalendarAccessEnabled && account.IsCalendarAccessGranted)
         {
             // CalendarEvents refreshes the calendar list before it downloads events.

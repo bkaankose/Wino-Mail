@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Remediază",
     "Info_AccountAttentionRequiredActionHint": "Faceți clic pe Remediază pentru a rezolva această problemă a contului.",
     "Info_AccountIssueFixSuccessMessage": "Au fost rezolvate toate problemele contului.",
+    "Info_AccountIssueFixAppliedMessage": "Problema contului a fost remediată. Wino sincronizează din nou acest cont.",
     "Info_AccountIssueFixSuccessTitle": "Succes",
     "Info_AttachmentOpenFailedMessage": "Nu se poate deschide acest atașament.",
     "Info_AttachmentOpenFailedTitle": "Eșuat",

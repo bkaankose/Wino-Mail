@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "修正",
     "Info_AccountAttentionRequiredActionHint": "このアカウントの問題を解決するには、修正をクリックしてください。",
     "Info_AccountIssueFixSuccessMessage": "すべてのアカウントの問題を修正しました。",
+    "Info_AccountIssueFixAppliedMessage": "アカウントの問題に対処しました。Wino はこのアカウントを再度同期しています。",
     "Info_AccountIssueFixSuccessTitle": "成功",
     "Info_AttachmentOpenFailedMessage": "この添付ファイルを開くことができません。",
     "Info_AttachmentOpenFailedTitle": "失敗",

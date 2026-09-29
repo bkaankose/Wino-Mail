@@ -210,6 +210,60 @@ public sealed class WinoSynchronizerMailRequestTests
     }
 
     [Fact]
+    public async Task Contact_and_task_sync_do_not_wait_for_an_active_mail_sync()
+    {
+        // A restored account starts a long FullFolders download. Contacts and To Do must finish
+        // while it is still running instead of queuing behind the mail gate.
+        var synchronizer = new TestMailSynchronizer { BlockMailSync = true };
+        var mail = synchronizer.SynchronizeMailsAsync(new() { AccountId = synchronizer.Account.Id, Type = MailSynchronizationType.FullFolders });
+        await synchronizer.MailSyncStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        var contacts = await synchronizer
+            .SynchronizeContactsAsync(new() { AccountId = synchronizer.Account.Id, Type = ContactSynchronizationType.Delta })
+            .WaitAsync(TimeSpan.FromSeconds(5));
+        var tasks = await synchronizer
+            .SynchronizeTasksAsync(new() { AccountId = synchronizer.Account.Id, Type = TaskSynchronizationType.Delta })
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        contacts.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+        tasks.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+        synchronizer.ContactSyncInvocationCount.Should().Be(1);
+        synchronizer.TaskSyncInvocationCount.Should().Be(1);
+        mail.IsCompleted.Should().BeFalse();
+
+        // The shared state still reports the running mail sync; contacts and tasks leave it alone.
+        synchronizer.State.Should().Be(AccountSynchronizerState.Synchronizing);
+
+        synchronizer.ReleaseMailSync.TrySetResult();
+        var mailResult = await mail.WaitAsync(TimeSpan.FromSeconds(5));
+        mailResult.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+        synchronizer.State.Should().Be(AccountSynchronizerState.Idle);
+    }
+
+    [Fact]
+    public async Task Concurrent_mode_syncs_keep_their_captured_issues_separate()
+    {
+        var mailIssue = new SynchronizationIssue { Message = "Inbox failed", OperationType = "MailSync" };
+        var synchronizer = new TestMailSynchronizer { BlockMailSync = true, MailIssueToCapture = mailIssue };
+        var mail = synchronizer.SynchronizeMailsAsync(new() { AccountId = synchronizer.Account.Id, Type = MailSynchronizationType.FullFolders });
+        await synchronizer.MailSyncStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+        // Starting a contact sync resets its own issue list only; it must neither report the
+        // mail issue nor wipe it from the mail result.
+        var contacts = await synchronizer
+            .SynchronizeContactsAsync(new() { AccountId = synchronizer.Account.Id, Type = ContactSynchronizationType.Delta })
+            .WaitAsync(TimeSpan.FromSeconds(5));
+
+        contacts.Issues.Should().BeEmpty();
+        contacts.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+
+        synchronizer.ReleaseMailSync.TrySetResult();
+        var mailResult = await mail.WaitAsync(TimeSpan.FromSeconds(5));
+
+        mailResult.Issues.Should().ContainSingle(issue => issue.Message == "Inbox failed");
+    }
+
+    [Fact]
     public async Task IgnoredIdleAndCanceledWaiterDoNotReleaseAnotherRequestsSemaphore()
     {
         var synchronizer = new TestMailSynchronizer { BlockMailSync = true };
@@ -290,6 +344,8 @@ public sealed class WinoSynchronizerMailRequestTests
         public int LastNativeRequestCount { get; private set; }
         public int ContactRequestInvocationCount { get; private set; }
         public int ContactSyncInvocationCount { get; private set; }
+        public int TaskSyncInvocationCount { get; private set; }
+        public SynchronizationIssue? MailIssueToCapture { get; set; }
         public bool BlockMailSync { get; set; }
         public bool SerializeRequests { get; set; }
         protected override bool SerializeMailOperations => SerializeRequests;
@@ -322,6 +378,14 @@ public sealed class WinoSynchronizerMailRequestTests
         {
             ContactSyncInvocationCount++;
             return Task.FromResult(ContactSynchronizationResult.Empty);
+        }
+
+        protected override Task<TaskSynchronizationResult> SynchronizeTasksInternalAsync(
+            TaskSynchronizationOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            TaskSyncInvocationCount++;
+            return Task.FromResult(TaskSynchronizationResult.Empty);
         }
 
         public override List<IRequestBundle<object>> CreateRootFolder(CreateRootFolderRequest request)
@@ -363,6 +427,8 @@ public sealed class WinoSynchronizerMailRequestTests
             CancellationToken cancellationToken = default)
         {
             MailSyncInvocationCount++;
+            if (MailIssueToCapture != null)
+                CaptureSynchronizationIssue(MailIssueToCapture);
             if (BlockMailSync)
             {
                 BlockMailSync = false;

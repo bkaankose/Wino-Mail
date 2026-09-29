@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Düzelt",
     "Info_AccountAttentionRequiredActionHint": "Bu hesap sorununu çözmek için Düzelt'e tıklayın.",
     "Info_AccountIssueFixSuccessMessage": "Bütün hesap sorunları giderildi.",
+    "Info_AccountIssueFixAppliedMessage": "Hesap sorunu giderildi. Wino bu hesabı yeniden eşitliyor.",
     "Info_AccountIssueFixSuccessTitle": "Başarılı",
     "Info_AttachmentOpenFailedMessage": "Bu eklenti açılamıyor.",
     "Info_AttachmentOpenFailedTitle": "Başarısız",

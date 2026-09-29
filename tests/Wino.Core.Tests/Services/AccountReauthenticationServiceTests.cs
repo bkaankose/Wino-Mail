@@ -308,6 +308,54 @@ public sealed class AccountReauthenticationServiceTests
     }
 
     [Fact]
+    public async Task SynchronizeAfterReauthenticationAsync_QueuesNonMailModesBeforeMailSetupSteps()
+    {
+        var account = CreateRestoredAccount(MailProviderType.Gmail);
+        account.AttentionReason = AccountAttentionReason.None;
+        account.IsCalendarAccessEnabled = true;
+        account.IsCalendarAccessGranted = true;
+        account.CalendarIntegrationSource = AccountIntegrationSource.Provider;
+        account.IsContactAccessEnabled = true;
+        account.IsContactAccessGranted = true;
+        account.ContactIntegrationSource = AccountIntegrationSource.Provider;
+        account.IsTaskAccessEnabled = true;
+        account.IsTaskAccessGranted = true;
+        account.TaskIntegrationSource = AccountIntegrationSource.Provider;
+        var accountService = CreateAccountService(account);
+        accountService
+            .Setup(service => service.GetAccountAliasesAsync(account.Id))
+            .ReturnsAsync(new List<MailAccountAlias> { new() { AccountId = account.Id, IsRootAlias = true } });
+        var messenger = new WeakReferenceMessenger();
+        var recorder = new SynchronizationRequestRecorder(messenger);
+        var queuedBeforeFolderSync = (Calendar: 0, Contacts: 0, Tasks: 0, Mail: -1);
+        var synchronizationManager = new Mock<ISynchronizationManager>();
+        synchronizationManager
+            .Setup(manager => manager.SynchronizeProfileAsync(account.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MailSynchronizationResult.Empty);
+        synchronizationManager
+            .Setup(manager => manager.SynchronizeFoldersAsync(account.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => queuedBeforeFolderSync = (recorder.Calendar.Count, recorder.Contacts.Count, recorder.Tasks.Count, recorder.Mail.Count))
+            .ReturnsAsync(MailSynchronizationResult.Empty);
+        synchronizationManager
+            .Setup(manager => manager.SynchronizeCategoriesAsync(account.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MailSynchronizationResult.Empty);
+        synchronizationManager
+            .Setup(manager => manager.SynchronizeAliasesAsync(account.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MailSynchronizationResult.Empty);
+        var service = CreateService(accountService, CreateFeatureService(account.Id), synchronizationManager, messenger);
+
+        await service.SynchronizeAfterReauthenticationAsync(account.Id);
+
+        // Calendar, contacts and To Do are already requested while the mail setup is still running;
+        // the full mail download is requested only after folders exist.
+        Assert.Equal((1, 1, 1, 0), queuedBeforeFolderSync);
+        Assert.Equal(MailSynchronizationType.FullFolders, Assert.Single(recorder.Mail).Options.Type);
+        Assert.Single(recorder.Calendar);
+        Assert.Single(recorder.Contacts);
+        Assert.Equal(TaskSynchronizationType.Delta, Assert.Single(recorder.Tasks).Options.Type);
+    }
+
+    [Fact]
     public async Task SynchronizeAfterReauthenticationAsync_ContinuesWhenProfileStepFails()
     {
         var account = CreateRestoredAccount(MailProviderType.Gmail);

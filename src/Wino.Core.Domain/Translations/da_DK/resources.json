@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Fiks",
     "Info_AccountAttentionRequiredActionHint": "Klik på Fiks for at løse dette kontoproblem.",
     "Info_AccountIssueFixSuccessMessage": "Alle kontoproblemer er løst.",
+    "Info_AccountIssueFixAppliedMessage": "Problemet med kontoen er blevet løst. Wino synkroniserer denne konto igen.",
     "Info_AccountIssueFixSuccessTitle": "Succes",
     "Info_AttachmentOpenFailedMessage": "Kan ikke åbne denne vedhæftede fil.",
     "Info_AttachmentOpenFailedTitle": "Fejl",

@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Ištaisyti",
     "Info_AccountAttentionRequiredActionHint": "Spustelėkite Ištaisyti, kad išspręstumėte šią paskyros problemą.",
     "Info_AccountIssueFixSuccessMessage": "Visos paskyros problemos buvo išspręstos.",
+    "Info_AccountIssueFixAppliedMessage": "Paskyros problema išspręsta. „Wino“ vėl sinchronizuoja šią paskyrą.",
     "Info_AccountIssueFixSuccessTitle": "Sėkmė",
     "Info_AttachmentOpenFailedMessage": "Nepavyko atidaryti šio priedo.",
     "Info_AttachmentOpenFailedTitle": "Nepavyko",

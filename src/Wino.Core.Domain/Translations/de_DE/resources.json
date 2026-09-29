@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Beheben",
     "Info_AccountAttentionRequiredActionHint": "Klicken Sie Beheben, um dieses Kontoproblem zu lösen.",
     "Info_AccountIssueFixSuccessMessage": "Alle Konto-Probleme wurden behoben.",
+    "Info_AccountIssueFixAppliedMessage": "Das Konto-Problem wurde behoben. Wino synchronisiert dieses Konto erneut.",
     "Info_AccountIssueFixSuccessTitle": "Erfolg",
     "Info_AttachmentOpenFailedMessage": "Anhang kann nicht geöffnet werden.",
     "Info_AttachmentOpenFailedTitle": "Fehlschlagen",

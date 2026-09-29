@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "修复",
     "Info_AccountAttentionRequiredActionHint": "点击修复以解决此账户问题。",
     "Info_AccountIssueFixSuccessMessage": "已修复所有账户问题。",
+    "Info_AccountIssueFixAppliedMessage": "账户问题已解决。Wino 正在重新同步此账户。",
     "Info_AccountIssueFixSuccessTitle": "成功",
     "Info_AttachmentOpenFailedMessage": "无法打开此附件。",
     "Info_AttachmentOpenFailedTitle": "失败",

@@ -844,6 +844,7 @@
     "Info_AccountAttentionRequiredAction": "Korjaa",
     "Info_AccountAttentionRequiredActionHint": "Napsauta Korjaa ratkaistaksesi tämän tilin ongelman.",
     "Info_AccountIssueFixSuccessMessage": "Kaikki tiliongelmat korjattu.",
+    "Info_AccountIssueFixAppliedMessage": "Tiliongelma on korjattu. Wino synkronoi tämän tilin uudelleen.",
     "Info_AccountIssueFixSuccessTitle": "Onnistui",
     "Info_AttachmentOpenFailedMessage": "Tätä liitettä ei voi avata.",
     "Info_AttachmentOpenFailedTitle": "Epäonnistui",

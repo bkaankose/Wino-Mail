@@ -844,6 +844,7 @@
   "Info_AccountAttentionRequiredAction": "Fix",
   "Info_AccountAttentionRequiredActionHint": "Click Fix to resolve this account issue.",
   "Info_AccountIssueFixSuccessMessage": "Fixed all account issues.",
+  "Info_AccountIssueFixAppliedMessage": "The account issue was addressed. Wino is synchronizing this account again.",
   "Info_AccountIssueFixSuccessTitle": "Success",
   "Info_AttachmentOpenFailedMessage": "Can't open this attachment.",
   "Info_AttachmentOpenFailedTitle": "Failed",

@@ -120,6 +120,44 @@ public partial class App : WinoApplication,
         return true;
     }
 
+    /// <summary>
+    /// Closing the welcome window before onboarding completes ends the application: without an
+    /// account there is nothing to run in the background. Returns true when the caller must cancel
+    /// the close so the window keeps the XAML dispatcher alive until the exit sequence completes.
+    /// </summary>
+    internal bool TryExitApplicationOnWelcomeWindowClose(WelcomeWindow welcomeWindow)
+    {
+        if (_isExiting)
+            return false;
+
+        // A shell window owns the application lifetime. Closing the welcome window then only closes it.
+        if (HasShellWindow())
+            return false;
+
+        LogActivation("Welcome window closed before onboarding completed. Exiting the application.");
+
+        void HideAndExit()
+        {
+            try
+            {
+                // The window stays alive as the XAML lifetime owner until Application.Exit runs.
+                welcomeWindow.AppWindow.Hide();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to hide the welcome window before exiting.");
+            }
+
+            ExitApplication();
+        }
+
+        // Run the exit outside the AppWindow.Closing callback.
+        if (_applicationDispatcherQueue?.TryEnqueue(HideAndExit) != true)
+            HideAndExit();
+
+        return true;
+    }
+
     internal bool TryPrepareForBackgroundShellWindowClose(AppCloseBehavior closeBehavior)
     {
         var isBackgroundBehavior = closeBehavior is AppCloseBehavior.RunInBackgroundWithTrayIcon
@@ -570,15 +608,52 @@ public partial class App : WinoApplication,
         }
         finally
         {
+            // Every step before Application.Exit is bounded and guarded. A failure here must not
+            // leave an exiting process alive without a window, which swallows every relaunch.
             if (_companionIntegration != null)
             {
                 var companion = _companionIntegration;
                 _companionIntegration = null;
-                await companion.ShutdownAsync();
+
+                try
+                {
+                    await companion.ShutdownAsync().WaitAsync(TimeSpan.FromSeconds(3));
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Tray companion shutdown did not complete during application exit.");
+                }
             }
-            ReleaseBackgroundLifetimeWindow();
+
+            try
+            {
+                ReleaseBackgroundLifetimeWindow();
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Failed to release the background lifetime window during application exit.");
+            }
+
+            LogActivation("Exiting application.");
+            ScheduleForcedProcessExit();
             Application.Current.Exit();
         }
+    }
+
+    /// <summary>
+    /// Application.Exit ends the XAML loop, but the process can still outlive it. A lingering
+    /// process keeps the single-instance key, so later launches redirect to it and show nothing.
+    /// </summary>
+    private static void ScheduleForcedProcessExit()
+    {
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+
+            Log.Warning("The process is still running 5 seconds after Application.Exit. Forcing process exit.");
+            Log.CloseAndFlush();
+            Environment.Exit(0);
+        });
     }
 
     internal async void ExitApplication() => await ExitApplicationAsync();
@@ -1972,41 +2047,48 @@ public partial class App : WinoApplication,
 
     private async Task SynchronizeCreatedAccountAsync(Wino.Core.Domain.Entities.Shared.MailAccount account)
     {
+        // Start every granted mode at once. Each handler hops to the thread pool, and each mode
+        // has its own per-account gate, so contacts and To Do never wait for the initial mail
+        // download. The caller still waits until all of them finish.
+        var synchronizations = new List<Task>(4);
+
         if (account.IsMailAccessGranted)
         {
-            await HandleMailSynchronizationRequestedAsync(new NewMailSynchronizationRequested(new MailSynchronizationOptions
+            synchronizations.Add(HandleMailSynchronizationRequestedAsync(new NewMailSynchronizationRequested(new MailSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = MailSynchronizationType.FullFolders
-            })).ConfigureAwait(false);
+            })));
         }
 
         if (account.IsCalendarAccessGranted)
         {
-            await HandleCalendarSynchronizationRequestedAsync(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
+            synchronizations.Add(HandleCalendarSynchronizationRequestedAsync(new NewCalendarSynchronizationRequested(new CalendarSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = CalendarSynchronizationType.CalendarEvents
-            })).ConfigureAwait(false);
+            })));
         }
 
         if (account.IsContactAccessGranted)
         {
-            await HandleContactSynchronizationRequestedAsync(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
+            synchronizations.Add(HandleContactSynchronizationRequestedAsync(new NewContactSynchronizationRequested(new ContactSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = ContactSynchronizationType.Delta
-            })).ConfigureAwait(false);
+            })));
         }
 
         if (account.IsTaskAccessGranted && !account.IsTaskReauthorizationRequired)
         {
-            await HandleTaskSynchronizationRequestedAsync(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
+            synchronizations.Add(HandleTaskSynchronizationRequestedAsync(new NewTaskSynchronizationRequested(new TaskSynchronizationOptions
             {
                 AccountId = account.Id,
                 Type = TaskSynchronizationType.Delta
-            })).ConfigureAwait(false);
+            })));
         }
+
+        await Task.WhenAll(synchronizations).ConfigureAwait(false);
     }
 
     private void EnsureAutoSynchronizationLoops()
@@ -2580,6 +2662,13 @@ public partial class App : WinoApplication,
     /// </summary>
     public async void HandleRedirectedActivation(AppActivationArguments args)
     {
+        if (_isExiting)
+        {
+            // Do not re-show a window that the exit sequence is closing.
+            LogActivation("Ignoring redirected activation because the application is exiting.");
+            return;
+        }
+
         try
         {
             var route = _activationHandler.ResolveRedirectedActivationRoute(args);
@@ -2602,7 +2691,7 @@ public partial class App : WinoApplication,
 
     internal void TryActivateExistingWindowForRedirectedActivation(AppActivationArguments args)
     {
-        if (!Program.ShouldBringWindowToForegroundAfterRedirection(args))
+        if (_isExiting || !Program.ShouldBringWindowToForegroundAfterRedirection(args))
         {
             return;
         }
