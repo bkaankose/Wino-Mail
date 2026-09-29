@@ -155,6 +155,10 @@ public sealed partial class MailListPage : MailListPageAbstract,
     private void MailListPageLoaded(object sender, RoutedEventArgs e)
     {
         MailGroupNavigator.ItemsSource = MailCollectionViewSource.View?.CollectionGroups;
+
+        // GoToState is a no-op until the page is in the live tree. A protocol launch from a toast
+        // navigates and selects the mail before the window shows the page, so apply the layout again.
+        UpdateAdaptiveness();
     }
 
     public override void PrepareForClose()
