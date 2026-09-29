@@ -94,7 +94,6 @@ public sealed class AccountCapabilityService : IAccountCapabilityService
                 await _synchronizationManager.HandleAuthorizationAsync(
                     account.ProviderType,
                     account,
-                    account.ProviderType == MailProviderType.Gmail,
                     forceInteractive: true).ConfigureAwait(false);
 
                 if (includeTasks && account.ProviderType == MailProviderType.Outlook &&

@@ -49,6 +49,7 @@ internal static class ConsoleServices
         services.AddSingleton<IMicrosoftStoreService, ConsoleMicrosoftStoreService>();
         services.AddSingleton<IUserPresenceStateProvider, ConsoleUserPresenceStateProvider>();
         services.AddSingleton<IAuthenticatorConfig, MailAuthenticatorConfiguration>();
+        services.AddSingleton<IExternalBrowserAuthenticationPresenter, ConsoleExternalBrowserAuthenticationPresenter>();
 
         // The shared registration builds its own HttpClient against the compiled-in URL. The
         // console picks the target at startup, so the client is rebuilt around that address.

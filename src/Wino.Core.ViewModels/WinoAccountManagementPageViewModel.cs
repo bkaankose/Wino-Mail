@@ -429,7 +429,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     {
         base.OnNavigatedTo(mode, parameters);
         var forceProfileRefresh = parameters is WinoAccountManagementActivationReason.CheckoutCompleted;
-        _ = LoadAsync(forceProfileRefresh, checkoutCompleted: forceProfileRefresh);
+        _ = LoadAsync(forceProfileRefresh: true, checkoutCompleted: forceProfileRefresh);
     }
 
     [RelayCommand]
@@ -859,10 +859,10 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
     }
 
     public void Receive(WinoAccountProfileUpdatedMessage message)
-        => _ = LoadAsync(waitForLoad: true);
+        => _ = LoadAsync(forceProfileRefresh: false, waitForLoad: true);
 
     public void Receive(WinoAccountProfileDeletedMessage message)
-        => _ = LoadAsync(waitForLoad: true);
+        => _ = LoadAsync(forceProfileRefresh: false, waitForLoad: true);
 
     public void Receive(WinoIntelligenceAccessChanged message)
         => _ = ApplyCachedAccessChangeAsync();
@@ -888,7 +888,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         catch (Exception) { /* Explicit refresh owns the recoverable error UI. */ }
     }
 
-    private async Task LoadAsync(bool forceProfileRefresh = false, bool checkoutCompleted = false, bool waitForLoad = false)
+    private async Task LoadAsync(bool forceProfileRefresh = true, bool checkoutCompleted = false, bool waitForLoad = false)
     {
         if (forceProfileRefresh || waitForLoad)
             await _loadLock.WaitAsync().ConfigureAwait(false);
@@ -1165,7 +1165,17 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         {
             IsSignedIn = account != null;
             AccountEmail = account?.Email ?? string.Empty;
+            ApplyProfileEditor(account, session);
         });
+        if (account is not null)
+        {
+            var avatarPath = await _profileService.GetAvatarPathAsync(account.Id, account.AvatarRevision).ConfigureAwait(false);
+            await ApplySessionUIAsync(session, () =>
+            {
+                if (_profileAccountId == account.Id && _avatarRevision == account.AvatarRevision)
+                    AccountAvatarPath = avatarPath;
+            });
+        }
     }
 
     private Task ApplySessionUIAsync(WinoAccountSession? session, Action action)
@@ -1180,6 +1190,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
             IsSignedIn = false;
             PurchaseStatusMessage = string.Empty;
             AccountEmail = string.Empty;
+            ApplyProfileEditor(null);
             IsCheckoutInProgress = false;
             _storeRedeemCandidate = null;
             ShowStoreRedeemCard = false;

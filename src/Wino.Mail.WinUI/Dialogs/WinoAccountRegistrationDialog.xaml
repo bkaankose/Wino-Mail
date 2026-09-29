@@ -59,6 +59,12 @@
                     PlaceholderText="{x:Bind domain:Translator.WinoAccount_EmailPlaceholder, Mode=OneTime}"
                     TextChanging="InputChanged" />
 
+                <TextBox
+                    x:Name="DisplayNameTextBox"
+                    AutomationProperties.AutomationId="WinoRegistrationDisplayName"
+                    Header="{x:Bind domain:Translator.WinoAccount_Profile_NameOptional, Mode=OneTime}"
+                    MaxLength="256" />
+
                 <PasswordBox
                     x:Name="PasswordBox"
                     AutomationProperties.AutomationId="PasswordBox"

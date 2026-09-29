@@ -16,6 +16,19 @@ namespace Wino.Core.Domain.Interfaces;
 
 public interface IWinoAccountProfileService
 {
+    Task<WinoAccountOperationResult> RegisterWithProfileAsync(string email, string password, string? displayName, CancellationToken cancellationToken = default)
+        => RegisterAsync(email, password, cancellationToken);
+    Task<ApiEnvelope<AuthUserDto>> UpdateProfileAsync(string? displayName, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+    Task<ApiEnvelope<AuthUserDto>> UploadAvatarAsync(byte[] payload, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+    Task<ApiEnvelope<AuthUserDto>> DeleteAvatarAsync(CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+    Task<byte[]> PrepareAvatarAsync(byte[] payload, CancellationToken cancellationToken = default)
+        => throw new NotSupportedException();
+    Task<string?> GetAvatarPathAsync(Guid accountId, Guid? revision, CancellationToken cancellationToken = default)
+        => Task.FromResult<string?>(null);
+
     Task<WinoAccountOperationResult> RegisterAsync(string email, string password, CancellationToken cancellationToken = default);
     Task<WinoAccountOperationResult> LoginAsync(string email, string password, CancellationToken cancellationToken = default);
     Task<WinoAccountOperationResult> RefreshAsync(CancellationToken cancellationToken = default);

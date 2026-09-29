@@ -32,8 +32,6 @@ public sealed class MigrationAccountAuthorizationService(
             ? new[] { ProviderFeature.MailFilters }
             : Array.Empty<ProviderFeature>();
         var authenticator = authenticationProvider.GetAuthenticator(account.ProviderType);
-        if (authenticator is IGmailAuthenticator gmailAuthenticator)
-            gmailAuthenticator.ProposeCopyAuthURL = true;
 
         var token = await authenticator
             .GenerateTokenInformationAsync(account, requestedFeatures)

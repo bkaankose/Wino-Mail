@@ -5,17 +5,19 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Interfaces;
-using Wino.Messaging.UI;
 
 namespace Wino.Authentication;
 
-internal sealed class WinoGmailCodeReceiver(INativeAppService nativeAppService, string applicationDisplayName)
+internal sealed class WinoGmailCodeReceiver(
+    INativeAppService nativeAppService,
+    IExternalBrowserAuthenticationPresenter? authenticationPresenter,
+    string applicationDisplayName)
 {
+    private const string ProviderDisplayName = "Google";
+
     public async Task<GoogleAuthorizationCode> ReceiveCodeAsync(
         Func<Uri, string, Uri> authorizationUriFactory,
-        bool proposeCopyAuthorizationUrl,
         CancellationToken cancellationToken)
     {
         using var listener = StartListener(out var redirectUri);
@@ -23,40 +25,72 @@ internal sealed class WinoGmailCodeReceiver(INativeAppService nativeAppService, 
         var codeVerifier = Base64UrlEncode(RandomNumberGenerator.GetBytes(48));
         var authorizationUri = AppendPkceParameters(authorizationUriFactory(redirectUri, state), codeVerifier);
 
-        if (proposeCopyAuthorizationUrl)
+        // The in-app session lets the user cancel the wait or copy the address when the
+        // browser never shows up. It is closed as soon as the redirect arrives or the flow fails.
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var session = authenticationPresenter is null
+            ? null
+            : await authenticationPresenter.ShowAsync(
+                new ExternalBrowserAuthenticationRequest(ProviderDisplayName, authorizationUri),
+                () => RequestCancellation(cancellation)).ConfigureAwait(false);
+
+        try
         {
-            WeakReferenceMessenger.Default.Send(new CopyAuthURLRequested(authorizationUri.AbsoluteUri));
-        }
+            if (!await nativeAppService.LaunchUriAsync(authorizationUri).ConfigureAwait(false))
+            {
+                if (session is null)
+                    throw new InvalidOperationException("The default browser could not be opened for Google authorization.");
 
-        if (!await nativeAppService.LaunchUriAsync(authorizationUri).ConfigureAwait(false))
+                // Keep waiting: the user can still copy the address into a browser by hand.
+                await session.NotifyBrowserLaunchFailedAsync().ConfigureAwait(false);
+            }
+
+            var context = await listener.GetContextAsync().WaitAsync(cancellation.Token).ConfigureAwait(false);
+            var query = context.Request.QueryString;
+
+            // The browser owns the foreground now; ask the app to come back before the result is read.
+            if (session is not null)
+                await session.NotifyRedirectReceivedAsync().ConfigureAwait(false);
+
+            if (!string.Equals(query["state"], state, StringComparison.Ordinal))
+            {
+                await WriteBrowserResponseAsync(context.Response, "invalid_state").ConfigureAwait(false);
+                throw new InvalidOperationException("Google authorization returned an invalid state value.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(query["error"]))
+            {
+                await WriteBrowserResponseAsync(context.Response, query["error"]).ConfigureAwait(false);
+                throw new InvalidOperationException($"Google authorization failed: {query["error"]}");
+            }
+
+            var code = query["code"];
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                await WriteBrowserResponseAsync(context.Response, "invalid_code").ConfigureAwait(false);
+                throw new InvalidOperationException("Google authorization returned no authorization code.");
+            }
+
+            await WriteBrowserResponseAsync(context.Response, null).ConfigureAwait(false);
+            return new GoogleAuthorizationCode(code, redirectUri, codeVerifier);
+        }
+        finally
         {
-            throw new InvalidOperationException("The default browser could not be opened for Google authorization.");
+            if (session is not null)
+                await session.DisposeAsync().ConfigureAwait(false);
         }
+    }
 
-        var context = await listener.GetContextAsync().WaitAsync(cancellationToken).ConfigureAwait(false);
-        var query = context.Request.QueryString;
-
-        if (!string.Equals(query["state"], state, StringComparison.Ordinal))
+    private static void RequestCancellation(CancellationTokenSource cancellation)
+    {
+        try
         {
-            await WriteBrowserResponseAsync(context.Response, "invalid_state").ConfigureAwait(false);
-            throw new InvalidOperationException("Google authorization returned an invalid state value.");
+            cancellation.Cancel();
         }
-
-        if (!string.IsNullOrWhiteSpace(query["error"]))
+        catch (ObjectDisposedException)
         {
-            await WriteBrowserResponseAsync(context.Response, query["error"]).ConfigureAwait(false);
-            throw new InvalidOperationException($"Google authorization failed: {query["error"]}");
+            // The redirect already completed the flow; nothing left to cancel.
         }
-
-        var code = query["code"];
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            await WriteBrowserResponseAsync(context.Response, "invalid_code").ConfigureAwait(false);
-            throw new InvalidOperationException("Google authorization returned no authorization code.");
-        }
-
-        await WriteBrowserResponseAsync(context.Response, null).ConfigureAwait(false);
-        return new GoogleAuthorizationCode(code, redirectUri, codeVerifier);
     }
 
     private static Uri AppendPkceParameters(Uri authorizationUri, string codeVerifier)
@@ -68,13 +102,10 @@ internal sealed class WinoGmailCodeReceiver(INativeAppService nativeAppService, 
 
     private async Task WriteBrowserResponseAsync(HttpListenerResponse response, string? error)
     {
-        var name = WebUtility.HtmlEncode(applicationDisplayName);
-        var message = string.IsNullOrWhiteSpace(error)
-            ? $"Authorization complete. You can return to {name}."
-            : $"Authorization failed. You can return to {name}.";
-        var bytes = Encoding.UTF8.GetBytes($"<!doctype html><meta charset=\"utf-8\"><title>{name}</title><p>{message}</p>");
+        var bytes = Encoding.UTF8.GetBytes(AuthorizationResultPage.Render(applicationDisplayName, error));
         response.ContentType = "text/html; charset=utf-8";
         response.ContentLength64 = bytes.Length;
+        response.Headers["Cache-Control"] = "no-store";
         await response.OutputStream.WriteAsync(bytes).ConfigureAwait(false);
         response.Close();
     }

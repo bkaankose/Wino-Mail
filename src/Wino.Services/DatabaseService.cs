@@ -199,6 +199,7 @@ VALUES
     {
         await EnsureKeyboardShortcutSchemaAsync().ConfigureAwait(false);
         await EnsureWinoAccountSchemaAsync().ConfigureAwait(false);
+        await Connection.ExecuteAsync("UPDATE WinoAccount SET DisplayName = Email WHERE DisplayName IS NULL OR DisplayName = ''").ConfigureAwait(false);
 
         if (_countedFolderSeedRequired)
         {

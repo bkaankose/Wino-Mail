@@ -90,7 +90,8 @@ public sealed class AuthenticationTokenMigrationServiceTests
 
             var authenticator = new GmailAuthenticator(
                 new MailAuthenticatorConfiguration(configuration),
-                Mock.Of<INativeAppService>());
+                Mock.Of<INativeAppService>(),
+                authenticationPresenter: null);
             var tokenInformation = await authenticator.GetTokenInformationAsync(new MailAccount
             {
                 Id = gmailAccountId,

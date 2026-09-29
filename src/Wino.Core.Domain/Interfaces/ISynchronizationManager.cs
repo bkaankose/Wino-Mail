@@ -150,7 +150,6 @@ public interface ISynchronizationManager
     /// </summary>
     Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType,
                                                      MailAccount account = null,
-                                                     bool proposeCopyAuthorizationURL = false,
                                                      bool forceInteractive = false,
                                                      IReadOnlyCollection<ProviderFeature> requestedFeatures = null);
 }

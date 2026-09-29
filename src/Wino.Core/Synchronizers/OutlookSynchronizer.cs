@@ -140,6 +140,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
     private readonly SemaphoreSlim _handleItemRetrievalSemaphore = new(1);
     private readonly SemaphoreSlim _handleCalendarEventRetrievalSemaphore = new(1);
+    private readonly SemaphoreSlim _calendarMetadataSynchronizationSemaphore = new(1, 1);
 
     private readonly ILogger _logger = Log.ForContext<OutlookSynchronizer>();
     private readonly IOutlookChangeProcessor _outlookChangeProcessor;
@@ -2216,6 +2217,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
                         if (message != null)
                         {
+                            if (Account.IsCalendarAccessGranted && message is EventMessage)
+                                message = await FetchEventMessageAsync(message.Id, cancellationToken).ConfigureAwait(false);
+
                             var itemType = Account.IsCalendarAccessGranted ? message.GetMailItemType() : MailItemType.Mail;
 
                             if (ShouldDownloadMimeForMessage(message, folder, itemType))
@@ -2697,11 +2701,6 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     {
         try
         {
-            var requestInfo = _graphClient.Me.Messages[messageId].ToGetRequestInformation((config) =>
-            {
-                config.QueryParameters.Select = outlookMessageSelectParameters.Concat(["MeetingMessageType"]).ToArray();
-            });
-
             var eventMessage = await _graphClient.Me.Messages[messageId].GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
 
             var odataType = eventMessage?.AdditionalData?.ContainsKey("@odata.type") == true
@@ -4584,6 +4583,9 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
     private async Task TryMapCalendarInvitationAsync(MailCopy mailCopy, MimeMessage mimeMessage, CancellationToken cancellationToken)
     {
+        if (!Account.IsCalendarAccessGranted || Account.CalendarIntegrationSource != AccountIntegrationSource.Provider)
+            return;
+
         if (mailCopy.ItemType != MailItemType.CalendarInvitation || mimeMessage == null)
             return;
 
@@ -4591,13 +4593,34 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         if (string.IsNullOrWhiteSpace(invitationUid))
             return;
 
-        var calendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
-        if (calendars == null || calendars.Count == 0)
+        List<AccountCalendar> calendars;
+        try
+        {
+            calendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+            if (calendars == null || calendars.Count == 0)
+            {
+                await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
+                calendars = await _outlookChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to load calendars for Outlook invitation mail {MailCopyId}", mailCopy.Id);
+            return;
+        }
+
+        if (calendars == null)
             return;
 
         string escapedUid = invitationUid.Replace("'", "''", StringComparison.Ordinal);
 
-        foreach (var calendar in calendars)
+        foreach (var calendar in calendars
+            .Where(c => c.IsSynchronizationEnabled && !string.IsNullOrWhiteSpace(c.RemoteCalendarId))
+            .OrderByDescending(c => c.IsPrimary))
         {
             try
             {
@@ -4628,7 +4651,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
                 var localCalendarItem = await _outlookChangeProcessor.GetCalendarItemAsync(calendar.Id, fullEvent.Id).ConfigureAwait(false);
                 if (localCalendarItem == null)
-                    return;
+                    continue;
 
                 await _outlookChangeProcessor.UpsertMailInvitationCalendarMappingAsync(new MailInvitationCalendarMapping()
                 {
@@ -4642,6 +4665,10 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 }).ConfigureAwait(false);
 
                 return;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -4839,6 +4866,20 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
     }
 
     private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)
+    {
+        // Invitation mail can discover calendars concurrently with normal calendar sync.
+        await _calendarMetadataSynchronizationSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await SynchronizeCalendarMetadataInternalAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _calendarMetadataSynchronizationSemaphore.Release();
+        }
+    }
+
+    private async Task SynchronizeCalendarMetadataInternalAsync(CancellationToken cancellationToken)
     {
         var calendars = await _graphClient.Me.Calendars.GetAsync(cancellationToken: cancellationToken).ConfigureAwait(false);
         var remotePrimaryCalendarId = await GetPrimaryCalendarIdAsync(calendars.Value, cancellationToken).ConfigureAwait(false);

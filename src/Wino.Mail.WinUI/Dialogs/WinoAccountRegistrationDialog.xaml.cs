@@ -61,7 +61,7 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
             SetBusyState(true);
             HideError();
 
-            var result = await _profileService.RegisterAsync(EmailTextBox.Text.Trim(), PasswordBox.Password);
+            var result = await _profileService.RegisterWithProfileAsync(EmailTextBox.Text.Trim(), PasswordBox.Password, DisplayNameTextBox.Text.Trim());
 
             if (!result.IsSuccess || result.Account == null)
             {
@@ -136,6 +136,7 @@ public sealed partial class WinoAccountRegistrationDialog : ContentDialog
 
     private void SetBusyState(bool isBusy)
     {
+        DisplayNameTextBox.IsEnabled = !isBusy;
         IsPrimaryButtonEnabled = !isBusy;
         IsSecondaryButtonEnabled = !isBusy;
         BusyRing.IsActive = isBusy;

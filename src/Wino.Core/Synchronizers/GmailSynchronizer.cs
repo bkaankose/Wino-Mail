@@ -106,6 +106,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
     private readonly GmailService _gmailService;
     private readonly GmailService _gmailFilterService;
     private readonly GoogleCalendarService _calendarService;
+    private readonly SemaphoreSlim _calendarMetadataSynchronizationSemaphore = new(1, 1);
     private readonly DriveService _driveService;
     private readonly PeopleServiceService _peopleService;
     private readonly IContactService _contactService;
@@ -1846,6 +1847,20 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
     private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)
     {
+        // Invitation mail can discover calendars concurrently with normal calendar sync.
+        await _calendarMetadataSynchronizationSemaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await SynchronizeCalendarMetadataInternalAsync(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            _calendarMetadataSynchronizationSemaphore.Release();
+        }
+    }
+
+    private async Task SynchronizeCalendarMetadataInternalAsync(CancellationToken cancellationToken)
+    {
         var calendarListRequest = _calendarService.CalendarList.List();
         var calendarListResponse = await calendarListRequest.ExecuteAsync(cancellationToken).ConfigureAwait(false);
 
@@ -2158,18 +2173,24 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
     /// <summary>
     /// Returns a single get request to retrieve the message with the given id.
-    /// Always uses Metadata format to download only headers and labels - NOT raw MIME content.
-    /// MIME content is only downloaded when explicitly needed via DownloadMissingMimeMessageAsync.
+    /// Includes MIME part headers when calendar access is enabled so nested invitations are detected.
     /// </summary>
     /// <param name="messageId">Message to download.</param>
-    /// <returns>Get request for message with Metadata format.</returns>
+    /// <returns>Get request for message metadata and, when needed, MIME structure.</returns>
     private UsersResource.MessagesResource.GetRequest CreateSingleMessageGet(string messageId)
     {
         var singleRequest = _gmailService.Users.Messages.Get("me", messageId);
 
-        // Always use Metadata format for synchronization - this populates Payload.Headers
-        // but does NOT download the raw MIME content, saving significant bandwidth and time
+        // Headers alone are sufficient when provider calendar integration is disabled.
         singleRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Metadata;
+
+        if (Account.IsCalendarAccessGranted && Account.CalendarIntegrationSource == AccountIntegrationSource.Provider)
+        {
+            singleRequest.Format = UsersResource.MessagesResource.GetRequest.FormatEnum.Full;
+            // Omit body data at the usual nesting levels. Preserve deeper parts in full
+            // so unusually nested invitations are still detectable.
+            singleRequest.Fields = "id,threadId,labelIds,snippet,historyId,internalDate,payload(mimeType,headers,filename,parts(mimeType,headers,filename,parts(mimeType,headers,filename,parts(mimeType,headers,filename,parts))))";
+        }
 
         return singleRequest;
     }
@@ -3575,7 +3596,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         var (fromName, fromAddress) = ExtractNameAndEmailFromHeader(fromHeaderValue);
 
         // Detect calendar invitation by checking Content-Type header (only if calendar access granted)
-        var itemType = Account.IsCalendarAccessGranted ? GetMailItemTypeFromHeaders(gmailMessage.Payload?.Headers) : MailItemType.Mail;
+        var itemType = Account.IsCalendarAccessGranted ? GetMailItemTypeFromPayload(gmailMessage.Payload) : MailItemType.Mail;
 
         var copy = new MailCopy()
         {
@@ -3669,38 +3690,46 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
     /// </summary>
     private static MailItemType GetMailItemTypeFromHeaders(IList<MessagePartHeader> headers)
     {
-        if (headers == null) return MailItemType.Mail;
+        var header = headers?.FirstOrDefault(h => string.Equals(h.Name, "Content-Type", StringComparison.OrdinalIgnoreCase))?.Value;
+        return !string.IsNullOrWhiteSpace(header) && ContentType.TryParse(header, out var contentType)
+            ? GetCalendarMailItemType(contentType)
+            : MailItemType.Mail;
+    }
 
-        // Check Content-Type header for text/calendar
-        var contentTypeHeader = headers.FirstOrDefault(h => h.Name.Equals("Content-Type", StringComparison.OrdinalIgnoreCase))?.Value;
+    private static MailItemType GetMailItemTypeFromPayload(GmailMessagePart part)
+    {
+        if (part == null)
+            return MailItemType.Mail;
 
-        if (!string.IsNullOrEmpty(contentTypeHeader))
+        var itemType = GetMailItemTypeFromHeaders(part.Headers);
+        if (itemType != MailItemType.Mail)
+            return itemType;
+
+        if (part.Parts != null)
         {
-            // Check if it's a calendar message (text/calendar or multipart with calendar)
-            if (contentTypeHeader.Contains("text/calendar", StringComparison.OrdinalIgnoreCase))
+            foreach (var child in part.Parts)
             {
-                // Check the METHOD parameter to determine invitation type
-                var methodMatch = System.Text.RegularExpressions.Regex.Match(contentTypeHeader, @"method=([^;\s]+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-                if (methodMatch.Success)
-                {
-                    var method = methodMatch.Groups[1].Value.Trim('"').ToUpperInvariant();
-
-                    return method switch
-                    {
-                        "REQUEST" => MailItemType.CalendarInvitation,
-                        "CANCEL" => MailItemType.CalendarCancellation,
-                        "REPLY" => MailItemType.CalendarResponse,
-                        _ => MailItemType.Mail
-                    };
-                }
-
-                // If no method specified, assume it's an invitation
-                return MailItemType.CalendarInvitation;
+                itemType = GetMailItemTypeFromPayload(child);
+                if (itemType != MailItemType.Mail)
+                    return itemType;
             }
         }
 
         return MailItemType.Mail;
+    }
+
+    private static MailItemType GetCalendarMailItemType(ContentType contentType)
+    {
+        if (contentType?.IsMimeType("text", "calendar") != true)
+            return MailItemType.Mail;
+
+        return contentType.Parameters["method"]?.Trim().ToUpperInvariant() switch
+        {
+            "REQUEST" or null or "" => MailItemType.CalendarInvitation,
+            "CANCEL" => MailItemType.CalendarCancellation,
+            "REPLY" => MailItemType.CalendarResponse,
+            _ => MailItemType.Mail
+        };
     }
 
     /// <summary>
@@ -3849,7 +3878,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
             }
         }
 
-        // Create base MailCopy from metadata only - NO MIME download
+        // Create base MailCopy from the available metadata and MIME part headers.
         var baseMailCopy = await CreateMinimalMailCopyAsync(message, assignedFolder, cancellationToken);
 
         // Initial sync metadata flow does not include MIME, but calendar invitations need MIME
@@ -3880,6 +3909,13 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         {
             // Raw responses don't include metadata headers. Backfill important fields from MIME.
             EnrichMailCopyFromMime(baseMailCopy, mimeMessage);
+
+            if (Account.IsCalendarAccessGranted)
+            {
+                baseMailCopy.ItemType = mimeMessage.BodyParts
+                    .Select(part => GetCalendarMailItemType(part.ContentType))
+                    .FirstOrDefault(type => type != MailItemType.Mail);
+            }
         }
 
         await TryMapCalendarInvitationAsync(baseMailCopy, mimeMessage, cancellationToken).ConfigureAwait(false);
@@ -3988,6 +4024,9 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
     private async Task TryMapCalendarInvitationAsync(MailCopy baseMailCopy, MimeMessage mimeMessage, CancellationToken cancellationToken)
     {
+        if (!Account.IsCalendarAccessGranted || Account.CalendarIntegrationSource != AccountIntegrationSource.Provider)
+            return;
+
         if (baseMailCopy == null || baseMailCopy.ItemType != MailItemType.CalendarInvitation || mimeMessage == null)
             return;
 
@@ -3995,11 +4034,32 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         if (string.IsNullOrWhiteSpace(invitationUid))
             return;
 
-        var calendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
-        if (calendars == null || calendars.Count == 0)
+        List<AccountCalendar> calendars;
+        try
+        {
+            calendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+            if (calendars == null || calendars.Count == 0)
+            {
+                await SynchronizeCalendarsAsync(cancellationToken).ConfigureAwait(false);
+                calendars = await _gmailChangeProcessor.GetAccountCalendarsAsync(Account.Id).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "Failed to load calendars for Gmail invitation mail {MailCopyId}", baseMailCopy.Id);
+            return;
+        }
+
+        if (calendars == null)
             return;
 
-        foreach (var calendar in calendars)
+        foreach (var calendar in calendars
+            .Where(c => c.IsSynchronizationEnabled && !string.IsNullOrWhiteSpace(c.RemoteCalendarId))
+            .OrderByDescending(c => c.IsPrimary))
         {
             try
             {
@@ -4017,7 +4077,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
                 var localCalendarItem = await _gmailChangeProcessor.GetCalendarItemAsync(calendar.Id, matchedEvent.Id).ConfigureAwait(false);
                 if (localCalendarItem == null)
-                    return;
+                    continue;
 
                 await _gmailChangeProcessor.UpsertMailInvitationCalendarMappingAsync(new MailInvitationCalendarMapping()
                 {
@@ -4031,6 +4091,10 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                 }).ConfigureAwait(false);
 
                 return;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

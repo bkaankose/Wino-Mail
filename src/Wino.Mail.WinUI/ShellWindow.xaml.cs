@@ -983,6 +983,8 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         });
     }
 
+    private int _accountPresentationVersion;
+
     private void UpdateWinoAccountState(WinoAccount? account)
     {
         var isSignedIn = account != null;
@@ -993,14 +995,46 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WinoAccountButtonPicture.Visibility = isSignedIn ? Visibility.Visible : Visibility.Collapsed;
         WinoAccountSignedOutIcon.Visibility = isSignedIn ? Visibility.Collapsed : Visibility.Visible;
 
-        var initials = GetInitials(account?.Email);
+        var displayName = string.IsNullOrWhiteSpace(account?.DisplayName) ? account?.Email : account.DisplayName;
+        var initials = GetInitials(displayName);
 
         WinoAccountButtonPicture.Initials = initials;
         WinoAccountFlyoutPicture.Initials = initials;
-        WinoAccountButtonPicture.DisplayName = account?.Email ?? Translator.WinoAccount_Titlebar_SignedOutTitle;
-        WinoAccountFlyoutPicture.DisplayName = account?.Email ?? Translator.WinoAccount_Titlebar_SignedOutTitle;
+        WinoAccountButtonPicture.DisplayName = displayName ?? Translator.WinoAccount_Titlebar_SignedOutTitle;
+        WinoAccountFlyoutPicture.DisplayName = displayName ?? Translator.WinoAccount_Titlebar_SignedOutTitle;
 
+        WinoAccountFlyoutNameText.Text = displayName ?? string.Empty;
         WinoAccountFlyoutEmailText.Text = account?.Email ?? string.Empty;
+        WinoAccountButtonPicture.ProfilePicture = null;
+        WinoAccountFlyoutPicture.ProfilePicture = null;
+        var version = ++_accountPresentationVersion;
+        if (account is not null) _ = LoadWinoAccountAvatarAsync(account, version);
+    }
+
+    private async Task LoadWinoAccountAvatarAsync(WinoAccount account, int version)
+    {
+        var path = await WinoAccountProfileService.GetAvatarPathAsync(account.Id, account.AvatarRevision);
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (version != _accountPresentationVersion) return;
+            var image = Wino.Helpers.XamlHelpers.AccountAvatarToBitmapImage(path);
+            WinoAccountButtonPicture.ProfilePicture = image;
+            WinoAccountFlyoutPicture.ProfilePicture = image;
+        });
+    }
+
+    private async void WinoAccountFlyoutOpened(object sender, object args)
+    {
+        try
+        {
+            await WinoAccountProfileService.RefreshProfileAsync();
+            var account = await WinoAccountProfileService.GetActiveAccountAsync();
+            UpdateWinoAccountState(account);
+        }
+        catch (Exception exception)
+        {
+            WinoApplication.Current.Services.GetRequiredService<IWinoLogger>().CaptureException(exception, nameof(WinoAccountFlyoutOpened));
+        }
     }
 
     private static string GetInitials(string? email)

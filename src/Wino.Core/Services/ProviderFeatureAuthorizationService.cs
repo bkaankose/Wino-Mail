@@ -43,8 +43,6 @@ public class ProviderFeatureAuthorizationService(
             .ToArray();
 
         var authenticator = authenticationProvider.GetAuthenticator(account.ProviderType);
-        if (authenticator is IGmailAuthenticator gmailAuthenticator)
-            gmailAuthenticator.ProposeCopyAuthURL = true;
 
         var token = await authenticator
             .GenerateTokenInformationAsync(account, requestedFeatures)

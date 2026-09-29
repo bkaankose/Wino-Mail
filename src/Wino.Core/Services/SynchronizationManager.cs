@@ -1622,11 +1622,9 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// </summary>
     /// <param name="providerType">The mail provider type to authenticate</param>
     /// <param name="account">Optional account to authenticate (null for initial authentication)</param>
-    /// <param name="proposeCopyAuthorizationURL">Whether to propose copying auth URL for Gmail</param>
     /// <returns>Token information containing access token and username</returns>
     public async Task<TokenInformationEx> HandleAuthorizationAsync(MailProviderType providerType,
                                                                   MailAccount account = null,
-                                                                  bool proposeCopyAuthorizationURL = false,
                                                                   bool forceInteractive = false,
                                                                   IReadOnlyCollection<ProviderFeature> requestedFeatures = null)
     {
@@ -1635,15 +1633,6 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
         try
         {
             var authenticator = _authenticationProvider.GetAuthenticator(providerType);
-
-            // Some users are having issues with Gmail authentication.
-            // Their browsers may never launch to complete authentication.
-            // Offer to copy auth url for them to complete it manually.
-            // Redirection will occur to the app and the token will be saved.
-            if (proposeCopyAuthorizationURL && authenticator is IGmailAuthenticator gmailAuthenticator)
-            {
-                gmailAuthenticator.ProposeCopyAuthURL = true;
-            }
 
             TokenInformationEx tokenInfo;
 

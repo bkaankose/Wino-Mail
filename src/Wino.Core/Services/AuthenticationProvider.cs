@@ -12,14 +12,17 @@ public class AuthenticationProvider : IAuthenticationProvider
     private readonly INativeAppService _nativeAppService;
     private readonly IApplicationConfiguration _applicationConfiguration;
     private readonly IAuthenticatorConfig _authenticatorConfig;
+    private readonly IExternalBrowserAuthenticationPresenter _authenticationPresenter;
 
     public AuthenticationProvider(INativeAppService nativeAppService,
                                   IApplicationConfiguration applicationConfiguration,
-                                  IAuthenticatorConfig authenticatorConfig)
+                                  IAuthenticatorConfig authenticatorConfig,
+                                  IExternalBrowserAuthenticationPresenter authenticationPresenter)
     {
         _nativeAppService = nativeAppService;
         _applicationConfiguration = applicationConfiguration;
         _authenticatorConfig = authenticatorConfig;
+        _authenticationPresenter = authenticationPresenter;
     }
 
     public IAuthenticator GetAuthenticator(MailProviderType providerType)
@@ -28,7 +31,7 @@ public class AuthenticationProvider : IAuthenticationProvider
         return providerType switch
         {
             MailProviderType.Outlook => new OutlookAuthenticator(_nativeAppService, _applicationConfiguration, _authenticatorConfig),
-            MailProviderType.Gmail => new GmailAuthenticator(_authenticatorConfig, _nativeAppService),
+            MailProviderType.Gmail => new GmailAuthenticator(_authenticatorConfig, _nativeAppService, _authenticationPresenter),
             _ => throw new ArgumentException(Translator.Exception_UnsupportedProvider),
         };
     }

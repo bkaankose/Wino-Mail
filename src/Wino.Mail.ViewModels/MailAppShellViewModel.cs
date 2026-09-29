@@ -973,6 +973,10 @@ public partial class MailAppShellViewModel : MailBaseViewModel,
                 TriggerFullSynchronization(account);
             }
         }
+        catch (AccountSetupCanceledException)
+        {
+            // The user closed the sign-in; the fix entry stays in the menu for a later attempt.
+        }
         catch (Exception ex)
         {
             _dialogService.InfoBarMessage(Translator.Info_AccountIssueFixFailedTitle, ex.Message, InfoBarMessageType.Error);

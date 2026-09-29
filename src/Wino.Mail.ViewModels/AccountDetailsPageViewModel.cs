@@ -1126,7 +1126,6 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                 await SynchronizationManager.Instance.HandleAuthorizationAsync(
                     Account.ProviderType,
                     Account,
-                    Account.ProviderType == MailProviderType.Gmail,
                     forceInteractive: true);
             }
         }

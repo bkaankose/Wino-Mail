@@ -23,14 +23,16 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
     private readonly WinoGmailCodeReceiver _codeReceiver;
     private readonly string _tokenStorePath;
 
-    public GmailAuthenticator(IAuthenticatorConfig authConfig, INativeAppService nativeAppService) : base(authConfig)
+    public GmailAuthenticator(
+        IAuthenticatorConfig authConfig,
+        INativeAppService nativeAppService,
+        IExternalBrowserAuthenticationPresenter? authenticationPresenter) : base(authConfig)
     {
-        _codeReceiver = new WinoGmailCodeReceiver(nativeAppService, authConfig.ApplicationDisplayName);
+        _codeReceiver = new WinoGmailCodeReceiver(nativeAppService, authenticationPresenter, authConfig.ApplicationDisplayName);
         _tokenStorePath = authConfig.GmailTokenStorePath;
     }
 
     public string ClientId => AuthenticatorConfig.GmailAuthenticatorClientId;
-    public bool ProposeCopyAuthURL { get; set; }
     public override MailProviderType ProviderType => MailProviderType.Gmail;
 
     public async Task<TokenInformationEx> GenerateTokenInformationAsync(
@@ -136,12 +138,20 @@ public sealed class GmailAuthenticator : BaseAuthenticator, IGmailAuthenticator
         var scopes = AuthenticatorConfig.GetGmailScopes(
             ProviderAuthorizationRequest.ForAccount(account, requestedFeatures));
 
-        var authorization = await _codeReceiver.ReceiveCodeAsync(
-            (redirectUri, state) => BuildAuthorizationUri(redirectUri, state, scopes),
-            ProposeCopyAuthURL,
-            CancellationToken.None).ConfigureAwait(false);
+        GoogleAuthorizationCode authorization;
 
-        ProposeCopyAuthURL = false;
+        try
+        {
+            authorization = await _codeReceiver.ReceiveCodeAsync(
+                (redirectUri, state) => BuildAuthorizationUri(redirectUri, state, scopes),
+                CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            // The user dismissed the in-app waiting dialog. Callers treat this like any other
+            // interactive sign-in cancellation and back out silently.
+            throw new AccountSetupCanceledException();
+        }
 
         using var requestContent = new FormUrlEncodedContent(new Dictionary<string, string>
         {

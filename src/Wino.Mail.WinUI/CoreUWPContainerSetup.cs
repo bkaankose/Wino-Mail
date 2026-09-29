@@ -32,6 +32,7 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<IThumbnailService, ThumbnailService>();
         // One dialog stack, one presentation semaphore: the base interface forwards to the mail dialog service.
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
+        services.AddSingleton<IExternalBrowserAuthenticationPresenter, ExternalBrowserAuthenticationPresenter>();
         services.AddTransient<IConfigurationService, ConfigurationService>();
         services.AddTransient<IFileService, FileService>();
         services.AddSingleton<IMicrosoftStoreService, MicrosoftStoreService>();

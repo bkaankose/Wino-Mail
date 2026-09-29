@@ -9,8 +9,6 @@
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
     d:DesignHeight="300"
     d:DesignWidth="400"
-    Loaded="ControlLoaded"
-    Unloaded="ControlUnloaded"
     mc:Ignorable="d">
 
     <Grid x:Name="RootGrid" RowSpacing="10">
@@ -33,49 +31,6 @@
             HorizontalAlignment="Center"
             Text="{x:Bind domain:Translator.AccountCreationDialog_Initializing}"
             TextWrapping="Wrap" />
-
-        <Button
-            x:Name="AuthHelpDialogButton"
-            Grid.Row="0"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Top"
-            AutomationProperties.AutomationId="AuthHelpDialogButton"
-            Visibility="Collapsed">
-            <Button.Content>
-                <Viewbox Width="20">
-                    <local:WinoFontIcon Icon="QuestionCircle" />
-                </Viewbox>
-            </Button.Content>
-            <Button.Flyout>
-                <Flyout Placement="Bottom">
-                    <Grid MaxWidth="400" RowSpacing="12">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <TextBlock Foreground="Yellow" TextWrapping="WrapWholeWords">
-                            <Run FontWeight="SemiBold" Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row0}" />
-                            <LineBreak />
-                            <LineBreak />
-                            <Run Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row1}" />
-                            <LineBreak />
-                            <Run Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row2}" />
-                            <LineBreak />
-                            <Run Text="{x:Bind domain:Translator.AccountCreationDialog_GoogleAuthHelpClipboardText_Row3}" />
-                        </TextBlock>
-
-                        <Button
-                            x:Name="CopyClipboard"
-                            Grid.Row="1"
-                            HorizontalAlignment="Center"
-                            AutomationProperties.AutomationId="CopyClipboard"
-                            Click="CopyClicked"
-                            Content="{x:Bind domain:Translator.Buttons_Copy}" />
-                    </Grid>
-                </Flyout>
-            </Button.Flyout>
-        </Button>
 
         <Button
             x:Name="CancelButton"

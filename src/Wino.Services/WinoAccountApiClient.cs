@@ -104,6 +104,9 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
     public Task<WinoAccountApiResult<AuthResultDto>> RegisterAsync(string email, string password, CancellationToken cancellationToken = default)
         => SendAuthRequestAsync("api/v1/auth/register", new RegisterRequest(email, password), WinoAccountApiJsonContext.Default.RegisterRequest, cancellationToken);
 
+    public Task<WinoAccountApiResult<AuthResultDto>> RegisterWithProfileAsync(string email, string password, string? displayName, CancellationToken cancellationToken = default)
+        => SendAuthRequestAsync("api/v1/auth/register", new RegisterRequest(email, password, displayName), WinoAccountApiJsonContext.Default.RegisterRequest, cancellationToken);
+
     public Task<WinoAccountApiResult<AuthResultDto>> LoginAsync(string email, string password, CancellationToken cancellationToken = default)
         => SendAuthRequestAsync("api/v1/auth/login", new LoginRequest(email, password), WinoAccountApiJsonContext.Default.LoginRequest, cancellationToken);
 
@@ -139,6 +142,36 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 
     public Task<ApiEnvelope<AuthUserDto>> GetCurrentUserAsync(CancellationToken cancellationToken = default)
         => SendAuthorizedRequestAsync("api/v1/auth/me", WinoAccountApiJsonContext.Default.ApiEnvelopeAuthUserDto, cancellationToken);
+
+    public Task<ApiEnvelope<AuthUserDto>> UpdateProfileAsync(string? displayName, CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(HttpMethod.Put, "api/v1/users/me/profile", new UpdateUserProfileRequest(displayName),
+            WinoAccountApiJsonContext.Default.UpdateUserProfileRequest, WinoAccountApiJsonContext.Default.ApiEnvelopeAuthUserDto, cancellationToken);
+
+    public Task<ApiEnvelope<AuthUserDto>> UploadAvatarAsync(byte[] payload, CancellationToken cancellationToken = default)
+        => SendAuthorizedEnvelopeAsync(() => CreateAuthorizedRequestAsync(HttpMethod.Put, "api/v1/users/me/avatar", () =>
+        {
+            var multipart = new MultipartFormDataContent();
+            var image = new ByteArrayContent(payload);
+            image.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            multipart.Add(image, "file", "avatar");
+            return multipart;
+        }), "api/v1/users/me/avatar", WinoAccountApiJsonContext.Default.ApiEnvelopeAuthUserDto, cancellationToken);
+
+    public Task<ApiEnvelope<AuthUserDto>> DeleteAvatarAsync(CancellationToken cancellationToken = default)
+        => SendAuthorizedRequestAsync(HttpMethod.Delete, "api/v1/users/me/avatar", WinoAccountApiJsonContext.Default.ApiEnvelopeAuthUserDto, cancellationToken);
+
+    public async Task<(byte[] Payload, Guid Revision)?> GetAvatarAsync(CancellationToken cancellationToken = default)
+    {
+        using var response = await SendAuthorizedAsync(() => CreateAuthorizedRequestAsync(HttpMethod.Get, "api/v1/users/me/avatar"), cancellationToken).ConfigureAwait(false);
+        if (response.StatusCode == HttpStatusCode.NotFound) return null;
+        await EnsureSuccessResponseAsync(response, cancellationToken).ConfigureAwait(false);
+        if (response.Content.Headers.ContentType?.MediaType != "image/png" ||
+            !Guid.TryParse(response.Headers.ETag?.Tag.Trim('"'), out var revision))
+            throw NonApiResponse(response.StatusCode, null);
+        var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
+        if (bytes.Length > 1024 * 1024) throw NonApiResponse(response.StatusCode, null);
+        return (bytes, revision);
+    }
 
     public async Task<IntelligenceConsentDto> GetIntelligenceConsentAsync(CancellationToken cancellationToken = default)
     {
@@ -984,6 +1017,8 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
         {
             Id = result.User.UserId,
             Email = result.User.Email,
+            DisplayName = result.User.DisplayName ?? result.User.Email,
+            AvatarRevision = result.User.AvatarRevision,
             AccountStatus = result.User.AccountStatus,
             HasPassword = result.User.HasPassword,
             HasGoogleLogin = result.User.HasGoogleLogin,
@@ -1016,6 +1051,7 @@ public sealed class WinoAccountApiClient : IWinoAccountApiClient, IDisposable
 }
 
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true)]
+[JsonSerializable(typeof(UpdateUserProfileRequest))]
 [JsonSerializable(typeof(RegisterRequest))]
 [JsonSerializable(typeof(LoginRequest))]
 [JsonSerializable(typeof(RefreshRequest))]

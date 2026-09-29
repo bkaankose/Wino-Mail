@@ -254,7 +254,6 @@ public partial class AccountSetupProgressPageViewModel : MailBaseViewModel
                 var authTokenInfo = await SynchronizationManager.Instance.HandleAuthorizationAsync(
                     WizardContext.SelectedProvider.Type,
                     _createdAccount,
-                    _createdAccount.ProviderType == MailProviderType.Gmail,
                     forceInteractive: true,
                     requestedFeatures: _createdAccount.IsMailAccessGranted
                         ? (ProviderFeature[])[ProviderFeature.MailFilters]

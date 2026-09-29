@@ -224,7 +224,10 @@
                                 ToolTipService.ToolTip="{x:Bind domain:Translator.WinoAccount_Titlebar_SignedOutTitle}"
                                 Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(PreferencesService.IsWinoAccountButtonHidden), Mode=OneTime}">
                                 <Button.Flyout>
-                                    <Flyout x:Name="WinoAccountFlyout" Placement="Bottom">
+                                    <Flyout
+                                        x:Name="WinoAccountFlyout"
+                                        Opened="WinoAccountFlyoutOpened"
+                                        Placement="Bottom">
                                         <Grid MinWidth="320" MaxWidth="360">
                                             <!--  Signed Out View  -->
                                             <StackPanel x:Name="WinoAccountSignedOutView" Spacing="16">
@@ -372,6 +375,10 @@
                                                             Height="48"
                                                             Initials="W" />
                                                         <StackPanel VerticalAlignment="Center" Spacing="2">
+                                                            <TextBlock
+                                                                x:Name="WinoAccountFlyoutNameText"
+                                                                Style="{StaticResource BodyStrongTextBlockStyle}"
+                                                                TextWrapping="WrapWholeWords" />
                                                             <TextBlock
                                                                 x:Name="WinoAccountFlyoutEmailText"
                                                                 Style="{StaticResource BodyStrongTextBlockStyle}"

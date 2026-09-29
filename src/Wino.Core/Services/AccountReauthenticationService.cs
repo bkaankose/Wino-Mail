@@ -53,7 +53,6 @@ public sealed class AccountReauthenticationService(
         var token = await synchronizationManager.HandleAuthorizationAsync(
             account.ProviderType,
             account,
-            account.ProviderType == MailProviderType.Gmail,
             forceInteractive: true,
             requestedFeatures: activeFeatures).ConfigureAwait(false);
 

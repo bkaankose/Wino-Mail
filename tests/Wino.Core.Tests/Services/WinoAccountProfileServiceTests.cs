@@ -38,6 +38,65 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ProfileEdit_CompletedAfterSignOut_DoesNotRestoreAccount()
+    {
+        var auth = CreateAuthResult("late-profile@example.com");
+        _apiClient.Setup(x => x.LoginAsync("late-profile@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(auth));
+        _apiClient.Setup(x => x.LogoutAsync(auth.RefreshToken, default))
+            .ReturnsAsync(ApiEnvelope<JsonElement>.Success(default));
+        await _service.LoginAsync("late-profile@example.com", "pw");
+        var entered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completion = new TaskCompletionSource<ApiEnvelope<AuthUserDto>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _apiClient.Setup(x => x.UpdateProfileAsync("Late name", It.IsAny<System.Threading.CancellationToken>()))
+            .Returns(() => { entered.SetResult(true); return completion.Task; });
+        var pending = _service.UpdateProfileAsync("Late name");
+        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await _service.SignOutAsync();
+        completion.SetResult(ApiEnvelope<AuthUserDto>.Success(auth.User with { DisplayName = "Late name" }));
+        (await pending).IsSuccess.Should().BeFalse();
+        (await _service.GetActiveAccountAsync()).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ProfileEdit_PersistsNameAndAvatarWithoutReplacingCredentials()
+    {
+        var auth = CreateAuthResult("profile@example.com");
+        _apiClient.Setup(x => x.LoginAsync("profile@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(auth));
+        await _service.LoginAsync("profile@example.com", "pw");
+        var revision = Guid.NewGuid();
+        var profile = auth.User with { DisplayName = "Alex Reader", AvatarRevision = revision };
+        _apiClient.Setup(x => x.UpdateProfileAsync("Alex Reader", It.IsAny<System.Threading.CancellationToken>()))
+            .ReturnsAsync(ApiEnvelope<AuthUserDto>.Success(profile));
+
+        var result = await _service.UpdateProfileAsync("Alex Reader");
+        result.IsSuccess.Should().BeTrue();
+        var stored = await _service.GetActiveAccountAsync();
+        stored!.DisplayName.Should().Be("Alex Reader");
+        stored.AvatarRevision.Should().Be(revision);
+        stored.AccessToken.Should().Be(auth.AccessToken);
+        stored.RefreshToken.Should().Be(auth.RefreshToken);
+    }
+
+    [Fact]
+    public async Task Login_PersistsProfileMetadata_AndFallsBackToEmailForOlderResponses()
+    {
+        var auth = CreateAuthResult("profile-login@example.com");
+        var revision = Guid.NewGuid();
+        auth = auth with { User = auth.User with { DisplayName = "Alex", AvatarRevision = revision } };
+        _apiClient.Setup(x => x.LoginAsync("profile-login@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(auth));
+        await _service.LoginAsync("profile-login@example.com", "pw");
+        (await _service.GetActiveAccountAsync())!.DisplayName.Should().Be("Alex");
+        (await _service.GetActiveAccountAsync())!.AvatarRevision.Should().Be(revision);
+        _apiClient.Setup(x => x.LoginAsync("profile-login@example.com", "pw", default))
+            .ReturnsAsync(WinoAccountApiResult<AuthResultDto>.Success(auth with { User = auth.User with { DisplayName = null, AvatarRevision = null } }));
+        await _service.LoginAsync("profile-login@example.com", "pw");
+        (await _service.GetActiveAccountAsync())!.DisplayName.Should().Be("profile-login@example.com");
+    }
+
+    [Fact]
     public async Task LoginAsync_ShouldPersistSingleActiveAccount()
     {
         var authResult = CreateAuthResult("first@example.com");

@@ -34,7 +34,7 @@ public sealed class GmailAuthenticatorStateTests
         {
             ApplicationDataFolderPath = Path.GetTempPath()
         });
-        var authenticator = new GmailAuthenticator(configuration, nativeAppService.Object);
+        var authenticator = new GmailAuthenticator(configuration, nativeAppService.Object, authenticationPresenter: null);
         var account = new MailAccount { Id = Guid.NewGuid() };
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
@@ -66,7 +66,7 @@ public sealed class GmailAuthenticatorStateTests
         {
             ApplicationDataFolderPath = Path.GetTempPath()
         });
-        var authenticator = new GmailAuthenticator(configuration, nativeAppService.Object);
+        var authenticator = new GmailAuthenticator(configuration, nativeAppService.Object, authenticationPresenter: null);
         var account = new MailAccount { Id = Guid.NewGuid() };
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(
