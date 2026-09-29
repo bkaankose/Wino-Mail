@@ -10,6 +10,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Core.ViewModels.Data;
 using Wino.Mail.ViewModels.Data;
@@ -35,6 +36,53 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     public WelcomeWizardContext WizardContext { get; }
 
     public List<IProviderDetail> Providers { get; private set; } = [];
+
+    /// <summary>
+    /// Outlook, Gmail and the catalog's featured providers: the tiles on the first step.
+    /// </summary>
+    public List<IProviderDetail> FeaturedProviders { get; private set; } = [];
+
+    /// <summary>
+    /// Every other known provider, alphabetical. Shown in the searchable catalog view.
+    /// </summary>
+    public List<IProviderDetail> CatalogProviders { get; private set; } = [];
+
+    /// <summary>
+    /// The generic IMAP/POP3 entry, pinned above the catalog list.
+    /// </summary>
+    public IProviderDetail CustomServerProvider { get; private set; }
+
+    /// <summary>
+    /// The custom entry as a one-item source, so it renders and selects exactly like the other providers.
+    /// </summary>
+    public List<IProviderDetail> CustomServerProviders { get; private set; } = [];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsFeaturedListVisible))]
+    [NotifyPropertyChangedFor(nameof(CanGoBack))]
+    [NotifyCanExecuteChangedFor(nameof(GoBackCommand))]
+    public partial bool IsCatalogVisible { get; set; }
+
+    public bool IsFeaturedListVisible => !IsCatalogVisible;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FilteredCatalogProviders))]
+    [NotifyPropertyChangedFor(nameof(CatalogResultCountText))]
+    [NotifyPropertyChangedFor(nameof(IsCatalogEmpty))]
+    [NotifyPropertyChangedFor(nameof(CatalogNoResultsText))]
+    public partial string CatalogSearchText { get; set; } = string.Empty;
+
+    public List<IProviderDetail> FilteredCatalogProviders =>
+        CatalogProviders.Where(provider => provider.MatchesSearch(CatalogSearchText)).ToList();
+
+    public string CatalogResultCountText =>
+        string.Format(Translator.ProviderSelection_Catalog_ResultCount, FilteredCatalogProviders.Count, CatalogProviders.Count);
+
+    public bool IsCatalogEmpty => CatalogProviders.Count > 0 && FilteredCatalogProviders.Count == 0;
+
+    public string CatalogNoResultsText =>
+        string.Format(Translator.ProviderSelection_Catalog_NoResults, CatalogSearchText?.Trim());
+
     public List<AppColorViewModel> AvailableColors { get; private set; } = [];
     public List<InitialSynchronizationRangeOption> InitialSynchronizationRanges { get; } =
     [
@@ -114,9 +162,30 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     #region Capability tiles
 
     public bool IsMailProviderModeAvailable => true;
-    public bool IsCalendarProviderModeAvailable => !IsPop3;
-    public bool IsContactProviderModeAvailable => !IsPop3;
+    public bool IsCalendarProviderModeAvailable => !IsPop3 &&
+        HasKnownProviderService(definition => definition.CalDavServiceUrl, region => region.CalDavServiceUrl);
+    public bool IsContactProviderModeAvailable => !IsPop3 &&
+        HasKnownProviderService(definition => definition.CardDavServiceUrl, region => region.CardDavServiceUrl);
     public bool IsTaskProviderModeAvailable => IsOAuthProvider;
+
+    /// <summary>
+    /// A catalog provider only offers a DAV capability when its entry (or one of its regions) has that
+    /// endpoint. Unknown or generic providers keep the choice open; the server page discovers it later.
+    /// </summary>
+    private bool HasKnownProviderService(
+        Func<KnownImapProviderDefinition, string> providerEndpoint,
+        Func<KnownImapProviderRegion, string> regionEndpoint)
+    {
+        if (SelectedProvider == null || SelectedProvider.SpecialImapProvider == SpecialImapProvider.None)
+            return true;
+
+        var definition = _providerCatalog.GetBySpecialProvider(SelectedProvider.SpecialImapProvider);
+        if (definition == null)
+            return true;
+
+        return !string.IsNullOrWhiteSpace(providerEndpoint(definition)) ||
+               (definition.Regions ?? []).Any(region => !string.IsNullOrWhiteSpace(regionEndpoint(region)));
+    }
 
     public string MailProviderModeLabel => IsOAuthProvider
         ? SelectedProviderName
@@ -178,7 +247,10 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     /// </summary>
     public bool IsAccountSummaryVisible => CurrentStep != ProviderSelectionWizardStep.Provider;
 
-    public bool CanGoBack => CurrentStep != ProviderSelectionWizardStep.Provider;
+    /// <summary>
+    /// The catalog counts as a sub-step of the provider step, so the wizard's Back leaves it too.
+    /// </summary>
+    public bool CanGoBack => CurrentStep != ProviderSelectionWizardStep.Provider || IsCatalogVisible;
 
     public string PageTitle => CurrentStep switch
     {
@@ -357,6 +429,24 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         Providers = _providerCatalog.GetAvailableProviders()
             .Where(provider => provider.Type != MailProviderType.POP3)
             .ToList();
+
+        // The custom entry is pinned in the catalog view rather than listed as one more tile.
+        CustomServerProvider = Providers.FirstOrDefault(provider =>
+            provider.Type == MailProviderType.IMAP4 && provider.SpecialImapProvider == SpecialImapProvider.None);
+        FeaturedProviders = Providers
+            .Where(provider => provider.IsFeatured)
+            .ToList();
+        CatalogProviders = Providers
+            .Where(provider => !provider.IsFeatured && provider != CustomServerProvider)
+            .OrderBy(provider => provider.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        OnPropertyChanged(nameof(FeaturedProviders));
+        OnPropertyChanged(nameof(CatalogProviders));
+        CustomServerProviders = CustomServerProvider == null ? [] : [CustomServerProvider];
+        OnPropertyChanged(nameof(CustomServerProvider));
+        OnPropertyChanged(nameof(CustomServerProviders));
+        CatalogSearchText = string.Empty;
+
         AvailableColors = _themeService.GetAvailableAccountColors()
             .Select(hex => new AppColorViewModel(hex))
             .ToList();
@@ -391,10 +481,16 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         CurrentStep = mode == NavigationMode.Back && SelectedProvider != null
             ? ProviderSelectionWizardStep.Capabilities
             : ProviderSelectionWizardStep.Provider;
+
+        // A provider that has no tile of its own is only reachable through the catalog.
+        IsCatalogVisible = SelectedProvider is { IsFeatured: false };
     }
+
+    public bool IsCustomServerSelected => SelectedProvider != null && SelectedProvider == CustomServerProvider;
 
     partial void OnSelectedProviderChanged(IProviderDetail value)
     {
+        OnPropertyChanged(nameof(IsCustomServerSelected));
         OnPropertyChanged(nameof(SelectedProviderName));
         OnPropertyChanged(nameof(SelectedProviderDescription));
         OnPropertyChanged(nameof(SelectedProviderImage));
@@ -479,6 +575,41 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
     private void ClearColor() => SelectedColor = null;
 
     /// <summary>
+    /// Opens the searchable catalog in place of the featured tiles. The IMAP / SMTP server entry starts
+    /// selected, so the catalog opens on a valid choice and Continue never acts on a tile that is no
+    /// longer on screen. A catalog provider picked earlier is kept.
+    /// </summary>
+    [RelayCommand]
+    private void ShowCatalog()
+    {
+        if (SelectedProvider == null || SelectedProvider.IsFeatured)
+            SelectedProvider = CustomServerProvider;
+
+        CatalogSearchText = string.Empty;
+        IsCatalogVisible = true;
+    }
+
+    [RelayCommand]
+    private void ShowFeatured()
+    {
+        if (SelectedProvider is { IsFeatured: false })
+            SelectedProvider = null;
+
+        IsCatalogVisible = false;
+    }
+
+    /// <summary>
+    /// Picks a provider from either list. Used by the pinned custom row and the catalog items, which
+    /// cannot share one ItemsView selection.
+    /// </summary>
+    [RelayCommand]
+    private void SelectProvider(IProviderDetail provider)
+    {
+        if (provider != null)
+            SelectedProvider = provider;
+    }
+
+    /// <summary>
     /// Answers one capability screen. The token is "capability:mode", for example "Calendar:Local".
     /// Navigation remains explicit through the Continue command.
     /// </summary>
@@ -532,7 +663,16 @@ public partial class ProviderSelectionPageViewModel : MailBaseViewModel
         if (!CanGoBack)
             return;
 
+        if (CurrentStep == ProviderSelectionWizardStep.Provider)
+        {
+            ShowFeatured();
+            return;
+        }
+
         CurrentStep--;
+
+        if (CurrentStep == ProviderSelectionWizardStep.Provider)
+            IsCatalogVisible = SelectedProvider is { IsFeatured: false };
     }
 
     [RelayCommand(CanExecute = nameof(CanContinue))]

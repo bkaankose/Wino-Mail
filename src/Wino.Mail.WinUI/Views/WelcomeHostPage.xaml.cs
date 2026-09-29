@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Linq;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.UI.Xaml.Navigation;
@@ -21,6 +20,7 @@ public sealed partial class WelcomeHostPage : WelcomeHostPageAbstract,
     {
         InitializeComponent();
     }
+
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {

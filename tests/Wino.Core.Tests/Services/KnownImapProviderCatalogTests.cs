@@ -17,7 +17,95 @@ public class KnownImapProviderCatalogTests
         var catalog = CreateCatalog();
 
         catalog.SchemaVersion.Should().Be(1);
-        catalog.SetupProviders.Select(provider => provider.Id).Should().Equal("icloud", "yahoo");
+
+        // Featured tiles come first in their hand-picked order; the rest of the catalog reads alphabetically.
+        var setupIds = catalog.SetupProviders.Select(provider => provider.Id).ToList();
+        setupIds.Take(2).Should().Equal("icloud", "yahoo");
+        var catalogNames = catalog.SetupProviders.Where(provider => !provider.SetupFeatured).Select(provider => provider.DisplayName).ToList();
+        catalogNames.Should().BeInAscendingOrder(StringComparer.OrdinalIgnoreCase);
+        catalogNames.Should().HaveCountGreaterThan(20);
+    }
+
+    [Fact]
+    public void EmbeddedCatalog_EverySetupProviderHasNameAndImageEnumValue()
+    {
+        foreach (var provider in CreateCatalog().SetupProviders)
+        {
+            provider.DisplayName.Should().NotBeNullOrWhiteSpace(provider.Id);
+            Enum.IsDefined(provider.SpecialImapProvider).Should().BeTrue(provider.Id);
+            provider.SpecialImapProvider.Should().NotBe(SpecialImapProvider.None, provider.Id);
+        }
+    }
+
+    [Theory]
+    [InlineData("person@gmx.de", SpecialImapProvider.Gmx)]
+    [InlineData("person@proton.me", SpecialImapProvider.Proton)]
+    [InlineData("person@fastmail.com", SpecialImapProvider.Fastmail)]
+    [InlineData("person@zohomail.eu", SpecialImapProvider.Zoho)]
+    public void Match_ResolvesCatalogProviders(string address, SpecialImapProvider expected)
+        => CreateCatalog().Match(address, null)!.SpecialImapProvider.Should().Be(expected);
+
+    [Fact]
+    public void Zoho_RegionsSwapHostsAndAreListedAsMatchers()
+    {
+        var catalog = CreateCatalog();
+        var provider = catalog.GetBySpecialProvider(SpecialImapProvider.Zoho)!;
+
+        provider.Regions.Should().HaveCount(4);
+        provider.Regions[0].Id.Should().Be("us");
+        provider.Regions.Select(region => region.IncomingHost).Should().OnlyContain(host => provider.IncomingHosts.Contains(host));
+        catalog.Match(null, "imap.zoho.eu")!.SpecialImapProvider.Should().Be(SpecialImapProvider.Zoho);
+    }
+
+    [Fact]
+    public void Proton_UsesTheLocalBridge()
+    {
+        var provider = CreateCatalog().GetBySpecialProvider(SpecialImapProvider.Proton)!;
+
+        provider.Incoming.Host.Should().Be("127.0.0.1");
+        provider.Incoming.Port.Should().Be(1143);
+        provider.Outgoing.Port.Should().Be(1025);
+        provider.PasswordKind.Should().Be(KnownImapPasswordKind.BridgePassword);
+        provider.SetupHint.Should().Be(KnownImapSetupHint.LocalBridgeRequired);
+    }
+
+    [Fact]
+    public void Loader_RejectsRegionWhoseHostIsNotAMatcher()
+    {
+        const string json = """
+            {
+              "schemaVersion": 1,
+              "providers": [
+                { "id":"zoho", "specialImapProvider":"Zoho", "displayName":"Zoho", "emailDomains":["a.test"], "incomingHosts":["imap.a.test"], "incoming":{"host":"imap.a.test","port":993,"security":"Auto","authentication":"Auto","usernamePolicy":"FullAddress"}, "outgoing":{"host":"smtp.a.test","port":587,"security":"Auto","authentication":"Auto","usernamePolicy":"FullAddress"}, "maxConcurrentClients":5, "folderAliases":[],
+                  "regions":[ { "id":"eu", "displayName":"Europe", "incomingHost":"imap.eu.test", "outgoingHost":"smtp.eu.test" } ] }
+              ],
+              "genericFolderAliases": []
+            }
+            """;
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var action = () => new KnownImapProviderCatalogLoader().Load(stream);
+
+        action.Should().Throw<InvalidDataException>().WithMessage("*region 'eu'*matcher*");
+    }
+
+    [Fact]
+    public void Loader_RejectsVisibleProviderWithoutDisplayName()
+    {
+        const string json = """
+            {
+              "schemaVersion": 1,
+              "providers": [
+                { "id":"gmx", "specialImapProvider":"Gmx", "setupVisible":true, "emailDomains":["a.test"], "incomingHosts":["imap.a.test"], "incoming":{"host":"imap.a.test","port":993,"security":"Auto","authentication":"Auto","usernamePolicy":"FullAddress"}, "outgoing":{"host":"smtp.a.test","port":587,"security":"Auto","authentication":"Auto","usernamePolicy":"FullAddress"}, "maxConcurrentClients":5, "folderAliases":[] }
+              ],
+              "genericFolderAliases": []
+            }
+            """;
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var action = () => new KnownImapProviderCatalogLoader().Load(stream);
+
+        action.Should().Throw<InvalidDataException>().WithMessage("*display name*");
     }
 
     [Theory]
@@ -94,10 +182,10 @@ public class KnownImapProviderCatalogTests
 
     [Theory]
     [InlineData("person@icloud.com", "iCloud", "https://support.apple.com/102654")]
-    [InlineData("person@ymail.com", "Yahoo", "https://help.yahoo.com/kb/generate-manage-third-party-passwords-sln15241.html")]
+    [InlineData("person@ymail.com", "Yahoo Mail", "https://help.yahoo.com/kb/generate-manage-third-party-passwords-sln15241.html")]
     [InlineData("person@FASTMAIL.com", "Fastmail", "https://www.fastmail.help/hc/en-us/articles/360058752854-App-passwords")]
     [InlineData("person@aol.com", "AOL", "https://help.aol.com/articles/create-and-manage-app-password")]
-    public void FindAppPasswordHelp_ResolvesProvidersAndHelpOnlyEntries(string address, string providerName, string helpUrl)
+    public void FindAppPasswordHelp_ResolvesProviders(string address, string providerName, string helpUrl)
     {
         var help = CreateCatalog().FindAppPasswordHelp(address);
 
@@ -117,10 +205,22 @@ public class KnownImapProviderCatalogTests
     [Fact]
     public void HelpOnlyEntries_DoNotBecomeSetupProviders()
     {
-        var catalog = CreateCatalog();
+        const string json = """
+            {
+              "schemaVersion": 1,
+              "providers": [],
+              "genericFolderAliases": [],
+              "appPasswordHelp": [
+                { "id":"other", "displayName":"Other", "emailDomains":["other.test"], "helpUrl":"https://help.other.test/" }
+              ]
+            }
+            """;
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+        var catalog = new KnownImapProviderCatalog(new KnownImapProviderCatalogLoader().Load(stream));
 
-        catalog.Match("person@fastmail.com", null).Should().BeNull();
-        catalog.SetupProviders.Should().NotContain(provider => provider.Id == "fastmail");
+        catalog.Match("person@other.test", null).Should().BeNull();
+        catalog.SetupProviders.Should().BeEmpty();
+        catalog.FindAppPasswordHelp("person@other.test")!.ProviderName.Should().Be("Other");
     }
 
     [Fact]

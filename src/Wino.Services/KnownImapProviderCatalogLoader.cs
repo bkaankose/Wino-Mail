@@ -67,6 +67,13 @@ public sealed class KnownImapProviderCatalogLoader : IKnownImapProviderCatalogLo
                 ((provider.EmailDomains?.Count ?? 0) == 0 && (provider.IncomingHosts?.Count ?? 0) == 0))
                 throw new InvalidDataException($"Known IMAP provider '{provider.Id}' has invalid setup order or no matchers.");
 
+            if (provider.SetupVisible && string.IsNullOrWhiteSpace(provider.DisplayName))
+                throw new InvalidDataException($"Known IMAP provider '{provider.Id}' is offered in setup but has no display name.");
+
+            ValidateEnum(provider.PasswordKind, $"provider '{provider.Id}' password kind");
+            ValidateEnum(provider.SetupHint, $"provider '{provider.Id}' setup hint");
+            ValidateRegions(provider);
+
             foreach (var domain in provider.EmailDomains ?? [])
                 ValidateMatcher(domain, domains, "email domain", provider.Id);
 
@@ -115,6 +122,29 @@ public sealed class KnownImapProviderCatalogLoader : IKnownImapProviderCatalogLo
                 throw new InvalidDataException($"App-password help '{entry.Id}' has no help URL.");
 
             ValidateOptionalAbsoluteUrl(entry.HelpUrl, "app-password help", entry.Id);
+        }
+    }
+
+    private static void ValidateRegions(KnownImapProviderDefinition provider)
+    {
+        // Regions are optional. When present, each needs an ID and both hosts; the incoming host
+        // must also be a matcher so an existing account resolves back to its provider.
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var region in provider.Regions ?? [])
+        {
+            if (region == null || string.IsNullOrWhiteSpace(region.Id) || !ids.Add(region.Id.Trim()))
+                throw new InvalidDataException($"Known IMAP provider '{provider.Id}' has an empty or duplicated region ID.");
+
+            if (string.IsNullOrWhiteSpace(region.DisplayName) ||
+                string.IsNullOrWhiteSpace(region.IncomingHost) ||
+                string.IsNullOrWhiteSpace(region.OutgoingHost))
+                throw new InvalidDataException($"Known IMAP provider '{provider.Id}' region '{region.Id}' is missing a name or host.");
+
+            if (!provider.IncomingHosts.Any(host => string.Equals(host.Trim(), region.IncomingHost.Trim(), StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidDataException($"Known IMAP provider '{provider.Id}' region '{region.Id}' incoming host is not listed as a matcher.");
+
+            ValidateOptionalAbsoluteUrl(region.CalDavServiceUrl, $"region '{region.Id}' CalDAV", provider.Id);
+            ValidateOptionalAbsoluteUrl(region.CardDavServiceUrl, $"region '{region.Id}' CardDAV", provider.Id);
         }
     }
 

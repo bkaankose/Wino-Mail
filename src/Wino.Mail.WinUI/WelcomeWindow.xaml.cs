@@ -30,6 +30,10 @@ public sealed partial class WelcomeWindow : WindowEx, IWinoFrameProvider
         this.SetIcon("Assets/Wino_Icon.ico");
 
         ConfigureWindowChrome();
+
+        IsResizable = false;
+        IsMaximizable = false;
+
         AppWindow.Closing += OnAppWindowClosing;
         Closed += OnWindowClosed;
     }
@@ -42,6 +46,14 @@ public sealed partial class WelcomeWindow : WindowEx, IWinoFrameProvider
         Height = 720;
 
         this.CenterOnScreen();
+
+        // The setup flow is laid out for this one size; resizing or maximizing only adds empty space.
+        // Set on the presenter after the title bar is extended, which otherwise restores the caption defaults.
+        //if (AppWindow.Presenter is OverlappedPresenter presenter)
+        //{
+        //    presenter.IsResizable = false;
+        //    presenter.IsMaximizable = false;
+        //}
 
         var underlyingThemeService = WinoApplication.Current.Services.GetService<IUnderlyingThemeService>();
         if (underlyingThemeService != null)

@@ -22,11 +22,16 @@ public class KnownImapProviderCatalog : IKnownImapProviderCatalog
         {
             EmailDomains = Array.AsReadOnly(provider.EmailDomains.ToArray()),
             IncomingHosts = Array.AsReadOnly(provider.IncomingHosts.ToArray()),
-            FolderAliases = Array.AsReadOnly(provider.FolderAliases.ToArray())
+            FolderAliases = Array.AsReadOnly(provider.FolderAliases.ToArray()),
+            Regions = Array.AsReadOnly((provider.Regions ?? []).ToArray())
         }).ToArray());
+
+        // Featured tiles keep their hand-picked order; the catalog list reads alphabetically.
         SetupProviders = Array.AsReadOnly(Providers
             .Where(provider => provider.SetupVisible)
-            .OrderBy(provider => provider.SetupOrder)
+            .OrderByDescending(provider => provider.SetupFeatured)
+            .ThenBy(provider => provider.SetupFeatured ? provider.SetupOrder : 0)
+            .ThenBy(provider => provider.DisplayName, StringComparer.OrdinalIgnoreCase)
             .ToArray());
         GenericFolderAliases = Array.AsReadOnly(document.GenericFolderAliases.ToArray());
         _appPasswordHelp = (document.AppPasswordHelp ?? []).ToArray();
@@ -91,7 +96,7 @@ public class KnownImapProviderCatalog : IKnownImapProviderCatalog
             candidate.EmailDomains.Any(candidateDomain => string.Equals(candidateDomain, domain, StringComparison.OrdinalIgnoreCase)));
 
         if (provider != null)
-            return new KnownAppPasswordHelp(GetProviderDisplayName(provider.SpecialImapProvider), provider.AppPasswordHelpUrl);
+            return new KnownAppPasswordHelp(provider.DisplayName, provider.AppPasswordHelpUrl);
 
         var help = _appPasswordHelp.FirstOrDefault(candidate => candidate.EmailDomains.Any(
             candidateDomain => string.Equals(candidateDomain, domain, StringComparison.OrdinalIgnoreCase)));
@@ -114,20 +119,12 @@ public class KnownImapProviderCatalog : IKnownImapProviderCatalog
             new ProviderDetail(MailProviderType.Gmail, SpecialImapProvider.None)
         };
 
-        providerList.AddRange(SetupProviders.Select(provider =>
-            new ProviderDetail(MailProviderType.IMAP4, provider.SpecialImapProvider)));
+        providerList.AddRange(SetupProviders.Select(provider => new ProviderDetail(provider)));
         providerList.Add(new ProviderDetail(MailProviderType.IMAP4, SpecialImapProvider.None));
         providerList.Add(new ProviderDetail(MailProviderType.POP3, SpecialImapProvider.None));
 
         return providerList;
     }
-
-    private static string GetProviderDisplayName(SpecialImapProvider provider) => provider switch
-    {
-        SpecialImapProvider.iCloud => "iCloud",
-        SpecialImapProvider.Yahoo => "Yahoo",
-        _ => provider.ToString()
-    };
 
     private static string GetDomain(string emailAddress)
     {

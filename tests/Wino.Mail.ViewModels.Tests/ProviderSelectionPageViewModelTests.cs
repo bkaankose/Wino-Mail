@@ -1,4 +1,6 @@
-﻿using FluentAssertions;
+﻿using System;
+using System.Linq;
+using FluentAssertions;
 using Moq;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -6,6 +8,7 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.Navigation;
 using Wino.Mail.ViewModels.Data;
+using Wino.Services;
 using Xunit;
 
 namespace Wino.Mail.ViewModels.Tests;
@@ -35,6 +38,142 @@ public sealed class ProviderSelectionPageViewModelTests
 
         viewModel.Providers.Should().NotContain(provider => provider.Type == MailProviderType.POP3);
         viewModel.Providers.Should().Contain(provider => provider.Type == MailProviderType.IMAP4);
+    }
+
+    [Fact]
+    public void Catalog_SplitsFeaturedTilesFromSearchableListAndPinsCustomServer()
+    {
+        var catalog = new EmbeddedKnownImapProviderCatalog(new KnownImapProviderCatalogLoader());
+        var themeService = new Mock<INewThemeService>();
+        themeService.Setup(service => service.GetAvailableAccountColors()).Returns([]);
+        var viewModel = new ProviderSelectionPageViewModel(
+            Mock.Of<IAccountService>(),
+            Mock.Of<IDialogServiceBase>(),
+            catalog,
+            themeService.Object,
+            new WelcomeWizardContext());
+
+        viewModel.OnNavigatedTo(NavigationMode.New, ProviderSelectionNavigationContext.CreateForWizard());
+
+        viewModel.FeaturedProviders.Select(provider => provider.Name).Should().Equal("Outlook", "Gmail", "iCloud", "Yahoo Mail");
+        viewModel.CustomServerProvider.Should().NotBeNull();
+        viewModel.CustomServerProvider!.SpecialImapProvider.Should().Be(SpecialImapProvider.None);
+        viewModel.CatalogProviders.Should().NotContain(provider => provider.IsFeatured);
+        viewModel.CatalogProviders.Should().NotContain(viewModel.CustomServerProvider);
+        viewModel.CatalogProviders.Select(provider => provider.Name).Should().BeInAscendingOrder(StringComparer.OrdinalIgnoreCase);
+        viewModel.IsCatalogVisible.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData("gmx.de", "GMX")]
+    [InlineData("ymail", null)]
+    [InlineData("PROTON", "Proton Mail")]
+    [InlineData("zohomail.eu", "Zoho Mail")]
+    public void CatalogSearch_MatchesNameOrDomain(string query, string? expectedOnlyResult)
+    {
+        var catalog = new EmbeddedKnownImapProviderCatalog(new KnownImapProviderCatalogLoader());
+        var themeService = new Mock<INewThemeService>();
+        themeService.Setup(service => service.GetAvailableAccountColors()).Returns([]);
+        var viewModel = new ProviderSelectionPageViewModel(
+            Mock.Of<IAccountService>(),
+            Mock.Of<IDialogServiceBase>(),
+            catalog,
+            themeService.Object,
+            new WelcomeWizardContext());
+        viewModel.OnNavigatedTo(NavigationMode.New, ProviderSelectionNavigationContext.CreateForWizard());
+
+        viewModel.CatalogSearchText = query;
+
+        if (expectedOnlyResult == null)
+        {
+            // Yahoo is a featured tile, not a catalog row, so the catalog offers the custom server instead.
+            viewModel.FilteredCatalogProviders.Should().BeEmpty();
+            viewModel.IsCatalogEmpty.Should().BeTrue();
+        }
+        else
+        {
+            viewModel.FilteredCatalogProviders.Select(provider => provider.Name).Should().Equal(expectedOnlyResult);
+            viewModel.IsCatalogEmpty.Should().BeFalse();
+        }
+    }
+
+    [Fact]
+    public void ShowCatalog_PreselectsCustomServerAndShowFeatured_DropsACatalogSelection()
+    {
+        var catalog = new EmbeddedKnownImapProviderCatalog(new KnownImapProviderCatalogLoader());
+        var themeService = new Mock<INewThemeService>();
+        themeService.Setup(service => service.GetAvailableAccountColors()).Returns([]);
+        var viewModel = new ProviderSelectionPageViewModel(
+            Mock.Of<IAccountService>(),
+            Mock.Of<IDialogServiceBase>(),
+            catalog,
+            themeService.Object,
+            new WelcomeWizardContext());
+        viewModel.OnNavigatedTo(NavigationMode.New, ProviderSelectionNavigationContext.CreateForWizard());
+
+        viewModel.SelectedProvider = viewModel.FeaturedProviders[0];
+        viewModel.ShowCatalogCommand.Execute(null);
+        viewModel.IsCatalogVisible.Should().BeTrue();
+        viewModel.SelectedProvider.Should().Be(viewModel.CustomServerProvider);
+        viewModel.IsCustomServerSelected.Should().BeTrue();
+
+        viewModel.SelectProviderCommand.Execute(viewModel.CatalogProviders[0]);
+        viewModel.SelectedProvider.Should().Be(viewModel.CatalogProviders[0]);
+        viewModel.ShowFeaturedCommand.Execute(null);
+        viewModel.IsCatalogVisible.Should().BeFalse();
+        viewModel.SelectedProvider.Should().BeNull();
+    }
+
+    [Fact]
+    public void WizardBack_FromCatalog_ReturnsToFeaturedProviders()
+    {
+        var catalog = new EmbeddedKnownImapProviderCatalog(new KnownImapProviderCatalogLoader());
+        var themeService = new Mock<INewThemeService>();
+        themeService.Setup(service => service.GetAvailableAccountColors()).Returns([]);
+        var viewModel = new ProviderSelectionPageViewModel(
+            Mock.Of<IAccountService>(),
+            Mock.Of<IDialogServiceBase>(),
+            catalog,
+            themeService.Object,
+            new WelcomeWizardContext());
+        viewModel.OnNavigatedTo(NavigationMode.New, ProviderSelectionNavigationContext.CreateForWizard());
+
+        viewModel.CanGoBack.Should().BeFalse();
+
+        viewModel.ShowCatalogCommand.Execute(null);
+        viewModel.CanGoBack.Should().BeTrue();
+        viewModel.GoBackCommand.CanExecute(null).Should().BeTrue();
+
+        viewModel.GoBackCommand.Execute(null);
+
+        viewModel.IsCatalogVisible.Should().BeFalse();
+        viewModel.CurrentStep.Should().Be(ProviderSelectionWizardStep.Provider);
+        viewModel.CanGoBack.Should().BeFalse();
+    }
+
+    [Fact]
+    public void CatalogProviderWithoutDav_KeepsCalendarAndContactsLocal()
+    {
+        var catalog = new EmbeddedKnownImapProviderCatalog(new KnownImapProviderCatalogLoader());
+        var viewModel = new ProviderSelectionPageViewModel(
+            Mock.Of<IAccountService>(),
+            Mock.Of<IDialogServiceBase>(),
+            catalog,
+            Mock.Of<INewThemeService>(),
+            new WelcomeWizardContext())
+        {
+            SelectedProvider = new ProviderDetail(catalog.GetBySpecialProvider(SpecialImapProvider.Proton)!)
+        };
+
+        viewModel.IsCalendarProviderModeAvailable.Should().BeFalse();
+        viewModel.IsContactProviderModeAvailable.Should().BeFalse();
+        viewModel.CalendarMode.Should().Be(AccountCapabilityMode.Local);
+        viewModel.ContactMode.Should().Be(AccountCapabilityMode.Local);
+
+        viewModel.SelectedProvider = new ProviderDetail(catalog.GetBySpecialProvider(SpecialImapProvider.Fastmail)!);
+
+        viewModel.IsCalendarProviderModeAvailable.Should().BeTrue();
+        viewModel.IsContactProviderModeAvailable.Should().BeTrue();
     }
 
     [Fact]

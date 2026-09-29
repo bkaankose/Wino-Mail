@@ -361,6 +361,13 @@ public static class XamlHelpers
         }
     }
 
+    /// <summary>
+    /// Warning when the flag is set, informational otherwise. Used by hints that block a flow until
+    /// the user changes something outside Wino.
+    /// </summary>
+    public static InfoBarSeverity BoolToInfoBarSeverity(bool isWarning)
+        => isWarning ? InfoBarSeverity.Warning : InfoBarSeverity.Informational;
+
     public static InfoBarSeverity InfoBarSeverityConverter(InfoBarMessageType messageType)
     {
         return messageType switch
@@ -804,11 +811,14 @@ public static class XamlHelpers
         }
         else
         {
+            // Catalog providers have a brand glyph named after their enum member (Gmx, Proton, ...).
             return specialImapProvider switch
             {
                 SpecialImapProvider.iCloud => WinoIconGlyph.Apple,
                 SpecialImapProvider.Yahoo => WinoIconGlyph.Yahoo,
-                _ => WinoIconGlyph.None,
+                _ => Enum.TryParse<WinoIconGlyph>(specialImapProvider.ToString(), out var brandGlyph)
+                    ? brandGlyph
+                    : WinoIconGlyph.IMAP,
             };
         }
     }

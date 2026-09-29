@@ -2079,6 +2079,306 @@
       "codepoint": "E0B0",
       "svg": "MicrosoftMono.svg",
       "source": "custom"
+    },
+    {
+      "name": "Aol",
+      "codepoint": "E0B1",
+      "svg": "Aol.svg",
+      "color": "#3399FF",
+      "source": "simple-icons"
+    },
+    {
+      "name": "AttMail",
+      "codepoint": "E0B2",
+      "svg": "AttMail.svg",
+      "color": "#009FDB",
+      "source": "simple-icons"
+    },
+    {
+      "name": "TOnline",
+      "codepoint": "E0B3",
+      "svg": "TOnline.svg",
+      "color": "#E20074",
+      "source": "simple-icons"
+    },
+    {
+      "name": "Gmx",
+      "codepoint": "E0B4",
+      "svg": "Gmx.svg",
+      "layers": [
+        {
+          "svg": "Gmx.layer1.svg",
+          "color": "#1C449B"
+        },
+        {
+          "svg": "Gmx.layer2.svg",
+          "color": "#FFFFFF"
+        }
+      ],
+      "source": "simple-icons"
+    },
+    {
+      "name": "Infomaniak",
+      "codepoint": "E0B5",
+      "svg": "Infomaniak.svg",
+      "color": "#0098FF",
+      "source": "simple-icons"
+    },
+    {
+      "name": "Ionos",
+      "codepoint": "E0B6",
+      "svg": "Ionos.svg",
+      "layers": [
+        {
+          "svg": "Ionos.layer1.svg",
+          "color": "#003D8F"
+        },
+        {
+          "svg": "Ionos.layer2.svg",
+          "color": "#FFFFFF"
+        }
+      ],
+      "source": "simple-icons"
+    },
+    {
+      "name": "MailCom",
+      "codepoint": "E0B7",
+      "svg": "MailCom.svg",
+      "layers": [
+        {
+          "svg": "MailCom.layer1.svg",
+          "color": "#004788"
+        },
+        {
+          "svg": "MailCom.layer2.svg",
+          "color": "#FFFFFF"
+        }
+      ],
+      "source": "simple-icons"
+    },
+    {
+      "name": "MailRu",
+      "codepoint": "E0B8",
+      "svg": "MailRu.svg",
+      "color": "#005FF9",
+      "source": "simple-icons"
+    },
+    {
+      "name": "MailboxOrg",
+      "codepoint": "E0B9",
+      "svg": "MailboxOrg.svg",
+      "color": "#76BB21",
+      "source": "simple-icons"
+    },
+    {
+      "name": "Migadu",
+      "codepoint": "E0BA",
+      "svg": "Migadu.svg",
+      "layers": [
+        {
+          "svg": "Migadu.layer1.svg",
+          "color": "#0043CE"
+        },
+        {
+          "svg": "Migadu.layer2.svg",
+          "color": "#FFFFFF"
+        }
+      ],
+      "source": "simple-icons"
+    },
+    {
+      "name": "Orange",
+      "codepoint": "E0BB",
+      "svg": "Orange.svg",
+      "color": "#FF7900",
+      "source": "simple-icons"
+    },
+    {
+      "name": "Proton",
+      "codepoint": "E0BC",
+      "svg": "Proton.svg",
+      "color": "#6D4AFF",
+      "source": "simple-icons"
+    },
+    {
+      "name": "QqMail",
+      "codepoint": "E0BD",
+      "svg": "QqMail.svg",
+      "color": "#1EBAFC",
+      "source": "simple-icons"
+    },
+    {
+      "name": "Zoho",
+      "codepoint": "E0BE",
+      "svg": "Zoho.svg",
+      "layers": [
+        {
+          "svg": "Zoho.layer1.svg",
+          "color": "#E42527"
+        },
+        {
+          "svg": "Zoho.layer2.svg",
+          "color": "#FFFFFF"
+        }
+      ],
+      "source": "simple-icons"
+    },
+    {
+      "name": "Fastmail",
+      "codepoint": "E0BF",
+      "svg": "Fastmail.svg",
+      "layers": [
+        {
+          "svg": "Fastmail.layer1.svg",
+          "color": "#69B3E7"
+        },
+        {
+          "svg": "Fastmail.layer2.svg",
+          "color": "#0067B9"
+        },
+        {
+          "svg": "Fastmail.layer3.svg",
+          "color": "#333E48"
+        },
+        {
+          "svg": "Fastmail.layer4.svg",
+          "color": "#FFC107"
+        }
+      ],
+      "source": "wikimedia-commons"
+    },
+    {
+      "name": "Yandex",
+      "codepoint": "E0C0",
+      "svg": "Yandex.svg",
+      "layers": [
+        {
+          "svg": "Yandex.layer1.svg",
+          "color": "#FFDA3E"
+        },
+        {
+          "svg": "Yandex.layer2.svg",
+          "color": "#FFCC00"
+        },
+        {
+          "svg": "Yandex.layer3.svg",
+          "color": "#FF3333"
+        }
+      ],
+      "source": "wikimedia-commons"
+    },
+    {
+      "name": "BtMail",
+      "codepoint": "E0C1",
+      "svg": "BtMail.svg",
+      "color": "#5514B4",
+      "source": "wikimedia-commons"
+    },
+    {
+      "name": "Libero",
+      "codepoint": "E0C2",
+      "svg": "Libero.svg",
+      "layers": [
+        {
+          "svg": "Libero.layer1.svg",
+          "color": "#003E72"
+        },
+        {
+          "svg": "Libero.layer2.svg",
+          "color": "#FFFFFF"
+        },
+        {
+          "svg": "Libero.layer3.svg",
+          "color": "#83AD30"
+        }
+      ],
+      "source": "libero.it"
+    },
+    {
+      "name": "Seznam",
+      "codepoint": "E0C3",
+      "svg": "Seznam.svg",
+      "color": "#CC0000",
+      "source": "wikimedia-commons"
+    },
+    {
+      "name": "Strato",
+      "codepoint": "E0C4",
+      "svg": "Strato.svg",
+      "color": "#FF8800",
+      "source": "strato.de"
+    },
+    {
+      "name": "Posteo",
+      "codepoint": "E0C5",
+      "svg": "Posteo.svg",
+      "color": "#78B928",
+      "source": "posteo.de"
+    },
+    {
+      "name": "WebDe",
+      "codepoint": "E0C6",
+      "svg": "WebDe.svg",
+      "color": "#FFD800",
+      "source": "simple-icons"
+    },
+    {
+      "name": "Comcast",
+      "codepoint": "E0C7",
+      "svg": "Comcast.svg",
+      "layers": [
+        {
+          "svg": "Comcast.layer1.svg",
+          "color": "#6135F6"
+        },
+        {
+          "svg": "Comcast.layer2.svg",
+          "color": "#FFFFFF"
+        }
+      ],
+      "source": "monogram"
+    },
+    {
+      "name": "Runbox",
+      "codepoint": "E0C8",
+      "svg": "Runbox.svg",
+      "layers": [
+        {
+          "svg": "Runbox.layer1.svg",
+          "color": "#0E7C7B"
+        },
+        {
+          "svg": "Runbox.layer2.svg",
+          "color": "#FFFFFF"
+        }
+      ],
+      "source": "monogram"
+    },
+    {
+      "name": "NetEase",
+      "codepoint": "E0C9",
+      "svg": "NetEase.svg",
+      "layers": [
+        {
+          "svg": "NetEase.layer1.svg",
+          "color": "#C8161D"
+        },
+        {
+          "svg": "NetEase.layer2.svg",
+          "color": "#FFFFFF"
+        }
+      ],
+      "source": "monogram"
+    },
+    {
+      "name": "ProviderCatalog",
+      "codepoint": "E0CA",
+      "svg": "ProviderCatalog.svg",
+      "accent": {
+        "svg": "ProviderCatalog.accent.svg",
+        "color": "blue"
+      },
+      "source": "fluent:apps"
     }
   ]
 }

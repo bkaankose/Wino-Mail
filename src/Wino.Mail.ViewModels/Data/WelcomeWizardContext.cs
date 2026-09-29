@@ -55,6 +55,12 @@ public partial class WelcomeWizardContext : ObservableObject
     [ObservableProperty]
     public partial ImapCalendarSupportMode CalendarSupportMode { get; set; } = ImapCalendarSupportMode.Disabled;
 
+    /// <summary>
+    /// The catalog region chosen for providers whose hosts differ per data center. Null for the rest.
+    /// </summary>
+    [ObservableProperty]
+    public partial string RegionId { get; set; }
+
     // Generic IMAP — populated by ImapCalDavSettingsPage
     public ImapCalDavSetupResult ImapCalDavSetupResult { get; set; }
 
@@ -80,7 +86,8 @@ public partial class WelcomeWizardContext : ObservableObject
             AppSpecificPassword,
             DisplayName,
             SelectedProvider.SpecialImapProvider,
-            CalendarSupportMode);
+            CalendarSupportMode,
+            RegionId);
     }
 
     public AccountCreationDialogResult BuildAccountCreationDialogResult()
@@ -115,6 +122,7 @@ public partial class WelcomeWizardContext : ObservableObject
         EmailAddress = null;
         AppSpecificPassword = null;
         CalendarSupportMode = ImapCalendarSupportMode.Disabled;
+        RegionId = null;
         ImapCalDavSetupResult = null;
     }
 }
