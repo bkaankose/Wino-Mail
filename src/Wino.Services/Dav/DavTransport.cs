@@ -39,9 +39,6 @@ public sealed class DavTransport : IDavTransport
         ArgumentNullException.ThrowIfNull(request.RequestUri);
         ArgumentNullException.ThrowIfNull(authentication);
 
-        if (authentication.Kind == DavAuthenticationKind.Basic && request.RequestUri.Scheme != Uri.UriSchemeHttps)
-            throw new InvalidOperationException("Basic DAV authentication requires HTTPS.");
-
         var template = await DavRequestTemplate.CreateAsync(request, cancellationToken).ConfigureAwait(false);
         var target = request.RequestUri;
         string digestAuthorization = null;
