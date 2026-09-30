@@ -214,6 +214,8 @@ namespace Google.Apis.Calendar.v3
 
             public DateTimeOffset? TimeMinDateTimeOffset { get; set; }
 
+            public DateTimeOffset? TimeMaxDateTimeOffset { get; set; }
+
             private string BuildRequestUri() => GoogleUrl.AddQuery(
                 EventsUri(_calendarId),
                 ("iCalUID", ICalUID),
@@ -222,7 +224,8 @@ namespace Google.Apis.Calendar.v3
                 ("showDeleted", GoogleUrl.Boolean(ShowDeleted)),
                 ("singleEvents", GoogleUrl.Boolean(SingleEvents)),
                 ("syncToken", SyncToken),
-                ("timeMin", TimeMinDateTimeOffset?.ToString("O", System.Globalization.CultureInfo.InvariantCulture)));
+                ("timeMin", TimeMinDateTimeOffset?.ToString("O", System.Globalization.CultureInfo.InvariantCulture)),
+                ("timeMax", TimeMaxDateTimeOffset?.ToString("O", System.Globalization.CultureInfo.InvariantCulture)));
         }
 
         public sealed class PatchRequest : GoogleApiRequest<Event>

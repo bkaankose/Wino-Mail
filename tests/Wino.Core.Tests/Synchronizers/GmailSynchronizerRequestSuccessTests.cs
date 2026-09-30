@@ -23,6 +23,7 @@ using Wino.Core.Requests.Mail;
 using Wino.Core.Requests.Tasks;
 using Wino.Core.Synchronizers.Mail;
 using Xunit;
+using CalendarEvent = global::Google.Apis.Calendar.v3.Data.Event;
 
 namespace Wino.Core.Tests.Synchronizers;
 
@@ -195,17 +196,132 @@ public sealed class GmailSynchronizerRequestSuccessTests
             Id = Guid.NewGuid(),
             RemoteCalendarId = "primary",
             Name = "Primary",
-            SynchronizationDeltaToken = "expired-token"
+            SynchronizationDeltaToken = CalendarSyncWindowToken.Encode("expired-token", DateTimeOffset.UtcNow.AddYears(2))
         };
 
         await InvokeDownloadCalendarEventsAsync(synchronizer, calendar);
 
         persistedTokens.Should().ContainSingle().Which.Should().BeNull();
-        calendar.SynchronizationDeltaToken.Should().Be("fresh-token");
+        var (providerToken, windowEnd) = CalendarSyncWindowToken.Decode(calendar.SynchronizationDeltaToken);
+        providerToken.Should().Be("fresh-token");
+        windowEnd.Should().NotBeNull();
+        windowEnd!.Value.Date.Should().Be(DateTimeOffset.UtcNow.AddYears(2).Date);
         handler.RequestUris.Should().HaveCount(2);
         handler.RequestUris[0].Query.Should().Contain("syncToken=expired-token");
         handler.RequestUris[1].Query.Should().NotContain("syncToken=");
         handler.RequestUris[1].Query.Should().Contain("timeMin=");
+        handler.RequestUris[1].Query.Should().Contain("timeMax=");
+    }
+
+    [Theory]
+    [InlineData("legacy-token")]
+    [InlineData("win=20261201|expiring-token")]
+    public async Task DownloadCalendarEventsAsync_TokenWithoutUsableWindow_ReanchorsWithFullDownload(string storedToken)
+    {
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        var handler = new RecordingCalendarHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"items":[],"nextSyncToken":"fresh-token"}""")
+        });
+        var synchronizer = CreateSynchronizer(changeProcessor.Object, handler);
+        var calendar = new AccountCalendar
+        {
+            Id = Guid.NewGuid(),
+            RemoteCalendarId = "primary",
+            Name = "Primary",
+            SynchronizationDeltaToken = storedToken
+        };
+
+        await InvokeDownloadCalendarEventsAsync(synchronizer, calendar);
+
+        handler.RequestUris.Should().ContainSingle();
+        handler.RequestUris[0].Query.Should().NotContain("syncToken=");
+        handler.RequestUris[0].Query.Should().Contain("timeMin=");
+        handler.RequestUris[0].Query.Should().Contain("timeMax=");
+
+        var (providerToken, windowEnd) = CalendarSyncWindowToken.Decode(calendar.SynchronizationDeltaToken);
+        providerToken.Should().Be("fresh-token");
+        windowEnd!.Value.Date.Should().Be(DateTimeOffset.UtcNow.AddYears(2).Date);
+    }
+
+    [Fact]
+    public async Task DownloadCalendarEventsAsync_TokenWithFarWindow_UsesIncrementalSync()
+    {
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        var handler = new RecordingCalendarHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""{"items":[],"nextSyncToken":"next-token"}""")
+        });
+        var synchronizer = CreateSynchronizer(changeProcessor.Object, handler);
+        var windowEnd = DateTimeOffset.UtcNow.AddYears(1);
+        var calendar = new AccountCalendar
+        {
+            Id = Guid.NewGuid(),
+            RemoteCalendarId = "primary",
+            Name = "Primary",
+            SynchronizationDeltaToken = CalendarSyncWindowToken.Encode("current-token", windowEnd)
+        };
+
+        await InvokeDownloadCalendarEventsAsync(synchronizer, calendar);
+
+        handler.RequestUris.Should().ContainSingle();
+        handler.RequestUris[0].Query.Should().Contain("syncToken=current-token");
+        handler.RequestUris[0].Query.Should().NotContain("timeMin=");
+
+        var (providerToken, storedWindowEnd) = CalendarSyncWindowToken.Decode(calendar.SynchronizationDeltaToken);
+        providerToken.Should().Be("next-token");
+        storedWindowEnd!.Value.Date.Should().Be(windowEnd.Date, "incremental syncs keep the window they were anchored to");
+    }
+
+    [Fact]
+    public async Task EnsureRecurringParentProcessedAsync_ParentFetchFailsTransiently_Throws()
+    {
+        var calendar = new AccountCalendar { Id = Guid.NewGuid(), RemoteCalendarId = "primary", Name = "Primary" };
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        changeProcessor
+            .Setup(x => x.GetCalendarItemAsync(calendar.Id, "series"))
+            .ReturnsAsync((CalendarItem?)null);
+
+        var handler = new RecordingCalendarHandler(_ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        {
+            Content = new StringContent("""{"error":{"code":500,"message":"Backend Error"}}""")
+        });
+        var synchronizer = CreateSynchronizer(changeProcessor.Object, handler);
+        var child = new CalendarEvent { Id = "series_20260914T100000Z", RecurringEventId = "series" };
+
+        var act = () => InvokeEnsureRecurringParentProcessedAsync(synchronizer, calendar, child);
+
+        await act.Should().ThrowAsync<GoogleApiException>();
+        handler.RequestUris.Should().ContainSingle().Which.AbsolutePath.Should().EndWith("/events/series");
+        changeProcessor.Verify(
+            x => x.ManageCalendarEventAsync(It.IsAny<CalendarEvent>(), It.IsAny<AccountCalendar>(), It.IsAny<MailAccount>()),
+            Times.Never);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound)]
+    [InlineData(HttpStatusCode.Gone)]
+    public async Task EnsureRecurringParentProcessedAsync_ParentNoLongerExists_SkipsChildWithoutThrowing(HttpStatusCode statusCode)
+    {
+        var calendar = new AccountCalendar { Id = Guid.NewGuid(), RemoteCalendarId = "primary", Name = "Primary" };
+        var changeProcessor = new Mock<IGmailChangeProcessor>(MockBehavior.Strict);
+        changeProcessor
+            .Setup(x => x.GetCalendarItemAsync(calendar.Id, "series"))
+            .ReturnsAsync((CalendarItem?)null);
+
+        var handler = new RecordingCalendarHandler(_ => new HttpResponseMessage(statusCode)
+        {
+            Content = new StringContent("""{"error":{"code":404,"message":"Not Found"}}""")
+        });
+        var synchronizer = CreateSynchronizer(changeProcessor.Object, handler);
+        var child = new CalendarEvent { Id = "series_20260914T100000Z", RecurringEventId = "series" };
+
+        await InvokeEnsureRecurringParentProcessedAsync(synchronizer, calendar, child);
+
+        handler.RequestUris.Should().ContainSingle();
+        changeProcessor.Verify(
+            x => x.ManageCalendarEventAsync(It.IsAny<CalendarEvent>(), It.IsAny<AccountCalendar>(), It.IsAny<MailAccount>()),
+            Times.Never);
     }
 
     [Fact]
@@ -576,6 +692,36 @@ public sealed class GmailSynchronizerRequestSuccessTests
         var task = method!.Invoke(synchronizer, [calendar, CancellationToken.None]) as Task;
         task.Should().NotBeNull();
         await task!;
+    }
+
+    private static async Task InvokeEnsureRecurringParentProcessedAsync(
+        GmailSynchronizer synchronizer,
+        AccountCalendar calendar,
+        CalendarEvent child)
+    {
+        var method = typeof(GmailSynchronizer).GetMethod(
+            "EnsureRecurringParentProcessedAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+
+        method.Should().NotBeNull();
+
+        var eventByRemoteId = new Dictionary<string, CalendarEvent>(StringComparer.Ordinal) { [child.Id] = child };
+        var task = method!.Invoke(synchronizer, [calendar, child, eventByRemoteId, CancellationToken.None]) as Task;
+        task.Should().NotBeNull();
+        await task!;
+    }
+
+    private sealed class RecordingCalendarHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        public List<Uri> RequestUris { get; } = [];
+
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            RequestUris.Add(request.RequestUri!);
+            return Task.FromResult(respond(request));
+        }
     }
 
     private sealed class ExpiredCalendarSyncTokenHandler : HttpMessageHandler

@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Calendar;
 using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Domain.Models.Calendar;
@@ -61,6 +62,12 @@ public interface IDefaultChangeProcessor
     Task UpdateAccountCalendarAsync(AccountCalendar accountCalendar);
 
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
+
+    /// <summary>
+    /// Deletes local events inside the synchronized window whose provider ID was not
+    /// returned by a full download. Used after a calendar is re-anchored to a new window.
+    /// </summary>
+    Task ReconcileCalendarEventsAsync(AccountCalendar calendar, DateTimeOffset windowStartUtc, DateTimeOffset windowEndUtc, IReadOnlySet<string> remoteProviderEventIds);
     Task PersistCreatedCalendarEventAsync(
         CalendarItem calendarItem,
         List<CalendarEventAttendee> attendees,
@@ -388,6 +395,30 @@ public class DefaultChangeProcessor(IDatabaseService databaseService,
 
     public Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken)
         => CalendarService.UpdateCalendarDeltaSynchronizationToken(calendarId, deltaToken);
+
+    public async Task ReconcileCalendarEventsAsync(AccountCalendar calendar, DateTimeOffset windowStartUtc, DateTimeOffset windowEndUtc, IReadOnlySet<string> remoteProviderEventIds)
+    {
+        if (calendar == null || remoteProviderEventIds == null)
+            return;
+
+        var window = new Itenso.TimePeriod.TimeRange(windowStartUtc.UtcDateTime, windowEndUtc.UtcDateTime);
+        var localEvents = await CalendarService.GetCalendarEventsAsync(calendar, window).ConfigureAwait(false);
+
+        foreach (var localEvent in localEvents)
+        {
+            if (string.IsNullOrWhiteSpace(localEvent.RemoteEventId))
+                continue;
+
+            // Locally created events waiting for upload only carry a client placeholder ID.
+            if (localEvent.RemoteEventId.IsClientTrackingPlaceholder())
+                continue;
+
+            if (remoteProviderEventIds.Contains(localEvent.RemoteEventId.GetProviderRemoteEventId()))
+                continue;
+
+            await DeleteCalendarItemAsync(localEvent.Id).ConfigureAwait(false);
+        }
+    }
 
     public async Task DeleteUserMailCacheAsync(Guid accountId)
     {

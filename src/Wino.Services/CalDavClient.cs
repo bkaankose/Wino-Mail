@@ -512,10 +512,12 @@ public sealed class CalDavClient : ICalDavClient
                 .Select(g => g.First())
                 .ToList();
 
-            var exceptionMap = allEvents
+            var mastersByUid = masters.ToDictionary(m => m.Uid, StringComparer.OrdinalIgnoreCase);
+
+            var exceptionsByUid = allEvents
                 .Where(e => e != null && !string.IsNullOrWhiteSpace(e.Uid) && GetRecurrenceId(e) != null)
-                .GroupBy(e => $"{e.Uid}|{GetOccurrenceKey(GetRecurrenceId(e))}", StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+                .GroupBy(e => e.Uid, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
             var rangeExceptions = allEvents
                 .Where(e => e?.RecurrenceIdentifier?.Range == RecurrenceRange.ThisAndFuture &&
@@ -548,6 +550,14 @@ public sealed class CalDavClient : ICalDavClient
                         seriesMasterRemoteEventId: string.Empty,
                         recurrence: BuildRecurrenceString(master)));
 
+                    // Exception keys are normalized to the master's value type (see CalDavOccurrenceKey).
+                    var exceptionMap = new Dictionary<string, CalendarEvent>(StringComparer.OrdinalIgnoreCase);
+                    if (exceptionsByUid.TryGetValue(master.Uid, out var masterExceptions))
+                    {
+                        foreach (var exception in masterExceptions)
+                            exceptionMap.TryAdd($"{master.Uid}|{GetOccurrenceKey(GetRecurrenceId(exception), master.Start)}", exception);
+                    }
+
                     var occurrences = master
                         .GetOccurrences(
                             new CalDateTime(windowStartUtc.UtcDateTime, true),
@@ -561,7 +571,7 @@ public sealed class CalDavClient : ICalDavClient
 
                     foreach (var occurrence in occurrences)
                     {
-                        var key = GetOccurrenceKey(occurrence.Period.StartTime);
+                        var key = GetOccurrenceKey(occurrence.Period.StartTime, master.Start);
                         var mapKey = $"{master.Uid}|{key}";
 
                         exceptionMap.TryGetValue(mapKey, out var exceptionEvent);
@@ -632,7 +642,9 @@ public sealed class CalDavClient : ICalDavClient
             foreach (var exceptionEvent in allEvents.Where(e => e != null && GetRecurrenceId(e) != null && !string.IsNullOrWhiteSpace(e.Uid)))
             {
                 var recurrenceId = GetRecurrenceId(exceptionEvent);
-                var key = $"{exceptionEvent.Uid}|{GetOccurrenceKey(recurrenceId)}";
+                mastersByUid.TryGetValue(exceptionEvent.Uid, out var exceptionMaster);
+                var occurrenceKey = GetOccurrenceKey(recurrenceId, exceptionMaster?.Start);
+                var key = $"{exceptionEvent.Uid}|{occurrenceKey}";
                 if (consumedExceptions.Contains(key))
                     continue;
 
@@ -648,7 +660,7 @@ public sealed class CalDavClient : ICalDavClient
                     sourceEvent: exceptionEvent,
                     start: start,
                     end: end,
-                    remoteEventId: BuildRemoteEventId(exceptionEvent.Uid, GetOccurrenceKey(recurrenceId)),
+                    remoteEventId: BuildRemoteEventId(exceptionEvent.Uid, occurrenceKey),
                     resourceHref: resourceHref,
                     eTag: eTag,
                     icsContent: icsContent,
@@ -677,10 +689,8 @@ public sealed class CalDavClient : ICalDavClient
     private static CalDateTime GetRecurrenceId(CalendarEvent calendarEvent)
         => calendarEvent?.RecurrenceIdentifier?.StartTime;
 
-    private static string GetOccurrenceKey(CalDateTime dateTime)
-        => dateTime.IsFloating
-            ? dateTime.Value.ToString("yyyyMMdd'T'HHmmss")
-            : dateTime.AsUtc.ToString("yyyyMMdd'T'HHmmss'Z'");
+    private static string GetOccurrenceKey(CalDateTime dateTime, CalDateTime masterStart)
+        => CalDavOccurrenceKey.Create(dateTime, masterStart);
 
     private static DateTimeOffset ToDateTimeOffset(CalDateTime dateTime)
     {

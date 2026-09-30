@@ -78,7 +78,14 @@ public static class CalDavIcsMutator
         var existingException = FindEvent(calendar, uid, occurrenceKey);
 
         if (existingException != null)
-            calendar.Events.Remove(existingException);
+        {
+            // Ical.Net's event collection matches on component equality, which can resolve to the
+            // series master that shares the UID. Rebuild the list so only this instance is dropped.
+            var remainingEvents = calendar.Events.Where(value => !ReferenceEquals(value, existingException)).ToList();
+            calendar.Events.Clear();
+            foreach (var remainingEvent in remainingEvents)
+                calendar.Events.Add(remainingEvent);
+        }
 
         master.ExceptionDates.Add(recurrenceId);
         master.Sequence++;
@@ -90,6 +97,11 @@ public static class CalDavIcsMutator
 
     private static CalendarEvent FindEvent(IcalCalendar calendar, string uid, string occurrenceKey)
     {
+        // Occurrence keys are expressed in the master's value type, so a RECURRENCE-ID
+        // written with a different value type still resolves to the same exception.
+        var masterStart = calendar.Events.FirstOrDefault(value =>
+            string.Equals(value.Uid, uid, StringComparison.Ordinal) && value.RecurrenceIdentifier == null)?.Start;
+
         return calendar.Events.FirstOrDefault(value =>
         {
             if (!string.Equals(value.Uid, uid, StringComparison.Ordinal))
@@ -98,7 +110,7 @@ public static class CalDavIcsMutator
             var recurrenceId = value.RecurrenceIdentifier?.StartTime;
             return string.IsNullOrWhiteSpace(occurrenceKey)
                 ? recurrenceId == null
-                : recurrenceId != null && string.Equals(GetOccurrenceKey(recurrenceId), occurrenceKey, StringComparison.Ordinal);
+                : recurrenceId != null && string.Equals(CalDavOccurrenceKey.Create(recurrenceId, masterStart), occurrenceKey, StringComparison.Ordinal);
         });
     }
 
@@ -254,11 +266,6 @@ public static class CalDavIcsMutator
             ? (remoteEventId, string.Empty)
             : (remoteEventId[..separatorIndex], remoteEventId[(separatorIndex + OccurrenceSeparator.Length)..]);
     }
-
-    private static string GetOccurrenceKey(CalDateTime value)
-        => value.IsFloating
-            ? value.Value.ToString("yyyyMMdd'T'HHmmss", CultureInfo.InvariantCulture)
-            : value.AsUtc.ToString("yyyyMMdd'T'HHmmss'Z'", CultureInfo.InvariantCulture);
 
     private static string MapStatus(CalendarItemStatus status)
         => status switch

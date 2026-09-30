@@ -1616,7 +1616,12 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             if (!remoteCalendarsById.TryGetValue(localCalendar.RemoteCalendarId, out var remoteCalendar))
                 continue;
 
-            var remoteToken = BuildCalendarDeltaToken(remoteCalendar);
+            // The stored token carries the window end it was produced for. Occurrences are only
+            // materialized inside that window, so the calendar is re-anchored (full REPORT even
+            // when the server token is unchanged) once the window end gets close.
+            var (_, storedWindowEndUtc) = CalendarSyncWindowToken.Decode(localCalendar.SynchronizationDeltaToken);
+            var requiresReanchor = CalendarSyncWindowToken.RequiresReanchor(storedWindowEndUtc, DateTimeOffset.UtcNow);
+            var remoteToken = BuildCalendarDeltaToken(remoteCalendar, requiresReanchor ? periodEndUtc : storedWindowEndUtc.Value);
 
             var isInitialSync = string.IsNullOrWhiteSpace(localCalendar.SynchronizationDeltaToken);
             var tokenChanged = !string.Equals(localCalendar.SynchronizationDeltaToken, remoteToken, StringComparison.Ordinal);
@@ -1625,12 +1630,25 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
             if (!isInitialSync && !tokenChanged && !forceSync)
                 continue;
 
+            if (requiresReanchor && !isInitialSync)
+            {
+                _logger.Information("Re-anchoring CalDAV calendar {CalendarName} to a new synchronization window ending {WindowEnd}.", localCalendar.Name, periodEndUtc);
+            }
+
             var remoteEvents = await _calDavClient.GetCalendarEventsAsync(
                 activeConnection,
                 remoteCalendar,
                 periodStartUtc,
                 periodEndUtc,
                 cancellationToken).ConfigureAwait(false);
+
+            // Servers must expand recurrences when evaluating the REPORT time-range (RFC 4791 §9.9).
+            // A zero count for a calendar that visibly has old series points at a server that does not.
+            _logger.Debug("CalDAV REPORT for {CalendarName} returned {ResourceCount} resources expanded to {EventCount} events ({MasterCount} series masters).",
+                localCalendar.Name,
+                remoteEvents.Select(e => e.RemoteResourceHref).Distinct(StringComparer.OrdinalIgnoreCase).Count(),
+                remoteEvents.Count,
+                remoteEvents.Count(e => e.IsSeriesMaster));
             var remoteEventIds = new HashSet<string>(
                 remoteEvents
                     .Where(e => !string.IsNullOrWhiteSpace(e.RemoteEventId))
@@ -1698,7 +1716,8 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
         // Ensure unresolved parent-child linkage still gets corrected when required.
         if (!string.IsNullOrWhiteSpace(remoteEvent.SeriesMasterRemoteEventId) &&
-            existingLocalItem.RecurringCalendarItemId == null)
+            (existingLocalItem.RecurringCalendarItemId == null ||
+             existingLocalItem.RecurringCalendarItemId == existingLocalItem.Id))
         {
             return false;
         }
@@ -1737,9 +1756,24 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
 
             await _imapChangeProcessor.DeleteCalendarItemAsync(localEvent.Id).ConfigureAwait(false);
         }
+
+        // Generated occurrences that fell out of the window are regenerated from the
+        // master on demand. Prune them so the table does not grow forever.
+        var expiredPeriod = new TimeRange(DateTime.MinValue, periodStartUtc.UtcDateTime);
+        var expiredEvents = await _calendarService
+            .GetCalendarEventsAsync(localCalendar, expiredPeriod)
+            .ConfigureAwait(false);
+
+        foreach (var expiredEvent in expiredEvents)
+        {
+            if (!expiredEvent.IsRecurringChild || expiredEvent.LocalEndDate > expiredPeriod.End)
+                continue;
+
+            await _imapChangeProcessor.DeleteCalendarItemAsync(expiredEvent.Id).ConfigureAwait(false);
+        }
     }
 
-    private static string BuildCalendarDeltaToken(CalDavCalendar calendar)
+    private static string BuildCalendarDeltaToken(CalDavCalendar calendar, DateTimeOffset windowEndUtc)
     {
         if (calendar == null)
             return string.Empty;
@@ -1747,10 +1781,16 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         var syncToken = calendar.SyncToken?.Trim() ?? string.Empty;
         var ctag = calendar.CTag?.Trim() ?? string.Empty;
 
-        if (!string.IsNullOrWhiteSpace(syncToken) && !string.IsNullOrWhiteSpace(ctag))
-            return $"{syncToken}|{ctag}";
+        var serverToken = !string.IsNullOrWhiteSpace(syncToken) && !string.IsNullOrWhiteSpace(ctag)
+            ? $"{syncToken}|{ctag}"
+            : !string.IsNullOrWhiteSpace(syncToken) ? syncToken : ctag;
 
-        return !string.IsNullOrWhiteSpace(syncToken) ? syncToken : ctag;
+        // An empty token keeps the calendar on "always sync" for servers without ctag support.
+        // Tokens stored before window anchoring existed decode without a window and trigger a
+        // one-time re-anchor, which also reimports calendars cached before occurrence IDs were preserved.
+        return string.IsNullOrWhiteSpace(serverToken)
+            ? string.Empty
+            : CalendarSyncWindowToken.Encode(serverToken, windowEndUtc);
     }
 
     private async Task<Uri> ResolveCalDavServiceUriAsync(CancellationToken cancellationToken)
@@ -2182,17 +2222,7 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                         IcsContent = icsContent
                     }).ConfigureAwait(false);
 
-                if (request.Item.RecurringCalendarItemId is { } parentId)
-                {
-                    await _changeProcessor.SaveCalendarItemIcsAsync(
-                        _account.Id,
-                        request.Item.CalendarId,
-                        parentId,
-                        request.Item.RemoteEventId.GetProviderRemoteEventId(),
-                        result.ExactHref,
-                        result.ETag,
-                        icsContent).ConfigureAwait(false);
-                }
+                await SaveSeriesSnapshotAsync(request.Item, result.ExactHref, result.ETag, icsContent).ConfigureAwait(false);
 
                 return;
             }
@@ -2255,14 +2285,44 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
                 })
                 .ConfigureAwait(false);
 
-            await _changeProcessor.SaveCalendarItemIcsAsync(
-                _account.Id,
-                item.CalendarId,
-                item.Id,
-                item.RemoteEventId,
-                result.ExactHref,
-                result.ETag,
-                icsContent).ConfigureAwait(false);
+            await SaveSeriesSnapshotAsync(item, result.ExactHref, result.ETag, icsContent).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// A recurring series is one CalDAV resource shared by the master row and every occurrence row.
+        /// After any write, every row of the series must hold the new ETag, otherwise the next write
+        /// on a sibling sends a stale If-Match and the server answers 412.
+        /// </summary>
+        private async Task SaveSeriesSnapshotAsync(CalendarItem item, string exactHref, string eTag, string icsContent)
+        {
+            var seriesParentId = item.IsRecurringChild
+                ? item.RecurringCalendarItemId
+                : item.IsRecurringParent ? item.Id : null;
+
+            var savedItemIds = new HashSet<Guid>();
+
+            if (seriesParentId is { } parentId)
+            {
+                var parent = await _calendarService.GetCalendarItemAsync(parentId).ConfigureAwait(false);
+                if (parent != null && savedItemIds.Add(parent.Id))
+                {
+                    await _changeProcessor.SaveCalendarItemIcsAsync(_account.Id, item.CalendarId, parent.Id, parent.RemoteEventId, exactHref, eTag, icsContent).ConfigureAwait(false);
+                }
+
+                var children = await _calendarService.GetRecurringChildrenAsync(parentId).ConfigureAwait(false);
+                foreach (var child in children ?? [])
+                {
+                    if (!savedItemIds.Add(child.Id))
+                        continue;
+
+                    await _changeProcessor.SaveCalendarItemIcsAsync(_account.Id, item.CalendarId, child.Id, child.RemoteEventId, exactHref, eTag, icsContent).ConfigureAwait(false);
+                }
+            }
+
+            if (savedItemIds.Add(item.Id))
+            {
+                await _changeProcessor.SaveCalendarItemIcsAsync(_account.Id, item.CalendarId, item.Id, item.RemoteEventId, exactHref, eTag, icsContent).ConfigureAwait(false);
+            }
         }
 
         private async Task<CalDavResourceSnapshot> RequireResourceSnapshotAsync(CalendarItem item)

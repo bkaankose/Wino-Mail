@@ -2,6 +2,7 @@
 using FluentAssertions;
 using Itenso.TimePeriod;
 using Wino.Core.Domain.Entities.Calendar;
+using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Tests.Helpers;
 using Wino.Messaging.Client.Calendar;
 using Wino.Services;
@@ -44,6 +45,49 @@ public class CalendarServiceTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         await _databaseService.DisposeAsync();
+    }
+
+    [Fact]
+    public async Task GetCalendarItemAsync_OccurrenceWithoutMaster_DoesNotAliasSeriesOrSiblings()
+    {
+        await _databaseService.Connection.InsertAsync(new MailAccount { Id = _testCalendar.AccountId });
+        var child = new CalendarItem
+        {
+            Id = Guid.NewGuid(),
+            CalendarId = _testCalendar.Id,
+            RemoteEventId = "series::20260914T100000Z",
+            StartDate = new DateTime(2026, 9, 14, 10, 0, 0),
+            DurationInSeconds = 3600
+        };
+        await _calendarService.CreateNewCalendarItemAsync(child, null);
+
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, child.RemoteEventId))!.Id.Should().Be(child.Id);
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, "series")).Should().BeNull();
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, "series::20260915T100000Z")).Should().BeNull();
+
+        await _calendarService.DeleteCalendarItemAsync("series::20260915T100000Z", _testCalendar.Id);
+        (await _databaseService.Connection.FindAsync<CalendarItem>(child.Id)).Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task GetCalendarItemAsync_GuidTrackedOccurrence_ResolvesByFullProviderIdentity()
+    {
+        await _databaseService.Connection.InsertAsync(new MailAccount { Id = _testCalendar.AccountId });
+        var itemId = Guid.NewGuid();
+        const string occurrenceId = "series::20260914T100000Z";
+        var child = new CalendarItem
+        {
+            Id = itemId,
+            CalendarId = _testCalendar.Id,
+            RemoteEventId = $"{occurrenceId}::{itemId:N}",
+            StartDate = new DateTime(2026, 9, 14, 10, 0, 0),
+            DurationInSeconds = 3600
+        };
+        await _calendarService.CreateNewCalendarItemAsync(child, null);
+
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, occurrenceId))!.Id.Should().Be(itemId);
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, child.RemoteEventId))!.Id.Should().Be(itemId);
+        (await _calendarService.GetCalendarItemAsync(_testCalendar.Id, "series")).Should().BeNull();
     }
 
     [Fact]

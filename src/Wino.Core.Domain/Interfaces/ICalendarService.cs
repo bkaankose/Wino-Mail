@@ -37,6 +37,11 @@ public interface ICalendarService
     Task<List<CalendarItem>> GetCalendarEventsAsync(IAccountCalendar calendar, ITimePeriod period);
 
     Task<CalendarItem> GetCalendarItemAsync(Guid accountCalendarId, string remoteEventId);
+
+    /// <summary>
+    /// Returns every occurrence row linked to the given series master.
+    /// </summary>
+    Task<List<CalendarItem>> GetRecurringChildrenAsync(Guid parentCalendarItemId);
     Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken);
 
     /// <summary>

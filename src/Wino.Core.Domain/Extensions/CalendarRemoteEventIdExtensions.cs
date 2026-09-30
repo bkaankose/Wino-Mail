@@ -13,8 +13,12 @@ public static class CalendarRemoteEventIdExtensions
         if (string.IsNullOrWhiteSpace(remoteEventId))
             return string.Empty;
 
-        var separatorIndex = remoteEventId.IndexOf(ClientTrackingSeparator, StringComparison.Ordinal);
-        return separatorIndex >= 0 ? remoteEventId[..separatorIndex] : remoteEventId;
+        var separatorIndex = remoteEventId.LastIndexOf(ClientTrackingSeparator, StringComparison.Ordinal);
+        if (separatorIndex >= 0 && TryParseGuid(remoteEventId[(separatorIndex + ClientTrackingSeparator.Length)..], out _))
+            return remoteEventId[..separatorIndex];
+
+        // CalDAV occurrence keys also follow "::", but are part of the provider identity.
+        return remoteEventId;
     }
 
     public static Guid? GetClientTrackingId(this string remoteEventId)
@@ -45,6 +49,25 @@ public static class CalendarRemoteEventIdExtensions
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// True when the ID is a client-generated placeholder that has not been replaced by a
+    /// provider ID yet (a bare GUID, or a "local-"/"caldav-" prefixed GUID).
+    /// </summary>
+    public static bool IsClientTrackingPlaceholder(this string remoteEventId)
+    {
+        var providerRemoteEventId = remoteEventId.GetProviderRemoteEventId();
+        if (string.IsNullOrWhiteSpace(providerRemoteEventId))
+            return false;
+
+        if (TryParseGuid(providerRemoteEventId, out _))
+            return true;
+
+        return (providerRemoteEventId.StartsWith(CalDavClientTrackingPrefix, StringComparison.OrdinalIgnoreCase) &&
+                TryParseGuid(providerRemoteEventId[CalDavClientTrackingPrefix.Length..], out _)) ||
+               (providerRemoteEventId.StartsWith(LocalClientTrackingPrefix, StringComparison.OrdinalIgnoreCase) &&
+                TryParseGuid(providerRemoteEventId[LocalClientTrackingPrefix.Length..], out _));
     }
 
     public static string WithClientTrackingId(this string providerRemoteEventId, Guid? clientTrackingId)

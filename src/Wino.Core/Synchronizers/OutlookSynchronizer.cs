@@ -33,6 +33,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -4714,15 +4715,27 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
             try
             {
-                bool isInitialSync = string.IsNullOrEmpty(calendar.SynchronizationDeltaToken);
+                // A calendar-view delta token is bound to the start/end window of the request that
+                // created it and never moves. Re-anchor with a fresh full download once the window
+                // end gets close. Tokens stored before window anchoring existed re-anchor once.
+                var (currentDeltaToken, storedWindowEndUtc) = CalendarSyncWindowToken.Decode(calendar.SynchronizationDeltaToken);
+                bool isInitialSync = string.IsNullOrEmpty(currentDeltaToken);
+                bool requiresReanchor = !isInitialSync && CalendarSyncWindowToken.RequiresReanchor(storedWindowEndUtc, DateTimeOffset.UtcNow);
+                bool isFullDownload = isInitialSync || requiresReanchor;
 
-                if (isInitialSync)
+                var windowStartUtc = DateTimeOffset.UtcNow.AddYears(-2);
+                var windowEndUtc = DateTimeOffset.UtcNow.AddYears(2);
+
+                if (isFullDownload)
                 {
-                    _logger.Information("No calendar sync identifier for calendar {Name}. Performing initial sync.", calendar.Name);
+                    if (isInitialSync)
+                        _logger.Information("No calendar sync identifier for calendar {Name}. Performing initial sync.", calendar.Name);
+                    else
+                        _logger.Information("Re-anchoring calendar {Name} to a new synchronization window ending {WindowEnd}.", calendar.Name, windowEndUtc);
 
                     // ISO 8601 format as expected by Microsoft Graph API (e.g., "2019-11-08T19:00:00-08:00")
-                    var startDate = FormatGraphDateTimeOffset(DateTimeOffset.Now.AddYears(-2));
-                    var endDate = FormatGraphDateTimeOffset(DateTimeOffset.Now.AddYears(2));
+                    var startDate = FormatGraphDateTimeOffset(windowStartUtc.ToLocalTime());
+                    var endDate = FormatGraphDateTimeOffset(windowEndUtc.ToLocalTime());
 
                     // Calendar-view delta does not support $select. Download attachment metadata separately below.
                     eventsDeltaResponse = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].CalendarView.Delta.GetAsDeltaGetResponseAsync((requestConfiguration) =>
@@ -4733,7 +4746,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 }
                 else
                 {
-                    var currentDeltaToken = calendar.SynchronizationDeltaToken;
+                    windowEndUtc = storedWindowEndUtc.Value;
 
                     _logger.Information("Performing delta sync for calendar {Name}.", calendar.Name);
 
@@ -4826,11 +4839,25 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 //Store delta link for tracking new changes.
                 if (allEventsProcessed && !string.IsNullOrEmpty(latestDeltaLink))
                 {
-                    // Parse Delta Token from Delta Link since v5 of Graph SDK works based on the token, not the link.
+                    if (isFullDownload)
+                    {
+                        // A full download replaces the window: local rows inside it that Graph no
+                        // longer returns were deleted (or moved out) while no delta was tracked.
+                        var remoteIds = new HashSet<string>(
+                            events.Where(e => !string.IsNullOrWhiteSpace(e.Id)).Select(e => e.Id),
+                            StringComparer.Ordinal);
 
+                        await _outlookChangeProcessor
+                            .ReconcileCalendarEventsAsync(calendar, windowStartUtc, windowEndUtc, remoteIds)
+                            .ConfigureAwait(false);
+                    }
+
+                    // Parse Delta Token from Delta Link since v5 of Graph SDK works based on the token, not the link.
                     var deltaToken = GetDeltaTokenFromDeltaLink(latestDeltaLink);
 
-                    await _outlookChangeProcessor.UpdateCalendarDeltaSynchronizationToken(calendar.Id, deltaToken).ConfigureAwait(false);
+                    await _outlookChangeProcessor
+                        .UpdateCalendarDeltaSynchronizationToken(calendar.Id, CalendarSyncWindowToken.Encode(deltaToken, windowEndUtc))
+                        .ConfigureAwait(false);
                 }
 
                 UpdateSyncProgress(totalCalendars, totalCalendars - (i + 1), Translator.SyncAction_SynchronizingCalendarEvents);

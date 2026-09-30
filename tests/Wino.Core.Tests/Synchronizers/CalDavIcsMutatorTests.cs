@@ -82,4 +82,30 @@ public sealed class CalDavIcsMutatorTests
             .Should().Contain(new DateTime(2026, 2, 20, 10, 0, 0));
         calendar.Events.Should().ContainSingle(value => value.Uid == "unrelated");
     }
+
+    [Fact]
+    public void RemoveOccurrence_ExistingException_RemovesOnlyThatException()
+    {
+        var withException = CalDavIcsMutator.UpdateEvent(RecurringIcs, new CalendarItem
+        {
+            RemoteEventId = "series-1::20260220T100000Z",
+            Title = "Moved occurrence",
+            StartDate = new DateTime(2026, 2, 20, 12, 0, 0),
+            DurationInSeconds = 3600,
+            StartTimeZone = "UTC",
+            EndTimeZone = "UTC"
+        }, []);
+        IcalCalendar.Load(withException).Events.Should().HaveCount(3);
+
+        var result = CalDavIcsMutator.RemoveOccurrence(withException, "series-1::20260220T100000Z");
+        var calendar = IcalCalendar.Load(result);
+
+        calendar.Events.Should().HaveCount(2, "the exception is gone, the master and the unrelated event stay");
+        var master = calendar.Events.Single(value => value.Uid == "series-1");
+        master.RecurrenceIdentifier.Should().BeNull("the master must not be the component that was removed");
+        master.RecurrenceRule.Should().NotBeNull();
+        master.ExceptionDates.GetAllDates()
+            .Select(value => value.AsUtc)
+            .Should().Contain(new DateTime(2026, 2, 20, 10, 0, 0));
+    }
 }

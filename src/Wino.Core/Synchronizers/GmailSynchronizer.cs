@@ -29,6 +29,7 @@ using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Intelligence;
 using Wino.Core.Domain.Models.Accounts;
+using Wino.Core.Domain.Models.Calendar;
 using Wino.Core.Domain.Models.Contacts;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Core.Domain.Models.MailItem;
@@ -1636,7 +1637,8 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
             try
             {
-                var allEvents = await DownloadCalendarEventsAsync(calendar, cancellationToken).ConfigureAwait(false);
+                var download = await DownloadCalendarEventsAsync(calendar, cancellationToken).ConfigureAwait(false);
+                var allEvents = download.Events;
 
                 var eventByRemoteId = allEvents
                     .Where(e => !string.IsNullOrWhiteSpace(e.Id))
@@ -1680,6 +1682,19 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
                 if (allEventsProcessed)
                 {
+                    if (download.IsFullDownload)
+                    {
+                        // A full download replaces the window: local rows inside it that Google
+                        // no longer returns were deleted (or moved out) while no delta was tracked.
+                        var remoteIds = new HashSet<string>(
+                            allEvents.Where(e => !string.IsNullOrWhiteSpace(e.Id)).Select(e => e.Id),
+                            StringComparer.Ordinal);
+
+                        await _gmailChangeProcessor
+                            .ReconcileCalendarEventsAsync(calendar, download.WindowStartUtc, download.WindowEndUtc, remoteIds)
+                            .ConfigureAwait(false);
+                    }
+
                     await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
                 }
 
@@ -1714,15 +1729,35 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         return CalendarSynchronizationResult.Empty;
     }
 
-    private async Task<List<Event>> DownloadCalendarEventsAsync(
+    private sealed record CalendarDownloadResult(
+        List<Event> Events,
+        bool IsFullDownload,
+        DateTimeOffset WindowStartUtc,
+        DateTimeOffset WindowEndUtc);
+
+    private async Task<CalendarDownloadResult> DownloadCalendarEventsAsync(
         AccountCalendar calendar,
         CancellationToken cancellationToken)
     {
-        var currentSyncToken = calendar.SynchronizationDeltaToken;
+        // Google keeps the timeMin/timeMax of the initial request attached to the sync token,
+        // so the tracked window never moves on its own. Re-anchor with a fresh full download
+        // once the window end gets close. Tokens stored before window anchoring re-anchor once.
+        var (currentSyncToken, storedWindowEndUtc) = CalendarSyncWindowToken.Decode(calendar.SynchronizationDeltaToken);
+
+        if (!string.IsNullOrWhiteSpace(currentSyncToken) &&
+            CalendarSyncWindowToken.RequiresReanchor(storedWindowEndUtc, DateTimeOffset.UtcNow))
+        {
+            _logger.Information(
+                "Re-anchoring Google calendar {CalendarName} in {Name} to a new synchronization window.",
+                calendar.Name,
+                Account.Name);
+
+            currentSyncToken = null;
+        }
 
         try
         {
-            return await DownloadCalendarEventsAsync(calendar, currentSyncToken, cancellationToken).ConfigureAwait(false);
+            return await DownloadCalendarEventsAsync(calendar, currentSyncToken, storedWindowEndUtc, cancellationToken).ConfigureAwait(false);
         }
         catch (GoogleApiException ex) when (
             !string.IsNullOrWhiteSpace(currentSyncToken) &&
@@ -1740,13 +1775,14 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
             calendar.SynchronizationDeltaToken = null;
             await _gmailChangeProcessor.UpdateAccountCalendarAsync(calendar).ConfigureAwait(false);
 
-            return await DownloadCalendarEventsAsync(calendar, null, cancellationToken).ConfigureAwait(false);
+            return await DownloadCalendarEventsAsync(calendar, null, null, cancellationToken).ConfigureAwait(false);
         }
     }
 
-    private async Task<List<Event>> DownloadCalendarEventsAsync(
+    private async Task<CalendarDownloadResult> DownloadCalendarEventsAsync(
         AccountCalendar calendar,
         string syncToken,
+        DateTimeOffset? storedWindowEndUtc,
         CancellationToken cancellationToken)
     {
         var request = _calendarService.Events.List(calendar.RemoteCalendarId);
@@ -1757,13 +1793,22 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         request.SingleEvents = true;
         request.ShowDeleted = true;
 
-        if (!string.IsNullOrWhiteSpace(syncToken))
+        var nowUtc = DateTimeOffset.UtcNow;
+        var windowStartUtc = nowUtc.AddYears(-1);
+        var windowEndUtc = nowUtc.AddYears(2);
+        var isFullDownload = string.IsNullOrWhiteSpace(syncToken);
+
+        if (!isFullDownload)
         {
             request.SyncToken = syncToken;
+            windowEndUtc = storedWindowEndUtc ?? windowEndUtc;
         }
         else
         {
-            request.TimeMinDateTimeOffset = DateTimeOffset.UtcNow.AddYears(-1);
+            // Bounding the expansion keeps unbounded series from producing thousands of
+            // instances per full download. The window matches CalDAV and Outlook.
+            request.TimeMinDateTimeOffset = windowStartUtc;
+            request.TimeMaxDateTimeOffset = windowEndUtc;
         }
 
         string nextPageToken;
@@ -1785,8 +1830,11 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         }
         while (!string.IsNullOrEmpty(nextPageToken));
 
-        calendar.SynchronizationDeltaToken = nextSyncToken;
-        return allEvents;
+        calendar.SynchronizationDeltaToken = string.IsNullOrWhiteSpace(nextSyncToken)
+            ? null
+            : CalendarSyncWindowToken.Encode(nextSyncToken, windowEndUtc);
+
+        return new CalendarDownloadResult(allEvents, isFullDownload, windowStartUtc, windowEndUtc);
     }
 
     private static IEnumerable<Event> OrderCalendarEventsForPersistence(IEnumerable<Event> events)
@@ -1817,14 +1865,18 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                     .ExecuteAsync(cancellationToken)
                     .ConfigureAwait(false);
             }
-            catch (GoogleApiException ex)
+            catch (GoogleApiException ex) when (ex.HttpStatusCode is System.Net.HttpStatusCode.NotFound or System.Net.HttpStatusCode.Gone)
             {
+                // The series no longer exists (for example the user was removed from it).
+                // The child is skipped for good; there is nothing to retry.
                 _logger.Warning(ex,
-                    "Failed to fetch recurring parent {ParentRemoteEventId} for child {ChildRemoteEventId} in calendar {CalendarName}",
+                    "Recurring parent {ParentRemoteEventId} for child {ChildRemoteEventId} in calendar {CalendarName} no longer exists.",
                     recurringEventId,
                     calendarEvent.Id,
                     calendar.Name);
             }
+            // Any other failure (throttling, 5xx, network) propagates so the sync token is not
+            // advanced past this child. The next synchronization retries the parent fetch.
 
             if (parentEvent != null && !string.IsNullOrWhiteSpace(parentEvent.Id))
             {

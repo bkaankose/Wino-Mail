@@ -336,6 +336,11 @@ public class CalendarService : BaseDatabaseService, ICalendarService
         return calendarItem;
     }
 
+    public Task<List<CalendarItem>> GetRecurringChildrenAsync(Guid parentCalendarItemId)
+        => Connection.Table<CalendarItem>()
+            .Where(item => item.RecurringCalendarItemId == parentCalendarItemId && item.Id != parentCalendarItemId)
+            .ToListAsync();
+
     public Task UpdateCalendarDeltaSynchronizationToken(Guid calendarId, string deltaToken)
     {
         return Connection.ExecuteAsync(
@@ -564,19 +569,37 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     private static DateTime MaxDateTime(DateTime first, DateTime second)
         => first >= second ? first : second;
 
-    private Task<CalendarItem> FindCalendarItemByRemoteEventIdAsync(Guid calendarId, string remoteEventId)
+    private async Task<CalendarItem> FindCalendarItemByRemoteEventIdAsync(Guid calendarId, string remoteEventId)
     {
         if (string.IsNullOrWhiteSpace(remoteEventId))
-            return Task.FromResult<CalendarItem>(null);
+            return null;
 
         var providerRemoteEventId = remoteEventId.GetProviderRemoteEventId();
 
-        return Connection.FindWithQueryAsync<CalendarItem>(
-            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND (RemoteEventId = ? OR substr(RemoteEventId, 1, ?) = ?)",
+        var exactMatch = await Connection.FindWithQueryAsync<CalendarItem>(
+            """
+            SELECT * FROM CalendarItem
+            WHERE CalendarId = ? AND (RemoteEventId = ? OR RemoteEventId = ?)
+            ORDER BY CASE WHEN RemoteEventId = ? THEN 0 ELSE 1 END
+            LIMIT 1
+            """,
             calendarId,
+            remoteEventId,
             providerRemoteEventId,
+            remoteEventId).ConfigureAwait(false);
+
+        if (exactMatch != null)
+            return exactMatch;
+
+        var candidates = await Connection.QueryAsync<CalendarItem>(
+            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND substr(RemoteEventId, 1, ?) = ?",
+            calendarId,
             providerRemoteEventId.Length + 2,
-            $"{providerRemoteEventId}::");
+            $"{providerRemoteEventId}::").ConfigureAwait(false);
+
+        // Only allow GUID tracking suffixes as aliases.
+        // A series UID must never resolve to one of its CalDAV occurrences.
+        return candidates.FirstOrDefault(item => string.Equals(item.RemoteEventId.GetProviderRemoteEventId(), providerRemoteEventId, StringComparison.Ordinal));
     }
 
     private sealed class CalendarReminderCandidate
