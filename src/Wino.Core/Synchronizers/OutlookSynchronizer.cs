@@ -4769,6 +4769,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                 _logger.Information("Found {Count} events in total.", events.Count);
 
                 var allEventsProcessed = true;
+                var processedSeriesMasterIds = new HashSet<string>(StringComparer.Ordinal);
 
                 foreach (var item in events)
                 {
@@ -4791,11 +4792,23 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
                                 // Expand attachments but only get metadata, not the full content
                                 requestConfiguration.QueryParameters.Expand = new[] { "attachments($select=id,name,contentType,size,isInline)" };
                             }, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+                        await EnsureSeriesMasterProcessedAsync(calendar, fullEvent, processedSeriesMasterIds, cancellationToken).ConfigureAwait(false);
                         await _outlookChangeProcessor.ManageCalendarEventAsync(fullEvent, calendar, Account).ConfigureAwait(false);
+
+                        if (fullEvent.Type == EventType.SeriesMaster && !string.IsNullOrEmpty(fullEvent.Id))
+                            processedSeriesMasterIds.Add(fullEvent.Id);
                     }
                     catch (OperationCanceledException)
                     {
                         throw;
+                    }
+                    catch (ApiException ex) when (ex.ResponseStatusCode == 404)
+                    {
+                        // The event was removed after the delta page was produced. Treat it as a deletion
+                        // instead of blocking the delta token for the whole calendar.
+                        _logger.Information("Calendar event {Id} no longer exists in {Name}. Removing it locally.", item.Id, calendar.Name);
+                        await _outlookChangeProcessor.DeleteCalendarItemAsync(item.Id, calendar.Id).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
@@ -4863,6 +4876,47 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
         // TODO: Return proper results.
         return CalendarSynchronizationResult.Empty;
+    }
+
+    /// <summary>
+    /// Calendar view delta only returns single events, occurrences and exceptions, never series masters.
+    /// Download the series master once per synchronization pass whenever one of its instances changed,
+    /// so instances can be linked to it and series-level edits (title, recurrence) stay current.
+    /// </summary>
+    private async Task EnsureSeriesMasterProcessedAsync(
+        AccountCalendar calendar,
+        Event calendarEvent,
+        HashSet<string> processedSeriesMasterIds,
+        CancellationToken cancellationToken)
+    {
+        if (calendarEvent?.Type is not (EventType.Occurrence or EventType.Exception))
+            return;
+
+        var seriesMasterId = calendarEvent.SeriesMasterId;
+        if (string.IsNullOrEmpty(seriesMasterId) || !processedSeriesMasterIds.Add(seriesMasterId))
+            return;
+
+        try
+        {
+            var seriesMaster = await _graphClient.Me.Calendars[calendar.RemoteCalendarId].Events[seriesMasterId]
+                .GetAsync(requestConfiguration =>
+                {
+                    requestConfiguration.QueryParameters.Expand = new[] { "attachments($select=id,name,contentType,size,isInline)" };
+                }, cancellationToken: cancellationToken).ConfigureAwait(false);
+
+            if (seriesMaster != null)
+            {
+                await _outlookChangeProcessor.ManageCalendarEventAsync(seriesMaster, calendar, Account).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (ApiException ex) when (ex.ResponseStatusCode == 404)
+        {
+            _logger.Warning("Series master {SeriesMasterId} for event {EventId} was not found in {Name}.", seriesMasterId, calendarEvent.Id, calendar.Name);
+        }
     }
 
     private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)

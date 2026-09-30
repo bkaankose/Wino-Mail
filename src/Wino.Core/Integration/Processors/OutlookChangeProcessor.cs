@@ -122,12 +122,23 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
                 Log.Warning($"Parent recurring event (SeriesMasterId: {calendarEvent.SeriesMasterId}) not found for event {calendarEvent.Id}. Event will be saved without parent link.");
             }
         }
+        else
+        {
+            // Single events and series masters are never children of another event.
+            savingItem.RecurringCalendarItemId = null;
+        }
 
         // Convert the recurrence pattern to string for parent recurring events.
         // Note: We store this for reference but don't use it to calculate occurrences.
-        if (calendarEvent.Type == EventType.SeriesMaster && calendarEvent.Recurrence != null)
+        if (calendarEvent.Type == EventType.SeriesMaster)
         {
-            savingItem.Recurrence = OutlookIntegratorExtensions.ToRfc5545RecurrenceString(calendarEvent.Recurrence);
+            if (calendarEvent.Recurrence != null)
+                savingItem.Recurrence = OutlookIntegratorExtensions.ToRfc5545RecurrenceString(calendarEvent.Recurrence);
+        }
+        else if (calendarEvent.Type != null)
+        {
+            // A stale recurrence on a single event or an instance would turn it into a hidden series master.
+            savingItem.Recurrence = string.Empty;
         }
 
         savingItem.HtmlLink = calendarEvent.WebLink;
@@ -137,7 +148,8 @@ public class OutlookChangeProcessor(IDatabaseService databaseService,
         savingItem.CalendarId = assignedCalendar.Id;
         savingItem.OrganizerEmail = calendarEvent.Organizer?.EmailAddress?.Address;
         savingItem.OrganizerDisplayName = calendarEvent.Organizer?.EmailAddress?.Name;
-        savingItem.IsHidden = false;
+        // Occurrences cancelled by the organizer stay on attendee calendars with IsCancelled set.
+        savingItem.IsHidden = calendarEvent.IsCancelled == true;
 
         // Set timestamps
         if (calendarEvent.CreatedDateTime.HasValue)

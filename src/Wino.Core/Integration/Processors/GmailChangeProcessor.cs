@@ -328,11 +328,8 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             }
             else
             {
-                // Make sure to unhide the event.
-                // It might be marked as hidden before.
-                existingCalendarItem.IsHidden = false;
-
-                // Update the event properties.
+                // Unhide the event unless the user declined it; declined events are hidden on creation too.
+                existingCalendarItem.IsHidden = ResolveCalendarItemStatus(calendarEvent) == CalendarItemStatus.Cancelled;
             }
 
             if (eventStartLocalDateTime != null)
@@ -356,7 +353,9 @@ public class GmailChangeProcessor : DefaultChangeProcessor, IGmailChangeProcesso
             existingCalendarItem.Location = string.IsNullOrEmpty(calendarEvent.Location) ? parentRecurringEvent?.Location ?? existingCalendarItem.Location : calendarEvent.Location;
             existingCalendarItem.StartTimeZone = startTimeZone ?? parentRecurringEvent?.StartTimeZone ?? existingCalendarItem.StartTimeZone;
             existingCalendarItem.EndTimeZone = endTimeZone ?? parentRecurringEvent?.EndTimeZone ?? existingCalendarItem.EndTimeZone;
-            existingCalendarItem.Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent) ?? existingCalendarItem.Recurrence ?? string.Empty;
+            // Only series masters carry a recurrence. Keeping a stale one would hide an event that
+            // stopped repeating, because recurring parents are never displayed directly.
+            existingCalendarItem.Recurrence = GoogleIntegratorExtensions.GetRecurrenceString(calendarEvent) ?? string.Empty;
             existingCalendarItem.Status = ResolveCalendarItemStatus(calendarEvent);
             existingCalendarItem.Title = string.IsNullOrEmpty(calendarEvent.Summary) ? parentRecurringEvent?.Title ?? existingCalendarItem.Title : calendarEvent.Summary;
             existingCalendarItem.UpdatedAt = DateTimeOffset.UtcNow;

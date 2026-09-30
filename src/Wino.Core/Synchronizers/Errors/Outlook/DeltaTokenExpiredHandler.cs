@@ -41,6 +41,12 @@ public class DeltaTokenExpiredHandler : ISynchronizerErrorHandler
             {
                 await _outlookChangeProcessor.UpdateFolderDeltaSynchronizationIdentifierAsync(error.FolderId.Value, string.Empty).ConfigureAwait(false);
             }
+            else if (error.CalendarId.HasValue)
+            {
+                // Calendar delta tokens are tracked per calendar. Clearing it makes the next sync
+                // request a fresh calendar view instead of failing on the expired token forever.
+                await _outlookChangeProcessor.UpdateCalendarDeltaSynchronizationToken(error.CalendarId.Value, null).ConfigureAwait(false);
+            }
             else
             {
                 error.Account.SynchronizationDeltaIdentifier = await _outlookChangeProcessor

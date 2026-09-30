@@ -1644,6 +1644,7 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
                     .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
                 var allEventsProcessed = true;
+                var refreshedParentIds = new HashSet<string>(StringComparer.Ordinal);
 
                 foreach (var @event in OrderCalendarEventsForPersistence(allEvents))
                 {
@@ -1651,7 +1652,15 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
                     try
                     {
-                        await EnsureRecurringParentProcessedAsync(calendar, @event, eventByRemoteId, cancellationToken).ConfigureAwait(false);
+                        var hasParent = await EnsureRecurringParentProcessedAsync(calendar, @event, eventByRemoteId, refreshedParentIds, cancellationToken).ConfigureAwait(false);
+
+                        if (!hasParent)
+                        {
+                            // Keep the sync token so the instance is delivered again once its parent is reachable.
+                            allEventsProcessed = false;
+                            continue;
+                        }
+
                         await _gmailChangeProcessor.ManageCalendarEventAsync(@event, calendar, Account).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
@@ -1795,19 +1804,25 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
             .ThenByDescending(e => !string.IsNullOrWhiteSpace(GoogleIntegratorExtensions.GetRecurrenceString(e)))
             .ThenBy(e => GoogleIntegratorExtensions.GetEventDateTimeOffset(e.Start) ?? DateTimeOffset.MinValue);
 
-    private async Task EnsureRecurringParentProcessedAsync(
+    /// <summary>
+    /// Instances are listed with singleEvents=true, so Google never returns their series master.
+    /// Download the master once per synchronization pass whenever one of its instances changed,
+    /// so instances can be linked to it and series-level edits (title, recurrence) stay current.
+    /// </summary>
+    /// <returns>False when the instance's parent is still unavailable locally.</returns>
+    private async Task<bool> EnsureRecurringParentProcessedAsync(
         AccountCalendar calendar,
         Event calendarEvent,
         Dictionary<string, Event> eventByRemoteId,
+        HashSet<string> refreshedParentIds,
         CancellationToken cancellationToken)
     {
         var recurringEventId = calendarEvent?.RecurringEventId;
         if (string.IsNullOrWhiteSpace(recurringEventId))
-            return;
+            return true;
 
-        var parentItem = await _gmailChangeProcessor.GetCalendarItemAsync(calendar.Id, recurringEventId).ConfigureAwait(false);
-        if (parentItem != null)
-            return;
+        if (!refreshedParentIds.Add(recurringEventId))
+            return await _gmailChangeProcessor.GetCalendarItemAsync(calendar.Id, recurringEventId).ConfigureAwait(false) != null;
 
         if (!eventByRemoteId.TryGetValue(recurringEventId, out var parentEvent))
         {
@@ -1832,17 +1847,26 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
             }
         }
 
-        if (parentEvent == null)
+        if (parentEvent != null)
         {
-            _logger.Warning(
-                "Recurring parent {ParentRemoteEventId} is still missing for child {ChildRemoteEventId} in calendar {CalendarName}",
-                recurringEventId,
-                calendarEvent.Id,
-                calendar.Name);
-            return;
+            await _gmailChangeProcessor.ManageCalendarEventAsync(parentEvent, calendar, Account).ConfigureAwait(false);
+
+            // The whole series was deleted. Its local rows are gone, so there is nothing left to retry.
+            if (parentEvent.Status == "cancelled")
+                return true;
         }
 
-        await _gmailChangeProcessor.ManageCalendarEventAsync(parentEvent, calendar, Account).ConfigureAwait(false);
+        var parentItem = await _gmailChangeProcessor.GetCalendarItemAsync(calendar.Id, recurringEventId).ConfigureAwait(false);
+        if (parentItem != null)
+            return true;
+
+        _logger.Warning(
+            "Recurring parent {ParentRemoteEventId} is still missing for child {ChildRemoteEventId} in calendar {CalendarName}",
+            recurringEventId,
+            calendarEvent.Id,
+            calendar.Name);
+
+        return false;
     }
 
     private async Task SynchronizeCalendarsAsync(CancellationToken cancellationToken = default)
