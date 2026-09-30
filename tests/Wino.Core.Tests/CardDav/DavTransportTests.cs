@@ -10,18 +10,24 @@ namespace Wino.Core.Tests.CardDav;
 
 public sealed class DavTransportTests
 {
-    [Fact]
-    public async Task SendAsync_BasicAuthenticationOverHttp_IsRejectedBeforeSending()
+    [Theory]
+    [InlineData("http://localhost:5232/contacts")]
+    [InlineData("http://127.0.0.1:5232/contacts")]
+    [InlineData("http://[::1]:5232/contacts")]
+    [InlineData("http://192.168.1.10:5232/contacts")]
+    [InlineData("https://dav.example.test/contacts")]
+    public async Task SendAsync_BasicAuthentication_SendsAuthenticatedRequest(string serviceUri)
     {
         var handler = new SequenceHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
         var transport = new DavTransport(new HttpClient(handler));
 
-        var action = () => transport.SendAsync(
-            new HttpRequestMessage(HttpMethod.Get, "http://dav.example.test/contacts"),
+        using var response = await transport.SendAsync(
+            new HttpRequestMessage(HttpMethod.Get, serviceUri),
             BasicProfile());
 
-        await action.Should().ThrowAsync<InvalidOperationException>();
-        handler.RequestCount.Should().Be(0);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        handler.RequestCount.Should().Be(1);
+        handler.AuthorizationSchemes.Should().Equal("Basic");
     }
 
     [Fact]
