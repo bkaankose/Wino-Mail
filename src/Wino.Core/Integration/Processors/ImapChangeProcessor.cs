@@ -93,7 +93,8 @@ public class ImapChangeProcessor : DefaultChangeProcessor, IImapChangeProcessor
                 .GetCalendarItemAsync(assignedCalendar.Id, calendarEvent.SeriesMasterRemoteEventId)
                 .ConfigureAwait(false);
 
-            if (parentEvent != null)
+            // An occurrence must never become its own parent.
+            if (parentEvent != null && parentEvent.Id != savingItemId)
             {
                 savingItem.RecurringCalendarItemId = parentEvent.Id;
             }

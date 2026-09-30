@@ -564,19 +564,45 @@ public class CalendarService : BaseDatabaseService, ICalendarService
     private static DateTime MaxDateTime(DateTime first, DateTime second)
         => first >= second ? first : second;
 
-    private Task<CalendarItem> FindCalendarItemByRemoteEventIdAsync(Guid calendarId, string remoteEventId)
+    private async Task<CalendarItem> FindCalendarItemByRemoteEventIdAsync(Guid calendarId, string remoteEventId)
     {
         if (string.IsNullOrWhiteSpace(remoteEventId))
-            return Task.FromResult<CalendarItem>(null);
+            return null;
 
-        var providerRemoteEventId = remoteEventId.GetProviderRemoteEventId();
-
-        return Connection.FindWithQueryAsync<CalendarItem>(
-            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND (RemoteEventId = ? OR substr(RemoteEventId, 1, ?) = ?)",
+        // Exact match always wins. CalDAV occurrences are stored as "uid::occurrenceKey",
+        // so a looser match would resolve every occurrence to the series master.
+        var exactItem = await Connection.FindWithQueryAsync<CalendarItem>(
+            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND RemoteEventId = ?",
             calendarId,
-            providerRemoteEventId,
-            providerRemoteEventId.Length + 2,
-            $"{providerRemoteEventId}::");
+            remoteEventId).ConfigureAwait(false);
+
+        if (exactItem != null)
+            return exactItem;
+
+        // Locally created events may carry a client tracking suffix ("providerId::{guid}")
+        // on either side of the lookup. Only that suffix is ignored when matching.
+        var providerRemoteEventId = remoteEventId.StripClientTrackingSuffix();
+
+        if (!string.Equals(providerRemoteEventId, remoteEventId, StringComparison.Ordinal))
+        {
+            var untrackedItem = await Connection.FindWithQueryAsync<CalendarItem>(
+                "SELECT * FROM CalendarItem WHERE CalendarId = ? AND RemoteEventId = ?",
+                calendarId,
+                providerRemoteEventId).ConfigureAwait(false);
+
+            if (untrackedItem != null)
+                return untrackedItem;
+        }
+
+        var prefix = $"{providerRemoteEventId}::";
+        var trackedCandidates = await Connection.QueryAsync<CalendarItem>(
+            "SELECT * FROM CalendarItem WHERE CalendarId = ? AND substr(RemoteEventId, 1, ?) = ?",
+            calendarId,
+            prefix.Length,
+            prefix).ConfigureAwait(false);
+
+        return trackedCandidates.FirstOrDefault(item =>
+            string.Equals(item.RemoteEventId.StripClientTrackingSuffix(), providerRemoteEventId, StringComparison.Ordinal));
     }
 
     private sealed class CalendarReminderCandidate

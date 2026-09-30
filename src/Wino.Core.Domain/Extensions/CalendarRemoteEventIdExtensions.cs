@@ -17,6 +17,25 @@ public static class CalendarRemoteEventIdExtensions
         return separatorIndex >= 0 ? remoteEventId[..separatorIndex] : remoteEventId;
     }
 
+    /// <summary>
+    /// Removes a trailing client tracking suffix ("::{guid}") from the remote event id.
+    /// Unlike <see cref="GetProviderRemoteEventId"/>, ids whose "::" suffix is not a tracking id
+    /// (e.g. CalDAV occurrence ids "uid::20260105T090000Z") are returned unchanged,
+    /// so every occurrence keeps its own identity.
+    /// </summary>
+    public static string StripClientTrackingSuffix(this string remoteEventId)
+    {
+        if (string.IsNullOrWhiteSpace(remoteEventId))
+            return string.Empty;
+
+        var separatorIndex = remoteEventId.LastIndexOf(ClientTrackingSeparator, StringComparison.Ordinal);
+        if (separatorIndex <= 0)
+            return remoteEventId;
+
+        var trackedPart = remoteEventId[(separatorIndex + ClientTrackingSeparator.Length)..];
+        return TryParseGuid(trackedPart, out _) ? remoteEventId[..separatorIndex] : remoteEventId;
+    }
+
     public static Guid? GetClientTrackingId(this string remoteEventId)
     {
         if (string.IsNullOrWhiteSpace(remoteEventId))

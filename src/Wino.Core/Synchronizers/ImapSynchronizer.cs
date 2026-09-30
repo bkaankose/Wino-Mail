@@ -1696,9 +1696,9 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         if (localCalendar == null || existingLocalItem == null || remoteEvent == null)
             return false;
 
-        // Ensure unresolved parent-child linkage still gets corrected when required.
+        // Ensure unresolved or self-referencing parent-child linkage still gets corrected when required.
         if (!string.IsNullOrWhiteSpace(remoteEvent.SeriesMasterRemoteEventId) &&
-            existingLocalItem.RecurringCalendarItemId == null)
+            (existingLocalItem.RecurringCalendarItemId == null || existingLocalItem.RecurringCalendarItemId == existingLocalItem.Id))
         {
             return false;
         }
@@ -1739,7 +1739,11 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         }
     }
 
-    private static string BuildCalendarDeltaToken(CalDavCalendar calendar)
+    // Bump when locally stored CalDAV events must be rebuilt from the server once,
+    // e.g. after fixing how recurring occurrences are persisted.
+    private const string CalDavDeltaTokenVersion = "v2";
+
+    internal static string BuildCalendarDeltaToken(CalDavCalendar calendar)
     {
         if (calendar == null)
             return string.Empty;
@@ -1747,10 +1751,11 @@ public partial class ImapSynchronizer : WinoSynchronizer<ImapRequest, ImapMessag
         var syncToken = calendar.SyncToken?.Trim() ?? string.Empty;
         var ctag = calendar.CTag?.Trim() ?? string.Empty;
 
-        if (!string.IsNullOrWhiteSpace(syncToken) && !string.IsNullOrWhiteSpace(ctag))
-            return $"{syncToken}|{ctag}";
+        var token = !string.IsNullOrWhiteSpace(syncToken) && !string.IsNullOrWhiteSpace(ctag)
+            ? $"{syncToken}|{ctag}"
+            : !string.IsNullOrWhiteSpace(syncToken) ? syncToken : ctag;
 
-        return !string.IsNullOrWhiteSpace(syncToken) ? syncToken : ctag;
+        return string.IsNullOrWhiteSpace(token) ? string.Empty : $"{CalDavDeltaTokenVersion}|{token}";
     }
 
     private async Task<Uri> ResolveCalDavServiceUriAsync(CancellationToken cancellationToken)
