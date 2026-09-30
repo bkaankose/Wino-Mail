@@ -410,3 +410,4 @@ Wino/obj/x86/Debug/XamlSaveStateFile.xml
 docs/design-prototypes/*
 !/docs/design-prototypes/wino-design-guideline.html
 /docs/blog
+/docs
