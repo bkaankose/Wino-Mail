@@ -271,7 +271,10 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         CardDavBookBinding binding,
         CancellationToken cancellationToken)
     {
-        if (binding.State.SupportsSyncCollection && !binding.State.RequiresFullReconciliation)
+        // Older discovery state can contain a server token without any local baseline.
+        // Recover it with a full pull before trusting incremental changes.
+        if (binding.State.SupportsSyncCollection && !binding.State.RequiresFullReconciliation &&
+            binding.State.LastFullSyncUtc.HasValue)
         {
             try
             {

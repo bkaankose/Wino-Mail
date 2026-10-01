@@ -79,7 +79,8 @@ public sealed class CardDavSynchronizationStore : BaseDatabaseService, ICardDavS
                     AddressBookId = book.Id,
                     AccountId = accountId,
                     ExactHref = remote.ExactHref,
-                    SyncToken = currentState?.SyncToken ?? remote.SyncToken,
+                    // Discovery describes the server, not the last page applied locally.
+                    SyncToken = currentState?.SyncToken,
                     CollectionTag = remote.CollectionTag,
                     SupportsSyncCollection = remote.SupportsSyncCollection,
                     SupportsMultiget = remote.SupportsMultiget,
@@ -95,7 +96,7 @@ public sealed class CardDavSynchronizationStore : BaseDatabaseService, ICardDavS
                     LearnedMultigetBatchSize = currentState?.LearnedMultigetBatchSize ?? 100,
                     Quirks = currentState?.Quirks,
                     ReconciliationGeneration = currentState?.ReconciliationGeneration ?? 0,
-                    RequiresFullReconciliation = currentState?.RequiresFullReconciliation ?? string.IsNullOrWhiteSpace(remote.SyncToken),
+                    RequiresFullReconciliation = currentState?.RequiresFullReconciliation ?? true,
                     IsUnavailable = false,
                     LastFullSyncUtc = currentState?.LastFullSyncUtc,
                     LastIncrementalSyncUtc = currentState?.LastIncrementalSyncUtc
@@ -544,7 +545,7 @@ public sealed class CardDavSynchronizationStore : BaseDatabaseService, ICardDavS
             "SELECT * FROM CardDavResourceShadow WHERE AddressBookId = ? AND ExactHref = ? LIMIT 1",
             addressBookId, shadow.ExactHref).FirstOrDefault();
         var current = currentShadow?.ContactId is Guid contactId ? transaction.Find<AccountContact>(contactId) : null;
-        if (current?.PendingMutation != ContactPendingMutation.None)
+        if (current is not null && current.PendingMutation != ContactPendingMutation.None)
         {
             shadow.Id = currentShadow?.Id ?? shadow.Id;
             shadow.ContactId = current.Id;

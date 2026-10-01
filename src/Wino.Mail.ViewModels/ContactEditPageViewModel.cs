@@ -196,11 +196,14 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
                     ?? Destinations.FirstOrDefault(destination => !destination.IsReadOnly);
 
                 if (_preferencesService?.ContactCreationBehavior == NewItemDestinationBehavior.Specific &&
-                    preferredDestinationId.HasValue && SelectedDestination?.AddressBookId != preferredDestinationId)
+                    (!preferredDestinationId.HasValue || SelectedDestination?.AddressBookId != preferredDestinationId))
                 {
                     _preferencesService.ContactCreationBehavior = NewItemDestinationBehavior.AskEachTime;
                     _preferencesService.SpecificContactAddressBookId = null;
                 }
+
+                if (_preferencesService?.ContactCreationBehavior == NewItemDestinationBehavior.AskEachTime)
+                    SelectedDestination = null;
 
                 if (parameter.ImportDraft is { } importDraft)
                 {
@@ -297,7 +300,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
                 desiredListIds: desiredListIds,
                 originalListIds: _originalListIds)).ConfigureAwait(false);
 
-            if (_preferencesService is not null)
+            if (!IsEditMode && _preferencesService is not null)
                 _preferencesService.LastUsedContactAddressBookId = contact.AddressBookId;
 
             await ExecuteUIThread(() =>

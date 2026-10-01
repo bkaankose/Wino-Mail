@@ -16,6 +16,91 @@ namespace Wino.Mail.ViewModels.Tests;
 public class ContactEditPageViewModelTests
 {
     [Fact]
+    public async Task Save_EditDoesNotChangeTheLastUsedCreationDestination()
+    {
+        var lastCreatedBook = Guid.NewGuid();
+        var preferences = new Mock<IPreferencesService>();
+        preferences.SetupAllProperties();
+        preferences.Object.LastUsedContactAddressBookId = lastCreatedBook;
+        var contact = new AccountContact { Id = Guid.NewGuid(), AddressBookId = Guid.NewGuid(), DisplayName = "Existing contact" };
+        var service = new Mock<IContactQueryService>();
+        service.Setup(item => item.GetCreateDestinationsAsync()).ReturnsAsync([]);
+        service.Setup(item => item.GetContactListsAsync()).ReturnsAsync([]);
+        service.Setup(item => item.GetListIdsForContactAsync(contact.Id)).ReturnsAsync([]);
+        service.Setup(item => item.GetContactAsync(contact.Id)).ReturnsAsync(contact);
+        var viewModel = new ContactEditPageViewModel(service.Object, Mock.Of<IWinoRequestDelegator>(),
+            Mock.Of<INavigationService>(), Mock.Of<IMailDialogService>(), Mock.Of<IPictureStorageService>(), preferences.Object);
+
+        viewModel.OnNavigatedTo(NavigationMode.New, new ContactEditNavigationParameter(contact.Id));
+        await WaitForAsync(() => viewModel.IsEditMode);
+        await viewModel.SaveCommand.ExecuteAsync(null);
+
+        preferences.Object.LastUsedContactAddressBookId.Should().Be(lastCreatedBook);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NewContact_UnavailableSpecificBookFallsBackToAsking(bool readOnly)
+    {
+        var destination = new ContactCreateDestination(Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.CardDav,
+            "Bob", "Contacts", true, IsReadOnly: readOnly);
+        var preferences = new Mock<IPreferencesService>();
+        preferences.SetupAllProperties();
+        preferences.Object.ContactCreationBehavior = NewItemDestinationBehavior.Specific;
+        preferences.Object.SpecificContactAddressBookId = readOnly ? destination.AddressBookId : Guid.NewGuid();
+        var service = new Mock<IContactQueryService>();
+        service.Setup(item => item.GetCreateDestinationsAsync()).ReturnsAsync([destination]);
+        service.Setup(item => item.GetContactListsAsync()).ReturnsAsync([]);
+        var viewModel = new ContactEditPageViewModel(service.Object, Mock.Of<IWinoRequestDelegator>(),
+            Mock.Of<INavigationService>(), Mock.Of<IMailDialogService>(), Mock.Of<IPictureStorageService>(), preferences.Object);
+
+        viewModel.OnNavigatedTo(NavigationMode.New, new ContactEditNavigationParameter());
+        await WaitForAsync(() => viewModel.Destinations.Count == 1);
+
+        preferences.Object.ContactCreationBehavior.Should().Be(NewItemDestinationBehavior.AskEachTime);
+        preferences.Object.SpecificContactAddressBookId.Should().BeNull();
+        viewModel.SelectedDestination.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(NewItemDestinationBehavior.AskEachTime)]
+    [InlineData(NewItemDestinationBehavior.LastUsed)]
+    [InlineData(NewItemDestinationBehavior.Specific)]
+    public async Task NewContact_UsesPreferenceInsteadOfFirstAccount(NewItemDestinationBehavior behavior)
+    {
+        var alice = new ContactCreateDestination(Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.CardDav, "Alice", "Contacts", true);
+        var bob = new ContactCreateDestination(Guid.NewGuid(), Guid.NewGuid(), ContactSourceKind.CardDav, "Bob", "Contacts", true);
+        var service = new Mock<IContactQueryService>();
+        service.Setup(item => item.GetCreateDestinationsAsync()).ReturnsAsync([alice, bob]);
+        service.Setup(item => item.GetContactListsAsync()).ReturnsAsync([]);
+        var preferences = new Mock<IPreferencesService>();
+        preferences.SetupAllProperties();
+        preferences.Object.ContactCreationBehavior = behavior;
+        preferences.Object.SpecificContactAddressBookId = bob.AddressBookId;
+        preferences.Object.LastUsedContactAddressBookId = bob.AddressBookId;
+        var dialogs = new Mock<IMailDialogService>();
+        dialogs.Setup(item => item.ShowContactDestinationPickerDialogAsync(It.IsAny<IReadOnlyList<ContactCreateDestination>>()))
+            .ReturnsAsync(bob);
+        var delegator = new Mock<IWinoRequestDelegator>();
+        var viewModel = new ContactEditPageViewModel(service.Object, delegator.Object,
+            Mock.Of<INavigationService>(), dialogs.Object, Mock.Of<IPictureStorageService>(), preferences.Object);
+
+        viewModel.OnNavigatedTo(NavigationMode.New, new ContactEditNavigationParameter());
+        await WaitForAsync(() => viewModel.Destinations.Count == 2);
+
+        viewModel.SelectedDestination.Should().Be(behavior == NewItemDestinationBehavior.AskEachTime ? null : bob);
+        viewModel.DisplayName = "Preference test";
+        await viewModel.SaveCommand.ExecuteAsync(null);
+
+        delegator.Verify(item => item.ExecuteAsync(It.Is<IReadOnlyList<ContactOperationPreparationRequest>>(requests =>
+            requests[0].Contact.AddressBookId == bob.AddressBookId)), Times.Once);
+        dialogs.Verify(item => item.ShowContactDestinationPickerDialogAsync(It.IsAny<IReadOnlyList<ContactCreateDestination>>()),
+            behavior == NewItemDestinationBehavior.AskEachTime ? Times.Once() : Times.Never());
+        preferences.Object.LastUsedContactAddressBookId.Should().Be(bob.AddressBookId);
+    }
+
+    [Fact]
     public async Task OnNavigatedTo_ResetsTheEditorToContactInformation()
     {
         var destination = new ContactCreateDestination(
