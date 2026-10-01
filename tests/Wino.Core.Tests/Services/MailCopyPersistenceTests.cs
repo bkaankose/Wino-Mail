@@ -301,6 +301,73 @@ public class MailCopyPersistenceTests : IAsyncLifetime
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Mapping_is_published_after_persistence_for_both_mapping_paths(bool legacyPath)
+    {
+        var registry = new DraftUpdateRegistry();
+        var service = BuildMailService(_databaseService, registry);
+        var draft = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(), Id = "local-copy", DraftId = "localDraft_initial",
+            IsDraft = true, FolderId = _inboxFolder.Id, AssignedAccount = _account,
+            Subject = "local edits", CreationDate = DateTime.UtcNow
+        };
+        await _databaseService.Connection.InsertAsync(draft, typeof(MailCopy));
+        var observed = new TaskCompletionSource<MailCopy>();
+        using var subscription = registry.Get(_account.Id, draft.UniqueId).Mapping.Observe(state =>
+        {
+            if (state.HasRemoteMapping)
+                observed.SetResult(_databaseService.Connection.FindAsync<MailCopy>(draft.UniqueId).GetAwaiter().GetResult());
+        });
+
+        if (legacyPath)
+            await service.MapLocalDraftAsync(draft.Id, "remote-draft", "thread");
+        else
+            await service.MapLocalDraftAsync(_account.Id, draft.UniqueId, "Drafts_42", "remote-draft", "thread", 42, 5);
+
+        var persisted = await observed.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        persisted.DraftId.Should().Be("remote-draft");
+        persisted.DraftSyncState.Should().Be(DraftSyncState.Synced);
+        registry.Get(_account.Id, draft.UniqueId).Mapping.ApplyTo(draft);
+        draft.Id.Should().Be(persisted.Id);
+        draft.ImapUid.Should().Be(persisted.ImapUid);
+    }
+
+    [Fact]
+    public async Task Failed_persistence_does_not_confirm_mapping()
+    {
+        var registry = new DraftUpdateRegistry();
+        var service = BuildMailService(_databaseService, registry);
+        var draft = new MailCopy
+        {
+            UniqueId = Guid.NewGuid(), Id = "local-copy", DraftId = "localDraft_initial",
+            IsDraft = true, FolderId = _inboxFolder.Id, AssignedAccount = _account,
+            CreationDate = DateTime.UtcNow
+        };
+        await _databaseService.Connection.InsertAsync(draft, typeof(MailCopy));
+        await _databaseService.Connection.ExecuteAsync(
+            "CREATE TRIGGER reject_mapping BEFORE UPDATE ON MailCopy BEGIN SELECT RAISE(ABORT, 'mapping rejected'); END");
+
+        await Assert.ThrowsAnyAsync<Exception>(() => service.MapLocalDraftAsync(_account.Id, draft.UniqueId, "remote", "draft", "thread"));
+
+        registry.Get(_account.Id, draft.UniqueId).Mapping.HasRemoteMapping.Should().BeFalse();
+        (await service.GetSingleMailItemAsync(draft.UniqueId)).IsLocalDraft.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Missing_draft_does_not_confirm_mapping()
+    {
+        var registry = new DraftUpdateRegistry();
+        var service = BuildMailService(_databaseService, registry);
+        var uniqueId = Guid.NewGuid();
+
+        (await service.MapLocalDraftAsync(_account.Id, uniqueId, "remote", "draft", "thread")).Should().BeFalse();
+
+        registry.Get(_account.Id, uniqueId).Mapping.HasRemoteMapping.Should().BeFalse();
+    }
+
     [Fact]
     public async Task Draft_identity_updates_preserve_newest_content_and_reject_stale_sync()
     {
@@ -321,6 +388,9 @@ public class MailCopyPersistenceTests : IAsyncLifetime
         var saved = await service.GetSingleMailItemAsync(draft.UniqueId);
         saved.Id.Should().Be("replacement"); saved.Subject.Should().Be("latest local");
         saved.FileId.Should().Be(draft.FileId); saved.ImapUid.Should().Be(42);
+        registry.Get(_account.Id, draft.UniqueId).Mapping.ApplyTo(draft);
+        draft.Id.Should().Be("replacement");
+        draft.ImapUid.Should().Be(42);
         registry.Release(_account.Id, draft.UniqueId);
         await service.MapLocalDraftAsync(_account.Id, draft.UniqueId, "original", "draft", "old-thread");
         (await service.GetSingleMailItemAsync(draft.UniqueId)).Id.Should().Be("replacement");

@@ -198,8 +198,12 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     private readonly IDraftSyncRetryService _draftSyncRetryService;
     private readonly IDraftUpdateCoordinator _draftUpdates;
     private readonly DraftUpdateRegistry _draftRegistry;
+    private IDisposable _draftMappingSubscription;
+    private DraftMappingLifecycle _observedDraftMapping;
+    private int _draftMappingGeneration;
     private readonly IDraftSaveService _draftSaveService;
     private readonly IAttachmentFileService _attachmentFileService;
+    private readonly ISynchronizationManager _synchronizationManager;
 
     public ComposePageViewModel(IMailDialogService dialogService,
                                 IMailService mailService,
@@ -220,7 +224,8 @@ public partial class ComposePageViewModel : MailBaseViewModel,
                                 IRecipientSuggestionService recipientSuggestionService,
                                 IRecipientHistoryService recipientHistoryService,
                                 IAttachmentFileService attachmentFileService = null,
-                                IWinoIntelligenceCoordinator intelligenceCoordinator = null)
+                                IWinoIntelligenceCoordinator intelligenceCoordinator = null,
+                                ISynchronizationManager synchronizationManager = null)
     {
         NativeAppService = nativeAppService;
         ContactService = contactService;
@@ -243,6 +248,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
         _draftRegistry = draftRegistry;
         _draftSaveService = draftSaveService;
         _attachmentFileService = attachmentFileService;
+        _synchronizationManager = synchronizationManager ?? SynchronizationManager.Instance;
 
         RewriteSession = new ComposerRewriteSession(
             intelligenceCoordinator,
@@ -738,6 +744,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     private async Task InitializeCurrentDraftAsync()
     {
+        await ObserveDraftMappingAsync().ConfigureAwait(false);
         // These initialization paths are independent. Run service/file work together,
         // then let each path commit only its small UI-bound portion through the dispatcher.
         await Task.WhenAll(
@@ -745,6 +752,63 @@ public partial class ComposePageViewModel : MailBaseViewModel,
             LoadEmailTemplatesAsync(),
             TryPrepareComposeAsync(true))
             .ConfigureAwait(false);
+    }
+
+    private async Task ObserveDraftMappingAsync()
+    {
+        Task initialRefresh = Task.CompletedTask;
+        var generation = Volatile.Read(ref _draftMappingGeneration);
+        await ExecuteUIThread(() =>
+        {
+            if (generation != Volatile.Read(ref _draftMappingGeneration)) return;
+
+            StopObservingDraftMapping();
+            var draft = CurrentMailDraftItem;
+            if (draft?.MailCopy?.AssignedAccount == null || !draft.IsDraft) return;
+
+            var mapping = _draftRegistry.Get(draft.MailCopy.AssignedAccount.Id, draft.UniqueId).Mapping;
+            mapping.Initialize(draft.MailCopy);
+            _observedDraftMapping = mapping;
+            _draftMappingSubscription = mapping.Observe(state =>
+                initialRefresh = RefreshDraftMappingAsync(draft, state));
+        }).ConfigureAwait(false);
+        await initialRefresh.ConfigureAwait(false);
+    }
+
+    private async Task RefreshDraftMappingAsync(MailItemViewModel draft, DraftMappingLifecycle mapping)
+    {
+        try
+        {
+            await ExecuteUIThread(() => ApplyDraftMapping(draft, mapping)).ConfigureAwait(false);
+
+            await UpdatePendingOperationStateAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Could not refresh composer draft mapping.");
+        }
+    }
+
+    private void ApplyDraftMapping(MailItemViewModel draft, DraftMappingLifecycle mapping)
+    {
+        if (mapping == null || draft?.IsDraft != true || !ReferenceEquals(_observedDraftMapping, mapping) ||
+            !ReferenceEquals(CurrentMailDraftItem, draft)) return;
+
+        if (!mapping.ApplyTo(draft.MailCopy)) return;
+
+        draft.UpdateFrom(draft.MailCopy, MailCopyChangeFlags.Id | MailCopyChangeFlags.DraftId |
+            MailCopyChangeFlags.ThreadId | MailCopyChangeFlags.DraftSyncState);
+        IsDraftSyncFailed = draft.IsDraftSyncFailed;
+        OnPropertyChanged(nameof(DraftSyncErrorMessage));
+        NotifyComposeActionStateChanged();
+    }
+
+    private void StopObservingDraftMapping()
+    {
+        Interlocked.Increment(ref _draftMappingGeneration);
+        _observedDraftMapping = null;
+        _draftMappingSubscription?.Dispose();
+        _draftMappingSubscription = null;
     }
 
     private async Task LoadEmailTemplatesAsync()
@@ -788,6 +852,7 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     protected override void UnregisterRecipients()
     {
+        StopObservingDraftMapping();
         base.UnregisterRecipients();
 
         Messenger.Unregister<SynchronizationActionsCompleted>(this);
@@ -834,37 +899,37 @@ public partial class ComposePageViewModel : MailBaseViewModel,
 
     private async Task UpdatePendingOperationStateAsync()
     {
-        var hasPendingOperation = false;
-        var keepBusyForInitialGracePeriod = false;
+        MailItemViewModel draft = null;
+        Guid accountId = Guid.Empty;
+        await ExecuteUIThread(() =>
+        {
+            draft = CurrentMailDraftItem;
+            accountId = draft?.MailCopy?.AssignedAccount?.Id ?? Guid.Empty;
+        }).ConfigureAwait(false);
 
-        if (CurrentMailDraftItem?.MailCopy == null || !CurrentMailDraftItem.MailCopy.IsDraft)
+        if (draft?.MailCopy == null || !draft.MailCopy.IsDraft)
         {
             await ExecuteUIThread(() =>
             {
+                if (!ReferenceEquals(CurrentMailDraftItem, draft)) return;
+
                 IsDraftBusy = false;
                 NotifyComposeActionStateChanged();
             });
             return;
         }
 
-        var accountId = CurrentMailDraftItem.MailCopy.AssignedAccount?.Id ?? Guid.Empty;
-
+        IWinoSynchronizerBase synchronizer = null;
         if (accountId != Guid.Empty)
-        {
-            var synchronizer = await SynchronizationManager.Instance.GetSynchronizerAsync(accountId).ConfigureAwait(false);
-            hasPendingOperation = synchronizer?.HasPendingOperation(CurrentMailDraftItem.MailCopy.UniqueId) ?? false;
-        }
-
-        // Newly created local drafts can have a short period where request queue is empty
-        // while folder synchronization/mapping is still in progress.
-        // Keep progress visible during this grace period to prevent "Send to server" flicker.
-        if (!hasPendingOperation && CurrentMailDraftItem.MailCopy.IsLocalDraft)
-        {
-            keepBusyForInitialGracePeriod = IsWithinLocalDraftRetryGracePeriod(CurrentMailDraftItem.MailCopy);
-        }
+            synchronizer = await _synchronizationManager.GetSynchronizerAsync(accountId).ConfigureAwait(false);
 
         await ExecuteUIThread(() =>
         {
+            if (!ReferenceEquals(CurrentMailDraftItem, draft)) return;
+
+            var hasPendingOperation = synchronizer?.HasPendingOperation(draft.UniqueId) ?? false;
+            var keepBusyForInitialGracePeriod = !hasPendingOperation && draft.IsLocalDraft &&
+                IsWithinLocalDraftRetryGracePeriod(draft.MailCopy);
             IsDraftBusy = hasPendingOperation || keepBusyForInitialGracePeriod;
             NotifyComposeActionStateChanged();
         });
@@ -1142,23 +1207,43 @@ public partial class ComposePageViewModel : MailBaseViewModel,
     {
         base.OnMailUpdated(updatedMail, source, changedProperties);
 
-        if (CurrentMailDraftItem == null) return;
-
-        if (updatedMail.UniqueId == CurrentMailDraftItem.MailCopy.UniqueId)
+        await ExecuteUIThread(() =>
         {
-            await ExecuteUIThread(() =>
-            {
-                CurrentMailDraftItem.UpdateFrom(updatedMail, changedProperties);
-                IsDraftSyncFailed = updatedMail.IsDraftSyncFailed;
-                OnPropertyChanged(nameof(DraftSyncErrorMessage));
-            });
+            var draft = CurrentMailDraftItem;
+            if (draft?.UniqueId != updatedMail.UniqueId ||
+                draft.MailCopy.AssignedAccount?.Id != updatedMail.AssignedAccount?.Id) return;
 
-            await UpdatePendingOperationStateAsync().ConfigureAwait(false);
-        }
+            const MailCopyChangeFlags mappingFlags = MailCopyChangeFlags.Id | MailCopyChangeFlags.DraftId |
+                MailCopyChangeFlags.ThreadId | MailCopyChangeFlags.DraftSyncState;
+            if (changedProperties != MailCopyChangeFlags.None && (changedProperties & ~mappingFlags) == 0)
+            {
+                // Mapping notifications carry a full row, but must not replace unsaved content.
+                if ((changedProperties & MailCopyChangeFlags.DraftSyncState) != 0)
+                {
+                    draft.MailCopy.DraftSyncState = updatedMail.DraftSyncState;
+                    draft.MailCopy.DraftSyncAttemptCount = updatedMail.DraftSyncAttemptCount;
+                    draft.MailCopy.LastDraftSyncAttemptUtc = updatedMail.LastDraftSyncAttemptUtc;
+                    draft.MailCopy.LastDraftSyncError = updatedMail.LastDraftSyncError;
+                    draft.UpdateFrom(draft.MailCopy, MailCopyChangeFlags.DraftSyncState);
+                }
+            }
+            else
+            {
+                draft.UpdateFrom(updatedMail, changedProperties);
+            }
+
+            // A queued mail notification may carry an older identity than the committed mapping.
+            ApplyDraftMapping(draft, _observedDraftMapping);
+            IsDraftSyncFailed = draft.IsDraftSyncFailed;
+            OnPropertyChanged(nameof(DraftSyncErrorMessage));
+        }).ConfigureAwait(false);
+
+        await UpdatePendingOperationStateAsync().ConfigureAwait(false);
     }
 
     partial void OnCurrentMailDraftItemChanged(MailItemViewModel value)
     {
+        StopObservingDraftMapping();
         IsDraftSyncFailed = value?.MailCopy?.IsDraftSyncFailed == true;
         OnPropertyChanged(nameof(DraftSyncErrorMessage));
 

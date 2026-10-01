@@ -1342,6 +1342,7 @@ public class MailService : BaseDatabaseService, IMailService
             if (duplicates.Count > 0) ReportRemovedMails(await HydrateMailCopiesAsync(duplicates).ConfigureAwait(false));
             identity.Apply(current);
             await Connection.UpdateAsync(current, typeof(MailCopy)).ConfigureAwait(false);
+            _draftUpdates?.ConfirmMapping(accountId, uniqueId, DraftUpdateIdentity.From(current));
             ReportUpdatedMails([current], MailCopyChangeFlags.Id | MailCopyChangeFlags.DraftId | MailCopyChangeFlags.ThreadId);
         }
         finally { gate.Release(); }
@@ -2688,8 +2689,7 @@ public class MailService : BaseDatabaseService, IMailService
                                                      MailCopyChangeFlags.ThreadId |
                                                      MailCopyChangeFlags.DraftSyncState);
 
-            _draftUpdates?.ConfirmIdentity(accountId, localDraftCopyUniqueId, newMailCopyId);
-            _draftUpdates?.NotifyMapped(accountId, localDraftCopyUniqueId);
+            _draftUpdates?.ConfirmMapping(accountId, localDraftCopyUniqueId, DraftUpdateIdentity.From(hydratedDraftCopy));
             ReportUIChange(new DraftMapped(oldLocalDraftId, hydratedDraftCopy.DraftId));
 
             return true;
@@ -2726,51 +2726,15 @@ public class MailService : BaseDatabaseService, IMailService
         }
     }
 
-    public Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId)
+    public async Task MapLocalDraftAsync(string mailCopyId, string newDraftId, string newThreadId)
     {
-        return UpdateAllMailCopiesAsync(mailCopyId, (item) =>
+        var copies = await GetMailCopiesByIdAsync(new string[] { mailCopyId }).ConfigureAwait(false);
+        foreach (var copy in copies)
         {
-            var shouldUpdateThreadId = !string.IsNullOrEmpty(newThreadId);
-            var shouldUpdateDraftId = !string.IsNullOrEmpty(newDraftId);
-
-            if ((shouldUpdateThreadId && item.ThreadId != newThreadId) ||
-                (shouldUpdateDraftId && item.DraftId != newDraftId) ||
-                item.DraftSyncState != DraftSyncState.Synced ||
-                item.DraftSyncAttemptCount != 0 ||
-                !string.IsNullOrEmpty(item.LastDraftSyncError))
-            {
-                var oldDraftId = item.DraftId;
-                var changedProperties = MailCopyChangeFlags.None;
-
-                if (shouldUpdateDraftId)
-                {
-                    item.DraftId = newDraftId;
-                    changedProperties |= MailCopyChangeFlags.DraftId;
-                }
-
-                if (shouldUpdateThreadId)
-                {
-                    item.ThreadId = newThreadId;
-                    changedProperties |= MailCopyChangeFlags.ThreadId;
-                }
-
-                if (item.DraftSyncState != DraftSyncState.Synced ||
-                    item.DraftSyncAttemptCount != 0 ||
-                    !string.IsNullOrEmpty(item.LastDraftSyncError))
-                {
-                    item.DraftSyncState = DraftSyncState.Synced;
-                    item.DraftSyncAttemptCount = 0;
-                    item.LastDraftSyncError = null;
-                    changedProperties |= MailCopyChangeFlags.DraftSyncState;
-                }
-
-                ReportUIChange(new DraftMapped(oldDraftId, item.DraftId));
-
-                return changedProperties;
-            }
-
-            return MailCopyChangeFlags.None;
-        });
+            await MapLocalDraftAsync(copy.AssignedAccount.Id, copy.UniqueId, copy.Id,
+                string.IsNullOrEmpty(newDraftId) ? copy.DraftId : newDraftId,
+                string.IsNullOrEmpty(newThreadId) ? copy.ThreadId : newThreadId).ConfigureAwait(false);
+        }
     }
 
     public async Task MarkDraftSyncFailedAsync(Guid mailUniqueId, string error)

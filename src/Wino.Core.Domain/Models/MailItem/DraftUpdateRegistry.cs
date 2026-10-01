@@ -12,8 +12,9 @@ public sealed class DraftUpdateRegistry
     private readonly ConcurrentDictionary<(Guid Account, Guid Draft), Entry> _entries = new();
     public event Action<Guid, Guid> Mapped;
 
-    public sealed class Entry
+    public sealed class Entry(Guid account, Guid draft)
     {
+        public DraftMappingLifecycle Mapping { get; } = new(account, draft);
         public SemaphoreSlim SaveLock { get; } = new(1, 1);
         public SemaphoreSlim PersistenceLock { get; } = new(1, 1);
         public Guid FileId { get; set; }
@@ -26,7 +27,14 @@ public sealed class DraftUpdateRegistry
         public ConcurrentDictionary<string, byte> RemoteIds { get; } = new();
     }
 
-    public Entry Get(Guid account, Guid draft) => _entries.GetOrAdd((account, draft), _ => new());
+    public Entry Get(Guid account, Guid draft) => _entries.GetOrAdd((account, draft), key => new(key.Account, key.Draft));
+
+    public void ConfirmMapping(Guid account, Guid draft, DraftUpdateIdentity identity)
+    {
+        ConfirmIdentity(account, draft, identity.MessageId);
+        Get(account, draft).Mapping.Confirm(identity);
+        NotifyMapped(account, draft);
+    }
 
     public void Protect(Guid account, MailCopy mail, Guid revision = default)
     {
