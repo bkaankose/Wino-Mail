@@ -11,7 +11,7 @@ public sealed class ReleaseIdentityTests
     public void ProfilesIsolateAllRuntimeKeysAndIgnoreVersion()
     {
         var root = FindRepository();
-        var paths = new[] { "src/Wino.Mail.WinUI/release-profile.json", "scripts/release-profiles/Sideload.json", "scripts/release-profiles/Beta.json" };
+        var paths = new[] { "src/Wino.Mail.WinUI/release-profile.json", "scripts/release/profiles/Sideload.json", "scripts/release/profiles/Beta.json" };
         var identities = paths.Select(path =>
         {
             path = Path.Combine(root, path);
@@ -33,7 +33,7 @@ public sealed class ReleaseIdentityTests
     [Fact]
     public void RejectsProfileFromAnotherInstallation()
     {
-        var path = Path.Combine(FindRepository(), "scripts/release-profiles/Beta.json");
+        var path = Path.Combine(FindRepository(), "scripts/release/profiles/Beta.json");
         using var json = JsonDocument.Parse(File.ReadAllText(path));
         var publisher = json.RootElement.GetProperty("Publisher").GetString()!;
         var wrongName = () => ReleaseIdentity.Load(path, "WinoMail.Sideload", publisher, "family");

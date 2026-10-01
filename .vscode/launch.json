@@ -6,28 +6,7 @@
             "type": "coreclr",
             "request": "attach",
             "processName": "Wino.Mail.WinUI",
-            "preLaunchTask": "winapp: launch Wino Mail (packaged, x64)",
-            "postDebugTask": "winapp: stop Wino Mail debug process",
-            "justMyCode": true,
-            "requireExactSource": true,
-            // WinApp copies no PDBs into the AppX layout. The build output next to it has all of them.
-            "symbolOptions": {
-                "searchPaths": [
-                    "${workspaceFolder}/src/Wino.Mail.WinUI/bin/x64/Debug/net10.0-windows10.0.26100.0/win-x64"
-                ],
-                "searchMicrosoftSymbolServer": false
-            },
-            "logging": {
-                "moduleLoad": false,
-                "processExit": false,
-                "threadExit": false
-            }
-        },
-        {
-            "name": "Attach to running Wino Mail (x64)",
-            "type": "coreclr",
-            "request": "attach",
-            "processName": "Wino.Mail.WinUI",
+            "preLaunchTask": "Run Wino Mail (packaged, x64)",
             "justMyCode": true,
             "requireExactSource": true,
             "symbolOptions": {
@@ -35,11 +14,6 @@
                     "${workspaceFolder}/src/Wino.Mail.WinUI/bin/x64/Debug/net10.0-windows10.0.26100.0/win-x64"
                 ],
                 "searchMicrosoftSymbolServer": false
-            },
-            "logging": {
-                "moduleLoad": false,
-                "processExit": false,
-                "threadExit": false
             }
         }
     ]

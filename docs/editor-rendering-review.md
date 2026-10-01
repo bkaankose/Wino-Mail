@@ -127,7 +127,7 @@ When R1 lands, the reply's quoted block can be rendered read-only inside the sam
 
 ## Verification
 
-Prose only in this review; no build or runtime check was run. Any implementation should go through the playground states in `controls/AGENTS.md`, the `winapp ui` screenshot audit in both themes, and the `Wino.Mail.Controls.Tests` sanitizer fixtures once they exist.
+Prose only in this review; no build or runtime check was run. Any implementation should go through the playground states in `controls/AGENTS.md`, manual lab checks in both themes, and the `Wino.Mail.Controls.Tests` sanitizer fixtures once they exist.
 
 ## Implementation status (2026-09-25)
 

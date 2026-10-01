@@ -18,55 +18,37 @@ AI-assisted changes must obey the same architecture, coding rules, and maintaine
 
 ## Development requirements
 
-Wino development requires Windows because the active application is a packaged WinUI 3 desktop application.
+Wino is a packaged WinUI 3 app. Development requires Windows and the .NET SDK from [`global.json`](global.json).
+Install WinApp CLI 0.7 or later and enable Windows Developer Mode.
+For VS Code debugging, install Microsoft's C# extension.
+Visual Studio with the .NET desktop workload is also supported.
+Release Native AOT builds need the C++ build tools described in the [release guide](docs/releases.md).
 
-- Windows 10 version 1809 or later, or Windows 11
-- Visual Studio 2022 or later with the **.NET desktop development** workload
-- The .NET SDK from [`global.json`](global.json), currently .NET SDK 10.0.301
-- Git and PowerShell
-- Windows Developer Mode for local package deployment and UI tests
-- WinApp CLI 0.6 or later for application launch and UI tests
+## Build and run
 
-NuGet restore installs the Windows App SDK and other managed dependencies. Wino supports x86, x64, and ARM64 package builds.
+Open the repository folder in VS Code. Select **Debug Wino Mail (packaged, x64)** and press **F5**.
+The task runs `winapp run` against the app project. WinApp builds and deploys the package, then VS Code attaches the C# debugger.
 
-Python 3 is required only to add or change icons. See [`icons/README.md`](icons/README.md).
-
-## First build
-
-1. Clone the repository.
-2. Open [`WinoMail.slnx`](WinoMail.slnx) in Visual Studio 2022 or later.
-3. Select **Debug** and **x64**.
-4. Set [`Wino.Mail.WinUI`](src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj) as the startup project.
-5. Restore the packages.
-6. Build the application with the repository harness.
+For terminal use:
 
 ```powershell
-dotnet restore src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64
-.\scripts\wino.ps1 build app
+dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --detach
+dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug -p:Platform=x64
 ```
 
-Restore after a fresh clone. Restore again after package, target-framework, or runtime-identifier changes.
+The SDK handles restore and compilation. F5 uses one PowerShell helper to skip compilation when inputs and output are unchanged.
+The active app is [`src/Wino.Mail.WinUI`](src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj). Leave the deprecated UWP app unchanged.
+See [development commands](docs/harness/development.md) for debugger behavior and package troubleshooting.
 
-Do not work in the deprecated UWP application. The active desktop application is [`src/Wino.Mail.WinUI`](src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj).
+## Testing and maintenance
 
-## Development harness
+Use the [local Docker lab](tools/local-lab/README.md) for manual application testing.
+Keep unit tests for logic and release-script tests for packaging.
+Agent-driven UI suites and automation scripts are retired.
 
-Use [`scripts/wino.ps1`](scripts/wino.ps1) as the shared entry point for local development and coding agents.
-
-| Task | Command |
-| --- | --- |
-| Show affected projects and tests | `.\scripts\wino.ps1 affected` |
-| Build the WinUI application | `.\scripts\wino.ps1 build app` |
-| Run core tests | `.\scripts\wino.ps1 test core` |
-| Run a narrow test group | `.\scripts\wino.ps1 test core -Filter "FullyQualifiedName~RelevantTestClass"` |
-| Launch the Debug application | `.\scripts\wino.ps1 run app` |
-| Launch with diagnostic output | `.\scripts\wino.ps1 debug app` |
-| Run application UI scenarios | `.\scripts\wino.ps1 ui app` |
-| Format changed XAML | `.\scripts\wino.ps1 xaml changed` |
-| Check changed XAML formatting | `.\scripts\wino.ps1 xaml changed -Check` |
-| Show all harness commands | `.\scripts\wino.ps1 help` |
-
-Run the narrowest build and tests that prove your change. Follow the verification matrix in [`AGENTS.md`](AGENTS.md) for UI, synchronization, localization, and release work.
+Use the [script index](scripts/README.md) for release packaging, lab provisioning, XAML maintenance, and localization.
+Follow the verification scope in [`AGENTS.md`](AGENTS.md).
 
 ## Project architecture
 
@@ -137,7 +119,7 @@ sequenceDiagram
 - [`controls`](controls) contains highly customized controls shared by Wino applications. It is not a general-purpose control library.
 - [`Wino.Editor`](controls/Wino.Editor) contains the HTML, CSS, and JavaScript assets for mail reading and composition.
 - [`Wino.Mail.Controls.Playground`](controls/Wino.Mail.Controls.Playground) is the quick test application for controls before full application integration.
-- [`tests`](tests) contains unit, smoke, Native AOT, notification-host, and UI tests.
+- [`tests`](tests) contains unit, smoke, Native AOT, and notification-host tests.
 
 ## Notification architecture
 

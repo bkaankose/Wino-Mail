@@ -245,7 +245,7 @@ Accessibility preserves Wino’s core purpose for people using keyboard navigati
 4. Test Light, Dark, and a Windows Contrast theme; ensure no semantic information vanishes or relies only on color.
 5. Verify actual text contrast at 4.5:1 or higher, including personalized-theme combinations.
 6. Check enlarged text, display scale, and Magnifier for clipping, overlap, lost labels, and unreachable commands.
-7. Run `scripts/audit-xaml-automationids.ps1` and exercise the Debug app after WinApp project mode deploys the current source.
+7. Use manual checks in the local Docker lab after WinApp project mode deploys the current Debug source.
 
 ## 12. WinUI XAML implementation decisions
 

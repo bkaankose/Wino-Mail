@@ -9,9 +9,13 @@ public static class NotificationHostRuntime
 {
     private const string AppNotificationActivatedCommandLinePrefix = "----AppNotificationActivated:";
     private static readonly TimeSpan StaleEnvelopeAge = TimeSpan.FromHours(24);
+    private static readonly TimeSpan MaximumHostLifetime = TimeSpan.FromSeconds(30);
 
     public static int Run(string[] args)
     {
+        // All four hosts handle one request or activation. Never retain a process
+        // indefinitely if the notification service or a COM call stops responding.
+        using var lifetime = NotificationHostLifetime.Start(MaximumHostLifetime);
         WinRT.ComWrappersSupport.InitializeComWrappers();
 
         try

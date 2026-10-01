@@ -27,17 +27,6 @@ Start with the named control, feature folder, or playground page. Avoid mapping 
 
 Run commands from the repository root. Use x64 for routine verification.
 
-Use the repository harness for normal control work:
-
-```powershell
-.\scripts\wino.ps1 build core
-.\scripts\wino.ps1 build controls
-.\scripts\wino.ps1 build editor
-.\scripts\wino.ps1 build playground
-```
-
-Use the expanded commands below for diagnostics or options that the harness does not expose.
-
 ```powershell
 # Platform-neutral logic (build both target frameworks)
 dotnet build controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj -c Debug -p:Platform=x64
@@ -106,11 +95,14 @@ When a public control is added or its important states change, update `Wino.Mail
 
 ## Verification
 
+The playground remains a sample app. The local Docker lab is the application testing environment.
+Agent-driven UI automation is retired.
+
 Match verification to the change:
 
 - Core-only logic: build `Wino.Mail.Controls.Core` and run any directly affected repository tests.
-- WinUI control or template: build `Wino.Mail.Controls` and the playground, then exercise the affected playground page.
-- Editor C#, XAML, or web assets: build `Wino.Editor` and the playground, then verify initialization, editing/rendering, theme changes, navigation handling, and disposal as applicable.
+- WinUI control or template: build `Wino.Mail.Controls` and the playground, then request manual verification of the affected control in the app with the local lab.
+- Editor C#, XAML, or web assets: build `Wino.Editor` and the playground, then request manual lab checks for initialization, editing/rendering, theme changes, navigation, and disposal.
 - Public API change: search CodeGraph for consumers and build each affected project.
 
 Do not report a UI change as verified from compilation alone. If interactive verification is unavailable, state that clearly in the handoff.
@@ -118,8 +110,8 @@ Do not report a UI change as verified from compilation alone. If interactive ver
 Format changed XAML before compilation. Run passive verification before handoff:
 
 ```powershell
-.\scripts\wino.ps1 xaml changed
-.\scripts\wino.ps1 xaml changed -Check
+.\scripts\maintenance\format-xaml.ps1 -Changed
+.\scripts\maintenance\format-xaml.ps1 -Changed -Check
 ```
 
 The editor extension is a convenience. The pinned command-line result is the formatting source of truth.

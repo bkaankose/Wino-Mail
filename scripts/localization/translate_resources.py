@@ -7,15 +7,15 @@ By default this script runs in dry-run mode and only reports the planned changes
 Use `--apply` to write updates.
 
 Examples:
-  python scripts/translate_resources.py --dry-run
-  python scripts/translate_resources.py --apply
-  python scripts/translate_resources.py --apply --locales pl_PL de_DE --chunk-size 120
+  python scripts/localization/translate_resources.py --dry-run
+  python scripts/localization/translate_resources.py --apply
+  python scripts/localization/translate_resources.py --apply --locales pl_PL de_DE --chunk-size 120
 
 
 Usage:
     Set WINO_OPENAI_API_KEY as described in docs/local-script-environment.md.
-    python .\\scripts\\translate_resources.py --dry-run
-    python .\\scripts\\translate_resources.py --apply --workers 4
+    python .\\scripts\\localization\\translate_resources.py --dry-run
+    python .\\scripts\\localization\\translate_resources.py --apply --workers 4
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ LOCALE_LABELS = {
 }
 
 DEFAULT_TRANSLATIONS_ROOT = (
-    Path(__file__).resolve().parents[1] / "src" / "Wino.Core.Domain" / "Translations"
+    Path(__file__).resolve().parents[2] / "src" / "Wino.Core.Domain" / "Translations"
 )
 
 

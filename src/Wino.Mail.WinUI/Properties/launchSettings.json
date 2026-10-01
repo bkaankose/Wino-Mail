@@ -1,8 +1,5 @@
 {
   "profiles": {
-    "Wino.Mail.WinUI (WinApp CLI)": {
-      "commandName": "Project"
-    },
     "Wino.Mail.WinUI (Package)": {
       "commandName": "MsixPackage",
       "doNotLaunchApp": false,

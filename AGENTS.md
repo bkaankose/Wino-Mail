@@ -39,53 +39,47 @@ Use focused skills for the affected subsystem. Avoid loading overlapping general
 
 ## Development loop
 
-Use Debug and x64 for normal development:
+Use plain `dotnet` and `winapp` commands. Use Debug and x64 for development:
 
 ```powershell
-.\scripts\wino.ps1 affected -Path src/Wino.Services/MailService.cs
-.\scripts\wino.ps1 build app
-.\scripts\wino.ps1 test core -Filter "FullyQualifiedName~RelevantTestClass"
-.\scripts\wino.ps1 xaml changed
-.\scripts\wino.ps1 xaml changed -Check
+dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug -p:Platform=x64 --filter "FullyQualifiedName~RelevantTestClass"
+winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --detach
 ```
 
-Before runtime work, use `./scripts/wino.ps1 doctor app` to detect package ownership conflicts before a build or process shutdown.
-For scripted task/contact persistence checks, use `audit app -List` and [regression instructions](scripts/ui-audit/REGRESSION.md).
-
-`affected` without `-Path` includes all tracked and untracked changes.
-Use task-specific paths in a dirty worktree. Its output helps select tests but does not prove coverage.
-`build core` means `Wino.Mail.Controls.Core`; `test core` means `Wino.Core.Tests`.
-Use `help` for all targets.
-
-Restore after package, project, framework, or runtime inputs change, or when required restore assets are missing.
-For repeated tests, use `-NoBuild` only while the same test output and dependencies remain current.
-For package, trimming, or Native AOT changes, run `build app -Configuration Release` without deployment.
-Format changed XAML before building. The pinned XAML Styler check must pass.
+Build and run commands restore dependencies by default. Use the SDK's normal incremental behavior.
+VS Code F5 uses the approved `scripts/development/start-wino.ps1` helper to reuse unchanged Debug x64 output.
+This is the only development wrapper and input-hash cache. Keep custom debug build targets out of the project.
+Release packaging retains its scripts and targets under `scripts/release`.
+See [development commands](docs/harness/development.md) for VS Code F5 and package troubleshooting.
+See [script categories](scripts/README.md) for maintenance, localization, release, and lab commands.
 
 ## Package and runtime boundaries
 
-- Use local deployment and local UI tests by default. Use Windows Sandbox only when the user explicitly requests it.
-- For an explicit Sandbox request, follow [Sandbox testing](docs/harness/sandbox-testing.md). Apply package checks and process shutdown inside the guest.
-- Use WinApp CLI 0.6+ project mode with the checked-in manifest and existing Debug package family.
-- Before deployment, compare the installed package name and publisher with the manifest. Stop on a mismatch.
-- Immediately before each live app test, force-stop any running process for the checked-in Debug app after the doctor and package identity checks, then launch the current Debug build with WinApp CLI project mode. Do not wait for a graceful shutdown or ask for confirmation.
-- Preserve application data. Never create another identity, use folder mode, clean, or unregister the package.
-- Never launch the packaged executable directly. Never deploy, launch, or UI-test Release.
-- Use only `winapp ui` for application interaction and visual evidence, including the playground.
-- A screenshot alone is not an interaction test. Report the action, assertion, process or HWND, and theme.
-- Establish current-source deployment before claiming runtime verification. Otherwise report it as pending.
+- Keep the app packaged as MSIX with the checked-in manifest identity and publisher.
+- Use WinApp CLI 0.7+ project mode for development deployment and activation.
+- Preserve application data. Do not use `--clean`, unregister packages, or create another development identity.
+- Before deployment, compare the installed package identity and publisher with the manifest. Stop on a mismatch or a signed non-development installation.
+- Close the Debug application, including its tray process, before deployment if it holds package files open.
+- Never launch the packaged executable directly. Release validation compiles and packages without launching.
+- Agent-driven UI automation is retired. Do not create or run UI test scripts or require `winapp ui` audits.
+- The [local Docker lab](tools/local-lab/README.md) is the application testing environment. Use manual interaction for UI checks.
+- Keep unit tests and release-script tests. Report manual verification as pending unless someone performed it.
 
 ## Verification scope
 
 | Change | Required evidence |
 | --- | --- |
-| Documentation or harness | Links, command help, and affected script checks. No app build for prose alone. |
+| Documentation or tooling | Valid links, command configuration, and affected script checks |
 | Domain or service logic | Affected project build and directly affected unit tests |
-| ViewModel or messenger behavior | Affected tests and UI-bound state through the current Debug app |
-| XAML, code-behind, navigation, activation, windows, or controls | Current Debug deployment, automation-ID audit, and affected WinApp interaction |
-| Reusable controls | Playground states and themes required by `controls/AGENTS.md` |
+| ViewModel behavior | Affected unit tests and manual lab checks for UI behavior |
+| XAML, navigation, activation, windows, or controls | Debug build and manual checks in the lab |
 | Localization | English source only, generated output build, other locales untouched |
-| Package, trimming, or Native AOT | Compile-only Release build. Runtime checks use Debug. |
+| Package, trimming, or Native AOT | Release build without launch, plus release-script tests when applicable |
+
+Format changed XAML before building with `scripts/maintenance/format-xaml.ps1 -Changed`.
+Run the same command with `-Check` before handoff.
+A passing build does not prove UI behavior. State which manual checks remain.
 
 Published cross-repository dependencies must use unconditional `PackageReference` items.
 If a dependency change requires publication, audit and publish the version, then update every consumer.

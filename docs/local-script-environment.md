@@ -69,8 +69,8 @@ Both scripts read credentials only from `WINO_OPENAI_API_KEY`.
 Run these commands from the repository root with Python 3.10 or later:
 
 ```powershell
-python .\scripts\translate_resources.py --dry-run
-python .\scripts\validate_resources.py --dry-run
+python .\scripts\localization\translate_resources.py --dry-run
+python .\scripts\localization\validate_resources.py --dry-run
 ```
 
 Use `--apply` instead of `--dry-run` to write changes. Translation requests use the configured OpenAI project.

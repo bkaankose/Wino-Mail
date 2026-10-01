@@ -20,7 +20,7 @@ Release maintainers decide which version to publish to each feed.
 1. Set the new version in `src/Wino.Mail.WinUI/Package.appxmanifest`.
 2. Add the What's New notes for that version with the [whats-new skill](../.claude/skills/whats-new/SKILL.md).
    The skill writes `src/Wino.Mail.WinUI/Assets/WhatsNew/<major.minor.build>.json` and its PNG illustrations.
-3. Run `pwsh -NoProfile -File .\scripts\whats-new\validate.ps1`.
+3. Run `pwsh -NoProfile -File .\scripts\release\whats-new\validate.ps1`.
 
 The release script runs the same validation. If the notes are missing or invalid, it shows the failures and asks whether to continue.
 With `-NonInteractive`, it only shows a warning.
@@ -31,7 +31,7 @@ The What's New button in the title bar appears only when notes exist for the ins
 After installing the build prerequisites below, run this command from the repository root in PowerShell 7:
 
 ```powershell
-pwsh -NoProfile -File .\scripts\build-releases.ps1
+pwsh -NoProfile -File .\scripts\release\build-releases.ps1
 ```
 
 Select **yes** or **no** for Store, Beta, and stable sideload. Then select **x64** or **All**.
@@ -57,14 +57,14 @@ By default, the script selects the newest valid matching certificate.
 To select a specific certificate, use its thumbprint:
 
 ```powershell
-pwsh -NoProfile -File .\scripts\build-releases.ps1 -NonInteractive -Store -Architectures x64 -StoreTestCertificateThumbprint 0123456789ABCDEF0123456789ABCDEF01234567
+pwsh -NoProfile -File .\scripts\release\build-releases.ps1 -NonInteractive -Store -Architectures x64 -StoreTestCertificateThumbprint 0123456789ABCDEF0123456789ABCDEF01234567
 ```
 
 You can also set `WINO_STORE_TEST_CERTIFICATE_THUMBPRINT` for repeated builds.
 
 ## Beta artwork and runtime profiles
 
-The source `release-profile.json` describes Store stable. `scripts/release-profiles` contains the two sideload profiles.
+The source `release-profile.json` describes Store stable. `scripts/release/profiles` contains the two sideload profiles.
 The packager checks profile identity and notification IDs against the generated manifest.
 The app reads its profile before activation. Mutex and event names use the installed package family name, without the version.
 
@@ -76,7 +76,7 @@ Stable artwork is not a fallback for beta. Compiled executable metadata remains 
 For a different artwork directory, use `-BetaAssetsPath`:
 
 ```powershell
-pwsh -NoProfile -File .\scripts\build-releases.ps1 -NonInteractive -Store -Beta -Sideload -Architectures x64 -BetaAssetsPath D:\WinoBetaArtwork
+pwsh -NoProfile -File .\scripts\release\build-releases.ps1 -NonInteractive -Store -Beta -Sideload -Architectures x64 -BetaAssetsPath D:\WinoBetaArtwork
 ```
 
 For all architectures, supply `x86,x64,ARM64` from PowerShell.
@@ -173,7 +173,7 @@ build asks whether to upload them after packaging. Declining does not delete
 the symbols. Upload them later with:
 
 ```powershell
-pwsh -NoProfile -File .\scripts\upload-sentry-symbols.ps1 `
+pwsh -NoProfile -File .\scripts\release\upload-sentry-symbols.ps1 `
   -Version 2.1.1.0 `
   -SymbolsPath .\src\Wino.Mail.WinUI\AppPackages\WinoMail_Beta_2.1.1.0\Symbols
 ```

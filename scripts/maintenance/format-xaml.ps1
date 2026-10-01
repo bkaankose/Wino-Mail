@@ -8,7 +8,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
+$repositoryRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
 $configurationPath = Join-Path $repositoryRoot "Settings.XamlStyler"
 $toolManifestPath = Join-Path $repositoryRoot ".config\dotnet-tools.json"
 $defaultRoots = @(

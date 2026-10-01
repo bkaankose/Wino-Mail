@@ -1,5 +1,8 @@
 # Debug deployment investigation
 
+Historical investigation. Its custom harness and incremental targets are retired.
+Use [development commands](development.md) for the current workflow.
+
 Date: 2026-10-01. Host CLI: WinApp 0.7.0. SDK: .NET 10.0.301.
 The findings describe the original behavior. Implemented changes and verification follow.
 
@@ -186,11 +189,11 @@ Design-time and Release compilation use the original inputs.
 `Prepare-WinoDebugDeployment` verifies package identity and the checkout's Debug installation path before shutdown.
 It collects and verifies process paths before stopping any process.
 It uses CIM command lines when the executable path is unavailable.
-The harness, UI runner, regression runner, and `dotnet run` bridge share this preparation.
+The harness, UI runner, and regression runner share this preparation.
 
-`dotnet run` now activates the package through WinApp project mode after the normal build.
-It passes `--no-build` to WinApp to avoid recursion and rejects Release runtime requests.
-The misleading Unpackaged launch profile is replaced with a WinApp CLI profile.
+The original implementation added a `dotnet run` bridge and a WinApp CLI launch profile.
+Both were later removed at the user's request. CLI deployment and launch use WinApp project mode.
+The Visual Studio Package launch profile remains.
 Project references receive the app's evaluated platform and runtime.
 Without explicit global flags, plain `dotnet run` previously built WinUI references as AnyCPU.
 That produced a Win2D architecture warning and selected different outputs from the harness.
@@ -258,8 +261,7 @@ Final evidence:
 ## References
 
 - [App build targets](../../src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj)
-- [Development harness](../../scripts/wino.ps1)
-- [Package preflight](../../scripts/Wino.Debug.ps1)
+- [Current development commands](development.md)
 - [Notification host runtime](../../src/Wino.NotificationHost/Program.cs)
 - [Notification host client](../../src/Wino.Mail.WinUI/Services/NotificationHostClient.cs)
 - [WinApp 0.7.0 recipe materialization source](https://github.com/microsoft/winappCli/blob/v0.7.0/src/winapp-CLI/WinApp.Cli/Services/MsixService.Identity.cs)

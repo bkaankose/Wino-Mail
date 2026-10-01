@@ -11,7 +11,7 @@ Exits with code 1 when a check fails. Dot-source the script to use Get-WhatsNewV
 [CmdletBinding()]
 param(
     [string]$Version,
-    [string]$RepositoryRoot = (Join-Path $PSScriptRoot '../..')
+    [string]$RepositoryRoot = (Join-Path $PSScriptRoot '../../..')
 )
 
 Set-StrictMode -Version Latest

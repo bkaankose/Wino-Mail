@@ -2,9 +2,9 @@
 .SYNOPSIS
 Starts/seeds the local Docker servers and generates fresh Wino account artifacts.
 .EXAMPLE
-.\scripts\local-lab.ps1 up
+.\scripts\lab\local-lab.ps1 up
 .EXAMPLE
-.\scripts\local-lab.ps1 reset -Force
+.\scripts\lab\local-lab.ps1 reset -Force
 #>
 [CmdletBinding()]
 param(
@@ -15,8 +15,8 @@ param(
     [switch]$Force
 )
 $ErrorActionPreference = 'Stop'
-$labRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../tools/local-lab'))
-$repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+$labRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../../tools/local-lab'))
+$repositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $composeFile = Join-Path $labRoot 'compose.yaml'
 $stateRoot = Join-Path $labRoot '.state'
 $generatedRoot = Join-Path $labRoot 'generated'
@@ -99,7 +99,7 @@ try {
         @'
 Wino local lab (Windows PowerShell 5.1+ / PowerShell 7)
 Prerequisites: Docker Desktop (Linux containers, Compose v2), repository .NET SDK.
-Run from any directory: scripts/local-lab.ps1 <command>
+Run from any directory: scripts/lab/local-lab.ps1 <command>
 
 up             Start services, provision/seed missing fixtures, generate client artifacts.
 status         Container state, endpoint reachability, artifact paths.

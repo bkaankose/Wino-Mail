@@ -7,15 +7,15 @@ By default this script runs in dry-run mode and only reports suspect keys.
 Use `--apply` to write translated replacements.
 
 Examples:
-  python scripts/validate_resources.py --dry-run
-  python scripts/validate_resources.py --dry-run --locales de_DE --report artifacts/translation_audit.json
-  python scripts/validate_resources.py --apply --locales da_DK --model gpt-5-nano
-  python scripts/validate_resources.py --dry-run --suspect-mode heuristic
+  python scripts/localization/validate_resources.py --dry-run
+  python scripts/localization/validate_resources.py --dry-run --locales de_DE --report artifacts/translation_audit.json
+  python scripts/localization/validate_resources.py --apply --locales da_DK --model gpt-5-nano
+  python scripts/localization/validate_resources.py --dry-run --suspect-mode heuristic
 
 Usage:
     Set WINO_OPENAI_API_KEY as described in docs/local-script-environment.md.
-    python .\\scripts\\validate_resources.py --dry-run
-    python .\\scripts\\validate_resources.py --apply --locales da_DK --workers 2
+    python .\\scripts\\localization\\validate_resources.py --dry-run
+    python .\\scripts\\localization\\validate_resources.py --apply --locales da_DK --workers 2
 """
 
 from __future__ import annotations
@@ -178,7 +178,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--allowlist",
-        default=str(Path(__file__).resolve().parents[1] / ".config" / "translation_allowlist.json"),
+        default=str(Path(__file__).resolve().parents[2] / ".config" / "translation_allowlist.json"),
         help="Path to JSON allowlist for legitimate untranslated keys or values.",
     )
     parser.add_argument(

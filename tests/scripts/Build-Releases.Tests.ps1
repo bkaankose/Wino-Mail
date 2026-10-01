@@ -1,7 +1,7 @@
 #requires -Version 7.0
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-. (Join-Path $PSScriptRoot '../../scripts/build-releases.ps1')
+. (Join-Path $PSScriptRoot '../../scripts/release/build-releases.ps1')
 
 $script:Passed = 0
 $script:TestRoot = Join-Path ([IO.Path]::GetTempPath()) ('wino-release-tests-' + [guid]::NewGuid().ToString('N'))

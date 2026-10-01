@@ -1,211 +1,166 @@
-# Development commands and runtime verification
+# Development commands
 
-Read the relevant section for builds, diagnostics, deployment, or UI verification.
+Use plain `dotnet` and WinApp CLI commands from the repository root.
+The app always runs with MSIX package identity.
 
-The root `AGENTS.md` defines task scope and package boundaries.
-Its package rules also apply to the personal Wino runtime skill.
+## Requirements
 
-## Build and test
+- Windows with Developer Mode enabled
+- The .NET SDK selected by `global.json`
+- WinApp CLI 0.7 or later on `PATH`
+- VS Code with Microsoft's C# extension for F5 debugging
+- PowerShell 7.2 or later (`pwsh`) for the F5 helper
 
-Use the repository harness for the normal development loop:
+NuGet restore supplies the Windows App SDK. The app targets .NET 10 and defaults to x64 for development.
+Microsoft documents [WinApp project mode](https://github.com/microsoft/WinAppCli/blob/main/docs/usage.md#project-mode-net-sdk-projects) and [VS Code C# debugging](https://code.visualstudio.com/docs/csharp/debugger-settings).
 
-```powershell
-.\scripts\wino.ps1 affected
-.\scripts\wino.ps1 affected -Path src/Wino.Services/MailService.cs
-.\scripts\wino.ps1 build app
-.\scripts\wino.ps1 build app -Configuration Release
-.\scripts\wino.ps1 test core -Filter "FullyQualifiedName~RelevantTestClass"
-```
+## VS Code F5
 
-Use `-Path` for task-specific affected analysis in a dirty worktree.
-The Release command compiles without deployment or launch. Runtime commands accept only Debug.
-For harness argument and failure checks, run `pwsh -NoProfile -File tests/scripts/Wino-Harness.Tests.ps1`.
-Run `tests/scripts/Wino-Debug.Tests.ps1` for package checks.
+1. Open the repository folder in VS Code.
+2. Select **Debug Wino Mail (packaged, x64)** in Run and Debug.
+3. Press **F5**.
 
-Use the expanded commands below for diagnostics or when the harness does not cover a required option.
+The launch configuration runs the **Run Wino Mail (packaged, x64)** task.
+That task invokes [start-wino.ps1](../../scripts/development/start-wino.ps1), the single approved development helper.
+The helper checks input contents, tool versions, and output files against the last successful run.
+Changed inputs or missing output trigger `winapp run` with Debug, x64, and `--detach`.
+Unchanged inputs and output use `winapp run --no-build --detach`.
+WinApp registers the MSIX development layout and activates the application.
+VS Code then attaches the C# debugger to `Wino.Mail.WinUI`.
 
-Restore after package, project, framework, or runtime inputs change, or when required restore assets are missing:
+The configuration supplies the build output as a symbol search path because the deployed layout can omit PDB files.
+Attach occurs after activation, so startup code can run before the debugger connects.
+There are no custom debug build targets.
 
-```powershell
-dotnet restore src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --configfile nuget.config -p:Platform=x64 -p:RuntimeIdentifier=win-x64
-```
+**Ctrl+Shift+B** runs the separate **Build Wino Mail (Debug, x64)** task without deployment.
+The helper hashes files under `src`, `controls`, `icons`, and `.config`, plus root build configuration and the user NuGet configuration.
+It excludes generated output directories such as `bin`, `obj`, `AppPackages`, and `artifacts`.
+File additions, deletions, and content changes invalidate saved state, including changes that preserve timestamps.
+It checks output file names, sizes, and timestamps, including dependencies and the deployed layout.
+State is stored in the ignored `artifacts/f5/last-success.json` file.
+The first run builds. Failed runs and edits during a run force a build on the next F5.
+Concurrent helper runs are rejected.
 
-Use this command for a compile-only WinUI check. It does not deploy the application registered with Windows:
+The helper checks the installed package identity before stopping processes from that development package.
+It closes those processes before deployment, including the tray process. Application data is preserved.
 
-```powershell
-dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
-```
-
-If a task requires Release or Native AOT validation, build the app without launching it. Never deploy or test the Release package:
-
-```powershell
-dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false
-```
-
-Run the narrowest affected tests. After a successful build of the same test project, use `--no-build --no-restore` for repeated runs:
-
-```powershell
-dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug /p:Platform=x64 --no-restore
-dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug /p:Platform=x64 --no-build --no-restore --filter "FullyQualifiedName~RelevantTestClass"
-```
-
-Use changed files and CodeGraph to select tests before falling back to the complete test project:
+After changing external build inputs or environment settings, force a build:
 
 ```powershell
-git diff --name-only --diff-filter=ACMR | codegraph affected --stdin --quiet
+pwsh -NoProfile -File scripts/development/start-wino.ps1 -ForceBuild
 ```
 
-If a WinUI build reports only `XamlCompiler.exe exited with code 1`, rerun with diagnostics and inspect the first real `WMC`, `WMC1121`, or binding error:
+The cache covers the repository inputs listed above. It does not track arbitrary external imports or changes inside installed tool packages.
+
+## Terminal commands
+
+Build without deployment:
 
 ```powershell
-dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug --no-restore /p:Platform=x64 /p:RuntimeIdentifier=win-x64 /p:GenerateAppxPackageOnBuild=false /p:AppxPackageSigningEnabled=false "/flp:logfile=winui-build.log;verbosity=diagnostic" /bl:winui-build.binlog
+dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 ```
 
-Do not create diagnostic logs or binlogs for successful routine builds.
-
-## Installed Debug application
-
-For notification-host file locks or repeated restore/build output, read the [Debug deployment investigation](debug-deployment-investigation.md).
-
-Use WinApp CLI 0.6 or later in project mode for the normal development cycle. Project mode accepts the `.csproj` as input. It builds the project and activates the package with its existing manifest identity.
-
-Before runtime work, run the shared read-only preflight:
+Build, deploy, and activate the checked-in package:
 
 ```powershell
-.\scripts\wino.ps1 doctor app
+winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --detach
 ```
 
-The JSON report includes CLI version, identity, publisher, installation path, signature kind, and development-mode status.
-`run`, `debug`, `ui`, scripted `audit`, and `dotnet run` use this guard before deployment or process shutdown.
-Doctor reports readiness without changing packages. A blocked runtime command returns a failure.
-
-For manual diagnostics, inspect the manifest and installed package:
+Deploy an existing build without compilation:
 
 ```powershell
-$manifest = [xml](Get-Content 'src/Wino.Mail.WinUI/Package.appxmanifest')
-$identity = $manifest.Package.Identity
-Get-AppxPackage -Name $identity.Name | Select-Object Name, Publisher, PackageFamilyName, InstallLocation, IsDevelopmentMode, SignatureKind
+winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --no-build --detach
 ```
 
-Matching identity is necessary but not sufficient. The installed package must also permit development-mode deployment.
-WinApp refuses to replace a signed non-development installation with a development registration.
-If the publisher differs or a signed installation owns the identity, stop before building or stopping the app.
+The manifest supplies package name `58272BurakKSE.WinoMailPreview` and publisher `CN=51FBDAF3-E212-4149-89A2-A2636B3BC911`.
+WinApp activates the registered package. It does not launch an unpackaged executable.
+A development layout provides MSIX identity without creating an installer on every run.
 
-### Coexistence with Store testing
+Build commands restore packages by default. MSBuild decides which outputs need rebuilding.
+WinUI can repeat XAML compilation without source changes. The F5 helper skips the entire build when its saved state still matches.
 
-When a signed installation owns the identity, use a dedicated Windows development VM for Debug deployment while retaining the existing installed app and its data on the host.
-Use the same checked-in manifest in the VM. Run `doctor app`, then the standard project-mode command.
-Configure test accounts explicitly in that environment. Do not copy production app storage as an automatic setup step.
+### Why an unchanged F5 build can be slow
 
-A separate Windows user can still encounter packages staged on the same machine, so it is not a guaranteed fix.
-Replacing the current installation requires a separate migration decision and a verified data backup/restore plan.
-The harness does not uninstall, unregister, create a VM, or change package identity automatically.
-On a machine blocked this way, report live verification as pending.
+Diagnostic logs captured on 2026-10-01 used .NET SDK 10.0.301, WinApp CLI 0.7.0, and WinUI package 2.3.9.
+The second unchanged build took 60.7 seconds. All 20 `CoreCompile` targets were skipped, and final DLL timestamps stayed unchanged.
+The build still spent 39.1 seconds in `MarkupCompilePass2` and 6.3 seconds in `XamlPreCompile` across the WinUI projects.
 
-WinApp's package and data behavior is documented in its [command reference](https://github.com/microsoft/WinAppCli/blob/main/docs/usage.md).
+MSBuild reported that generated `App.g.cs` was newer than `Wino.Mail.WinUI.pdb`.
+WinUI temporarily empties generated pass-2 source files during pass 1, then restores their contents.
+The SDK's `XamlPreCompile` target lists the final PDB as an output, although its C# invocation uses `DebugType="none"`.
+That target therefore repeats intermediate compilation while the final app assembly can remain current.
+See the [Microsoft MSBuild target](https://github.com/dotnet/msbuild/blob/main/src/Tasks/Microsoft.CSharp.CurrentVersion.targets) and [WinUI compiler implementation](https://github.com/microsoft/microsoft-ui-xaml/blob/main/src/XamlCompiler/BuildTasks/CompileXamlInternal.cs).
 
-For local deployment, stop processes from the verified Debug registration before calling WinApp.
-This includes all four notification hosts, which can lock the package files after the main app exits.
-The preparation checks process paths before shutdown and preserves application data:
+WinApp also restores the solution without `Platform=x64`, then builds the app with that property.
+The second restore rewrites dependency assets and causes dependency JSON files to regenerate.
+Passing `-p Platform=x64` to WinApp 0.7.0 did not change its solution restore command.
+A build with `--no-restore` still took 54.4 seconds and repeated the XAML work.
+
+The F5 helper avoids these steps when its inputs and output are unchanged.
+Changed inputs still use the normal SDK build. The helper does not replace any SDK compilation targets.
+
+Run the helper's filesystem and command-selection tests without launching the app:
 
 ```powershell
-. ./scripts/Wino.Debug.ps1
-Prepare-WinoDebugDeployment -ProjectPath ./src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
+pwsh -NoProfile -File tests/scripts/Start-Wino.Tests.ps1
 ```
 
-Build, update the existing Debug registration, launch, and return the PID for UI automation:
+## Package troubleshooting
+
+Before deployment, inspect the installed package:
 
 ```powershell
-winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -r win-x64 --no-restore -p Platform=x64 -p GenerateAppxPackageOnBuild=false -p AppxPackageSigningEnabled=false --detach --json
+Get-AppxPackage -Name 58272BurakKSE.WinoMailPreview | Select-Object Name, Publisher, IsDevelopmentMode, InstallLocation
 ```
 
-From the repository root, `winapp run . --project Wino.Mail.WinUI --detach --json` selects the app from the solution.
-From `src/Wino.Mail.WinUI`, use `winapp run . --detach --json` after the same local preparation.
-WinApp has no project hook for process cleanup when `--no-build` is used.
-Repeat preparation before each deployment or use the guarded entry points:
+The publisher must match the source manifest. An existing installation must permit development deployment.
+If a signed Store installation owns this identity, use a development machine with the same checked-in identity.
+Preserve the existing installation and its data.
+
+If deployment reports a locked file, exit Wino and its notification hosts before retrying.
+The [historical deployment investigation](debug-deployment-investigation.md) describes notification-host file locks.
+Do not use `--clean`, unregister the package, or change its identity to solve a launch error.
+
+For startup diagnostics without the VS Code debugger:
 
 ```powershell
-./scripts/wino.ps1 run app
-dotnet run --project src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
+winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj --arch x64 --debug-output
 ```
 
-`dotnet run` builds normally, then calls WinApp project mode with `--no-build` to avoid a second build.
-The app passes its selected platform and runtime to project references, including the notification hosts.
-Its Debug-only launch profile preserves the existing package identity and forwards application arguments.
-Use the Package profile for Visual Studio package debugging.
-Release run requests fail before deployment. Use `dotnet run -c Release --no-build` to check that guard without compiling.
+Only one debugger can attach to a process. Exit this diagnostic session before F5 debugging.
 
-The harness has no file-change cache. MSBuild decides which inputs require compilation.
-Keep `-NoBuild` explicit and use it only when the output and dependencies remain current.
-The harness also retains affected analysis, unit tests, XAML formatting, package checks, and UI scenarios.
-It restores the caller's working directory after every command.
+## Unit tests and manual lab checks
 
-When the current Debug output is already built, skip compilation for the fastest relaunch:
+Run the affected unit-test project directly:
 
 ```powershell
-winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -r win-x64 --no-build --no-restore -p Platform=x64 -p GenerateAppxPackageOnBuild=false -p AppxPackageSigningEnabled=false --detach --json
+dotnet test tests/Wino.Core.Tests/Wino.Core.Tests.csproj -c Debug -p:Platform=x64 --filter "FullyQualifiedName~RelevantTestClass"
+dotnet test tests/Wino.Mail.ViewModels.Tests/Wino.Mail.ViewModels.Tests.csproj -c Debug -p:Platform=x64
+dotnet test tests/Wino.Mail.Controls.Tests/Wino.Mail.Controls.Tests.csproj -c Debug -p:Platform=x64
 ```
 
-For launch or crash diagnosis, omit `--detach --json` and use `--debug-output`. This option keeps WinApp CLI attached. It captures first-chance exceptions and analyzes WinUI stowed exceptions after a crash. Do not attach another debugger at the same time:
+Use the [local Docker lab](../../tools/local-lab/README.md) for manual mail, calendar, and contact checks.
+The lab provisions servers and generates account data. It does not launch or automate Wino.
+Agent-driven UI suites, recording scripts, automation-ID audits, and Sandbox test orchestration are retired.
+Report manual checks separately from compilation and unit-test results.
+
+## Release and maintenance
+
+Compile Release without deployment:
 
 ```powershell
-winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -r win-x64 --no-restore -p Platform=x64 -p GenerateAppxPackageOnBuild=false -p AppxPackageSigningEnabled=false --debug-output
+dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false
 ```
 
-Obey these package rules:
-
-- Use the checked-in manifest and the existing package family.
-- Preserve application data between deployments.
-- Never use folder mode, `winapp init`, or `winapp create-debug-identity`.
-- Never use `--clean` or `--unregister-on-exit`.
-- Never rewrite the manifest or create a second package identity.
-- Never run `Wino.Mail.WinUI.exe` directly.
-- Never use `winapp run` with Release.
-
-## WinApp UI verification
-
-Local deployment and local UI tests are the default. For an explicit Windows Sandbox request, use [Sandbox testing](sandbox-testing.md).
-
-WinApp CLI is the only supported way to run the application and capture visual evidence. Never use desktop automation, computer use, screen capture of the whole desktop, or any tool that drives the mouse and keyboard against the running app. Those tools front the wrong window, capture the wrong monitor, and produce evidence that cannot be trusted. Use `winapp run` to launch and `winapp ui` to inspect, interact, and screenshot. This applies to the playground and every other packaged project in this repository, not only to `Wino.Mail.WinUI`.
-
-After the current x64 Debug build has been deployed and started, use WinApp CLI directly against the running process:
+Use [release packaging](../releases.md) to create distribution artifacts.
+Its scripts, profiles, and payload export targets live under `scripts/release`.
+Shared release analyzer and Native AOT packaging rules remain in `Directory.Build.targets`.
 
 ```powershell
-winapp ui list-windows -a Wino.Mail.WinUI --json
-winapp ui status -a Wino.Mail.WinUI --json
-winapp ui inspect -a Wino.Mail.WinUI --interactive --depth 8 --json
+pwsh -File scripts/release/build-releases.ps1
+pwsh -File tests/scripts/Build-Releases.Tests.ps1
+pwsh -File scripts/maintenance/format-xaml.ps1 -Changed
+pwsh -File scripts/maintenance/format-xaml.ps1 -Changed -Check
 ```
 
-If more than one window matches, take the stable HWND from `list-windows` and use `-w <HWND>` for every subsequent command.
-
-Exercise the changed behavior with `winapp ui invoke`, `click`, `set-value`, `focus`, or `scroll-into-view`. Assert the result with `wait-for`, `get-value`, or `get-property`. Capture visual evidence only when layout, theme, clipping, overlap, popup, or window behavior matters:
-
-```powershell
-winapp ui wait-for "AutomationIdOrName" -a Wino.Mail.WinUI --timeout 5000
-winapp ui screenshot -a Wino.Mail.WinUI --json -o artifacts\wino-ui-current.png
-```
-
-For timing-dependent or transient visual behavior, record a short bounded clip with agent-readable frames instead of taking many screenshots:
-
-```powershell
-winapp ui record -w <HWND> --duration-sec 10 --frames --fps 5 --max-edge 1280 --json -o artifacts\wino-ui-current.mp4
-```
-
-Prefer stable `AutomationProperties.AutomationId` values over localized labels. For changed XAML, run the existing static audit before UI verification:
-
-```powershell
-.\scripts\audit-xaml-automationids.ps1
-```
-
-A visible window, screenshot, or recording is not a passing interaction test. Report the action, assertion, process or HWND, and verified theme. Before testing, verify that project mode deployed the current source. Otherwise, report that UI verification is pending.
-
-## Verification matrix
-
-- Domain or service logic: build the affected project and run the directly affected unit tests.
-- ViewModel or messenger changes: run affected unit tests, then verify the UI-bound state through the installed Debug app when behavior changed.
-- XAML, code-behind, navigation, activation, windowing, or controls: redeploy the existing Debug package with WinApp CLI project mode. Use Visual Studio only when interactive debugging is required. Then run the automation-ID audit and exercise the affected flow with WinApp CLI.
-- Reusable controls: follow `controls/AGENTS.md`, update the playground, and verify the relevant control states and themes.
-- Localization: change only `en_US/resources.json`, build the generator output, and leave other locale files untouched.
-- Package, trimming, or Native AOT work: use an explicit compile-only Release build. Never deploy, launch, or UI-test Release. Use the existing Debug registration for all runtime and UI verification.
-
-
+The [script index](../../scripts/README.md) describes every retained script category.

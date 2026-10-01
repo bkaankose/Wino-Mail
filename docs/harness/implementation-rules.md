@@ -27,7 +27,7 @@ If a change to a published cross-repository dependency requires a new version, r
 
 ## Core implementation rules
 
-- Give collection expressions an explicit concrete backing type when the target is a non-mutable interface such as `IReadOnlyList<T>`, `IReadOnlyCollection<T>`, or `IEnumerable<T>`. Never assign an uncast collection expression directly to these interfaces: the compiler-generated collection type can fail WinRT trimming and Native AOT checks with `CsWinRT1032`. Preserve the interface API with an explicit array cast, for example `public IReadOnlyList<Option> Options { get; } = (Option[])[new(...), new(...)];`, or construct an array or `List<T>` explicitly. Apply this rule to properties, fields, return values, and arguments. When changing these expressions in WinRT-facing code, run `./scripts/wino.ps1 build app -Configuration Release`. A successful Debug build does not prove AOT compatibility.
+- Give collection expressions an explicit concrete backing type when the target is a non-mutable interface such as `IReadOnlyList<T>`, `IReadOnlyCollection<T>`, or `IEnumerable<T>`. Never assign an uncast collection expression directly to these interfaces: the compiler-generated collection type can fail WinRT trimming and Native AOT checks with `CsWinRT1032`. Preserve the interface API with an explicit array cast, for example `public IReadOnlyList<Option> Options { get; } = (Option[])[new(...), new(...)];`, or construct an array or `List<T>` explicitly. Apply this rule to properties, fields, return values, and arguments. When changing these expressions in WinRT-facing code, run `dotnet build src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Release -p:Platform=x64 -p:RuntimeIdentifier=win-x64`. A successful Debug build does not prove AOT compatibility.
 - Use public partial properties with `[ObservableProperty]`.
 - Do not annotate private backing fields.
 - Register messenger handlers in `RegisterRecipients()` and unregister them in `UnregisterRecipients()`.
@@ -67,13 +67,13 @@ Every icon comes from the WinoIcons fonts. Their source is `icons/manifest.json`
 - Do not set `FontSize` on a `WinoFontIcon` hosted in an `Icon` or `HeaderIcon` slot or a `Viewbox`. The host sizes it.
 - The icon style (monochrome or colorful) is applied by `NewThemeService`. It rewrites `WinoIconFontFamily` in the theme dictionaries of `Styles/WinoIcons.xaml`, the same way it applies accent colors. Do not set `FontFamily` on an individual `WinoFontIcon`.
 - To add an icon, follow [Add an icon](../../icons/README.md#add-an-icon). From an SVG file, run `python icons/tools/add_svg_icon.py <Name> --svg <file>`. From Fluent UI System Icons, run `python icons/tools/add_fluent_icon.py <fluent_name> <Name> [--accent <palette key>]`. Then run `python icons/tools/build_fonts.py`. Commit the manifest, the SVGs and every regenerated font. Never copy an SVG into `icons/svg` by hand; the font build ignores files that are not in the manifest. Only use `--accent` where color carries meaning. Toolbar and menu commands stay monochrome.
-- Check with `.\scripts\audit-xaml-icons.ps1` and `python icons/tools/build_fonts.py --check`.
+- Check with `.\scripts\maintenance\audit-xaml-icons.ps1` and `python icons/tools/build_fonts.py --check`.
 
 Format changed XAML with the repository-pinned XAML Styler before the build. Passive mode must pass before handoff:
 
 ```powershell
-.\scripts\wino.ps1 xaml changed
-.\scripts\wino.ps1 xaml changed -Check
+.\scripts\maintenance\format-xaml.ps1 -Changed
+.\scripts\maintenance\format-xaml.ps1 -Changed -Check
 ```
 
 The editor extension is a convenience. The pinned command-line result is the formatting source of truth.

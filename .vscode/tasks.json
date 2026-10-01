@@ -2,43 +2,33 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "winapp: launch Wino Mail (packaged, x64)",
+            "label": "Build Wino Mail (Debug, x64)",
             "type": "process",
-            "command": "pwsh",
+            "command": "dotnet",
             "args": [
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-File",
-                "${workspaceFolder}\\.vscode\\Launch-WinoForDebug.ps1"
+                "build",
+                "${workspaceFolder}/src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj",
+                "-c",
+                "Debug",
+                "-p:Platform=x64",
+                "-p:RuntimeIdentifier=win-x64"
             ],
-            "problemMatcher": "$msCompile",
-            "presentation": {
-                "reveal": "silent",
-                "panel": "dedicated",
-                "clear": true,
-                "close": true,
-                "showReuseMessage": false
-            }
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$msCompile"
         },
         {
-            "label": "winapp: stop Wino Mail debug process",
+            "label": "Run Wino Mail (packaged, x64)",
             "type": "process",
             "command": "pwsh",
             "args": [
                 "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
                 "-File",
-                "${workspaceFolder}\\.vscode\\Launch-WinoForDebug.ps1",
-                "-StopOnly"
+                "${workspaceFolder}/scripts/development/start-wino.ps1"
             ],
-            "problemMatcher": [],
-            "presentation": {
-                "reveal": "never",
-                "panel": "dedicated",
-                "close": true
-            }
+            "problemMatcher": "$msCompile"
         }
     ]
 }
