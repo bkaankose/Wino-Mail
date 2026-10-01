@@ -64,6 +64,8 @@ Format changed XAML before building. The pinned XAML Styler check must pass.
 
 ## Package and runtime boundaries
 
+- Use local deployment and local UI tests by default. Use Windows Sandbox only when the user explicitly requests it.
+- For an explicit Sandbox request, follow [Sandbox testing](docs/harness/sandbox-testing.md). Apply package checks and process shutdown inside the guest.
 - Use WinApp CLI 0.6+ project mode with the checked-in manifest and existing Debug package family.
 - Before deployment, compare the installed package name and publisher with the manifest. Stop on a mismatch.
 - Immediately before each live app test, force-stop any running process for the checked-in Debug app after the doctor and package identity checks, then launch the current Debug build with WinApp CLI project mode. Do not wait for a graceful shutdown or ask for confirmation.
