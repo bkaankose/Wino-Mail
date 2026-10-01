@@ -11,7 +11,6 @@
     <File Path="Directory.Packages.props" />
     <File Path="nuget.config" />
     <File Path="Settings.XamlStyler" />
-    <File Path="WinoFontIcomoon.json" />
   </Folder>
   <Folder Name="/libs/">
     <Project Path="src/Wino.Authentication/Wino.Authentication.csproj">

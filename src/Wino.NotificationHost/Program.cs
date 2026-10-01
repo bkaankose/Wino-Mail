@@ -15,7 +15,7 @@ public static class NotificationHostRuntime
     {
         // All four hosts handle one request or activation. Never retain a process
         // indefinitely if the notification service or a COM call stops responding.
-        using var lifetime = NotificationHostLifetime.Start(MaximumHostLifetime);
+        NotificationHostLifetime.Start(MaximumHostLifetime);
         WinRT.ComWrappersSupport.InitializeComWrappers();
 
         try
