@@ -22,6 +22,7 @@ function winapp {
     $global:LASTEXITCODE = $global:WinoHarnessTest_toolExit
 }
 function Get-AppxPackage { param($Name, $ErrorAction) $global:WinoHarnessTest_packages }
+function Get-CimInstance { param($ClassName, $Filter, $ErrorAction) @() }
 function git {
     $global:WinoHarnessTest_calls.Add(@{ Tool = 'git'; Arguments = @($args) })
     $global:LASTEXITCODE = if ($args[0] -eq $global:WinoHarnessTest_gitFailure) { 17 } else { 0 }
@@ -79,6 +80,17 @@ try {
     Test-Case 'Explicit restore removes no-restore' {
         & $harness build app -Restore
         Assert-True ($global:WinoHarnessTest_calls[0].Arguments -notcontains '--no-restore') 'Restore was suppressed.'
+    }
+    Test-Case 'Harness preserves the calling directory' {
+        Push-Location $PSScriptRoot
+        try {
+            $before = (Get-Location).Path
+            & $harness help | Out-Null
+            Assert-True ((Get-Location).Path -eq $before) 'Harness changed the calling directory.'
+            Assert-Throws { & $harness build missing } 'Unknown build target'
+            Assert-True ((Get-Location).Path -eq $before) 'Failure changed the calling directory.'
+        }
+        finally { Pop-Location }
     }
     Test-Case 'Test filter stays one argument and reuses current output on request' {
         $filter = 'FullyQualifiedName~MailListStore|DisplayName~name with spaces'

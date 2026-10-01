@@ -1,4 +1,4 @@
-# Shared, read-only deployment checks. Dot-source this file from the harness or UI runner.
+# Shared identity checks and local Debug deployment preparation.
 function Get-WinoDebugAssessment {
     param(
         [Parameter(Mandatory)][string]$ProjectPath,
@@ -87,6 +87,56 @@ function Assert-WinoDebugReady {
     $readiness = Get-WinoDebugReadiness @arguments
     if (-not $readiness.Ready) {
         throw "$($readiness.Code): $($readiness.Reason) $($readiness.NextAction)"
+    }
+    return $readiness
+}
+
+function Prepare-WinoDebugDeployment {
+    param([Parameter(Mandatory)][string]$ProjectPath, [string]$WinAppVersion)
+
+    $arguments = @{ ProjectPath = $ProjectPath }
+    if ($PSBoundParameters.ContainsKey('WinAppVersion')) { $arguments.WinAppVersion = $WinAppVersion }
+    # Identity conflicts must fail before any process is stopped.
+    $readiness = Assert-WinoDebugReady @arguments
+    $projectDirectory = Split-Path ([IO.Path]::GetFullPath($ProjectPath))
+    $binRoot = [IO.Path]::GetFullPath((Join-Path $projectDirectory 'bin')) + [IO.Path]::DirectorySeparatorChar
+    $mainExecutable = [IO.Path]::GetFileNameWithoutExtension($ProjectPath) + '.exe'
+    $names = @($mainExecutable)
+    if ($mainExecutable -eq 'Wino.Mail.WinUI.exe') {
+        $names += @('Wino.Mail.NotificationHost.exe', 'Wino.Calendar.NotificationHost.exe',
+            'Wino.People.NotificationHost.exe', 'Wino.Tasks.NotificationHost.exe')
+    }
+    $executables = foreach ($package in $readiness.InstalledPackages) {
+        $root = [IO.Path]::GetFullPath($package.InstallLocation)
+        if (-not $root.StartsWith($binRoot, [StringComparison]::OrdinalIgnoreCase) -or
+            $root.Substring($binRoot.Length) -notmatch '^[^\\/]+[\\/]Debug[\\/]') {
+            throw 'The development registration is outside this checkout Debug output. No processes were stopped.'
+        }
+        foreach ($name in $names) { Join-Path $root $name }
+    }
+    $filter = ($names | ForEach-Object { "Name = '$_'" }) -join ' OR '
+    $owned = [System.Collections.Generic.List[object]]::new()
+    foreach ($process in @(Get-CimInstance Win32_Process -Filter $filter -ErrorAction Stop)) {
+        # Get-Process.Path can be unavailable for packaged hosts; CIM command lines
+        # retain the full executable path even when ExecutablePath is empty.
+        $path = $process.ExecutablePath
+        if (-not $path -and $process.CommandLine -match '^"?(.+?\.exe)"?(?:\s|$)') { $path = $Matches[1] }
+        if ($path -and [IO.Path]::GetFullPath($path) -in @($executables)) {
+            $owned.Add($process)
+        }
+        elseif ($process.Name -eq $mainExecutable -or -not $path) {
+            throw "Cannot verify Debug ownership of $($process.Name) PID $($process.ProcessId). No processes were stopped."
+        }
+    }
+    foreach ($process in $owned) {
+        Write-Host "Stopping Debug $($process.Name) PID $($process.ProcessId) before deployment."
+        if (Get-Process -Id $process.ProcessId -ErrorAction SilentlyContinue) {
+            Stop-Process -Id $process.ProcessId -Force -ErrorAction Stop
+            Wait-Process -Id $process.ProcessId -Timeout 10 -ErrorAction SilentlyContinue
+        }
+        if (Get-Process -Id $process.ProcessId -ErrorAction SilentlyContinue) {
+            throw "Debug process $($process.ProcessId) did not stop before deployment."
+        }
     }
     return $readiness
 }

@@ -77,7 +77,8 @@ $started = [DateTimeOffset]::Now
 function Get-SourceStamp {
     $head = & git rev-parse HEAD
     if ($LASTEXITCODE -ne 0) { throw 'Cannot read source revision.' }
-    $roots = @('src','controls','Directory.Build.props','Directory.Build.targets','Directory.Packages.props','nuget.config','global.json','WinoMail.slnx','.config')
+    $roots = @('src','controls','Directory.Build.props','Directory.Build.targets','Directory.Packages.props','nuget.config','global.json','WinoMail.slnx','.config',
+        'scripts/Wino.Debug.targets','scripts/Wino.Release.targets')
     $diff = & git diff --binary HEAD -- @roots
     if ($LASTEXITCODE -ne 0) { throw 'Cannot read source changes.' }
     $untracked = @(& git ls-files --others --exclude-standard -- @roots)
@@ -93,13 +94,7 @@ try {
     $readiness | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $run 'deployment-readiness.json')
     if (-not $readiness.Ready) { throw "$($readiness.Code): $($readiness.Reason) $($readiness.NextAction)" }
     $before = Get-SourceStamp
-    # Stop only the executable belonging to the verified existing development registration.
-    $expected = @($readiness.InstalledPackages | ForEach-Object { Join-Path $_.InstallLocation 'Wino.Mail.WinUI.exe' })
-    foreach ($process in @(Get-Process Wino.Mail.WinUI -ErrorAction SilentlyContinue)) {
-        if ($process.Path -notin $expected) { throw 'A running Wino process is outside the verified Debug registration.' }
-        Stop-Process -Id $process.Id -ErrorAction Stop
-        Wait-Process -Id $process.Id -Timeout 10 -ErrorAction SilentlyContinue
-    }
+    Prepare-WinoDebugDeployment -ProjectPath $project -WinAppVersion $version | Out-Null
     Invoke-RegressionCommand $launch | Out-Null
     if ((Get-SourceStamp) -ne $before) { throw 'Source changed during deployment. Rebuild before claiming current-source verification.' }
     $after = Get-WinoDebugReadiness -ProjectPath $project -WinAppVersion $version

@@ -146,17 +146,7 @@ function Wait-ForWinoWindow {
 }
 
 function Stop-WinoDebugProcesses {
-    $processes = @(Get-Process -Name "Wino.Mail.WinUI" -ErrorAction SilentlyContinue)
-
-    foreach ($process in $processes) {
-        Write-Host "Stopping running Wino Mail process $($process.Id) before deployment."
-        Stop-Process -Id $process.Id -Force -ErrorAction Stop
-        Wait-Process -Id $process.Id -Timeout 10 -ErrorAction SilentlyContinue
-
-        if (Get-Process -Id $process.Id -ErrorAction SilentlyContinue) {
-            throw "Wino Mail process $($process.Id) did not stop before deployment."
-        }
-    }
+    Prepare-WinoDebugDeployment -ProjectPath $projectPath -WinAppVersion $winAppVersion.ToString() | Out-Null
 }
 
 function Get-SelectedUiTests {

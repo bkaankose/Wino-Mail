@@ -148,7 +148,7 @@ function Invoke-WinApp {
 
     $projectPath = Get-ProjectPath -Map $projects -Name $ProjectName -Kind "run"
     . (Join-Path $PSScriptRoot 'Wino.Debug.ps1')
-    Assert-WinoDebugReady -ProjectPath $projectPath | Out-Null
+    Prepare-WinoDebugDeployment -ProjectPath $projectPath | Out-Null
     $arguments = @(
         "run", $projectPath,
         "-c", "Debug",
@@ -176,8 +176,8 @@ function Invoke-WinApp {
     Invoke-ExternalCommand -Executable "winapp" -Arguments $arguments
 }
 
-Set-Location $repositoryRoot
-
+Push-Location $repositoryRoot
+try {
 switch ($Command) {
     "help" {
         Show-Usage
@@ -296,3 +296,5 @@ switch ($Command) {
         }
     }
 }
+}
+finally { Pop-Location }

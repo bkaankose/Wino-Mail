@@ -7,6 +7,7 @@
     <UseWinUI>true</UseWinUI>
     <RootNamespace>Wino.Mail.Controls</RootNamespace>
     <Platforms>x86;x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
 	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!--
       WMC1510: a ResourceDictionary has no x:Class, so DataTemplates in Themes/Generic.xaml cannot

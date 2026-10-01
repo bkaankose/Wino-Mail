@@ -59,13 +59,6 @@
 </PropertyGroup>
 
   <ItemGroup>
-    <NotificationHostProject Include="$(MSBuildProjectDirectory)\..\Wino.Mail.NotificationHost\Wino.Mail.NotificationHost.csproj" />
-    <NotificationHostProject Include="$(MSBuildProjectDirectory)\..\Wino.Calendar.NotificationHost\Wino.Calendar.NotificationHost.csproj" />
-    <NotificationHostProject Include="$(MSBuildProjectDirectory)\..\Wino.People.NotificationHost\Wino.People.NotificationHost.csproj" />
-    <NotificationHostProject Include="$(MSBuildProjectDirectory)\..\Wino.Tasks.NotificationHost\Wino.Tasks.NotificationHost.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
     <RuntimeHostConfigurationOption Include="Wino.CardDavContacts" Value="true" />
   </ItemGroup>
 
@@ -339,6 +332,13 @@
     <ProjectReference Include="..\Wino.People.NotificationHost\Wino.People.NotificationHost.csproj" ReferenceOutputAssembly="false" Private="false" />
     <ProjectReference Include="..\Wino.Tasks.NotificationHost\Wino.Tasks.NotificationHost.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Project-only runs have no solution/global Platform or RID. Propagate the
+         app's evaluated defaults so references use the same native architecture. -->
+    <ProjectReference Update="@(ProjectReference)">
+      <AdditionalProperties>%(ProjectReference.AdditionalProperties);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier)</AdditionalProperties>
+    </ProjectReference>
+  </ItemGroup>
   <ItemGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">
     <TrimmerRootAssembly Include="Ical.Net" />
     <TrimmerRootDescriptor Include="ILLink.AotRoots.xml" />
@@ -523,6 +523,7 @@
   </PropertyGroup>
 
   <Import Project="..\..\scripts\Wino.Release.targets" Condition="'$(WinoReleaseStagingRoot)' != ''" />
+  <Import Project="..\..\scripts\Wino.Debug.targets" />
 
   <Target Name="PublishNotificationHost" BeforeTargets="PrepareForBuild" Condition="'$(WinoIsReleaseBuild)' == 'true'">
     <MakeDir Directories="$(MailNotificationHostOutput);$(CalendarNotificationHostOutput);$(PeopleNotificationHostOutput);$(TasksNotificationHostOutput)" />
@@ -530,14 +531,6 @@
     <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.Calendar.NotificationHost\Wino.Calendar.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(CalendarNotificationHostOutput);Restore=false" />
     <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.People.NotificationHost\Wino.People.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(PeopleNotificationHostOutput);Restore=false" />
     <MSBuild Projects="$(MSBuildProjectDirectory)\..\Wino.Tasks.NotificationHost\Wino.Tasks.NotificationHost.csproj" Targets="Publish" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);PublishDir=$(TasksNotificationHostOutput);Restore=false" />
-  </Target>
-
-  <Target Name="RestoreNotificationHost" BeforeTargets="Restore">
-    <MSBuild Projects="@(NotificationHostProject)" Targets="Restore" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier)" />
-  </Target>
-
-  <Target Name="BuildNotificationHost" BeforeTargets="PrepareForBuild" Condition="'$(WinoIsReleaseBuild)' != 'true' and '$(WinoSkipNotificationHostBuild)' != 'true'">
-    <MSBuild Projects="@(NotificationHostProject)" Targets="Build" Properties="Configuration=$(Configuration);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier);Restore=false" />
   </Target>
 
 </Project>

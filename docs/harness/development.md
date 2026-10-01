@@ -20,6 +20,7 @@ Use the repository harness for the normal development loop:
 Use `-Path` for task-specific affected analysis in a dirty worktree.
 The Release command compiles without deployment or launch. Runtime commands accept only Debug.
 For harness argument and failure checks, run `pwsh -NoProfile -File tests/scripts/Wino-Harness.Tests.ps1`.
+Run `tests/scripts/Wino-Debug.Tests.ps1` for package checks.
 
 Use the expanded commands below for diagnostics or when the harness does not cover a required option.
 
@@ -64,6 +65,8 @@ Do not create diagnostic logs or binlogs for successful routine builds.
 
 ## Installed Debug application
 
+For notification-host file locks or repeated restore/build output, read the [Debug deployment investigation](debug-deployment-investigation.md).
+
 Use WinApp CLI 0.6 or later in project mode for the normal development cycle. Project mode accepts the `.csproj` as input. It builds the project and activates the package with its existing manifest identity.
 
 Before runtime work, run the shared read-only preflight:
@@ -73,7 +76,7 @@ Before runtime work, run the shared read-only preflight:
 ```
 
 The JSON report includes CLI version, identity, publisher, installation path, signature kind, and development-mode status.
-`run`, `debug`, `ui`, and scripted `audit` use this guard before deployment or process shutdown.
+`run`, `debug`, `ui`, scripted `audit`, and `dotnet run` use this guard before deployment or process shutdown.
 Doctor reports readiness without changing packages. A blocked runtime command returns a failure.
 
 For manual diagnostics, inspect the manifest and installed package:
@@ -101,11 +104,41 @@ On a machine blocked this way, report live verification as pending.
 
 WinApp's package and data behavior is documented in its [command reference](https://github.com/microsoft/WinAppCli/blob/main/docs/usage.md).
 
+For local deployment, stop processes from the verified Debug registration before calling WinApp.
+This includes all four notification hosts, which can lock the package files after the main app exits.
+The preparation checks process paths before shutdown and preserves application data:
+
+```powershell
+. ./scripts/Wino.Debug.ps1
+Prepare-WinoDebugDeployment -ProjectPath ./src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
+```
+
 Build, update the existing Debug registration, launch, and return the PID for UI automation:
 
 ```powershell
 winapp run src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj -c Debug -r win-x64 --no-restore -p Platform=x64 -p GenerateAppxPackageOnBuild=false -p AppxPackageSigningEnabled=false --detach --json
 ```
+
+From the repository root, `winapp run . --project Wino.Mail.WinUI --detach --json` selects the app from the solution.
+From `src/Wino.Mail.WinUI`, use `winapp run . --detach --json` after the same local preparation.
+WinApp has no project hook for process cleanup when `--no-build` is used.
+Repeat preparation before each deployment or use the guarded entry points:
+
+```powershell
+./scripts/wino.ps1 run app
+dotnet run --project src/Wino.Mail.WinUI/Wino.Mail.WinUI.csproj
+```
+
+`dotnet run` builds normally, then calls WinApp project mode with `--no-build` to avoid a second build.
+The app passes its selected platform and runtime to project references, including the notification hosts.
+Its Debug-only launch profile preserves the existing package identity and forwards application arguments.
+Use the Package profile for Visual Studio package debugging.
+Release run requests fail before deployment. Use `dotnet run -c Release --no-build` to check that guard without compiling.
+
+The harness has no file-change cache. MSBuild decides which inputs require compilation.
+Keep `-NoBuild` explicit and use it only when the output and dependencies remain current.
+The harness also retains affected analysis, unit tests, XAML formatting, package checks, and UI scenarios.
+It restores the caller's working directory after every command.
 
 When the current Debug output is already built, skip compilation for the fastest relaunch:
 
@@ -130,6 +163,8 @@ Obey these package rules:
 - Never use `winapp run` with Release.
 
 ## WinApp UI verification
+
+Local deployment and local UI tests are the default. For an explicit Windows Sandbox request, use [Sandbox testing](sandbox-testing.md).
 
 WinApp CLI is the only supported way to run the application and capture visual evidence. Never use desktop automation, computer use, screen capture of the whole desktop, or any tool that drives the mouse and keyboard against the running app. Those tools front the wrong window, capture the wrong monitor, and produce evidence that cannot be trusted. Use `winapp run` to launch and `winapp ui` to inspect, interact, and screenshot. This applies to the playground and every other packaged project in this repository, not only to `Wino.Mail.WinUI`.
 
