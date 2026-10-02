@@ -545,6 +545,13 @@ public sealed class CardDavSynchronizationStore : BaseDatabaseService, ICardDavS
             "SELECT * FROM CardDavResourceShadow WHERE AddressBookId = ? AND ExactHref = ? LIMIT 1",
             addressBookId, shadow.ExactHref).FirstOrDefault();
         var current = currentShadow?.ContactId is Guid contactId ? transaction.Find<AccountContact>(contactId) : null;
+
+        // Direct user mutations can create the contact before synchronization has
+        // recorded a shadow. Match the remote identity before inserting another row.
+        current ??= transaction.Query<AccountContact>(
+            "SELECT * FROM ContactCard WHERE MailAccountId = ? AND SourceKind = ? AND AddressBookId = ? AND RemoteId = ? LIMIT 1",
+            incoming.MailAccountId, (int)ContactSourceKind.CardDav, addressBookId, shadow.ExactHref).FirstOrDefault();
+
         if (current is not null && current.PendingMutation != ContactPendingMutation.None)
         {
             shadow.Id = currentShadow?.Id ?? shadow.Id;

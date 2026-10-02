@@ -7,6 +7,30 @@ namespace Wino.Core.Tests.CardDav;
 
 public sealed class DavMultistatusReaderTests
 {
+    [Theory]
+    [InlineData("<html><body>Server error</body></html>")]
+    [InlineData("<multistatus xmlns='urn:wrong-namespace' />")]
+    public async Task ReadAsync_NonDavDocument_RejectsInsteadOfReturningEmptyListing(string xml)
+    {
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
+
+        var action = () => new DavMultistatusReader().ReadAsync(stream);
+
+        await action.Should().ThrowAsync<System.Xml.XmlException>();
+    }
+
+    [Fact]
+    public async Task ReadAsync_CompactXmlWithTokenBeforeResponse_PreservesResponse()
+    {
+        const string xml = "<D:multistatus xmlns:D='DAV:'><D:sync-token>next</D:sync-token><D:response><D:href>/books/alice.vcf</D:href><D:status>HTTP/1.1 404 Not Found</D:status></D:response></D:multistatus>";
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(xml));
+
+        var result = await new DavMultistatusReader().ReadAsync(stream);
+
+        result.SyncToken.Should().Be("next");
+        result.Responses.Should().ContainSingle().Which.Href.Should().Be("/books/alice.vcf");
+    }
+
     [Fact]
     public async Task ReadAsync_PreservesMixedResponseAndPropstatStatuses()
     {

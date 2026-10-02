@@ -104,7 +104,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         {
             case ContactSynchronizerOperation.Create:
             {
-                var document = _codec.Create(contact, "4.0");
+                var document = _codec.Create(contact, binding.State.SupportsVCard4 ? "4.0" : "3.0");
                 var href = $"{binding.State.ExactHref.TrimEnd('/')}/{contact.Id:N}.vcf";
                 var response = await _client.PutResourceAsync(
                     settings,
@@ -254,12 +254,17 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
             // User mutations execute directly through ExecuteRequestsAsync. Synchronization is
             // pull-only and never leases or retries a persistent CardDAV outbox.
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.CaptureException(ex, "CardDavAddressBookSynchronization", new Dictionary<string, string>
             {
                 ["AccountId"] = account.Id.ToString("D"),
-                ["AddressBookId"] = binding.AddressBook.Id.ToString("D")
+                ["AddressBookId"] = binding.AddressBook.Id.ToString("D"),
+                ["StatusCode"] = (ex as DavRequestException)?.StatusCode.ToString()
             });
             result.MergeIssues([Classify(ex, binding.AddressBook.DisplayName)]);
         }
@@ -309,6 +314,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         do
         {
             var page = await _client.SyncCollectionAsync(settings, ToProtocolBook(binding), token, PageSize, cancellationToken).ConfigureAwait(false);
+            ValidateSyncPage(page, token);
             var populated = await PopulateBodiesAsync(settings, binding, page.Changes, cancellationToken).ConfigureAwait(false);
             var remotePage = await BuildRemotePageAsync(accountId, binding, populated, 0, false, page.NextSyncToken, true, cancellationToken).ConfigureAwait(false);
             await _store.ApplyRemotePageAsync(remotePage).ConfigureAwait(false);
@@ -317,6 +323,15 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
             if (!page.IsTruncated) break;
         } while (true);
         return result;
+    }
+
+    private static void ValidateSyncPage(CardDavSyncPage page, string previousToken)
+    {
+        if (string.IsNullOrWhiteSpace(page.NextSyncToken) ||
+            (page.IsTruncated && string.Equals(page.NextSyncToken, previousToken, StringComparison.Ordinal)))
+        {
+            throw new DavRequestException(0, "The DAV sync response did not provide a usable continuation token.");
+        }
     }
 
     private async Task<ContactSynchronizationResult> PullFullAsync(
@@ -362,6 +377,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         do
         {
             var syncPage = await _client.SyncCollectionAsync(settings, ToProtocolBook(binding), token, PageSize, cancellationToken).ConfigureAwait(false);
+            ValidateSyncPage(syncPage, token);
             var populated = await PopulateBodiesAsync(settings, binding, syncPage.Changes, cancellationToken).ConfigureAwait(false);
             seen.AddRange(populated.Where(item => !item.IsDeleted).Select(item => item.ExactHref));
             var page = await BuildRemotePageAsync(accountId, binding, populated, generation, true, null, false, cancellationToken).ConfigureAwait(false);
@@ -463,8 +479,12 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
             }
         }
 
-        complete.AddRange(fetched);
-        var returned = fetched.Select(item => item.ExactHref).ToHashSet(StringComparer.Ordinal);
+        // A href alone does not mean its vCard was returned. Property failures and
+        // incomplete REPORT entries still need GET before the sync token can advance.
+        var resolved = fetched.Where(item => item.IsDeleted ||
+            (item.StatusCode < 400 && !string.IsNullOrEmpty(item.VCard))).ToList();
+        complete.AddRange(resolved);
+        var returned = resolved.Select(item => item.ExactHref).ToHashSet(StringComparer.Ordinal);
         var unresolved = missing.Where(item => !returned.Contains(item.ExactHref)).ToList();
         if (unresolved.Count > 0)
         {
@@ -510,16 +530,9 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
 
             if (change.StatusCode >= 400)
             {
-                quarantines.Add(new CardDavQuarantine
-                {
-                    AddressBookId = binding.AddressBook.Id,
-                    ExactHref = change.ExactHref,
-                    ETag = change.ETag,
-                    ErrorCategory = $"DavStatus:{change.StatusCode}",
-                    AttemptCount = 1,
-                    NextAttemptUtc = DateTime.UtcNow.AddHours(1)
-                });
-                continue;
+                // No body was downloaded. Advancing the token here would permanently
+                // skip this change because quarantine entries have no retry worker.
+                throw new DavRequestException(change.StatusCode, Translator.DavError_InvalidResponse);
             }
 
             try

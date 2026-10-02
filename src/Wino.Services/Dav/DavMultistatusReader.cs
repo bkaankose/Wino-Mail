@@ -27,21 +27,30 @@ public sealed class DavMultistatusReader : IDavMultistatusReader
             IgnoreProcessingInstructions = true
         };
         using var reader = XmlReader.Create(stream, settings);
+        await reader.MoveToContentAsync().ConfigureAwait(false);
+        if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "multistatus" || reader.NamespaceURI != "DAV:")
+            throw new XmlException("The DAV response must contain a DAV:multistatus root element.");
+
         while (await reader.ReadAsync().ConfigureAwait(false))
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (reader.NodeType != XmlNodeType.Element)
                 continue;
 
-            if (reader.LocalName == "response" && reader.NamespaceURI == "DAV:")
+            if (reader.Depth == 1 && reader.LocalName == "response" && reader.NamespaceURI == "DAV:")
             {
                 using var subtree = reader.ReadSubtree();
                 var responseElement = await XElement.LoadAsync(subtree, LoadOptions.PreserveWhitespace, cancellationToken).ConfigureAwait(false);
                 result.Responses.Add(ParseResponse(responseElement));
             }
-            else if (reader.LocalName == "sync-token" && reader.NamespaceURI == "DAV:")
+            else if (reader.Depth == 1 && reader.LocalName == "sync-token" && reader.NamespaceURI == "DAV:")
             {
-                result.SyncToken = await reader.ReadElementContentAsStringAsync().ConfigureAwait(false);
+                // Leave the outer reader on this element's end, as for response above.
+                // ReadElementContentAsStringAsync advances to the next node and the
+                // loop would skip it when there is no whitespace between elements.
+                using var subtree = reader.ReadSubtree();
+                var tokenElement = await XElement.LoadAsync(subtree, LoadOptions.None, cancellationToken).ConfigureAwait(false);
+                result.SyncToken = tokenElement.Value;
             }
         }
         return result;

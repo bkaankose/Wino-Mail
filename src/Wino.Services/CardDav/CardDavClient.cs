@@ -109,6 +109,9 @@ public sealed class CardDavClient : ICardDavClient
         }
         var changes = multistatus.Responses.Select(response => ParseResourceChange(response, collectionUri)).ToList();
         var collectionResponse = multistatus.Responses.FirstOrDefault(response => HrefEquals(response.Href, collectionUri, collectionUri));
+        if (collectionResponse?.StatusCode is >= 400 and not 507)
+            throw new DavRequestException(collectionResponse.StatusCode.Value, "The DAV server could not synchronize the collection.", collectionResponse.ErrorNames);
+
         return new CardDavSyncPage
         {
             Changes = changes.Where(change => !HrefEquals(change.ExactHref, collectionUri, collectionUri)).ToList(),
@@ -132,6 +135,10 @@ public sealed class CardDavClient : ICardDavClient
             "1",
             "<D:resourcetype /><D:getetag /><D:getcontenttype />",
             cancellationToken).ConfigureAwait(false);
+        var collectionResponse = multistatus.Responses.FirstOrDefault(response => HrefEquals(response.Href, collectionUri, collectionUri));
+        if (collectionResponse?.StatusCode is >= 400)
+            throw new DavRequestException(collectionResponse.StatusCode.Value, "The DAV server could not enumerate the collection.", collectionResponse.ErrorNames);
+
         return multistatus.Responses
             .Where(response => !HrefEquals(response.Href, collectionUri, collectionUri))
             .Select(response => ParseResourceChange(response, collectionUri))
@@ -146,15 +153,27 @@ public sealed class CardDavClient : ICardDavClient
     {
         if (hrefs is null || hrefs.Count == 0)
             return Task.FromResult<IReadOnlyList<CardDavResourceChange>>([]);
-        var hrefXml = string.Join(string.Empty, hrefs.Select(href => $"<D:href>{Escape(href)}</D:href>"));
+
+        ValidateAddressBook(addressBook);
+        var collectionUri = new Uri(addressBook.ExactHref);
+        // Use the RFC 4918 absolute-path form for resources on this server. iCloud
+        // rejects absolute URLs inside multiget even though it returns them in REPORTs.
+        var hrefXml = string.Join(string.Empty, hrefs.Select(href =>
+        {
+            var resourceUri = Resolve(collectionUri, href);
+            var reportHref = string.Equals(resourceUri.GetLeftPart(UriPartial.Authority),
+                collectionUri.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase)
+                ? resourceUri.PathAndQuery
+                : resourceUri.AbsoluteUri;
+            return $"<D:href>{Escape(reportHref)}</D:href>";
+        }));
         var body = $"""
             <C:addressbook-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
               <D:prop><D:getetag /><C:address-data /></D:prop>
               {hrefXml}
             </C:addressbook-multiget>
             """;
-        // The hrefs, not Depth, scope a multiget. RFC 6352 section 8.7 requires Depth: 0, and
-        // servers derived from Apple's CalendarServer reject any other value with 400.
+        // The hrefs, not Depth, scope a multiget. RFC 6352 section 8.7 requires Depth: 0.
         return ReportResourcesAsync(settings, addressBook, "0", body, cancellationToken);
     }
 
@@ -317,11 +336,11 @@ public sealed class CardDavClient : ICardDavClient
         var tokenXml = string.IsNullOrEmpty(syncToken) ? "<D:sync-token />" : $"<D:sync-token>{Escape(syncToken)}</D:sync-token>";
         var limitXml = limit > 0 ? $"<D:limit><D:nresults>{limit}</D:nresults></D:limit>" : string.Empty;
         return $"""
-            <D:sync-collection xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
+            <D:sync-collection xmlns:D="DAV:">
               {tokenXml}
               <D:sync-level>1</D:sync-level>
               {limitXml}
-              <D:prop><D:getetag /><C:address-data /></D:prop>
+              <D:prop><D:getetag /></D:prop>
             </D:sync-collection>
             """;
     }
@@ -423,8 +442,8 @@ public sealed class CardDavClient : ICardDavClient
             SupportsSyncCollection = ContainsElement(reports, DavNamespace, "sync-collection"),
             SupportsMultiget = ContainsElement(reports, CardDavNamespace, "addressbook-multiget"),
             SupportsAddressBookQuery = ContainsElement(reports, CardDavNamespace, "addressbook-query"),
-            SupportsVCard3 = string.IsNullOrWhiteSpace(addressData) || addressData.Contains("version=3.0", StringComparison.OrdinalIgnoreCase),
-            SupportsVCard4 = addressData?.Contains("version=4.0", StringComparison.OrdinalIgnoreCase) == true,
+            SupportsVCard3 = string.IsNullOrWhiteSpace(addressData) || SupportsVCardVersion(addressData, "3.0"),
+            SupportsVCard4 = SupportsVCardVersion(addressData, "4.0"),
             SupportsExtendedMkCol = ContainsElement(extendedMkCol, DavNamespace, "extended-mkcol"),
             SupportsAddMember = Property(response, DavNamespace, "add-member") is not null,
             MaximumResourceSize = long.TryParse(Property(response, CardDavNamespace, "max-resource-size")?.Value, out var size) ? size : null
@@ -433,13 +452,14 @@ public sealed class CardDavClient : ICardDavClient
 
     private static CardDavResourceChange ParseResourceChange(DavResponseItem response, Uri baseUri)
     {
-        var status = response.StatusCode ?? response.PropertyStatuses.FirstOrDefault(item => item.StatusCode is >= 400)?.StatusCode ?? 200;
-        var successful = response.PropertyStatuses.FirstOrDefault(item => item.StatusCode is >= 200 and < 300);
+        // A propstat describes a property, not the resource. In particular, a missing
+        // property (404) must never turn a live contact into a remote deletion.
+        var status = response.StatusCode ?? 200;
         return new CardDavResourceChange
         {
             ExactHref = Resolve(baseUri, response.Href).ToString(),
-            ETag = Property(successful, DavNamespace, "getetag")?.Value,
-            VCard = Property(successful, CardDavNamespace, "address-data")?.Value,
+            ETag = Property(response, DavNamespace, "getetag")?.Value,
+            VCard = Property(response, CardDavNamespace, "address-data")?.Value,
             IsDeleted = status == 404,
             StatusCode = status
         };
@@ -459,6 +479,16 @@ public sealed class CardDavClient : ICardDavClient
         => status?.Properties.FirstOrDefault(property => property.Namespace == xmlNamespace && property.Name == name);
 
     private static bool IsAddressBook(DavProperty property) => ContainsElement(property?.Xml, CardDavNamespace, "addressbook");
+
+    private static bool SupportsVCardVersion(string xml, string version)
+    {
+        if (string.IsNullOrWhiteSpace(xml)) return false;
+
+        XNamespace cardDav = CardDavNamespace;
+        return XElement.Parse(xml).Elements(cardDav + "address-data-type").Any(element =>
+            string.Equals((string)element.Attribute("content-type"), "text/vcard", StringComparison.OrdinalIgnoreCase) &&
+            string.Equals((string)element.Attribute("version"), version, StringComparison.Ordinal));
+    }
 
     private static bool ContainsElement(string xml, string xmlNamespace, string localName)
     {
@@ -492,7 +522,15 @@ public sealed class CardDavClient : ICardDavClient
         => Uri.TryCreate(href, UriKind.Absolute, out var absolute) ? absolute : new Uri(baseUri, href ?? string.Empty);
 
     private static bool HrefEquals(string href, Uri baseUri, Uri expected)
-        => string.Equals(Resolve(baseUri, href).AbsoluteUri, expected.AbsoluteUri, StringComparison.Ordinal);
+    {
+        // DAV servers can report the collection itself without its trailing slash
+        // (including iCloud). It must not be fetched or reconciled as a contact.
+        var resolved = Resolve(baseUri, href);
+        return string.Equals(resolved.GetLeftPart(UriPartial.Path).TrimEnd('/'),
+                   expected.GetLeftPart(UriPartial.Path).TrimEnd('/'), StringComparison.Ordinal) &&
+               string.Equals(resolved.Query, expected.Query, StringComparison.Ordinal) &&
+               string.Equals(resolved.Fragment, expected.Fragment, StringComparison.Ordinal);
+    }
 
     private static string EnsureTrailingSlash(string href) => href.EndsWith('/') ? href : href + "/";
     private static string Escape(string value) => SecurityElement.Escape(value ?? string.Empty);

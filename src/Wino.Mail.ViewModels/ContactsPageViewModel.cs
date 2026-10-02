@@ -994,24 +994,27 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     }
 
     [RelayCommand]
-    private async Task DeleteContactAsync(AccountContactViewModel contact)
-    {
-        if (contact?.SourceContact is null || !contact.IsEditable) return;
-        var confirmed = await _dialogService.ShowConfirmationDialogAsync(
-            string.Format(Translator.ContactConfirmDialog_DeleteMessage, contact.SourceContact.DisplayValue),
-            Translator.ContactConfirmDialog_DeleteTitle, Translator.ContactConfirmDialog_DeleteButton);
-        if (confirmed) await DeleteContactsInternalAsync((AccountContact[])[contact.SourceContact]).ConfigureAwait(false);
-    }
+    private Task DeleteContactAsync(AccountContactViewModel contact)
+        => DeleteContactsAsync(contact is null ? Array.Empty<AccountContactViewModel>() : new[] { contact });
 
     [RelayCommand(CanExecute = nameof(CanDeleteSelectedContacts))]
-    private async Task DeleteSelectedContactsAsync()
+    private Task DeleteSelectedContactsAsync() => DeleteContactsAsync(SelectedContacts);
+
+    public async Task DeleteContactsAsync(IEnumerable<AccountContactViewModel> targets)
     {
-        var contacts = SelectedContacts.Where(item => item.IsEditable).Select(item => item.SourceContact).DistinctBy(item => item.Id).ToList();
-        if (contacts.Count == 0) return;
+        var contacts = targets.Where(item => item.IsEditable).Select(item => item.SourceContact).DistinctBy(item => item.Id).ToList();
+        if (contacts.Count == 0)
+            return;
+
+        var message = contacts.Count == 1
+            ? string.Format(Translator.ContactConfirmDialog_DeleteMessage, contacts[0].DisplayValue)
+            : string.Format(Translator.ContactConfirmDialog_DeleteMultipleMessage, contacts.Count);
         var confirmed = await _dialogService.ShowConfirmationDialogAsync(
-            string.Format(Translator.ContactConfirmDialog_DeleteMultipleMessage, contacts.Count),
-            Translator.ContactConfirmDialog_DeleteTitle, Translator.ContactConfirmDialog_DeleteButton);
-        if (confirmed) await DeleteContactsInternalAsync(contacts).ConfigureAwait(false);
+            message, contacts.Count == 1 ? Translator.ContactConfirmDialog_DeleteTitle : Translator.ContactsPage_DeleteSelectedContacts,
+            Translator.ContactConfirmDialog_DeleteButton);
+
+        if (confirmed)
+            await DeleteContactsInternalAsync(contacts).ConfigureAwait(false);
     }
 
     private async Task DeleteContactsInternalAsync(IEnumerable<AccountContact> contacts)
@@ -1100,32 +1103,15 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     }
 
     [RelayCommand]
-    private async Task ToggleFavoriteAsync(AccountContactViewModel contact)
-    {
-        if (contact is null) return;
-
-        var original = RequestEntityCloner.Contact(contact.SourceContact);
-        var desired = RequestEntityCloner.Contact(contact.SourceContact);
-        desired.IsFavorite = !desired.IsFavorite;
-
-        try
-        {
-            await _requestDelegator.ExecuteLocalAsync(new ApplicationLocalContactRequest(
-                ApplicationLocalContactOperation.SetFavorite,
-                desired,
-                original)).ConfigureAwait(false);
-            await RefreshFavoritesCountAsync().ConfigureAwait(false);
-        }
-        catch (Exception ex)
-        {
-            _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
-        }
-    }
+    private Task ToggleFavoriteAsync(AccountContactViewModel contact)
+        => FavoriteContactsAsync(contact is null ? Array.Empty<AccountContactViewModel>() : new[] { contact });
 
     [RelayCommand(CanExecute = nameof(CanDeleteSelectedContacts))]
-    private async Task FavoriteSelectedContactsAsync()
+    private Task FavoriteSelectedContactsAsync() => FavoriteContactsAsync(SelectedContacts);
+
+    public async Task FavoriteContactsAsync(IEnumerable<AccountContactViewModel> targets)
     {
-        var contacts = SelectedContacts.DistinctBy(item => item.Id).ToList();
+        var contacts = targets.DistinctBy(item => item.Id).ToList();
         if (contacts.Count == 0) return;
 
         // Mixed selections become fully favorited rather than toggling item by item.
@@ -1292,15 +1278,27 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     public async Task<IReadOnlyList<ContactList>> GetAssignableListsAsync(AccountContactViewModel contact)
     {
-        if (contact is null)
-            return [];
+        return await GetAssignableListsAsync(contact is null ? Array.Empty<AccountContactViewModel>() : new[] { contact });
+    }
 
+    public async Task<IReadOnlyList<ContactList>> GetAssignableListsAsync(IReadOnlyList<AccountContactViewModel> contacts)
+    {
         var availableLists = ContactLists.ToList();
 
         try
         {
-            var assignedListIds = await _contactService.GetListIdsForContactAsync(contact.Id).ConfigureAwait(false);
-            var assignedListIdSet = assignedListIds.ToHashSet();
+            if (contacts.Count == 0)
+                return Array.Empty<ContactList>();
+
+            HashSet<Guid> assignedListIdSet = null;
+            foreach (var contact in contacts)
+            {
+                var assignedListIds = await _contactService.GetListIdsForContactAsync(contact.Id).ConfigureAwait(false);
+                if (assignedListIdSet is null)
+                    assignedListIdSet = assignedListIds.ToHashSet();
+                else
+                    assignedListIdSet.IntersectWith(assignedListIds);
+            }
 
             return availableLists
                 .Where(list => !assignedListIdSet.Contains(list.Id))
@@ -1337,6 +1335,18 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         {
             _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
         }
+    }
+
+    // Capture the action targets before the flyout awaits list membership queries.
+    public IReadOnlyList<AccountContactViewModel> ResolveContactContextTargets(AccountContactViewModel contact)
+    {
+        if (contact is null)
+            return Array.Empty<AccountContactViewModel>();
+
+        var selected = SelectedContacts.DistinctBy(item => item.Id).ToList();
+        return selected.Count > 1 && selected.Any(item => item.Id == contact.Id)
+            ? selected
+            : new[] { contact };
     }
 
     public IReadOnlyList<Guid> ResolveContactDragIds(IEnumerable<AccountContactViewModel> draggedContacts)
@@ -1432,12 +1442,19 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     [RelayCommand(CanExecute = nameof(CanComposeToContact))]
     private void ComposeToContact(AccountContactViewModel contact)
+        => ComposeToContacts(contact is null ? Array.Empty<AccountContactViewModel>() : new[] { contact });
+
+    public void ComposeToContacts(IEnumerable<AccountContactViewModel> contacts)
     {
-        var address = contact?.SourceContact?.PrimaryEmailAddress;
-        if (string.IsNullOrWhiteSpace(address)) return;
+        var addresses = contacts.Select(contact => contact.SourceContact.PrimaryEmailAddress)
+            .Where(address => !string.IsNullOrWhiteSpace(address))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(Uri.EscapeDataString).ToList();
+        if (addresses.Count == 0)
+            return;
 
         // Reuse the mailto activation path: the shell picks the account and creates the draft.
-        _activationStateService.MailToUri = new MailToUri($"mailto:{Uri.EscapeDataString(address)}");
+        _activationStateService.MailToUri = new MailToUri($"mailto:{string.Join(",", addresses)}");
         Messenger.Send(new MailtoProtocolMessageRequested());
     }
 

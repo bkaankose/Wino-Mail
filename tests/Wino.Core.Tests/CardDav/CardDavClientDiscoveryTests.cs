@@ -14,6 +14,28 @@ namespace Wino.Core.Tests.CardDav;
 public sealed class CardDavClientDiscoveryTests
 {
     [Theory]
+    [InlineData("3.0", true, false)]
+    [InlineData("4.0", false, true)]
+    public async Task DiscoverAsync_ParsesSupportedVCardVersionAttributes(string version, bool version3, bool version4)
+    {
+        var transport = new Mock<IDavTransport>();
+        transport.SetupSequence(item => item.SendAsync(It.IsAny<HttpRequestMessage>(),
+                It.IsAny<DavAuthenticationProfile>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(MultiStatus(ContextResponse))
+            .ReturnsAsync(MultiStatus(HomeResponse("").Replace("<D:displayname>",
+                $"<C:supported-address-data><C:address-data-type content-type=\"text/vcard\" version=\"{version}\" /></C:supported-address-data><D:displayname>")));
+        var client = new CardDavClient(transport.Object, new DavMultistatusReader());
+
+        var result = await client.DiscoverAsync(new CardDavConnectionSettings
+        {
+            ServiceUri = new Uri("https://contacts.example.test/"), Authentication = new DavAuthenticationProfile()
+        });
+
+        result.AddressBooks.Single().SupportsVCard3.Should().Be(version3);
+        result.AddressBooks.Single().SupportsVCard4.Should().Be(version4);
+    }
+
+    [Theory]
     [InlineData("<D:privilege><D:bind /></D:privilege>", true)]
     [InlineData("<D:privilege><D:read /></D:privilege>", false)]
     [InlineData("", false)]
