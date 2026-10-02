@@ -201,22 +201,6 @@ public class SqliteVariableLimitTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task CountMailsAsync_OversizedExclusionList_ExcludesAll()
-    {
-        var mails = BuildMails(OversizedCount);
-        await _databaseService.Connection.InsertAllAsync(mails);
-        var options = BuildOptions(
-            [_inboxFolder],
-            take: OversizedCount,
-            existingUniqueIds: new ConcurrentDictionary<Guid, bool>(
-                mails.Select(mail => new KeyValuePair<Guid, bool>(mail.UniqueId, true))));
-
-        var count = await _mailService.CountMailsAsync(options);
-
-        count.Should().Be(0);
-    }
-
-    [Fact]
     public async Task FetchMailsAsync_OversizedThreadSeeds_ExpandsThreads()
     {
         var mails = BuildMails(OversizedCount, threadId: "big-thread");

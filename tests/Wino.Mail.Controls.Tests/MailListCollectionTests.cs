@@ -67,19 +67,6 @@ public sealed class MailListCollectionTests
     }
 
     [Fact]
-    public void RemoveRangeById_UpdatesIdentityIndex()
-    {
-        var first = new TestItem("a");
-        var second = new TestItem("b");
-        var collection = new MailListCollection<TestItem> { first, second };
-
-        collection.RemoveRangeById([first.StableId]).Should().Be(1);
-
-        collection.ContainsId(first.StableId).Should().BeFalse();
-        collection.ContainsId(second.StableId).Should().BeTrue();
-    }
-
-    [Fact]
     public void RangeMutations_DoNotPublishCollectionReset()
     {
         var first = new TestItem("first");

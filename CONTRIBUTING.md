@@ -119,7 +119,7 @@ sequenceDiagram
 - [`controls`](controls) contains highly customized controls shared by Wino applications. It is not a general-purpose control library.
 - [`Wino.Editor`](controls/Wino.Editor) contains the HTML, CSS, and JavaScript assets for mail reading and composition.
 - [`Wino.Mail.Controls.Playground`](controls/Wino.Mail.Controls.Playground) is the quick test application for controls before full application integration.
-- [`tests`](tests) contains unit, smoke, Native AOT, and notification-host tests.
+- [`tests`](tests) contains unit tests and script checks.
 
 ## Notification architecture
 
@@ -144,7 +144,7 @@ Notification clicks enter the matching COM activator. The host writes an activat
 
 [`ForwardedNotificationActivationStore`](src/Wino.Mail.WinUI/Activation/ForwardedNotificationActivationStore.cs) reads the forwarded activation. [`AppNotificationHandler`](src/Wino.Mail.WinUI/Activation/AppNotificationHandler.cs) routes it to the correct application mode.
 
-Shared request formats and AUMID mappings live in [`Wino.NotificationHost.Contracts`](src/Wino.NotificationHost.Contracts). Notification-host tests live in [`Wino.NotificationHost.Tests`](tests/Wino.NotificationHost.Tests).
+Shared request formats and AUMID mappings live in [`Wino.NotificationHost.Contracts`](src/Wino.NotificationHost.Contracts).
 
 Do not register all four notification identities in the main executable. Keep each registration and COM activation path attached to its dedicated host executable.
 

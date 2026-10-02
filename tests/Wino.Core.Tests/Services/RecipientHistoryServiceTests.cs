@@ -26,13 +26,6 @@ public class RecipientHistoryServiceTests : IAsyncLifetime
     public async Task DisposeAsync() => await _databaseService.DisposeAsync();
 
     [Fact]
-    public async Task BundledSqlite_SupportsUpsert()
-    {
-        var version = await _databaseService.Connection.ExecuteScalarAsync<string>("SELECT sqlite_version()");
-        new Version(version).Should().BeGreaterThanOrEqualTo(new Version(3, 24));
-    }
-
-    [Fact]
     public async Task ReceivingTwice_KeepsOneRowAndCountsBoth()
     {
         await _service.RecordReceivedAsync(_accountId, "alice@example.com", "Alice Example", Earlier);

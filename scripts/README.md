@@ -27,7 +27,6 @@ The root `Directory.Build.targets` retains shared compiler settings and Native A
 pwsh -File scripts/release/build-releases.ps1
 pwsh -File scripts/lab/local-lab.ps1 help
 pwsh -File scripts/maintenance/format-xaml.ps1 -Changed -Check
-pwsh -File tests/scripts/Build-Releases.Tests.ps1
 python scripts/localization/translate_resources.py --help
 ```
 

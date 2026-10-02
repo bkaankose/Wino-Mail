@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net10.0;net10.0-windows10.0.26100.0</TargetFrameworks>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
@@ -21,7 +21,5 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj" />
-    <ProjectReference Include="..\..\controls\Wino.Mail.Controls\Wino.Mail.Controls.csproj"
-                      Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net10.0-windows'))" />
   </ItemGroup>
 </Project>

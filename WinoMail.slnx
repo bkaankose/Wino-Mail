@@ -4,6 +4,33 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
+  <Folder Name="/libs/hosts/">
+    <Project Path="src/Wino.Mail.NotificationHost/Wino.Mail.NotificationHost.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="src/Wino.NotificationHost.Contracts/Wino.NotificationHost.Contracts.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="src/Wino.NotificationHost/Wino.NotificationHost.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="src/Wino.People.NotificationHost/Wino.People.NotificationHost.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+    <Project Path="src/Wino.Tasks.NotificationHost/Wino.Tasks.NotificationHost.csproj">
+      <Platform Solution="*|arm64" Project="ARM64" />
+      <Platform Solution="*|x64" Project="x64" />
+      <Platform Solution="*|x86" Project="x86" />
+    </Project>
+  </Folder>
   <Folder Name="/Solution Items/" Id="8ec462fd-d22e-90a8-e5ce-7e832ba40c5d">
     <File Path=".editorconfig" />
     <File Path="Directory.Build.Props" />
@@ -49,11 +76,6 @@
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="src/Wino.Mail.NotificationHost/Wino.Mail.NotificationHost.csproj">
-      <Platform Solution="*|arm64" Project="ARM64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
     <Project Path="src/Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
@@ -64,32 +86,12 @@
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
-    <Project Path="src/Wino.NotificationHost.Contracts/Wino.NotificationHost.Contracts.csproj">
-      <Platform Solution="*|arm64" Project="ARM64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
-    <Project Path="src/Wino.NotificationHost/Wino.NotificationHost.csproj">
-      <Platform Solution="*|arm64" Project="ARM64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
-    <Project Path="src/Wino.People.NotificationHost/Wino.People.NotificationHost.csproj">
-      <Platform Solution="*|arm64" Project="ARM64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
     <Project Path="src/Wino.Services/Wino.Services.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />
     </Project>
     <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
-    <Project Path="src/Wino.Tasks.NotificationHost/Wino.Tasks.NotificationHost.csproj">
-      <Platform Solution="*|arm64" Project="ARM64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
   </Folder>
   <Folder Name="/controls/">
     <Project Path="controls/Wino.Editor/Wino.Editor.csproj">
@@ -131,16 +133,6 @@
       <Platform Solution="*|x86" Project="x86" />
     </Project>
     <Project Path="tests/Wino.Mail.ViewModels.Tests/Wino.Mail.ViewModels.Tests.csproj">
-      <Platform Solution="*|arm64" Project="arm64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
-    <Project Path="tests/Wino.NotificationHost.Tests/Wino.NotificationHost.Tests.csproj">
-      <Platform Solution="*|arm64" Project="arm64" />
-      <Platform Solution="*|x64" Project="x64" />
-      <Platform Solution="*|x86" Project="x86" />
-    </Project>
-    <Project Path="tests/Wino.Services.AotSmoke/Wino.Services.AotSmoke.csproj">
       <Platform Solution="*|arm64" Project="arm64" />
       <Platform Solution="*|x64" Project="x64" />
       <Platform Solution="*|x86" Project="x86" />

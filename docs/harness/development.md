@@ -99,12 +99,6 @@ A build with `--no-restore` still took 54.4 seconds and repeated the XAML work.
 The F5 helper avoids these steps when its inputs and output are unchanged.
 Changed inputs still use the normal SDK build. The helper does not replace any SDK compilation targets.
 
-Run the helper's filesystem and command-selection tests without launching the app:
-
-```powershell
-pwsh -NoProfile -File tests/scripts/Start-Wino.Tests.ps1
-```
-
 ## Package troubleshooting
 
 Before deployment, inspect the installed package:
@@ -158,7 +152,6 @@ Shared release analyzer and Native AOT packaging rules remain in `Directory.Buil
 
 ```powershell
 pwsh -File scripts/release/build-releases.ps1
-pwsh -File tests/scripts/Build-Releases.Tests.ps1
 pwsh -File scripts/maintenance/format-xaml.ps1 -Changed
 pwsh -File scripts/maintenance/format-xaml.ps1 -Changed -Check
 ```

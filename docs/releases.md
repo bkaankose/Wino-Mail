@@ -272,11 +272,3 @@ The script also removes the `.staging` parent when empty. Diagnostics from earli
 
 For signing failures, verify the secret expiry, profile role assignment, endpoint region, and certificate profile configuration.
 Do not distribute an unsigned package from staging.
-
-## Script tests
-
-```powershell
-pwsh -NoProfile -File .\tests\scripts\Build-Releases.Tests.ps1
-```
-
-These tests use temporary fixtures and process substitutes. A real release build provides the package and Native AOT verification.

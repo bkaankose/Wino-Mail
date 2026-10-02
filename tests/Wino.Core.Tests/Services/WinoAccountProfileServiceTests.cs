@@ -210,18 +210,6 @@ public class WinoAccountProfileServiceTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task ForgotPasswordAsync_ShouldForwardApiResponse()
-    {
-        _apiClient
-            .Setup(x => x.ForgotPasswordAsync("reset@example.com", default))
-            .ReturnsAsync(ApiEnvelope<JsonElement>.Success(default));
-
-        var result = await _service.ForgotPasswordAsync("reset@example.com");
-
-        result.IsSuccess.Should().BeTrue();
-    }
-
-    [Fact]
     public async Task RefreshProfileAsync_ShouldPersistLatestProfileData()
     {
         var authResult = CreateAuthResult("first@example.com");

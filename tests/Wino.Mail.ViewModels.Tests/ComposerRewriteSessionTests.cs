@@ -59,15 +59,6 @@ public sealed class ComposerRewriteSessionTests
     }
 
     [Fact]
-    public void Modes_AreTheApiModes_WithBareToneLabels()
-    {
-        var session = new Harness(available: true).Session;
-
-        session.Modes.Select(x => x.Mode).Should().Equal("polite", "angry", "happy", "formal", "friendly", "shorter", "clearer");
-        session.Modes.Select(x => x.Label).Should().Equal("Polite", "Angry", "Happy", "Formal", "Friendly", "Shorter", "Clearer");
-    }
-
-    [Fact]
     public async Task ToggleOriginal_SwitchesBothWays_AndKeepsEditsToEachVersion()
     {
         var harness = await Harness.CreateAvailableAsync();

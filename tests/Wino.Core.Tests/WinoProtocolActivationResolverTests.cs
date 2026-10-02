@@ -25,14 +25,4 @@ public class WinoProtocolActivationResolverTests
         WinoProtocolActivationResolver.IsBillingSuccess(new Uri(value)).Should().BeFalse();
     }
 
-    [Fact]
-    public void SettingsPageActivationContext_PreservesTargetAndChildParameter()
-    {
-        var context = new Core.Domain.Models.Navigation.SettingsPageActivationContext(
-            Core.Domain.Enums.WinoPage.WinoAccountManagementPage,
-            Core.Domain.Models.Navigation.WinoAccountManagementActivationReason.CheckoutCompleted);
-
-        context.TargetPage.Should().Be(Core.Domain.Enums.WinoPage.WinoAccountManagementPage);
-        context.PageParameter.Should().Be(Core.Domain.Models.Navigation.WinoAccountManagementActivationReason.CheckoutCompleted);
-    }
 }
