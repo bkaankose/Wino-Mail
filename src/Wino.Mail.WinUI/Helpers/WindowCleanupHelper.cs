@@ -22,10 +22,10 @@ internal static class WindowCleanupHelper
     }
 
     /// <summary>
-    /// Pages marked <c>NavigationCacheMode.Required</c> are held by the frame's own page
-    /// cache, which survives clearing the content and the back stack. Collapsing the cache
-    /// size and restoring it is the only way to make the frame let go of them, and without
-    /// it a mode switch leaves the previous mode's root page alive.
+    /// The frame's page cache survives clearing the content and the back stack. Collapsing
+    /// the cache size and restoring it drops pages cached as <c>NavigationCacheMode.Enabled</c>.
+    /// It does not drop <c>Required</c> pages: the frame keeps those until it is destroyed
+    /// itself, which is why no page under the shell is cached as Required.
     /// </summary>
     private static void EvictCachedPages(Frame frame)
     {

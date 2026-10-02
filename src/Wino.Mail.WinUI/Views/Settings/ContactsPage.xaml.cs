@@ -19,6 +19,7 @@ using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.ViewModels;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI.Controls;
+using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Views.Abstract;
@@ -77,6 +78,38 @@ public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearch
             ViewModel.ListScrollOffset = scrollViewer.VerticalOffset;
 
         base.OnNavigatingFrom(e);
+    }
+
+    protected override void OnNavigatedFrom(NavigationEventArgs e)
+    {
+        base.OnNavigatedFrom(e);
+        DetachFromViewModel();
+    }
+
+    public override void PrepareForClose()
+    {
+        // A mode switch clears the frame content without OnNavigatedFrom.
+        DetachFromViewModel();
+        base.PrepareForClose();
+    }
+
+    /// <summary>
+    /// The view model outlives the page, so everything that connects the two is taken down
+    /// here: its events, the bindings, the grouped view the list is bound to, and the commands
+    /// the buttons and menu items subscribed to.
+    /// </summary>
+    private void DetachFromViewModel()
+    {
+        ViewModel.PropertyChanged -= ViewModelPropertyChanged;
+        _searchCancellationTokenSource?.Cancel();
+        _searchCancellationTokenSource?.Dispose();
+        _searchCancellationTokenSource = null;
+
+        Bindings.StopTracking();
+        ContactsListView.SelectionChanged -= ContactsListView_SelectionChanged;
+        ContactsListView.ItemsSource = null;
+        ContactCollectionViewSource.Source = null;
+        CommandSourceHelper.ReleaseCommands(this);
     }
 
     private void ToggleFavorite_Click(object sender, Microsoft.UI.Xaml.RoutedEventArgs e)

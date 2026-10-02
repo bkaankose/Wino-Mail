@@ -25,6 +25,7 @@ using Wino.Core.Requests.Calendar;
 using Wino.Core.Requests.Category;
 using Wino.Core.Requests.Folder;
 using Wino.Core.Requests.Mail;
+using Wino.Messaging.Client.Calendar;
 using Wino.Messaging.UI;
 
 namespace Wino.Core.Synchronizers;
@@ -838,6 +839,20 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 {
                     UntrackProcessedRequests(requestCopies);
                     Messenger.Send(new SynchronizationActionsCompleted(Account.Id));
+
+                    // A successful provider call does not guarantee a server-sourced echo of the item,
+                    // so completion itself must end the optimistic busy state.
+                    var completedCalendarItemIds = requestCopies
+                        .OfType<ICalendarActionRequest>()
+                        .Where(request => request.LocalCalendarItemId.HasValue)
+                        .Select(request => request.LocalCalendarItemId.Value)
+                        .Distinct()
+                        .ToArray();
+
+                    if (completedCalendarItemIds.Length > 0)
+                    {
+                        Messenger.Send(new CalendarItemOperationsCompleted(Account.Id, completedCalendarItemIds));
+                    }
                 }
 
                 // Let servers to finish their job. Sometimes the servers don't respond immediately.

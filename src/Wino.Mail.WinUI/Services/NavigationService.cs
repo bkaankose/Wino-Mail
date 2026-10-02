@@ -201,8 +201,8 @@ public class NavigationService : INavigationService
         }
         else
         {
-            // Tear down the previous mode's pages. Cached mode roots are evicted here so a
-            // second visit rebuilds cleanly instead of resurrecting stale state.
+            // Tear down the previous mode's pages. Mode roots are not cached, so a second
+            // visit rebuilds cleanly instead of resurrecting stale state.
             WindowCleanupHelper.CleanupFrame(GetCoreFrameInternal(NavigationReferenceFrame.InnerShellFrame));
         }
 

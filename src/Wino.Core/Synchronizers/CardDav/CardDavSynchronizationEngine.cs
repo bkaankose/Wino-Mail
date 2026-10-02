@@ -23,6 +23,12 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
     private const int PageSize = 250;
     private static readonly ConcurrentDictionary<Guid, SemaphoreSlim> CollectionLocks = new();
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> OriginGetLocks = new(StringComparer.OrdinalIgnoreCase);
+
+    // Collections whose server advertised a REPORT and then refused it. Discovery would
+    // advertise it again, so the refusal is remembered for the process instead.
+    private static readonly ConcurrentDictionary<string, byte> SyncCollectionRejected = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, byte> MultigetRejected = new(StringComparer.Ordinal);
+    private static readonly ConcurrentDictionary<string, byte> QueryRejected = new(StringComparer.Ordinal);
     private readonly ICardDavClient _client;
     private readonly ICardDavSynchronizationStore _store;
     private readonly ICardDavPayloadStore _payloadStore;
@@ -273,14 +279,14 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
     {
         // Older discovery state can contain a server token without any local baseline.
         // Recover it with a full pull before trusting incremental changes.
-        if (binding.State.SupportsSyncCollection && !binding.State.RequiresFullReconciliation &&
+        if (CanUseSyncCollection(binding) && !binding.State.RequiresFullReconciliation &&
             binding.State.LastFullSyncUtc.HasValue)
         {
             try
             {
                 return await PullIncrementalAsync(accountId, settings, binding, cancellationToken).ConfigureAwait(false);
             }
-            catch (DavRequestException ex) when (ex.HasError("valid-sync-token") || ex.StatusCode is 403 or 409)
+            catch (DavRequestException ex) when (ex.HasError("valid-sync-token") || ex.StatusCode is 403 or 409 || ex.IsUnsupportedRequest)
             {
                 // An invalid token never authorizes deletion. Rebuild from a complete listing.
             }
@@ -288,6 +294,9 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
 
         return await PullFullAsync(accountId, settings, binding, cancellationToken).ConfigureAwait(false);
     }
+
+    private static bool CanUseSyncCollection(CardDavBookBinding binding)
+        => binding.State.SupportsSyncCollection && !SyncCollectionRejected.ContainsKey(binding.State.ExactHref);
 
     private async Task<ContactSynchronizationResult> PullIncrementalAsync(
         Guid accountId,
@@ -316,35 +325,71 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         CardDavBookBinding binding,
         CancellationToken cancellationToken)
     {
-        var result = ContactSynchronizationResult.Empty;
         var generation = await _store.BeginFullReconciliationAsync(binding.AddressBook.Id).ConfigureAwait(false);
-        if (binding.State.SupportsSyncCollection)
+        if (CanUseSyncCollection(binding))
         {
-            var seen = new List<string>();
-            string token = null;
-            do
+            try
             {
-                var syncPage = await _client.SyncCollectionAsync(settings, ToProtocolBook(binding), token, PageSize, cancellationToken).ConfigureAwait(false);
-                var populated = await PopulateBodiesAsync(settings, binding, syncPage.Changes, cancellationToken).ConfigureAwait(false);
-                seen.AddRange(populated.Where(item => !item.IsDeleted).Select(item => item.ExactHref));
-                var page = await BuildRemotePageAsync(accountId, binding, populated, generation, true, null, false, cancellationToken).ConfigureAwait(false);
-                await _store.ApplyRemotePageAsync(page).ConfigureAwait(false);
-                AddPageCounts(result, page);
-                token = syncPage.NextSyncToken;
-                if (!syncPage.IsTruncated) break;
-            } while (true);
-
-            await _store.ApplyRemotePageAsync(new CardDavRemotePage
+                return await PullFullWithSyncCollectionAsync(accountId, settings, binding, generation, cancellationToken).ConfigureAwait(false);
+            }
+            catch (DavRequestException ex) when (ex.IsUnsupportedRequest)
             {
-                AddressBookId = binding.AddressBook.Id,
-                SeenHrefs = seen,
-                ReconciliationGeneration = generation,
-                IsFullReconciliation = true
-            }).ConfigureAwait(false);
-            await _store.CompleteFullReconciliationAsync(binding.AddressBook.Id, generation, token).ConfigureAwait(false);
-            return result;
+                // The collection advertised sync-collection but refused it. A PROPFIND listing
+                // is the baseline every CardDAV server answers, and it reconciles the same
+                // generation, so pages applied before the refusal are kept.
+                SyncCollectionRejected.TryAdd(binding.State.ExactHref, 0);
+                _logger.CaptureException(ex, "CardDavSyncCollectionRejected", new Dictionary<string, string>
+                {
+                    ["AddressBookId"] = binding.AddressBook.Id.ToString("D"),
+                    ["StatusCode"] = ex.StatusCode.ToString()
+                });
+            }
         }
 
+        return await PullFullWithListingAsync(accountId, settings, binding, generation, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<ContactSynchronizationResult> PullFullWithSyncCollectionAsync(
+        Guid accountId,
+        CardDavConnectionSettings settings,
+        CardDavBookBinding binding,
+        long generation,
+        CancellationToken cancellationToken)
+    {
+        var result = ContactSynchronizationResult.Empty;
+        var seen = new List<string>();
+        string token = null;
+        do
+        {
+            var syncPage = await _client.SyncCollectionAsync(settings, ToProtocolBook(binding), token, PageSize, cancellationToken).ConfigureAwait(false);
+            var populated = await PopulateBodiesAsync(settings, binding, syncPage.Changes, cancellationToken).ConfigureAwait(false);
+            seen.AddRange(populated.Where(item => !item.IsDeleted).Select(item => item.ExactHref));
+            var page = await BuildRemotePageAsync(accountId, binding, populated, generation, true, null, false, cancellationToken).ConfigureAwait(false);
+            await _store.ApplyRemotePageAsync(page).ConfigureAwait(false);
+            AddPageCounts(result, page);
+            token = syncPage.NextSyncToken;
+            if (!syncPage.IsTruncated) break;
+        } while (true);
+
+        await _store.ApplyRemotePageAsync(new CardDavRemotePage
+        {
+            AddressBookId = binding.AddressBook.Id,
+            SeenHrefs = seen,
+            ReconciliationGeneration = generation,
+            IsFullReconciliation = true
+        }).ConfigureAwait(false);
+        await _store.CompleteFullReconciliationAsync(binding.AddressBook.Id, generation, token).ConfigureAwait(false);
+        return result;
+    }
+
+    private async Task<ContactSynchronizationResult> PullFullWithListingAsync(
+        Guid accountId,
+        CardDavConnectionSettings settings,
+        CardDavBookBinding binding,
+        long generation,
+        CancellationToken cancellationToken)
+    {
+        var result = ContactSynchronizationResult.Empty;
         var listing = await _client.EnumerateResourcesAsync(settings, ToProtocolBook(binding), cancellationToken).ConfigureAwait(false);
         var changed = new List<CardDavResourceChange>();
         foreach (var remote in listing.Where(item => !item.IsDeleted))
@@ -385,25 +430,37 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         var missing = changes.Where(change => !change.IsDeleted && change.StatusCode < 400 && string.IsNullOrEmpty(change.VCard)).ToList();
         if (missing.Count == 0) return complete;
 
+        // A refused bulk REPORT leaves fetched short. The per-resource GET below collects
+        // whatever it did not return, which is every resource when no REPORT is usable.
+        var collectionHref = binding.State.ExactHref;
         IReadOnlyList<CardDavResourceChange> fetched = [];
-        if (binding.State.SupportsMultiget)
+        if (binding.State.SupportsMultiget && !MultigetRejected.ContainsKey(collectionHref))
         {
             var values = new List<CardDavResourceChange>();
             var batchSize = Math.Clamp(binding.State.LearnedMultigetBatchSize, 1, PageSize);
-            for (var offset = 0; offset < missing.Count; offset += batchSize)
-                values.AddRange(await _client.MultiGetAsync(settings, ToProtocolBook(binding), missing.Skip(offset).Take(batchSize).Select(item => item.ExactHref).ToList(), cancellationToken).ConfigureAwait(false));
+            try
+            {
+                for (var offset = 0; offset < missing.Count; offset += batchSize)
+                    values.AddRange(await _client.MultiGetAsync(settings, ToProtocolBook(binding), missing.Skip(offset).Take(batchSize).Select(item => item.ExactHref).ToList(), cancellationToken).ConfigureAwait(false));
+            }
+            catch (DavRequestException ex) when (ex.IsUnsupportedRequest)
+            {
+                MultigetRejected.TryAdd(collectionHref, 0);
+            }
             fetched = values;
         }
-        else if (binding.State.SupportsAddressBookQuery)
+        else if (binding.State.SupportsAddressBookQuery && !QueryRejected.ContainsKey(collectionHref))
         {
             var requested = missing.Select(item => item.ExactHref).ToHashSet(StringComparer.Ordinal);
-            fetched = (await _client.QueryAsync(settings, ToProtocolBook(binding), cancellationToken).ConfigureAwait(false))
-                .Where(item => requested.Contains(item.ExactHref)).ToList();
-        }
-        else
-        {
-            fetched = await Task.WhenAll(missing.Select(async item =>
-                await GetResourceBoundedAsync(settings, item.ExactHref, cancellationToken).ConfigureAwait(false))).ConfigureAwait(false);
+            try
+            {
+                fetched = (await _client.QueryAsync(settings, ToProtocolBook(binding), cancellationToken).ConfigureAwait(false))
+                    .Where(item => requested.Contains(item.ExactHref)).ToList();
+            }
+            catch (DavRequestException ex) when (ex.IsUnsupportedRequest)
+            {
+                QueryRejected.TryAdd(collectionHref, 0);
+            }
         }
 
         complete.AddRange(fetched);

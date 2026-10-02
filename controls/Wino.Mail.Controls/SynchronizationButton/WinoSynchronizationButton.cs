@@ -134,6 +134,26 @@ public sealed partial class WinoSynchronizationButton : Button
         _isRevealPending = useTransitions && IsSynchronizing && AreAnimationsEnabled;
 
         VisualStateManager.GoToState(this, IsSynchronizing ? SynchronizingStateName : IdleStateName, useTransitions);
+
+        // The hide animation slides the description left, and a synchronization that starts
+        // again before it finishes cancels it part-way. Without a reset the text would come
+        // back at that leftover offset, drawn over the ring, whenever no reveal follows to
+        // move it - for example when the overlay never collapsed in layout in between.
+        if (IsSynchronizing)
+        {
+            ResetDescriptionTranslation();
+        }
+    }
+
+    private void ResetDescriptionTranslation()
+    {
+        if (_descriptionText is null)
+            return;
+
+        var visual = ElementCompositionPreview.GetElementVisual(_descriptionText);
+        visual.StopAnimation("Translation.X");
+        visual.StopAnimation("Translation");
+        visual.Properties.InsertVector3("Translation", Vector3.Zero);
     }
 
     private bool AreAnimationsEnabled => _uiSettings.AnimationsEnabled;
@@ -309,7 +329,20 @@ public sealed partial class WinoSynchronizationButton : Button
         animation.Duration = RevealDuration;
         animation.Target = "Translation.X";
 
+        // The slide must always land on zero. If anything interrupts it, the batch puts the
+        // text back in its slot instead of leaving it wherever the animation stopped.
+        var batch = compositor.CreateScopedBatch(CompositionBatchTypes.Animation);
+        batch.Completed += (_, _) =>
+        {
+            if (IsSynchronizing)
+            {
+                visual.Properties.InsertVector3("Translation", Vector3.Zero);
+            }
+        };
+
         visual.StartAnimation("Translation.X", animation);
+
+        batch.End();
     }
 
     #endregion

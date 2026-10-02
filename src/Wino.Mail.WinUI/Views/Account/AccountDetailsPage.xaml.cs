@@ -1,6 +1,5 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.ViewModels.Data;
 using Wino.Core.Domain.Models.Folders;
 using Wino.Mail.ViewModels;
@@ -14,8 +13,6 @@ public sealed partial class AccountDetailsPage : AccountDetailsPageAbstract
     public AccountDetailsPage()
     {
         InitializeComponent();
-
-        NavigationCacheMode = NavigationCacheMode.Enabled;
     }
 
     private async void SyncFolderToggled(object sender, RoutedEventArgs e)

@@ -53,6 +53,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
     private TimedCalendarLayoutResult _timedLayout = new([], 0, []);
     private MonthCalendarLayoutResult _monthLayout = new(0, 0, [], []);
     private INotifyCollectionChanged? _observableItemsSource;
+    private bool _areCanvasesReleased;
     private double _timedDayWidth;
     private double _timedAllDayHeight;
     private double _monthCellWidth;
@@ -300,6 +301,11 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void InvalidateStructureCanvases()
     {
+        if (_areCanvasesReleased)
+        {
+            return;
+        }
+
         TimedAllDayCanvas.Invalidate();
         TimedStructureCanvas.Invalidate();
         MonthStructureCanvas.Invalidate();
@@ -307,7 +313,7 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
 
     private void Refresh()
     {
-        if (!_refreshPending || !IsLoaded || ActualWidth <= 0 || VisibleRange is null || CalendarSettings is null)
+        if (!_refreshPending || _areCanvasesReleased || !IsLoaded || ActualWidth <= 0 || VisibleRange is null || CalendarSettings is null)
         {
             return;
         }
@@ -360,6 +366,35 @@ public sealed partial class CalendarPeriodControl : UserControl, INotifyProperty
         DetachCurrentItemsSource();
         _sizeRefreshTimer.Stop();
         _sizeRefreshTimer.Tick -= SizeRefreshTimerTick;
+        ReleaseCanvases();
+    }
+
+    /// <summary>
+    /// A Win2D canvas holds its Draw handler and its parent with references the garbage
+    /// collector cannot see through. Left alone, canvas, handler and this control keep each
+    /// other alive, and with them the calendar page and every event it shows. The handlers are
+    /// removed by hand, the canvases take themselves out of the tree, and in XAML each canvas
+    /// has a parent of its own so that nothing else hangs off the reference it keeps. The page
+    /// is not cached, so leaving the tree is final.
+    /// </summary>
+    private void ReleaseCanvases()
+    {
+        if (_areCanvasesReleased)
+        {
+            return;
+        }
+
+        _areCanvasesReleased = true;
+
+        TimedHeaderCanvas.Draw -= TimedHeaderCanvasDraw;
+        TimedAllDayCanvas.Draw -= TimedAllDayCanvasDraw;
+        TimedStructureCanvas.Draw -= TimedStructureCanvasDraw;
+        MonthStructureCanvas.Draw -= MonthStructureCanvasDraw;
+
+        TimedHeaderCanvas.RemoveFromVisualTree();
+        TimedAllDayCanvas.RemoveFromVisualTree();
+        TimedStructureCanvas.RemoveFromVisualTree();
+        MonthStructureCanvas.RemoveFromVisualTree();
     }
 
     private void ControlPointerPressed(object sender, PointerRoutedEventArgs e)

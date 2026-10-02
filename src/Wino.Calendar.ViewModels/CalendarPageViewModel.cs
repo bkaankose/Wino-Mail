@@ -1097,6 +1097,30 @@ public partial class CalendarPageViewModel : CalendarBaseViewModel,
         ApplyCalendarItemUpsert(calendarItem, source);
     }
 
+    protected override void OnCalendarItemOperationsCompleted(Guid accountId, IReadOnlyCollection<Guid> calendarItemIds)
+    {
+        base.OnCalendarItemOperationsCompleted(accountId, calendarItemIds);
+
+        if (calendarItemIds == null || calendarItemIds.Count == 0)
+            return;
+
+        var completedItemIds = calendarItemIds.ToHashSet();
+
+        foreach (var calendarItemViewModel in CalendarItems)
+        {
+            if (calendarItemViewModel.IsBusy && HasPendingCalendarOperation(calendarItemViewModel.CalendarItem, completedItemIds))
+            {
+                calendarItemViewModel.IsBusy = false;
+            }
+        }
+
+        if (DisplayDetailsCalendarItemViewModel?.IsBusy == true &&
+            HasPendingCalendarOperation(DisplayDetailsCalendarItemViewModel.CalendarItem, completedItemIds))
+        {
+            DisplayDetailsCalendarItemViewModel.IsBusy = false;
+        }
+    }
+
     private async Task<HashSet<Guid>> GetPendingCalendarItemIdsAsync(IEnumerable<AccountCalendarViewModel> activeCalendars, long lifetimeVersion)
     {
         var pendingCalendarItemIds = new HashSet<Guid>();

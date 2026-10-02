@@ -14,8 +14,10 @@ public sealed partial class SettingOptionsPage : SettingOptionsPageAbstract
     public SettingOptionsPage()
     {
         InitializeComponent();
-        NavigationCacheMode = Microsoft.UI.Xaml.Navigation.NavigationCacheMode.Required;
     }
+
+    protected override void ReleasePageResources()
+        => ReleaseTemplateSelector("AccountProviderViewModelTemplateSelector");
 
     private void SettingOptionClicked(object sender, RoutedEventArgs e)
     {

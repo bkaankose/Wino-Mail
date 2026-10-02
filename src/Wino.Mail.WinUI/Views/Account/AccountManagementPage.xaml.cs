@@ -13,6 +13,9 @@ public sealed partial class AccountManagementPage : AccountManagementPageAbstrac
         InitializeComponent();
     }
 
+    protected override void ReleasePageResources()
+        => ReleaseTemplateSelector("AccountProviderViewModelTemplateSelector");
+
     private void EditMergedAccounts_Click(object sender, RoutedEventArgs e)
     {
         if (sender is SettingsCard card && card.CommandParameter is MergedAccountProviderDetailViewModel mergedAccount)

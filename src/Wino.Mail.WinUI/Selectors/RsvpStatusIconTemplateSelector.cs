@@ -4,12 +4,20 @@ using Wino.Core.Domain.Enums;
 
 namespace Wino.Mail.WinUI.Selectors;
 
-public partial class RsvpStatusIconTemplateSelector : DataTemplateSelector
+public partial class RsvpStatusIconTemplateSelector : DataTemplateSelector, IReleasableTemplateSelector
 {
     public DataTemplate NotRespondedTemplate { get; set; } = null!;
     public DataTemplate ConfirmedTemplate { get; set; } = null!;
     public DataTemplate TentativeTemplate { get; set; } = null!;
     public DataTemplate CancelledTemplate { get; set; } = null!;
+
+    public void ReleaseTemplates()
+    {
+        NotRespondedTemplate = null!;
+        ConfirmedTemplate = null!;
+        TentativeTemplate = null!;
+        CancelledTemplate = null!;
+    }
 
     protected override DataTemplate SelectTemplateCore(object item, DependencyObject container)
     {
@@ -24,7 +32,7 @@ public partial class RsvpStatusIconTemplateSelector : DataTemplateSelector
                 _ => NotRespondedTemplate
             };
         }
-        
+
         return base.SelectTemplateCore(item, container) ?? NotRespondedTemplate;
     }
 }

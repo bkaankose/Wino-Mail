@@ -48,6 +48,9 @@ public sealed partial class EventDetailsPage : EventDetailsPageAbstract,
         EventDetailsRenderer.Dispose();
     }
 
+    protected override void ReleasePageResources()
+        => ReleaseTemplateSelector("RsvpStatusIconSelector");
+
     private async Task InitializeAndRenderAsync()
     {
         try

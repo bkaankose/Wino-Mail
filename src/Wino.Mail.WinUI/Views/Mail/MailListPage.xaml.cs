@@ -170,6 +170,12 @@ public sealed partial class MailListPage : MailListPageAbstract,
         Bindings.StopTracking();
     }
 
+    protected override void ReleasePageResources()
+    {
+        ReleaseTemplateSelector("MailItemTemplateSelector");
+        ReleaseTemplateSelector("MailGroupHeaderTemplateSelector");
+    }
+
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);

@@ -101,10 +101,17 @@
                 Height="44"
                 Margin="64,0,0,0"
                 Background="{ThemeResource LayerFillColorDefaultBrush}">
-                <win2d:CanvasControl
-                    x:Name="TimedHeaderCanvas"
-                    Draw="TimedHeaderCanvasDraw"
-                    IsHitTestVisible="False" />
+                <!--
+                    Every Win2D canvas sits in a panel of its own. The canvas keeps a hard reference
+                    to its parent, so a parent that carries event handlers or interactive siblings
+                    would keep this control and its page alive through them.
+                -->
+                <Grid IsHitTestVisible="False">
+                    <win2d:CanvasControl
+                        x:Name="TimedHeaderCanvas"
+                        Draw="TimedHeaderCanvasDraw"
+                        IsHitTestVisible="False" />
+                </Grid>
                 <ItemsControl
                     x:Name="TimedHeadersItemsControl"
                     HorizontalContentAlignment="Stretch"
@@ -139,10 +146,12 @@
                 PointerExited="CalendarDropTargetPointerExited"
                 PointerMoved="TimedAllDayHostPointerMoved"
                 Visibility="{x:Bind HasTimedAllDayItems, Mode=OneWay}">
-                <win2d:CanvasControl
-                    x:Name="TimedAllDayCanvas"
-                    Draw="TimedAllDayCanvasDraw"
-                    IsHitTestVisible="False" />
+                <Grid IsHitTestVisible="False">
+                    <win2d:CanvasControl
+                        x:Name="TimedAllDayCanvas"
+                        Draw="TimedAllDayCanvasDraw"
+                        IsHitTestVisible="False" />
+                </Grid>
                 <Canvas x:Name="TimedAllDayItemsCanvas" />
             </Grid>
 
@@ -177,10 +186,12 @@
                             Drop="TimedViewportDrop"
                             PointerExited="CalendarDropTargetPointerExited"
                             PointerMoved="TimedViewportPointerMoved">
-                            <win2d:CanvasControl
-                                x:Name="TimedStructureCanvas"
-                                Draw="TimedStructureCanvasDraw"
-                                IsHitTestVisible="False" />
+                            <Grid IsHitTestVisible="False">
+                                <win2d:CanvasControl
+                                    x:Name="TimedStructureCanvas"
+                                    Draw="TimedStructureCanvasDraw"
+                                    IsHitTestVisible="False" />
+                            </Grid>
                             <Border
                                 x:Name="TimedInteractionLayer"
                                 Background="Transparent"
@@ -222,10 +233,12 @@
                 Drop="MonthViewportDrop"
                 PointerExited="CalendarDropTargetPointerExited"
                 PointerMoved="MonthViewportPointerMoved">
-                <win2d:CanvasControl
-                    x:Name="MonthStructureCanvas"
-                    Draw="MonthStructureCanvasDraw"
-                    IsHitTestVisible="False" />
+                <Grid IsHitTestVisible="False">
+                    <win2d:CanvasControl
+                        x:Name="MonthStructureCanvas"
+                        Draw="MonthStructureCanvasDraw"
+                        IsHitTestVisible="False" />
+                </Grid>
                 <Border
                     x:Name="MonthInteractionLayer"
                     Background="Transparent"

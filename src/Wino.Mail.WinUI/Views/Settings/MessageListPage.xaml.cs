@@ -8,4 +8,7 @@ public sealed partial class MessageListPage : MessageListPageAbstract
     {
         this.InitializeComponent();
     }
+
+    protected override void ReleasePageResources()
+        => ReleaseTemplateSelector("PreviewMailItemTemplateSelector");
 }

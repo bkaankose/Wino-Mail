@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -26,6 +27,7 @@ public sealed class CardDavClient : ICardDavClient
     private static readonly HttpMethod ReportMethod = new("REPORT");
     private static readonly HttpMethod PropPatchMethod = new("PROPPATCH");
     private static readonly HttpMethod MkColMethod = new("MKCOL");
+    private static readonly ConcurrentDictionary<string, byte> LimitRejectingOrigins = new(StringComparer.OrdinalIgnoreCase);
     private readonly IDavTransport _transport;
     private readonly IDavMultistatusReader _multistatusReader;
     private readonly IDavResponseHandler _responseHandler;
@@ -87,18 +89,24 @@ public sealed class CardDavClient : ICardDavClient
     {
         Validate(settings);
         ValidateAddressBook(addressBook);
-        var tokenXml = string.IsNullOrEmpty(syncToken) ? "<D:sync-token />" : $"<D:sync-token>{Escape(syncToken)}</D:sync-token>";
-        var limitXml = limit > 0 ? $"<D:limit><D:nresults>{limit}</D:nresults></D:limit>" : string.Empty;
-        var body = $"""
-            <D:sync-collection xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
-              {tokenXml}
-              <D:sync-level>1</D:sync-level>
-              {limitXml}
-              <D:prop><D:getetag /><C:address-data /></D:prop>
-            </D:sync-collection>
-            """;
         var collectionUri = new Uri(addressBook.ExactHref);
-        var multistatus = await SendMultistatusAsync(settings, ReportMethod, collectionUri, "0", body, cancellationToken).ConfigureAwait(false);
+        var origin = collectionUri.GetLeftPart(UriPartial.Authority);
+        var useLimit = limit > 0 && !LimitRejectingOrigins.ContainsKey(origin);
+        DavMultistatus multistatus;
+        try
+        {
+            multistatus = await SendMultistatusAsync(settings, ReportMethod, collectionUri, "0",
+                SyncCollectionBody(syncToken, useLimit ? limit : 0), cancellationToken).ConfigureAwait(false);
+        }
+        catch (DavRequestException ex) when (useLimit && RejectsLimit(ex))
+        {
+            // DAV:limit is optional (RFC 6578 section 3.7). Some servers fail the whole REPORT
+            // instead of ignoring it, so ask once more without it and stop sending it to that
+            // origin. Without a limit the server still pages with 507 if it has to.
+            LimitRejectingOrigins.TryAdd(origin, 0);
+            multistatus = await SendMultistatusAsync(settings, ReportMethod, collectionUri, "0",
+                SyncCollectionBody(syncToken, 0), cancellationToken).ConfigureAwait(false);
+        }
         var changes = multistatus.Responses.Select(response => ParseResourceChange(response, collectionUri)).ToList();
         var collectionResponse = multistatus.Responses.FirstOrDefault(response => HrefEquals(response.Href, collectionUri, collectionUri));
         return new CardDavSyncPage
@@ -145,7 +153,9 @@ public sealed class CardDavClient : ICardDavClient
               {hrefXml}
             </C:addressbook-multiget>
             """;
-        return ReportResourcesAsync(settings, addressBook, body, cancellationToken);
+        // The hrefs, not Depth, scope a multiget. RFC 6352 section 8.7 requires Depth: 0, and
+        // servers derived from Apple's CalendarServer reject any other value with 400.
+        return ReportResourcesAsync(settings, addressBook, "0", body, cancellationToken);
     }
 
     public Task<IReadOnlyList<CardDavResourceChange>> QueryAsync(
@@ -159,7 +169,7 @@ public sealed class CardDavClient : ICardDavClient
               <C:filter><C:prop-filter name="UID" /></C:filter>
             </C:addressbook-query>
             """;
-        return ReportResourcesAsync(settings, addressBook, body, cancellationToken);
+        return ReportResourcesAsync(settings, addressBook, "1", body, cancellationToken);
     }
 
     public async Task<CardDavResourceChange> GetResourceAsync(
@@ -291,15 +301,40 @@ public sealed class CardDavClient : ICardDavClient
     private async Task<IReadOnlyList<CardDavResourceChange>> ReportResourcesAsync(
         CardDavConnectionSettings settings,
         CardDavAddressBook addressBook,
+        string depth,
         string body,
         CancellationToken cancellationToken)
     {
         Validate(settings);
         ValidateAddressBook(addressBook);
         var collectionUri = new Uri(addressBook.ExactHref);
-        var multistatus = await SendMultistatusAsync(settings, ReportMethod, collectionUri, "1", body, cancellationToken).ConfigureAwait(false);
+        var multistatus = await SendMultistatusAsync(settings, ReportMethod, collectionUri, depth, body, cancellationToken).ConfigureAwait(false);
         return multistatus.Responses.Select(response => ParseResourceChange(response, collectionUri)).ToList();
     }
+
+    private static string SyncCollectionBody(string syncToken, int limit)
+    {
+        var tokenXml = string.IsNullOrEmpty(syncToken) ? "<D:sync-token />" : $"<D:sync-token>{Escape(syncToken)}</D:sync-token>";
+        var limitXml = limit > 0 ? $"<D:limit><D:nresults>{limit}</D:nresults></D:limit>" : string.Empty;
+        return $"""
+            <D:sync-collection xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
+              {tokenXml}
+              <D:sync-level>1</D:sync-level>
+              {limitXml}
+              <D:prop><D:getetag /><C:address-data /></D:prop>
+            </D:sync-collection>
+            """;
+    }
+
+    /// <summary>
+    /// A token the server no longer accepts is reported as DAV:valid-sync-token, which a
+    /// request without a limit would fail with just the same.
+    /// </summary>
+    private static bool RejectsLimit(DavRequestException exception)
+        => !exception.HasError("valid-sync-token") &&
+           (exception.IsUnsupportedRequest ||
+            exception.StatusCode == 507 ||
+            exception.HasError("number-of-matches-within-limits"));
 
     private Task<DavMultistatus> PropFindAsync(
         CardDavConnectionSettings settings,

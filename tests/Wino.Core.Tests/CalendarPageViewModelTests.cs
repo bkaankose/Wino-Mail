@@ -204,6 +204,54 @@ public class CalendarPageViewModelTests
     }
 
     [Fact]
+    public async Task CalendarItemOperationsCompletedMessage_ClearsBusyWithoutServerUpdate()
+    {
+        var settings = CreateSettings();
+        var preferencesService = CreatePreferencesService(settings);
+        var calendarService = new Mock<ICalendarService>();
+
+        var account = CreateAccount();
+        var calendar = CreateCalendar(account, "Calendar");
+        var accountCalendarViewModel = new AccountCalendarViewModel(account, calendar);
+        var movedItem = CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 9, 0, 0), "Moved");
+        var otherItem = CreateCalendarItem(calendar.Id, new DateTime(2026, 3, 20, 11, 0, 0), "Other");
+
+        calendarService
+            .Setup(service => service.GetCalendarEventsAsync(It.IsAny<IAccountCalendar>(), It.IsAny<ITimePeriod>()))
+            .ReturnsAsync([movedItem, otherItem]);
+
+        var viewModel = CreateViewModel(
+            calendarService.Object,
+            preferencesService.Object,
+            new DateOnly(2026, 3, 20),
+            new FakeAccountCalendarStateService([accountCalendarViewModel]));
+
+        viewModel.OnNavigatedTo(NavigationMode.New, null!);
+
+        try
+        {
+            await viewModel.ApplyDisplayRequestAsync(new CalendarDisplayRequest(CalendarDisplayType.Day, new DateOnly(2026, 3, 20)));
+
+            movedItem.StartDate = movedItem.StartDate.AddHours(1);
+            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(movedItem, EntityUpdateSource.ClientUpdated));
+            WeakReferenceMessenger.Default.Send(new CalendarItemUpdated(otherItem, EntityUpdateSource.ClientUpdated));
+
+            viewModel.CalendarItems.Should().OnlyContain(item => item.IsBusy);
+
+            WeakReferenceMessenger.Default.Send(new CalendarItemOperationsCompleted(account.Id, [movedItem.Id]));
+
+            var movedViewModel = viewModel.CalendarItems.Single(item => item.Id == movedItem.Id);
+            movedViewModel.IsBusy.Should().BeFalse();
+            movedViewModel.CanDragDrop.Should().Be(movedItem.CanChangeStartAndEndDate);
+            viewModel.CalendarItems.Single(item => item.Id == otherItem.Id).IsBusy.Should().BeTrue();
+        }
+        finally
+        {
+            viewModel.OnNavigatedFrom(NavigationMode.Back, null!);
+        }
+    }
+
+    [Fact]
     public async Task CalendarItemDeletedMessage_RemovesVisibleItemWithoutReload()
     {
         var settings = CreateSettings();

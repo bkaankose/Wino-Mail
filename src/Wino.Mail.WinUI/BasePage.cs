@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Navigation;
 using Wino.Core.ViewModels;
+using Wino.Mail.WinUI.Selectors;
 using Wino.Messaging.Client.Shell;
 using WinoNavigationMode = Wino.Core.Domain.Models.Navigation.NavigationMode;
 
@@ -52,6 +53,21 @@ public partial class BasePage : Page, IRecipient<LanguageChanged>
 
         WeakReferenceMessenger.Default.Unregister<LanguageChanged>(this);
         UnregisterRecipients();
+        ReleasePageResources();
+    }
+
+    /// <summary>
+    /// Releases what the page's own resources would otherwise keep alive. Runs once on either
+    /// way a page goes away: navigation, or teardown of the frame that hosts it.
+    /// </summary>
+    protected virtual void ReleasePageResources() { }
+
+    protected void ReleaseTemplateSelector(string resourceKey)
+    {
+        if (Resources.TryGetValue(resourceKey, out var resource) && resource is IReleasableTemplateSelector selector)
+        {
+            selector.ReleaseTemplates();
+        }
     }
 
     protected void ResetPreparedForCloseState()

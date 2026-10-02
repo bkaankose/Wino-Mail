@@ -111,6 +111,18 @@ public sealed partial class SettingsPage : SettingsPageAbstract,
         base.OnNavigatingFrom(e);
     }
 
+    public override void PrepareForClose()
+    {
+        // A mode switch clears the frame content without navigating away. The breadcrumb bar
+        // keeps its bound history collection, and through it this page and everything the
+        // settings frame holds, unless the binding is taken down here.
+        SettingsFrame.Navigated -= SettingsFrameNavigated;
+        Bindings.StopTracking();
+        Breadcrumb.ItemsSource = null;
+
+        base.PrepareForClose();
+    }
+
     protected override void RegisterRecipients()
     {
         base.RegisterRecipients();

@@ -28,7 +28,10 @@ public partial class WinoMailListView : ListView, IDisposable
     private readonly ObservableCollection<string> _selectedThreadKeys = [];
     private readonly ObservableCollection<string> _expandedThreadKeys = [];
     private CollectionViewSource? _fallbackViewSource;
-    private readonly MailListRowTemplateSelector _templateSelector = new();
+    // Created only when the list is given its own row templates. XAML does not collect a
+    // DataTemplateSelector that was created in managed code, so a list that takes its selector
+    // from the host must not leave an unused one behind.
+    private MailListRowTemplateSelector? _templateSelector;
     private readonly HashSet<SelectionToken> _tokens = [];
     private MailListProjection? _projection;
     private bool _isProjectionChanging;
@@ -435,6 +438,15 @@ public partial class WinoMailListView : ListView, IDisposable
         ItemClick -= OnItemClick;
         ContainerContentChanging -= OnContainerContentChanging;
         _mailItemsSource = null;
+
+        // The selector itself outlives the list. Its templates do not have to.
+        if (_templateSelector is not null)
+        {
+            _templateSelector.SingleItemTemplate = null;
+            _templateSelector.ThreadHeaderTemplate = null;
+            _templateSelector.ThreadChildTemplate = null;
+        }
+
         _contextMenuContainer = null;
         _pressedRow = null;
         _multiSelectRetainedItem = null;
@@ -1477,6 +1489,7 @@ public partial class WinoMailListView : ListView, IDisposable
             return;
         }
 
+        _templateSelector ??= new MailListRowTemplateSelector();
         _templateSelector.SingleItemTemplate = SingleItemTemplate;
         _templateSelector.ThreadHeaderTemplate = ThreadHeaderTemplate;
         _templateSelector.ThreadChildTemplate = ThreadChildTemplate;

@@ -79,6 +79,63 @@ public sealed class CardDavSynchronizationStoreTests
     }
 
     [Fact]
+    public async Task Synchronize_ServerRejectsAdvertisedReports_FallsBackToListingAndGet()
+    {
+        await using var database = new InMemoryDatabaseService();
+        await database.InitializeAsync();
+        await database.Connection.CreateTableAsync<CardDavAccountState>();
+        await database.Connection.CreateTableAsync<CardDavAddressBookState>();
+        await database.Connection.CreateTableAsync<CardDavResourceShadow>();
+        await database.Connection.CreateTableAsync<CardDavQuarantine>();
+        var codec = new VCardCodec();
+        var payloads = new Mock<ICardDavPayloadStore>();
+        payloads.Setup(item => item.SaveAsync(It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync("payload");
+        var store = new CardDavSynchronizationStore(database, payloads.Object, codec);
+        var account = new MailAccount
+        {
+            Id = Guid.NewGuid(), Address = "alice@example.test",
+            ServerInformation = new CustomServerInformation { CardDavServiceUrl = "http://localhost/dav/" }
+        };
+        // Unique per test: the engine remembers refused reports per collection for the process.
+        var bookHref = $"http://localhost/addressbooks/{Guid.NewGuid():N}/contacts/";
+        await store.SaveDiscoveryAsync(account.Id, new CardDavDiscoveryResult
+        {
+            AddressBooks = new[] { new CardDavAddressBook { ExactHref = bookHref, SupportsSyncCollection = true, SupportsMultiget = true } }
+        });
+        var client = new Mock<ICardDavClient>();
+        client.Setup(item => item.SyncCollectionAsync(It.IsAny<CardDavConnectionSettings>(), It.IsAny<CardDavAddressBook>(),
+                It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DavRequestException(400, "Bad Request"));
+        client.Setup(item => item.MultiGetAsync(It.IsAny<CardDavConnectionSettings>(), It.IsAny<CardDavAddressBook>(),
+                It.IsAny<IReadOnlyList<string>>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new DavRequestException(400, "Bad Request"));
+        client.Setup(item => item.EnumerateResourcesAsync(It.IsAny<CardDavConnectionSettings>(), It.IsAny<CardDavAddressBook>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { new CardDavResourceChange { ExactHref = bookHref + "minimal.vcf", ETag = "etag", StatusCode = 200 } });
+        client.Setup(item => item.GetResourceAsync(It.IsAny<CardDavConnectionSettings>(), bookHref + "minimal.vcf", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CardDavResourceChange
+            {
+                ExactHref = bookHref + "minimal.vcf", ETag = "etag", StatusCode = 200,
+                VCard = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:lab-minimal\r\nFN:Lab Minimal\r\nEND:VCARD\r\n"
+            });
+        var engine = new CardDavSynchronizationEngine(client.Object, store, payloads.Object, codec,
+            Mock.Of<IContactService>(), Mock.Of<IWinoLogger>(), Mock.Of<IDavCredentialStore>(), Mock.Of<IAccountService>());
+
+        var result = await engine.SynchronizeAsync(account, new ContactSynchronizationOptions());
+        await engine.SynchronizeAsync(account, new ContactSynchronizationOptions());
+
+        result.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+        result.Issues.Should().BeEmpty();
+        var contacts = await database.Connection.Table<AccountContact>().ToListAsync();
+        contacts.Should().ContainSingle().Which.DisplayName.Should().Be("Lab Minimal");
+        // The refusal is remembered, so the second pass goes straight to the listing.
+        client.Verify(item => item.SyncCollectionAsync(It.IsAny<CardDavConnectionSettings>(), It.IsAny<CardDavAddressBook>(),
+            It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+        client.Verify(item => item.EnumerateResourcesAsync(It.IsAny<CardDavConnectionSettings>(), It.IsAny<CardDavAddressBook>(),
+            It.IsAny<CancellationToken>()), Times.Exactly(2));
+    }
+
+    [Fact]
     public async Task Discovery_ServerTokenDoesNotSkipInitialContactDownload()
     {
         await using var database = new InMemoryDatabaseService();

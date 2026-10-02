@@ -264,6 +264,24 @@ public partial class EventDetailsPageViewModel : CalendarBaseViewModel
         }
     }
 
+    protected override void OnCalendarItemOperationsCompleted(Guid accountId, IReadOnlyCollection<Guid> calendarItemIds)
+    {
+        base.OnCalendarItemOperationsCompleted(accountId, calendarItemIds);
+
+        if (CurrentEvent?.IsBusy != true || calendarItemIds == null)
+            return;
+
+        var currentItem = CurrentEvent.CalendarItem;
+        var trackedLocalItemId = currentItem?.RemoteEventId.GetClientTrackingId();
+
+        if (currentItem != null &&
+            (calendarItemIds.Contains(currentItem.Id) ||
+             (trackedLocalItemId.HasValue && calendarItemIds.Contains(trackedLocalItemId.Value))))
+        {
+            CurrentEvent.IsBusy = false;
+        }
+    }
+
     private bool IsCurrentEventMatch(CalendarItem calendarItem)
     {
         if (CurrentEvent?.CalendarItem == null || calendarItem == null)

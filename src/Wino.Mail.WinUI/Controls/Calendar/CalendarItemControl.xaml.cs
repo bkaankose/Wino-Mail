@@ -68,8 +68,6 @@ public sealed partial class CalendarItemControl : UserControl
 
     private void UpdateVisualStates()
     {
-        CanDrag = CalendarItem?.CanDragDrop == true;
-
         if (CalendarItem == null) return;
 
         if (CalendarItem.IsAllDayEvent)

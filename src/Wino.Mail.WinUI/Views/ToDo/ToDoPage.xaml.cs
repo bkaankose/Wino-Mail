@@ -21,6 +21,7 @@ using Wino.Mail.Controls.Core.SearchBar;
 using Wino.Mail.ViewModels.Data;
 using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Controls;
+using Wino.Mail.WinUI.Helpers;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
 using Wino.Views.Abstract;
@@ -142,12 +143,35 @@ public sealed partial class ToDoPage : ToDoPageAbstract, ITitleBarSearchHost
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
+        DetachFromViewModel();
+        base.OnNavigatedFrom(e);
+    }
+
+    public override void PrepareForClose()
+    {
+        // A mode switch clears the frame content without OnNavigatedFrom.
+        DetachFromViewModel();
+        base.PrepareForClose();
+    }
+
+    /// <summary>
+    /// The view model outlives the page, so everything that connects the two is taken down
+    /// here: its events, the bindings, the grouped view the list is bound to, and the commands
+    /// the buttons and menu items subscribed to.
+    /// </summary>
+    private void DetachFromViewModel()
+    {
         ViewModel.TaskComposerFocusRequested -= ViewModel_TaskComposerFocusRequested;
         ViewModel.TaskSelectionRestored -= ViewModel_TaskSelectionRestored;
         _searchCancellationTokenSource?.Cancel();
         _searchCancellationTokenSource?.Dispose();
         _searchCancellationTokenSource = null;
-        base.OnNavigatedFrom(e);
+
+        Bindings.StopTracking();
+        TaskListView.SelectionChanged -= TaskListView_SelectionChanged;
+        TaskListView.ItemsSource = null;
+        TaskCollectionViewSource.Source = null;
+        CommandSourceHelper.ReleaseCommands(this);
     }
 
     private void ViewModel_TaskComposerFocusRequested(object? sender, Wino.Core.Domain.Models.TaskComposerFocusRequestedEventArgs e)
