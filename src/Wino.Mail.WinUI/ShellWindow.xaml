@@ -475,6 +475,7 @@
             Margin="0,60,25,0"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
+            Closed="ShellInfoBar_Closed"
             IsClosable="False"
             IsOpen="False" />
     </Grid>

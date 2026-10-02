@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
@@ -959,10 +960,24 @@ public sealed partial class ShellWindow : WindowEx, IWinoShellWindow,
         WeakReferenceMessenger.Default.Unregister<AccountSynchronizationProgressUpdatedMessage>(this);
     }
 
+    private readonly Queue<InfoBarMessageRequested> _pendingInfoBarMessages = new();
+
+    private void ShellInfoBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
+    {
+        if (_pendingInfoBarMessages.TryDequeue(out var message))
+            ShowInfoBarMessage(message);
+    }
+
     private void ShowInfoBarMessage(InfoBarMessageRequested message)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
+            if (ShellInfoBar.IsOpen)
+            {
+                _pendingInfoBarMessages.Enqueue(message);
+                return;
+            }
+
             if (string.IsNullOrEmpty(message.ActionButtonTitle) || message.Action == null)
             {
                 ShellInfoBar.ActionButton = null;

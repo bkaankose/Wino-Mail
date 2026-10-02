@@ -3328,6 +3328,8 @@
   "ContactEditor_DiscardMessage": "Your unsaved changes will be lost.",
   "ContactEditor_DiscardAction": "Discard",
   "ContactEditor_RefreshFailed": "Some contact accounts could not be refreshed. Cached contacts remain available.",
+  "ContactInfoBar_SyncFailedTitle": "Failed to sync contacts",
+  "ContactEditor_AccountRefreshFailed": "Contacts for {0} could not be refreshed. Cached contacts remain available.",
   "Synchronizer_MailUnavailable": "The selected mail service is not available. Check the account access and mail source.",
   "Synchronizer_CalendarUnavailable": "The selected calendar service is not available. Check the account access and calendar source.",
   "Synchronizer_ContactsUnavailable": "The selected contacts service is not available. Check the account access and contacts source.",

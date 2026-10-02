@@ -852,19 +852,26 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         CancelPendingReload();
         try
         {
-            var results = new List<ContactSynchronizationResult>();
             foreach (var account in accounts)
-                results.Add(await _synchronizationManager.SynchronizeContactsAsync(new() { AccountId = account.Id, Type = ContactSynchronizationType.Delta }).ConfigureAwait(false));
+            {
+                var result = await _synchronizationManager.SynchronizeContactsAsync(new() { AccountId = account.Id, Type = ContactSynchronizationType.Delta }).ConfigureAwait(false);
+                if (result.CompletedState is SynchronizationCompletedState.Success or SynchronizationCompletedState.Canceled)
+                    continue;
+
+                var accountLabel = string.IsNullOrWhiteSpace(account.Name)
+                    ? account.Address
+                    : string.IsNullOrWhiteSpace(account.Address) || account.Name == account.Address
+                        ? account.Name
+                        : $"{account.Name} ({account.Address})";
+
+                await ExecuteUIThread(() => _dialogService.InfoBarMessage(
+                    Translator.ContactInfoBar_SyncFailedTitle,
+                    string.Format(Translator.ContactEditor_AccountRefreshFailed, accountLabel),
+                    InfoBarMessageType.Warning));
+            }
 
             await RefreshCardDavCreationAvailabilityAsync().ConfigureAwait(false);
             await ReconcileContactsAsync().ConfigureAwait(false);
-            if (results.Any(result => result.CompletedState != SynchronizationCompletedState.Success))
-            {
-                await ExecuteUIThread(() => _dialogService.InfoBarMessage(
-                    Translator.ContactInfoBar_ErrorTitle,
-                    Translator.ContactEditor_RefreshFailed,
-                    InfoBarMessageType.Warning));
-            }
         }
         finally
         {
