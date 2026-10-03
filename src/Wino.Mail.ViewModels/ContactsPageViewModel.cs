@@ -572,7 +572,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     {
         var accountIds = contacts.Select(contact => contact.SourceContact.MailAccountId).Distinct().ToList();
         return accountIds.Count == 1
-            ? [.. _categoryFilterGroup.Where(filter => filter.AccountId == accountIds[0]).Select(filter => filter.Category)]
+            ? _categoryFilterGroup.Where(filter => filter.AccountId == accountIds[0]).Select(filter => filter.Category).ToList()
             : [];
     }
 

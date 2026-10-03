@@ -182,7 +182,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
                 Destinations.Add(destination);
 
             _allLists = lists;
-            _allCategories = [.. categories.OrderBy(category => category.Name, StringComparer.OrdinalIgnoreCase)];
+            _allCategories = categories.OrderBy(category => category.Name, StringComparer.OrdinalIgnoreCase).ToList();
             ListMemberships.Clear();
             CategoryMemberships.Clear();
 
@@ -314,8 +314,8 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
                 .Select(item => (IRequestBase)new ContactListRequest(
                     ContactSynchronizerOperation.UpdateListMembers,
                     item.List,
-                    addedContactIds: item.IsMember ? [contact.Id] : null,
-                    removedContactIds: item.IsMember ? null : [contact.Id]))
+                    addedContactIds: item.IsMember ? (Guid[])[contact.Id] : null,
+                    removedContactIds: item.IsMember ? null : (Guid[])[contact.Id]))
                 .ToList();
 
             if (listRequests.Count > 0)
