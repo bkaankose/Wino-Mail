@@ -2,11 +2,7 @@ namespace Wino.NotificationHost.Contracts;
 
 public static class NotificationHostLaunchArguments
 {
-    public const string RequestSwitch = "--request";
     public const string ForwardedActivationSwitch = "--notification-activation";
-
-    public static string CreateRequest(Guid requestId)
-        => $"{RequestSwitch} {ValidateId(requestId):D}";
 
     public static string CreateForwardedActivation(Guid activationId)
         => $"{ForwardedActivationSwitch} {ValidateId(activationId):D}";

@@ -2,19 +2,6 @@ namespace Wino.NotificationHost.Contracts;
 
 public static class NotificationHostFileStore
 {
-    public static Task WriteRequestAsync(
-        string localCachePath,
-        Guid requestId,
-        NotificationHostRequest request,
-        CancellationToken cancellationToken = default)
-        => WriteEnvelopeAsync(
-            NotificationHostPaths.GetRequestPath(localCachePath, requestId),
-            NotificationHostCodec.EncodeRequest(request),
-            cancellationToken);
-
-    public static NotificationHostRequest ReadRequest(string localCachePath, Guid requestId)
-        => NotificationHostCodec.DecodeRequest(File.ReadAllBytes(NotificationHostPaths.GetRequestPath(localCachePath, requestId)));
-
     public static Task WriteActivationAsync(
         string localCachePath,
         Guid activationId,
@@ -28,9 +15,6 @@ public static class NotificationHostFileStore
     public static NotificationHostActivation ReadActivation(string localCachePath, Guid activationId)
         => NotificationHostCodec.DecodeActivation(File.ReadAllBytes(NotificationHostPaths.GetActivationPath(localCachePath, activationId)));
 
-    public static bool TryDeleteRequest(string localCachePath, Guid requestId)
-        => TryDelete(NotificationHostPaths.GetRequestPath(localCachePath, requestId));
-
     public static bool TryDeleteActivation(string localCachePath, Guid activationId)
         => TryDelete(NotificationHostPaths.GetActivationPath(localCachePath, activationId));
 
@@ -40,6 +24,7 @@ public static class NotificationHostFileStore
             throw new ArgumentOutOfRangeException(nameof(maximumAge));
 
         var cutoffUtc = (nowUtc ?? DateTimeOffset.UtcNow) - maximumAge;
+        // Request envelopes are no longer written; the directory is still swept for files left by older builds.
         return CleanupDirectory(NotificationHostPaths.GetRequestDirectory(localCachePath), cutoffUtc) +
                CleanupDirectory(NotificationHostPaths.GetActivationDirectory(localCachePath), cutoffUtc);
     }

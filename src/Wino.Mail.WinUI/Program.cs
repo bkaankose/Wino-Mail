@@ -127,8 +127,6 @@ public class Program
 
     private static void EnableAllXamlOptionalChanges()
     {
-        var t = 5;
-        
         foreach (var changeId in Enum.GetValues<XamlChangeId>())
         {
             if (changeId == XamlChangeId._Reserved)

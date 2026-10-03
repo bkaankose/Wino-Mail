@@ -129,24 +129,17 @@ Windows identifies packaged applications with an Application User Model ID (AUMI
 
 The [`Package.appxmanifest`](src/Wino.Mail.WinUI/Package.appxmanifest) therefore defines four hidden notification-host applications. These entries create one notification AUMID for each mode.
 
-Each AUMID starts a small, single-purpose executable:
+All four entries share one small executable, [`Wino.NotificationHost`](src/Wino.NotificationHost), which contains the activation bridge. Each entry declares its own toast COM activator class, so the class Windows calls identifies the application mode. This design keeps the toast COM activators out of the shared UI executable.
 
-- [`Wino.Mail.NotificationHost`](src/Wino.Mail.NotificationHost)
-- [`Wino.Calendar.NotificationHost`](src/Wino.Calendar.NotificationHost)
-- [`Wino.People.NotificationHost`](src/Wino.People.NotificationHost)
-- [`Wino.Tasks.NotificationHost`](src/Wino.Tasks.NotificationHost)
+[`NotificationHostClient`](src/Wino.Mail.WinUI/Services/NotificationHostClient.cs) shows and removes toasts inside the main process. It addresses the required AUMID with `ToastNotificationManager.CreateToastNotifier(aumid)`, which Windows allows for applications in the same package. No host process starts to show or remove a notification.
 
-The four executables share [`Wino.NotificationHost`](src/Wino.NotificationHost), which contains the notification runtime. This design isolates each `AppNotificationManager` registration from the shared UI executable.
-
-[`NotificationHostClient`](src/Wino.Mail.WinUI/Services/NotificationHostClient.cs) writes a request envelope and activates the required AUMID. The host processes that request under the correct notification identity.
-
-Notification clicks enter the matching COM activator. The host writes an activation envelope and forwards it to the main application.
+Notification clicks enter the matching COM activator. Windows starts the host, which writes an activation envelope, forwards it to the main application, and exits.
 
 [`ForwardedNotificationActivationStore`](src/Wino.Mail.WinUI/Activation/ForwardedNotificationActivationStore.cs) reads the forwarded activation. [`AppNotificationHandler`](src/Wino.Mail.WinUI/Activation/AppNotificationHandler.cs) routes it to the correct application mode.
 
-Shared request formats and AUMID mappings live in [`Wino.NotificationHost.Contracts`](src/Wino.NotificationHost.Contracts).
+The activation envelope format and AUMID mappings live in [`Wino.NotificationHost.Contracts`](src/Wino.NotificationHost.Contracts).
 
-Do not register all four notification identities in the main executable. Keep each registration and COM activation path attached to its dedicated host executable.
+Do not register all four notification identities in the main executable. Keep the COM activation path attached to the host executable.
 
 ## Data and application state
 

@@ -12,9 +12,6 @@ public static class NotificationHostPaths
     public static string GetActivationDirectory(string localCachePath)
         => GetChildDirectory(localCachePath, ActivationsFolderName);
 
-    public static string GetRequestPath(string localCachePath, Guid requestId)
-        => GetEnvelopePath(GetRequestDirectory(localCachePath), requestId);
-
     public static string GetActivationPath(string localCachePath, Guid activationId)
         => GetEnvelopePath(GetActivationDirectory(localCachePath), activationId);
 

@@ -634,15 +634,6 @@ public partial class App : WinoApplication,
                 Log.Warning(ex, "Failed to release the background lifetime window during application exit.");
             }
 
-            try
-            {
-                (Services.GetService<INotificationHostClient>() as IDisposable)?.Dispose();
-            }
-            catch (Exception ex)
-            {
-                Log.Warning(ex, "Failed to close notification hosts during application exit.");
-            }
-
             LogActivation("Exiting application.");
             ScheduleForcedProcessExit();
             Application.Current.Exit();

@@ -6,48 +6,9 @@ public static class NotificationHostCodec
 {
     private const uint Magic = 0x4F484E57; // WNHO
     private const ushort Version = 1;
-    private const byte RequestKind = 1;
     private const byte ActivationKind = 2;
-    private const int MaximumPayloadBytes = 256 * 1024;
     private const int MaximumMetadataBytes = 4 * 1024;
     private const int MaximumUserInputCount = 16;
-
-    public static byte[] EncodeRequest(NotificationHostRequest request)
-    {
-        ArgumentNullException.ThrowIfNull(request);
-        ValidateRequest(request);
-
-        using var stream = new MemoryStream();
-        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
-        WriteHeader(writer, RequestKind, request.CreatedAtUtc);
-        writer.Write((byte)request.Operation);
-        writer.Write((byte)request.Application);
-        WriteString(writer, request.Payload, MaximumPayloadBytes);
-        WriteString(writer, request.Tag, MaximumMetadataBytes);
-        WriteString(writer, request.Group, MaximumMetadataBytes);
-        writer.Flush();
-        return stream.ToArray();
-    }
-
-    public static NotificationHostRequest DecodeRequest(ReadOnlySpan<byte> data)
-    {
-        using var stream = new MemoryStream(data.ToArray(), writable: false);
-        using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: true);
-        var createdAtUtc = ReadHeader(reader, RequestKind);
-        var operation = (NotificationHostOperation)reader.ReadByte();
-        var application = (NotificationHostApplication)reader.ReadByte();
-        var request = new NotificationHostRequest(
-            createdAtUtc,
-            operation,
-            application,
-            ReadString(reader, MaximumPayloadBytes),
-            ReadString(reader, MaximumMetadataBytes),
-            ReadString(reader, MaximumMetadataBytes));
-
-        EnsureFullyConsumed(stream);
-        ValidateRequest(request);
-        return request;
-    }
 
     public static byte[] EncodeActivation(NotificationHostActivation activation)
     {
@@ -103,28 +64,6 @@ public static class NotificationHostCodec
         EnsureFullyConsumed(stream);
         ValidateApplication(application);
         return new NotificationHostActivation(createdAtUtc, application, argument, userInput);
-    }
-
-    private static void ValidateRequest(NotificationHostRequest request)
-    {
-        ValidateApplication(request.Application);
-
-        if (!Enum.IsDefined(request.Operation))
-            throw new InvalidDataException("Unknown notification host operation.");
-
-        switch (request.Operation)
-        {
-            case NotificationHostOperation.Show when string.IsNullOrWhiteSpace(request.Payload):
-                throw new InvalidDataException("Show requests require a notification payload.");
-            case NotificationHostOperation.RemoveByTag when string.IsNullOrWhiteSpace(request.Tag):
-            case NotificationHostOperation.RemoveByTagAndGroup when string.IsNullOrWhiteSpace(request.Tag) || string.IsNullOrWhiteSpace(request.Group):
-            case NotificationHostOperation.RemoveGroup when string.IsNullOrWhiteSpace(request.Group):
-                throw new InvalidDataException("The notification removal request is missing its tag or group.");
-        }
-
-        ValidateStringSize(request.Payload, MaximumPayloadBytes);
-        ValidateStringSize(request.Tag, MaximumMetadataBytes);
-        ValidateStringSize(request.Group, MaximumMetadataBytes);
     }
 
     private static void ValidateApplication(NotificationHostApplication application)
@@ -192,12 +131,6 @@ public static class NotificationHostCodec
             throw new EndOfStreamException("Notification host envelope ended inside a string.");
 
         return Encoding.UTF8.GetString(bytes);
-    }
-
-    private static void ValidateStringSize(string? value, int maximumBytes)
-    {
-        if (value != null && Encoding.UTF8.GetByteCount(value) > maximumBytes)
-            throw new InvalidDataException($"Notification host string exceeds {maximumBytes} UTF-8 bytes.");
     }
 
     private static void EnsureFullyConsumed(Stream stream)

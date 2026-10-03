@@ -1,39 +1,47 @@
-using Microsoft.Windows.AppNotifications;
 using Windows.ApplicationModel;
 using Windows.Storage;
 using Wino.NotificationHost.Contracts;
 
 namespace Wino.NotificationHost;
 
-public static class NotificationHostRuntime
+internal static class Program
 {
     private const string AppNotificationActivatedCommandLinePrefix = "----AppNotificationActivated:";
     private static readonly TimeSpan StaleEnvelopeAge = TimeSpan.FromHours(24);
     private static readonly TimeSpan MaximumHostLifetime = TimeSpan.FromSeconds(30);
 
-    public static int Run(string[] args)
+    [STAThread]
+    private static int Main()
     {
-        // All four hosts handle one request or activation. Never retain a process
-        // indefinitely if the notification service or a COM call stops responding.
+        // The host only bridges one toast activation to the main application. Never retain a process
+        // indefinitely if a COM call stops responding.
         NotificationHostLifetime.Start(MaximumHostLifetime);
-        WinRT.ComWrappersSupport.InitializeComWrappers();
 
+        var exitCode = Run();
+
+        // Exit explicitly so no COM apartment teardown or stray foreground thread can keep the host alive.
+        Environment.Exit(exitCode);
+        return exitCode;
+    }
+
+    private static int Run()
+    {
         try
         {
+            WinRT.ComWrappersSupport.InitializeComWrappers();
+
             var package = Package.Current;
             ReleaseIdentity.Initialize(package.InstalledLocation.Path, package.Id.Name, package.Id.Publisher, package.Id.FamilyName);
 
             var localCachePath = ApplicationData.Current.LocalCacheFolder.Path;
             _ = NotificationHostFileStore.CleanupStaleFiles(localCachePath, StaleEnvelopeAge);
 
-            if (Environment.CommandLine.Contains(AppNotificationActivatedCommandLinePrefix, StringComparison.OrdinalIgnoreCase))
-                return RunActivationBridge(localCachePath);
+            // The main application shows and removes toasts itself. Windows starts the host only as the
+            // COM activator of a toast, so any other launch has nothing to do.
+            if (!Environment.CommandLine.Contains(AppNotificationActivatedCommandLinePrefix, StringComparison.OrdinalIgnoreCase))
+                return 0;
 
-            if (!TryParseRequestId(args, out var requestId))
-                throw new ArgumentException("Notification host requires a valid request ID.");
-
-            ProcessRequest(localCachePath, requestId);
-            return 0;
+            return RunActivationBridge(localCachePath);
         }
         catch (Exception ex)
         {
@@ -42,71 +50,19 @@ public static class NotificationHostRuntime
         }
     }
 
-    private static void ProcessRequest(string localCachePath, Guid requestId)
-    {
-        try
-        {
-            var request = NotificationHostFileStore.ReadRequest(localCachePath, requestId);
-            var currentAppUserModelId = CurrentAppIdentity.GetAppUserModelId();
-
-            if (!NotificationHostApplicationIds.TryResolveFromAppUserModelId(currentAppUserModelId, out var currentApplication) ||
-                currentApplication != request.Application)
-            {
-                throw new InvalidDataException("The notification request does not match the current application identity.");
-            }
-
-            ExecuteRequest(AppNotificationManager.Default, request);
-            NotificationHostLogger.Write(request.Operation.ToString(), requestId);
-        }
-        finally
-        {
-            NotificationHostFileStore.TryDeleteRequest(localCachePath, requestId);
-        }
-    }
-
-    private static void ExecuteRequest(AppNotificationManager manager, NotificationHostRequest request)
-    {
-        switch (request.Operation)
-        {
-            case NotificationHostOperation.Show:
-                NotificationPayloadValidator.Validate(request.Payload!);
-                var notification = new AppNotification(request.Payload!);
-                if (!string.IsNullOrWhiteSpace(request.Tag))
-                    notification.Tag = request.Tag;
-                if (!string.IsNullOrWhiteSpace(request.Group))
-                    notification.Group = request.Group;
-                manager.Show(notification);
-                break;
-            case NotificationHostOperation.RemoveByTag:
-                manager.RemoveByTagAsync(request.Tag!).AsTask().GetAwaiter().GetResult();
-                break;
-            case NotificationHostOperation.RemoveByTagAndGroup:
-                manager.RemoveByTagAndGroupAsync(request.Tag!, request.Group!).AsTask().GetAwaiter().GetResult();
-                break;
-            case NotificationHostOperation.RemoveGroup:
-                manager.RemoveByGroupAsync(request.Group!).AsTask().GetAwaiter().GetResult();
-                break;
-            case NotificationHostOperation.RemoveAll:
-                manager.RemoveAllAsync().AsTask().GetAwaiter().GetResult();
-                break;
-            default:
-                throw new InvalidDataException("Unknown notification host operation.");
-        }
-    }
-
     private static int RunActivationBridge(string localCachePath)
     {
         using var invoked = new ManualResetEventSlim();
         Exception? failure = null;
         var handled = 0;
-        void HandleActivation(string argument, IReadOnlyDictionary<string, string> userInput)
+        void HandleActivation(NotificationHostApplication application, string argument, IReadOnlyDictionary<string, string> userInput)
         {
             if (Interlocked.Exchange(ref handled, 1) != 0)
                 return;
 
             try
             {
-                ForwardActivation(localCachePath, argument, userInput);
+                ForwardActivation(localCachePath, application, argument, userInput);
             }
             catch (Exception ex)
             {
@@ -118,11 +74,16 @@ public static class NotificationHostRuntime
             }
         }
 
+        // All four notification identities share this executable, but Windows starts it under the
+        // identity of the toast's application. COM rejects registering another application's
+        // activator class (CO_E_WRONG_SERVER_IDENTITY), so only the current one is registered.
         var currentAppUserModelId = CurrentAppIdentity.GetAppUserModelId();
         if (!NotificationHostApplicationIds.TryResolveFromAppUserModelId(currentAppUserModelId, out var application))
             throw new InvalidOperationException("Current AUMID is not a Wino notification host identity.");
 
-        using var comServer = new NotificationActivationComServer(GetActivatorClassId(application), HandleActivation);
+        using var comServer = new NotificationActivationComServer(
+            GetActivatorClassId(application),
+            (argument, userInput) => HandleActivation(application, argument, userInput));
 
         if (!invoked.Wait(TimeSpan.FromSeconds(15)))
             throw new TimeoutException("Timed out waiting for notification activation arguments.");
@@ -135,13 +96,10 @@ public static class NotificationHostRuntime
 
     private static void ForwardActivation(
         string localCachePath,
+        NotificationHostApplication application,
         string argument,
         IReadOnlyDictionary<string, string> userInput)
     {
-        var currentAppUserModelId = CurrentAppIdentity.GetAppUserModelId();
-        if (!NotificationHostApplicationIds.TryResolveFromAppUserModelId(currentAppUserModelId, out var application))
-            throw new InvalidOperationException("Current AUMID is not a Wino notification host identity.");
-
         var activationId = Guid.NewGuid();
         var envelope = new NotificationHostActivation(
             DateTimeOffset.UtcNow,
@@ -159,7 +117,7 @@ public static class NotificationHostRuntime
             _ = PackagedApplicationActivator.Activate(
                 mainAppUserModelId,
                 NotificationHostLaunchArguments.CreateForwardedActivation(activationId));
-            NotificationHostLogger.Write("forward-activation", activationId);
+            NotificationHostLogger.Write($"forward-activation:{application}", activationId);
         }
         catch
         {
@@ -176,13 +134,4 @@ public static class NotificationHostRuntime
         NotificationHostApplication.Tasks => ReleaseIdentity.Current.NotificationActivatorIds["Tasks"],
         _ => throw new ArgumentOutOfRangeException(nameof(application))
     };
-
-    private static bool TryParseRequestId(string[] args, out Guid requestId)
-    {
-        requestId = Guid.Empty;
-        return args.Length == 2 &&
-               string.Equals(args[0], NotificationHostLaunchArguments.RequestSwitch, StringComparison.Ordinal) &&
-               Guid.TryParseExact(args[1], "D", out requestId) &&
-               requestId != Guid.Empty;
-    }
 }

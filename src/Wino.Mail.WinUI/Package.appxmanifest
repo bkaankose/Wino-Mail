@@ -196,7 +196,7 @@
     </Application>
 
     <Application Id="MailNotificationHost"
-      Executable="Wino.Mail.NotificationHost.exe"
+      Executable="Wino.NotificationHost.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         AppListEntry="none"
@@ -213,7 +213,7 @@
         </desktop:Extension>
         <com:Extension Category="windows.comServer">
           <com:ComServer>
-            <com:ExeServer Executable="Wino.Mail.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino Mail notification host">
+            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino Mail notification host">
               <com:Class Id="b67c209f-9f3b-4220-ad8f-828073616967" DisplayName="Wino Mail notification host" />
             </com:ExeServer>
           </com:ComServer>
@@ -222,7 +222,7 @@
     </Application>
 
     <Application Id="CalendarNotificationHost"
-      Executable="Wino.Calendar.NotificationHost.exe"
+      Executable="Wino.NotificationHost.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         AppListEntry="none"
@@ -239,7 +239,7 @@
         </desktop:Extension>
         <com:Extension Category="windows.comServer">
           <com:ComServer>
-            <com:ExeServer Executable="Wino.Calendar.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino Calendar notification host">
+            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino Calendar notification host">
               <com:Class Id="a075d82f-106f-4007-b69a-5c4135b2ac58" DisplayName="Wino Calendar notification host" />
             </com:ExeServer>
           </com:ComServer>
@@ -248,7 +248,7 @@
     </Application>
 
     <Application Id="PeopleNotificationHost"
-      Executable="Wino.People.NotificationHost.exe"
+      Executable="Wino.NotificationHost.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         AppListEntry="none"
@@ -265,7 +265,7 @@
         </desktop:Extension>
         <com:Extension Category="windows.comServer">
           <com:ComServer>
-            <com:ExeServer Executable="Wino.People.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino People notification host">
+            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino People notification host">
               <com:Class Id="427688f0-3b7f-4f5b-938f-f76535aa7970" DisplayName="Wino People notification host" />
             </com:ExeServer>
           </com:ComServer>
@@ -274,7 +274,7 @@
     </Application>
 
     <Application Id="ToDoNotificationHost"
-      Executable="Wino.Tasks.NotificationHost.exe"
+      Executable="Wino.NotificationHost.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
         AppListEntry="none"
@@ -291,7 +291,7 @@
         </desktop:Extension>
         <com:Extension Category="windows.comServer">
           <com:ComServer>
-            <com:ExeServer Executable="Wino.Tasks.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino To Do notification host">
+            <com:ExeServer Executable="Wino.NotificationHost.exe" Arguments="----AppNotificationActivated:" DisplayName="Wino To Do notification host">
               <com:Class Id="a5851908-6870-4384-912c-be36b23f142f" DisplayName="Wino To Do notification host" />
             </com:ExeServer>
           </com:ComServer>
