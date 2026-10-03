@@ -2,6 +2,19 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Run Wino Mail (Sandbox, Debug x64)",
+            "type": "process",
+            "command": "pwsh",
+            "args": [
+                "-NoProfile",
+                "-File",
+                "${workspaceFolder}/scripts/development/start-wino.ps1",
+                "-Target",
+                "sandbox"
+            ],
+            "problemMatcher": "$msCompile"
+        },
+        {
             "label": "Build Wino Mail (Debug, x64)",
             "type": "process",
             "command": "dotnet",

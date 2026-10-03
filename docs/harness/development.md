@@ -129,6 +129,20 @@ Use WinApp CLI 0.7.1 or later and an enabled Windows Sandbox on Windows 11 24H2 
 Builds run on the host; package registration and activation run in the guest.
 See Microsoft's [Sandbox prerequisites and execution guide](https://github.com/microsoft/WinAppCli/blob/main/docs/sandbox-execution.md).
 
+In VS Code, select **Run Wino Mail (Sandbox, Debug x64)** in Run and Debug and press **F5**.
+The same named task is available through **Tasks: Run Task**. Both invoke the existing helper:
+
+```powershell
+pwsh -NoProfile -File scripts/development/start-wino.ps1 -Target sandbox
+```
+
+The helper checks the guest package identity and development status, closes its app and tray processes,
+then uses `winapp run -c Debug --arch x64 --on sandbox --detach --json`.
+It shares the host build cache with local F5; add `-ForceBuild` to bypass that cache.
+Guest preflight failure stops deployment. The helper preserves application data and leaves Sandbox running.
+This F5 option uses VS Code's built-in terminal launcher to run the Debug build; it does not attach a C# debugger.
+For managed debugging on the host, select **Debug Wino Mail (packaged, x64)**.
+
 Before deployment, inspect the guest installation:
 
 ```powershell

@@ -2,6 +2,13 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Run Wino Mail (Sandbox, Debug x64)",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "pwsh -NoProfile -File \"${workspaceFolder}/scripts/development/start-wino.ps1\" -Target sandbox",
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "name": "Debug Wino Mail (packaged, x64)",
             "type": "coreclr",
             "request": "attach",
