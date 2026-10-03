@@ -772,7 +772,8 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
             Status = step.IsCompleted ? "completed" : "needsAction"
         };
 
-    private const string GoogleContactFields = "names,emailAddresses,phoneNumbers,addresses,organizations,birthdays,nicknames,fileAses,biographies,urls,imClients,relations,photos,metadata";
+    private const string GoogleContactFields = "names,emailAddresses,phoneNumbers,addresses,organizations,birthdays,nicknames,fileAses,biographies,urls,imClients,relations,photos,metadata,memberships";
+    private const string UserContactGroupType = "USER_CONTACT_GROUP";
 
     private async Task<ContactSynchronizationResult> SynchronizeGmailContactsAsync(ContactSynchronizationOptions options, CancellationToken cancellationToken)
     {
@@ -788,6 +789,9 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
 
         try
         {
+            // The lists come first: the contacts say which of them they are in.
+            await SynchronizeGmailContactGroupsAsync(book, cancellationToken).ConfigureAwait(false);
+
             do
             {
                 var request = _peopleService.Connections.List("people/me");
@@ -802,7 +806,8 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
             }
             while (!string.IsNullOrWhiteSpace(pageToken));
         }
-        catch (GoogleApiException ex) when (!isFull && (int)ex.HttpStatusCode == 410)
+        // A sync token is refused when it expired (410) or was made for other fields (400).
+        catch (GoogleApiException ex) when (!isFull && (int)ex.HttpStatusCode is 410 or 400)
         {
             return await SynchronizeGmailContactsAsync(new ContactSynchronizationOptions
             {
@@ -874,6 +879,20 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         foreach (var request in requests)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (request is ContactListRequest listRequest)
+            {
+                await ExecuteGmailContactListRequestAsync(listRequest, cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+
+            if (request is ContactCategoryRequest categoryRequest)
+            {
+                // Google contacts have no categories; they are kept on the device.
+                await _contactService.SetContactCategoriesAsync(categoryRequest.LocalContactId, categoryRequest.CategoryNames).ConfigureAwait(false);
+                continue;
+            }
+
             var typedRequest = request as ContactActionRequest;
             var local = typedRequest?.Contact;
 
@@ -944,6 +963,94 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         }
     }
 
+    /// <summary>
+    /// Google calls a contact list a contact group. Only the groups the user made are lists;
+    /// the system groups ("My Contacts", "Starred") are not.
+    /// </summary>
+    private async Task SynchronizeGmailContactGroupsAsync(ContactAddressBook book, CancellationToken cancellationToken)
+    {
+        var lists = new List<ContactList>();
+        string pageToken = null;
+
+        do
+        {
+            var request = _peopleService.ContactGroups.List();
+            request.PageToken = pageToken;
+            var response = await request.ExecuteAsync(cancellationToken).ConfigureAwait(false);
+
+            lists.AddRange((response?.ContactGroups ?? [])
+                .Where(group => group.GroupType == UserContactGroupType && group.Metadata?.Deleted != true && !string.IsNullOrWhiteSpace(group.ResourceName))
+                .Select(group => new ContactList { Name = group.Name, RemoteId = group.ResourceName }));
+            pageToken = response?.NextPageToken;
+        }
+        while (!string.IsNullOrWhiteSpace(pageToken));
+
+        await _contactService.ReplaceRemoteListsAsync(Account.Id, book.Id, lists).ConfigureAwait(false);
+    }
+
+    private async Task ExecuteGmailContactListRequestAsync(ContactListRequest request, CancellationToken cancellationToken)
+    {
+        // The stored list knows its contact group. A request can be older than that.
+        var groupId = (await _contactService.GetContactListAsync(request.List.Id).ConfigureAwait(false))?.RemoteId;
+
+        switch (request.Operation)
+        {
+            case ContactSynchronizerOperation.CreateList:
+            {
+                var created = await _peopleService.ContactGroups.Create(request.List.Name).ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                request.List.RemoteId = created.ResourceName;
+                break;
+            }
+            case ContactSynchronizerOperation.RenameList:
+                await _peopleService.ContactGroups.Update(RequireGroupId(groupId, request), request.List.Name).ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                break;
+            case ContactSynchronizerOperation.DeleteList:
+                // A list that never reached Google only has to go from the device.
+                if (!string.IsNullOrWhiteSpace(groupId))
+                    await _peopleService.ContactGroups.Delete(groupId).ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                break;
+            case ContactSynchronizerOperation.UpdateListMembers:
+            {
+                var added = await GetGoogleContactIdsAsync(request.AddedContactIds).ConfigureAwait(false);
+                var removed = await GetGoogleContactIdsAsync(request.RemovedContactIds).ConfigureAwait(false);
+
+                // Google takes at most 1000 names per call, added and removed together.
+                foreach (var chunk in added.Select(id => (Id: id, IsAdded: true)).Concat(removed.Select(id => (Id: id, IsAdded: false))).Chunk(1000))
+                {
+                    await _peopleService.ContactGroups.ModifyMembers(
+                        RequireGroupId(groupId, request),
+                        [.. chunk.Where(item => item.IsAdded).Select(item => item.Id)],
+                        [.. chunk.Where(item => !item.IsAdded).Select(item => item.Id)]).ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                break;
+            }
+        }
+
+        await request.CommitAsync(_contactService).ConfigureAwait(false);
+    }
+
+    private static string RequireGroupId(string groupId, ContactListRequest request)
+        => string.IsNullOrWhiteSpace(groupId)
+            ? throw new InvalidOperationException($"Contact list {request.List.Id} has no Google contact group for {request.Operation}.")
+            : groupId;
+
+    private async Task<List<string>> GetGoogleContactIdsAsync(IReadOnlyList<Guid> contactIds)
+    {
+        var remoteIds = new List<string>(contactIds.Count);
+
+        foreach (var contactId in contactIds)
+        {
+            var contact = await _contactService.GetContactAsync(contactId).ConfigureAwait(false);
+            if (string.IsNullOrWhiteSpace(contact?.RemoteId))
+                throw new InvalidOperationException($"Contact {contactId} is not stored at Google yet.");
+
+            remoteIds.Add(contact.RemoteId);
+        }
+
+        return remoteIds;
+    }
+
     private static void PreserveRequestedContactState(AccountContact mapped, AccountContact requested)
     {
         mapped.Id = requested.Id;
@@ -1002,6 +1109,12 @@ public partial class GmailSynchronizer : WinoSynchronizer<IGoogleApiRequest, Mes
         contact.PostalAddresses = person.Addresses?.GroupBy(item => MapAddressKind(item.Type)).Select(group => group.First()).Take(3).Select(item => new ContactPostalAddress { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = MapAddressKind(item.Type), PostOfficeBox = item.PoBox, Street = item.StreetAddress, City = item.City, Region = item.Region, PostalCode = item.PostalCode, Country = item.Country }).ToList() ?? [];
         contact.ImAddresses = person.ImClients?.Select((item, index) => new ContactImAddress { Id = Guid.NewGuid(), ContactId = contact.Id, Address = item.Username, Protocol = item.Protocol, Order = index }).ToList() ?? [];
         contact.Relations = person.Relations?.Where(item => TryMapRelation(item.Type, out _)).Select((item, index) => new ContactRelation { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = MapRelation(item.Type), Name = item.Person, Order = index }).ToList() ?? [];
+
+        // Absent when the response was not asked for memberships; the stored ones are kept then.
+        contact.ListRemoteIds = person.Memberships?
+            .Select(item => item.ContactGroupMembership?.ContactGroupResourceName)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToList();
         return contact;
     }
 

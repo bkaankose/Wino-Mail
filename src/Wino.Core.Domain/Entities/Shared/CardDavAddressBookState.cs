@@ -8,24 +8,15 @@ public sealed class CardDavAddressBookState
     [PrimaryKey] public Guid AddressBookId { get; set; }
     [Indexed] public Guid AccountId { get; set; }
     public string ExactHref { get; set; }
+
+    /// <summary>Token of the last change set applied locally. Null until a full listing completed.</summary>
     public string SyncToken { get; set; }
+
+    /// <summary>Collection tag the server reported when the last synchronization started.</summary>
     public string CollectionTag { get; set; }
     public bool SupportsSyncCollection { get; set; }
     public bool SupportsMultiget { get; set; }
-    public bool SupportsAddressBookQuery { get; set; }
-    public bool SupportsInlineAddressData { get; set; }
-    public bool SupportsVCard3 { get; set; } = true;
     public bool SupportsVCard4 { get; set; }
-    public bool SupportsExtendedMkCol { get; set; }
-    public bool SupportsAddMember { get; set; }
-    public bool SupportsPreferMinimal { get; set; }
-    public long? MaximumResourceSize { get; set; }
     public bool IsReadOnly { get; set; }
-    public int LearnedMultigetBatchSize { get; set; } = 100;
-    public string Quirks { get; set; }
-    public long ReconciliationGeneration { get; set; }
-    public bool RequiresFullReconciliation { get; set; }
-    public bool IsUnavailable { get; set; }
-    public DateTime? LastFullSyncUtc { get; set; }
-    public DateTime? LastIncrementalSyncUtc { get; set; }
+    public DateTime? LastSyncUtc { get; set; }
 }

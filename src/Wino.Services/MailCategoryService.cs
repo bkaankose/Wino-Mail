@@ -4,6 +4,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Entities.Shared;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Messaging.Client.Accounts;
@@ -74,14 +76,17 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
             return;
 
         await Connection.ExecuteAsync($"DELETE FROM {nameof(MailCategoryAssignment)} WHERE {nameof(MailCategoryAssignment.MailCategoryId)} = ?", categoryId).ConfigureAwait(false);
+        await Connection.ExecuteAsync($"DELETE FROM {nameof(ContactCategoryAssignment)} WHERE {nameof(ContactCategoryAssignment.MailCategoryId)} = ?", categoryId).ConfigureAwait(false);
         await Connection.DeleteAsync<MailCategory>(categoryId).ConfigureAwait(false);
 
         NotifyCategoryStructureChanged(category.MailAccountId);
     }
 
-    public async Task DeleteCategoriesAsync(Guid accountId)
+    public async Task DeleteCategoriesAsync(Guid accountId, MailCategorySource? source = null)
     {
-        var categories = await GetCategoriesAsync(accountId).ConfigureAwait(false);
+        var categories = (await GetCategoriesAsync(accountId).ConfigureAwait(false))
+            .Where(category => source is null || category.Source == source)
+            .ToList();
 
         if (categories.Count == 0)
             return;
@@ -91,7 +96,12 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
         var deleteAssignmentsSql = $"DELETE FROM {nameof(MailCategoryAssignment)} WHERE {nameof(MailCategoryAssignment.MailCategoryId)} IN ({placeholders})";
 
         await Connection.ExecuteAsync(deleteAssignmentsSql, categoryIds.Cast<object>().ToArray()).ConfigureAwait(false);
-        await Connection.Table<MailCategory>().DeleteAsync(a => a.MailAccountId == accountId).ConfigureAwait(false);
+        await Connection.ExecuteAsync(
+            $"DELETE FROM {nameof(ContactCategoryAssignment)} WHERE {nameof(ContactCategoryAssignment.MailCategoryId)} IN ({placeholders})",
+            categoryIds.Cast<object>().ToArray()).ConfigureAwait(false);
+        await Connection.ExecuteAsync(
+            $"DELETE FROM {nameof(MailCategory)} WHERE {nameof(MailCategory.Id)} IN ({placeholders})",
+            categoryIds.Cast<object>().ToArray()).ConfigureAwait(false);
 
         NotifyCategoryStructureChanged(accountId);
     }
@@ -162,8 +172,10 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
             }
         }
 
+        // A category found on a contact but missing from the provider's list lives on the
+        // device only. The provider's list says nothing about it, so it stays.
         var categoryIdsToDelete = existingCategories
-            .Where(a => !preservedIds.Contains(a.Id))
+            .Where(a => !preservedIds.Contains(a.Id) && a.Source != MailCategorySource.Local)
             .Select(a => a.Id)
             .ToList();
 
@@ -172,6 +184,9 @@ public class MailCategoryService : BaseDatabaseService, IMailCategoryService
             var placeholders = string.Join(",", categoryIdsToDelete.Select(_ => "?"));
             await Connection.ExecuteAsync(
                 $"DELETE FROM {nameof(MailCategoryAssignment)} WHERE {nameof(MailCategoryAssignment.MailCategoryId)} IN ({placeholders})",
+                categoryIdsToDelete.Cast<object>().ToArray()).ConfigureAwait(false);
+            await Connection.ExecuteAsync(
+                $"DELETE FROM {nameof(ContactCategoryAssignment)} WHERE {nameof(ContactCategoryAssignment.MailCategoryId)} IN ({placeholders})",
                 categoryIdsToDelete.Cast<object>().ToArray()).ConfigureAwait(false);
 
             foreach (var categoryId in categoryIdsToDelete)

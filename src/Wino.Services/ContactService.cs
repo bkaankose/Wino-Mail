@@ -6,10 +6,12 @@ using System.Threading.Tasks;
 using Serilog;
 using SQLite;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Contacts;
+using Wino.Core.Domain.Models.MailItem;
 
 namespace Wino.Services;
 
@@ -311,11 +313,14 @@ public class ContactService : BaseDatabaseService, IContactService
 
         await Connection.RunInTransactionAsync(transaction =>
         {
-            // Rows are re-inserted under the same ids, so list membership is only dropped
-            // for contacts the server no longer returns.
+            // Rows are re-inserted under the same ids, so list membership and categories are
+            // only dropped for contacts the server no longer returns.
             DeleteCards(transaction, existing, deleteListMemberships: false);
             foreach (var contact in existing.Where(item => !retainedContactIds.Contains(item.Id)))
+            {
                 transaction.Execute("DELETE FROM ContactListMember WHERE ContactId = ?", contact.Id);
+                transaction.Execute("DELETE FROM ContactCategoryAssignment WHERE ContactId = ?", contact.Id);
+            }
 
             foreach (var contact in normalized)
                 InsertContact(transaction, contact);
@@ -362,7 +367,7 @@ public class ContactService : BaseDatabaseService, IContactService
                 }
                 else
                 {
-                    InsertContact(transaction, prepared);
+                    transaction.Insert(prepared, typeof(AccountContact));
                 }
 
                 InsertChildren(transaction, prepared);
@@ -388,6 +393,8 @@ public class ContactService : BaseDatabaseService, IContactService
     {
         var contacts = await Connection.Table<AccountContact>().Where(contact => contact.MailAccountId == accountId).ToListAsync().ConfigureAwait(false);
         await DeleteCardsAsync(contacts).ConfigureAwait(false);
+        await Connection.ExecuteAsync("DELETE FROM ContactListMember WHERE ListId IN (SELECT Id FROM ContactList WHERE MailAccountId = ?)", accountId).ConfigureAwait(false);
+        await Connection.ExecuteAsync("DELETE FROM ContactList WHERE MailAccountId = ?", accountId).ConfigureAwait(false);
         await Connection.Table<ContactAddressBook>().DeleteAsync(book => book.MailAccountId == accountId).ConfigureAwait(false);
     }
 
@@ -395,6 +402,10 @@ public class ContactService : BaseDatabaseService, IContactService
     {
         var contacts = await Connection.Table<AccountContact>().Where(contact => contact.AddressBookId == addressBookId).ToListAsync().ConfigureAwait(false);
         await DeleteCardsAsync(contacts).ConfigureAwait(false);
+
+        // A list lives in one address book and goes with it.
+        await Connection.ExecuteAsync("DELETE FROM ContactListMember WHERE ListId IN (SELECT Id FROM ContactList WHERE AddressBookId = ?)", addressBookId).ConfigureAwait(false);
+        await Connection.ExecuteAsync("DELETE FROM ContactList WHERE AddressBookId = ?", addressBookId).ConfigureAwait(false);
         await Connection.DeleteAsync<ContactAddressBook>(addressBookId).ConfigureAwait(false);
     }
 
@@ -482,6 +493,12 @@ public class ContactService : BaseDatabaseService, IContactService
         {
             clauses.Add("EXISTS (SELECT 1 FROM ContactListMember m WHERE m.ContactId = c.Id AND m.ListId = ?)");
             arguments.Add(listId);
+        }
+
+        if (filter.CategoryId is Guid categoryId)
+        {
+            clauses.Add("EXISTS (SELECT 1 FROM ContactCategoryAssignment a WHERE a.ContactId = c.Id AND a.MailCategoryId = ?)");
+            arguments.Add(categoryId);
         }
 
         var where = $"{Environment.NewLine}FROM ContactCard c{Environment.NewLine}WHERE {string.Join($"{Environment.NewLine}  AND ", clauses)}";
@@ -573,9 +590,18 @@ public class ContactService : BaseDatabaseService, IContactService
         if (list is null || list.Id == Guid.Empty)
             return Task.CompletedTask;
 
-        list.Name = list.Name?.Trim();
-        list.ModifiedAtUtc = DateTime.UtcNow;
-        return Connection.UpdateAsync(list, typeof(ContactList));
+        return UpdateAsync();
+
+        async Task UpdateAsync()
+        {
+            // The id a provider gave the list is not known to every caller. It is kept.
+            if (string.IsNullOrWhiteSpace(list.RemoteId))
+                list.RemoteId = (await Connection.FindAsync<ContactList>(list.Id).ConfigureAwait(false))?.RemoteId;
+
+            list.Name = list.Name?.Trim();
+            list.ModifiedAtUtc = DateTime.UtcNow;
+            await Connection.UpdateAsync(list, typeof(ContactList)).ConfigureAwait(false);
+        }
     }
 
     public Task DeleteContactListAsync(Guid listId)
@@ -590,6 +616,18 @@ public class ContactService : BaseDatabaseService, IContactService
         var ids = contactIds?.Where(id => id != Guid.Empty).Distinct().ToList() ?? [];
         if (listId == Guid.Empty || ids.Count == 0)
             return;
+
+        // A list only holds contacts of its own address book.
+        var list = await Connection.FindAsync<ContactList>(listId).ConfigureAwait(false);
+        if (list?.AddressBookId is Guid addressBookId)
+        {
+            foreach (var contactId in ids)
+            {
+                var contact = await Connection.FindAsync<AccountContact>(contactId).ConfigureAwait(false);
+                if (contact is not null && contact.AddressBookId != addressBookId)
+                    throw new InvalidOperationException(Translator.ContactList_SynchronizedListForeignContact);
+            }
+        }
 
         await Connection.RunInTransactionAsync(transaction =>
         {
@@ -620,6 +658,75 @@ public class ContactService : BaseDatabaseService, IContactService
         }
     }
 
+    public Task<ContactList> GetContactListAsync(Guid listId) => Connection.FindAsync<ContactList>(listId);
+
+    public Task ReplaceRemoteListsAsync(Guid accountId, Guid addressBookId, IReadOnlyList<ContactList> lists)
+        => Connection.RunInTransactionAsync(transaction =>
+        {
+            var stored = transaction.Query<ContactList>("SELECT * FROM ContactList WHERE AddressBookId = ?", addressBookId)
+                .Where(list => !string.IsNullOrWhiteSpace(list.RemoteId))
+                .ToDictionary(list => list.RemoteId, StringComparer.Ordinal);
+
+            foreach (var incoming in lists.Where(list => !string.IsNullOrWhiteSpace(list.RemoteId)))
+            {
+                var name = string.IsNullOrWhiteSpace(incoming.Name) ? "List" : incoming.Name.Trim();
+
+                if (!stored.Remove(incoming.RemoteId, out var list))
+                {
+                    transaction.Insert(new ContactList
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = name,
+                        RemoteId = incoming.RemoteId,
+                        MailAccountId = accountId,
+                        AddressBookId = addressBookId,
+                        SortOrder = transaction.ExecuteScalar<int>("SELECT COUNT(*) FROM ContactList")
+                    }, typeof(ContactList));
+                }
+                else if (!string.Equals(list.Name, name, StringComparison.Ordinal))
+                {
+                    list.Name = name;
+                    list.ModifiedAtUtc = DateTime.UtcNow;
+                    transaction.Update(list, typeof(ContactList));
+                }
+            }
+
+            // What is left was not reported any more. A list still waiting to be created at
+            // the provider has no id yet and is not among them.
+            foreach (var list in stored.Values)
+            {
+                transaction.Execute("DELETE FROM ContactListMember WHERE ListId = ?", list.Id);
+                transaction.Delete<ContactList>(list.Id);
+            }
+        });
+
+    /// <summary>
+    /// Rebuilds the memberships a provider reported for one contact. Only the lists the
+    /// provider names are touched.
+    /// </summary>
+    private static void ReplaceListMemberships(SQLiteConnection transaction, AccountContact contact)
+    {
+        var lists = transaction.Query<ContactList>("SELECT * FROM ContactList WHERE AddressBookId = ?", contact.AddressBookId)
+            .Where(list => !string.IsNullOrWhiteSpace(list.RemoteId))
+            .ToList();
+        if (lists.Count == 0)
+            return;
+
+        var reported = contact.ListRemoteIds.ToHashSet(StringComparer.Ordinal);
+        var current = transaction.Query<ContactListMember>("SELECT * FROM ContactListMember WHERE ContactId = ?", contact.Id);
+
+        foreach (var list in lists)
+        {
+            var membership = current.FirstOrDefault(item => item.ListId == list.Id);
+            var isMember = reported.Contains(list.RemoteId);
+
+            if (isMember && membership is null)
+                transaction.Insert(new ContactListMember { Id = Guid.NewGuid(), ListId = list.Id, ContactId = contact.Id }, typeof(ContactListMember));
+            else if (!isMember && membership is not null)
+                transaction.Delete<ContactListMember>(membership.Id);
+        }
+    }
+
     public async Task<List<Guid>> GetListIdsForContactAsync(Guid contactId)
     {
         var rows = await Connection.QueryAsync<ContactListMember>(
@@ -639,6 +746,71 @@ public class ContactService : BaseDatabaseService, IContactService
             foreach (var listId in desired)
                 transaction.Insert(new ContactListMember { Id = Guid.NewGuid(), ListId = listId, ContactId = contactId }, typeof(ContactListMember));
         }).ConfigureAwait(false);
+    }
+
+    public Task SetContactCategoriesAsync(Guid contactId, IEnumerable<string> categoryNames)
+    {
+        var names = categoryNames?.ToList() ?? [];
+        return Connection.RunInTransactionAsync(transaction =>
+        {
+            var contact = transaction.Find<AccountContact>(contactId);
+            if (contact is not null)
+                ReplaceCategoryAssignments(transaction, contact.MailAccountId, contactId, names);
+        });
+    }
+
+    public async Task<List<AccountContact>> GetContactsByCategoryAsync(Guid categoryId)
+    {
+        var contacts = await Connection.QueryAsync<AccountContact>(
+            "SELECT c.* FROM ContactCard c INNER JOIN ContactCategoryAssignment a ON a.ContactId = c.Id WHERE a.MailCategoryId = ?",
+            categoryId).ConfigureAwait(false);
+        await LoadChildrenAsync(contacts).ConfigureAwait(false);
+        return contacts;
+    }
+
+    /// <summary>
+    /// Categories travel with a contact as names. A name the account has no category for
+    /// becomes one, with a palette color no other category of the account uses.
+    /// </summary>
+    private static void ReplaceCategoryAssignments(SQLiteConnection transaction, Guid accountId, Guid contactId, IEnumerable<string> categoryNames)
+    {
+        var names = categoryNames
+            .Select(name => name?.Trim())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var categories = transaction.Query<MailCategory>("SELECT * FROM MailCategory WHERE MailAccountId = ?", accountId);
+        var desiredIds = new HashSet<Guid>();
+
+        foreach (var name in names)
+        {
+            var category = categories.FirstOrDefault(item => string.Equals(item.Name?.Trim(), name, StringComparison.OrdinalIgnoreCase));
+            if (category is null)
+            {
+                var color = MailCategoryPalette.PickUnused(categories.Select(item => item.BackgroundColorHex));
+                category = new MailCategory
+                {
+                    Id = Guid.NewGuid(),
+                    MailAccountId = accountId,
+                    Name = name,
+                    BackgroundColorHex = color.BackgroundColorHex,
+                    TextColorHex = color.TextColorHex,
+                    Source = MailCategorySource.Local
+                };
+                transaction.Insert(category, typeof(MailCategory));
+                categories.Add(category);
+            }
+
+            desiredIds.Add(category.Id);
+        }
+
+        var current = transaction.Query<ContactCategoryAssignment>("SELECT * FROM ContactCategoryAssignment WHERE ContactId = ?", contactId);
+
+        foreach (var assignment in current.Where(item => !desiredIds.Contains(item.MailCategoryId)))
+            transaction.Delete<ContactCategoryAssignment>(assignment.Id);
+
+        foreach (var categoryId in desiredIds.Except(current.Select(item => item.MailCategoryId)))
+            transaction.Insert(new ContactCategoryAssignment { Id = Guid.NewGuid(), MailCategoryId = categoryId, ContactId = contactId }, typeof(ContactCategoryAssignment));
     }
 
     public async Task<Dictionary<Guid, int>> GetContactListCountsAsync()
@@ -695,9 +867,18 @@ public class ContactService : BaseDatabaseService, IContactService
         var addresses = await LoadChildRowsAsync<ContactPostalAddress>("ContactPostalAddress", contactIds, item => item.ContactId).ConfigureAwait(false);
         var ims = await LoadChildRowsAsync<ContactImAddress>("ContactImAddress", contactIds, item => item.ContactId).ConfigureAwait(false);
         var relations = await LoadChildRowsAsync<ContactRelation>("ContactRelation", contactIds, item => item.ContactId).ConfigureAwait(false);
+        var assignments = await LoadChildRowsAsync<ContactCategoryAssignment>("ContactCategoryAssignment", contactIds, item => item.ContactId).ConfigureAwait(false);
+        var categories = assignments.Count == 0
+            ? []
+            : (await Connection.Table<MailCategory>().ToListAsync().ConfigureAwait(false)).ToDictionary(category => category.Id);
 
         foreach (var contact in contacts)
         {
+            contact.Categories = assignments[contact.Id]
+                .Where(assignment => categories.ContainsKey(assignment.MailCategoryId))
+                .Select(assignment => categories[assignment.MailCategoryId])
+                .OrderBy(category => category.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
             contact.EmailAddresses = emails[contact.Id].OrderBy(item => item.Order).ToList();
             contact.PhoneNumbers = phones[contact.Id].OrderBy(item => item.Order).ToList();
             contact.PostalAddresses = addresses[contact.Id].ToList();
@@ -751,7 +932,10 @@ public class ContactService : BaseDatabaseService, IContactService
         {
             DeleteChildRows(transaction, contact.Id);
             if (deleteListMemberships)
+            {
                 transaction.Execute("DELETE FROM ContactListMember WHERE ContactId = ?", contact.Id);
+                transaction.Execute("DELETE FROM ContactCategoryAssignment WHERE ContactId = ?", contact.Id);
+            }
             transaction.Delete<AccountContact>(contact.Id);
         }
     }
@@ -780,6 +964,12 @@ public class ContactService : BaseDatabaseService, IContactService
         transaction.InsertAll(contact.PostalAddresses, typeof(ContactPostalAddress));
         transaction.InsertAll(contact.ImAddresses, typeof(ContactImAddress));
         transaction.InsertAll(contact.Relations, typeof(ContactRelation));
+
+        if (contact.CategoryNames is not null)
+            ReplaceCategoryAssignments(transaction, contact.MailAccountId, contact.Id, contact.CategoryNames);
+
+        if (contact.ListRemoteIds is not null)
+            ReplaceListMemberships(transaction, contact);
     }
 
     private static void NormalizeChildren(AccountContact contact)

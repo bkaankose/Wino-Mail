@@ -23,5 +23,3 @@ public sealed class VCardParameter
     public string OriginalName { get; set; }
     public List<string> Values { get; } = [];
 }
-
-public sealed record VCardHashes(string RawHash, string SemanticHash, string DomainHash);

@@ -64,6 +64,7 @@
             ContextRequested="AccountContextRequested"
             DataContext="{x:Bind}"
             IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
+            IsEnabled="{x:Bind IsNavigationEnabled, Mode=OneWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             SelectsOnInvoked="{x:Bind SelectsOnInvoked, Mode=OneTime}"
             Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
@@ -141,6 +142,7 @@
             ContextRequested="AccountContextRequested"
             DataContext="{x:Bind}"
             IsActiveAccount="{x:Bind IsSelected, Mode=OneWay}"
+            IsEnabled="{x:Bind IsNavigationEnabled, Mode=OneWay}"
             IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
             SelectsOnInvoked="{x:Bind SelectsOnInvoked, Mode=OneTime}"
             Style="{StaticResource SingleAccountNavigationViewItemTemplate}">
@@ -773,6 +775,63 @@
                 VerticalAlignment="Center"
                 Style="{StaticResource BodyStrongTextBlockStyle}"
                 Text="{x:Bind domain:Translator.ContactList_NewTitle, Mode=OneTime}" />
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--  A category of the active account. Selecting it shows the contacts that carry it.  -->
+    <DataTemplate x:Key="ContactCategoryFilterTemplate" x:DataType="contactData:ContactFilterViewModel">
+        <coreControls:WinoNavigationViewItem
+            MinHeight="36"
+            AutomationProperties.AutomationId="ContactsCategoryItem"
+            AutomationProperties.Name="{x:Bind Name, Mode=OneWay}"
+            ContextRequested="ContactListContextRequested"
+            DataContext="{x:Bind}"
+            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
+            SelectsOnInvoked="True"
+            ToolTipService.ToolTip="{x:Bind Name, Mode=OneWay}">
+            <muxc:NavigationViewItem.Icon>
+                <coreControls:WinoFontIcon
+                    FontFamily="{ThemeResource WinoIconFontFamily}"
+                    Foreground="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(CategoryColorHex), Mode=OneWay}"
+                    Icon="Tag" />
+            </muxc:NavigationViewItem.Icon>
+            <TextBlock
+                Margin="12,0,0,0"
+                VerticalAlignment="Center"
+                Text="{x:Bind Name, Mode=OneWay}"
+                TextTrimming="CharacterEllipsis" />
+        </coreControls:WinoNavigationViewItem>
+    </DataTemplate>
+
+    <!--  Shows or hides the categories of the active account. It is never a selection.  -->
+    <DataTemplate x:Key="ContactCategoriesExpanderTemplate" x:DataType="menu:ContactCategoriesExpanderMenuItem">
+        <coreControls:WinoNavigationViewItem
+            MinHeight="36"
+            AutomationProperties.AutomationId="ContactsCategoriesExpander"
+            AutomationProperties.Name="{x:Bind Title, Mode=OneTime}"
+            DataContext="{x:Bind}"
+            IsEnabled="{x:Bind IsEnabled, Mode=OneWay}"
+            SelectsOnInvoked="False">
+            <muxc:NavigationViewItem.Icon>
+                <coreControls:WinoFontIcon FontFamily="{ThemeResource WinoIconFontFamily}" Icon="Tag" />
+            </muxc:NavigationViewItem.Icon>
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="{x:Bind Title, Mode=OneTime}"
+                    TextTrimming="CharacterEllipsis" />
+                <FontIcon
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    FontFamily="{ThemeResource SymbolThemeFontFamily}"
+                    FontSize="12"
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Glyph="{x:Bind helpers:XamlHelpers.GetExpanderGlyph(IsExpanded), Mode=OneWay}" />
+            </Grid>
         </coreControls:WinoNavigationViewItem>
     </DataTemplate>
 

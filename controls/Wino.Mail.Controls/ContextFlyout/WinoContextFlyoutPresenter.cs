@@ -104,8 +104,6 @@ public sealed partial class WinoContextFlyoutPresenter : Control
     internal void PrepareForOpen()
     {
         _isOpen = true;
-        Width = double.NaN;
-        Height = double.NaN;
         RegisterHandlers();
 
         if (_itemsList is not null)
@@ -115,13 +113,12 @@ public sealed partial class WinoContextFlyoutPresenter : Control
 
         _navigationStack.Clear();
         ShowPage(_owner.RootItems, animateBackButton: false);
-        LayoutUpdated += CaptureInitialSize;
     }
 
     internal void PrepareForClose()
     {
         _isOpen = false;
-        LayoutUpdated -= CaptureInitialSize;
+        LayoutUpdated -= CapturePageSize;
         Width = double.NaN;
         Height = double.NaN;
         _focusRequestVersion++;
@@ -152,14 +149,26 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         }
     }
 
-    private void CaptureInitialSize(object? sender, object e)
+    /// <summary>
+    /// Lets the presenter size to the page being shown. The size is frozen again after the next
+    /// layout pass, so filtering and scrolling within a page do not resize the flyout.
+    /// </summary>
+    private void ReleasePageSize()
+    {
+        LayoutUpdated -= CapturePageSize;
+        Width = double.NaN;
+        Height = double.NaN;
+        LayoutUpdated += CapturePageSize;
+    }
+
+    private void CapturePageSize(object? sender, object e)
     {
         if (!_isOpen || ActualWidth <= 0 || ActualHeight <= 0)
         {
             return;
         }
 
-        LayoutUpdated -= CaptureInitialSize;
+        LayoutUpdated -= CapturePageSize;
         Width = Math.Max(75, ActualWidth);
         Height = ActualHeight;
     }
@@ -557,6 +566,7 @@ public sealed partial class WinoContextFlyoutPresenter : Control
         }
         _isUpdatingSearch = false;
 
+        ReleasePageSize();
         UpdateChrome(animateBackButton);
         ApplyFilter(string.Empty);
         QueueInitialFocus();

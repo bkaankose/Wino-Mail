@@ -31,6 +31,12 @@ public interface IAccountNavigationMenuItem : IMenuItem, INotifyPropertyChanged
     /// </summary>
     bool SelectsOnInvoked { get; }
 
+    /// <summary>
+    /// Whether the row accepts input. Contacts disables its address books while the
+    /// editor is open; the other modes keep their account rows enabled.
+    /// </summary>
+    bool IsNavigationEnabled => true;
+
     Task SynchronizeAccountAsync();
 }
 

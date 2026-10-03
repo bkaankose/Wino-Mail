@@ -173,10 +173,9 @@ public sealed partial class ContactsPage : ContactsPageAbstract, ITitleBarSearch
 
     private void ContactsListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        // Extended selection allows Ctrl and Shift multi-select outside selection mode,
+        // so the view model tracks the list selection in both modes.
         if (sender is not ListView)
-            return;
-
-        if (!ViewModel.IsSelectionMode)
             return;
 
         foreach (var removedItem in e.RemovedItems.OfType<AccountContactViewModel>())

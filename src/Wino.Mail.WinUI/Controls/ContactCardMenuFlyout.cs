@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Windows.Foundation;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Interfaces;
 using Wino.Helpers;
@@ -42,7 +43,7 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
         if (target.XamlRoot is null)
             return;
 
-        BuildItems(viewModel, contact, contacts, assignableLists);
+        BuildItems(viewModel, contact, contacts, assignableLists, viewModel.GetAvailableCategories(contacts));
 
         if (position is Point targetPosition)
         {
@@ -61,7 +62,8 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
         ContactsPageViewModel viewModel,
         AccountContactViewModel contact,
         IReadOnlyList<AccountContactViewModel> contacts,
-        IReadOnlyList<ContactList> assignableLists)
+        IReadOnlyList<ContactList> assignableLists,
+        IReadOnlyList<MailCategory> categories)
     {
         var items = new List<ContextFlyoutMenuEntry>();
 
@@ -111,6 +113,31 @@ public partial class ContactCardMenuFlyout : WinoContextFlyout
                 Icon = CreateIcon(WinoIconGlyph.People),
                 Items = assignItems,
                 AutomationId = "ContactCardContextAssignToList"
+            });
+        }
+
+        if (categories.Count > 0)
+        {
+            var categoryItems = new List<ContextFlyoutMenuEntry>();
+            foreach (var category in categories)
+            {
+                categoryItems.Add(new ContextFlyoutToggleEntry
+                {
+                    Text = category.Name,
+                    SearchKeywords = category.Name,
+                    Icon = new ContextFlyoutIcon(WinoIconGlyphs.GetGlyph(WinoIconGlyph.SpecialFolderCategory), category.TextColorHex),
+                    IsChecked = contacts.All(item => item.Categories.Any(assigned => assigned.Id == category.Id)),
+                    Command = new AsyncRelayCommand(() => viewModel.ToggleContactCategoryAsync(category, contacts)),
+                    AutomationId = $"ContactCardContextCategory_{category.Id:N}"
+                });
+            }
+
+            items.Add(new ContextFlyoutSubMenuEntry
+            {
+                Text = Translator.MailCategoryMenuItem,
+                Icon = CreateIcon(WinoIconGlyph.SpecialFolderCategory),
+                Items = categoryItems,
+                AutomationId = "ContactCardContextCategories"
             });
         }
 

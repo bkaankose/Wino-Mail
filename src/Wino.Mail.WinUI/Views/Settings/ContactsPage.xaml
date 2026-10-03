@@ -11,6 +11,7 @@
     xmlns:helpers="using:Wino.Helpers"
     xmlns:illustrations="using:Wino.Controls.Illustrations"
     xmlns:listview="using:Wino.Mail.WinUI.Controls.ListView"
+    xmlns:mail="using:Wino.Core.Domain.Entities.Mail"
     xmlns:mailControls="using:Wino.Mail.Controls.ContactPicture"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:muxc="using:Microsoft.UI.Xaml.Controls"
@@ -22,6 +23,20 @@
     <Page.Resources>
         <CollectionViewSource x:Key="ContactCollectionViewSource" IsSourceGrouped="True" />
         <coreControls:ContactCardMenuFlyout x:Key="ContactCardContextFlyout" />
+
+        <DataTemplate x:Key="ContactCategoryChipTemplate" x:DataType="mail:MailCategory">
+            <Border
+                Margin="0,2,4,0"
+                Padding="6,1"
+                Background="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}"
+                CornerRadius="4">
+                <TextBlock
+                    Foreground="{x:Bind helpers:XamlHelpers.GetCategoryTextBrush(TextColorHex, BackgroundColorHex), Mode=OneTime}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind Name, Mode=OneTime}"
+                    TextTrimming="CharacterEllipsis" />
+            </Border>
+        </DataTemplate>
 
         <!--  Contact row. The star is always present so hover does not shift the layout.  -->
         <DataTemplate x:Key="ContactTemplate" x:DataType="viewModels:AccountContactViewModel">
@@ -62,6 +77,16 @@
                         Style="{StaticResource CaptionTextBlockStyle}"
                         Text="{x:Bind SourceLabel, Mode=OneTime}"
                         TextTrimming="CharacterEllipsis" />
+                    <ItemsControl
+                        ItemTemplate="{StaticResource ContactCategoryChipTemplate}"
+                        ItemsSource="{x:Bind Categories, Mode=OneWay}"
+                        Visibility="{x:Bind HasCategories, Mode=OneWay}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
                 </StackPanel>
 
                 <Button
@@ -159,27 +184,6 @@
             </Border>
         </DataTemplate>
 
-        <DataTemplate x:Key="ConflictDifferenceTemplate" x:DataType="viewModels:ContactConflictFieldViewModel">
-            <Grid Padding="0,4" ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="120" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock
-                    FontWeight="SemiBold"
-                    Text="{x:Bind FieldName, Mode=OneTime}"
-                    TextWrapping="Wrap" />
-                <TextBlock
-                    Grid.Column="1"
-                    Text="{x:Bind LocalValue, Mode=OneTime}"
-                    TextWrapping="Wrap" />
-                <TextBlock
-                    Grid.Column="2"
-                    Text="{x:Bind ServerValue, Mode=OneTime}"
-                    TextWrapping="Wrap" />
-            </Grid>
-        </DataTemplate>
     </Page.Resources>
 
     <Grid x:Name="RootGrid">
@@ -200,61 +204,6 @@
                 Command="{x:Bind ViewModel.CreateCardDavAddressBookCommand}"
                 Content="{x:Bind domain:Translator.ContactsPage_NewAddressBook, Mode=OneTime}"
                 Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.CanCreateCardDavAddressBook), Mode=OneWay}" />
-            <muxc:InfoBar
-                Title="{x:Bind domain:Translator.ContactsPage_CardDavConflictsTitle, Mode=OneTime}"
-                AutomationProperties.AutomationId="ContactsCardDavConflictInfoBar"
-                IsOpen="{x:Bind ViewModel.HasUnresolvedConflicts, Mode=OneWay}"
-                Message="{x:Bind ViewModel.ConflictInfoMessage, Mode=OneWay}"
-                Severity="Warning">
-                <muxc:InfoBar.ActionButton>
-                    <Button
-                        AutomationProperties.AutomationId="ContactsReviewCardDavConflicts"
-                        Command="{x:Bind ViewModel.ReviewConflictsCommand}"
-                        Content="{x:Bind domain:Translator.ContactsPage_ReviewConflicts, Mode=OneTime}" />
-                </muxc:InfoBar.ActionButton>
-            </muxc:InfoBar>
-            <Border
-                Padding="16,12"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.IsConflictResolverOpen), Mode=OneWay}">
-                <StackPanel Spacing="10">
-                    <TextBlock
-                        FontWeight="SemiBold"
-                        Text="{x:Bind ViewModel.ConflictSummary, Mode=OneWay}"
-                        TextWrapping="Wrap" />
-                    <TextBlock Text="{x:Bind domain:Translator.ContactsPage_ConflictResolutionHelp, Mode=OneTime}" TextWrapping="Wrap" />
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock
-                            Grid.Column="1"
-                            FontWeight="SemiBold"
-                            Text="{x:Bind domain:Translator.ContactsPage_LocalVersion, Mode=OneTime}" />
-                        <TextBlock
-                            Grid.Column="2"
-                            FontWeight="SemiBold"
-                            Text="{x:Bind domain:Translator.ContactsPage_ServerVersion, Mode=OneTime}" />
-                    </Grid>
-                    <ItemsControl ItemTemplate="{StaticResource ConflictDifferenceTemplate}" ItemsSource="{x:Bind ViewModel.ConflictDifferences, Mode=OneWay}" />
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button
-                            AutomationProperties.AutomationId="ContactsConflictUseServer"
-                            Command="{x:Bind ViewModel.UseServerConflictCommand}"
-                            Content="{x:Bind domain:Translator.ContactsPage_UseServer, Mode=OneTime}" />
-                        <Button
-                            AutomationProperties.AutomationId="ContactsConflictUseMine"
-                            Command="{x:Bind ViewModel.UseMineConflictCommand}"
-                            Content="{x:Bind domain:Translator.ContactsPage_UseMine, Mode=OneTime}" />
-                        <Button
-                            AutomationProperties.AutomationId="ContactsConflictKeepBoth"
-                            Command="{x:Bind ViewModel.KeepBothConflictCommand}"
-                            Content="{x:Bind domain:Translator.ContactsPage_KeepBoth, Mode=OneTime}" />
-                    </StackPanel>
-                </StackPanel>
-            </Border>
         </StackPanel>
 
         <!--  ============ CONTACT LIST ============  -->
@@ -462,6 +411,17 @@
                                 Text="{x:Bind ViewModel.SelectedContact.SourceLabel, Mode=OneWay}"
                                 TextAlignment="Center"
                                 TextWrapping="Wrap" />
+                            <ItemsControl
+                                HorizontalAlignment="Center"
+                                ItemTemplate="{StaticResource ContactCategoryChipTemplate}"
+                                ItemsSource="{x:Bind ViewModel.SelectedContact.Categories, Mode=OneWay}"
+                                Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.SelectedContact.HasCategories), Mode=OneWay}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
                         </StackPanel>
                     </Grid>
 

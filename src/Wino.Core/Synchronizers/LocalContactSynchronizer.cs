@@ -38,6 +38,18 @@ public sealed class LocalContactSynchronizer
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (request is ContactCategoryRequest categoryRequest)
+            {
+                await _contactService.SetContactCategoriesAsync(categoryRequest.LocalContactId, categoryRequest.CategoryNames).ConfigureAwait(false);
+                continue;
+            }
+
+            if (request is ContactListRequest listRequest)
+            {
+                await listRequest.CommitAsync(_contactService).ConfigureAwait(false);
+                continue;
+            }
+
             if (request is not ContactActionRequest contactRequest)
                 throw new NotSupportedException($"Local contact request {request.GetType().Name} is not supported.");
 

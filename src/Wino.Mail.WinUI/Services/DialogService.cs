@@ -244,6 +244,16 @@ public class DialogService : DialogServiceBase, IMailDialogService, IRecipient<S
         return dialog.PickedDestination;
     }
 
+    public async Task<ContactListCreationResult?> ShowNewContactListDialogAsync(IReadOnlyList<MailAccount> accounts, MailAccount? selectedAccount)
+    {
+        var dialog = new NewContactListDialog(accounts, selectedAccount)
+        {
+            RequestedTheme = ThemeService.RootTheme.ToWindowsElementTheme()
+        };
+        await HandleDialogPresentationAsync(dialog);
+        return dialog.Result;
+    }
+
     public async Task<AccountTaskList?> ShowTaskListPickerDialogAsync(
         IReadOnlyList<AccountTaskList> taskLists,
         IReadOnlyList<MailAccount> accounts)

@@ -1,25 +1,32 @@
 using System;
 using System.Collections.Generic;
 using Wino.Core.Domain.Entities.Shared;
-using Wino.Core.Domain.Models.Contacts;
 
 namespace Wino.Core.Domain.Models.CardDav;
 
-public sealed record CardDavRemoteUpsert(AccountContact Contact, CardDavResourceShadow Shadow);
-
-public sealed class CardDavRemotePage
-{
-    public Guid AddressBookId { get; init; }
-    public IReadOnlyList<CardDavRemoteUpsert> Upserts { get; init; } = [];
-    public IReadOnlyList<string> SeenHrefs { get; init; } = [];
-    public IReadOnlyList<string> DeletedHrefs { get; init; } = [];
-    public IReadOnlyList<CardDavQuarantine> Quarantines { get; init; } = [];
-    public string NextSyncToken { get; init; }
-    public long ReconciliationGeneration { get; init; }
-    public bool CommitSyncToken { get; init; }
-    public bool IsFullReconciliation { get; init; }
-}
-
 public sealed record CardDavBookBinding(ContactAddressBook AddressBook, CardDavAddressBookState State);
 
-public sealed record CardDavStagedMutation(ContactOperationPreparationRequest Request, CardDavOutboxItem OutboxItem);
+/// <summary>A downloaded person vCard. <paramref name="ContactId"/> is the local row it was written to.</summary>
+public sealed record CardDavRemoteContact(string Href, string ETag, string Uid, Guid ContactId);
+
+/// <summary>A downloaded group vCard.</summary>
+public sealed record CardDavRemoteGroup(string Href, string ETag, string Uid, string Name, IReadOnlyList<string> MemberUids);
+
+/// <summary>
+/// Resource bookkeeping for one applied batch of remote changes. Contact rows themselves
+/// are written through the contact service; this records their identity, the groups and
+/// the synchronization checkpoint.
+/// </summary>
+public sealed class CardDavChangeSet
+{
+    public Guid AccountId { get; init; }
+    public Guid AddressBookId { get; init; }
+    public IReadOnlyList<CardDavRemoteContact> Contacts { get; init; } = [];
+    public IReadOnlyList<CardDavRemoteGroup> Groups { get; init; } = [];
+    public IReadOnlyList<string> DeletedHrefs { get; init; } = [];
+
+    /// <summary>True for the batch that completes a synchronization and stores its checkpoint.</summary>
+    public bool CommitCheckpoint { get; init; }
+    public string SyncToken { get; init; }
+    public string CollectionTag { get; init; }
+}

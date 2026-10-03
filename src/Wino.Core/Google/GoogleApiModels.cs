@@ -565,7 +565,48 @@ namespace Google.Apis.PeopleService.v1.Data
         public IList<FileAs> FileAses { get; set; }
         public IList<ImClient> ImClients { get; set; }
         public IList<Relation> Relations { get; set; }
+        public IList<Membership> Memberships { get; set; }
         public PersonMetadata Metadata { get; set; }
+    }
+
+    public sealed class Membership { public ContactGroupMembership ContactGroupMembership { get; set; } }
+    public sealed class ContactGroupMembership { public string ContactGroupResourceName { get; set; } }
+
+    public sealed class ContactGroup
+    {
+        public string ResourceName { get; set; }
+        public string Etag { get; set; }
+        public string Name { get; set; }
+        public string GroupType { get; set; }
+        public ContactGroupMetadata Metadata { get; set; }
+    }
+
+    public sealed class ContactGroupMetadata { public bool? Deleted { get; set; } }
+
+    public sealed class ListContactGroupsResponse
+    {
+        public IList<ContactGroup> ContactGroups { get; set; }
+        public string NextPageToken { get; set; }
+    }
+
+    public sealed class CreateContactGroupRequest { public ContactGroup ContactGroup { get; set; } }
+
+    public sealed class UpdateContactGroupRequest
+    {
+        public ContactGroup ContactGroup { get; set; }
+        public string UpdateGroupFields { get; set; }
+    }
+
+    public sealed class ModifyContactGroupMembersRequest
+    {
+        public IList<string> ResourceNamesToAdd { get; set; }
+        public IList<string> ResourceNamesToRemove { get; set; }
+    }
+
+    public sealed class ModifyContactGroupMembersResponse
+    {
+        public IList<string> NotFoundResourceNames { get; set; }
+        public IList<string> CanNotRemoveLastContactGroupResourceNames { get; set; }
     }
 
     public sealed class PersonMetadata { public bool? Deleted { get; set; } }

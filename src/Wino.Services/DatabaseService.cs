@@ -34,6 +34,8 @@ public class DatabaseService : IDatabaseService
 
     private bool _isInitialized = false;
     private bool _cardDavCreationCapabilityMigrationRequired;
+    private bool _cardDavResourceModelMigrationRequired;
+    private bool _contactOrganizationMigrationRequired;
     private bool _countedFolderSeedRequired;
     private bool _calendarDirectJoinLinkBackfillRequired;
     private readonly IApplicationConfiguration _folderConfiguration;
@@ -72,6 +74,18 @@ public class DatabaseService : IDatabaseService
         var preCreateCardDavAccountColumns = await Connection.GetTableInfoAsync(nameof(CardDavAccountState)).ConfigureAwait(false);
         _cardDavCreationCapabilityMigrationRequired = preCreateCardDavAccountColumns.Count > 0 &&
             !preCreateCardDavAccountColumns.Any(column => column.Name == nameof(CardDavAccountState.SupportsAddressBookCreation));
+
+        // Resources stored before group vCards were recognized carry no kind: groups sit in the
+        // contact table. Sampled before CreateTablesAsync adds the column.
+        var preCreateCardDavResourceColumns = await Connection.GetTableInfoAsync(nameof(CardDavResourceShadow)).ConfigureAwait(false);
+        _cardDavResourceModelMigrationRequired = preCreateCardDavResourceColumns.Count > 0 &&
+            !preCreateCardDavResourceColumns.Any(column => column.Name == nameof(CardDavResourceShadow.Kind));
+
+        // Contacts stored before lists and categories were synchronized carry neither. Sampled
+        // before CreateTablesAsync adds the column.
+        var preCreateContactListColumns = await Connection.GetTableInfoAsync(nameof(ContactList)).ConfigureAwait(false);
+        _contactOrganizationMigrationRequired = preCreateContactListColumns.Count > 0 &&
+            !preCreateContactListColumns.Any(column => column.Name == nameof(ContactList.RemoteId));
 
         // The counted-folder flag has to be sampled before CreateTablesAsync adds the column with a 0 default,
         // otherwise every existing account would silently stop counting its Inbox.
@@ -159,13 +173,11 @@ VALUES
             Connection.CreateTableAsync<ContactRelation>(),
             Connection.CreateTableAsync<ContactList>(),
             Connection.CreateTableAsync<ContactListMember>(),
+            Connection.CreateTableAsync<ContactCategoryAssignment>(),
             Connection.CreateTableAsync<RecipientHistory>(),
             Connection.CreateTableAsync<CardDavAccountState>(),
             Connection.CreateTableAsync<CardDavAddressBookState>(),
             Connection.CreateTableAsync<CardDavResourceShadow>(),
-            Connection.CreateTableAsync<CardDavQuarantine>(),
-            Connection.CreateTableAsync<CardDavConflict>(),
-            Connection.CreateTableAsync<CardDavOutboxItem>(),
             Connection.CreateTableAsync<AccountTaskListGroup>(),
             Connection.CreateTableAsync<AccountTaskSyncState>(),
             Connection.CreateTableAsync<AccountTaskList>(),
@@ -192,6 +204,7 @@ VALUES
         await EnsureSchemaUpgradesAsync().ConfigureAwait(false);
         await EnsureIndexesAsync().ConfigureAwait(false);
         await EnsureLocalAddressBooksAsync().ConfigureAwait(false);
+        await AssignOwnerlessContactListsAsync().ConfigureAwait(false);
         await EnsureLocalTaskListsAsync().ConfigureAwait(false);
     }
 
@@ -214,6 +227,29 @@ VALUES
                 $"UPDATE {nameof(CardDavAccountState)} SET {nameof(CardDavAccountState.RequiresRediscovery)} = 1")
                 .ConfigureAwait(false);
         }
+
+        if (_contactOrganizationMigrationRequired)
+        {
+            // Forget every contact checkpoint so the next synchronization downloads each contact
+            // again, now with its lists and categories.
+            await Connection.ExecuteAsync($"UPDATE {nameof(ContactAddressBook)} SET {nameof(ContactAddressBook.DeltaToken)} = NULL").ConfigureAwait(false);
+        }
+
+        if (_cardDavResourceModelMigrationRequired || _contactOrganizationMigrationRequired)
+        {
+            // Forget every version and checkpoint so the next synchronization downloads each
+            // resource again and sorts it into contacts and lists.
+            await Connection.ExecuteAsync($"UPDATE {nameof(CardDavResourceShadow)} SET {nameof(CardDavResourceShadow.ETag)} = NULL").ConfigureAwait(false);
+            await Connection.ExecuteAsync(
+                $"UPDATE {nameof(CardDavAddressBookState)} SET {nameof(CardDavAddressBookState.SyncToken)} = NULL, {nameof(CardDavAddressBookState.CollectionTag)} = NULL")
+                .ConfigureAwait(false);
+        }
+
+        // Left behind by the retired CardDAV outbox and conflict resolver.
+        await Connection.ExecuteAsync("DROP TABLE IF EXISTS CardDavOutboxItem").ConfigureAwait(false);
+        await Connection.ExecuteAsync("DROP TABLE IF EXISTS CardDavConflict").ConfigureAwait(false);
+        await Connection.ExecuteAsync("DROP TABLE IF EXISTS CardDavQuarantine").ConfigureAwait(false);
+        await Connection.ExecuteAsync("DROP INDEX IF EXISTS IX_CardDavResourceShadow_Book_Generation").ConfigureAwait(false);
 
         var mailCopyColumns = await Connection.GetTableInfoAsync(nameof(MailCopy)).ConfigureAwait(false);
 
@@ -785,11 +821,9 @@ SET {nameof(KeyboardShortcut.Action)} =
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactCard_IsFavorite_SortKey ON ContactCard(IsFavorite, SortKey)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_ContactListMember_List_Contact ON ContactListMember(ListId, ContactId)").ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_ContactListMember_ContactId ON ContactListMember(ContactId)").ConfigureAwait(false);
+        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_ContactCategoryAssignment_Category_Contact ON ContactCategoryAssignment(MailCategoryId, ContactId)").ConfigureAwait(false);
         await Connection.ExecuteAsync(RecipientHistoryUniqueIndexSql).ConfigureAwait(false);
         await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_CardDavResourceShadow_Book_Href ON CardDavResourceShadow(AddressBookId, ExactHref)").ConfigureAwait(false);
-        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_CardDavResourceShadow_Book_Generation ON CardDavResourceShadow(AddressBookId, LastSeenGeneration)").ConfigureAwait(false);
-        await Connection.ExecuteAsync("CREATE UNIQUE INDEX IF NOT EXISTS IX_CardDavQuarantine_Book_Href ON CardDavQuarantine(AddressBookId, ExactHref)").ConfigureAwait(false);
-        await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_CardDavConflict_Unresolved ON CardDavConflict(AccountId, Resolution)").ConfigureAwait(false);
 
         // Task indexes
         await Connection.ExecuteAsync("CREATE INDEX IF NOT EXISTS IX_TaskList_AccountId ON TaskList(MailAccountId)").ConfigureAwait(false);
@@ -971,6 +1005,75 @@ SET {nameof(KeyboardShortcut.Action)} =
             }).ConfigureAwait(false);
         }
     }
+
+    /// <summary>
+    /// Lists used to be free of any account. A list now belongs to one address book, so
+    /// each ownerless list is handed to the local address books its members come from.
+    /// Members of synchronized address books cannot be kept: nothing wrote them to a server.
+    /// </summary>
+    private Task AssignOwnerlessContactListsAsync()
+        => Connection.RunInTransactionAsync(transaction =>
+        {
+            var lists = transaction.Query<ContactList>("SELECT * FROM ContactList WHERE AddressBookId IS NULL");
+            if (lists.Count == 0) return;
+
+            var localBooks = transaction.Query<ContactAddressBook>(
+                "SELECT * FROM ContactAddressBook WHERE SourceKind = ?", (int)ContactSourceKind.Local).ToDictionary(book => book.Id);
+
+            foreach (var list in lists)
+            {
+                var members = transaction.Query<ContactListMember>("SELECT * FROM ContactListMember WHERE ListId = ?", list.Id);
+                var membersByBook = new Dictionary<Guid, List<ContactListMember>>();
+
+                foreach (var member in members)
+                {
+                    var contact = transaction.Find<AccountContact>(member.ContactId);
+                    if (contact is not null && localBooks.ContainsKey(contact.AddressBookId))
+                    {
+                        if (!membersByBook.TryGetValue(contact.AddressBookId, out var bookMembers))
+                            membersByBook[contact.AddressBookId] = bookMembers = [];
+                        bookMembers.Add(member);
+                    }
+                    else
+                    {
+                        transaction.Delete<ContactListMember>(member.Id);
+                    }
+                }
+
+                if (membersByBook.Count == 0)
+                {
+                    transaction.Delete<ContactList>(list.Id);
+                    continue;
+                }
+
+                var isFirst = true;
+                foreach (var (bookId, bookMembers) in membersByBook)
+                {
+                    // The first address book keeps the list; every further one gets a copy.
+                    var target = isFirst ? list : new ContactList
+                    {
+                        Id = Guid.NewGuid(),
+                        Name = list.Name,
+                        Description = list.Description,
+                        ColorHex = list.ColorHex,
+                        SortOrder = list.SortOrder,
+                        CreatedAtUtc = list.CreatedAtUtc,
+                        ModifiedAtUtc = list.ModifiedAtUtc
+                    };
+                    target.MailAccountId = localBooks[bookId].MailAccountId;
+                    target.AddressBookId = bookId;
+                    transaction.InsertOrReplace(target, typeof(ContactList));
+
+                    if (!isFirst)
+                    {
+                        foreach (var member in bookMembers)
+                            transaction.Execute("UPDATE ContactListMember SET ListId = ? WHERE Id = ?", target.Id, member.Id);
+                    }
+
+                    isFirst = false;
+                }
+            }
+        });
 
     private async Task EnsureLocalTaskListsAsync()
     {

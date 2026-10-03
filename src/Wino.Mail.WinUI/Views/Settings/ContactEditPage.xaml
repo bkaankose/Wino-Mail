@@ -466,6 +466,38 @@
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
                                 </StackPanel>
+
+                                <StackPanel Visibility="{x:Bind helpers:XamlHelpers.BoolToVisibilityConverter(ViewModel.HasCategories), Mode=OneWay}">
+                                    <controls:ContactSectionHeader
+                                        Title="{x:Bind domain:Translator.SettingsMailCategories_Title, Mode=OneTime}"
+                                        Description="{x:Bind domain:Translator.ContactEditor_CategoriesDescription, Mode=OneTime}"
+                                        Icon="Tag" />
+                                    <ItemsControl Margin="{StaticResource EditorSectionBodyMargin}" ItemsSource="{x:Bind ViewModel.CategoryMemberships}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <wrap:CustomWrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="viewModels:ContactCategoryMembershipViewModel">
+                                                <ToggleButton
+                                                    Margin="0,0,8,8"
+                                                    AutomationProperties.AutomationId="ContactEditorCategoryMembership"
+                                                    CornerRadius="15"
+                                                    IsChecked="{x:Bind IsMember, Mode=TwoWay}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                                        <Ellipse
+                                                            Width="10"
+                                                            Height="10"
+                                                            VerticalAlignment="Center"
+                                                            Fill="{x:Bind helpers:XamlHelpers.GetSolidColorBrushFromHex(BackgroundColorHex), Mode=OneTime}" />
+                                                        <TextBlock Text="{x:Bind Name, Mode=OneTime}" />
+                                                    </StackPanel>
+                                                </ToggleButton>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
                             </StackPanel>
                         </Grid>
                     </ScrollViewer>

@@ -553,7 +553,9 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
 
                 try
                 {
-                    await ExecuteNativeRequestsAsync(nativeRequests, requestToken).ConfigureAwait(false);
+                    if (nativeRequests.Count > 0)
+                        await ExecuteNativeRequestsAsync(nativeRequests, requestToken).ConfigureAwait(false);
+
                     LogTracedRequests("provider-batch-completed", requestCopies);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
@@ -575,6 +577,11 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
                 }
 
                 PublishUnreadItemChanges();
+
+                // Categories of this account live on the device only: nothing was sent, and
+                // there is nothing to pull afterwards.
+                if (!Account.IsCategorySyncSupported && requestCopies.All(a => a is ICategoryActionRequest))
+                    return MailSynchronizationResult.Empty;
 
                 // Execute request sync options should be re-calculated after execution.
                 // This is the part we decide which individual folders must be synchronized
@@ -1033,9 +1040,11 @@ public abstract class WinoSynchronizer<TBaseRequest, TMessageType, TCalendarEven
     public virtual List<IRequestBundle<TBaseRequest>> CreateSubFolder(CreateSubFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> CreateRootFolder(CreateRootFolderRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
     public virtual List<IRequestBundle<TBaseRequest>> UpdateCategories(BatchMailCategoryAssignmentRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-    public virtual List<IRequestBundle<TBaseRequest>> CreateCategory(MailCategoryCreateRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-    public virtual List<IRequestBundle<TBaseRequest>> UpdateCategory(MailCategoryUpdateRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
-    public virtual List<IRequestBundle<TBaseRequest>> DeleteCategory(MailCategoryDeleteRequest request) => throw new NotSupportedException(string.Format(Translator.Exception_UnsupportedSynchronizerOperation, this.GetType()));
+    // A provider without categories of its own keeps them on the device, where the change
+    // is already stored. There is nothing to send.
+    public virtual List<IRequestBundle<TBaseRequest>> CreateCategory(MailCategoryCreateRequest request) => [];
+    public virtual List<IRequestBundle<TBaseRequest>> UpdateCategory(MailCategoryUpdateRequest request) => [];
+    public virtual List<IRequestBundle<TBaseRequest>> DeleteCategory(MailCategoryDeleteRequest request) => [];
 
     #endregion
 

@@ -421,6 +421,9 @@ public class AccountService : BaseDatabaseService, IAccountService
                 transaction.Execute("DELETE FROM ContactRelation WHERE ContactId = ?", contact.Id);
             }
 
+            transaction.Execute("DELETE FROM ContactListMember WHERE ListId IN (SELECT Id FROM ContactList WHERE MailAccountId = ?)", account.Id);
+            transaction.Execute("DELETE FROM ContactList WHERE MailAccountId = ?", account.Id);
+            transaction.Execute("DELETE FROM ContactCategoryAssignment WHERE ContactId IN (SELECT Id FROM ContactCard WHERE MailAccountId = ?)", account.Id);
             transaction.Execute("DELETE FROM ContactCard WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM ContactAddressBook WHERE MailAccountId = ?", account.Id);
             transaction.Execute("DELETE FROM RecipientHistory WHERE AccountId = ?", account.Id);

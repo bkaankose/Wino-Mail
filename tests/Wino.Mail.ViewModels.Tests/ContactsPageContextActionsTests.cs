@@ -111,21 +111,23 @@ public class ContactsPageContextActionsTests
     }
 
     [Fact]
-    public async Task AssignableLists_ExcludeOnlyListsAlreadyContainingEveryTarget()
+    public async Task AssignableLists_AreOfTheContactsAddressBook_AndExcludeListsContainingEveryTarget()
     {
         var vm = CreateViewModel();
         var first = Contact();
         var second = Contact();
-        var shared = new ContactList { Id = Guid.NewGuid(), Name = "Shared" };
-        var partial = new ContactList { Id = Guid.NewGuid(), Name = "Partial" };
+        var shared = new ContactList { Id = Guid.NewGuid(), Name = "Shared", AddressBookId = first.SourceContact.AddressBookId };
+        var partial = new ContactList { Id = Guid.NewGuid(), Name = "Partial", AddressBookId = first.SourceContact.AddressBookId };
+        var foreign = new ContactList { Id = Guid.NewGuid(), Name = "Foreign", AddressBookId = Guid.NewGuid() };
         vm.ContactLists.Add(shared);
         vm.ContactLists.Add(partial);
+        vm.ContactLists.Add(foreign);
         _queries.Setup(q => q.GetListIdsForContactAsync(first.Id)).ReturnsAsync(new List<Guid> { shared.Id, partial.Id });
         _queries.Setup(q => q.GetListIdsForContactAsync(second.Id)).ReturnsAsync(new List<Guid> { shared.Id });
 
         (await vm.GetAssignableListsAsync(new[] { first, second })).Should().Equal(partial);
         await vm.AssignContactsToListAsync(partial, new[] { first.Id, second.Id });
-        _requests.Verify(r => r.ExecuteLocalAsync(It.Is<IRequestBase>(r =>
-            r is ApplicationLocalContactRequest && ((ApplicationLocalContactRequest)r).ContactIds.Count == 2)), Times.Once);
+        _requests.Verify(r => r.ExecuteAsync(It.IsAny<Guid>(), It.Is<IEnumerable<IRequestBase>>(requests =>
+            requests.Single() is ContactListRequest && ((ContactListRequest)requests.Single()).AddedContactIds.Count == 2)), Times.Once);
     }
 }

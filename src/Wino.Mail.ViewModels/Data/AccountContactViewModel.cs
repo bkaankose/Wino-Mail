@@ -129,6 +129,8 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
         IsOverridden = contact.IsOverridden;
 
         OnPropertyChanged(nameof(SourceContact));
+        OnPropertyChanged(nameof(Categories));
+        OnPropertyChanged(nameof(HasCategories));
         OnPropertyChanged(nameof(Address));
         OnPropertyChanged(nameof(Name));
         OnPropertyChanged(nameof(ContactPictureFileId));
@@ -215,7 +217,7 @@ public partial class AccountContactViewModel : ObservableObject, IMailItemDispla
     public string AccountNickname => string.Empty;
     public string AccountColorHex => string.Empty;
     public AccountNicknamePosition AccountNicknamePosition => Wino.Core.Domain.Enums.AccountNicknamePosition.None;
-    public IReadOnlyList<MailCategory> Categories => [];
-    public bool HasCategories => false;
+    public IReadOnlyList<MailCategory> Categories => SourceContact.Categories ?? [];
+    public bool HasCategories => Categories.Count > 0;
     public AccountContact SenderContact => SourceContact;
 }

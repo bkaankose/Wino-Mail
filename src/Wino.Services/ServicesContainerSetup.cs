@@ -102,7 +102,6 @@ public static class ServicesContainerSetup
         services.AddSingleton<IDavResponseHandler, DavResponseHandler>();
         services.AddSingleton<IDavCredentialStore, DavCredentialStore>();
         services.AddSingleton<IVCardCodec, VCardCodec>();
-        services.AddSingleton<ICardDavPayloadStore, CardDavPayloadStore>();
         services.AddTransient<ICardDavSynchronizationStore, CardDavSynchronizationStore>();
         services.AddTransient<ICardDavClient, CardDavClient>();
         services.AddTransient<ICalDavClient>(provider => new CalDavClient(

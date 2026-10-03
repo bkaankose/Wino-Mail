@@ -15,6 +15,8 @@ public interface IContactQueryService
     Task<PagedContactsResult> GetContactsPageAsync(ContactQueryFilter filter, int offset, int pageSize, ContactSortOrder sortOrder = ContactSortOrder.ProviderDisplayName);
     Task<int> GetFavoriteContactsCountAsync();
     Task<List<ContactList>> GetContactListsAsync();
+    Task<ContactList> GetContactListAsync(Guid listId);
     Task<List<Guid>> GetListIdsForContactAsync(Guid contactId);
+    Task<List<AccountContact>> GetContactsByCategoryAsync(Guid categoryId);
     Task<Dictionary<Guid, int>> GetContactListCountsAsync();
 }

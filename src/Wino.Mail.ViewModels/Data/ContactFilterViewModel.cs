@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
@@ -18,12 +19,15 @@ public enum ContactFilterKind
 {
     All,
     Favorites,
+    Account,
     AddressBook,
-    List
+    List,
+    Category
 }
 
 /// <summary>
-/// A single selectable entry in the contacts navigation pane. Produces the
+/// A single selectable entry in the contacts navigation pane: a filter, an account, an
+/// address book, a list or a category. Produces the
 /// <see cref="ContactQueryFilter"/> the contact list is loaded with, and for list entries
 /// also accepts contacts dropped onto it.
 /// </summary>
@@ -51,6 +55,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public MailAccount Account { get; private set; }
     public ContactList List { get; init; }
     public ContactAddressBook AddressBook { get; init; }
+    public MailCategory Category { get; private set; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UnreadItemCount))]
@@ -59,9 +64,9 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
 
     #region Account navigation presentation
 
-    // Address book entries are drawn by the shell's shared account row, so they read
-    // the same as an account does in mail and tasks, including the Fix account button
-    // while the owning account waits for a sign-in. The mail-only context actions stay hidden.
+    // Account entries are drawn by the shell's shared account row, so they read the
+    // same as an account does in mail and tasks, including the Fix account button while
+    // the account waits for a sign-in. The mail-only context actions stay hidden.
 
     public string AccountName => Name;
     public string AccountAddress => Account?.Address ?? string.Empty;
@@ -76,8 +81,19 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     // A pending sign-in can only fail, so the row offers Fix instead of Sync.
     public bool SupportsAccountSynchronization => HasAccountIcon && Account.IsContactAccessGranted && !IsAttentionRequired;
 
-    /// <summary>An address book is the destination itself, not a parent of one.</summary>
+    /// <summary>An account shows all of its contacts, so invoking it is a selection.</summary>
     public bool SelectsOnInvoked => true;
+
+    /// <summary>Follows <see cref="MenuItemBase.IsEnabled"/>, so the editor disables account rows too.</summary>
+    public bool IsNavigationEnabled => IsEnabled;
+
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+
+        if (e.PropertyName == nameof(IsEnabled))
+            OnPropertyChanged(nameof(IsNavigationEnabled));
+    }
 
     public Task SynchronizeAccountAsync()
         => SupportsAccountSynchronization && SynchronizeAccountRequested is not null
@@ -96,6 +112,7 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
             return;
 
         Account = account;
+        Name = account.Name;
         OnPropertyChanged(nameof(Account));
         OnPropertyChanged(nameof(AccountAddress));
         OnPropertyChanged(nameof(IsAttentionRequired));
@@ -103,9 +120,12 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     }
 
     public bool IsList => Kind == ContactFilterKind.List;
+    public bool IsCategory => Kind == ContactFilterKind.Category;
+    public Guid? CategoryId => Category?.Id;
+    public string CategoryColorHex => Category?.BackgroundColorHex;
     public bool CanManageRemoteAddressBook => AddressBook?.SourceKind == ContactSourceKind.CardDav && !AddressBook.IsReadOnly;
-    public bool CanRenameOrDelete => IsList || CanManageRemoteAddressBook;
-    public bool HasAccountIcon => Kind == ContactFilterKind.AddressBook && Account is not null;
+    public bool CanRenameOrDelete => IsList || IsCategory || CanManageRemoteAddressBook;
+    public bool HasAccountIcon => Kind == ContactFilterKind.Account && Account is not null;
     public Guid? ListId => List?.Id;
 
     private ContactFilterViewModel(ContactFilterKind kind) => Kind = kind;
@@ -116,6 +136,9 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
     public static ContactFilterViewModel CreateFavorites(string name)
         => new(ContactFilterKind.Favorites) { Name = name, Glyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.Star) };
 
+    public static ContactFilterViewModel CreateAccount(MailAccount account)
+        => new(ContactFilterKind.Account) { Name = account.Name, AccountId = account.Id, Account = account };
+
     public static ContactFilterViewModel CreateAddressBook(ContactAddressBook book, MailAccount account)
         => new(ContactFilterKind.AddressBook)
         {
@@ -123,16 +146,35 @@ public partial class ContactFilterViewModel : MenuItemBase, IMenuItemDropTarget,
             Glyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.Library),
             AddressBookId = book.Id,
             AccountId = book.MailAccountId,
-            Account = account,
             AddressBook = book
         };
 
     public static ContactFilterViewModel CreateList(ContactList list)
         => new(ContactFilterKind.List) { Name = list.Name, Glyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.List), List = list };
 
+    public static ContactFilterViewModel CreateCategory(MailCategory category)
+        => new(ContactFilterKind.Category)
+        {
+            Name = category.Name,
+            Glyph = WinoIconGlyphs.GetGlyph(WinoIconGlyph.Tag),
+            AccountId = category.MailAccountId,
+            Category = category
+        };
+
+    /// <summary>Takes the latest copy of the category, so an edit shows without rebuilding the pane.</summary>
+    public void UpdateCategory(MailCategory category)
+    {
+        Category = category;
+        Name = category.Name;
+        OnPropertyChanged(nameof(Category));
+        OnPropertyChanged(nameof(CategoryColorHex));
+    }
+
     public ContactQueryFilter ToQueryFilter(string searchQuery) => Kind switch
     {
+        ContactFilterKind.Category => new ContactQueryFilter(CategoryId: CategoryId, SearchQuery: searchQuery, ExcludeRootContacts: true),
         ContactFilterKind.Favorites => new ContactQueryFilter(FavoritesOnly: true, SearchQuery: searchQuery, ExcludeRootContacts: true),
+        ContactFilterKind.Account => new ContactQueryFilter(AccountId: AccountId, SearchQuery: searchQuery, ExcludeRootContacts: true),
         ContactFilterKind.AddressBook => new ContactQueryFilter(AddressBookId: AddressBookId, SearchQuery: searchQuery, ExcludeRootContacts: true),
         ContactFilterKind.List => new ContactQueryFilter(ListId: ListId, SearchQuery: searchQuery, ExcludeRootContacts: true),
         _ => new ContactQueryFilter(SearchQuery: searchQuery, ExcludeRootContacts: true)

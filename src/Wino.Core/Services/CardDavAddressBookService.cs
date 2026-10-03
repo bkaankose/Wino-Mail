@@ -7,6 +7,7 @@ using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.CardDav;
+using Wino.Core.Synchronizers.CardDav;
 
 namespace Wino.Core.Services;
 
@@ -87,20 +88,6 @@ public sealed class CardDavAddressBookService : ICardDavAddressBookService
         return (await _store.GetAddressBooksAsync(book.MailAccountId, addressBookId).ConfigureAwait(false)).Single();
     }
 
-    private async Task<CardDavConnectionSettings> SettingsAsync(MailAccount account, CancellationToken cancellationToken)
-    {
-        var server = account.ServerInformation ?? await _accounts.GetAccountCustomServerInformationAsync(account.Id).ConfigureAwait(false);
-        var password = await _credentials.GetPasswordAsync(account.Id, cancellationToken).ConfigureAwait(false) ?? server?.CalDavPassword;
-        return new CardDavConnectionSettings
-        {
-            ServiceUri = string.IsNullOrWhiteSpace(server?.CardDavServiceUrl) ? null : new Uri(server.CardDavServiceUrl),
-            AccountAddress = account.Address,
-            Authentication = new DavAuthenticationProfile
-            {
-                Kind = DavAuthenticationKind.Basic,
-                Username = string.IsNullOrWhiteSpace(server?.CalDavUsername) ? account.Address : server.CalDavUsername,
-                Password = password
-            }
-        };
-    }
+    private Task<CardDavConnectionSettings> SettingsAsync(MailAccount account, CancellationToken cancellationToken)
+        => CardDavConnection.CreateSettingsAsync(account, _credentials, _accounts, cancellationToken);
 }

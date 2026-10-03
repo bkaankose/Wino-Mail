@@ -168,6 +168,9 @@ public static class XamlHelpers
     // Contacts
     // The favorite star itself is drawn by the pages: a brush resolved here would come from the
     // application dictionary and follow the system theme instead of the page theme.
+    /// <summary>Chevron of an expandable pane entry: up while expanded, down while collapsed.</summary>
+    public static string GetExpanderGlyph(bool isExpanded) => isExpanded ? "\uE70E" : "\uE70D";
+
     public static string GetFavoriteTooltip(bool isFavorite) => isFavorite ? Translator.ContactAction_Unfavorite : Translator.ContactAction_Favorite;
     public static bool HasText(string value) => !string.IsNullOrWhiteSpace(value);
     public static ContactPhoneKind[] GetPhoneKinds() => Enum.GetValues<ContactPhoneKind>();

@@ -796,6 +796,17 @@
                         Text="{x:Bind ViewModel.ContactIntegrationSourceText, Mode=OneWay}" />
                 </controls:SettingsCard>
 
+                <controls:SettingsCard
+                    AutomationProperties.AutomationId="AccountDetailsPeopleCategoriesCard"
+                    Command="{x:Bind ViewModel.EditCategoriesCommand}"
+                    Description="{x:Bind domain:Translator.SettingsMailCategories_Description}"
+                    Header="{x:Bind domain:Translator.SettingsMailCategories_Title}"
+                    IsClickEnabled="True">
+                    <controls:SettingsCard.HeaderIcon>
+                        <coreControls:WinoFontIcon Icon="Tag" />
+                    </controls:SettingsCard.HeaderIcon>
+                </controls:SettingsCard>
+
                 <muxc:InfoBar
                     AutomationProperties.AutomationId="AccountContactsReauthorizationInfo"
                     IsClosable="False"

@@ -12,7 +12,8 @@ public record ContactQueryFilter(
     Guid? AccountId = null,
     bool FavoritesOnly = false,
     string SearchQuery = null,
-    bool ExcludeRootContacts = false)
+    bool ExcludeRootContacts = false,
+    Guid? CategoryId = null)
 {
     public static readonly ContactQueryFilter All = new();
 }

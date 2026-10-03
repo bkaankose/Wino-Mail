@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Entities.Mail;
+using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Models.Accounts;
 
 namespace Wino.Core.Domain.Interfaces;
@@ -15,7 +16,7 @@ public interface IMailCategoryService
     Task<MailCategory> CreateCategoryAsync(MailCategory category);
     Task UpdateCategoryAsync(MailCategory category);
     Task DeleteCategoryAsync(Guid categoryId);
-    Task DeleteCategoriesAsync(Guid accountId);
+    Task DeleteCategoriesAsync(Guid accountId, MailCategorySource? source = null);
     Task ToggleFavoriteAsync(Guid categoryId, bool isFavorite);
     Task UpdateRemoteIdAsync(Guid categoryId, string remoteId);
     Task ReplaceCategoriesAsync(Guid accountId, IEnumerable<MailCategory> categories);

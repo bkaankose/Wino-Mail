@@ -223,7 +223,7 @@ public sealed partial class ShellMenuTemplates
         WinoContextFlyoutHelper.Show(target, args, (ContextFlyoutMenuEntry[])
         [
             CreateContextCommand(
-                Translator.ContactList_Rename,
+                contactList.IsCategory ? Translator.Buttons_Edit : Translator.ContactList_Rename,
                 WinoIconGlyph.Rename,
                 "ContactsPaneRenameList",
                 contactList.RenameListCommand),

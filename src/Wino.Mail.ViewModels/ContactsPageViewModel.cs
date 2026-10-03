@@ -9,6 +9,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Extensions;
@@ -60,13 +61,18 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     private readonly IActivationStateService _activationStateService;
     private readonly ICardDavSynchronizationStore _cardDavSynchronizationStore;
     private readonly IPreferencesService _preferencesService;
+    private readonly IMailCategoryService _mailCategoryService;
+    private readonly CategoryEditor _categoryEditor;
     private readonly SemaphoreSlim _loadSemaphore = new(1, 1);
     private readonly ContactFilterGroup _primaryFilterGroup;
+    private readonly ContactFilterGroup _accountFilterGroup;
     private readonly ContactFilterGroup _addressBookFilterGroup;
     private readonly ContactFilterGroup _listFilterGroup;
+    private readonly ContactFilterGroup _categoryFilterGroup;
     private CancellationTokenSource _reloadDebounceCancellationTokenSource;
     private Dictionary<Guid, MailAccount> _accounts = [];
     private HashSet<Guid> _cardDavCreationAccountIds = [];
+    private IReadOnlyList<ContactCreateDestination> _listDestinations = [];
     private int _currentOffset;
     private int _currentQueryVersion;
     private int _explicitRefreshDepth;
@@ -87,19 +93,24 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     [ObservableProperty] public partial bool IsRefreshing { get; set; }
     [ObservableProperty] public partial ContactFilterViewModel SelectedFilter { get; set; }
     [ObservableProperty][NotifyPropertyChangedFor(nameof(IsDetailVisible))] public partial AccountContactViewModel SelectedContact { get; set; }
-    [ObservableProperty] public partial int UnresolvedConflictCount { get; set; }
-    [ObservableProperty] public partial bool IsConflictResolverOpen { get; set; }
-    [ObservableProperty] public partial CardDavConflict CurrentConflict { get; set; }
 
     /// <summary>
     /// True when at least one writable address book can receive a new contact: the same
-    /// destinations the editor offers in its "Save to" picker. New contacts and new lists
-    /// are only offered while this holds.
+    /// destinations the editor offers in its "Save to" picker. New contacts are only
+    /// offered while this holds.
     /// </summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(AddContactCommand))]
-    [NotifyCanExecuteChangedFor(nameof(CreateListCommand))]
     public partial bool HasCreateDestinations { get; set; }
+
+    /// <summary>
+    /// True when at least one account can own a list. A list is stored with its address
+    /// book: on the device, as a CardDAV group or as a Google contact group. Outlook has
+    /// no lists an application can reach, so its address books cannot own one.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CreateListCommand))]
+    public partial bool HasListDestinations { get; set; }
 
     public bool IsEmpty => !IsLoading && Contacts.Count == 0;
 
@@ -112,22 +123,18 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     public bool CanLoadMoreContacts => HasMoreContacts && !IsLoading && !IsLoadingMore;
     public bool CanDeleteSelectedContacts => SelectedContactsCount > 0;
     public bool IsDetailVisible => SelectedContact is not null;
-    public bool HasUnresolvedConflicts => UnresolvedConflictCount > 0;
-    public string ConflictInfoMessage => string.Format(Translator.ContactsPage_CardDavConflictsMessage, UnresolvedConflictCount);
     public bool CanCreateCardDavAddressBook => _cardDavCreationAccountIds.Count > 0;
-    public string ConflictSummary { get; private set; } = string.Empty;
     public double? ListScrollOffset { get; set; }
     public ObservableCollection<AccountContactViewModel> Contacts { get; } = [];
     public ObservableCollection<AccountContactViewModel> SelectedContacts { get; } = [];
-    public ObservableCollection<ContactConflictFieldViewModel> ConflictDifferences { get; } = [];
 
     /// <summary>Alphabetical sections over <see cref="Contacts"/>.</summary>
     public ObservableCollection<ContactGroup> ContactGroups { get; } = [];
 
-    /// <summary>Sidebar sections: primary filters, per-account address books, then local lists.</summary>
+    /// <summary>Sidebar sections: primary filters, accounts, address books, lists, then categories.</summary>
     public ObservableCollection<ContactFilterGroup> FilterGroups { get; } = [];
 
-    /// <summary>Local lists, used by the "Add to list" flyout.</summary>
+    /// <summary>The lists of every account. "Add to list" narrows them to the contact's address book.</summary>
     public ObservableCollection<ContactList> ContactLists { get; } = [];
 
     public ContactsPageViewModel(IContactQueryService contactService, IAccountService accountService,
@@ -137,7 +144,8 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         ICardDavSynchronizationStore cardDavSynchronizationStore = null,
         IPreferencesService preferencesService = null,
         IAppModeReadinessService appModeReadinessService = null,
-        IMailShellClient mailShell = null)
+        IMailShellClient mailShell = null,
+        IMailCategoryService mailCategoryService = null)
     {
         Readiness = new ModeReadinessViewModel(
             WinoApplicationMode.Contacts,
@@ -156,8 +164,14 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         _preferencesService = preferencesService;
         _cardDavSynchronizationStore = cardDavSynchronizationStore;
         _primaryFilterGroup = [];
+        _accountFilterGroup = [];
         _addressBookFilterGroup = [];
         _listFilterGroup = [];
+        _categoryFilterGroup = [];
+        _mailCategoryService = mailCategoryService;
+        _categoryEditor = mailCategoryService is null
+            ? null
+            : new CategoryEditor(mailCategoryService, contactService, dialogService, requestDelegator);
         Contacts.CollectionChanged += ContactsCollectionChanged;
     }
 
@@ -174,6 +188,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         {
             await RefreshCreateDestinationAvailabilityAsync();
             await RefreshCardDavCreationAvailabilityAsync();
+            await BuildFiltersAsync();
             await ReconcileContactsAsync();
             return;
         }
@@ -190,7 +205,6 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         await RefreshCardDavCreationAvailabilityAsync();
         await BuildFiltersAsync();
         await ReloadContactsAsync();
-        await RefreshConflictsAsync();
         _isInitialized = true;
 
         if (parameters is ContactEditNavigationParameter { ImportDraft: not null } importParameter)
@@ -249,13 +263,6 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     }
 
     [RelayCommand]
-    private async Task ReviewConflictsAsync()
-    {
-        IsConflictResolverOpen = true;
-        await RefreshConflictsAsync().ConfigureAwait(false);
-    }
-
-    [RelayCommand]
     private async Task CreateCardDavAddressBookAsync()
     {
         var accounts = _accounts.Values.Where(account => _cardDavCreationAccountIds.Contains(account.Id)).ToList();
@@ -300,11 +307,20 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     {
         var destinations = await _contactService.GetCreateDestinationsAsync().ConfigureAwait(false);
         var hasDestinations = destinations?.Any(destination => !destination.IsReadOnly) == true;
+        var listDestinations = destinations?
+            .Where(destination => !destination.IsReadOnly && destination.SourceKind is not ContactSourceKind.Outlook)
+            .ToList() ?? [];
 
-        await ExecuteUIThread(() => HasCreateDestinations = hasDestinations).ConfigureAwait(false);
+        await ExecuteUIThread(() =>
+        {
+            _listDestinations = listDestinations;
+            HasCreateDestinations = hasDestinations;
+            HasListDestinations = listDestinations.Count > 0;
+        }).ConfigureAwait(false);
     }
 
     partial void OnHasCreateDestinationsChanged(bool value) => ApplyMenuInteractionState();
+    partial void OnHasListDestinationsChanged(bool value) => ApplyMenuInteractionState();
 
     private async Task RefreshCardDavCreationAvailabilityAsync()
     {
@@ -326,66 +342,6 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         });
     }
 
-    [RelayCommand]
-    private Task UseServerConflictAsync() => ResolveCurrentConflictAsync(CardDavConflictResolution.UseServer);
-
-    [RelayCommand]
-    private Task UseMineConflictAsync() => ResolveCurrentConflictAsync(CardDavConflictResolution.UseLocal);
-
-    [RelayCommand]
-    private Task KeepBothConflictAsync() => ResolveCurrentConflictAsync(CardDavConflictResolution.KeepBoth);
-
-    private async Task ResolveCurrentConflictAsync(CardDavConflictResolution resolution)
-    {
-        if (_cardDavSynchronizationStore is null || CurrentConflict is null)
-            return;
-
-        await _cardDavSynchronizationStore.ResolveConflictAsync(CurrentConflict.Id, resolution).ConfigureAwait(false);
-        await RefreshConflictsAsync().ConfigureAwait(false);
-        await ReconcileContactsAsync().ConfigureAwait(false);
-    }
-
-    private async Task RefreshConflictsAsync()
-    {
-        var conflicts = _cardDavSynchronizationStore is null
-            ? []
-            : await _cardDavSynchronizationStore.GetUnresolvedConflictsAsync().ConfigureAwait(false);
-        await ExecuteUIThread(() =>
-        {
-            UnresolvedConflictCount = conflicts.Count;
-            CurrentConflict = conflicts.FirstOrDefault();
-            IsConflictResolverOpen = IsConflictResolverOpen && CurrentConflict is not null;
-            OnPropertyChanged(nameof(HasUnresolvedConflicts));
-            OnPropertyChanged(nameof(ConflictInfoMessage));
-        }).ConfigureAwait(false);
-        var details = CurrentConflict is null || _cardDavSynchronizationStore is null
-            ? null
-            : await _cardDavSynchronizationStore.GetConflictDetailsAsync(CurrentConflict.Id).ConfigureAwait(false);
-        await ExecuteUIThread(() =>
-        {
-            ConflictSummary = details?.ContactDisplayName ?? string.Empty;
-            ConflictDifferences.Clear();
-            foreach (var difference in details?.Differences ?? [])
-                ConflictDifferences.Add(new ContactConflictFieldViewModel(
-                    GetConflictFieldName(difference.FieldKey), difference.LocalValue, difference.ServerValue));
-            OnPropertyChanged(nameof(ConflictSummary));
-        }).ConfigureAwait(false);
-    }
-
-    private static string GetConflictFieldName(string fieldKey) => fieldKey switch
-    {
-        "DisplayName" => Translator.ContactField_DisplayName,
-        "GivenName" => Translator.ContactField_GivenName,
-        "Surname" => Translator.ContactField_Surname,
-        "Company" => Translator.ContactField_Company,
-        "JobTitle" => Translator.ContactField_JobTitle,
-        "Email" => Translator.ContactField_Email,
-        "Phone" => Translator.ContactField_Phone,
-        "Website" => Translator.ContactField_Website,
-        "Notes" => Translator.ContactField_Notes,
-        _ => fieldKey
-    };
-
     /// <summary>
     /// Reconciles the sidebar without replacing its observable groups or unchanged items.
     /// </summary>
@@ -395,6 +351,15 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         var lists = await _contactService.GetContactListsAsync().ConfigureAwait(false);
         var listCounts = await _contactService.GetContactListCountsAsync().ConfigureAwait(false);
         var favoritesCount = await _contactService.GetFavoriteContactsCountAsync().ConfigureAwait(false);
+        var categories = new List<MailCategory>();
+
+        if (_mailCategoryService is not null)
+        {
+            foreach (var accountId in _accounts.Keys.ToList())
+                categories.AddRange(await _mailCategoryService.GetCategoriesAsync(accountId).ConfigureAwait(false));
+        }
+
+        categories = [.. categories.OrderBy(category => category.Name, StringComparer.OrdinalIgnoreCase)];
 
         Interlocked.Increment(ref _suppressSelectedFilterReloadDepth);
         try
@@ -402,20 +367,26 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             await ExecuteUIThread(() =>
             {
                 var previousKind = SelectedFilter?.Kind;
+                var previousAccountId = SelectedFilter?.AccountId;
                 var previousBookId = SelectedFilter?.AddressBookId;
                 var previousListId = SelectedFilter?.ListId;
+                var previousCategoryId = SelectedFilter?.CategoryId;
 
                 ReconcilePrimaryFilters(favoritesCount);
+                ReconcileAccountFilters(books);
                 ReconcileAddressBookFilters(books);
                 ReconcileListFilters(lists, listCounts);
+                ReconcileCategoryFilters(categories);
                 ReconcileFilterGroups();
 
                 var all = FilterGroups.SelectMany(group => group).ToList();
                 SelectedFilter = previousKind switch
                 {
                     ContactFilterKind.Favorites => all.FirstOrDefault(item => item.Kind == ContactFilterKind.Favorites),
+                    ContactFilterKind.Account => all.FirstOrDefault(item => item.Kind == ContactFilterKind.Account && item.AccountId == previousAccountId),
                     ContactFilterKind.AddressBook => all.FirstOrDefault(item => item.AddressBookId == previousBookId),
                     ContactFilterKind.List => all.FirstOrDefault(item => item.ListId == previousListId),
+                    ContactFilterKind.Category => all.FirstOrDefault(item => item.IsCategory && item.CategoryId == previousCategoryId),
                     _ => null
                 } ?? all.FirstOrDefault();
             });
@@ -458,6 +429,41 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         RemoveFiltersExcept(_primaryFilterGroup, (ContactFilterViewModel[])[all, favorites]);
     }
 
+    /// <summary>One row per account that holds an address book.</summary>
+    private void ReconcileAccountFilters(IReadOnlyList<ContactAddressBook> books)
+    {
+        var accounts = books
+            .Select(book => book.MailAccountId)
+            .Distinct()
+            .Where(_accounts.ContainsKey)
+            .Select(accountId => _accounts[accountId])
+            .OrderBy(account => account.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var desired = new List<ContactFilterViewModel>(accounts.Count);
+
+        for (var targetIndex = 0; targetIndex < accounts.Count; targetIndex++)
+        {
+            var account = accounts[targetIndex];
+            var filter = _accountFilterGroup.FirstOrDefault(item => item.AccountId == account.Id);
+
+            if (filter is null)
+            {
+                filter = ContactFilterViewModel.CreateAccount(account);
+                AttachFilterCallbacks(filter);
+                _accountFilterGroup.Insert(Math.Min(targetIndex, _accountFilterGroup.Count), filter);
+            }
+            else
+            {
+                filter.UpdateAccount(account);
+            }
+
+            MoveToIndex(_accountFilterGroup, filter, targetIndex);
+            desired.Add(filter);
+        }
+
+        RemoveFiltersExcept(_accountFilterGroup, desired);
+    }
+
     private void ReconcileAddressBookFilters(IReadOnlyList<ContactAddressBook> books)
     {
         var orderedBooks = books
@@ -473,7 +479,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             _accounts.TryGetValue(book.MailAccountId, out var account);
             var filter = _addressBookFilterGroup.FirstOrDefault(item => item.AddressBookId == book.Id);
 
-            if (filter is null || filter.AccountId != book.MailAccountId || !ReferenceEquals(filter.Account, account))
+            if (filter is null || filter.AccountId != book.MailAccountId)
             {
                 var replacement = ContactFilterViewModel.CreateAddressBook(book, account);
                 replacement.Name = GetAddressBookName(book, account);
@@ -531,15 +537,114 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         ReconcileContactLists(desiredLists);
     }
 
+    private void ReconcileCategoryFilters(IReadOnlyList<MailCategory> categories)
+    {
+        var desired = new List<ContactFilterViewModel>(categories.Count);
+
+        for (var targetIndex = 0; targetIndex < categories.Count; targetIndex++)
+        {
+            var category = categories[targetIndex];
+            var filter = _categoryFilterGroup.FirstOrDefault(item => item.CategoryId == category.Id);
+
+            if (filter is null)
+            {
+                filter = ContactFilterViewModel.CreateCategory(category);
+                AttachFilterCallbacks(filter);
+                _categoryFilterGroup.Insert(Math.Min(targetIndex, _categoryFilterGroup.Count), filter);
+            }
+            else
+            {
+                filter.UpdateCategory(category);
+            }
+
+            MoveToIndex(_categoryFilterGroup, filter, targetIndex);
+            desired.Add(filter);
+        }
+
+        RemoveFiltersExcept(_categoryFilterGroup, desired);
+    }
+
+    /// <summary>
+    /// The categories the "Categorize" menu offers. Categories belong to an account, so a
+    /// selection that spans accounts is offered none.
+    /// </summary>
+    public IReadOnlyList<MailCategory> GetAvailableCategories(IReadOnlyList<AccountContactViewModel> contacts)
+    {
+        var accountIds = contacts.Select(contact => contact.SourceContact.MailAccountId).Distinct().ToList();
+        return accountIds.Count == 1
+            ? [.. _categoryFilterGroup.Where(filter => filter.AccountId == accountIds[0]).Select(filter => filter.Category)]
+            : [];
+    }
+
+    /// <summary>
+    /// Applies the category to every target, or takes it off when all of them carry it.
+    /// </summary>
+    public async Task ToggleContactCategoryAsync(MailCategory category, IReadOnlyList<AccountContactViewModel> contacts)
+    {
+        if (category is null || contacts.Count == 0)
+            return;
+
+        var isAssignedToAll = contacts.All(contact => contact.Categories.Any(item => item.Id == category.Id));
+        var requests = new List<IRequestBase>();
+
+        foreach (var contact in contacts)
+        {
+            var hasCategory = contact.Categories.Any(item => item.Id == category.Id);
+            if (isAssignedToAll)
+                requests.Add(new ContactCategoryRequest(contact.SourceContact, contact.Categories.Where(item => item.Id != category.Id)));
+            else if (!hasCategory)
+                requests.Add(new ContactCategoryRequest(contact.SourceContact, contact.Categories.Append(category)));
+        }
+
+        try
+        {
+            await _requestDelegator.ExecuteAsync(category.MailAccountId, requests).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
+        }
+    }
+
+    private async Task EditCategoryAsync(ContactFilterViewModel filter)
+    {
+        if (_categoryEditor is null || !_accounts.TryGetValue(filter.AccountId ?? Guid.Empty, out var account))
+            return;
+
+        if (await _categoryEditor.CreateOrUpdateAsync(account, filter.Category))
+        {
+            await BuildFiltersAsync();
+            await ReloadContactsAsync();
+        }
+    }
+
+    private async Task DeleteCategoryAsync(ContactFilterViewModel filter)
+    {
+        if (_categoryEditor is null || !_accounts.TryGetValue(filter.AccountId ?? Guid.Empty, out var account))
+            return;
+
+        if (await _categoryEditor.DeleteAsync(account, filter.Category))
+        {
+            await BuildFiltersAsync();
+            await ReloadContactsAsync();
+        }
+    }
+
     private void ReconcileFilterGroups()
     {
         var desired = new List<ContactFilterGroup> { _primaryFilterGroup };
+
+        if (_accountFilterGroup.Count > 0)
+            desired.Add(_accountFilterGroup);
 
         if (_addressBookFilterGroup.Count > 0)
             desired.Add(_addressBookFilterGroup);
 
         if (_listFilterGroup.Count > 0)
             desired.Add(_listFilterGroup);
+
+        if (_categoryFilterGroup.Count > 0)
+            desired.Add(_categoryFilterGroup);
 
         for (var targetIndex = 0; targetIndex < desired.Count; targetIndex++)
         {
@@ -613,6 +718,9 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         target.SortOrder = source.SortOrder;
         target.CreatedAtUtc = source.CreatedAtUtc;
         target.ModifiedAtUtc = source.ModifiedAtUtc;
+        target.MailAccountId = source.MailAccountId;
+        target.AddressBookId = source.AddressBookId;
+        target.RemoteId = source.RemoteId;
     }
 
     private static ContactAddressBook CloneAddressBook(ContactAddressBook source)
@@ -671,7 +779,12 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             DebounceReconcile();
 
         if (_isPageActive)
+        {
             _ = RefreshCreateDestinationAvailabilityAsync();
+
+            // A synchronization can bring lists and categories the pane does not show yet.
+            _ = BuildFiltersAsync();
+        }
     }
 
     void IRecipient<ContactStateChanged>.Receive(ContactStateChanged message)
@@ -695,7 +808,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         => _ = ExecuteUIThread(() => ApplyAccountUpdate(message.Account));
 
     /// <summary>
-    /// Keeps the address book rows on the latest account copy, so a finished Fix account
+    /// Keeps the account rows on the latest account copy, so a finished Fix account
     /// removes their Fix button and lets them synchronize again.
     /// </summary>
     private void ApplyAccountUpdate(MailAccount account)
@@ -706,7 +819,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         if (account.IsContactAccessEnabled)
             _accounts[account.Id] = account;
 
-        foreach (var filter in _addressBookFilterGroup.Where(item => item.AccountId == account.Id))
+        foreach (var filter in _accountFilterGroup.Where(item => item.AccountId == account.Id))
         {
             filter.UpdateAccount(account);
         }
@@ -748,6 +861,12 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             return;
         }
 
+        if (SelectedFilter?.CategoryId is Guid selectedCategoryId && existing.Categories.All(category => category.Id != selectedCategoryId))
+        {
+            RemoveContacts(new HashSet<Guid> { existing.Id });
+            return;
+        }
+
         if (!string.Equals(previousInitialLetter, existing.InitialLetter, StringComparison.Ordinal))
         {
             RemoveFromGroups(existing);
@@ -759,8 +878,10 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         => SelectedFilter?.Kind switch
         {
             ContactFilterKind.Favorites => contact.IsFavorite,
+            ContactFilterKind.Account => SelectedFilter.AccountId == contact.MailAccountId,
             ContactFilterKind.AddressBook => SelectedFilter.AddressBookId == contact.AddressBookId,
             ContactFilterKind.List => false,
+            ContactFilterKind.Category => contact.Categories?.Any(category => category.Id == SelectedFilter.CategoryId) == true,
             _ => true
         };
 
@@ -810,7 +931,14 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         if (message.Change == OptimisticEntityChange.Delete)
         {
             if (existing is not null)
+            {
+                if (ReferenceEquals(SelectedFilter, existing))
+                    SelectedFilter = _primaryFilterGroup.FirstOrDefault(item => item.Kind == ContactFilterKind.All);
+
                 _addressBookFilterGroup.Remove(existing);
+                ReconcileFilterGroups();
+            }
+
             return;
         }
 
@@ -824,6 +952,11 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             _addressBookFilterGroup.Add(replacement);
         else
             _addressBookFilterGroup[_addressBookFilterGroup.IndexOf(existing)] = replacement;
+
+        if (ReferenceEquals(SelectedFilter, existing))
+            SelectedFilter = replacement;
+
+        ReconcileFilterGroups();
     }
     private async void SelectedContactsChanged(object sender, NotifyCollectionChangedEventArgs e) => await ExecuteUIThread(() => SelectedContactsCount = SelectedContacts.Count);
     private async void ContactsCollectionChanged(object sender, NotifyCollectionChangedEventArgs e) => await ExecuteUIThread(() => OnPropertyChanged(nameof(IsEmpty)));
@@ -1155,13 +1288,36 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         });
     }
 
-    [RelayCommand(CanExecute = nameof(HasCreateDestinations))]
+    /// <summary>
+    /// A list is always created for one account. It goes to that account's default
+    /// address book and is stored the way the address book is.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(HasListDestinations))]
     private async Task CreateListAsync()
     {
-        var name = await _dialogService.ShowTextInputDialogAsync(
-            string.Empty, Translator.ContactList_NewTitle, Translator.ContactList_NameHeader, Translator.Buttons_Save);
+        var destinations = _listDestinations;
+        var accounts = destinations
+            .Select(destination => destination.MailAccountId)
+            .Distinct()
+            .Where(_accounts.ContainsKey)
+            .Select(accountId => _accounts[accountId])
+            .ToList();
 
-        if (string.IsNullOrWhiteSpace(name)) return;
+        if (accounts.Count == 0) return;
+
+        var activeAccountId = GetActiveAccountId();
+        var result = await _dialogService.ShowNewContactListDialogAsync(
+            accounts, accounts.FirstOrDefault(account => account.Id == activeAccountId));
+
+        if (result is null || string.IsNullOrWhiteSpace(result.Name)) return;
+
+        var destination = destinations
+            .Where(item => item.MailAccountId == result.Account.Id)
+            .OrderByDescending(item => item.IsDefault)
+            .First();
+
+        // The new list shows up under its account.
+        _activeAccountId = destination.MailAccountId;
 
         try
         {
@@ -1169,15 +1325,15 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             var list = new ContactList
             {
                 Id = Guid.NewGuid(),
-                Name = name.Trim(),
+                Name = result.Name.Trim(),
+                MailAccountId = destination.MailAccountId,
+                AddressBookId = destination.AddressBookId,
                 SortOrder = ContactLists.Count,
                 CreatedAtUtc = now,
                 ModifiedAtUtc = now
             };
 
-            await _requestDelegator.ExecuteLocalAsync(new ApplicationLocalContactRequest(
-                ApplicationLocalContactOperation.CreateList,
-                list: list)).ConfigureAwait(false);
+            await ExecuteListRequestAsync(new ContactListRequest(ContactSynchronizerOperation.CreateList, list)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -1188,6 +1344,12 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task RenameListAsync(ContactFilterViewModel filter)
     {
+        if (filter?.Category is not null)
+        {
+            await EditCategoryAsync(filter);
+            return;
+        }
+
         if (filter?.CanManageRemoteAddressBook == true)
         {
             var remoteName = await _dialogService.ShowTextInputDialogAsync(
@@ -1219,10 +1381,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             var desired = RequestEntityCloner.ContactList(filter.List);
             desired.Name = name.Trim();
 
-            await _requestDelegator.ExecuteLocalAsync(new ApplicationLocalContactRequest(
-                ApplicationLocalContactOperation.UpdateList,
-                list: desired,
-                originalList: original)).ConfigureAwait(false);
+            await ExecuteListRequestAsync(new ContactListRequest(ContactSynchronizerOperation.RenameList, desired, original)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -1233,6 +1392,12 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     [RelayCommand]
     private async Task DeleteListAsync(ContactFilterViewModel filter)
     {
+        if (filter?.Category is not null)
+        {
+            await DeleteCategoryAsync(filter);
+            return;
+        }
+
         if (filter?.CanManageRemoteAddressBook == true)
         {
             var remoteConfirmed = await _dialogService.ShowConfirmationDialogAsync(
@@ -1260,10 +1425,7 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         {
             var wasSelected = SelectedFilter?.ListId == filter.List.Id;
 
-            await _requestDelegator.ExecuteLocalAsync(new ApplicationLocalContactRequest(
-                ApplicationLocalContactOperation.DeleteList,
-                list: filter.List,
-                originalList: filter.List)).ConfigureAwait(false);
+            await ExecuteListRequestAsync(new ContactListRequest(ContactSynchronizerOperation.DeleteList, filter.List, filter.List)).ConfigureAwait(false);
 
             if (wasSelected)
                 await ReconcileContactsAsync().ConfigureAwait(false);
@@ -1290,7 +1452,10 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     public async Task<IReadOnlyList<ContactList>> GetAssignableListsAsync(IReadOnlyList<AccountContactViewModel> contacts)
     {
-        var availableLists = ContactLists.ToList();
+        // A list only takes contacts of its own address book.
+        var availableLists = ContactLists
+            .Where(list => contacts.All(contact => contact.SourceContact.AddressBookId == list.AddressBookId))
+            .ToList();
 
         try
         {
@@ -1327,12 +1492,20 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
         if (ids.Count == 0)
             return;
 
+        // A list only takes contacts of its own address book.
+        if (Contacts.Any(contact => ids.Contains(contact.Id) && contact.SourceContact.AddressBookId != list.AddressBookId))
+        {
+            _dialogService.InfoBarMessage(
+                Translator.ContactInfoBar_ErrorTitle,
+                Translator.ContactList_SynchronizedListForeignContact,
+                InfoBarMessageType.Error);
+            return;
+        }
+
         try
         {
-            await _requestDelegator.ExecuteLocalAsync(new ApplicationLocalContactRequest(
-                ApplicationLocalContactOperation.AddMembership,
-                list: list,
-                contactIds: ids)).ConfigureAwait(false);
+            await ExecuteListRequestAsync(new ContactListRequest(
+                ContactSynchronizerOperation.UpdateListMembers, list, addedContactIds: ids)).ConfigureAwait(false);
             _dialogService.InfoBarMessage(
                 Translator.ContactList_AddedTitle,
                 string.Format(Translator.ContactList_AddedMessage, ids.Count, list.Name),
@@ -1385,16 +1558,18 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
             if (list is null)
                 return;
 
-            await _requestDelegator.ExecuteLocalAsync(new ApplicationLocalContactRequest(
-                ApplicationLocalContactOperation.RemoveMembership,
-                list: list,
-                contactIds: (Guid[])[contact.Id])).ConfigureAwait(false);
+            await ExecuteListRequestAsync(new ContactListRequest(
+                ContactSynchronizerOperation.UpdateListMembers, list, removedContactIds: (Guid[])[contact.Id])).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
             _dialogService.InfoBarMessage(Translator.ContactInfoBar_ErrorTitle, ex.Message, InfoBarMessageType.Error);
         }
     }
+
+    /// <summary>Hands a list change to the synchronizer of the account that owns the list.</summary>
+    private Task ExecuteListRequestAsync(ContactListRequest request)
+        => _requestDelegator.ExecuteAsync(request.MailAccountId, new IRequestBase[] { request });
 
     private void AddContactList(ContactList list)
     {
@@ -1469,15 +1644,16 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
 
     partial void OnSelectedFilterChanged(ContactFilterViewModel value)
     {
-        // Address book rows draw the shared account row, which shows its active
-        // state from the item rather than from the pane's own selection visual.
-        foreach (var filter in FilterGroups.SelectMany(group => group))
-        {
-            filter.IsSelected = ReferenceEquals(filter, value);
-        }
+        if (value?.Kind == ContactFilterKind.Account)
+            _activeAccountId = value.AccountId;
+
+        ApplyFilterSelectionStates();
 
         // The navigation pane binds its selection through IShellMenuProvider.SelectedMenuItem.
         OnPropertyChanged(nameof(IShellMenuProvider.SelectedMenuItem));
+
+        // The lists at the end of the pane follow the active account.
+        _ = SyncShellMenuItemsAfterSelectionAsync();
 
         if (value is null || Volatile.Read(ref _suppressSelectedFilterReloadDepth) > 0) return;
 
@@ -1644,8 +1820,12 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
                currentContact.IsFavorite != updatedContact.IsFavorite ||
                currentContact.ContactPictureFileId != updatedContact.ContactPictureFileId ||
                currentContact.PendingMutation != updatedContact.PendingMutation ||
+               !current.Categories.Select(GetCategorySignature).SequenceEqual(updated.Categories.Select(GetCategorySignature)) ||
                !string.Equals(currentContact.RemoteVersion, updatedContact.RemoteVersion, StringComparison.Ordinal);
     }
+
+    private static string GetCategorySignature(MailCategory category)
+        => $"{category.Id:N}|{category.Name}|{category.BackgroundColorHex}|{category.TextColorHex}";
 
     private async void DebounceReconcile()
     {

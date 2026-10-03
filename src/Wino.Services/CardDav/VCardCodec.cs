@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -13,6 +12,9 @@ namespace Wino.Services.CardDav;
 
 public sealed class VCardCodec : IVCardCodec
 {
+    private const string AppleKind = "X-ADDRESSBOOKSERVER-KIND";
+    private const string AppleMember = "X-ADDRESSBOOKSERVER-MEMBER";
+
     public VCardDocument Parse(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
@@ -89,6 +91,11 @@ public sealed class VCardCodec : IVCardCodec
         contact.MiddleName = structuredName.ElementAtOrDefault(2);
         contact.HonorificPrefix = structuredName.ElementAtOrDefault(3);
         contact.HonorificSuffix = structuredName.ElementAtOrDefault(4);
+
+        // FN is mandatory but not every card carries one. The structured name stands in.
+        if (string.IsNullOrWhiteSpace(contact.DisplayName))
+            contact.DisplayName = contact.StructuredName;
+
         contact.Nickname = TextValue(First(document, "NICKNAME"));
         contact.FileAs = TextValue(First(document, "SORT-STRING"));
 
@@ -99,7 +106,12 @@ public sealed class VCardCodec : IVCardCodec
         contact.Profession = TextValue(First(document, "ROLE"));
         contact.Notes = TextValue(First(document, "NOTE"));
         contact.Website = TextValue(First(document, "URL"));
+        contact.CategoryNames = [.. GetCategories(document)];
         ApplyBirthday(contact, TextValue(First(document, "BDAY")));
+
+        // Apple stores a birthday without a year as a full date in a placeholder year.
+        if (First(document, "BDAY")?.Parameters.Any(parameter => parameter.Name == "X-APPLE-OMIT-YEAR") == true)
+            contact.BirthdayYear = null;
 
         var order = 0;
         foreach (var property in All(document, "EMAIL"))
@@ -255,25 +267,93 @@ public sealed class VCardCodec : IVCardCodec
         return builder.ToString();
     }
 
-    public VCardHashes ComputeHashes(VCardDocument document, AccountContact projection, string rawContent = null)
+    public string GetUid(VCardDocument document) => TextValue(First(document, "UID"))?.Trim();
+
+    public IReadOnlyList<string> GetCategories(VCardDocument document)
     {
-        var serialized = rawContent ?? Serialize(document);
-        var semantic = string.Join("\n", document.Properties
-            .Where(property => property.Name is not "REV" and not "PRODID")
-            .Select(SerializeProperty)
-            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase));
-        var domain = string.Join("|",
-            projection.DisplayName, projection.HonorificPrefix, projection.GivenName, projection.MiddleName,
-            projection.Surname, projection.HonorificSuffix, projection.Nickname, projection.FileAs,
-            projection.CompanyName, projection.Department, projection.JobTitle, projection.OfficeLocation,
-            projection.Profession, projection.BirthdayYear, projection.BirthdayMonth, projection.BirthdayDay,
-            projection.Notes, projection.Website,
-            string.Join(",", projection.EmailAddresses.OrderBy(item => item.Order).Select(item => $"{item.Address}:{item.Label}:{item.IsPrimary}")),
-            string.Join(",", projection.PhoneNumbers.OrderBy(item => item.Order).Select(item => $"{item.Number}:{item.Kind}:{item.IsPrimary}")),
-            string.Join(",", projection.PostalAddresses.Select(item => $"{item.Kind}:{item.PostOfficeBox}:{item.Street}:{item.City}:{item.Region}:{item.PostalCode}:{item.Country}")),
-            string.Join(",", projection.ImAddresses.OrderBy(item => item.Order).Select(item => $"{item.Address}:{item.Protocol}")),
-            string.Join(",", projection.Relations.OrderBy(item => item.Order).Select(item => $"{item.Name}:{item.Kind}")));
-        return new VCardHashes(Hash(serialized), Hash(semantic), Hash(domain));
+        ArgumentNullException.ThrowIfNull(document);
+        return All(document, "CATEGORIES")
+            .SelectMany(property => Components(property.Value, ','))
+            .Select(name => name?.Trim())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public void SetCategories(VCardDocument document, IEnumerable<string> categoryNames)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        var names = (categoryNames ?? [])
+            .Select(name => name?.Trim())
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        document.Properties.RemoveAll(property => property.Name.Equals("CATEGORIES", StringComparison.OrdinalIgnoreCase));
+        if (names.Count > 0)
+            document.Properties.Add(Property("CATEGORIES", string.Join(",", names.Select(EscapeText))));
+    }
+
+    public VCardDocument CreateGroup(string name, string version, string uid)
+    {
+        var document = new VCardDocument { Version = version == "4.0" ? "4.0" : "3.0" };
+        document.Properties.Add(Property("VERSION", document.Version));
+        document.Properties.Add(Property("UID", uid));
+
+        // vCard 3 has no group kind of its own; servers of that generation use Apple's extension.
+        document.Properties.Add(Property(document.Version == "4.0" ? "KIND" : AppleKind, "group"));
+        SetGroupName(document, name);
+        return document;
+    }
+
+    public bool IsGroup(VCardDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        var kind = First(document, AppleKind) ?? First(document, "KIND");
+        return string.Equals(kind?.Value?.Trim(), "group", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public string GetGroupName(VCardDocument document)
+    {
+        var name = TextValue(First(document, "FN"));
+        return string.IsNullOrWhiteSpace(name) ? Components(First(document, "N")?.Value, ';').FirstOrDefault() : name;
+    }
+
+    public void SetGroupName(VCardDocument document, string name)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        PatchSingle(document, "FN", EscapeText(name));
+        PatchSingle(document, "N", JoinStructured(name, null, null, null, null));
+    }
+
+    public IReadOnlyList<string> GetGroupMembers(VCardDocument document)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        return All(document, AppleMember).Concat(All(document, "MEMBER"))
+            .Select(property => MemberUid(property.Value))
+            .Where(uid => !string.IsNullOrWhiteSpace(uid))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public void SetGroupMembers(VCardDocument document, IEnumerable<string> memberUids)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+
+        // Keep the member property the group already uses: Apple's extension or RFC 6350.
+        var name = All(document, "MEMBER").Any() || (First(document, AppleKind) is null && First(document, "KIND") is not null)
+            ? "MEMBER"
+            : AppleMember;
+        document.Properties.RemoveAll(property => property.Name is AppleMember or "MEMBER");
+        foreach (var uid in (memberUids ?? []).Where(uid => !string.IsNullOrWhiteSpace(uid)).Distinct(StringComparer.OrdinalIgnoreCase))
+            document.Properties.Add(Property(name, "urn:uuid:" + uid.Trim()));
+    }
+
+    private static string MemberUid(string value)
+    {
+        var trimmed = value?.Trim() ?? string.Empty;
+        return trimmed.StartsWith("urn:uuid:", StringComparison.OrdinalIgnoreCase) ? trimmed[9..] : trimmed;
     }
 
     private static void PatchSingle(VCardDocument document, string name, string value)
@@ -490,7 +570,25 @@ public sealed class VCardCodec : IVCardCodec
     }
 
     private static string EscapeText(string value) => value?.Replace("\\", "\\\\").Replace("\n", "\\n").Replace(";", "\\;").Replace(",", "\\,");
-    private static string UnescapeText(string value) => value?.Replace("\\n", "\n", StringComparison.OrdinalIgnoreCase).Replace("\\,", ",").Replace("\\;", ";").Replace("\\\\", "\\");
+    private static string UnescapeText(string value)
+    {
+        if (string.IsNullOrEmpty(value) || !value.Contains('\\')) return value;
+
+        var builder = new StringBuilder(value.Length);
+        for (var index = 0; index < value.Length; index++)
+        {
+            if (value[index] != '\\' || index + 1 == value.Length)
+            {
+                builder.Append(value[index]);
+                continue;
+            }
+
+            var escaped = value[++index];
+            builder.Append(escaped is 'n' or 'N' ? '\n' : escaped);
+        }
+        return builder.ToString();
+    }
+
     private static string JoinStructured(params string[] values) => string.Join(';', values.Select(value => EscapeText(value) ?? string.Empty));
     private static string TrimQuotes(string value) => value.Length >= 2 && value[0] == '"' && value[^1] == '"' ? value[1..^1] : value;
     private static string DecodeParameter(string value) => value.Replace("^^", "^").Replace("^n", "\n", StringComparison.OrdinalIgnoreCase).Replace("^'", "\"");
@@ -525,7 +623,8 @@ public sealed class VCardCodec : IVCardCodec
     }
 
     private static string GetLabel(VCardProperty property)
-        => property.Parameters.FirstOrDefault(parameter => parameter.Name == "TYPE")?.Values.FirstOrDefault(value => !value.Equals("pref", StringComparison.OrdinalIgnoreCase));
+        => property.Parameters.Where(parameter => parameter.Name == "TYPE").SelectMany(parameter => parameter.Values).FirstOrDefault(value =>
+            !value.Equals("pref", StringComparison.OrdinalIgnoreCase) && !value.Equals("internet", StringComparison.OrdinalIgnoreCase));
 
     private static IEnumerable<string> ParameterValues(VCardProperty property, string name)
         => property.Parameters.Where(parameter => parameter.Name.Equals(name, StringComparison.OrdinalIgnoreCase)).SelectMany(parameter => parameter.Values);
@@ -575,6 +674,4 @@ public sealed class VCardCodec : IVCardCodec
             contact.BirthdayDay = day;
         }
     }
-
-    private static string Hash(string value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value ?? string.Empty)));
 }

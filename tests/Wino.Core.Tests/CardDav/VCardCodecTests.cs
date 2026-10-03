@@ -26,6 +26,26 @@ public sealed class VCardCodecTests
     }
 
     [Fact]
+    public void Categories_AreReadFromEveryProperty_AndWrittenAsOne()
+    {
+        const string source = "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:person-1\r\nFN:Jane Doe\r\nCATEGORIES:Family,Work\\, remote\r\nCATEGORIES:family,Friends\r\nX-CUSTOM:kept\r\nEND:VCARD\r\n";
+
+        var document = _codec.Parse(source);
+
+        _codec.GetCategories(document).Should().Equal("Family", "Work, remote", "Friends");
+        _codec.Project(document).CategoryNames.Should().Equal("Family", "Work, remote", "Friends");
+
+        _codec.SetCategories(document, ["Friends", "A, B"]);
+        var serialized = _codec.Serialize(document);
+
+        serialized.Should().Contain("CATEGORIES:Friends,A\\, B").And.Contain("X-CUSTOM:kept");
+        serialized.Split("CATEGORIES").Should().HaveCount(2);
+
+        _codec.SetCategories(document, []);
+        _codec.Serialize(document).Should().NotContain("CATEGORIES");
+    }
+
+    [Fact]
     public void Parse_SupportsFoldedUtf8AndRfc6868Parameters()
     {
         const string source = "BEGIN:VCARD\nVERSION:4.0\nFN:Zoë Example\nEMAIL;TYPE=\"work^'team^nprimary\":zoe@example.com\nNOTE:Long text that is \n folded\nEND:VCARD\n";

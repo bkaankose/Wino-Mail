@@ -1,4 +1,5 @@
 using System.Linq;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 
 namespace Wino.Core.Requests;
@@ -92,9 +93,27 @@ public static class RequestEntityCloner
                 Kind = item.Kind,
                 Name = item.Name,
                 Order = item.Order
-            }).ToList() ?? []
+            }).ToList() ?? [],
+            Categories = source.Categories?.Select(MailCategory).ToList() ?? [],
+            CategoryNames = source.CategoryNames?.ToList(),
+            ListRemoteIds = source.ListRemoteIds?.ToList()
         };
     }
+
+    public static MailCategory MailCategory(MailCategory source)
+        => source is null
+            ? null
+            : new MailCategory
+            {
+                Id = source.Id,
+                MailAccountId = source.MailAccountId,
+                RemoteId = source.RemoteId,
+                Name = source.Name,
+                IsFavorite = source.IsFavorite,
+                BackgroundColorHex = source.BackgroundColorHex,
+                TextColorHex = source.TextColorHex,
+                Source = source.Source
+            };
 
     public static AccountTaskList TaskList(AccountTaskList source)
         => source is null
@@ -206,6 +225,9 @@ public static class RequestEntityCloner
                 Description = source.Description,
                 ColorHex = source.ColorHex,
                 SortOrder = source.SortOrder,
+                MailAccountId = source.MailAccountId,
+                AddressBookId = source.AddressBookId,
+                RemoteId = source.RemoteId,
                 CreatedAtUtc = source.CreatedAtUtc,
                 ModifiedAtUtc = source.ModifiedAtUtc
             };

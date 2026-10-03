@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -12,22 +11,28 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
+using Serilog;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.CardDav;
 using Wino.Services.Dav;
 
 namespace Wino.Services.CardDav;
 
+/// <summary>
+/// CardDAV protocol requests (RFC 6352) with WebDAV sync (RFC 6578). Holds no state;
+/// what to request and what to do with the answer is decided by the synchronization engine.
+/// </summary>
 public sealed class CardDavClient : ICardDavClient
 {
     private const string DavNamespace = "DAV:";
     private const string CardDavNamespace = "urn:ietf:params:xml:ns:carddav";
     private const string CalendarServerNamespace = "http://calendarserver.org/ns/";
+    private const long MaximumResourceBytes = 64L * 1024 * 1024;
+    private static readonly ILogger Logger = Log.ForContext<CardDavClient>();
     private static readonly HttpMethod PropFindMethod = new("PROPFIND");
     private static readonly HttpMethod ReportMethod = new("REPORT");
     private static readonly HttpMethod PropPatchMethod = new("PROPPATCH");
     private static readonly HttpMethod MkColMethod = new("MKCOL");
-    private static readonly ConcurrentDictionary<string, byte> LimitRejectingOrigins = new(StringComparer.OrdinalIgnoreCase);
     private readonly IDavTransport _transport;
     private readonly IDavMultistatusReader _multistatusReader;
     private readonly IDavResponseHandler _responseHandler;
@@ -45,37 +50,58 @@ public sealed class CardDavClient : ICardDavClient
     public async Task<CardDavDiscoveryResult> DiscoverAsync(CardDavConnectionSettings settings, CancellationToken cancellationToken = default)
     {
         Validate(settings);
+        const string properties = "<D:current-user-principal /><C:addressbook-home-set /><D:resourcetype />";
         var contextUri = settings.ServiceUri ?? BuildWellKnownUri(settings.AccountAddress);
-        var context = await PropFindAsync(settings, contextUri, "0", DiscoveryProperties(), cancellationToken).ConfigureAwait(false);
-        var contextResponse = FindSuccessfulResponse(context, contextUri);
+        var context = await PropFindAsync(settings, contextUri, "0", properties, cancellationToken).ConfigureAwait(false);
+        var contextResponse = FindRequestedResponse(context, contextUri);
         var principalHref = Property(contextResponse, DavNamespace, "current-user-principal")?.Value;
         var principalUri = string.IsNullOrWhiteSpace(principalHref) ? contextUri : Resolve(contextUri, principalHref);
         var homeHref = Property(contextResponse, CardDavNamespace, "addressbook-home-set")?.Value;
 
         if (string.IsNullOrWhiteSpace(homeHref) && principalUri != contextUri)
         {
-            var principal = await PropFindAsync(settings, principalUri, "0", DiscoveryProperties(), cancellationToken).ConfigureAwait(false);
-            homeHref = Property(FindSuccessfulResponse(principal, principalUri), CardDavNamespace, "addressbook-home-set")?.Value;
+            var principal = await PropFindAsync(settings, principalUri, "0", properties, cancellationToken).ConfigureAwait(false);
+            homeHref = Property(FindRequestedResponse(principal, principalUri), CardDavNamespace, "addressbook-home-set")?.Value;
         }
 
         var homeUri = string.IsNullOrWhiteSpace(homeHref) ? principalUri : Resolve(principalUri, homeHref);
-        var listing = await PropFindAsync(settings, homeUri, "1", CollectionProperties(), cancellationToken).ConfigureAwait(false);
-        var homeResponse = listing.Responses.FirstOrDefault(response => HrefEquals(response.Href, homeUri, homeUri));
-        var homePrivileges = Property(homeResponse, DavNamespace, "current-user-privilege-set")?.Xml;
-        var books = listing.Responses
-            .Where(response => response.PropertyStatuses.Any(status => status.StatusCode == 200 &&
-                IsAddressBook(Property(status, DavNamespace, "resourcetype"))))
-            .Select(response => ParseAddressBook(response, homeUri))
-            .GroupBy(book => book.ExactHref, StringComparer.Ordinal)
-            .Select(group => group.First())
-            .ToList();
+        var listing = await ListAddressBooksAsync(settings, homeUri, cancellationToken).ConfigureAwait(false);
 
         return new CardDavDiscoveryResult
         {
             ContextUri = contextUri,
             PrincipalUri = principalUri,
             AddressBookHomeUri = homeUri,
-            SupportsAddressBookCreation = ContainsElement(homePrivileges, DavNamespace, "bind"),
+            SupportsAddressBookCreation = listing.SupportsAddressBookCreation,
+            AddressBooks = listing.AddressBooks
+        };
+    }
+
+    public async Task<CardDavDiscoveryResult> ListAddressBooksAsync(
+        CardDavConnectionSettings settings,
+        Uri addressBookHomeUri,
+        CancellationToken cancellationToken = default)
+    {
+        Validate(settings);
+        ArgumentNullException.ThrowIfNull(addressBookHomeUri);
+        const string properties =
+            "<D:resourcetype /><D:displayname /><D:current-user-privilege-set /><D:supported-report-set />" +
+            "<D:sync-token /><CS:getctag /><C:supported-address-data />";
+        var listing = await PropFindAsync(settings, addressBookHomeUri, "1", properties, cancellationToken).ConfigureAwait(false);
+        var homeResponse = listing.Responses.FirstOrDefault(response => IsSameResource(Resolve(addressBookHomeUri, response.Href), addressBookHomeUri));
+        var homePrivileges = Property(homeResponse, DavNamespace, "current-user-privilege-set")?.Xml;
+        var books = listing.Responses
+            .Where(response => ContainsElement(Property(response, DavNamespace, "resourcetype")?.Xml, CardDavNamespace, "addressbook"))
+            .Select(response => ParseAddressBook(response, addressBookHomeUri))
+            .GroupBy(book => book.ExactHref, StringComparer.Ordinal)
+            .Select(group => group.First())
+            .ToList();
+
+        return new CardDavDiscoveryResult
+        {
+            AddressBookHomeUri = addressBookHomeUri,
+            SupportsAddressBookCreation = ContainsElement(homePrivileges, DavNamespace, "bind") ||
+                                          ContainsElement(homePrivileges, DavNamespace, "all"),
             AddressBooks = books
         };
     }
@@ -84,40 +110,34 @@ public sealed class CardDavClient : ICardDavClient
         CardDavConnectionSettings settings,
         CardDavAddressBook addressBook,
         string syncToken,
-        int limit,
         CancellationToken cancellationToken = default)
     {
         Validate(settings);
-        ValidateAddressBook(addressBook);
-        var collectionUri = new Uri(addressBook.ExactHref);
-        var origin = collectionUri.GetLeftPart(UriPartial.Authority);
-        var useLimit = limit > 0 && !LimitRejectingOrigins.ContainsKey(origin);
-        DavMultistatus multistatus;
-        try
-        {
-            multistatus = await SendMultistatusAsync(settings, ReportMethod, collectionUri, "0",
-                SyncCollectionBody(syncToken, useLimit ? limit : 0), cancellationToken).ConfigureAwait(false);
-        }
-        catch (DavRequestException ex) when (useLimit && RejectsLimit(ex))
-        {
-            // DAV:limit is optional (RFC 6578 section 3.7). Some servers fail the whole REPORT
-            // instead of ignoring it, so ask once more without it and stop sending it to that
-            // origin. Without a limit the server still pages with 507 if it has to.
-            LimitRejectingOrigins.TryAdd(origin, 0);
-            multistatus = await SendMultistatusAsync(settings, ReportMethod, collectionUri, "0",
-                SyncCollectionBody(syncToken, 0), cancellationToken).ConfigureAwait(false);
-        }
-        var changes = multistatus.Responses.Select(response => ParseResourceChange(response, collectionUri)).ToList();
-        var collectionResponse = multistatus.Responses.FirstOrDefault(response => HrefEquals(response.Href, collectionUri, collectionUri));
+        var collectionUri = CollectionUri(addressBook);
+        var tokenXml = string.IsNullOrEmpty(syncToken) ? "<D:sync-token />" : $"<D:sync-token>{Escape(syncToken)}</D:sync-token>";
+        var body = $"""
+            <?xml version="1.0" encoding="utf-8"?>
+            <D:sync-collection xmlns:D="DAV:">
+              {tokenXml}
+              <D:sync-level>1</D:sync-level>
+              <D:prop><D:getetag /></D:prop>
+            </D:sync-collection>
+            """;
+        var multistatus = await SendMultistatusAsync(settings, ReportMethod, collectionUri, "0", body, cancellationToken).ConfigureAwait(false);
+
+        // The collection itself only appears to report that the listing was cut short
+        // (RFC 6578 section 3.6) or that the whole request failed.
+        var collectionResponse = multistatus.Responses.FirstOrDefault(response => IsSameResource(Resolve(collectionUri, response.Href), collectionUri));
+        var isTruncated = collectionResponse?.StatusCode == 507 ||
+                          collectionResponse?.PropertyStatuses.Any(status => status.StatusCode == 507) == true;
         if (collectionResponse?.StatusCode is >= 400 and not 507)
             throw new DavRequestException(collectionResponse.StatusCode.Value, "The DAV server could not synchronize the collection.", collectionResponse.ErrorNames);
 
         return new CardDavSyncPage
         {
-            Changes = changes.Where(change => !HrefEquals(change.ExactHref, collectionUri, collectionUri)).ToList(),
+            Changes = MemberResources(multistatus, collectionUri),
             NextSyncToken = multistatus.SyncToken,
-            IsTruncated = collectionResponse?.StatusCode == 507 ||
-                          collectionResponse?.PropertyStatuses.Any(status => status.StatusCode == 507) == true
+            IsTruncated = isTruncated
         };
     }
 
@@ -127,68 +147,70 @@ public sealed class CardDavClient : ICardDavClient
         CancellationToken cancellationToken = default)
     {
         Validate(settings);
-        ValidateAddressBook(addressBook);
-        var collectionUri = new Uri(addressBook.ExactHref);
-        var multistatus = await PropFindAsync(
-            settings,
-            collectionUri,
-            "1",
-            "<D:resourcetype /><D:getetag /><D:getcontenttype />",
-            cancellationToken).ConfigureAwait(false);
-        var collectionResponse = multistatus.Responses.FirstOrDefault(response => HrefEquals(response.Href, collectionUri, collectionUri));
+        var collectionUri = CollectionUri(addressBook);
+        var multistatus = await PropFindAsync(settings, collectionUri, "1", "<D:resourcetype /><D:getetag />", cancellationToken).ConfigureAwait(false);
+        var collectionResponse = multistatus.Responses.FirstOrDefault(response => IsSameResource(Resolve(collectionUri, response.Href), collectionUri));
         if (collectionResponse?.StatusCode is >= 400)
             throw new DavRequestException(collectionResponse.StatusCode.Value, "The DAV server could not enumerate the collection.", collectionResponse.ErrorNames);
 
-        return multistatus.Responses
-            .Where(response => !HrefEquals(response.Href, collectionUri, collectionUri))
-            .Select(response => ParseResourceChange(response, collectionUri))
-            .ToList();
+        return MemberResources(multistatus, collectionUri).Where(resource => !resource.IsDeleted).ToList();
     }
 
-    public Task<IReadOnlyList<CardDavResourceChange>> MultiGetAsync(
+    public async Task<IReadOnlyList<CardDavResourceChange>> MultiGetAsync(
         CardDavConnectionSettings settings,
         CardDavAddressBook addressBook,
         IReadOnlyList<string> hrefs,
         CancellationToken cancellationToken = default)
     {
         if (hrefs is null || hrefs.Count == 0)
-            return Task.FromResult<IReadOnlyList<CardDavResourceChange>>([]);
+            return [];
 
-        ValidateAddressBook(addressBook);
-        var collectionUri = new Uri(addressBook.ExactHref);
-        // Use the RFC 4918 absolute-path form for resources on this server. iCloud
-        // rejects absolute URLs inside multiget even though it returns them in REPORTs.
-        var hrefXml = string.Join(string.Empty, hrefs.Select(href =>
+        Validate(settings);
+        var collectionUri = CollectionUri(addressBook);
+
+        // Servers answer with their own spelling of an href (relative, re-encoded). The
+        // caller tracks resources by the href it asked for, so answers are mapped back.
+        var requested = new Dictionary<string, string>(StringComparer.Ordinal);
+        var hrefXml = new StringBuilder();
+        foreach (var href in hrefs)
         {
             var resourceUri = Resolve(collectionUri, href);
-            var reportHref = string.Equals(resourceUri.GetLeftPart(UriPartial.Authority),
-                collectionUri.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase)
-                ? resourceUri.PathAndQuery
-                : resourceUri.AbsoluteUri;
-            return $"<D:href>{Escape(reportHref)}</D:href>";
-        }));
+            requested[ResourceKey(resourceUri)] = href;
+
+            // Use the RFC 4918 absolute-path form for resources on this server. iCloud
+            // rejects absolute URLs inside multiget even though it returns them in REPORTs.
+            var sameOrigin = string.Equals(resourceUri.GetLeftPart(UriPartial.Authority),
+                collectionUri.GetLeftPart(UriPartial.Authority), StringComparison.OrdinalIgnoreCase);
+            hrefXml.Append("<D:href>").Append(Escape(sameOrigin ? resourceUri.PathAndQuery : resourceUri.AbsoluteUri)).Append("</D:href>");
+        }
+
         var body = $"""
+            <?xml version="1.0" encoding="utf-8"?>
             <C:addressbook-multiget xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
               <D:prop><D:getetag /><C:address-data /></D:prop>
               {hrefXml}
             </C:addressbook-multiget>
             """;
-        // The hrefs, not Depth, scope a multiget. RFC 6352 section 8.7 requires Depth: 0.
-        return ReportResourcesAsync(settings, addressBook, "0", body, cancellationToken);
-    }
 
-    public Task<IReadOnlyList<CardDavResourceChange>> QueryAsync(
-        CardDavConnectionSettings settings,
-        CardDavAddressBook addressBook,
-        CancellationToken cancellationToken = default)
-    {
-        const string body = """
-            <C:addressbook-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
-              <D:prop><D:getetag /><C:address-data /></D:prop>
-              <C:filter><C:prop-filter name="UID" /></C:filter>
-            </C:addressbook-query>
-            """;
-        return ReportResourcesAsync(settings, addressBook, "1", body, cancellationToken);
+        // The hrefs, not Depth, scope a multiget (RFC 6352 section 8.7).
+        var multistatus = await SendMultistatusAsync(settings, ReportMethod, collectionUri, "0", body, cancellationToken).ConfigureAwait(false);
+        var results = new List<CardDavResourceChange>(multistatus.Responses.Count);
+        foreach (var response in multistatus.Responses)
+        {
+            if (string.IsNullOrWhiteSpace(response.Href) ||
+                !requested.TryGetValue(ResourceKey(Resolve(collectionUri, response.Href)), out var requestedHref))
+                continue;
+
+            results.Add(new CardDavResourceChange
+            {
+                ExactHref = requestedHref,
+                ETag = Property(response, DavNamespace, "getetag")?.Value,
+                VCard = Property(response, CardDavNamespace, "address-data")?.Value,
+                IsDeleted = response.StatusCode == 404
+            });
+        }
+
+        return results;
     }
 
     public async Task<CardDavResourceChange> GetResourceAsync(
@@ -199,16 +221,16 @@ public sealed class CardDavClient : ICardDavClient
         Validate(settings);
         using var request = new HttpRequestMessage(HttpMethod.Get, exactHref);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/vcard"));
-        using var response = await _transport.SendAsync(request, settings.Authentication, cancellationToken).ConfigureAwait(false);
+        using var response = await SendAsync(settings, request, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.NotFound)
-            return new CardDavResourceChange { ExactHref = exactHref, IsDeleted = true, StatusCode = 404 };
+            return new CardDavResourceChange { ExactHref = exactHref, IsDeleted = true };
+
         await _responseHandler.EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
         return new CardDavResourceChange
         {
-            ExactHref = response.RequestMessage?.RequestUri?.ToString() ?? exactHref,
+            ExactHref = exactHref,
             ETag = response.Headers.ETag?.ToString(),
-            VCard = await ReadBoundedStringAsync(response.Content, 64L * 1024 * 1024, cancellationToken).ConfigureAwait(false),
-            StatusCode = (int)response.StatusCode
+            VCard = await ReadBoundedStringAsync(response.Content, cancellationToken).ConfigureAwait(false)
         };
     }
 
@@ -227,15 +249,19 @@ public sealed class CardDavClient : ICardDavClient
         };
         if (createOnly) request.Headers.TryAddWithoutValidation("If-None-Match", "*");
         else if (!string.IsNullOrWhiteSpace(ifMatch)) request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
-        using var response = await _transport.SendAsync(request, settings.Authentication, cancellationToken).ConfigureAwait(false);
+
+        using var response = await SendAsync(settings, request, cancellationToken).ConfigureAwait(false);
         await _responseHandler.EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
+
+        // A weak or missing ETag means the server stored something other than the bytes
+        // sent (RFC 6352 section 6.3.2.3); the next synchronization downloads the result.
+        var etag = response.Headers.ETag;
         return new CardDavWriteResult
         {
             ExactHref = response.Headers.Location is null
-                ? response.RequestMessage?.RequestUri?.ToString() ?? exactHref
-                : Resolve(response.RequestMessage?.RequestUri ?? new Uri(exactHref), response.Headers.Location.ToString()).ToString(),
-            ETag = response.Headers.ETag?.ToString(),
-            RequiresRefetch = response.Headers.ETag is null || response.Headers.ETag.IsWeak
+                ? exactHref
+                : Resolve(new Uri(exactHref), response.Headers.Location.OriginalString).AbsoluteUri,
+            ETag = etag is null || etag.IsWeak ? null : etag.ToString()
         };
     }
 
@@ -248,7 +274,7 @@ public sealed class CardDavClient : ICardDavClient
         Validate(settings);
         using var request = new HttpRequestMessage(HttpMethod.Delete, exactHref);
         if (!string.IsNullOrWhiteSpace(ifMatch)) request.Headers.TryAddWithoutValidation("If-Match", ifMatch);
-        using var response = await _transport.SendAsync(request, settings.Authentication, cancellationToken).ConfigureAwait(false);
+        using var response = await SendAsync(settings, request, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.NotFound) return;
         await _responseHandler.EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
     }
@@ -263,32 +289,27 @@ public sealed class CardDavClient : ICardDavClient
         Validate(settings);
         var safeName = Uri.EscapeDataString(string.IsNullOrWhiteSpace(collectionName) ? Guid.NewGuid().ToString("N") : collectionName.Trim());
         var target = new Uri(new Uri(EnsureTrailingSlash(homeHref)), safeName + "/");
-        var body = $"""
-            <D:mkcol xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
-              <D:set><D:prop><D:resourcetype><D:collection /><C:addressbook /></D:resourcetype><D:displayname>{Escape(displayName)}</D:displayname></D:prop></D:set>
-            </D:mkcol>
-            """;
-        using var request = XmlRequest(MkColMethod, target, body, null);
-        using var response = await _transport.SendAsync(request, settings.Authentication, cancellationToken).ConfigureAwait(false);
+        var properties = $"<D:set><D:prop><D:resourcetype><D:collection /><C:addressbook /></D:resourcetype><D:displayname>{Escape(displayName)}</D:displayname></D:prop></D:set>";
+        using var request = XmlRequest(MkColMethod, target,
+            $"<D:mkcol xmlns:D=\"DAV:\" xmlns:C=\"{CardDavNamespace}\">{properties}</D:mkcol>", null);
+        using var response = await SendAsync(settings, request, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode is HttpStatusCode.MethodNotAllowed or HttpStatusCode.UnsupportedMediaType or HttpStatusCode.NotImplemented)
         {
+            // No extended MKCOL (RFC 5689): create a plain collection and type it afterwards.
             using var plainMkCol = new HttpRequestMessage(MkColMethod, target);
-            using var plainResponse = await _transport.SendAsync(plainMkCol, settings.Authentication, cancellationToken).ConfigureAwait(false);
+            using var plainResponse = await SendAsync(settings, plainMkCol, cancellationToken).ConfigureAwait(false);
             await _responseHandler.EnsureSuccessAsync(plainResponse, cancellationToken).ConfigureAwait(false);
-            var properties = $"""
-                <D:propertyupdate xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:carddav">
-                  <D:set><D:prop><D:resourcetype><D:collection /><C:addressbook /></D:resourcetype><D:displayname>{Escape(displayName)}</D:displayname></D:prop></D:set>
-                </D:propertyupdate>
-                """;
-            using var propertyRequest = XmlRequest(PropPatchMethod, target, properties, null);
-            using var propertyResponse = await _transport.SendAsync(propertyRequest, settings.Authentication, cancellationToken).ConfigureAwait(false);
+            using var propertyRequest = XmlRequest(PropPatchMethod, target,
+                $"<D:propertyupdate xmlns:D=\"DAV:\" xmlns:C=\"{CardDavNamespace}\">{properties}</D:propertyupdate>", null);
+            using var propertyResponse = await SendAsync(settings, propertyRequest, cancellationToken).ConfigureAwait(false);
             await _responseHandler.EnsureSuccessAsync(propertyResponse, cancellationToken).ConfigureAwait(false);
         }
         else
         {
             await _responseHandler.EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
         }
-        return new CardDavAddressBook { ExactHref = target.ToString(), DisplayName = displayName, SupportsVCard3 = true };
+
+        return new CardDavAddressBook { ExactHref = target.AbsoluteUri, DisplayName = displayName };
     }
 
     public async Task RenameAddressBookAsync(
@@ -298,11 +319,9 @@ public sealed class CardDavClient : ICardDavClient
         CancellationToken cancellationToken = default)
     {
         Validate(settings);
-        var body = $"""
-            <D:propertyupdate xmlns:D="DAV:"><D:set><D:prop><D:displayname>{Escape(displayName)}</D:displayname></D:prop></D:set></D:propertyupdate>
-            """;
+        var body = $"<D:propertyupdate xmlns:D=\"DAV:\"><D:set><D:prop><D:displayname>{Escape(displayName)}</D:displayname></D:prop></D:set></D:propertyupdate>";
         using var request = XmlRequest(PropPatchMethod, new Uri(exactHref), body, null);
-        using var response = await _transport.SendAsync(request, settings.Authentication, cancellationToken).ConfigureAwait(false);
+        using var response = await SendAsync(settings, request, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode == HttpStatusCode.MultiStatus)
         {
             await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
@@ -311,49 +330,12 @@ public sealed class CardDavClient : ICardDavClient
             if (failure is not null) throw new DavRequestException(failure.StatusCode ?? 500, "The server rejected the address-book rename.", failure.ErrorNames);
             return;
         }
+
         await _responseHandler.EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
     }
 
     public Task DeleteAddressBookAsync(CardDavConnectionSettings settings, string exactHref, CancellationToken cancellationToken = default)
         => DeleteResourceAsync(settings, exactHref, cancellationToken: cancellationToken);
-
-    private async Task<IReadOnlyList<CardDavResourceChange>> ReportResourcesAsync(
-        CardDavConnectionSettings settings,
-        CardDavAddressBook addressBook,
-        string depth,
-        string body,
-        CancellationToken cancellationToken)
-    {
-        Validate(settings);
-        ValidateAddressBook(addressBook);
-        var collectionUri = new Uri(addressBook.ExactHref);
-        var multistatus = await SendMultistatusAsync(settings, ReportMethod, collectionUri, depth, body, cancellationToken).ConfigureAwait(false);
-        return multistatus.Responses.Select(response => ParseResourceChange(response, collectionUri)).ToList();
-    }
-
-    private static string SyncCollectionBody(string syncToken, int limit)
-    {
-        var tokenXml = string.IsNullOrEmpty(syncToken) ? "<D:sync-token />" : $"<D:sync-token>{Escape(syncToken)}</D:sync-token>";
-        var limitXml = limit > 0 ? $"<D:limit><D:nresults>{limit}</D:nresults></D:limit>" : string.Empty;
-        return $"""
-            <D:sync-collection xmlns:D="DAV:">
-              {tokenXml}
-              <D:sync-level>1</D:sync-level>
-              {limitXml}
-              <D:prop><D:getetag /></D:prop>
-            </D:sync-collection>
-            """;
-    }
-
-    /// <summary>
-    /// A token the server no longer accepts is reported as DAV:valid-sync-token, which a
-    /// request without a limit would fail with just the same.
-    /// </summary>
-    private static bool RejectsLimit(DavRequestException exception)
-        => !exception.HasError("valid-sync-token") &&
-           (exception.IsUnsupportedRequest ||
-            exception.StatusCode == 507 ||
-            exception.HasError("number-of-matches-within-limits"));
 
     private Task<DavMultistatus> PropFindAsync(
         CardDavConnectionSettings settings,
@@ -362,7 +344,7 @@ public sealed class CardDavClient : ICardDavClient
         string properties,
         CancellationToken cancellationToken)
         => SendMultistatusAsync(settings, PropFindMethod, uri, depth,
-            $"<D:propfind xmlns:D=\"DAV:\" xmlns:C=\"{CardDavNamespace}\" xmlns:CS=\"{CalendarServerNamespace}\"><D:prop>{properties}</D:prop></D:propfind>",
+            $"<?xml version=\"1.0\" encoding=\"utf-8\"?><D:propfind xmlns:D=\"DAV:\" xmlns:C=\"{CardDavNamespace}\" xmlns:CS=\"{CalendarServerNamespace}\"><D:prop>{properties}</D:prop></D:propfind>",
             cancellationToken);
 
     private async Task<DavMultistatus> SendMultistatusAsync(
@@ -374,14 +356,24 @@ public sealed class CardDavClient : ICardDavClient
         CancellationToken cancellationToken)
     {
         using var request = XmlRequest(method, uri, body, depth);
-        using var response = await _transport.SendAsync(request, settings.Authentication, cancellationToken).ConfigureAwait(false);
+        using var response = await SendAsync(settings, request, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode != HttpStatusCode.MultiStatus)
         {
             await _responseHandler.EnsureSuccessAsync(response, cancellationToken).ConfigureAwait(false);
             throw new DavRequestException((int)response.StatusCode, "The DAV server returned a non-multistatus response.");
         }
+
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        return await _multistatusReader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
+        var multistatus = await _multistatusReader.ReadAsync(stream, cancellationToken).ConfigureAwait(false);
+        Logger.Debug("CardDAV {Method} {Path} returned {ResponseCount} responses", method.Method, uri.AbsolutePath, multistatus.Responses.Count);
+        return multistatus;
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(CardDavConnectionSettings settings, HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        var response = await _transport.SendAsync(request, settings.Authentication, cancellationToken).ConfigureAwait(false);
+        Logger.Debug("CardDAV {Method} {Path} -> {StatusCode}", request.Method.Method, request.RequestUri?.AbsolutePath, (int)response.StatusCode);
+        return response;
     }
 
     private static HttpRequestMessage XmlRequest(HttpMethod method, Uri uri, string body, string depth)
@@ -398,24 +390,19 @@ public sealed class CardDavClient : ICardDavClient
         return request;
     }
 
-    private static async Task<string> ReadBoundedStringAsync(
-        HttpContent content,
-        long maximumBytes,
-        CancellationToken cancellationToken)
+    private static async Task<string> ReadBoundedStringAsync(HttpContent content, CancellationToken cancellationToken)
     {
-        if (content.Headers.ContentLength > maximumBytes)
+        if (content.Headers.ContentLength > MaximumResourceBytes)
             throw new InvalidDataException("The DAV response exceeded the configured size limit.");
 
         await using var source = await content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
         using var destination = new MemoryStream();
         var buffer = new byte[81920];
-        long total = 0;
         int read;
 
         while ((read = await source.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
         {
-            total += read;
-            if (total > maximumBytes)
+            if (destination.Length + read > MaximumResourceBytes)
                 throw new InvalidDataException("The DAV response exceeded the configured size limit.");
 
             await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
@@ -424,61 +411,67 @@ public sealed class CardDavClient : ICardDavClient
         return Encoding.UTF8.GetString(destination.GetBuffer(), 0, checked((int)destination.Length));
     }
 
+    /// <summary>
+    /// The members a listing or sync REPORT describes. The collection itself and nested
+    /// collections are not address objects and are left out.
+    /// </summary>
+    private static List<CardDavResourceChange> MemberResources(DavMultistatus multistatus, Uri collectionUri)
+    {
+        var members = new List<CardDavResourceChange>(multistatus.Responses.Count);
+        foreach (var response in multistatus.Responses)
+        {
+            if (string.IsNullOrWhiteSpace(response.Href))
+                continue;
+
+            var resourceUri = Resolve(collectionUri, response.Href);
+            if (IsSameResource(resourceUri, collectionUri) ||
+                resourceUri.AbsolutePath.EndsWith('/') ||
+                ContainsElement(Property(response, DavNamespace, "resourcetype")?.Xml, DavNamespace, "collection"))
+                continue;
+
+            // Only the response status describes the resource. A propstat status describes
+            // a property, and a missing property must never read as a deleted contact.
+            members.Add(new CardDavResourceChange
+            {
+                ExactHref = resourceUri.AbsoluteUri,
+                ETag = Property(response, DavNamespace, "getetag")?.Value,
+                IsDeleted = response.StatusCode == 404
+            });
+        }
+
+        return members;
+    }
+
     private static CardDavAddressBook ParseAddressBook(DavResponseItem response, Uri baseUri)
     {
         var reports = Property(response, DavNamespace, "supported-report-set")?.Xml;
         var addressData = Property(response, CardDavNamespace, "supported-address-data")?.Xml;
         var privileges = Property(response, DavNamespace, "current-user-privilege-set")?.Xml;
-        var extendedMkCol = Property(response, DavNamespace, "supported-method-set")?.Xml;
         return new CardDavAddressBook
         {
-            ExactHref = Resolve(baseUri, response.Href).ToString(),
+            ExactHref = Resolve(baseUri, response.Href).AbsoluteUri,
             DisplayName = Property(response, DavNamespace, "displayname")?.Value,
             SyncToken = Property(response, DavNamespace, "sync-token")?.Value,
             CollectionTag = Property(response, CalendarServerNamespace, "getctag")?.Value,
             IsReadOnly = !string.IsNullOrWhiteSpace(privileges) &&
+                         !ContainsElement(privileges, DavNamespace, "all") &&
                          !ContainsElement(privileges, DavNamespace, "write") &&
                          !ContainsElement(privileges, DavNamespace, "write-content"),
             SupportsSyncCollection = ContainsElement(reports, DavNamespace, "sync-collection"),
             SupportsMultiget = ContainsElement(reports, CardDavNamespace, "addressbook-multiget"),
-            SupportsAddressBookQuery = ContainsElement(reports, CardDavNamespace, "addressbook-query"),
-            SupportsVCard3 = string.IsNullOrWhiteSpace(addressData) || SupportsVCardVersion(addressData, "3.0"),
-            SupportsVCard4 = SupportsVCardVersion(addressData, "4.0"),
-            SupportsExtendedMkCol = ContainsElement(extendedMkCol, DavNamespace, "extended-mkcol"),
-            SupportsAddMember = Property(response, DavNamespace, "add-member") is not null,
-            MaximumResourceSize = long.TryParse(Property(response, CardDavNamespace, "max-resource-size")?.Value, out var size) ? size : null
+            SupportsVCard4 = SupportsVCardVersion(addressData, "4.0")
         };
     }
 
-    private static CardDavResourceChange ParseResourceChange(DavResponseItem response, Uri baseUri)
-    {
-        // A propstat describes a property, not the resource. In particular, a missing
-        // property (404) must never turn a live contact into a remote deletion.
-        var status = response.StatusCode ?? 200;
-        return new CardDavResourceChange
-        {
-            ExactHref = Resolve(baseUri, response.Href).ToString(),
-            ETag = Property(response, DavNamespace, "getetag")?.Value,
-            VCard = Property(response, CardDavNamespace, "address-data")?.Value,
-            IsDeleted = status == 404,
-            StatusCode = status
-        };
-    }
-
-    private static DavResponseItem FindSuccessfulResponse(DavMultistatus multistatus, Uri requestUri)
-        => multistatus.Responses.FirstOrDefault(response => HrefEquals(response.Href, requestUri, requestUri))
+    private static DavResponseItem FindRequestedResponse(DavMultistatus multistatus, Uri requestUri)
+        => multistatus.Responses.FirstOrDefault(response => IsSameResource(Resolve(requestUri, response.Href), requestUri))
            ?? multistatus.Responses.FirstOrDefault(response => response.PropertyStatuses.Any(status => status.StatusCode is >= 200 and < 300))
            ?? throw new DavRequestException(500, "The DAV response did not contain a successful request resource.");
 
     private static DavProperty Property(DavResponseItem response, string xmlNamespace, string name)
-        => response?.PropertyStatuses.Where(status => status.StatusCode is >= 200 and < 300)
+        => response?.PropertyStatuses.Where(status => status.StatusCode is null or (>= 200 and < 300))
             .SelectMany(status => status.Properties)
             .FirstOrDefault(property => property.Namespace == xmlNamespace && property.Name == name);
-
-    private static DavProperty Property(DavPropertyStatus status, string xmlNamespace, string name)
-        => status?.Properties.FirstOrDefault(property => property.Namespace == xmlNamespace && property.Name == name);
-
-    private static bool IsAddressBook(DavProperty property) => ContainsElement(property?.Xml, CardDavNamespace, "addressbook");
 
     private static bool SupportsVCardVersion(string xml, string version)
     {
@@ -495,20 +488,13 @@ public sealed class CardDavClient : ICardDavClient
         if (string.IsNullOrWhiteSpace(xml)) return false;
         try
         {
-            var element = XElement.Parse(xml);
-            return element.DescendantsAndSelf().Any(item => item.Name.NamespaceName == xmlNamespace && item.Name.LocalName == localName);
+            return XElement.Parse(xml).DescendantsAndSelf().Any(item => item.Name.NamespaceName == xmlNamespace && item.Name.LocalName == localName);
         }
         catch (XmlException)
         {
             return false;
         }
     }
-
-    private static string DiscoveryProperties() =>
-        "<D:current-user-principal /><C:addressbook-home-set /><D:resourcetype />";
-
-    private static string CollectionProperties() =>
-        "<D:resourcetype /><D:displayname /><D:current-user-privilege-set /><D:supported-report-set /><D:supported-method-set /><D:sync-token /><D:add-member /><CS:getctag /><C:supported-address-data /><C:max-resource-size />";
 
     private static Uri BuildWellKnownUri(string accountAddress)
     {
@@ -519,17 +505,25 @@ public sealed class CardDavClient : ICardDavClient
     }
 
     private static Uri Resolve(Uri baseUri, string href)
-        => Uri.TryCreate(href, UriKind.Absolute, out var absolute) ? absolute : new Uri(baseUri, href ?? string.Empty);
+        => Uri.TryCreate(href, UriKind.Absolute, out var absolute) && absolute.Scheme is "http" or "https"
+            ? absolute
+            : new Uri(baseUri, href ?? string.Empty);
 
-    private static bool HrefEquals(string href, Uri baseUri, Uri expected)
+    /// <summary>
+    /// Identity of a resource regardless of how a server spells its href: percent-encoding
+    /// and a collection's trailing slash both vary (iCloud omits the slash).
+    /// </summary>
+    private static string ResourceKey(Uri uri) => Uri.UnescapeDataString(uri.AbsolutePath).TrimEnd('/');
+
+    private static bool IsSameResource(Uri left, Uri right)
+        => string.Equals(ResourceKey(left), ResourceKey(right), StringComparison.Ordinal);
+
+    private static Uri CollectionUri(CardDavAddressBook addressBook)
     {
-        // DAV servers can report the collection itself without its trailing slash
-        // (including iCloud). It must not be fetched or reconciled as a contact.
-        var resolved = Resolve(baseUri, href);
-        return string.Equals(resolved.GetLeftPart(UriPartial.Path).TrimEnd('/'),
-                   expected.GetLeftPart(UriPartial.Path).TrimEnd('/'), StringComparison.Ordinal) &&
-               string.Equals(resolved.Query, expected.Query, StringComparison.Ordinal) &&
-               string.Equals(resolved.Fragment, expected.Fragment, StringComparison.Ordinal);
+        if (string.IsNullOrWhiteSpace(addressBook?.ExactHref))
+            throw new ArgumentException("A CardDAV address-book href is required.");
+
+        return new Uri(addressBook.ExactHref);
     }
 
     private static string EnsureTrailingSlash(string href) => href.EndsWith('/') ? href : href + "/";
@@ -540,11 +534,5 @@ public sealed class CardDavClient : ICardDavClient
         if (settings?.Authentication is null) throw new ArgumentException("CardDAV authentication is required.");
         if (settings.ServiceUri is null && string.IsNullOrWhiteSpace(settings.AccountAddress))
             throw new ArgumentException("A CardDAV service URL or account address is required.");
-    }
-
-    private static void ValidateAddressBook(CardDavAddressBook addressBook)
-    {
-        if (addressBook is null || string.IsNullOrWhiteSpace(addressBook.ExactHref))
-            throw new ArgumentException("A CardDAV address-book href is required.");
     }
 }

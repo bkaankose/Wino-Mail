@@ -14,9 +14,9 @@ namespace Wino.Core.Tests.CardDav;
 public sealed class CardDavClientDiscoveryTests
 {
     [Theory]
-    [InlineData("3.0", true, false)]
-    [InlineData("4.0", false, true)]
-    public async Task DiscoverAsync_ParsesSupportedVCardVersionAttributes(string version, bool version3, bool version4)
+    [InlineData("3.0", false)]
+    [InlineData("4.0", true)]
+    public async Task DiscoverAsync_ParsesSupportedVCardVersionAttributes(string version, bool version4)
     {
         var transport = new Mock<IDavTransport>();
         transport.SetupSequence(item => item.SendAsync(It.IsAny<HttpRequestMessage>(),
@@ -31,7 +31,6 @@ public sealed class CardDavClientDiscoveryTests
             ServiceUri = new Uri("https://contacts.example.test/"), Authentication = new DavAuthenticationProfile()
         });
 
-        result.AddressBooks.Single().SupportsVCard3.Should().Be(version3);
         result.AddressBooks.Single().SupportsVCard4.Should().Be(version4);
     }
 

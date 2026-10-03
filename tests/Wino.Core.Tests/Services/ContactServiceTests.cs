@@ -1,9 +1,11 @@
 using FluentAssertions;
 using Moq;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Contacts;
+using Wino.Core.Domain.Models.MailItem;
 using Wino.Core.Tests.Helpers;
 using Wino.Services;
 using Xunit;
@@ -178,6 +180,139 @@ public class ContactServiceTests : IAsyncLifetime
 
         page.TotalCount.Should().Be(1);
         page.Contacts.Single().DisplayName.Should().Be("Anna");
+    }
+
+    [Fact]
+    public async Task ContactList_RefusesContactsOfAnotherAddressBook_AndGoesWithItsAddressBook()
+    {
+        var own = await CreateLocalContactAsync("Anna");
+        var otherBook = await _contactService.GetOrCreateProviderAddressBookAsync(_accountId, ContactSourceKind.Gmail, "people/me/connections", "Gmail", true);
+        var foreign = await _contactService.StageCreateAsync(new AccountContact { Id = Guid.NewGuid(), MailAccountId = _accountId, AddressBookId = otherBook.Id, SourceKind = ContactSourceKind.Gmail, DisplayName = "Foreign" });
+        var list = new ContactList { Name = "Family", MailAccountId = _accountId, AddressBookId = own.AddressBookId };
+        await _contactService.SaveContactListAsync(list);
+
+        var add = () => _contactService.AddContactsToListAsync(list.Id, [own.Id, foreign.Id]);
+
+        await add.Should().ThrowAsync<InvalidOperationException>();
+        (await _contactService.GetContactListCountsAsync()).Should().BeEmpty();
+
+        await _contactService.AddContactsToListAsync(list.Id, [own.Id]);
+        await _contactService.DeleteAddressBookAsync(own.AddressBookId);
+
+        (await _contactService.GetContactListsAsync()).Should().BeEmpty();
+        (await _contactService.GetContactListCountsAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ContactCategories_UnknownNameBecomesACategoryWithAnUnusedColor()
+    {
+        var contact = await CreateLocalContactAsync("Anna");
+        await _databaseService.Connection.InsertAsync(new MailCategory
+        {
+            Id = Guid.NewGuid(), MailAccountId = _accountId, Name = "Existing",
+            BackgroundColorHex = MailCategoryPalette.DefaultOptions[0].BackgroundColorHex,
+            TextColorHex = MailCategoryPalette.DefaultOptions[0].TextColorHex
+        }, typeof(MailCategory));
+
+        await _contactService.SetContactCategoriesAsync(contact.Id, ["existing", "Family"]);
+
+        var categories = await _databaseService.Connection.Table<MailCategory>().ToListAsync();
+        categories.Should().HaveCount(2, "a name that differs only in case is the same category");
+        var family = categories.Single(category => category.Name == "Family");
+        family.Source.Should().Be(MailCategorySource.Local);
+        family.BackgroundColorHex.Should().Be(MailCategoryPalette.DefaultOptions[1].BackgroundColorHex);
+        (await _contactService.GetContactAsync(contact.Id))!.Categories.Select(category => category.Name)
+            .Should().Equal("Existing", "Family");
+        (await _contactService.GetContactsByCategoryAsync(family.Id)).Single().Id.Should().Be(contact.Id);
+
+        var page = await _contactService.GetContactsPageAsync(new ContactQueryFilter(CategoryId: family.Id), 0, 10);
+        page.Contacts.Single().Id.Should().Be(contact.Id);
+    }
+
+    [Fact]
+    public async Task ContactCategories_FollowTheProviderOnlyWhenItReportsThem()
+    {
+        var book = await _contactService.GetOrCreateProviderAddressBookAsync(_accountId, ContactSourceKind.Outlook, "default", "Outlook", true);
+        AccountContact Remote(List<string>? names) => new()
+        {
+            Id = Guid.NewGuid(), MailAccountId = _accountId, AddressBookId = book.Id, SourceKind = ContactSourceKind.Outlook,
+            RemoteId = "remote-1", DisplayName = "Anna", CategoryNames = names
+        };
+
+        await _contactService.ReplaceAddressBookAsync(book.Id, [Remote(["Family", "Work"])], "token-1");
+        var contact = (await _contactService.GetContactsByAddressBookAsync(book.Id)).Single();
+        contact.Categories.Select(category => category.Name).Should().Equal("Family", "Work");
+
+        // A provider without categories reports none, and the stored ones stay.
+        await _contactService.ReplaceAddressBookAsync(book.Id, [Remote(null)], "token-2");
+        (await _contactService.GetContactAsync(contact.Id))!.Categories.Should().HaveCount(2);
+
+        await _contactService.ApplyDeltaAsync(book.Id, new ContactSynchronizationBatch([Remote(["Work"])], [], null), commitDeltaToken: false);
+        (await _contactService.GetContactAsync(contact.Id))!.Categories.Select(category => category.Name).Should().Equal("Work");
+
+        await _contactService.ReplaceAddressBookAsync(book.Id, [], "token-3");
+        (await _databaseService.Connection.Table<ContactCategoryAssignment>().CountAsync()).Should().Be(0);
+        (await _databaseService.Connection.Table<MailCategory>().CountAsync()).Should().Be(2, "a category outlives the contacts that carried it");
+    }
+
+    [Fact]
+    public async Task MailCategories_ProviderListKeepsCategoriesThatOnlyExistOnTheDevice()
+    {
+        var contact = await CreateLocalContactAsync("Anna");
+        await _contactService.SetContactCategoriesAsync(contact.Id, ["Family"]);
+        var categoryService = new MailCategoryService(_databaseService);
+        await categoryService.CreateCategoryAsync(new MailCategory { MailAccountId = _accountId, Name = "Stale", RemoteId = "stale", Source = MailCategorySource.Outlook });
+
+        await categoryService.ReplaceCategoriesAsync(_accountId, [new MailCategory { Name = "Blue", RemoteId = "blue", Source = MailCategorySource.Outlook }]);
+
+        (await categoryService.GetCategoriesAsync(_accountId)).Select(category => category.Name).Should().BeEquivalentTo("Blue", "Family");
+        (await _contactService.GetContactAsync(contact.Id))!.Categories.Single().Name.Should().Be("Family");
+
+        var family = (await categoryService.GetCategoriesAsync(_accountId)).Single(category => category.Name == "Family");
+        await categoryService.DeleteCategoryAsync(family.Id);
+        (await _contactService.GetContactAsync(contact.Id))!.Categories.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ProviderLists_FollowTheProvider_AndLeaveOtherListsAlone()
+    {
+        var book = await _contactService.GetOrCreateProviderAddressBookAsync(_accountId, ContactSourceKind.Gmail, "people/me/connections", "Gmail", true);
+        AccountContact Remote(List<string>? listIds) => new()
+        {
+            Id = Guid.NewGuid(), MailAccountId = _accountId, AddressBookId = book.Id, SourceKind = ContactSourceKind.Gmail,
+            RemoteId = "people/c1", DisplayName = "Anna", ListRemoteIds = listIds
+        };
+        var pending = new ContactList { Name = "Not at Google yet", MailAccountId = _accountId, AddressBookId = book.Id };
+        await _contactService.SaveContactListAsync(pending);
+
+        await _contactService.ReplaceRemoteListsAsync(_accountId, book.Id,
+            [new ContactList { Name = "Family", RemoteId = "contactGroups/1" }, new ContactList { Name = "Work", RemoteId = "contactGroups/2" }]);
+        await _contactService.ReplaceAddressBookAsync(book.Id, [Remote(["contactGroups/myContacts", "contactGroups/1"])], "token-1");
+
+        var contact = (await _contactService.GetContactsByAddressBookAsync(book.Id)).Single();
+        var lists = (await _contactService.GetContactListsAsync()).ToDictionary(list => list.Name);
+        lists.Keys.Should().BeEquivalentTo("Not at Google yet", "Family", "Work");
+        lists["Family"].AddressBookId.Should().Be(book.Id);
+        (await _contactService.GetListIdsForContactAsync(contact.Id)).Should().Equal(lists["Family"].Id);
+
+        // A list Google has no group for yet is not the provider's to change.
+        await _contactService.AddContactsToListAsync(pending.Id, [contact.Id]);
+
+        // A response that was not asked for memberships keeps the stored ones.
+        await _contactService.ApplyDeltaAsync(book.Id, new ContactSynchronizationBatch([Remote(null)], [], null), commitDeltaToken: false);
+        (await _contactService.GetListIdsForContactAsync(contact.Id)).Should().BeEquivalentTo([lists["Family"].Id, pending.Id]);
+
+        await _contactService.ReplaceRemoteListsAsync(_accountId, book.Id, [new ContactList { Name = "Colleagues", RemoteId = "contactGroups/2" }]);
+        await _contactService.ApplyDeltaAsync(book.Id, new ContactSynchronizationBatch([Remote(["contactGroups/2"])], [], null), commitDeltaToken: false);
+
+        var afterwards = (await _contactService.GetContactListsAsync()).ToDictionary(list => list.Name);
+        afterwards.Keys.Should().BeEquivalentTo("Not at Google yet", "Colleagues");
+        afterwards["Colleagues"].Id.Should().Be(lists["Work"].Id, "a renamed group stays the same list");
+        (await _contactService.GetListIdsForContactAsync(contact.Id)).Should().BeEquivalentTo([lists["Work"].Id, pending.Id]);
+
+        // A rename that does not know the provider id must not lose it.
+        await _contactService.UpdateContactListAsync(new ContactList { Id = lists["Work"].Id, Name = "Team", MailAccountId = _accountId, AddressBookId = book.Id });
+        (await _contactService.GetContactListAsync(lists["Work"].Id)).RemoteId.Should().Be("contactGroups/2");
     }
 
     [Fact]

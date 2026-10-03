@@ -11,7 +11,5 @@ public sealed class CardDavAccountState
     public string AddressBookHomeHref { get; set; }
     public bool SupportsAddressBookCreation { get; set; }
     public DateTime? DiscoveryExpiresUtc { get; set; }
-    public DateTime? CapabilitiesExpireUtc { get; set; }
-    public DateTime? BackoffUntilUtc { get; set; }
     public bool RequiresRediscovery { get; set; }
 }

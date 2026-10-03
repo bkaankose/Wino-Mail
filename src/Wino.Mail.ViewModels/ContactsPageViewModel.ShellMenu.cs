@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.MenuItems;
@@ -19,9 +21,13 @@ public partial class ContactsPageViewModel
 {
     private readonly NewContactMenuItem _newContactMenuItem = new();
     private readonly NewAddressListMenuItem _newAddressListMenuItem = new();
-    private readonly Dictionary<ContactFilterGroup, SeperatorItem> _groupSeparators = [];
+    private readonly SeperatorItem _accountSeparator = new();
+    private readonly ShellSectionHeaderMenuItem _addressBooksHeader = new(Translator.ContactsPage_AddressBooks);
+    private readonly ShellSectionHeaderMenuItem _listsHeader = new(Translator.ContactDetail_Lists);
+    private readonly ContactCategoriesExpanderMenuItem _categoriesExpander = new(Translator.MailCategoryManagementPage_Title);
 
     private ShellMenu _shellMenu;
+    private Guid? _activeAccountId;
     private bool _isMenuInteractionEnabled = true;
     private bool _isPreparedForShellShutdown;
 
@@ -52,7 +58,7 @@ public partial class ContactsPageViewModel
         if (args.Action != KeyboardShortcutAction.Delete)
             return;
 
-        if (IsSelectionMode)
+        if (IsSelectionMode || SelectedContacts.Count > 1)
         {
             if (SelectedContacts.Any(contact => contact.IsEditable))
             {
@@ -94,6 +100,11 @@ public partial class ContactsPageViewModel
             Items = new MenuItemCollection(Dispatcher),
             HandlesSelection = true
         };
+
+        // This view model outlives its page. Returning from the editor creates a new page,
+        // which assigns the dispatcher again, while the filters built earlier stay as they
+        // are. Without them the pane would be published empty with a filter still selected.
+        SyncShellMenuItems();
     }
 
     public void ActivateShellMenu(ShellModeActivationContext activationContext)
@@ -129,9 +140,9 @@ public partial class ContactsPageViewModel
         SelectedFilter = null;
         SelectedContact = null;
         _isMenuInteractionEnabled = true;
+        _activeAccountId = null;
         _shellMenu?.Items.Clear();
         _shellMenu = null;
-        _groupSeparators.Clear();
 
         Contacts.Clear();
         SelectedContacts.Clear();
@@ -139,8 +150,10 @@ public partial class ContactsPageViewModel
         ContactLists.Clear();
         FilterGroups.Clear();
         _primaryFilterGroup.Clear();
+        _accountFilterGroup.Clear();
         _addressBookFilterGroup.Clear();
         _listFilterGroup.Clear();
+        _categoryFilterGroup.Clear();
         _accounts.Clear();
 
         _isInitialized = false;
@@ -162,6 +175,10 @@ public partial class ContactsPageViewModel
                 return AddContactCommand.CanExecute(null) ? AddContactAsync() : Task.CompletedTask;
             case NewAddressListMenuItem:
                 return CreateListCommand.CanExecute(null) ? CreateListCommand.ExecuteAsync(null) : Task.CompletedTask;
+            case ContactCategoriesExpanderMenuItem expander:
+                // The state is kept on the entry, so it holds while the account changes.
+                expander.IsExpanded = !expander.IsExpanded;
+                return SyncShellMenuItemsAfterSelectionAsync();
             case ContactFilterViewModel filter:
                 SelectedFilter = filter;
                 break;
@@ -189,93 +206,136 @@ public partial class ContactsPageViewModel
     public void SetPaneCompact(bool isCompact) { }
 
     /// <summary>
-    /// Projects the reconciled filter groups onto the flat navigation item collection.
-    /// Existing item instances are reused and only moved, so the pane never loses its
-    /// selection while address books or lists come and go.
+    /// Projects the filters onto the flat navigation item collection, laid out like the
+    /// mail pane: the command entries, the primary filters and the accounts, then what
+    /// the active account holds: its address books and its lists under a caption each,
+    /// and its categories behind an expandable entry. An empty section is left out.
     /// </summary>
     private void SyncShellMenuItems()
     {
         if (_shellMenu is null)
             return;
 
-        var desired = new List<IMenuItem>(FilterGroups.Sum(group => group.Count) + FilterGroups.Count + 3)
+        var desired = new List<IMenuItem>(FilterGroups.Sum(group => group.Count) + 5)
         {
             _newContactMenuItem,
             _newAddressListMenuItem
         };
 
-        var isFirstGroup = true;
+        desired.AddRange(_primaryFilterGroup);
 
-        foreach (var group in FilterGroups)
+        if (_accountFilterGroup.Count > 0)
         {
-            // The primary filters sit directly under the command entries; every group
-            // after them is fenced off with a rule instead of a caption.
-            if (!isFirstGroup)
-            {
-                desired.Add(GetGroupSeparator(group));
-            }
+            desired.Add(_accountSeparator);
+            desired.AddRange(_accountFilterGroup);
+        }
 
-            desired.AddRange(group);
-            isFirstGroup = false;
+        if (GetActiveAccountId() is Guid activeAccountId)
+        {
+            AddSection(desired, _addressBooksHeader, _addressBookFilterGroup.Where(filter => filter.AccountId == activeAccountId));
+            AddSection(desired, _listsHeader, _listFilterGroup.Where(filter => filter.List?.MailAccountId == activeAccountId));
+
+            // Categories stay behind one entry until it is expanded.
+            var categories = _categoryFilterGroup.Where(filter => filter.AccountId == activeAccountId).ToList();
+            if (categories.Count > 0)
+            {
+                desired.Add(_categoriesExpander);
+
+                if (_categoriesExpander.IsExpanded)
+                    desired.AddRange(categories);
+            }
         }
 
         ApplyDesiredMenuItems(desired);
-        PruneGroupSeparators();
         ApplyMenuInteractionState();
+        ApplyFilterSelectionStates();
 
         // The selected entry may have just been hidden or brought back; nudge the shell so
         // the pane re-applies the selection it should be showing.
         OnPropertyChanged(nameof(IShellMenuProvider.SelectedMenuItem));
     }
 
-    private SeperatorItem GetGroupSeparator(ContactFilterGroup group)
+    private static void AddSection(List<IMenuItem> desired, IMenuItem header, IEnumerable<IMenuItem> items)
     {
-        if (!_groupSeparators.TryGetValue(group, out var separator))
-        {
-            separator = new SeperatorItem();
-            _groupSeparators.Add(group, separator);
-        }
+        var section = items.ToList();
+        if (section.Count == 0)
+            return;
 
-        return separator;
+        desired.Add(header);
+        desired.AddRange(section);
     }
 
-    private void PruneGroupSeparators()
+    /// <summary>
+    /// A selection usually arrives from the pane's own selection event. Its items are left
+    /// alone until that event has finished, as the mail pane does when it swaps folders.
+    /// </summary>
+    private async Task SyncShellMenuItemsAfterSelectionAsync()
     {
-        foreach (var group in _groupSeparators.Keys.ToList())
+        await Task.Yield();
+        await ExecuteUIThread(SyncShellMenuItems);
+    }
+
+    /// <summary>
+    /// The account being browsed. Like the loaded account in mail it stays active while
+    /// another filter, or one of its address books or lists, is selected.
+    /// </summary>
+    private Guid? GetActiveAccountId()
+        => (_accountFilterGroup.FirstOrDefault(filter => filter.AccountId == _activeAccountId)
+            ?? _accountFilterGroup.FirstOrDefault())?.AccountId;
+
+    /// <summary>
+    /// Account rows draw the shared account row, which shows its active state from the
+    /// item rather than from the pane's own selection visual.
+    /// </summary>
+    private void ApplyFilterSelectionStates()
+    {
+        var activeAccountId = GetActiveAccountId();
+
+        foreach (var filter in FilterGroups.SelectMany(group => group))
         {
-            if (!FilterGroups.Contains(group))
-            {
-                _groupSeparators.Remove(group);
-            }
+            filter.IsSelected = filter.Kind == ContactFilterKind.Account
+                ? filter.AccountId == activeAccountId
+                : ReferenceEquals(filter, SelectedFilter);
         }
     }
 
+    /// <summary>
+    /// Same approach as the mail pane's folder area: the unchanged leading entries stay, the
+    /// rest is removed one by one and the new tail is appended. The navigation view cannot
+    /// take moves or inserts in the middle of its items without crashing.
+    /// </summary>
     private void ApplyDesiredMenuItems(List<IMenuItem> desired)
     {
         var items = _shellMenu.Items;
 
-        for (var index = 0; index < desired.Count; index++)
+        var keepCount = 0;
+        while (keepCount < items.Count && keepCount < desired.Count && ReferenceEquals(items[keepCount], desired[keepCount]))
         {
-            if (index >= items.Count)
-            {
-                items.Add(desired[index]);
-                continue;
-            }
-
-            if (ReferenceEquals(items[index], desired[index]))
-                continue;
-
-            var currentIndex = items.IndexOf(desired[index]);
-
-            if (currentIndex > index)
-                items.Move(currentIndex, index);
-            else
-                items.Insert(index, desired[index]);
+            keepCount++;
         }
 
-        while (items.Count > desired.Count)
+        if (keepCount == items.Count && keepCount == desired.Count)
+            return;
+
+        var desiredSet = new HashSet<IMenuItem>(desired);
+
+        for (var index = items.Count - 1; index >= keepCount; index--)
         {
-            items.RemoveAt(items.Count - 1);
+            var item = items[index];
+
+            // Entries leaving the pane must not take a selection with them.
+            if (!desiredSet.Contains(item))
+            {
+                item.IsExpanded = false;
+                item.IsSelected = false;
+            }
+
+            items.RemoveAt(index);
+        }
+
+        if (keepCount < desired.Count)
+        {
+            items.AddRange(desired.Skip(keepCount).ToList());
         }
     }
 
@@ -301,7 +361,8 @@ public partial class ContactsPageViewModel
         // The pane templates hide these entries while disabled, so they only show while the
         // page is on screen and there is at least one address book to create into.
         _newContactMenuItem.IsEnabled = _isMenuInteractionEnabled && HasCreateDestinations;
-        _newAddressListMenuItem.IsEnabled = _isMenuInteractionEnabled && HasCreateDestinations;
+        _newAddressListMenuItem.IsEnabled = _isMenuInteractionEnabled && HasListDestinations;
+        _categoriesExpander.IsEnabled = _isMenuInteractionEnabled;
 
         // A refresh already in flight must not be re-entered from the pane.
 

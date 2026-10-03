@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -17,10 +18,12 @@ public sealed class PeopleServiceService : IDisposable
     {
         People = new PeopleResource(httpClient, this);
         Connections = new ConnectionsResource(httpClient, this);
+        ContactGroups = new ContactGroupsResource(httpClient, this);
     }
 
     public PeopleResource People { get; }
     public ConnectionsResource Connections { get; }
+    public ContactGroupsResource ContactGroups { get; }
 
     public void Dispose()
     {
@@ -126,6 +129,83 @@ public sealed class PeopleServiceService : IDisposable
             public string PageToken { get; set; }
             public string SyncToken { get; set; }
             public bool RequestSyncToken { get; set; } = true;
+        }
+    }
+
+    /// <summary>Google's contact groups: the lists a user files contacts under.</summary>
+    public sealed class ContactGroupsResource
+    {
+        private const string Endpoint = "https://people.googleapis.com/v1/";
+        private readonly HttpClient _client;
+        private readonly object _service;
+
+        internal ContactGroupsResource(HttpClient client, object service) { _client = client; _service = service; }
+
+        public ListRequest List() => new(_client, _service);
+        public CreateRequest Create(string name) => new(_client, _service, name);
+        public UpdateRequest Update(string resourceName, string name) => new(_client, _service, resourceName, name);
+        public DeleteRequest Delete(string resourceName) => new(_client, _service, resourceName);
+        public ModifyMembersRequest ModifyMembers(string resourceName, IList<string> resourceNamesToAdd, IList<string> resourceNamesToRemove)
+            => new(_client, _service, resourceName, resourceNamesToAdd, resourceNamesToRemove);
+
+        private static string GroupUrl(string resourceName)
+            => Endpoint + GoogleUrl.Segment(resourceName).Replace("%2F", "/", StringComparison.OrdinalIgnoreCase);
+
+        public sealed class ListRequest : GoogleApiRequest<ListContactGroupsResponse>
+        {
+            internal ListRequest(HttpClient client, object service)
+                : base(client, service, HttpMethod.Get, () => string.Empty, GoogleApiJsonContext.Default.ListContactGroupsResponse)
+            {
+                RequestUriFactory = () => GoogleUrl.AddQuery(
+                    Endpoint + "contactGroups",
+                    ("pageSize", PageSize.ToString()),
+                    ("pageToken", PageToken),
+                    ("groupFields", "name,groupType,metadata"));
+            }
+
+            public int PageSize { get; set; } = 1000;
+            public string PageToken { get; set; }
+        }
+
+        public sealed class CreateRequest : GoogleApiRequest<ContactGroup>
+        {
+            internal CreateRequest(HttpClient client, object service, string name)
+                : base(client, service, HttpMethod.Post, () => Endpoint + "contactGroups",
+                    GoogleApiJsonContext.Default.ContactGroup,
+                    () => GoogleJsonContent.Create(
+                        new CreateContactGroupRequest { ContactGroup = new ContactGroup { Name = name } },
+                        GoogleApiJsonContext.Default.CreateContactGroupRequest)) { }
+        }
+
+        public sealed class UpdateRequest : GoogleApiRequest<ContactGroup>
+        {
+            internal UpdateRequest(HttpClient client, object service, string resourceName, string name)
+                : base(client, service, HttpMethod.Put, () => GroupUrl(resourceName),
+                    GoogleApiJsonContext.Default.ContactGroup,
+                    () => GoogleJsonContent.Create(
+                        new UpdateContactGroupRequest { ContactGroup = new ContactGroup { Name = name }, UpdateGroupFields = "name" },
+                        GoogleApiJsonContext.Default.UpdateContactGroupRequest)) { }
+        }
+
+        public sealed class DeleteRequest : GoogleApiRequest<GoogleEmptyResponse>
+        {
+            // The contacts of a deleted group stay; only the group goes.
+            internal DeleteRequest(HttpClient client, object service, string resourceName)
+                : base(client, service, HttpMethod.Delete, () => GroupUrl(resourceName), GoogleApiJsonContext.Default.GoogleEmptyResponse) { }
+        }
+
+        public sealed class ModifyMembersRequest : GoogleApiRequest<ModifyContactGroupMembersResponse>
+        {
+            internal ModifyMembersRequest(HttpClient client, object service, string resourceName, IList<string> resourceNamesToAdd, IList<string> resourceNamesToRemove)
+                : base(client, service, HttpMethod.Post, () => GroupUrl(resourceName) + "/members:modify",
+                    GoogleApiJsonContext.Default.ModifyContactGroupMembersResponse,
+                    () => GoogleJsonContent.Create(
+                        new ModifyContactGroupMembersRequest
+                        {
+                            ResourceNamesToAdd = resourceNamesToAdd?.Count > 0 ? resourceNamesToAdd : null,
+                            ResourceNamesToRemove = resourceNamesToRemove?.Count > 0 ? resourceNamesToRemove : null
+                        },
+                        GoogleApiJsonContext.Default.ModifyContactGroupMembersRequest)) { }
         }
     }
 }

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using SQLite;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Enums;
 
 namespace Wino.Core.Domain.Entities.Shared;
@@ -91,8 +92,14 @@ public class AccountContact : IEquatable<AccountContact>, IContactDisplayItem
         .Select(a => a.Number).FirstOrDefault(a => !string.IsNullOrWhiteSpace(a));
     [Ignore]
     public string DisplayValue => !string.IsNullOrWhiteSpace(DisplayName) ? DisplayName
+        : !string.IsNullOrWhiteSpace(StructuredName) ? StructuredName
         : !string.IsNullOrWhiteSpace(CompanyName) ? CompanyName
         : PrimaryEmailAddress ?? PrimaryPhoneNumber ?? string.Empty;
+
+    /// <summary>The name parts in reading order, for a contact that has no display name of its own.</summary>
+    [Ignore]
+    public string StructuredName => string.Join(" ", new[] { HonorificPrefix, GivenName, MiddleName, Surname, HonorificSuffix }
+        .Where(part => !string.IsNullOrWhiteSpace(part)).Select(part => part.Trim()));
 
     AccountContact IContactDisplayItem.PreviewContact => this;
 
@@ -110,6 +117,21 @@ public class AccountContact : IEquatable<AccountContact>, IContactDisplayItem
     {
         return Id.GetHashCode();
     }
+
+    /// <summary>The categories applied to this contact, loaded with it.</summary>
+    [Ignore] public List<MailCategory> Categories { get; set; } = [];
+
+    /// <summary>
+    /// The category names a provider reports for this contact. Null means the provider
+    /// does not carry categories, and the stored ones are kept as they are.
+    /// </summary>
+    [Ignore] public List<string> CategoryNames { get; set; }
+
+    /// <summary>
+    /// The provider ids of the lists a provider reports this contact in. Null means the
+    /// provider did not report them, and the stored memberships are kept as they are.
+    /// </summary>
+    [Ignore] public List<string> ListRemoteIds { get; set; }
 
     public override string ToString() => PrimaryEmailAddress ?? DisplayValue;
 

@@ -15,5 +15,10 @@ public enum ContactSynchronizerOperation
     DeletePhoto = 4,
     CreateAddressBook = 5,
     RenameAddressBook = 6,
-    DeleteAddressBook = 7
+    DeleteAddressBook = 7,
+    UpdateCategories = 8,
+    CreateList = 9,
+    RenameList = 10,
+    DeleteList = 11,
+    UpdateListMembers = 12
 }

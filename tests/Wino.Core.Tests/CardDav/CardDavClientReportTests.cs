@@ -42,7 +42,7 @@ public sealed class CardDavClientReportTests
             "<D:sync-token>", "<D:response><D:href>/books</D:href><D:status>HTTP/1.1 507 Insufficient Storage</D:status></D:response><D:sync-token>")));
         var client = new CardDavClient(transport.Object, new DavMultistatusReader());
 
-        var page = await client.SyncCollectionAsync(Settings, new CardDavAddressBook { ExactHref = bookHref }, null, 0);
+        var page = await client.SyncCollectionAsync(Settings, new CardDavAddressBook { ExactHref = bookHref }, null);
 
         page.Changes.Should().ContainSingle().Which.ExactHref.Should().Be(bookHref + "alice.vcf");
         page.IsTruncated.Should().BeTrue();
@@ -56,7 +56,7 @@ public sealed class CardDavClientReportTests
         var transport = CaptureTransport(requests, _ => MultiStatus(SyncResponse(bookHref)));
         var client = new CardDavClient(transport.Object, new DavMultistatusReader());
 
-        await client.SyncCollectionAsync(Settings, new CardDavAddressBook { ExactHref = bookHref }, null, 250);
+        await client.SyncCollectionAsync(Settings, new CardDavAddressBook { ExactHref = bookHref }, null);
 
         XNamespace dav = "DAV:";
         var properties = XDocument.Parse(requests.Single().Body).Root!.Element(dav + "prop")!;
@@ -80,38 +80,16 @@ public sealed class CardDavClientReportTests
         var client = new CardDavClient(transport.Object, new DavMultistatusReader());
 
         var page = await client.SyncCollectionAsync(Settings,
-            new CardDavAddressBook { ExactHref = "https://contacts.example.test/books/" }, null, 0);
+            new CardDavAddressBook { ExactHref = "https://contacts.example.test/books/" }, null);
 
         var change = page.Changes.Should().ContainSingle().Subject;
         change.IsDeleted.Should().BeFalse();
-        change.StatusCode.Should().Be(200);
         change.ETag.Should().Be("\"1\"");
         change.ExactHref.Should().Be("https://contacts.example.test/books/alice.vcf");
     }
 
     [Fact]
-    public async Task SyncCollectionAsync_ServerRejectsLimit_RetriesWithoutLimitAndRemembersOrigin()
-    {
-        // Unique per test: the client remembers limit-rejecting origins for the process.
-        var bookHref = $"https://{Guid.NewGuid():N}.example.test/addressbooks/user/card/";
-        var requests = new List<(string Method, string Depth, string Body)>();
-        var transport = CaptureTransport(requests, body => body.Contains("<D:limit>", StringComparison.Ordinal)
-            ? new HttpResponseMessage(HttpStatusCode.BadRequest)
-            : MultiStatus(SyncResponse(bookHref)));
-        var client = new CardDavClient(transport.Object, new DavMultistatusReader());
-
-        var page = await client.SyncCollectionAsync(Settings, new CardDavAddressBook { ExactHref = bookHref }, null, 250);
-        await client.SyncCollectionAsync(Settings, new CardDavAddressBook { ExactHref = bookHref }, "next-token", 250);
-
-        page.NextSyncToken.Should().Be("next-token");
-        page.Changes.Should().ContainSingle().Which.ExactHref.Should().Be(bookHref + "alice.vcf");
-        requests.Select(request => request.Body.Contains("<D:limit>", StringComparison.Ordinal))
-            .Should().Equal(true, false, false);
-        requests.Should().OnlyContain(request => request.Method == "REPORT" && request.Depth == "0");
-    }
-
-    [Fact]
-    public async Task SyncCollectionAsync_InvalidSyncToken_IsNotRetriedWithoutLimit()
+    public async Task SyncCollectionAsync_InvalidSyncToken_SurfacesPreconditionWithoutRetry()
     {
         var bookHref = $"https://{Guid.NewGuid():N}.example.test/addressbooks/user/card/";
         var requests = new List<(string Method, string Depth, string Body)>();
@@ -121,7 +99,7 @@ public sealed class CardDavClientReportTests
         });
         var client = new CardDavClient(transport.Object, new DavMultistatusReader());
 
-        var act = () => client.SyncCollectionAsync(Settings, new CardDavAddressBook { ExactHref = bookHref }, "stale", 250);
+        var act = () => client.SyncCollectionAsync(Settings, new CardDavAddressBook { ExactHref = bookHref }, "stale");
 
         (await act.Should().ThrowAsync<DavRequestException>()).Which.HasError("valid-sync-token").Should().BeTrue();
         requests.Should().ContainSingle();

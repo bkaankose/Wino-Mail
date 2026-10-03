@@ -52,6 +52,7 @@ public class InMemoryDatabaseService : IDatabaseService
         await Connection.CreateTableAsync<ContactRelation>();
         await Connection.CreateTableAsync<ContactList>();
         await Connection.CreateTableAsync<ContactListMember>();
+        await Connection.CreateTableAsync<ContactCategoryAssignment>();
         await Connection.CreateTableAsync<AccountTaskListGroup>();
         await Connection.CreateTableAsync<AccountTaskSyncState>();
         await Connection.CreateTableAsync<AccountTaskList>();

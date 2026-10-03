@@ -1556,6 +1556,25 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         foreach (var request in requests)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (request is ContactListRequest)
+                throw new NotSupportedException("Outlook contacts have no lists that can be synchronized.");
+
+            if (request is ContactCategoryRequest categoryRequest)
+            {
+                // An Outlook contact carries its categories as names.
+                var categorized = await _contactService.GetContactAsync(categoryRequest.LocalContactId).ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(categorized?.RemoteId))
+                    throw new InvalidOperationException($"Contact {categoryRequest.LocalContactId} is unavailable for {categoryRequest.Operation}.");
+
+                await _outlookContactsClient.UpdateContactAsync(
+                    categorized.RemoteId,
+                    new Contact { Categories = [.. categoryRequest.CategoryNames] },
+                    cancellationToken).ConfigureAwait(false);
+                await _contactService.SetContactCategoriesAsync(categorized.Id, categoryRequest.CategoryNames).ConfigureAwait(false);
+                continue;
+            }
+
             var typedRequest = request as ContactActionRequest;
             var local = typedRequest?.Contact;
 
@@ -1661,6 +1680,7 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
         if (!string.IsNullOrWhiteSpace(remote.AssistantName)) contact.Relations.Add(new ContactRelation { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = ContactRelationKind.Assistant, Name = remote.AssistantName });
         if (!string.IsNullOrWhiteSpace(remote.SpouseName)) contact.Relations.Add(new ContactRelation { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = ContactRelationKind.Spouse, Name = remote.SpouseName });
         contact.Relations.AddRange((remote.Children ?? []).Select(name => new ContactRelation { Id = Guid.NewGuid(), ContactId = contact.Id, Kind = ContactRelationKind.Child, Name = name }));
+        contact.CategoryNames = remote.Categories?.ToList() ?? [];
         return contact;
     }
 
@@ -3580,6 +3600,10 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
     public override List<IRequestBundle<RequestInformation>> CreateCategory(MailCategoryCreateRequest request)
     {
+        // A category that only exists on the device has no entry in the Outlook list.
+        if (request.Category.Source == MailCategorySource.Local)
+            return [];
+
         var outlookCategory = new OutlookCategory
         {
             DisplayName = request.Category.Name,
@@ -3592,6 +3616,10 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
     public override List<IRequestBundle<RequestInformation>> UpdateCategory(MailCategoryUpdateRequest request)
     {
+        // A category that only exists on the device has no entry in the Outlook list.
+        if (request.Category.Source == MailCategorySource.Local)
+            return [];
+
         if (string.IsNullOrWhiteSpace(request.PreviousRemoteId))
             return CreateCategory(new MailCategoryCreateRequest(request.Category));
 
@@ -3631,6 +3659,10 @@ public partial class OutlookSynchronizer : WinoSynchronizer<RequestInformation, 
 
     public override List<IRequestBundle<RequestInformation>> DeleteCategory(MailCategoryDeleteRequest request)
     {
+        // A category that only exists on the device has no entry in the Outlook list.
+        if (request.Category.Source == MailCategorySource.Local)
+            return [];
+
         if (string.IsNullOrWhiteSpace(request.PreviousRemoteId))
             return [];
 

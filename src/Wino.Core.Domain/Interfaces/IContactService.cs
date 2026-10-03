@@ -47,4 +47,16 @@ public interface IContactService : IContactQueryService
     Task AddContactsToListAsync(Guid listId, IEnumerable<Guid> contactIds);
     Task RemoveContactsFromListAsync(Guid listId, IEnumerable<Guid> contactIds);
     Task SetListsForContactAsync(Guid contactId, IEnumerable<Guid> listIds);
+
+    /// <summary>
+    /// Makes the provider-named lists of an address book match the given ones: unknown
+    /// lists are added, known ones renamed, and the ones the provider no longer has removed.
+    /// </summary>
+    Task ReplaceRemoteListsAsync(Guid accountId, Guid addressBookId, IReadOnlyList<ContactList> lists);
+
+    /// <summary>
+    /// Makes the contact carry exactly the named categories. A name the account does not
+    /// know yet becomes a new category.
+    /// </summary>
+    Task SetContactCategoriesAsync(Guid contactId, IEnumerable<string> categoryNames);
 }

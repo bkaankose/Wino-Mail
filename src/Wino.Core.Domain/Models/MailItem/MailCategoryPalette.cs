@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Wino.Core.Domain.Models.MailItem;
 
@@ -27,4 +29,20 @@ public static class MailCategoryPalette
         new("#F3E8FF", "#7E22CE"),
         new("#FCE7F3", "#9D174D")
     ];
+
+    /// <summary>
+    /// Picks a color for a category that arrives without one: the first palette color no
+    /// existing category uses, or the least used one when the palette is exhausted.
+    /// </summary>
+    public static MailCategoryColorOption PickUnused(IEnumerable<string> usedBackgroundColors)
+    {
+        var usage = (usedBackgroundColors ?? [])
+            .Where(color => !string.IsNullOrWhiteSpace(color))
+            .GroupBy(color => color, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+
+        return DefaultOptions
+            .OrderBy(option => usage.TryGetValue(option.BackgroundColorHex, out var count) ? count : 0)
+            .First();
+    }
 }

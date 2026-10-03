@@ -26,6 +26,8 @@
             AccountTaskListTemplate="{StaticResource AccountTaskListTemplate}"
             CalendarDatePickerTemplate="{StaticResource CalendarDatePickerTemplate}"
             CalendarNewEventTemplate="{StaticResource CalendarNewEventTemplate}"
+            ContactCategoriesExpanderTemplate="{StaticResource ContactCategoriesExpanderTemplate}"
+            ContactCategoryFilterTemplate="{StaticResource ContactCategoryFilterTemplate}"
             ContactFilterTemplate="{StaticResource ContactFilterTemplate}"
             CreateNewMailTemplate="{StaticResource CreateNewMailTemplate}"
             FixAuthenticationIssueTemplate="{StaticResource FixAuthenticationIssueTemplate}"

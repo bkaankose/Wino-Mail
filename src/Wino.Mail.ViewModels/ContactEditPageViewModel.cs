@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Wino.Core.Domain;
+using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
@@ -32,6 +33,9 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     private string _previewPhotoPath;
     private bool _isSaveInProgress;
     private IReadOnlyList<Guid> _originalListIds = [];
+    private IReadOnlyList<ContactList> _allLists = [];
+    private IReadOnlyList<MailCategory> _allCategories = [];
+    private readonly IMailCategoryService _mailCategoryService;
 
     public ObservableCollection<ContactCreateDestination> Destinations { get; } = [];
     public ObservableCollection<ContactEmailAddress> EmailAddresses { get; } = [];
@@ -40,10 +44,15 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     public ObservableCollection<ContactImAddress> ImAddresses { get; } = [];
     public ObservableCollection<ContactRelation> Relations { get; } = [];
 
-    /// <summary>Every local list, with <see cref="ContactListMembershipViewModel.IsMember"/> reflecting this contact.</summary>
+    /// <summary>The lists of the contact's address book, with <see cref="ContactListMembershipViewModel.IsMember"/> reflecting this contact.</summary>
     public ObservableCollection<ContactListMembershipViewModel> ListMemberships { get; } = [];
 
     public bool HasLists => ListMemberships.Count > 0;
+
+    /// <summary>The categories of the contact's account, with <see cref="ContactCategoryMembershipViewModel.IsMember"/> reflecting this contact.</summary>
+    public ObservableCollection<ContactCategoryMembershipViewModel> CategoryMemberships { get; } = [];
+
+    public bool HasCategories => CategoryMemberships.Count > 0;
 
     [ObservableProperty] [NotifyCanExecuteChangedFor(nameof(SaveCommand))] public partial ContactCreateDestination SelectedDestination { get; set; }
     [ObservableProperty] public partial ContactEditorCategory SelectedCategory { get; set; }
@@ -116,8 +125,9 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
 
     public ContactEditPageViewModel(IContactQueryService contactService, IWinoRequestDelegator requestDelegator,
         INavigationService navigationService, IMailDialogService dialogService, IPictureStorageService pictureFileService,
-        IPreferencesService preferencesService = null)
+        IPreferencesService preferencesService = null, IMailCategoryService mailCategoryService = null)
     {
+        _mailCategoryService = mailCategoryService;
         _contactService = contactService;
         _requestDelegator = requestDelegator;
         _navigationService = navigationService;
@@ -148,6 +158,17 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
             : await _contactService.GetListIdsForContactAsync(original.Id).ConfigureAwait(false);
         _originalListIds = memberListIds.ToArray();
 
+        var categories = new List<MailCategory>();
+        if (_mailCategoryService is not null)
+        {
+            var accountIds = destinations.Select(destination => destination.MailAccountId).ToHashSet();
+            if (original is not null)
+                accountIds.Add(original.MailAccountId);
+
+            foreach (var accountId in accountIds)
+                categories.AddRange(await _mailCategoryService.GetCategoriesAsync(accountId).ConfigureAwait(false));
+        }
+
         if (parameter.ContactId is not null && original is null)
         {
             await ExecuteUIThread(() => _navigationService.GoBack());
@@ -160,15 +181,10 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
             foreach (var destination in destinations)
                 Destinations.Add(destination);
 
+            _allLists = lists;
+            _allCategories = [.. categories.OrderBy(category => category.Name, StringComparer.OrdinalIgnoreCase)];
             ListMemberships.Clear();
-            foreach (var list in lists)
-            {
-                var membership = new ContactListMembershipViewModel(list, memberListIds.Contains(list.Id));
-                membership.PropertyChanged += (_, _) => IsDirty = true;
-                ListMemberships.Add(membership);
-            }
-
-            OnPropertyChanged(nameof(HasLists));
+            CategoryMemberships.Clear();
 
             if (original is not null)
             {
@@ -219,6 +235,8 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
                 }
             }
 
+            RefreshListMemberships();
+            RefreshCategoryMemberships();
             IsDirty = parameter.ImportDraft != null;
             OnPropertyChanged(nameof(PageTitle));
             OnPropertyChanged(nameof(PreviewDisplayName));
@@ -289,16 +307,27 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
             // after the provider accepts the mutation.
             await _requestDelegator.ExecuteAsync(requests).ConfigureAwait(false);
 
-            var desiredListIds = ListMemberships
-                .Where(item => item.IsMember)
-                .Select(item => item.ListId)
-                .ToArray();
+            // Only the lists on screen are changed: they are the ones of this contact's address book.
+            var originalListIds = _originalListIds.ToHashSet();
+            var listRequests = ListMemberships
+                .Where(item => item.IsMember != originalListIds.Contains(item.ListId))
+                .Select(item => (IRequestBase)new ContactListRequest(
+                    ContactSynchronizerOperation.UpdateListMembers,
+                    item.List,
+                    addedContactIds: item.IsMember ? [contact.Id] : null,
+                    removedContactIds: item.IsMember ? null : [contact.Id]))
+                .ToList();
 
-            await _requestDelegator.ExecuteLocalAsync(new ApplicationLocalContactRequest(
-                ApplicationLocalContactOperation.SetMemberships,
-                contact: contact,
-                desiredListIds: desiredListIds,
-                originalListIds: _originalListIds)).ConfigureAwait(false);
+            if (listRequests.Count > 0)
+                await _requestDelegator.ExecuteAsync(contact.MailAccountId, listRequests).ConfigureAwait(false);
+
+            var desiredCategories = CategoryMemberships.Where(item => item.IsMember).Select(item => item.Category).ToList();
+            if (!contact.Categories.Select(category => category.Id).ToHashSet().SetEquals(desiredCategories.Select(category => category.Id)))
+            {
+                await _requestDelegator.ExecuteAsync(
+                    contact.MailAccountId,
+                    new IRequestBase[] { new ContactCategoryRequest(contact, desiredCategories) }).ConfigureAwait(false);
+            }
 
             if (!IsEditMode && _preferencesService is not null)
                 _preferencesService.LastUsedContactAddressBookId = contact.AddressBookId;
@@ -437,6 +466,7 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
             Nickname = Nickname?.Trim(), FileAs = FileAs?.Trim(), CompanyName = CompanyName?.Trim(), Department = Department?.Trim(), JobTitle = JobTitle?.Trim(), OfficeLocation = OfficeLocation?.Trim(), Profession = Profession?.Trim(),
             BirthdayYear = BirthdayYear, BirthdayMonth = BirthdayMonth, BirthdayDay = BirthdayDay, Website = Website?.Trim(), Notes = Notes?.Trim(),
             IsFavorite = IsFavorite,
+            Categories = _original?.Categories?.ToList() ?? [],
             EmailAddresses = EmailAddresses.ToList(), PhoneNumbers = PhoneNumbers.ToList(), PostalAddresses = PostalAddresses.Where(address => new[] { address.Street, address.City, address.Region, address.PostalCode, address.Country, address.PostOfficeBox }.Any(value => !string.IsNullOrWhiteSpace(value))).ToList(), ImAddresses = ImAddresses.ToList(), Relations = Relations.ToList()
         };
         if (!string.IsNullOrWhiteSpace(ManagerName)) contact.Relations.Add(new ContactRelation { Id = Guid.NewGuid(), Kind = ContactRelationKind.Manager, Name = ManagerName.Trim() });
@@ -476,6 +506,52 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
         IsDirty = true;
         OnPreviewChanged();
         OnPropertyChanged(nameof(RemovePhotoLabel));
+        RefreshListMemberships();
+        RefreshCategoryMemberships();
+    }
+
+    /// <summary>
+    /// Categories belong to an account, so the offered ones follow the account this contact
+    /// is, or will be, saved to.
+    /// </summary>
+    private void RefreshCategoryMemberships()
+    {
+        var accountId = _original?.MailAccountId ?? SelectedDestination?.MailAccountId;
+        var checkedCategoryIds = CategoryMemberships.Count > 0
+            ? CategoryMemberships.Where(item => item.IsMember).Select(item => item.Category.Id).ToHashSet()
+            : (_original?.Categories ?? []).Select(category => category.Id).ToHashSet();
+
+        CategoryMemberships.Clear();
+        foreach (var category in _allCategories.Where(category => accountId.HasValue && category.MailAccountId == accountId))
+        {
+            var membership = new ContactCategoryMembershipViewModel(category, checkedCategoryIds.Contains(category.Id));
+            membership.PropertyChanged += (_, _) => IsDirty = true;
+            CategoryMemberships.Add(membership);
+        }
+
+        OnPropertyChanged(nameof(HasCategories));
+    }
+
+    /// <summary>
+    /// A list only takes contacts of its own address book, so the offered lists follow
+    /// the address book this contact is, or will be, saved to.
+    /// </summary>
+    private void RefreshListMemberships()
+    {
+        var addressBookId = _original?.AddressBookId ?? SelectedDestination?.AddressBookId;
+        var checkedListIds = ListMemberships.Count > 0
+            ? ListMemberships.Where(item => item.IsMember).Select(item => item.ListId).ToHashSet()
+            : _originalListIds.ToHashSet();
+
+        ListMemberships.Clear();
+        foreach (var list in _allLists.Where(list => addressBookId.HasValue && list.AddressBookId == addressBookId))
+        {
+            var membership = new ContactListMembershipViewModel(list, checkedListIds.Contains(list.Id));
+            membership.PropertyChanged += (_, _) => IsDirty = true;
+            ListMemberships.Add(membership);
+        }
+
+        OnPropertyChanged(nameof(HasLists));
     }
     partial void OnHonorificPrefixChanged(string value) => IsDirty = true;
     partial void OnMiddleNameChanged(string value) => IsDirty = true;

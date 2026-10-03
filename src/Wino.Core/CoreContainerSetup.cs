@@ -58,6 +58,7 @@ public static class CoreContainerSetup
         services.AddTransient<UnifiedImapSynchronizer>();
         services.AddTransient<ICardDavSynchronizationEngine, CardDavSynchronizationEngine>();
         services.AddTransient<ICardDavAddressBookService, CardDavAddressBookService>();
+        services.AddTransient<ICardDavContactListService, CardDavContactListService>();
 
         // Register Outlook error handlers
         services.AddTransient<ObjectCannotBeDeletedHandler>();

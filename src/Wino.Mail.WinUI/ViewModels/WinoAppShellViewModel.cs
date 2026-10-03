@@ -24,6 +24,7 @@ namespace Wino.Mail.WinUI.ViewModels;
 public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellViewModel
 {
     private readonly Dictionary<WinoApplicationMode, IShellMenuProvider> _providers = [];
+    private bool _isApplyingSelection;
     private readonly IServiceProvider _serviceProvider;
     private readonly IMicrosoftStoreService _storeService;
     private readonly IMailDialogService _dialogService;
@@ -96,11 +97,23 @@ public sealed partial class WinoAppShellViewModel : CoreBaseViewModel, IShellVie
         get => _currentProvider?.SelectedMenuItem;
         set
         {
-            if (_currentProvider == null || ReferenceEquals(_currentProvider.SelectedMenuItem, value))
+            if (_isApplyingSelection || _currentProvider == null || ReferenceEquals(_currentProvider.SelectedMenuItem, value))
                 return;
 
-            _currentProvider.SelectedMenuItem = value;
-            OnPropertyChanged();
+            // A provider may keep its own selection, and the navigation view may be unable
+            // to show it (the item is not in the pane). Each then reports back to the other;
+            // without this guard that exchange never ends and overflows the stack.
+            _isApplyingSelection = true;
+
+            try
+            {
+                _currentProvider.SelectedMenuItem = value;
+                OnPropertyChanged();
+            }
+            finally
+            {
+                _isApplyingSelection = false;
+            }
         }
     }
 
