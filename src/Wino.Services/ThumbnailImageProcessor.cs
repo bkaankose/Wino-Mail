@@ -6,7 +6,11 @@ namespace Wino.Services;
 
 public static class ThumbnailImageProcessor
 {
-    public const int AvatarCachePixelSize = 48;
+    /// <summary>
+    /// Toasts draw the sender picture at 48 px at 100% scale. A 96 px cache keeps it sharp up to
+    /// 200% display scale; a single ms-appdata file cannot carry per-scale variants.
+    /// </summary>
+    public const int AvatarCachePixelSize = 96;
     private const int JpegQuality = 78;
 
     public static NormalizedThumbnail? NormalizeAvatar(byte[] imageData, int pixelSize = AvatarCachePixelSize)
@@ -46,13 +50,16 @@ public static class ThumbnailImageProcessor
             : new NormalizedThumbnail(encodedData.ToArray(), hasTransparency ? ".png" : ".jpg");
     }
 
-    public static bool HasExpectedDimensions(byte[] imageData, int pixelSize = AvatarCachePixelSize)
+    /// <summary>
+    /// Reads only the image header, so cached files from an older cache size can be found cheaply.
+    /// </summary>
+    public static bool HasExpectedDimensions(string filePath, int pixelSize = AvatarCachePixelSize)
     {
-        if (imageData == null || imageData.Length == 0 || pixelSize <= 0)
+        if (string.IsNullOrWhiteSpace(filePath) || pixelSize <= 0)
             return false;
 
-        using var bitmap = SKBitmap.Decode(imageData);
-        return bitmap?.Width == pixelSize && bitmap.Height == pixelSize;
+        using var codec = SKCodec.Create(filePath);
+        return codec?.Info.Width == pixelSize && codec.Info.Height == pixelSize;
     }
 
     private static bool HasTransparentPixels(SKBitmap bitmap)

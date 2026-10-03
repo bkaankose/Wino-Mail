@@ -165,6 +165,32 @@ public class ThumbnailService(
         var gravatarFileName = await GetGravatarFileNameAsync(email).ConfigureAwait(false);
         var faviconFileName = await GetFaviconFileNameAsync(email).ConfigureAwait(false);
 
+        await StoreThumbnailAsync(email, gravatarFileName, faviconFileName).ConfigureAwait(false);
+    }
+
+    private async Task RefreshThumbnailAsync(string email, string? currentGravatarFileName, string? currentFaviconFileName)
+    {
+        try
+        {
+            var gravatarFileName = await GetGravatarFileNameAsync(email).ConfigureAwait(false);
+            var faviconFileName = await GetFaviconFileNameAsync(email).ConfigureAwait(false);
+
+            // Nothing came back, possibly because the network is down: keep the old files and retry next session.
+            if (gravatarFileName == null && faviconFileName == null)
+                return;
+
+            await StoreThumbnailAsync(
+                email,
+                gravatarFileName ?? currentGravatarFileName,
+                faviconFileName ?? currentFaviconFileName).ConfigureAwait(false);
+        }
+        catch
+        {
+        }
+    }
+
+    private async Task StoreThumbnailAsync(string email, string? gravatarFileName, string? faviconFileName)
+    {
         await _databaseService.Connection.InsertOrReplaceAsync(new Thumbnail
         {
             Domain = email,
@@ -244,6 +270,14 @@ public class ThumbnailService(
 
         if (gravatarFileName == null && faviconFileName == null)
             return null;
+
+        // Files cached at an older pixel size are fetched again at the current size. The old files
+        // stay in use until the new ones arrive, so an offline start does not lose the pictures.
+        if ((gravatarFileName != null && !ThumbnailImageProcessor.HasExpectedDimensions(BuildThumbnailPath(gravatarFileName))) ||
+            (faviconFileName != null && !ThumbnailImageProcessor.HasExpectedDimensions(BuildThumbnailPath(faviconFileName))))
+        {
+            _ = RefreshThumbnailAsync(thumbnail.Domain, gravatarFileName, faviconFileName);
+        }
 
         if (thumbnail.GravatarFileName != gravatarFileName || thumbnail.FaviconFileName != faviconFileName)
         {

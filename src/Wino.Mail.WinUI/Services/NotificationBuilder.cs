@@ -124,7 +124,7 @@ public class NotificationBuilder : INotificationBuilder
                 builder.AddText(string.Format(Translator.Notifications_MultipleNotificationsMessage, mailCount));
                 builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
                 builder.AddButton(CreateDismissButton());
-                builder.SetAudioUri(new Uri("ms-winsoundevent:Notification.Mail"));
+                builder.SetAudioEvent((AppNotificationSoundEvent)NotificationSettingsResolver.ResolveMail(_preferencesService, null).Sound);
 
                 await ShowNotificationAsync(NotificationHostApplication.Mail, builder);
             }
@@ -285,7 +285,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddText(string.Format(Translator.Exception_AccountNeedsAttention_Message, account.Name));
         builder.AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString());
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
-        builder.AddButton(new AppNotificationButton(Translator.Buttons_FixAccount)
+        builder.AddButton(CreateButton(Translator.Buttons_FixAccount, "account-fix")
             .AddArgument(Constants.ToastMailAccountIdKey, account.Id.ToString())
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail));
         builder.AddButton(CreateDismissButton());
@@ -349,22 +349,20 @@ public class NotificationBuilder : INotificationBuilder
             }
 
             builder.AddComboBox(selectionBox);
-            builder.AddButton(new AppNotificationButton(Translator.CalendarReminder_SnoozeAction)
-                .SetIcon(GetNotificationIconUri("calendar-snooze"))
+            builder.AddButton(CreateButton(Translator.CalendarReminder_SnoozeAction, "calendar-snooze")
                 .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarSnoozeAction)
                 .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
                 .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
         }
 
-        builder.AddButton(new AppNotificationButton(Translator.Buttons_Open)
+        builder.AddButton(CreateOpenButton()
             .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarNavigateAction)
             .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
 
         if (CalendarJoinLinkResolver.TryGetEffectiveJoinUri(calendarItem, out _))
         {
-            builder.AddButton(new AppNotificationButton(Translator.CalendarEventDetails_JoinOnline)
-                .SetIcon(GetNotificationIconUri("calendar-join"))
+            builder.AddButton(CreateButton(Translator.CalendarEventDetails_JoinOnline, "calendar-join")
                 .AddArgument(Constants.ToastCalendarActionKey, Constants.ToastCalendarJoinOnlineAction)
                 .AddArgument(Constants.ToastCalendarItemIdKey, calendarItem.Id.ToString())
                 .AddArgument(Constants.ToastModeKey, Constants.ToastModeCalendar));
@@ -419,7 +417,7 @@ public class NotificationBuilder : INotificationBuilder
             ? Translator.Buttons_TestNotification
             : secondaryText);
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModePeople);
-        builder.AddButton(new AppNotificationButton(Translator.Buttons_Open)
+        builder.AddButton(CreateOpenButton()
             .AddArgument(Constants.ToastModeKey, Constants.ToastModePeople));
         builder.AddButton(CreateDismissButton());
         builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.MailNotificationSoundEvent);
@@ -443,7 +441,7 @@ public class NotificationBuilder : INotificationBuilder
         builder.AddText(title);
         builder.AddText(reminderText);
         builder.AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks);
-        builder.AddButton(new AppNotificationButton(Translator.Buttons_Open)
+        builder.AddButton(CreateOpenButton()
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeTasks));
         builder.AddButton(CreateDismissButton());
         builder.SetAudioEvent((AppNotificationSoundEvent)_preferencesService.CalendarNotificationSoundEvent);
@@ -603,39 +601,38 @@ public class NotificationBuilder : INotificationBuilder
     private static MailOperation ResolveMailNotificationAction(MailOperation configuredAction, MailOperation fallbackAction)
         => SupportedMailNotificationActions.Contains(configuredAction) ? configuredAction : fallbackAction;
 
-    private AppNotificationButton CreateMailNotificationActionButton(MailOperation action, Guid mailUniqueId)
-    {
-        var button = new AppNotificationButton(XamlHelpers.GetOperationString(action))
+    private static AppNotificationButton CreateMailNotificationActionButton(MailOperation action, Guid mailUniqueId)
+        => CreateButton(XamlHelpers.GetOperationString(action), GetMailActionIconName(action))
             .AddArgument(Constants.ToastMailUniqueIdKey, mailUniqueId.ToString())
             .AddArgument(Constants.ToastActionKey, action.ToString())
             .AddArgument(Constants.ToastModeKey, Constants.ToastModeMail);
 
-        var iconUri = GetMailActionIconUri(action);
-        if (iconUri != null)
-        {
-            button.SetIcon(iconUri);
-        }
-
-        return button;
-    }
-
-    private static Uri? GetMailActionIconUri(MailOperation action)
+    private static string GetMailActionIconName(MailOperation action)
         => action switch
         {
-            MailOperation.Archive => GetNotificationIconUri("mail-archive"),
-            MailOperation.SoftDelete => GetNotificationIconUri("mail-delete"),
-            MailOperation.MarkAsRead => GetNotificationIconUri("mail-markread"),
-            MailOperation.MoveToJunk => GetNotificationIconUri("mail-junk"),
-            MailOperation.Reply => GetNotificationIconUri("mail-reply"),
-            MailOperation.ReplyAll => GetNotificationIconUri("mail-replyall"),
-            MailOperation.Forward => GetNotificationIconUri("mail-forward"),
-            _ => null
+            MailOperation.Archive => "mail-archive",
+            MailOperation.SoftDelete => "mail-delete",
+            MailOperation.MarkAsRead => "mail-markread",
+            MailOperation.MoveToJunk => "mail-junk",
+            MailOperation.Reply => "mail-reply",
+            MailOperation.ReplyAll => "mail-replyall",
+            MailOperation.Forward => "mail-forward",
+            _ => throw new ArgumentOutOfRangeException(nameof(action), action, "Mail notification action has no icon.")
         };
 
+    private static AppNotificationButton CreateOpenButton()
+        => CreateButton(Translator.Buttons_Open, "open");
+
     private static AppNotificationButton CreateDismissButton()
-        => new AppNotificationButton(Translator.Buttons_Dismiss)
-            .SetIcon(GetNotificationIconUri("dismiss"))
+        => CreateButton(Translator.Buttons_Dismiss, "dismiss")
             .AddArgument(Constants.ToastDismissActionKey, bool.TrueString);
+
+    /// <summary>
+    /// Every toast button is created here. Windows switches all buttons of a toast to the icon-button
+    /// style once one of them has an icon, so a button without one would render inconsistently.
+    /// </summary>
+    private static AppNotificationButton CreateButton(string content, string iconName)
+        => new AppNotificationButton(content).SetIcon(GetNotificationIconUri(iconName));
 
     private static AppNotificationBuilder CreateBuilder(AppNotificationScenario scenario = AppNotificationScenario.Default)
         => new AppNotificationBuilder().SetScenario(scenario);
