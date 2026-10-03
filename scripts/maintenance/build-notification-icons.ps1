@@ -18,6 +18,8 @@ the contrast and neutral variants are copied from them.
 
 With -AttributionLogos the script also writes the Square44x44Logo target sizes that
 Windows asks for and the app entries do not ship yet, downscaled from targetsize-256.
+It writes them for both the stable app entries and the beta artwork under
+release-assets/Beta, because beta packaging requires a beta copy of every branding file.
 
 .EXAMPLE
 pwsh -File scripts/maintenance/build-notification-icons.ps1
@@ -34,7 +36,10 @@ Add-Type -AssemblyName PresentationCore, WindowsBase
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..\..')
 $iconRoot = Join-Path $repoRoot 'src\Wino.Mail.WinUI\Assets\NotificationIcons'
 $svgRoot = Join-Path $repoRoot 'icons\svg'
-$appEntryRoot = Join-Path $repoRoot 'src\Wino.Mail.WinUI\Assets\AppEntries'
+$appEntryRoots = @(
+    Join-Path $repoRoot 'src\Wino.Mail.WinUI\Assets\AppEntries'
+    Join-Path $repoRoot 'release-assets\Beta\Assets\AppEntries'
+)
 
 # Notification icon name -> icons/svg source.
 $SvgIcons = [ordered]@{
@@ -139,7 +144,7 @@ if (-not $AttributionLogos) {
 $targetSizes = 20, 30, 36, 40, 60, 64, 72, 80, 96
 $logoForms = 'targetsize-{0}', 'altform-unplated_targetsize-{0}', 'altform-lightunplated_targetsize-{0}'
 
-foreach ($entry in Get-ChildItem $appEntryRoot -Directory -Filter *Assets) {
+foreach ($entry in Get-ChildItem $appEntryRoots -Directory -Filter *Assets) {
     foreach ($form in $logoForms) {
         $source = Join-Path $entry.FullName ("Square44x44Logo.$form.png" -f 256)
         if (-not (Test-Path $source)) { throw "Missing $source" }

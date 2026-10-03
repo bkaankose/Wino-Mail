@@ -14,7 +14,7 @@ See [development commands](../docs/harness/development.md) for VS Code F5.
 | Maintenance | `maintenance/format-xaml.ps1` | Format XAML or check formatting with the pinned XAML Styler |
 | Maintenance | `maintenance/audit-xaml-accessibility.ps1` | Report XAML controls without accessible labels |
 | Maintenance | `maintenance/audit-xaml-icons.ps1` | Check use of the Wino icon system |
-| Maintenance | `maintenance/build-notification-icons.ps1` | Render toast button icons with theme, contrast, and scale variants; `-AttributionLogos` adds missing app logo target sizes |
+| Maintenance | `maintenance/build-notification-icons.ps1` | Render toast button icons with theme, contrast, and scale variants; `-AttributionLogos` adds missing app logo target sizes to the app and the beta artwork |
 | Localization | `localization/translate_resources.py` | Generate translations from English resources |
 | Localization | `localization/validate_resources.py` | Audit or repair translations |
 
