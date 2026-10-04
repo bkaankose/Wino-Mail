@@ -123,10 +123,18 @@ internal sealed class CompanionService : ICompanionService
             var anchor = GetAnchor();
             var taskbarPosition = _nativeAppService.GetTaskbarPosition();
             await _viewModel!.OpenAsync(_readiness, cancellationToken);
+            if (cancellationToken.IsCancellationRequested)
+            {
+                // The tray click was superseded while the content was loading.
+                _viewModel.Close();
+                return;
+            }
+
             await _host.ShowAsync(anchor, taskbarPosition);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            _viewModel?.Close();
         }
         catch (Exception ex)
         {

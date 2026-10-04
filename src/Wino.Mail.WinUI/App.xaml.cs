@@ -340,9 +340,7 @@ public partial class App : WinoApplication,
             (accountId, startAt, cancellationToken) => ExecuteCompanionNavigationAsync(
                 () => OpenCompanionNewEventAsync(accountId, startAt),
                 cancellationToken),
-            cancellationToken => ExecuteCompanionNavigationAsync(
-                () => EnsureShellWindowAsync(WinoApplicationMode.Settings, activateWindow: true),
-                cancellationToken));
+            cancellationToken => ExecuteCompanionNavigationAsync(OpenCompanionSettingsAsync, cancellationToken));
 
         _companionIntegration = new MainTrayController(
             dispatcher,
@@ -452,6 +450,35 @@ public partial class App : WinoApplication,
         var match = matches.FirstOrDefault();
         if (match != null)
             await contactsViewModel.LoadAndSelectContactAsync(match.Id);
+    }
+
+    private async Task OpenCompanionSettingsAsync()
+    {
+        if (HasShellWindow())
+        {
+            await EnsureShellWindowAsync(WinoApplicationMode.Settings, activateWindow: true);
+            return;
+        }
+
+        // Building a new shell straight into Settings mode crashes Native AOT builds inside the
+        // navigation view. Bring the shell up the way a normal launch does, let it load, and then
+        // switch to Settings the way the in-app Settings entry does.
+        await EnsureShellWindowAsync(WinoApplicationMode.Mail, activateWindow: true);
+
+        var dispatcherQueue = GetActivationDispatcherQueue()
+                              ?? throw new InvalidOperationException("Activation UI dispatcher is not available.");
+        var shellLoaded = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        if (!dispatcherQueue.TryEnqueue(DispatcherQueuePriority.Low, () => shellLoaded.SetResult()))
+            throw new InvalidOperationException("Failed to enqueue activation work on the UI dispatcher.");
+
+        await shellLoaded.Task;
+
+        await ExecuteOnActivationUiThreadAsync(() =>
+        {
+            Services.GetRequiredService<INavigationService>().Navigate(WinoPage.SettingsPage);
+            return Task.CompletedTask;
+        });
     }
 
     private async Task OpenCompanionInboxAsync(Guid? accountId)

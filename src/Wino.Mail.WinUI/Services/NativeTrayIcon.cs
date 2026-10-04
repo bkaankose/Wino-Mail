@@ -17,7 +17,10 @@ namespace Wino.Mail.WinUI.Services;
 
 internal sealed partial class NativeTrayIcon : IDisposable
 {
-    private const int DoubleClickDispatchPaddingMilliseconds = 50;
+    // A single click runs the primary action after this wait at the latest. Waiting out the whole
+    // system double-click time (500 ms by default) made the companion feel slow to open. A slower
+    // double-click still arrives as WM_LBUTTONDBLCLK and runs the double-click action afterwards.
+    private const uint MaximumSingleClickDelayMilliseconds = 200;
     private const uint TrayCallbackMessage = 2048u;
     private const uint MenuCommandOpen = 1u;
     private const int ImageIcon = 1;
@@ -396,7 +399,7 @@ internal sealed partial class NativeTrayIcon : IDisposable
     {
         try
         {
-            await Task.Delay((int)GetDoubleClickTime() + DoubleClickDispatchPaddingMilliseconds, cancellationTokenSource.Token);
+            await Task.Delay((int)Math.Min(GetDoubleClickTime(), MaximumSingleClickDelayMilliseconds), cancellationTokenSource.Token);
             InvokeAction(_primaryAction);
         }
         catch (OperationCanceledException)

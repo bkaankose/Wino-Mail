@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Dispatching;
 using Wino.Core.Domain;
@@ -18,6 +19,7 @@ internal sealed class MainTrayController
     private readonly Func<Task> _openMail;
     private readonly Func<Task> _openCalendar;
     private readonly Func<Task> _exit;
+    private CancellationTokenSource? _pendingToggle;
     private bool _isCompanionEnabled;
     private bool _isHotKeyEnabled;
     private HotKeyGesture _hotKey = HotKeyGesture.Default;
@@ -82,15 +84,34 @@ internal sealed class MainTrayController
         _icon.Dispose();
     }
 
-    private Task ToggleFlyoutAsync()
+    private async Task ToggleFlyoutAsync()
     {
-        return _companion.ToggleAsync();
+        var cancellation = new CancellationTokenSource();
+        _pendingToggle = cancellation;
+
+        try
+        {
+            await _companion.ToggleAsync(cancellation.Token);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+        }
+        finally
+        {
+            if (ReferenceEquals(_pendingToggle, cancellation))
+                _pendingToggle = null;
+
+            cancellation.Dispose();
+        }
     }
 
     private void PrepareForTrayInteraction() => _companion.PrepareForTrayInteraction();
 
     private Task HideFlyoutAsync()
     {
+        // The single click of a slow double-click may still be loading the flyout. Stop it from
+        // appearing once the double-click or the context menu has taken over.
+        _pendingToggle?.Cancel();
         _companion.Hide();
         return Task.CompletedTask;
     }
