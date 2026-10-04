@@ -55,6 +55,16 @@
                     <accountIcon:WinoAccountIcon Account="{x:Bind helpers:XamlHelpers.GetAccountIconInfo(Account, ProviderType, SpecialProvider)}" IconSize="28" />
                 </controls:SettingsCard.HeaderIcon>
                 <StackPanel Orientation="Horizontal" Spacing="8">
+                    <CheckBox
+                        AutomationProperties.AutomationId="{x:Bind ToggleAutomationId}"
+                        AutomationProperties.Name="{x:Bind domain:Translator.WinoIntelligence_EnableMailbox, Mode=OneTime}"
+                        Command="{x:Bind ToggleEnabledCommand}"
+                        CommandParameter="{x:Bind}"
+                        Content="{x:Bind domain:Translator.WinoIntelligence_MailboxEnabled, Mode=OneTime}"
+                        IsChecked="{x:Bind IsEnabled, Mode=OneWay}"
+                        IsEnabled="{x:Bind CanChangeEnabled, Mode=OneWay}"
+                        ToolTipService.ToolTip="{x:Bind ToggleUnavailableTooltip}"
+                        Visibility="{x:Bind CanManage, Mode=OneWay}" />
                     <Button
                         AutomationProperties.AutomationId="{x:Bind ManageAutomationId}"
                         Command="{x:Bind ManageCommand}"
@@ -444,12 +454,18 @@
 
         <ContentDialog
             x:Name="ConsentPolicyDialog"
-            Title="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentPolicyTitle, Mode=OneTime}"
             AutomationProperties.AutomationId="WinoConsentPolicyDialog"
             CloseButtonText="{x:Bind domain:Translator.Buttons_Cancel, Mode=OneTime}"
             DefaultButton="Primary"
             PrimaryButtonClick="ConsentPolicyDialog_PrimaryButtonClick"
             PrimaryButtonText="{x:Bind domain:Translator.Intelligence_AcceptPrivacyPolicyButton, Mode=OneTime}">
+            <ContentDialog.Resources>
+                <!--  The default 548 maximum is narrower than the policy content and clips it.  -->
+                <x:Double x:Key="ContentDialogMaxWidth">760</x:Double>
+            </ContentDialog.Resources>
+            <ContentDialog.Title>
+                <TextBlock Text="{x:Bind domain:Translator.WinoAccount_IntelligenceConsentPolicyTitle, Mode=OneTime}" TextWrapping="WrapWholeWords" />
+            </ContentDialog.Title>
             <Grid
                 Width="720"
                 Height="560"
@@ -470,8 +486,9 @@
                     Grid.Row="2"
                     AutomationProperties.AutomationId="WinoConsentPolicyAcknowledgementCheckBox"
                     Checked="ConsentPolicyAcknowledgementCheckBox_Changed"
-                    Content="{x:Bind domain:Translator.Intelligence_PrivacyPolicyAcknowledgement, Mode=OneTime}"
-                    Unchecked="ConsentPolicyAcknowledgementCheckBox_Changed" />
+                    Unchecked="ConsentPolicyAcknowledgementCheckBox_Changed">
+                    <TextBlock Text="{x:Bind domain:Translator.Intelligence_PrivacyPolicyAcknowledgement, Mode=OneTime}" TextWrapping="WrapWholeWords" />
+                </CheckBox>
                 <TextBlock
                     x:Name="ConsentPolicyErrorText"
                     Grid.Row="3"

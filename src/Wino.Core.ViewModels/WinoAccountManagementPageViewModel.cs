@@ -694,6 +694,7 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
                 await DisableAndClearAllLocalIntelligenceAsync().ConfigureAwait(false);
 
             await ExecuteUIThread(() => ApplyIntelligenceConsent(consent));
+            await CacheIntelligenceConsentAsync(consent).ConfigureAwait(false);
             await LoadIntelligenceDataAsync().ConfigureAwait(false);
             WeakReferenceMessenger.Default.Send(new WinoIntelligenceAccessChanged());
             return IsCurrentIntelligenceConsent(consent);
@@ -708,6 +709,28 @@ public partial class WinoAccountManagementPageViewModel : CoreBaseViewModel,
         {
             await ExecuteUIThread(() => IsConsentBusy = false);
         }
+    }
+
+    /// <summary>
+    /// Mailbox pages read consent from the cached snapshot. Without this they keep the
+    /// pre-change consent and refuse to enable a mailbox until the next server refresh.
+    /// </summary>
+    private async Task CacheIntelligenceConsentAsync(IntelligenceConsentDto consent)
+    {
+        if (_snapshotService is null)
+            return;
+
+        var account = await _profileService.GetActiveAccountAsync().ConfigureAwait(false);
+        if (account is null)
+            return;
+
+        var cached = await _snapshotService.GetCachedAsync(account.Id).ConfigureAwait(false)
+            ?? WinoAccountIntelligenceSnapshot.Empty(account.Id);
+        await _snapshotService.SaveAsync(cached with
+        {
+            Consent = consent,
+            ConsentUpdatedAtUtc = DateTimeOffset.UtcNow
+        }).ConfigureAwait(false);
     }
 
     private async Task DisableAndClearAllLocalIntelligenceAsync()

@@ -33,6 +33,7 @@ public partial class WinoIntelligenceMailboxItemViewModel : ObservableObject
     public string ManageAutomationId => $"WinoAccountIntelligenceManage_{MailboxId:N}";
     public string DeleteAutomationId => $"WinoAccountIntelligenceDelete_{MailboxId:N}";
     public string ToggleAutomationId => $"WinoAccountIntelligenceToggle_{MailboxId:N}";
+    public bool CanChangeEnabled => CanToggle && !IsChangingEnabled;
     public string? ToggleUnavailableTooltip => CanToggle
         ? null
         : Translator.WinoIntelligence_MailboxToggleUnavailable;
@@ -47,5 +48,6 @@ public partial class WinoIntelligenceMailboxItemViewModel : ObservableObject
     public partial bool IsEnabled { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanChangeEnabled))]
     public partial bool IsChangingEnabled { get; set; }
 }
