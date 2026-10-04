@@ -2675,7 +2675,7 @@
     "SemanticIndex_WipeDataConfirmation": "למחוק את נתוני המודיעין עבור תיבת הדואר הזו? התוויות, העדיפות, הכותרות והסיכומים המאוחסנים במכשיר הזה יוסרו. הדואר שלך לא יושפע. Wino אינו שומר עותק בשרתים שלו, ולכן לא ניתן לבטל פעולה זו.",
     "SemanticIndex_WipeDataConfirmButton": "מחיקת נתונים",
     "SemanticIndex_EnableConsentTitle": "הפעל אינטליגנציה של Wino?",
-    "SemanticIndex_EnableConsentMessage": "אינטליגנציה של Wino היא אופציונלית. היא משתמשת במידע הדוא״ל הדרוש לארגון תיבות הדואר ולחיפוש סמנטי, וכן לפעולות סיכום, תרגום ושכתוב שאתה מבקש. OpenAI ו-Microsoft מספקים חלק מהתכונות. Wino לא משתמשת במידע זה למטרות פרסום או למטרות שאינן קשורות. ניתן לבטל הרשאה בכל זמן מבלי להשפיע על שימוש רגיל ב-Wino Mail. קרא את המדיניות המלאה ב-winomail.app/privacy.",
+    "SemanticIndex_EnableConsentMessage": "אינטליגנציה של Wino היא אופציונלית. היא משתמשת במידע הדוא״ל הדרוש לארגון תיבות הדואר ולחיפוש סמנטי, וכן לפעולות סיכום, תרגום ושכתוב שאתה מבקש. OpenAI ו-Microsoft מספקים חלק מהתכונות. Wino לא משתמשת במידע זה למטרות פרסום או למטרות שאינן קשורות. ניתן לבטל הרשאה בכל זמן מבלי להשפיע על שימוש רגיל ב-Wino Mail. קרא את המדיניות המלאה ב-winomail.app/account/privacy.",
     "SemanticIndex_EnableConsentButton": "אשר אינטליגנציה של Wino",
     "Intelligence_WithdrawConsentTitle": "ביטול הרשאת אינטליגנציה של Wino",
     "Intelligence_WithdrawConsentDescription": "הרשאה זו חלה על כל חשבונות הדוא״ל. ביטול ההרשאה מבטל את כל עיבודי האינטליגנציה ומוחק באופן קבוע את כל נתוני האינטליגנציה.",

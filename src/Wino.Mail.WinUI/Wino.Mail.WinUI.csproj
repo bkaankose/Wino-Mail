@@ -496,9 +496,10 @@
     <AppxAutoIncrementPackageRevision>False</AppxAutoIncrementPackageRevision>
     <GenerateTestArtifacts>True</GenerateTestArtifacts>
     <AppxBundle>Always</AppxBundle>
-    <AppxBundlePlatforms>x64</AppxBundlePlatforms>
+    <AppxBundlePlatforms>x86|x64|arm64</AppxBundlePlatforms>
     <AppxPackageDir Condition="'$(AppxPackageDir)' == ''">$(MSBuildProjectDirectory)\AppPackages\</AppxPackageDir>
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
+    <AppxSymbolPackageEnabled>True</AppxSymbolPackageEnabled>
   </PropertyGroup>
 
   <Import Project="..\..\scripts\release\Wino.Release.targets" Condition="'$(WinoReleaseStagingRoot)' != ''" />

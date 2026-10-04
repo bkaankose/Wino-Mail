@@ -147,35 +147,35 @@ The Azure [signing integration documentation](https://learn.microsoft.com/en-us/
 
 ## Outputs
 
-Packages appear under `src/Wino.Mail.WinUI/AppPackages`:
+Packages appear under `D:\Wino Releases`, one folder per manifest version. Set `WINO_RELEASES_ROOT` or pass `-OutputRoot` to use another location.
 
 ```text
-WinoMail_Beta_2.0.55.0/
-  WinoMail_Beta_2.0.55.0.msixbundle
-  WinoMailBetaIsolated.appinstaller
-  Dependencies/                         (when required)
-  Symbols/                              (PDB files only)
-WinoMail_SideloadRelease_2.0.55/
-  WinoMail_SideloadRelease_2.0.55.msixbundle
-  WinoMail.appinstaller
-  Dependencies/                         (when required)
-  Symbols/                              (PDB files only)
-WinoMail_Store_2.0.55.0/
-  WinoMail_Store_2.0.55.0.msixupload
-  WinoMail_Store_2.0.55.0.msixbundle
-  WinoMail_Store_TestCertificate.cer
+2.0.55.0/
+  Beta/
+    WinoMail_Beta_2.0.55.0.msixbundle
+    WinoMailBetaIsolated.appinstaller
+    Dependencies/                       (when required)
+  Sideload/
+    WinoMail_SideloadRelease_2.0.55.msixbundle
+    WinoMail.appinstaller
+    Dependencies/                       (when required)
+  Store/
+    WinoMail_Store_2.0.55.0.msixupload
+    WinoMail_Store_2.0.55.0.msixbundle
+    WinoMail_Store_TestCertificate.cer
   Symbols/                              (PDB files only)
 ```
 
-The build retains the PDB files from the compilation in each selected channel's
-`Symbols/` directory. Symbol upload is intentionally opt-in: an interactive
-build asks whether to upload them after packaging. Declining does not delete
-the symbols. Upload them later with:
+Every channel in a run is packaged from one compilation, so the build stores its PDB files once in the version's
+`Symbols/` directory. A later run for the same version, for example Beta after Store, keeps the existing `Symbols/`
+when its PDB files are identical. If they differ, that run's channels get their own `Symbols/` directory instead.
+Symbol upload is intentionally opt-in: an interactive build asks whether to upload them after packaging.
+Declining does not delete the symbols. Upload them later with:
 
 ```powershell
 pwsh -NoProfile -File .\scripts\release\upload-sentry-symbols.ps1 `
   -Version 2.1.1.0 `
-  -SymbolsPath .\src\Wino.Mail.WinUI\AppPackages\WinoMail_Beta_2.1.1.0\Symbols
+  -SymbolsPath 'D:\Wino Releases\2.1.1.0\Symbols'
 ```
 
 The upload script uses the `SENTRY_AUTH_TOKEN` environment variable and the
@@ -191,7 +191,7 @@ The `.cer` file contains the public test certificate.
 The script verifies package identities, architectures, binary hashes, and sideload resource candidates before it completes.
 
 To publish a Store release, upload the `.msixupload` file to the Wino listing in Partner Center with an authorized account.
-The script creates App Installer update feeds for the selected sideload channels. It does not upload any files.
+The script creates App Installer update feeds for the selected sideload channels. It does not upload any files; `publish-releases.ps1` does.
 
 ## Install the local Store update
 
@@ -217,32 +217,41 @@ The Microsoft Store replaces the test signature after it installs a later publis
 
 An App Installer file contains a bundle URL, package identity, and update policy. It lets Windows locate subsequent releases through a permanent feed URL.
 
-The default beta feed URL is `http://download.winomail.app/WinoMailBetaIsolated.appinstaller`.
-The default stable feed URL is `http://download.winomail.app/WinoMail.appinstaller`.
-The bundle and dependencies use a versioned directory under `http://download.winomail.app/`.
+The default beta feed URL is `https://download.winomail.app/WinoMailBetaIsolated.appinstaller`.
+The default stable feed URL is `https://download.winomail.app/WinoMail.appinstaller`.
+The bundle and dependencies use a versioned directory, named after the bundle, under `https://download.winomail.app/`.
 The environment guide lists optional overrides for these URLs.
 The package base URL must end with a slash. Distribution URLs support HTTP and HTTPS.
 
-The default URLs belong to the official Wino distribution site. Publishing there requires access from the project maintainers.
-For an authorized publication, complete these steps for each selected sideload channel:
+`download.winomail.app` is the `wino-downloads` Cloudflare R2 bucket. Publish with:
 
-1. Upload the channel directory, including its bundle and dependencies, under the package base URL.
-2. Verify that the package URLs in the channel's App Installer file are accessible.
-3. Upload that App Installer file to its permanent feed URL last.
-4. Link the website download button to the corresponding feed URL.
+```powershell
+pwsh -File .\scripts\release\publish-releases.ps1
+```
+
+The script lists the versions under `D:\Wino Releases`, the channels each contains, and the version each channel
+currently serves. Pick a version and the channels to publish; you can update one channel, such as Beta, on its own.
+Store builds are listed but never uploaded. Use `-Version` and `-Channels Beta,Sideload` with `-NonInteractive` to skip the prompts.
+The script needs the R2 credentials described in the [environment guide](local-script-environment.md).
+
+For each selected channel the script:
+
+1. Checks that the App Installer file points at its permanent feed URL and that every package it references exists locally.
+2. Uploads the bundle and dependencies under the versioned directory, with `application/msixbundle` (or the matching package type) and a one-year immutable cache lifetime. Files that are already published with the same size are skipped; a published file with a different size stops the run, because published versions are never replaced.
+3. Verifies the packages over HTTPS, then uploads the App Installer file last with `application/appinstaller` and `no-cache`.
+4. Confirms that the feed now serves the new version.
 
 For example:
 
 ```text
-http://download.winomail.app/WinoMailBetaIsolated.appinstaller
-http://download.winomail.app/WinoMail_Beta_2.0.55.0/WinoMail_Beta_2.0.55.0.msixbundle
-http://download.winomail.app/WinoMail_Beta_2.0.55.0/Dependencies/...
-http://download.winomail.app/WinoMail.appinstaller
-http://download.winomail.app/WinoMail_SideloadRelease_2.0.55/WinoMail_SideloadRelease_2.0.55.msixbundle
+https://download.winomail.app/WinoMailBetaIsolated.appinstaller
+https://download.winomail.app/WinoMail_Beta_2.0.55.0/WinoMail_Beta_2.0.55.0.msixbundle
+https://download.winomail.app/WinoMail_Beta_2.0.55.0/Dependencies/...
+https://download.winomail.app/WinoMail.appinstaller
+https://download.winomail.app/WinoMail_SideloadRelease_2.0.55/WinoMail_SideloadRelease_2.0.55.msixbundle
 ```
 
-Configure the website to serve `.appinstaller` as `application/appinstaller` and `.msixbundle` as `application/msixbundle`.
-Use short cache lifetimes for both feed files. Keep older versioned bundles available during updates.
+Older versioned bundles stay available, so users mid-update are not affected. The website download buttons link to the two feed URLs.
 
 Beta uses `WinoMail.Beta`. Stable sideload retains `WinoMail.Sideload`. Store stable retains its existing identity.
 Each installation has separate databases, credentials, settings, notification hosts, and process coordination.
@@ -264,8 +273,8 @@ See Microsoft's [update settings](https://learn.microsoft.com/en-us/windows/msix
 If a selected destination exists, the script stops before compilation. It never replaces an existing release.
 Move the existing directory or update the source manifest version before another run.
 
-A release lock prevents concurrent runs in this checkout. The lock closes when the script exits.
-Failed work remains under `AppPackages/.staging/<run-id>` with logs and command records.
+A release lock in the release output folder prevents concurrent runs. The lock closes when the script exits.
+Failed work remains under `D:\Wino Releases\.staging\<run-id>` with logs and command records.
 The error identifies the failed stage. No channel becomes a completed output until all selected channels pass verification.
 Successful runs permanently delete their staging directory after the release outputs are finalized.
 The script also removes the `.staging` parent when empty. Diagnostics from earlier failed runs remain available.

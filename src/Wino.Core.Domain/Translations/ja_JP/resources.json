@@ -2675,7 +2675,7 @@
     "SemanticIndex_WipeDataConfirmation": "このメールボックスのインテリジェンスデータを消去しますか？このデバイスに保存されているラベル、優先度、見出し、要約が削除されます。メールには影響しません。Wino はサーバーにコピーを保持していないため、この操作は元に戻せません。",
     "SemanticIndex_WipeDataConfirmButton": "データを消去",
     "SemanticIndex_EnableConsentTitle": "Wino インテリジェンスを有効にしますか？",
-    "SemanticIndex_EnableConsentMessage": "Wino インテリジェンスは任意です。メールボックスの整理とセマンティック検索に必要なメール情報を使用し、要約、翻訳、書き直しなど、リクエストで行うアクションのためにも使用します。OpenAI および Microsoft によっていくつかの機能が提供されます。Wino はこの情報を広告目的や関連のない目的には使用しません。通常の Wino Mail の利用には影響を与えず、いつでもこの許可を取り消すことができます。winomail.app/privacy でポリシー全文をお読みください。",
+    "SemanticIndex_EnableConsentMessage": "Wino インテリジェンスは任意です。メールボックスの整理とセマンティック検索に必要なメール情報を使用し、要約、翻訳、書き直しなど、リクエストで行うアクションのためにも使用します。OpenAI および Microsoft によっていくつかの機能が提供されます。Wino はこの情報を広告目的や関連のない目的には使用しません。通常の Wino Mail の利用には影響を与えず、いつでもこの許可を取り消すことができます。winomail.app/account/privacy でポリシー全文をお読みください。",
     "SemanticIndex_EnableConsentButton": "Wino インテリジェンスを許可",
     "Intelligence_WithdrawConsentTitle": "Wino インテリジェンスの許可を取り消す",
     "Intelligence_WithdrawConsentDescription": "この許可はすべてのメールアカウントに適用されます。取り消すと、すべてのインテリジェンス処理が停止し、インテリジェンスデータが永久に削除されます。",

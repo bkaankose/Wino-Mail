@@ -2675,7 +2675,7 @@
     "SemanticIndex_WipeDataConfirmation": "清除此邮箱的智能数据？存储在此设备上的标签、优先级、标题和摘要将被删除。您的邮件不会受到影响。Wino 不会在其服务器上保留副本，因此此操作无法撤销。",
     "SemanticIndex_WipeDataConfirmButton": "清除数据",
     "SemanticIndex_EnableConsentTitle": "启用 Wino Intelligence？",
-    "SemanticIndex_EnableConsentMessage": "Wino Intelligence 是可选的。它使用为邮箱整理和语义搜索所需的邮件信息，以及您请求的摘要、翻译和改写等操作所需的信息。OpenAI 和 Microsoft 提供某些功能。Wino 不会将这些信息用于广告或与之无关的用途。\n\n您可在任何时点撤回授权，而不会影响普通的 Wino Mail 使用。完整隐私政策请参阅 winomail.app/privacy。",
+    "SemanticIndex_EnableConsentMessage": "Wino Intelligence 是可选的。它使用为邮箱整理和语义搜索所需的邮件信息，以及您请求的摘要、翻译和改写等操作所需的信息。OpenAI 和 Microsoft 提供某些功能。Wino 不会将这些信息用于广告或与之无关的用途。\n\n您可在任何时点撤回授权，而不会影响普通的 Wino Mail 使用。完整隐私政策请参阅 winomail.app/account/privacy。",
     "SemanticIndex_EnableConsentButton": "允许 Wino Intelligence",
     "Intelligence_WithdrawConsentTitle": "撤回 Wino Intelligence 权限",
     "Intelligence_WithdrawConsentDescription": "此权限适用于每个邮件账户。撤回后将停止所有智能处理，并永久删除所有智能数据。",

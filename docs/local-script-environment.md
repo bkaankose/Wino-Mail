@@ -43,13 +43,30 @@ The script passes the three login values to SignTool through its environment. Az
 
 | Optional key | Default or value | Purpose and source |
 | --- | --- | --- |
-| `WINO_BETA_RELEASE_APPINSTALLER_URI` | `http://download.winomail.app/WinoMailBetaIsolated.appinstaller` | Beta update feed URL. Obtain an override from the distribution-site administrator. |
-| `WINO_BETA_RELEASE_PACKAGE_BASE_URI` | Parent URL of the App Installer URL; normally `http://download.winomail.app/` | Root for versioned beta downloads. Use HTTP or HTTPS and a trailing slash. |
+| `WINO_BETA_RELEASE_APPINSTALLER_URI` | `https://download.winomail.app/WinoMailBetaIsolated.appinstaller` | Beta update feed URL. Obtain an override from the distribution-site administrator. |
+| `WINO_BETA_RELEASE_PACKAGE_BASE_URI` | Parent URL of the App Installer URL; normally `https://download.winomail.app/` | Root for versioned beta downloads. Use HTTP or HTTPS and a trailing slash. |
 | `WINO_BETA_RELEASE_SIGNING_DLIB_PATH` | Unset; tools are discovered automatically | Custom installation only. Full path to the x64 `Azure.CodeSigning.Dlib.dll`. |
-| `WINO_SIDELOAD_RELEASE_APPINSTALLER_URI` | `http://download.winomail.app/WinoMail.appinstaller` | Stable sideload update feed URL. Obtain an override from the distribution-site administrator. |
-| `WINO_SIDELOAD_RELEASE_PACKAGE_BASE_URI` | Parent URL of the stable App Installer URL; normally `http://download.winomail.app/` | Root for stable sideload downloads. Use HTTP or HTTPS and a trailing slash. |
+| `WINO_SIDELOAD_RELEASE_APPINSTALLER_URI` | `https://download.winomail.app/WinoMail.appinstaller` | Stable sideload update feed URL. Obtain an override from the distribution-site administrator. |
+| `WINO_SIDELOAD_RELEASE_PACKAGE_BASE_URI` | Parent URL of the stable App Installer URL; normally `https://download.winomail.app/` | Root for stable sideload downloads. Use HTTP or HTTPS and a trailing slash. |
 
 Only selected channels require valid feed settings. Beta and stable sideload must use different feed URLs when selected together.
+
+## Release output folder
+
+| Optional key | Default | Purpose |
+| --- | --- | --- |
+| `WINO_RELEASES_ROOT` | `D:\Wino Releases` | Where `build-releases.ps1` writes packages and `publish-releases.ps1` looks for them. The `-OutputRoot` and `-ReleasesRoot` parameters override it for one run. |
+
+## Publishing Beta and stable sideload releases
+
+`publish-releases.ps1` uploads to the `wino-downloads` Cloudflare R2 bucket that serves `https://download.winomail.app`.
+It uses R2's S3-compatible API, because bundles exceed the 300 MB single-request limit of the Cloudflare API.
+
+| Key | Value | Purpose and source |
+| --- | --- | --- |
+| `WINO_R2_ACCOUNT_ID` | Cloudflare account ID | Cloudflare dashboard → R2 Object Storage → Overview → Account details. Not a secret. |
+| `WINO_R2_ACCESS_KEY_ID` | R2 API token access key ID | R2 Object Storage → Manage API tokens → Create API token. Permission **Object Read & Write**, applied to the `wino-downloads` bucket only. |
+| `WINO_R2_SECRET_ACCESS_KEY` | R2 API token secret access key | Shown once when the token is created. Store it only in this environment variable. |
 
 ## Translations
 

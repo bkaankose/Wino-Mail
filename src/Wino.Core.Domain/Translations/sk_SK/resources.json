@@ -2675,7 +2675,7 @@
     "SemanticIndex_WipeDataConfirmation": "Vymazať údaje inteligencie pre túto schránku? Štítky, priorita, nadpisy a súhrny uložené v tomto zariadení budú odstránené. Vaša pošta nebude ovplyvnená. Wino neuchováva kópiu na svojich serveroch, takže túto akciu nemožno vrátiť späť.",
     "SemanticIndex_WipeDataConfirmButton": "Vymazať údaje",
     "SemanticIndex_EnableConsentTitle": "Povoliť Wino Inteligenciu?",
-    "SemanticIndex_EnableConsentMessage": "Wino inteligencia je voliteľná. Používa informácie o e-maile potrebné na organizáciu poštovej schránky a semantické vyhľadávanie, a na sumarizáciu, preklad a prepis požadovaných akcií. OpenAI a Microsoft poskytujú niektoré funkcie. Wino tieto informácie nepoužíva na reklamu ani na nesúvisiace účely。\n\nMôžete kedykoľvek odobrať súhlas bez vplyvu na bežné používanie Wino Mail. Prečítajte si úplnú politiku na winomail.app/privacy.",
+    "SemanticIndex_EnableConsentMessage": "Wino inteligencia je voliteľná. Používa informácie o e-maile potrebné na organizáciu poštovej schránky a semantické vyhľadávanie, a na sumarizáciu, preklad a prepis požadovaných akcií. OpenAI a Microsoft poskytujú niektoré funkcie. Wino tieto informácie nepoužíva na reklamu ani na nesúvisiace účely。\n\nMôžete kedykoľvek odobrať súhlas bez vplyvu na bežné používanie Wino Mail. Prečítajte si úplnú politiku na winomail.app/account/privacy.",
     "SemanticIndex_EnableConsentButton": "Povoliť Wino Inteligenciu",
     "Intelligence_WithdrawConsentTitle": "Odstúpiť oprávnenie pre Wino Inteligenciu",
     "Intelligence_WithdrawConsentDescription": "Toto oprávnenie sa vzťahuje na každý poštový účet. Odvolaním ho sa zastaví všetko spracovanie inteligencie a navždy sa vymažu všetky dáta inteligencie.",

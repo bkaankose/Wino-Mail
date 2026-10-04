@@ -2677,7 +2677,7 @@
   "SemanticIndex_WipeDataConfirmation": "Wipe intelligence data for this mailbox? Labels, priority, headlines and summaries stored on this device will be removed. Your mail is not affected. Wino does not keep a copy on its servers, so this cannot be undone.",
   "SemanticIndex_WipeDataConfirmButton": "Wipe data",
   "SemanticIndex_EnableConsentTitle": "Enable Wino Intelligence?",
-  "SemanticIndex_EnableConsentMessage": "Wino Intelligence is optional. It uses the email information needed for mailbox organization and semantic search, and for summarize, translate, and rewrite actions that you request. OpenAI and Microsoft help provide some features. Wino does not use this information for advertising or unrelated purposes.\n\nYou can withdraw permission at any time without affecting ordinary Wino Mail use. Read the full policy at winomail.app/privacy.",
+  "SemanticIndex_EnableConsentMessage": "Wino Intelligence is optional. It uses the email information needed for mailbox organization and semantic search, and for summarize, translate, and rewrite actions that you request. OpenAI and Microsoft help provide some features. Wino does not use this information for advertising or unrelated purposes.\n\nYou can withdraw permission at any time without affecting ordinary Wino Mail use. Read the full policy at winomail.app/account/privacy.",
   "SemanticIndex_EnableConsentButton": "Allow Wino Intelligence",
   "Intelligence_WithdrawConsentTitle": "Withdraw Wino Intelligence permission",
   "Intelligence_WithdrawConsentDescription": "This permission applies to every mail account. Withdrawing it stops all Intelligence processing and removes Intelligence data from this device. Wino's servers keep none of it.",

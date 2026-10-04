@@ -28,6 +28,8 @@
   <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Wino.Mail.WinUI'">
     <!-- WinAppSDK experimental-channel generated code references experimental WinUI APIs. -->
     <NoWarn>$(NoWarn);CS8305</NoWarn>
+    <!-- Generated XamlTypeInfo.g.cs registers obsolete WinAppSDK members (for example Icon); keep them as warnings. -->
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);CS0618</WarningsNotAsErrors>
   </PropertyGroup>
 
   <!--

@@ -129,8 +129,6 @@
     <Platform Solution="*|arm64" Project="ARM64" />
     <Platform Solution="*|x64" Project="x64" />
     <Platform Solution="*|x86" Project="x86" />
-    <Deploy Solution="*|x64" />
-    <Deploy Solution="Debug|arm64" />
-    <Deploy Solution="Debug|x86" />
+    <Deploy />
   </Project>
 </Solution>

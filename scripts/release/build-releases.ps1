@@ -4,7 +4,8 @@
 Builds Store, Beta, and stable sideload packages from one Release compilation.
 .DESCRIPTION
 Asks for channels and architectures. Reads the source manifest version. Outputs
-verified packages under src/Wino.Mail.WinUI/AppPackages. See docs/releases.md.
+verified packages under <OutputRoot>\<version>\<Store|Beta|Sideload>, with the
+shared PDB files in <OutputRoot>\<version>\Symbols. See docs/releases.md.
 #>
 [CmdletBinding()]
 param(
@@ -14,7 +15,8 @@ param(
     [switch]$Sideload,
     [ValidateSet('x86', 'x64', 'ARM64')][string[]]$Architectures = @('x64'),
     [string]$BetaAssetsPath,
-    [string]$StoreTestCertificateThumbprint
+    [string]$StoreTestCertificateThumbprint,
+    [string]$OutputRoot = $(if ($env:WINO_RELEASES_ROOT) { $env:WINO_RELEASES_ROOT } else { 'D:\Wino Releases' })
 )
 
 Set-StrictMode -Version Latest
@@ -22,6 +24,7 @@ $ErrorActionPreference = 'Stop'
 $script:ReleaseRepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $script:SideloadIdentityName = 'WinoMail.Sideload'
 $script:BetaAssetsPath = $BetaAssetsPath
+$script:ReleaseOutputRoot = [IO.Path]::GetFullPath($OutputRoot)
 $script:SideloadPublisher = 'CN=Burak Kaan Köse, O=Burak Kaan Köse, L=Wroclaw, S=Dolnośląskie, C=PL'
 
 function Read-ReleaseChoice {
@@ -96,13 +99,15 @@ function New-ReleasePlan {
     $manifestPath = Join-Path (Split-Path $project) 'Package.appxmanifest'
     $manifest = [xml](Get-Content -LiteralPath $manifestPath -Raw)
     $version = Get-ReleaseVersion ([string]$manifest.Package.Identity.Version)
-    $outputRoot = Join-Path (Split-Path $project) 'AppPackages'
+    $outputRoot = $script:ReleaseOutputRoot
+    $versionRoot = Resolve-ReleaseChildPath $outputRoot $version
+    # FolderName names the bundle and its versioned directory on the download site, independent of the local layout.
     $sideloadChannels = @()
     if ($Selection.Beta) { $sideloadChannels += [pscustomobject]@{ Name = 'Beta'; FolderName = "WinoMail_Beta_$version" } }
     if ($Selection.Sideload) { $sideloadChannels += [pscustomobject]@{ Name = 'Sideload'; FolderName = "WinoMail_SideloadRelease_$(([version]$version).ToString(3))" } }
     $destinations = @()
-    if ($Selection.Store) { $destinations += Join-Path $outputRoot "WinoMail_Store_$version" }
-    foreach ($channel in $sideloadChannels) { $destinations += Join-Path $outputRoot $channel.FolderName }
+    if ($Selection.Store) { $destinations += Join-Path $versionRoot 'Store' }
+    foreach ($channel in $sideloadChannels) { $destinations += Join-Path $versionRoot $channel.Name }
     Assert-ReleaseDestinations $destinations
 
     return [pscustomobject]@{
@@ -111,7 +116,8 @@ function New-ReleasePlan {
         ManifestHash = (Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash
         StoreName = [string]$manifest.Package.Identity.Name
         StorePublisher = [string]$manifest.Package.Identity.Publisher
-        OutputRoot = $outputRoot; Destinations = $destinations; SideloadChannels = $sideloadChannels
+        OutputRoot = $outputRoot; VersionRoot = $versionRoot; SymbolsPath = Join-Path $versionRoot 'Symbols'
+        Destinations = $destinations; SideloadChannels = $sideloadChannels
         BetaAssetsPath = if ($script:BetaAssetsPath) { [IO.Path]::GetFullPath($script:BetaAssetsPath) } else { Join-Path $RepositoryRoot 'release-assets/Beta' }
     }
 }
@@ -245,7 +251,7 @@ function Get-ReleaseSigningConfiguration {
     }
     if ($IncludeSideload) {
         $distributions.Sideload = Get-ReleaseDistributionConfiguration @{
-            AppInstallerUri = if ($env:WINO_SIDELOAD_RELEASE_APPINSTALLER_URI) { $env:WINO_SIDELOAD_RELEASE_APPINSTALLER_URI } else { 'http://download.winomail.app/WinoMail.appinstaller' }
+            AppInstallerUri = if ($env:WINO_SIDELOAD_RELEASE_APPINSTALLER_URI) { $env:WINO_SIDELOAD_RELEASE_APPINSTALLER_URI } else { 'https://download.winomail.app/WinoMail.appinstaller' }
             PackageBaseUri = $env:WINO_SIDELOAD_RELEASE_PACKAGE_BASE_URI
         }
     }
@@ -621,7 +627,7 @@ function Get-StoreReleaseArtifact {
     }
     finally { $archive.Dispose() }
     $hashes = Assert-ReleaseBundle $bundlePath $Plan $Plan.StoreName $Plan.StorePublisher (Join-Path $Staging 'inspect/store')
-    $folder = Join-Path $Staging "ready/WinoMail_Store_$($Plan.Version)"
+    $folder = Join-Path $Staging 'ready/Store'
     $null = New-Item -ItemType Directory -Path $folder -Force
     Copy-Item -LiteralPath $uploads[0].FullName -Destination (Join-Path $folder "WinoMail_Store_$($Plan.Version).msixupload")
     $installableBundle = Join-Path $folder "WinoMail_Store_$($Plan.Version).msixbundle"
@@ -653,7 +659,7 @@ function Copy-ReleaseDependencies {
 function Get-ReleaseDistributionConfiguration {
     param([hashtable]$Configuration)
 
-    $installerText = if ($Configuration['AppInstallerUri']) { $Configuration['AppInstallerUri'] } else { 'http://download.winomail.app/WinoMailBetaIsolated.appinstaller' }
+    $installerText = if ($Configuration['AppInstallerUri']) { $Configuration['AppInstallerUri'] } else { 'https://download.winomail.app/WinoMailBetaIsolated.appinstaller' }
     $baseText = if ($Configuration['PackageBaseUri']) { $Configuration['PackageBaseUri'] } else { ([uri]::new([uri]$installerText, '.')).AbsoluteUri }
     $uris = @{}
     foreach ($entry in @{ AppInstallerUri = $installerText; PackageBaseUri = $baseText }.GetEnumerator()) {
@@ -685,7 +691,8 @@ function New-SideloadAppInstaller {
     $manifest = Get-ArchiveXml $Bundle 'AppxMetadata/AppxBundleManifest.xml'
     Assert-ReleaseIdentity $manifest.Bundle.Identity $profile.PackageName $script:SideloadPublisher $Plan.Version
     $folder = Split-Path $Bundle
-    $folderName = Split-Path $folder -Leaf
+    # The download site keeps each release in a directory named after its bundle, e.g. WinoMail_Beta_2.2.0.0/.
+    $folderName = [IO.Path]::GetFileNameWithoutExtension($Bundle)
     $namespace = 'http://schemas.microsoft.com/appx/appinstaller/2017/2'
     $document = [xml]::new()
     $root = $document.CreateElement('AppInstaller', $namespace)
@@ -767,17 +774,23 @@ function Sign-SideloadRelease {
 }
 
 function Complete-ReleaseOutputs {
-    param([object]$Plan, [string]$Staging)
+    param([object]$Plan, [string]$Staging, [bool]$MoveSymbols)
 
     Assert-ReleaseDestinations $Plan.Destinations
+    $moves = @($Plan.Destinations | ForEach-Object {
+        [pscustomobject]@{ Source = Resolve-ReleaseChildPath $Staging "ready/$(Split-Path $_ -Leaf)"; Destination = $_ }
+    })
+    if ($MoveSymbols) {
+        Assert-ReleaseDestinations @($Plan.SymbolsPath)
+        $moves += [pscustomobject]@{ Source = Resolve-ReleaseChildPath $Staging 'symbols'; Destination = $Plan.SymbolsPath }
+    }
+    $null = New-Item -ItemType Directory -Path $Plan.VersionRoot -Force
     $moved = [Collections.Generic.List[object]]::new()
     try {
-        foreach ($destination in $Plan.Destinations) {
-            $name = Split-Path $destination -Leaf
-            $source = Resolve-ReleaseChildPath $Staging "ready/$name"
-            $null = Resolve-ReleaseChildPath $Plan.OutputRoot $name
-            [IO.Directory]::Move($source, $destination)
-            $moved.Add([pscustomobject]@{ Source = $source; Destination = $destination })
+        foreach ($move in $moves) {
+            $null = Resolve-ReleaseChildPath $Plan.VersionRoot (Split-Path $move.Destination -Leaf)
+            [IO.Directory]::Move($move.Source, $move.Destination)
+            $moved.Add($move)
         }
     }
     catch {
@@ -786,9 +799,20 @@ function Complete-ReleaseOutputs {
     }
 }
 
+function Get-ReleaseSymbolHashes {
+    param([string]$Root)
+
+    return @(Get-ChildItem -LiteralPath $Root -Recurse -File | ForEach-Object {
+        '{0}|{1}' -f [IO.Path]::GetRelativePath($Root, $_.FullName).Replace('\', '/').ToLowerInvariant(), (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+    } | Sort-Object)
+}
+
 function Copy-ReleaseSymbols {
     param([object]$Plan, [string]$Staging)
 
+    # Every channel is packaged from one compilation, so the PDB files are shared by the whole version.
+    # They live once in <version>/Symbols. An earlier run for the same version may already have stored them;
+    # keep those when identical, otherwise give this run's channels their own Symbols folder.
     $source = Resolve-ReleaseChildPath $Staging 'exports'
     if (-not (Test-Path -LiteralPath $source -PathType Container)) {
         throw "The release symbol export directory is missing: $source"
@@ -799,19 +823,27 @@ function Copy-ReleaseSymbols {
         throw "The release export contains no PDB files: $source"
     }
 
-    foreach ($releaseFolder in $Plan.Destinations) {
-        $destination = Resolve-ReleaseChildPath $Staging ("ready/$(Split-Path $releaseFolder -Leaf)/Symbols")
-        if (Test-Path -LiteralPath $destination) {
-            throw "The release symbol destination already exists: $destination"
-        }
-        foreach ($symbol in $symbolFiles) {
-            $relativePath = [IO.Path]::GetRelativePath($source, $symbol.FullName)
-            $target = Resolve-ReleaseChildPath $destination $relativePath
-            $null = New-Item -ItemType Directory -Path (Split-Path $target) -Force
-            Copy-Item -LiteralPath $symbol.FullName -Destination $target
-        }
+    $staged = Resolve-ReleaseChildPath $Staging 'symbols'
+    if (Test-Path -LiteralPath $staged) { throw "The staged symbol directory already exists: $staged" }
+    foreach ($symbol in $symbolFiles) {
+        $target = Resolve-ReleaseChildPath $staged ([IO.Path]::GetRelativePath($source, $symbol.FullName))
+        $null = New-Item -ItemType Directory -Path (Split-Path $target) -Force
+        Copy-Item -LiteralPath $symbol.FullName -Destination $target
     }
-    return (Join-Path $Plan.Destinations[0] 'Symbols')
+
+    if (-not (Test-Path -LiteralPath $Plan.SymbolsPath)) {
+        return [pscustomobject]@{ MoveShared = $true; UploadPath = $Plan.SymbolsPath }
+    }
+    if (@(Compare-Object (Get-ReleaseSymbolHashes $staged) (Get-ReleaseSymbolHashes $Plan.SymbolsPath) -CaseSensitive).Count -eq 0) {
+        Write-Host "Symbols are identical to the existing $($Plan.SymbolsPath). Keeping a single copy."
+        return [pscustomobject]@{ MoveShared = $false; UploadPath = $Plan.SymbolsPath }
+    }
+
+    Write-Warning "This build's symbols differ from $($Plan.SymbolsPath). Storing them in each new channel folder instead."
+    foreach ($destination in $Plan.Destinations) {
+        Copy-Item -LiteralPath $staged -Destination (Resolve-ReleaseChildPath $Staging "ready/$(Split-Path $destination -Leaf)/Symbols") -Recurse
+    }
+    return [pscustomobject]@{ MoveShared = $false; UploadPath = Join-Path $Plan.Destinations[0] 'Symbols' }
 }
 
 function Remove-ReleaseStaging {
@@ -822,7 +854,7 @@ function Remove-ReleaseStaging {
     $expectedPath = Resolve-ReleaseChildPath $stagingRoot $runName
     if ($runName -notmatch '^[a-f0-9]{32}$' -or
         [IO.Path]::GetFullPath($Staging) -ine $expectedPath) {
-        throw 'Cleanup requires the current release run directory under AppPackages/.staging.'
+        throw 'Cleanup requires the current release run directory under the release output .staging folder.'
     }
     foreach ($path in @($stagingRoot, $expectedPath)) {
         $item = Get-Item -LiteralPath $path -Force
@@ -880,7 +912,7 @@ function Invoke-ReleaseBuild {
             $stage = 'Azure signing'
             Sign-SideloadRelease $bundle $Plan $Tools $Signing $channelStage $channel.Name
             $signedHash = (Get-FileHash -LiteralPath $bundle -Algorithm SHA256).Hash
-            $folder = Join-Path $staging "ready/$($channel.FolderName)"
+            $folder = Join-Path $staging "ready/$($channel.Name)"
             $null = New-Item -ItemType Directory -Path $folder -Force
             $channelBundle = Join-Path $folder "$($channel.FolderName).msixbundle"
             Copy-Item -LiteralPath $bundle -Destination $channelBundle
@@ -892,13 +924,14 @@ function Invoke-ReleaseBuild {
         if ((Get-FileHash -LiteralPath $Plan.ManifestPath -Algorithm SHA256).Hash -cne $Plan.ManifestHash) {
             throw 'The source manifest changed during the build. The outputs remain in staging.'
         }
-        $symbolsPath = Copy-ReleaseSymbols $Plan $staging
-        Complete-ReleaseOutputs $Plan $staging
+        $symbols = Copy-ReleaseSymbols $Plan $staging
+        Complete-ReleaseOutputs $Plan $staging $symbols.MoveShared
         $stage = 'staging cleanup (release outputs are finalized)'
         Remove-ReleaseStaging $Plan $staging
         Write-Host 'Release packages are ready:' -ForegroundColor Green
         $Plan.Destinations | ForEach-Object { Write-Host $_ }
-        return $symbolsPath
+        Write-Host "Symbols: $($symbols.UploadPath)"
+        return $symbols.UploadPath
     }
     catch {
         throw "Release failed during '$stage'. Staging: $staging`n$($_.Exception.Message)"
@@ -950,7 +983,7 @@ function Invoke-InteractiveRelease {
         }
     }
     if (-not $NonInteractive) {
-        try { Invoke-Item -LiteralPath $plan.OutputRoot } catch { Write-Warning 'Packages are ready, but Explorer could not open the output folder.' }
+        try { Invoke-Item -LiteralPath $plan.VersionRoot } catch { Write-Warning 'Packages are ready, but Explorer could not open the output folder.' }
     }
 }
 
