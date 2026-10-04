@@ -9,7 +9,9 @@
             "fieldset", "legend", "output", "datalist", "iframe", "frame", "frameset",
             "object", "embed", "applet", "base", "meta", "link", "template"
         ],
-        FORBID_CONTENTS: [
+        // ADD_ keeps DOMPurify's default list, which drops <title>, <head> and <noscript> text.
+        // FORBID_CONTENTS would replace it and leak the document title into the body.
+        ADD_FORBID_CONTENTS: [
             "script", "form", "iframe", "frame", "frameset", "object", "embed",
             "applet", "template"
         ]
