@@ -1095,113 +1095,118 @@
             <!--  Mail Rendering Frame  -->
             <Frame x:Name="RenderingFrame" IsNavigationStackEnabled="False" />
 
-            <!--  No Mail Selected Message  -->
-            <StackPanel
-                x:Name="NoMailSelectedPanel"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Spacing="6"
-                Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.ThemeService.IsCustomTheme)}">
-
-                <illustrations:WinoNoMailSelectedIllustration Width="140" HorizontalAlignment="Center" />
-
-                <TextBlock
-                    HorizontalAlignment="Center"
-                    Opacity="0.5"
-                    Style="{StaticResource SubheaderTextBlockStyle}"
-                    Text="{x:Bind ViewModel.SelectedMessageText, Mode=OneWay}" />
-
+            <!--
+                No Mail Selected Message. The layout states own the wrapper's Visibility; the
+                custom theme binding stays on the inner panel so Bindings.Update() (for example
+                after an async entitlement refresh) can't undo the state.
+            -->
+            <Grid x:Name="NoMailSelectedPanel">
                 <StackPanel
-                    Width="244"
-                    Margin="0,12,0,0"
-                    Spacing="2"
-                    Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.SelectedItemsCount), Mode=OneWay}">
-                    <HyperlinkButton
-                        MinHeight="44"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Left"
-                        AutomationProperties.AutomationId="MailListPageDeleteSelectedButton"
-                        AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Delete, Mode=OneTime}"
-                        Command="{x:Bind ViewModel.RequestIdleDeleteCommand}">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <coreControls:WinoFontIcon
-                                Width="20"
-                                FontSize="16"
-                                Icon="Delete" />
-                            <TextBlock Text="{x:Bind domain:Translator.MailOperation_Delete, Mode=OneTime}" />
-                        </StackPanel>
-                    </HyperlinkButton>
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="6"
+                    Visibility="{x:Bind helpers:XamlHelpers.ReverseBoolToVisibilityConverter(ViewModel.ThemeService.IsCustomTheme)}">
 
-                    <HyperlinkButton
-                        MinHeight="44"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Left"
-                        AutomationProperties.AutomationId="MailListPageFlagSelectedButton"
-                        AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Flag, Mode=OneTime}"
-                        Command="{x:Bind ViewModel.RequestIdleFlagCommand}">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <coreControls:WinoFontIcon
-                                Width="20"
-                                FontSize="16"
-                                Icon="Flag" />
-                            <TextBlock Text="{x:Bind domain:Translator.MailOperation_Flag, Mode=OneTime}" />
-                        </StackPanel>
-                    </HyperlinkButton>
+                    <illustrations:WinoNoMailSelectedIllustration Width="140" HorizontalAlignment="Center" />
 
-                    <HyperlinkButton
-                        MinHeight="44"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Left"
-                        AutomationProperties.AutomationId="MailListPageToggleReadSelectedButton"
-                        AutomationProperties.Name="{x:Bind domain:Translator.MarkReadUnread, Mode=OneTime}"
-                        Command="{x:Bind ViewModel.RequestIdleToggleReadCommand}">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <coreControls:WinoFontIcon
-                                Width="20"
-                                FontSize="16"
-                                Icon="MarkRead" />
-                            <TextBlock Text="{x:Bind domain:Translator.MarkReadUnread, Mode=OneTime}" />
-                        </StackPanel>
-                    </HyperlinkButton>
+                    <TextBlock
+                        HorizontalAlignment="Center"
+                        Opacity="0.5"
+                        Style="{StaticResource SubheaderTextBlockStyle}"
+                        Text="{x:Bind ViewModel.SelectedMessageText, Mode=OneWay}" />
 
-                    <HyperlinkButton
-                        MinHeight="44"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Left"
-                        AutomationProperties.AutomationId="MailListPageMoveSelectedButton"
-                        AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Move, Mode=OneTime}"
-                        Command="{x:Bind ViewModel.RequestIdleMoveCommand}">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <coreControls:WinoFontIcon
-                                Width="20"
-                                FontSize="16"
-                                Icon="Move" />
-                            <TextBlock Text="{x:Bind domain:Translator.MailOperation_Move, Mode=OneTime}" />
-                        </StackPanel>
-                    </HyperlinkButton>
+                    <StackPanel
+                        Width="244"
+                        Margin="0,12,0,0"
+                        Spacing="2"
+                        Visibility="{x:Bind helpers:XamlHelpers.CountToVisibilityConverter(ViewModel.SelectedItemsCount), Mode=OneWay}">
+                        <HyperlinkButton
+                            MinHeight="44"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="MailListPageDeleteSelectedButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Delete, Mode=OneTime}"
+                            Command="{x:Bind ViewModel.RequestIdleDeleteCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <coreControls:WinoFontIcon
+                                    Width="20"
+                                    FontSize="16"
+                                    Icon="Delete" />
+                                <TextBlock Text="{x:Bind domain:Translator.MailOperation_Delete, Mode=OneTime}" />
+                            </StackPanel>
+                        </HyperlinkButton>
 
-                    <Rectangle
-                        Height="1"
-                        Margin="0,8"
-                        Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                        <HyperlinkButton
+                            MinHeight="44"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="MailListPageFlagSelectedButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Flag, Mode=OneTime}"
+                            Command="{x:Bind ViewModel.RequestIdleFlagCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <coreControls:WinoFontIcon
+                                    Width="20"
+                                    FontSize="16"
+                                    Icon="Flag" />
+                                <TextBlock Text="{x:Bind domain:Translator.MailOperation_Flag, Mode=OneTime}" />
+                            </StackPanel>
+                        </HyperlinkButton>
 
-                    <HyperlinkButton
-                        MinHeight="44"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Left"
-                        AutomationProperties.AutomationId="MailListPageUnselectAllButton"
-                        AutomationProperties.Name="{x:Bind domain:Translator.Buttons_UnselectAll, Mode=OneTime}"
-                        Command="{x:Bind ViewModel.UnselectAllCommand}">
-                        <StackPanel Orientation="Horizontal" Spacing="12">
-                            <coreControls:WinoFontIcon
-                                Width="20"
-                                FontSize="16"
-                                Icon="Dismiss" />
-                            <TextBlock Text="{x:Bind domain:Translator.Buttons_UnselectAll, Mode=OneTime}" />
-                        </StackPanel>
-                    </HyperlinkButton>
+                        <HyperlinkButton
+                            MinHeight="44"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="MailListPageToggleReadSelectedButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.MarkReadUnread, Mode=OneTime}"
+                            Command="{x:Bind ViewModel.RequestIdleToggleReadCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <coreControls:WinoFontIcon
+                                    Width="20"
+                                    FontSize="16"
+                                    Icon="MarkRead" />
+                                <TextBlock Text="{x:Bind domain:Translator.MarkReadUnread, Mode=OneTime}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+
+                        <HyperlinkButton
+                            MinHeight="44"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="MailListPageMoveSelectedButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.MailOperation_Move, Mode=OneTime}"
+                            Command="{x:Bind ViewModel.RequestIdleMoveCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <coreControls:WinoFontIcon
+                                    Width="20"
+                                    FontSize="16"
+                                    Icon="Move" />
+                                <TextBlock Text="{x:Bind domain:Translator.MailOperation_Move, Mode=OneTime}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+
+                        <Rectangle
+                            Height="1"
+                            Margin="0,8"
+                            Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <HyperlinkButton
+                            MinHeight="44"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            AutomationProperties.AutomationId="MailListPageUnselectAllButton"
+                            AutomationProperties.Name="{x:Bind domain:Translator.Buttons_UnselectAll, Mode=OneTime}"
+                            Command="{x:Bind ViewModel.UnselectAllCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <coreControls:WinoFontIcon
+                                    Width="20"
+                                    FontSize="16"
+                                    Icon="Dismiss" />
+                                <TextBlock Text="{x:Bind domain:Translator.Buttons_UnselectAll, Mode=OneTime}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
+            </Grid>
         </Grid>
 
         <VisualStateManager.VisualStateGroups>

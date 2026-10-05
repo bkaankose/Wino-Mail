@@ -2,11 +2,13 @@ namespace Wino.NotificationHost.Contracts;
 
 public static class NotificationHostApplicationIds
 {
+    // Each mode's toasts use its visible application entry. The Store rejects hidden (headless)
+    // application entries without a waiver, so the manifest declares no separate notification identities.
     public const string Main = "App";
-    public const string Mail = "MailNotificationHost";
-    public const string Calendar = "CalendarNotificationHost";
-    public const string People = "PeopleNotificationHost";
-    public const string Tasks = "ToDoNotificationHost";
+    public const string Mail = Main;
+    public const string Calendar = "CalendarApp";
+    public const string People = "ContactsApp";
+    public const string Tasks = "ToDoApp";
 
     public static string GetApplicationId(NotificationHostApplication application)
         => application switch

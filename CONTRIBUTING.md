@@ -125,11 +125,11 @@ sequenceDiagram
 
 The package manifest defines four visible application entries: Wino Mail, Wino Calendar, Wino People, and Wino To Do. They share the main WinUI executable.
 
-Windows identifies packaged applications with an Application User Model ID (AUMID). Each application mode needs a separate notification identity and activation route.
+Windows identifies packaged applications with an Application User Model ID (AUMID). Each application mode uses the AUMID of its own visible entry for notifications, so a toast shows that mode's name and icon in Notification Center.
 
-The [`Package.appxmanifest`](src/Wino.Mail.WinUI/Package.appxmanifest) therefore defines four hidden notification-host applications. These entries create one notification AUMID for each mode.
+Do not add hidden application entries (`AppListEntry="none"`). Microsoft Store rejects these headless entries unless the app has the `HeadlessAppBypass` waiver.
 
-All four entries share one small executable, [`Wino.NotificationHost`](src/Wino.NotificationHost), which contains the activation bridge. Each entry declares its own toast COM activator class, so the class Windows calls identifies the application mode. This design keeps the toast COM activators out of the shared UI executable.
+Each visible entry declares its own toast COM activator class, served by one small executable, [`Wino.NotificationHost`](src/Wino.NotificationHost), which contains the activation bridge. Windows starts the host under the identity of the toast's entry, so the host's AUMID identifies the application mode. This design keeps the toast COM activators out of the shared UI executable.
 
 [`NotificationHostClient`](src/Wino.Mail.WinUI/Services/NotificationHostClient.cs) shows and removes toasts inside the main process. It addresses the required AUMID with `ToastNotificationManager.CreateToastNotifier(aumid)`, which Windows allows for applications in the same package. No host process starts to show or remove a notification.
 

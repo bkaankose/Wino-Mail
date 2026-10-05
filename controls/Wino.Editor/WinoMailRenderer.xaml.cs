@@ -542,7 +542,14 @@ public sealed partial class WinoMailRenderer : UserControl, IHtmlMailRenderer, I
         // An invisible WebView avoids rendering work while the reading pane is
         // empty. MemoryUsageTargetLevel does not depend on controller visibility.
         RendererWebView2.Visibility = Visibility.Collapsed;
-        coreWebView.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+        try
+        {
+            coreWebView.MemoryUsageTargetLevel = CoreWebView2MemoryUsageTargetLevel.Low;
+        }
+        catch (Exception)
+        {
+            // Ignore errors.
+        }
     }
 
     private void RestoreActiveBrowserState()

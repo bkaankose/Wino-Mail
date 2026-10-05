@@ -74,12 +74,12 @@ internal static class Program
             }
         }
 
-        // All four notification identities share this executable, but Windows starts it under the
-        // identity of the toast's application. COM rejects registering another application's
+        // All four application entries declare this executable as their toast activator, and Windows
+        // starts it under the identity of the toast's application. COM rejects registering another application's
         // activator class (CO_E_WRONG_SERVER_IDENTITY), so only the current one is registered.
         var currentAppUserModelId = CurrentAppIdentity.GetAppUserModelId();
         if (!NotificationHostApplicationIds.TryResolveFromAppUserModelId(currentAppUserModelId, out var application))
-            throw new InvalidOperationException("Current AUMID is not a Wino notification host identity.");
+            throw new InvalidOperationException("Current AUMID is not a Wino application mode identity.");
 
         using var comServer = new NotificationActivationComServer(
             GetActivatorClassId(application),
