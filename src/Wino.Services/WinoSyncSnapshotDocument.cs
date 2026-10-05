@@ -114,6 +114,11 @@ internal sealed class SnapshotAccountCapabilities
     public int CalendarIntegrationSource { get; set; }
     public bool IsContactsEnabled { get; set; }
     public int ContactIntegrationSource { get; set; }
+
+    /// <summary>
+    /// CardDAV endpoint of a custom mailbox. The server mailbox contract only carries the CalDAV one.
+    /// </summary>
+    public string? CardDavServiceUrl { get; set; }
     public bool IsTasksEnabled { get; set; }
     public int TaskIntegrationSource { get; set; }
 }

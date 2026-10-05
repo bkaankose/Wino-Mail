@@ -7,7 +7,6 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_Title, Mode=OneTime}"
     DefaultButton="Primary"
-    PrimaryButtonClick="ExportClicked"
     PrimaryButtonStyle="{ThemeResource AccentButtonStyle}"
     PrimaryButtonText="{x:Bind domain:Translator.WinoAccount_Management_LocalDataExportAction, Mode=OneTime}"
     SecondaryButtonText="{x:Bind domain:Translator.Buttons_Close, Mode=OneTime}"
@@ -50,18 +49,6 @@
                         TextWrapping="WrapWholeWords" />
                 </StackPanel>
             </Border>
-
-            <StackPanel
-                x:Name="ProgressPanel"
-                Spacing="8"
-                Visibility="Collapsed">
-                <TextBlock
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind domain:Translator.WinoAccount_Management_ExportDialog_InProgress, Mode=OneTime}"
-                    TextWrapping="WrapWholeWords" />
-                <ProgressBar IsIndeterminate="True" />
-            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </ContentDialog>

@@ -10,6 +10,7 @@ using Serilog;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.CardDav;
 using Wino.Core.Domain.Models.Contacts;
@@ -43,6 +44,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
     private readonly IDavCredentialStore _credentialStore;
     private readonly IAccountService _accountService;
     private readonly ICardDavAddressBookService _addressBookService;
+    private readonly IKnownImapProviderCatalog _providerCatalog;
 
     public CardDavSynchronizationEngine(
         ICardDavClient client,
@@ -53,7 +55,8 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         IDavCredentialStore credentialStore,
         IAccountService accountService,
         ICardDavAddressBookService addressBookService = null,
-        ICardDavContactListService listService = null)
+        ICardDavContactListService listService = null,
+        IKnownImapProviderCatalog providerCatalog = null)
     {
         _listService = listService;
         _client = client;
@@ -64,6 +67,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         _credentialStore = credentialStore;
         _accountService = accountService;
         _addressBookService = addressBookService;
+        _providerCatalog = providerCatalog;
     }
 
     #region Synchronization
@@ -78,6 +82,7 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
 
         try
         {
+            await RestoreKnownServiceUrlAsync(account).ConfigureAwait(false);
             var settings = await CardDavConnection.CreateSettingsAsync(account, _credentialStore, _accountService, cancellationToken).ConfigureAwait(false);
             var legacyPassword = account.ServerInformation?.CalDavPassword;
             var discovery = await RefreshAddressBooksAsync(account, settings, cancellationToken).ConfigureAwait(false);
@@ -115,6 +120,27 @@ public sealed class CardDavSynchronizationEngine : ICardDavSynchronizationEngine
         }
 
         return result;
+    }
+
+    /// <summary>
+    /// Fills in the catalog endpoint of a known provider whose CardDAV URL is missing. Accounts
+    /// restored from a snapshot that did not carry the endpoint would otherwise fall back to
+    /// discovery from the mail domain, which providers such as iCloud do not answer.
+    /// </summary>
+    private async Task RestoreKnownServiceUrlAsync(MailAccount account)
+    {
+        var server = account.ServerInformation
+                     ?? await _accountService.GetAccountCustomServerInformationAsync(account.Id).ConfigureAwait(false);
+        if (server == null || !string.IsNullOrWhiteSpace(server.CardDavServiceUrl))
+            return;
+
+        var knownUrl = _providerCatalog.ResolveCardDavServiceUrl(account.SpecialImapProvider, server.IncomingServer);
+        if (string.IsNullOrWhiteSpace(knownUrl))
+            return;
+
+        server.CardDavServiceUrl = knownUrl;
+        account.ServerInformation = server;
+        await _accountService.UpdateAccountCustomServerInformationAsync(server).ConfigureAwait(false);
     }
 
     /// <summary>

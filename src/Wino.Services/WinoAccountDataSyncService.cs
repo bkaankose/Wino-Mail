@@ -12,6 +12,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Mail.Api.Contracts.Users;
@@ -42,6 +43,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
     private readonly IMailCategoryService? _categoryService;
     private readonly INewThemeService? _themeService;
     private readonly IStatePersistanceService? _stateService;
+    private readonly IKnownImapProviderCatalog? _providerCatalog;
     private readonly ILogger _logger = Log.ForContext<WinoAccountDataSyncService>();
 
     public WinoAccountDataSyncService(
@@ -56,7 +58,8 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         IKeyboardShortcutService? shortcutService = null,
         IMailCategoryService? categoryService = null,
         INewThemeService? themeService = null,
-        IStatePersistanceService? stateService = null)
+        IStatePersistanceService? stateService = null,
+        IKnownImapProviderCatalog? providerCatalog = null)
     {
         _profileService = profileService;
         _preferencesService = preferencesService;
@@ -70,6 +73,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
         _categoryService = categoryService;
         _themeService = themeService;
         _stateService = stateService;
+        _providerCatalog = providerCatalog;
     }
 
     public async Task<WinoAccountSyncExportResult> ExportAsync(WinoAccountSyncSelection selection, SyncSnapshotSecretPrompt? secretPrompt = null, CancellationToken cancellationToken = default)
@@ -437,6 +441,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                 CalendarIntegrationSource = (int)account.CalendarIntegrationSource,
                 IsContactsEnabled = account.IsContactAccessEnabled,
                 ContactIntegrationSource = (int)account.ContactIntegrationSource,
+                CardDavServiceUrl = account.ProviderType is MailProviderType.IMAP4 or MailProviderType.POP3
+                    ? account.ServerInformation?.CardDavServiceUrl
+                    : null,
                 IsTasksEnabled = account.IsTaskAccessEnabled,
                 TaskIntegrationSource = (int)account.TaskIntegrationSource
             })
@@ -537,8 +544,9 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
                     continue;
                 }
 
-                var account = CreateImportedAccount(mailbox, capabilitiesByKey.GetValueOrDefault(mailboxKey));
-                var serverInformation = CreateImportedServerInformation(mailbox, account.Id);
+                var capabilities = capabilitiesByKey.GetValueOrDefault(mailboxKey);
+                var account = CreateImportedAccount(mailbox, capabilities);
+                var serverInformation = CreateImportedServerInformation(mailbox, account, capabilities);
 
                 await _accountService.CreateAccountAsync(account, serverInformation).ConfigureAwait(false);
 
@@ -1276,7 +1284,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             ? (AccountIntegrationSource)value
             : AccountIntegrationSource.Local;
 
-    private static CustomServerInformation? CreateImportedServerInformation(UserMailboxSyncItemDto mailbox, Guid accountId)
+    private CustomServerInformation? CreateImportedServerInformation(UserMailboxSyncItemDto mailbox, MailAccount account, SnapshotAccountCapabilities? capabilities)
     {
         var providerType = (MailProviderType)mailbox.ProviderType;
         if (providerType is not (MailProviderType.IMAP4 or MailProviderType.POP3))
@@ -1284,10 +1292,18 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             return null;
         }
 
+        // Snapshots written before the CardDAV endpoint was exported only say the mailbox used DAV
+        // contacts. A known provider's endpoint comes from the catalog; any other server discovers it.
+        var cardDavServiceUrl = capabilities?.CardDavServiceUrl?.Trim();
+        if (string.IsNullOrWhiteSpace(cardDavServiceUrl) && account.ContactIntegrationSource == AccountIntegrationSource.Dav)
+        {
+            cardDavServiceUrl = _providerCatalog.ResolveCardDavServiceUrl(account.SpecialImapProvider, mailbox.IncomingServer);
+        }
+
         return new CustomServerInformation
         {
             Id = Guid.NewGuid(),
-            AccountId = accountId,
+            AccountId = account.Id,
             Address = mailbox.Address.Trim(),
             IncomingServer = mailbox.IncomingServer?.Trim() ?? string.Empty,
             IncomingServerPort = mailbox.IncomingServerPort?.Trim() ?? string.Empty,
@@ -1315,6 +1331,7 @@ public sealed class WinoAccountDataSyncService : IWinoAccountDataSyncService
             CalDavServiceUrl = mailbox.CalDavServiceUrl?.Trim() ?? string.Empty,
             CalDavUsername = mailbox.CalDavUsername?.Trim() ?? string.Empty,
             CalDavPassword = string.Empty,
+            CardDavServiceUrl = cardDavServiceUrl ?? string.Empty,
             CalendarSupportMode = (ImapCalendarSupportMode)mailbox.CalendarSupportMode,
             ProxyServer = mailbox.ProxyServer?.Trim() ?? string.Empty,
             ProxyServerPort = mailbox.ProxyServerPort?.Trim() ?? string.Empty,

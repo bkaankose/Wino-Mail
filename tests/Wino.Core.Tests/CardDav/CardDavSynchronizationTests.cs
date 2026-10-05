@@ -5,6 +5,7 @@ using Wino.Core.Domain.Entities.Mail;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Models.Connectivity;
 using Wino.Core.Domain.Models.Synchronization;
 using Wino.Core.Requests.Contact;
 using Wino.Core.Services;
@@ -457,6 +458,25 @@ public sealed class CardDavSynchronizationTests
         fixture.Server.Requests.Should().NotContain(request => request.EndsWith("multiget"));
     }
 
+    [Fact]
+    public async Task MissingServiceUrl_OfKnownProvider_IsRestoredFromCatalog()
+    {
+        var catalog = new Mock<IKnownImapProviderCatalog>();
+        catalog.Setup(item => item.GetBySpecialProvider(SpecialImapProvider.iCloud))
+            .Returns(new KnownImapProviderDefinition { CardDavServiceUrl = Origin + "/" });
+        await using var fixture = await Fixture.CreateAsync(catalog.Object);
+        fixture.Account.SpecialImapProvider = SpecialImapProvider.iCloud;
+        fixture.Account.ServerInformation.CardDavServiceUrl = string.Empty;
+        fixture.Server.Put("a", Person("UID-A", "Alice"));
+
+        var result = await fixture.SyncAsync();
+
+        result.CompletedState.Should().Be(SynchronizationCompletedState.Success);
+        (await fixture.ContactNamesAsync()).Should().Equal("Alice");
+        fixture.Accounts.Verify(item => item.UpdateAccountCustomServerInformationAsync(
+            It.Is<CustomServerInformation>(server => server.CardDavServiceUrl == Origin + "/")), Times.Once);
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         public InMemoryDatabaseService Database { get; } = new();
@@ -471,7 +491,9 @@ public sealed class CardDavSynchronizationTests
         public CardDavContactListService Lists { get; private set; } = null!;
         private CardDavSynchronizationEngine _engine = null!;
 
-        public static async Task<Fixture> CreateAsync()
+        public Mock<IAccountService> Accounts { get; } = new();
+
+        public static async Task<Fixture> CreateAsync(IKnownImapProviderCatalog providerCatalog = null)
         {
             var fixture = new Fixture();
             await fixture.Database.InitializeAsync();
@@ -486,14 +508,14 @@ public sealed class CardDavSynchronizationTests
             var client = new CardDavClient(fixture.Server, new DavMultistatusReader());
             var credentials = new Mock<IDavCredentialStore>();
             credentials.Setup(item => item.GetPasswordAsync(fixture.Account.Id, It.IsAny<CancellationToken>())).ReturnsAsync("app-password");
-            var accounts = new Mock<IAccountService>();
+            var accounts = fixture.Accounts;
             accounts.Setup(item => item.GetAccountAsync(fixture.Account.Id)).ReturnsAsync(fixture.Account);
 
             fixture.Store = new CardDavSynchronizationStore(fixture.Database);
             fixture.Contacts = new ContactService(fixture.Database);
             fixture.Lists = new CardDavContactListService(client, fixture.Store, codec, credentials.Object, accounts.Object, fixture.Contacts);
             fixture._engine = new CardDavSynchronizationEngine(client, fixture.Store, codec, fixture.Contacts,
-                Mock.Of<IWinoLogger>(), credentials.Object, accounts.Object, listService: fixture.Lists);
+                Mock.Of<IWinoLogger>(), credentials.Object, accounts.Object, listService: fixture.Lists, providerCatalog: providerCatalog);
             return fixture;
         }
 

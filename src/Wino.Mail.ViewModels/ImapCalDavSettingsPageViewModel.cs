@@ -11,6 +11,7 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.AutoDiscovery;
@@ -547,6 +548,12 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         EmailAddress = account.Address ?? string.Empty;
 
         ApplyServerInformation(account.ServerInformation);
+
+        // Accounts restored from an older snapshot have no CardDAV endpoint. A known provider's
+        // comes from the catalog, so saving this page does not keep the empty value.
+        if (_isCardDavEnabled && string.IsNullOrWhiteSpace(CardDavServiceUrl))
+            CardDavServiceUrl = _knownImapProviderCatalog.ResolveCardDavServiceUrl(account.SpecialImapProvider, IncomingServer);
+
         IsMailSupportEnabled = account.IsMailAccessGranted;
         ShouldAppendMessagesToSentFolder = account.Preferences?.ShouldAppendMessagesToSentFolder ?? true;
 

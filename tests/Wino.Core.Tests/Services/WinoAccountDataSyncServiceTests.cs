@@ -675,6 +675,87 @@ public sealed class WinoAccountDataSyncServiceTests : IAsyncLifetime
         importedAccount.IsTaskReauthorizationRequired.Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData(null, "https://contacts.icloud.com/")]
+    [InlineData("https://carddav.example.com/", "https://carddav.example.com/")]
+    public async Task ImportAsync_DavContactsMailbox_RestoresCardDavEndpoint(string? snapshotUrl, string expectedUrl)
+    {
+        var service = new WinoAccountDataSyncService(
+            _profileService.Object,
+            _preferencesService.Object,
+            _accountService,
+            _folderService,
+            _signatureService,
+            _keyService.Object,
+            providerCatalog: new EmbeddedKnownImapProviderCatalog(new KnownImapProviderCatalogLoader()));
+        var mailboxes = new List<UserMailboxSyncItemDto>
+        {
+            new()
+            {
+                Address = "dav@icloud.com",
+                ProviderType = (int)MailProviderType.IMAP4,
+                SpecialImapProvider = (int)SpecialImapProvider.iCloud,
+                AccountName = "iCloud",
+                IncomingServer = "imap.mail.me.com",
+                IsMailAccessGranted = true
+            }
+        };
+        var capabilities = JsonSerializer.Serialize(new[]
+        {
+            new
+            {
+                AccountAddress = "dav@icloud.com",
+                ProviderType = (int)MailProviderType.IMAP4,
+                IsContactsEnabled = true,
+                ContactIntegrationSource = (int)AccountIntegrationSource.Dav,
+                CardDavServiceUrl = snapshotUrl
+            }
+        });
+        var json = "{\"Version\":1,\"Mailboxes\":" + JsonSerializer.Serialize(mailboxes) + ",\"AccountCapabilities\":" + capabilities + "}";
+        _profileService
+            .Setup(a => a.GetSyncSnapshotAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new WinoSyncSnapshotDownload(SyncSnapshotCryptography.Encrypt(Encoding.UTF8.GetBytes(json), TestKey), 1));
+
+        await service.ImportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
+
+        var importedAccount = (await _accountService.GetAccountsAsync()).Single();
+        importedAccount.ContactIntegrationSource.Should().Be(AccountIntegrationSource.Dav);
+        var serverInformation = await _accountService.GetAccountCustomServerInformationAsync(importedAccount.Id);
+        serverInformation.CardDavServiceUrl.Should().Be(expectedUrl);
+    }
+
+    [Fact]
+    public async Task ExportAsync_ImapMailbox_WritesCardDavEndpoint()
+    {
+        var accountId = Guid.NewGuid();
+        await _accountService.CreateAccountAsync(
+            new MailAccount
+            {
+                Id = accountId,
+                Name = "DAV",
+                SenderName = "DAV",
+                Address = "dav@example.com",
+                ProviderType = MailProviderType.IMAP4,
+                IsContactAccessEnabled = true,
+                IsContactAccessGranted = true,
+                ContactIntegrationSource = AccountIntegrationSource.Dav
+            },
+            new CustomServerInformation
+            {
+                Id = Guid.NewGuid(),
+                AccountId = accountId,
+                Address = "dav@example.com",
+                IncomingServer = "imap.example.com",
+                CardDavServiceUrl = "https://carddav.example.com/"
+            });
+
+        var fileExport = await _service.ExportToFileAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), Prompt);
+
+        using var snapshot = JsonDocument.Parse(Unseal(fileExport.Content));
+        var entry = snapshot.RootElement.GetProperty("AccountCapabilities").EnumerateArray().Single();
+        entry.GetProperty("CardDavServiceUrl").GetString().Should().Be("https://carddav.example.com/");
+    }
+
     [Fact]
     public async Task ExportAsync_WritesEachAccountsModes()
     {

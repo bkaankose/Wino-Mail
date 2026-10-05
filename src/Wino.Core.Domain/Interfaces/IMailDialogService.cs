@@ -101,7 +101,10 @@ public interface IMailDialogService : IDialogServiceBase
 
     Task<WinoAccount?> ShowWinoAccountLoginDialogAsync();
 
-    Task<WinoAccountSyncExportResult?> ShowWinoAccountExportDialogAsync();
+    /// <summary>
+    /// Confirms a backup to the Wino Account. Returns false when the user closes the dialog.
+    /// </summary>
+    Task<bool> ShowWinoAccountExportDialogAsync();
 
     /// <summary>
     /// Asks for the Wino Account password or the sync passphrase that unlocks a sync snapshot.

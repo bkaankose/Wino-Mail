@@ -112,11 +112,15 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
     {
         try
         {
-            var result = await _dialogService.ShowWinoAccountExportDialogAsync().ConfigureAwait(false);
-            if (result == null)
+            var isConfirmed = await ExecuteUIThreadAsync(_dialogService.ShowWinoAccountExportDialogAsync).ConfigureAwait(false);
+            if (!isConfirmed)
             {
                 return;
             }
+
+            await ExecuteUIThread(() => IsDataTransferInProgress = true);
+
+            var result = await _syncService.ExportAsync(new WinoAccountSyncSelection(), PromptSyncSecretAsync).ConfigureAwait(false);
 
             _dialogService.InfoBarMessage(
                 Translator.GeneralTitle_Info,
@@ -129,6 +133,10 @@ public partial class BackupRestorePageViewModel : CoreBaseViewModel,
                 Translator.GeneralTitle_Error,
                 WinoAccountApiErrorTranslator.Describe(ex),
                 InfoBarMessageType.Error);
+        }
+        finally
+        {
+            await ExecuteUIThread(() => IsDataTransferInProgress = false);
         }
     }
 
