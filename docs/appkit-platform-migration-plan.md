@@ -1,6 +1,6 @@
 # Windows abstraction import and native AppKit migration
 
-Status: **foundation implementation in progress**, explicitly authorized on 6 October 2026. Full presentation parity and distribution remain later milestones.
+Status: **platform foundation built and verified; UI implementation and planning stopped by the user on 7 October 2026**. Full presentation parity will be planned in a separate task. See [the verification and handoff boundary](harness/appkit-foundation-validation.md).
 
 Inspected on 6 October 2026. Destination: `D:\Wino-Mail`, HEAD `40bae46a`; donor: `D:\Wino Mail Uno\Wino Mail Uno Platform`, HEAD `62858db`. Both worktrees were clean before planning. These identifiers are provenance, not instructions to reset either checkout. Recheck both before implementation.
 
