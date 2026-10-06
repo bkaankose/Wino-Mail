@@ -309,13 +309,15 @@
     <!-- Build the notification host before the app's packaging target publishes it. -->
     <ProjectReference Include="..\Wino.NotificationHost\Wino.NotificationHost.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
-  <ItemGroup>
+  <ItemDefinitionGroup>
     <!-- Project-only runs have no solution/global Platform or RID. Propagate the
-         app's evaluated defaults so references use the same native architecture. -->
-    <ProjectReference Update="@(ProjectReference)">
-      <AdditionalProperties>%(ProjectReference.AdditionalProperties);Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier)</AdditionalProperties>
+         app's evaluated defaults to direct and SDK-added transitive references.
+         Packaging consumes SetPlatform separately from compilation properties. -->
+    <ProjectReference>
+      <AdditionalProperties>Platform=$(Platform);RuntimeIdentifier=$(RuntimeIdentifier)</AdditionalProperties>
+      <SetPlatform>Platform=$(Platform)</SetPlatform>
     </ProjectReference>
-  </ItemGroup>
+  </ItemDefinitionGroup>
   <ItemGroup Condition="'$(WinoIsReleaseBuild)' == 'true' and '$(PublishAot)' == 'true'">
     <TrimmerRootAssembly Include="Ical.Net" />
     <TrimmerRootDescriptor Include="ILLink.AotRoots.xml" />
