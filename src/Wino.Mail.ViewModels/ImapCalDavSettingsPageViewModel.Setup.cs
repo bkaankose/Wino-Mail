@@ -299,10 +299,10 @@ public partial class ImapCalDavSettingsPageViewModel
     [RelayCommand(CanExecute = nameof(HasAppPasswordHelpLink))]
     private async Task OpenAppPasswordHelpAsync()
     {
-        if (_nativeAppService == null || !Uri.TryCreate(AppPasswordHelpUrl, UriKind.Absolute, out var uri))
+        if (_externalLauncher == null || !Uri.TryCreate(AppPasswordHelpUrl, UriKind.Absolute, out var uri))
             return;
 
-        await _nativeAppService.LaunchUriAsync(uri);
+        (await _externalLauncher.LaunchUriAsync(uri)).ThrowIfNotSucceeded();
     }
 
     private async Task TestMailConnectionAsync(CustomServerInformation serverInformation)

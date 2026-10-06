@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -38,6 +38,7 @@ using Wino.Mail.WinUI;
 using Wino.Mail.WinUI.Extensions;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Models;
+using Wino.Mail.WinUI.Services;
 using Wino.Messaging.Client.Mails;
 using Wino.Messaging.Client.Shell;
 using Wino.Messaging.UI;
@@ -64,13 +65,14 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     // Selections can overlap: one message's render may still be awaiting its intelligence context
     // when the next arrives. Only the newest render is allowed to touch reader state.
+    private IHtmlMailReaderSession _readerSession = null!;
     private int _renderVersion;
     private int _activeRenderCount;
     private string _currentRenderedHtml = string.Empty;
     private bool _isReaderViewEnabled;
     private bool _isPoppedOut;
 
-    public bool SupportsPopOut => !_isPoppedOut;
+    public bool SupportsPopOut => ViewModel.PlatformCapabilities.AdditionalWindows && !_isPoppedOut;
     public bool IsReaderViewEnabled
     {
         get => _isReaderViewEnabled;
@@ -91,17 +93,13 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     public MailRenderingPage()
     {
         InitializeComponent();
+        _readerSession = new WindowsHtmlMailReaderSession(MailRenderer);
 
         InitializeWinoIntelligenceHeader();
 
         WebViewExtensions.EnsureWebView2Environment();
 
-        ViewModel.RenderPdfStreamFuncAsync = RenderPdfStreamAsync;
-
-        ViewModel.SaveHTMLasPDFFunc = new Func<string, Task<bool>>((path) =>
-        {
-            return GetWebView().CoreWebView2.PrintToPdfAsync(path, null).AsTask();
-        });
+        ViewModel.PrintPresenter = CreatePrintPresenter();
         ViewModel.RenderHtmlAsyncFunc = RenderInternalAsync;
         ViewModel.ClearRenderedHtmlAsyncFunc = ClearRenderedContentAsync;
         ViewModel.CloseRequested += ViewModel_CloseRequested;
@@ -130,7 +128,20 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         RendererCommandBar.InvalidateCommands();
     }
 
-    private async Task<Stream> RenderPdfStreamAsync(WebView2PrintSettingsModel settings)
+    private IMailPrintPresenter CreatePrintPresenter()
+    {
+        var windowManager = App.Current.Services.GetRequiredService<IWinoWindowManager>();
+        var printService = App.Current.Services.GetRequiredService<IWindowsPrintService>();
+
+        return new WindowsMailPrintPresenter(printService, () =>
+        {
+            var owner = windowManager.GetWindows()
+                .FirstOrDefault(window => XamlRoot != null && ReferenceEquals(window.Content?.XamlRoot, XamlRoot));
+            return owner == null ? IntPtr.Zero : WinRT.Interop.WindowNative.GetWindowHandle(owner);
+        }, RenderPdfStreamAsync, path => GetWebView().CoreWebView2.PrintToPdfAsync(path, null).AsTask());
+    }
+
+    private async Task<Stream> RenderPdfStreamAsync(MailPrintOptions settings)
     {
         var webView = GetWebView();
         if (webView.CoreWebView2 == null)
@@ -189,11 +200,13 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
         // Image stripping cannot reach CSS backgrounds or web fonts, so blocked remote
         // content is also enforced at the renderer's network layer.
-        MailRenderer.BlockRemoteResources = !(ViewModel.CurrentRenderModel?.MailRenderingOptions?.LoadImages ?? true);
-        await MailRenderer.RenderHtmlAsync(
+        var resourcePolicy = (ViewModel.CurrentRenderModel?.MailRenderingOptions?.LoadImages ?? true)
+            ? RemoteContentPolicy.ImagesAndFontsAllowed : RemoteContentPolicy.Blocked;
+        await _readerSession.RenderAsync(new HtmlMailReaderRequest(
             string.IsNullOrEmpty(html) ? " " : html,
+            resourcePolicy,
             renderMode,
-            shouldLinkifyText);
+            shouldLinkifyText));
     }
 
     private async Task UpdateAccessibleMailContextAsync()
@@ -207,20 +220,20 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         var creationDate = XamlHelpers.GetCreationDateString(ViewModel.CreationDate, _preferencesService.MailTimeFormatPreference);
         var accessibleText = ViewModel.CurrentRenderModel?.AccessibleText ?? string.Empty;
 
-        await MailRenderer.SetAccessibilityContextAsync(
+        await _readerSession.SetAccessibilityContextAsync(new ReaderAccessibilityContext(
             subject,
             sender,
             creationDate,
             Translator.Reader_MessageBodyAutomationName,
             Translator.Reader_PlainTextFallbackAutomationName,
-            accessibleText);
+            accessibleText));
     }
 
     private async void MailRenderer_NavigationRequested(object? sender, RendererNavigationRequestedEventArgs args)
     {
         try
         {
-            await ViewModel.NativeAppService.LaunchUriAsync(args.Uri);
+            (await ViewModel.ExternalLauncher.LaunchUriAsync(args.Uri)).ThrowIfNotSucceeded();
         }
         catch (Exception ex)
         {
@@ -248,7 +261,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         if (Volatile.Read(ref _activeRenderCount) == 0)
         {
             ResetReaderContentState();
-            await MailRenderer.ClearAsync();
+            await _readerSession.ClearAsync();
         }
     }
 
@@ -268,7 +281,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         _currentMailItem = null;
 
         await ClearRenderedContentAsync();
-        await MailRenderer.EnterIdleAsync();
+        await _readerSession.EnterIdleAsync();
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -283,8 +296,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
         // Disposing the page.
         // Make sure the WebView2 is disposed properly.
 
-        ViewModel.SaveHTMLasPDFFunc = null;
-        ViewModel.RenderPdfStreamFuncAsync = null;
+        ViewModel.PrintPresenter = null;
         ViewModel.RenderHtmlAsyncFunc = null;
         ViewModel.ClearRenderedHtmlAsyncFunc = null;
         ClearIntelligenceContext();
@@ -336,7 +348,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
             _currentMailItem = mailItemViewModel;
             ShowIntelligenceHeaderImmediately(_currentMailItem);
 
-            // Deliberately no MailRenderer.ClearAsync(). The previous body stays loaded behind the
+            // Deliberately no _readerSession.ClearAsync(). The previous body stays loaded behind the
             // opaque loading overlay instead of blanking the pane, which is what removes the flash.
             await ViewModel.LoadContentAsync(mailItemViewModel);
         }
@@ -354,6 +366,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
+        ViewModel.PrintPresenter = CreatePrintPresenter();
         ClearIntelligenceContext();
         _currentMailItem = e.Parameter as MailItemViewModel;
         ShowIntelligenceHeaderImmediately(_currentMailItem);
@@ -392,14 +405,14 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
 
     private async Task UpdateEditorThemeAsync()
     {
-        await MailRenderer.SetThemeAsync(ViewModel.IsDarkWebviewRenderer);
+        await _readerSession.SetThemeAsync(ViewModel.IsDarkWebviewRenderer);
     }
 
     private async Task InitializeMailRendererAsync()
     {
         try
         {
-            await MailRenderer.InitializeAsync();
+            await _readerSession.InitializeAsync();
         }
         catch (Exception)
         {
@@ -411,7 +424,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private async Task UpdateReaderFontPropertiesAsync()
     {
         var fontName = $"{_preferencesService.ReaderFont}, sans-serif";
-        await MailRenderer.SetReaderTypographyAsync(fontName, _preferencesService.ReaderFontSize);
+        await _readerSession.SetReaderTypographyAsync(fontName, _preferencesService.ReaderFontSize);
     }
 
     void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
@@ -505,7 +518,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private readonly INavigationService _navigationService = App.Current.Services.GetRequiredService<INavigationService>();
     private readonly IWinoIntelligenceCoordinator _intelligenceCoordinator = App.Current.Services.GetRequiredService<IWinoIntelligenceCoordinator>();
     private readonly IMailService _mailService = App.Current.Services.GetRequiredService<IMailService>();
-    private readonly INativeAppService _nativeAppService = App.Current.Services.GetRequiredService<INativeAppService>();
+    private readonly IClipboardService _clipboardService = App.Current.Services.GetRequiredService<IClipboardService>();
     private readonly HashSet<Guid> _liveFeatureRequestIds = [];
 
     private MailContentProjectionResult? _translationProjection;
@@ -698,7 +711,7 @@ public sealed partial class MailRenderingPage : MailRenderingPageAbstract,
     private async void IntelligenceHeader_CopyCodeRequested(object? sender, EventArgs e)
     {
         if (!string.IsNullOrWhiteSpace(IntelligenceHeader.VerificationCode))
-            await _nativeAppService.CopyClipboardAsync(IntelligenceHeader.VerificationCode);
+            (await _clipboardService.CopyTextAsync(IntelligenceHeader.VerificationCode)).ThrowIfNotSucceeded();
     }
 
     private void ClearIntelligenceContext()

@@ -144,6 +144,20 @@ public sealed class IntelligenceResultKeyStoreTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Decrypt_WhenProtectionIsUnavailable_PreservesKeyAndReportsUnavailable()
+    {
+        var key = await _store.GetOrCreateAsync(UserId);
+        var encoded = EncryptTo(key, UserId, "/r", "{}");
+        using var unavailableStore = new IntelligenceResultKeyStore(_database, new FakeProtector(unavailable: true), _presence);
+
+        var act = () => unavailableStore.DecryptAsync(key.KeyId, encoded, MailboxId, "/r");
+
+        await act.Should().ThrowAsync<PlatformNotSupportedException>();
+        (await _store.GetKeysAsync()).Should().Contain(x => x.KeyId == key.KeyId);
+        (await _store.DecryptAsync(key.KeyId, encoded, MailboxId, "/r")).Should().Equal(Encoding.UTF8.GetBytes("{}"));
+    }
+
+    [Fact]
     public async Task DeleteAll_RemovesEveryKeyAndClearsThePresenceMarker()
     {
         await _store.GetOrCreateAsync(UserId);
@@ -161,7 +175,7 @@ public sealed class IntelligenceResultKeyStoreTests : IAsyncLifetime
     }
 
     /// <summary>Reversible, entropy-bound stand-in for DPAPI.</summary>
-    private sealed class FakeProtector(bool failUnprotect = false) : IIntelligenceKeyProtector
+    private sealed class FakeProtector(bool failUnprotect = false, bool unavailable = false) : ISecretProtector
     {
         private static readonly byte[] Prefix = "FAKE-DPAPI:"u8.ToArray();
 
@@ -169,7 +183,9 @@ public sealed class IntelligenceResultKeyStoreTests : IAsyncLifetime
             => [.. Prefix, .. Xor(data, entropy)];
 
         public byte[] Unprotect(byte[] data, byte[] entropy)
-            => failUnprotect || !IsProtected(data)
+            => unavailable
+                ? throw new PlatformNotSupportedException("Protection is unavailable.")
+                : failUnprotect || !IsProtected(data)
                 ? throw new CryptographicException("The data could not be unprotected.")
                 : Xor(data[Prefix.Length..], entropy);
 

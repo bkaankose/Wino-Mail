@@ -18,7 +18,8 @@ namespace Wino.Mail.ViewModels;
 public partial class AppPreferencesPageViewModel : MailBaseViewModel
 {
     private readonly IMailDialogService _dialogService;
-    private readonly INativeAppService _nativeAppService;
+    private readonly IStartupIntegrationService _startupIntegrationService;
+    public IPlatformCapabilities PlatformCapabilities { get; }
     private readonly ITranslationService _translationService;
 
     private bool _isLanguageInitialized;
@@ -27,12 +28,14 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     public AppPreferencesPageViewModel(
         IMailDialogService dialogService,
         IPreferencesService preferencesService,
-        INativeAppService nativeAppService,
+        IStartupIntegrationService startupIntegrationService,
+        IPlatformCapabilities platformCapabilities,
         ITranslationService translationService)
     {
         _dialogService = dialogService;
         PreferencesService = preferencesService;
-        _nativeAppService = nativeAppService;
+        _startupIntegrationService = startupIntegrationService;
+        PlatformCapabilities = platformCapabilities;
         _translationService = translationService;
 
         CloseBehaviorModes =
@@ -42,7 +45,9 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
             Translator.SettingsAppPreferences_ServerBackgroundingMode_Terminate_Title
         ];
 
-        _selectedCloseBehaviorMode = CloseBehaviorModes[(int)PreferencesService.AppCloseBehavior];
+        _selectedCloseBehaviorMode = PlatformCapabilities.Tray
+            ? CloseBehaviorModes[(int)PreferencesService.AppCloseBehavior]
+            : CloseBehaviorModes[(int)AppCloseBehavior.Terminate];
     }
 
     public IPreferencesService PreferencesService { get; }
@@ -74,7 +79,7 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
 
             var selectedIndex = CloseBehaviorModes.IndexOf(value);
 
-            if (selectedIndex >= 0)
+            if (selectedIndex >= 0 && (PlatformCapabilities.Tray || selectedIndex == (int)AppCloseBehavior.Terminate))
             {
                 PreferencesService.AppCloseBehavior = (AppCloseBehavior)selectedIndex;
             }
@@ -82,11 +87,16 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeNavigationAsync(mode, parameters);
+
+    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
         var availableLanguages = _translationService.GetAvailableLanguages();
-        var startupBehaviorResult = await _nativeAppService.GetCurrentStartupBehaviorAsync();
+        var startupBehaviorResult = PlatformCapabilities.StartupIntegration
+            ? await _startupIntegrationService.GetCurrentBehaviorAsync()
+            : StartupBehaviorResult.Unavailable;
 
         await ExecuteUIThread(() =>
         {
@@ -107,9 +117,29 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
         _ = _translationService.InitializeLanguageAsync(value.Language);
     }
 
-    [RelayCommand]
+    /// <summary>Allows an owned presentation to await language changes before releasing navigation.</summary>
+    public async Task SelectLanguageAsync(AppLanguageModel value)
+    {
+        if (value == null) return;
+
+        var previous = SelectedLanguage;
+        _isLanguageInitialized = false;
+        SelectedLanguage = value;
+        try { await _translationService.InitializeLanguageAsync(value.Language); }
+        catch
+        {
+            SelectedLanguage = previous;
+            throw;
+        }
+        finally { _isLanguageInitialized = true; }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanToggleStartupBehavior))]
     private async Task ToggleStartupBehaviorAsync()
     {
+        if (!CanToggleStartupBehavior())
+            return;
+
         if (IsStartupBehaviorEnabled)
             await DisableStartupAsync();
         else
@@ -120,15 +150,17 @@ public partial class AppPreferencesPageViewModel : MailBaseViewModel
 
     private async Task EnableStartupAsync()
     {
-        StartupBehaviorResult = await _nativeAppService.ToggleStartupBehavior(true);
+        StartupBehaviorResult = await _startupIntegrationService.SetEnabledAsync(true);
         NotifyCurrentStartupState();
     }
 
     private async Task DisableStartupAsync()
     {
-        StartupBehaviorResult = await _nativeAppService.ToggleStartupBehavior(false);
+        StartupBehaviorResult = await _startupIntegrationService.SetEnabledAsync(false);
         NotifyCurrentStartupState();
     }
+
+    private bool CanToggleStartupBehavior() => PlatformCapabilities.StartupIntegration;
 
     private void NotifyCurrentStartupState()
     {

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -25,7 +25,7 @@ namespace Wino.Core.Services;
 public class WinoRequestProcessor : IWinoRequestProcessor
 {
     private readonly IFolderService _folderService;
-    private readonly INativeAppService _nativeAppService;
+    private readonly IShortcutPlatformService _shortcutPlatformService;
     private readonly IPreferencesService _preferencesService;
     private readonly IMailDialogService _dialogService;
     private readonly IMailService _mailService;
@@ -42,13 +42,13 @@ public class WinoRequestProcessor : IWinoRequestProcessor
     ];
 
     public WinoRequestProcessor(IFolderService folderService,
-                                INativeAppService nativeAppService,
+                                IShortcutPlatformService shortcutPlatformService,
                                 IPreferencesService preferencesService,
                                 IMailDialogService dialogService,
                                 IMailService mailService)
     {
         _folderService = folderService;
-        _nativeAppService = nativeAppService;
+        _shortcutPlatformService = shortcutPlatformService;
         _preferencesService = preferencesService;
         _dialogService = dialogService;
         _mailService = mailService;
@@ -111,7 +111,7 @@ public class WinoRequestProcessor : IWinoRequestProcessor
         // Ask confirmation for permanent delete operation.
         // Drafts are always hard deleted without any protection.
 
-        if (!preperationRequest.IgnoreHardDeleteProtection && ((action == MailOperation.SoftDelete && _nativeAppService.IsShiftKeyPressed()) || action == MailOperation.HardDelete))
+        if (!preperationRequest.IgnoreHardDeleteProtection && ((action == MailOperation.SoftDelete && _shortcutPlatformService.IsShiftKeyPressed()) || action == MailOperation.HardDelete))
         {
             if (_preferencesService.IsHardDeleteProtectionEnabled)
             {

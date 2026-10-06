@@ -116,6 +116,7 @@ public partial class AccountAliasCapabilityTests : IAsyncLifetime
             Mock.Of<IAuthenticationProvider>(),
             mimeFileService.Object,
             preferencesService.Object,
-            contactPictureFileService.Object);
+            contactPictureFileService.Object,
+            credentialPersistence: Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance);
     }
 }

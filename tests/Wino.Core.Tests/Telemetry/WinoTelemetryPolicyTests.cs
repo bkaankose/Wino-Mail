@@ -174,7 +174,7 @@ public sealed class WinoTelemetryPolicyTests
     [Fact]
     public void SentryPolicy_DropsUserCanceledAttachmentPolicyException()
     {
-        var sentryEvent = new SentryEvent(new WindowsAttachmentPolicyException(unchecked((int)0x800704C7)))
+        var sentryEvent = new SentryEvent(new Wino.Core.Domain.Models.Attachments.AttachmentPolicyCancellationException("User cancelled attachment policy."))
         {
             Level = SentryLevel.Fatal
         };

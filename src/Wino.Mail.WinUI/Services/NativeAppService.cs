@@ -1,8 +1,13 @@
+using Wino.Mail.WinUI.Models;
+using Wino.Mail.WinUI.Interfaces;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
+using DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
+using Wino.Core.Domain.Models.Platform;
 using Microsoft.UI.Input;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Win32;
@@ -31,8 +36,86 @@ namespace Wino.Services;
 /// Single owner of the stateless Windows platform capabilities the app needs: launching, clipboard,
 /// keyboard state, startup task, WebView2 probe, notification sound, taskbar and shell presence state.
 /// </summary>
-public partial class NativeAppService : INativeAppService, IAppMetadataService, IUserPresenceStateProvider
+public partial class NativeAppService : INativeAppService, IAppMetadataService, IUserPresenceStateProvider, IExternalLauncher, IClipboardService, IShortcutPlatformService, ITaskCompletionSound
 {
+    private readonly DispatcherQueue? _platformDispatcher = DispatcherQueue.GetForCurrentThread();
+
+    public ModifierKeys PrimaryCommandModifier => ModifierKeys.Control;
+
+    void ITaskCompletionSound.Play() => PlayTaskCompletionSound();
+
+    async Task<PlatformOperationResult> IExternalLauncher.LaunchFileAsync(string path, CancellationToken cancellationToken)
+        => await RunPlatformOperationAsync(async () => await LaunchFileAsync(path), cancellationToken);
+
+    async Task<PlatformOperationResult> IExternalLauncher.LaunchUriAsync(Uri uri, CancellationToken cancellationToken)
+        => await RunPlatformOperationAsync(async () =>
+        {
+            if (!await LaunchUriAsync(uri))
+                throw new InvalidOperationException("Windows declined to open the URI.");
+        }, cancellationToken);
+
+    async Task<PlatformOperationResult> IClipboardService.CopyTextAsync(string text, CancellationToken cancellationToken)
+        => await RunPlatformOperationAsync(() => ExecuteOnPlatformThreadAsync(async () =>
+        {
+            await CopyClipboardAsync(text);
+            return true;
+        }, cancellationToken), cancellationToken);
+
+    private static async Task<PlatformOperationResult> RunPlatformOperationAsync(Func<Task> operation, CancellationToken cancellationToken)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await operation();
+            return new(PlatformOperationStatus.Succeeded);
+        }
+        catch (OperationCanceledException)
+        {
+            return new(PlatformOperationStatus.Cancelled);
+        }
+        catch (PlatformNotSupportedException ex)
+        {
+            return new(PlatformOperationStatus.Unavailable, ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return new(PlatformOperationStatus.Failed, ex.Message);
+        }
+    }
+
+    internal async Task<T> ExecuteOnPlatformThreadAsync<T>(Func<Task<T>> operation, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_platformDispatcher == null)
+            throw new PlatformNotSupportedException("The Windows platform dispatcher is unavailable.");
+
+        if (_platformDispatcher.HasThreadAccess)
+            return await operation();
+
+        var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!_platformDispatcher.TryEnqueue(async () =>
+        {
+            try
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                completion.TrySetResult(await operation());
+            }
+            catch (OperationCanceledException)
+            {
+                completion.TrySetCanceled(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                completion.TrySetException(ex);
+            }
+        }))
+        {
+            throw new PlatformNotSupportedException("The Windows platform dispatcher is shutting down.");
+        }
+
+        // Accepted native work must finish before its caller releases associated state.
+        return await completion.Task;
+    }
     private const uint AbmGetTaskbarPosition = 0x00000005;
     private const string WinoStartupTaskId = "WinoStartupId";
 
@@ -51,7 +134,8 @@ public partial class NativeAppService : INativeAppService, IAppMetadataService, 
     {
         var file = await StorageFile.GetFileFromPathAsync(filePath);
 
-        await Launcher.LaunchFileAsync(file);
+        if (!await Launcher.LaunchFileAsync(file))
+            throw new InvalidOperationException("Windows declined to open the file.");
     }
 
     public async Task<bool> LaunchUriAsync(Uri uri)

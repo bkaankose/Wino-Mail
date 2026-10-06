@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Enums;
@@ -86,6 +87,9 @@ public partial class ToDoPreferenceSettingsPageViewModel(
         => SelectedCompletedTaskTreatment?.Treatment == CompletedTaskTreatment.HideAfterPeriod;
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeNavigationAsync(mode, parameters);
+
+    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         _isLoaded = false;

@@ -27,9 +27,14 @@ public sealed class KeyboardShortcutService : BaseDatabaseService, IKeyboardShor
     private readonly SemaphoreSlim _gate = new(1, 1);
     private IReadOnlyList<KeyboardShortcutSnapshot> _enabledShortcutsSnapshot = Array.Empty<KeyboardShortcutSnapshot>();
     private bool _isInitialized;
+    private readonly ModifierKeys _primaryCommandModifier;
 
-    public KeyboardShortcutService(IDatabaseService databaseService) : base(databaseService)
+    public KeyboardShortcutService(IDatabaseService databaseService, IShortcutPlatformService shortcutPlatformService) : base(databaseService)
     {
+        ArgumentNullException.ThrowIfNull(shortcutPlatformService);
+        _primaryCommandModifier = shortcutPlatformService.PrimaryCommandModifier;
+        if (_primaryCommandModifier is not (ModifierKeys.Control or ModifierKeys.Command))
+            throw new ArgumentException("The platform must specify a primary command modifier.", nameof(shortcutPlatformService));
     }
 
     public event EventHandler KeyboardShortcutsChanged;
@@ -76,7 +81,7 @@ public sealed class KeyboardShortcutService : BaseDatabaseService, IKeyboardShor
         ArgumentNullException.ThrowIfNull(shortcut);
 
         shortcut.Key = NormalizeKey(shortcut.Key);
-        shortcut.ModifierKeys &= ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Windows;
+        shortcut.ModifierKeys &= ModifierKeys.Control | ModifierKeys.Alt | ModifierKeys.Shift | ModifierKeys.Windows | ModifierKeys.Command;
 
         if (!IsShortcutAllowed(shortcut))
             throw new InvalidOperationException("Shortcut is reserved or unsafe for this action.");
@@ -206,7 +211,7 @@ public sealed class KeyboardShortcutService : BaseDatabaseService, IKeyboardShor
             return true;
 
         return mode == WinoApplicationMode.Mail &&
-               modifierKeys == ModifierKeys.Control &&
+               (modifierKeys == ModifierKeys.Control || modifierKeys == ModifierKeys.Command) &&
                string.Equals(NormalizeKey(key), "Z", StringComparison.Ordinal);
     }
 
@@ -225,7 +230,7 @@ public sealed class KeyboardShortcutService : BaseDatabaseService, IKeyboardShor
             return true;
 
         var key = NormalizeKey(shortcut.Key);
-        if (!shortcut.ModifierKeys.HasFlag(ModifierKeys.Control))
+        if (!shortcut.ModifierKeys.HasFlag(ModifierKeys.Control) && !shortcut.ModifierKeys.HasFlag(ModifierKeys.Command))
             return false;
 
         return key is not ("A" or "B" or "C" or "F" or "I" or "K" or "N" or "O" or "P" or "R" or "S" or "U" or "V" or "W" or "X" or "Y" or "Z" or
@@ -286,7 +291,7 @@ public sealed class KeyboardShortcutService : BaseDatabaseService, IKeyboardShor
             }
 
             var mailShortcuts = repaired.Where(item => item.Mode == WinoApplicationMode.Mail).ToList();
-            if (IsExactLegacyGeneratedSet(mailShortcuts))
+            if (_primaryCommandModifier == ModifierKeys.Control && IsExactLegacyGeneratedSet(mailShortcuts))
             {
                 repaired.RemoveAll(item => item.Mode == WinoApplicationMode.Mail);
                 repaired.AddRange(GetDefaultShortcuts(WinoApplicationMode.Mail));
@@ -392,40 +397,40 @@ public sealed class KeyboardShortcutService : BaseDatabaseService, IKeyboardShor
         return shortcuts.All(item => legacy.Contains((NormalizeKey(item.Key), item.ModifierKeys, item.Action)));
     }
 
-    private static List<KeyboardShortcut> GetDefaultShortcuts()
+    private List<KeyboardShortcut> GetDefaultShortcuts()
         => SupportedModes.SelectMany(GetDefaultShortcuts).ToList();
 
-    private static IEnumerable<KeyboardShortcut> GetDefaultShortcuts(WinoApplicationMode mode)
+    private IEnumerable<KeyboardShortcut> GetDefaultShortcuts(WinoApplicationMode mode)
         => mode switch
         {
             WinoApplicationMode.Mail =>
-            [
-                CreateDefault(mode, "N", ModifierKeys.Control, KeyboardShortcutAction.NewMail),
-                CreateDefault(mode, "A", ModifierKeys.Control | ModifierKeys.Shift, KeyboardShortcutAction.ToggleArchive),
-                CreateDefault(mode, "U", ModifierKeys.Control, KeyboardShortcutAction.ToggleReadUnread),
-                CreateDefault(mode, "G", ModifierKeys.Control | ModifierKeys.Shift, KeyboardShortcutAction.ToggleFlag),
-                CreateDefault(mode, "V", ModifierKeys.Control | ModifierKeys.Shift, KeyboardShortcutAction.Move),
-                CreateDefault(mode, "R", ModifierKeys.Control, KeyboardShortcutAction.Reply),
-                CreateDefault(mode, "R", ModifierKeys.Control | ModifierKeys.Shift, KeyboardShortcutAction.ReplyAll),
-                CreateDefault(mode, "ENTER", ModifierKeys.Control, KeyboardShortcutAction.Send),
+            (KeyboardShortcut[])[
+                CreateDefault(mode, "N", _primaryCommandModifier, KeyboardShortcutAction.NewMail),
+                CreateDefault(mode, "A", _primaryCommandModifier | ModifierKeys.Shift, KeyboardShortcutAction.ToggleArchive),
+                CreateDefault(mode, "U", _primaryCommandModifier, KeyboardShortcutAction.ToggleReadUnread),
+                CreateDefault(mode, "G", _primaryCommandModifier | ModifierKeys.Shift, KeyboardShortcutAction.ToggleFlag),
+                CreateDefault(mode, "V", _primaryCommandModifier | ModifierKeys.Shift, KeyboardShortcutAction.Move),
+                CreateDefault(mode, "R", _primaryCommandModifier, KeyboardShortcutAction.Reply),
+                CreateDefault(mode, "R", _primaryCommandModifier | ModifierKeys.Shift, KeyboardShortcutAction.ReplyAll),
+                CreateDefault(mode, "ENTER", _primaryCommandModifier, KeyboardShortcutAction.Send),
                 CreateDefault(mode, "DELETE", ModifierKeys.None, KeyboardShortcutAction.Delete)
             ],
             WinoApplicationMode.Calendar =>
-            [
-                CreateDefault(mode, "N", ModifierKeys.Control, KeyboardShortcutAction.NewEvent),
+            (KeyboardShortcut[])[
+                CreateDefault(mode, "N", _primaryCommandModifier, KeyboardShortcutAction.NewEvent),
                 CreateDefault(mode, "DELETE", ModifierKeys.None, KeyboardShortcutAction.Delete)
             ],
             WinoApplicationMode.Contacts =>
-            [
-                CreateDefault(mode, "N", ModifierKeys.Control, KeyboardShortcutAction.NewContact),
+            (KeyboardShortcut[])[
+                CreateDefault(mode, "N", _primaryCommandModifier, KeyboardShortcutAction.NewContact),
                 CreateDefault(mode, "DELETE", ModifierKeys.None, KeyboardShortcutAction.Delete)
             ],
             WinoApplicationMode.Tasks =>
-            [
-                CreateDefault(mode, "N", ModifierKeys.Control, KeyboardShortcutAction.NewTask),
+            (KeyboardShortcut[])[
+                CreateDefault(mode, "N", _primaryCommandModifier, KeyboardShortcutAction.NewTask),
                 CreateDefault(mode, "DELETE", ModifierKeys.None, KeyboardShortcutAction.Delete)
             ],
-            _ => []
+            _ => Array.Empty<KeyboardShortcut>()
         };
 
     private static KeyboardShortcut CreateDefault(

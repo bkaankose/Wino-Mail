@@ -4,6 +4,8 @@ using Wino.Authentication;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Exceptions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Enums;
+using Wino.Core.Domain.Models.Platform;
 using Wino.Services;
 using Xunit;
 
@@ -14,8 +16,8 @@ public sealed class GmailAuthenticatorPresenterTests
     [Fact]
     public async Task GenerateTokenInformationAsync_CancelFromPresenter_ThrowsCanceledAndClosesSession()
     {
-        var nativeAppService = new Mock<INativeAppService>();
-        nativeAppService.Setup(service => service.LaunchUriAsync(It.IsAny<Uri>())).ReturnsAsync(true);
+        var nativeAppService = new Mock<IExternalLauncher>();
+        nativeAppService.Setup(service => service.LaunchUriAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>())).ReturnsAsync(new PlatformOperationResult(PlatformOperationStatus.Succeeded));
 
         var presenter = new FakePresenter(onShown: session => session.CancelRequested());
         var authenticator = CreateAuthenticator(nativeAppService.Object, presenter);
@@ -29,11 +31,27 @@ public sealed class GmailAuthenticatorPresenterTests
     }
 
     [Fact]
+    public async Task GenerateTokenInformationAsync_CallerCancellation_PropagatesAndClosesSession()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var launcher = new Mock<IExternalLauncher>();
+        launcher.Setup(service => service.LaunchUriAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PlatformOperationResult(PlatformOperationStatus.Succeeded));
+        var presenter = new FakePresenter(onShown: _ => cancellation.Cancel());
+        var authenticator = CreateAuthenticator(launcher.Object, presenter);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => authenticator.GenerateTokenInformationAsync(
+            new MailAccount { Id = Guid.NewGuid() }, cancellationToken: cancellation.Token));
+
+        Assert.True(presenter.Session!.IsDisposed);
+    }
+
+    [Fact]
     public async Task GenerateTokenInformationAsync_BrowserLaunchFails_ReportsToSessionAndKeepsWaitingForRedirect()
     {
         using var httpClient = new HttpClient();
-        var nativeAppService = new Mock<INativeAppService>();
-        nativeAppService.Setup(service => service.LaunchUriAsync(It.IsAny<Uri>())).ReturnsAsync(false);
+        var nativeAppService = new Mock<IExternalLauncher>();
+        nativeAppService.Setup(service => service.LaunchUriAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>())).ReturnsAsync(new PlatformOperationResult(PlatformOperationStatus.Failed, "The default browser could not be opened."));
 
         Task<string>? browserResponse = null;
         var presenter = new FakePresenter(onLaunchFailed: session =>
@@ -59,8 +77,8 @@ public sealed class GmailAuthenticatorPresenterTests
     [Fact]
     public async Task GenerateTokenInformationAsync_BrowserLaunchFailsWithoutPresenter_Throws()
     {
-        var nativeAppService = new Mock<INativeAppService>();
-        nativeAppService.Setup(service => service.LaunchUriAsync(It.IsAny<Uri>())).ReturnsAsync(false);
+        var nativeAppService = new Mock<IExternalLauncher>();
+        nativeAppService.Setup(service => service.LaunchUriAsync(It.IsAny<Uri>(), It.IsAny<CancellationToken>())).ReturnsAsync(new PlatformOperationResult(PlatformOperationStatus.Failed, "The default browser could not be opened."));
 
         var authenticator = CreateAuthenticator(nativeAppService.Object, presenter: null);
 
@@ -70,14 +88,14 @@ public sealed class GmailAuthenticatorPresenterTests
         Assert.Contains("browser could not be opened", exception.Message);
     }
 
-    private static GmailAuthenticator CreateAuthenticator(INativeAppService nativeAppService, IExternalBrowserAuthenticationPresenter? presenter)
+    private static GmailAuthenticator CreateAuthenticator(IExternalLauncher nativeAppService, IExternalBrowserAuthenticationPresenter? presenter)
     {
         var configuration = new MailAuthenticatorConfiguration(new ApplicationConfiguration
         {
             ApplicationDataFolderPath = Path.GetTempPath()
         });
 
-        return new GmailAuthenticator(configuration, nativeAppService, presenter);
+        return new GmailAuthenticator(configuration, nativeAppService, presenter, new TestGoogleTokenStore());
     }
 
     private sealed class FakePresenter(

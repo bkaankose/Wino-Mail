@@ -6,5 +6,6 @@ public enum StartupBehaviorResult
     Disabled,
     DisabledByUser,
     DisabledByPolicy,
-    Fatal
+    Fatal,
+    Unavailable
 }

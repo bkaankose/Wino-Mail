@@ -1,3 +1,4 @@
+using Wino.Mail.WinUI.Models;
 // Adapted from DesktopFlyouts.WinUI 1.4.0 (MIT), commit
 // bf5f4cf1e6bb23aff4bf4893f0de05635153eb3a.
 

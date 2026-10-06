@@ -121,6 +121,17 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     /// </summary>
     public ModeReadinessViewModel Readiness { get; }
     public bool CanLoadMoreContacts => HasMoreContacts && !IsLoading && !IsLoadingMore;
+    public bool HasPendingPresentationWork => IsLoading || IsLoadingMore || IsRefreshing || _loadSemaphore.CurrentCount == 0 ||
+        AddContactCommand.IsRunning || CreateListCommand.IsRunning || DeleteSelectedContactsCommand.IsRunning || ToggleFavoriteCommand.IsRunning || AddSelectedToListCommand.IsRunning;
+
+    public async Task SelectPresentationFilterAsync(ContactFilterViewModel filter)
+    {
+        Interlocked.Increment(ref _suppressSelectedFilterReloadDepth);
+        try { SelectedFilter = filter; SelectedContact = null; }
+        finally { Interlocked.Decrement(ref _suppressSelectedFilterReloadDepth); }
+        await SyncShellMenuItemsAfterSelectionAsync();
+        await ReloadContactsAsync();
+    }
     public bool CanDeleteSelectedContacts => SelectedContactsCount > 0;
     public bool IsDetailVisible => SelectedContact is not null;
     public bool CanCreateCardDavAddressBook => _cardDavCreationAccountIds.Count > 0;
@@ -176,13 +187,17 @@ public partial class ContactsPageViewModel : MailBaseViewModel,
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeNavigationAsync(mode, parameters, false);
+
+    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters, bool awaitReadiness = true)
     {
         base.OnNavigatedTo(mode, parameters);
         _isPageActive = true;
         SetMenuInteractionEnabled(true);
         SelectedContacts.CollectionChanged -= SelectedContactsChanged;
         SelectedContacts.CollectionChanged += SelectedContactsChanged;
-        _ = Readiness.ActivateAsync();
+        if (awaitReadiness) await Readiness.ActivateAsync();
+        else _ = Readiness.ActivateAsync();
 
         if (mode == NavigationMode.Back && _isInitialized)
         {

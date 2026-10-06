@@ -6,20 +6,24 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Enums;
 
 namespace Wino.Authentication;
 
 internal sealed class WinoGmailCodeReceiver(
-    INativeAppService nativeAppService,
+    IExternalLauncher externalLauncher,
     IExternalBrowserAuthenticationPresenter? authenticationPresenter,
     string applicationDisplayName)
 {
     private const string ProviderDisplayName = "Google";
+    private static readonly TimeSpan CallbackTimeout = TimeSpan.FromMinutes(5);
 
     public async Task<GoogleAuthorizationCode> ReceiveCodeAsync(
         Func<Uri, string, Uri> authorizationUriFactory,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+
         using var listener = StartListener(out var redirectUri);
         var state = Convert.ToHexString(RandomNumberGenerator.GetBytes(24));
         var codeVerifier = Base64UrlEncode(RandomNumberGenerator.GetBytes(48));
@@ -36,16 +40,23 @@ internal sealed class WinoGmailCodeReceiver(
 
         try
         {
-            if (!await nativeAppService.LaunchUriAsync(authorizationUri).ConfigureAwait(false))
+            var launch = await externalLauncher.LaunchUriAsync(authorizationUri, cancellation.Token).ConfigureAwait(false);
+            if (launch.Status == PlatformOperationStatus.Cancelled)
+                throw new OperationCanceledException(cancellation.Token);
+
+            if (!launch.IsSuccess)
             {
                 if (session is null)
+                {
+                    launch.ThrowIfNotSucceeded();
                     throw new InvalidOperationException("The default browser could not be opened for Google authorization.");
+                }
 
                 // Keep waiting: the user can still copy the address into a browser by hand.
                 await session.NotifyBrowserLaunchFailedAsync().ConfigureAwait(false);
             }
 
-            var context = await listener.GetContextAsync().WaitAsync(cancellation.Token).ConfigureAwait(false);
+            var context = await listener.GetContextAsync().WaitAsync(CallbackTimeout, cancellation.Token).ConfigureAwait(false);
             var query = context.Request.QueryString;
 
             // The browser owns the foreground now; ask the app to come back before the result is read.
@@ -100,14 +111,17 @@ internal sealed class WinoGmailCodeReceiver(
         return new Uri($"{authorizationUri.AbsoluteUri}{separator}code_challenge={Uri.EscapeDataString(challenge)}&code_challenge_method=S256");
     }
 
-    private async Task WriteBrowserResponseAsync(HttpListenerResponse response, string? error)
+    private Task WriteBrowserResponseAsync(HttpListenerResponse response, string? error)
     {
         var bytes = Encoding.UTF8.GetBytes(AuthorizationResultPage.Render(applicationDisplayName, error));
         response.ContentType = "text/html; charset=utf-8";
         response.ContentLength64 = bytes.Length;
         response.Headers["Cache-Control"] = "no-store";
-        await response.OutputStream.WriteAsync(bytes).ConfigureAwait(false);
-        response.Close();
+        // Wait for the final response send before disposing the listener. An asynchronous
+        // stream write followed by immediate listener teardown can reset the callback socket.
+        response.KeepAlive = false;
+        response.Close(bytes, willBlock: true);
+        return Task.CompletedTask;
     }
 
     private static HttpListener StartListener(out Uri redirectUri)

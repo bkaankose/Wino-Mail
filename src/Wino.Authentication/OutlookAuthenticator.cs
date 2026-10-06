@@ -1,14 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Identity.Client;
-using Microsoft.Identity.Client.Broker;
-using Microsoft.Identity.Client.Extensions.Msal;
 using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
@@ -24,105 +22,35 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
     // folded into GetScope and has to be acquired on its own.
     private static readonly string[] SubstrateTaskScopes = ["https://outlook.office.com/Tasks.ReadWrite"];
     private static readonly HttpClient GraphProfileHttpClient = new();
-    private bool isTokenCacheAttached = false;
-
-    // Outlook
-    private const string Authority = "https://login.microsoftonline.com/common";
 
     public override MailProviderType ProviderType => MailProviderType.Outlook;
 
     private readonly IPublicClientApplication _publicClientApplication;
-    private readonly INativeAppService _nativeAppService;
-    private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly IOutlookAuthenticationHost _host;
 
-    public OutlookAuthenticator(INativeAppService nativeAppService,
-                                IApplicationConfiguration applicationConfiguration,
-                                IAuthenticatorConfig authenticatorConfig) : base(authenticatorConfig)
+    public OutlookAuthenticator(IOutlookAuthenticationHost host, IAuthenticatorConfig authenticatorConfig)
+        : base(authenticatorConfig)
     {
-        _nativeAppService = nativeAppService;
-        _applicationConfiguration = applicationConfiguration;
-
-        var authenticationRedirectUri = nativeAppService.GetWebAuthenticationBrokerUri();
-
-        var windowsBrokerOptions = new WindowsBrokerOptions
-        {
-            HeaderText = Translator.OutlookAuthentication_WamHeaderText,
-            ListWindowsWorkAndSchoolAccounts = true,
-        };
-
-        var options = new BrokerOptions(BrokerOptions.OperatingSystems.Windows)
-        {
-            Title = authenticatorConfig.ApplicationDisplayName,
-            ListOperatingSystemAccounts = true,
-        };
-
-        PublicClientApplicationBuilder outlookAppBuilder = null;
-
-        // Being created from an app notification.
-        // This is where we avoid all interactive shit for authentication.
-        if (nativeAppService.GetCoreWindowHwnd == null)
-        {
-            outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
-                .WithDefaultRedirectUri()
-                .WithBroker(options);
-        }
-        else
-        {
-            outlookAppBuilder = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
-                .WithBroker(options)
-                .WithParentActivityOrWindow(_nativeAppService.GetCoreWindowHwnd)
-                .WithDefaultRedirectUri();
-        }
-
-        outlookAppBuilder = ApplyWindowsBrokerOptions(outlookAppBuilder, windowsBrokerOptions)
-            .WithAuthority(Authority);
-
-        _publicClientApplication = outlookAppBuilder.Build();
-    }
-
-    private static PublicClientApplicationBuilder ApplyWindowsBrokerOptions(
-        PublicClientApplicationBuilder builder,
-        WindowsBrokerOptions options)
-    {
-#pragma warning disable CS0618
-        return builder.WithWindowsBrokerOptions(options);
-#pragma warning restore CS0618
+        ArgumentNullException.ThrowIfNull(host);
+        _host = host;
+        _publicClientApplication = host.Client;
     }
 
     private string[] GetScope(MailAccount account, IReadOnlyCollection<ProviderFeature> features = null)
         => AuthenticatorConfig.GetOutlookScopes(ProviderAuthorizationRequest.ForAccount(account, features));
 
-    private async Task EnsureTokenCacheAttachedAsync()
-    {
-        if (!isTokenCacheAttached)
-        {
-            var tokenCachePath = AuthenticationTokenStorePaths.GetOutlookTokenCachePath(_applicationConfiguration);
-            var tokenCacheDirectory = Path.GetDirectoryName(tokenCachePath)
-                ?? throw new InvalidOperationException("The Outlook token cache path has no parent directory.");
-            Directory.CreateDirectory(tokenCacheDirectory);
-
-            var storageProperties = new StorageCreationPropertiesBuilder(
-                Path.GetFileName(tokenCachePath),
-                tokenCacheDirectory).Build();
-            var msalcachehelper = await MsalCacheHelper.CreateAsync(storageProperties);
-            msalcachehelper.RegisterCache(_publicClientApplication.UserTokenCache);
-
-            isTokenCacheAttached = true;
-        }
-    }
-
     public async Task<TokenInformationEx> GetTokenInformationAsync(
         MailAccount account,
-        IReadOnlyCollection<ProviderFeature> requiredFeatures = null)
+        IReadOnlyCollection<ProviderFeature> requiredFeatures = null, CancellationToken cancellationToken = default)
     {
-        await EnsureTokenCacheAttachedAsync();
+        await _host.EnsureTokenCacheAttachedAsync(cancellationToken);
 
-        var cachedTokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, requiredFeatures, forceRefresh: false)
+        var cachedTokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, requiredFeatures, forceRefresh: false, cancellationToken)
             .ConfigureAwait(false);
 
         if (cachedTokenInfo == null)
         {
-            cachedTokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, requiredFeatures, forceRefresh: true)
+            cachedTokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, requiredFeatures, forceRefresh: true, cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -137,11 +65,11 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
     public async Task<TokenInformationEx> RefreshTokenInformationAsync(
         MailAccount account,
-        IReadOnlyCollection<ProviderFeature> requiredFeatures = null)
+        IReadOnlyCollection<ProviderFeature> requiredFeatures = null, CancellationToken cancellationToken = default)
     {
-        await EnsureTokenCacheAttachedAsync().ConfigureAwait(false);
+        await _host.EnsureTokenCacheAttachedAsync(cancellationToken).ConfigureAwait(false);
 
-        var tokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, requiredFeatures, forceRefresh: true)
+        var tokenInfo = await TryGetCachedTokenInformationSafelyAsync(account, requiredFeatures, forceRefresh: true, cancellationToken)
             .ConfigureAwait(false);
 
         if (tokenInfo == null)
@@ -155,44 +83,40 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
     public async Task<TokenInformationEx> GenerateTokenInformationAsync(
         MailAccount account,
-        IReadOnlyCollection<ProviderFeature> requestedFeatures = null)
+        IReadOnlyCollection<ProviderFeature> requestedFeatures = null, CancellationToken cancellationToken = default)
     {
         try
         {
-            await EnsureTokenCacheAttachedAsync();
+            await _host.EnsureTokenCacheAttachedAsync(cancellationToken);
 
             // Interactive authentication required but window doesn't exist.
             // This can happen when being called from a notification background task and the token is expired.
             // Force account attention;
 
-            if (_nativeAppService.GetCoreWindowHwnd == null) throw new AuthenticationAttentionException(account);
+            if (!_host.CanAuthenticateInteractively) throw new AuthenticationAttentionException(account);
 
             var cachedAccounts = (await _publicClientApplication
-                .GetAccountsAsync()
+                .GetAccountsAsync().WaitAsync(cancellationToken)
                 .ConfigureAwait(false))
                 .ToList();
             var storedAccount = FindStoredAccount(cachedAccounts, account);
 
-            var interactiveBuilder = _publicClientApplication.AcquireTokenInteractive(GetScope(account, requestedFeatures));
-            var loginHint = GetAuthenticationAddress(account);
-
-            if (storedAccount is not null)
-                interactiveBuilder = interactiveBuilder.WithAccount(storedAccount);
-            else if (!string.IsNullOrWhiteSpace(loginHint))
-                interactiveBuilder = interactiveBuilder.WithLoginHint(loginHint);
-
-            AuthenticationResult authResult = await interactiveBuilder.ExecuteAsync();
+            AuthenticationResult authResult = await _host.AcquireTokenInteractiveAsync(
+                GetScope(account, requestedFeatures), storedAccount, GetAuthenticationAddress(account), cancellationToken)
+                .ConfigureAwait(false);
 
             // Microsoft 365 work/school tenants can use a sign-in UPN that differs from
             // the mailbox primary SMTP address, so interactive reauth must not reject them.
 
-            var mailboxAddress = await ResolveMailboxAddressAsync(authResult.AccessToken, authResult.Account.Username)
+            var mailboxAddress = await ResolveMailboxAddressAsync(authResult.AccessToken, authResult.Account.Username, cancellationToken)
                 .ConfigureAwait(false);
 
             return new TokenInformationEx(authResult.AccessToken, mailboxAddress, authResult.Account.Username);
         }
         catch (MsalClientException msalClientException)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (msalClientException.ErrorCode == "authentication_canceled" || msalClientException.ErrorCode == "access_denied")
                 throw new AccountSetupCanceledException();
 
@@ -208,16 +132,16 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
     /// missing consent degrades group discovery instead of breaking task synchronization.
     /// Deliberately never throws <see cref="AuthenticationAttentionException"/>.
     /// </summary>
-    public async Task<string> GetSubstrateTaskTokenAsync(MailAccount account)
+    public async Task<string> GetSubstrateTaskTokenAsync(MailAccount account, CancellationToken cancellationToken = default)
     {
         if (account is null)
             return null;
 
         try
         {
-            await EnsureTokenCacheAttachedAsync().ConfigureAwait(false);
+            await _host.EnsureTokenCacheAttachedAsync(cancellationToken).ConfigureAwait(false);
 
-            var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().ConfigureAwait(false)).ToList();
+            var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
             var storedAccount = FindStoredAccount(cachedAccounts, account);
 
             if (storedAccount is null)
@@ -225,41 +149,37 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
             var authResult = await _publicClientApplication
                 .AcquireTokenSilent(SubstrateTaskScopes, storedAccount)
-                .ExecuteAsync()
+                .ExecuteAsync(cancellationToken)
                 .ConfigureAwait(false);
 
             return authResult.AccessToken;
         }
         catch (MsalException)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             return null;
         }
     }
 
-    public async Task EnsureSubstrateTaskConsentAsync(MailAccount account)
+    public async Task EnsureSubstrateTaskConsentAsync(MailAccount account, CancellationToken cancellationToken = default)
     {
         if (account is null)
             throw new ArgumentNullException(nameof(account));
 
-        await EnsureTokenCacheAttachedAsync().ConfigureAwait(false);
-        var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().ConfigureAwait(false)).ToList();
+        await _host.EnsureTokenCacheAttachedAsync(cancellationToken).ConfigureAwait(false);
+        var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
         var storedAccount = FindStoredAccount(cachedAccounts, account);
-        var builder = _publicClientApplication.AcquireTokenInteractive(SubstrateTaskScopes);
-        if (storedAccount is not null)
-            builder = builder.WithAccount(storedAccount);
-        else
-        {
-            var loginHint = GetAuthenticationAddress(account);
-            if (!string.IsNullOrWhiteSpace(loginHint))
-                builder = builder.WithLoginHint(loginHint);
-        }
+        if (!_host.CanAuthenticateInteractively)
+            throw new AuthenticationAttentionException(account);
 
-        await builder.ExecuteAsync().ConfigureAwait(false);
+        await _host.AcquireTokenInteractiveAsync(SubstrateTaskScopes, storedAccount,
+            GetAuthenticationAddress(account), cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task DeleteTokenInformationAsync(MailAccount account)
+    public async Task DeleteTokenInformationAsync(MailAccount account, CancellationToken cancellationToken = default)
     {
-        await EnsureTokenCacheAttachedAsync().ConfigureAwait(false);
+        await _host.EnsureTokenCacheAttachedAsync(cancellationToken).ConfigureAwait(false);
 
         if (account == null)
             return;
@@ -268,45 +188,23 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
             ? account.Address
             : account.AuthenticationAddress;
 
-        // Removing an account through WAM can affect broker state shared by installations.
-        // Attach a non-broker client only to this package's persisted cache for local removal.
-        var localClient = PublicClientApplicationBuilder.Create(AuthenticatorConfig.OutlookAuthenticatorClientId)
-            .WithDefaultRedirectUri().WithAuthority(Authority).Build();
-        var path = AuthenticationTokenStorePaths.GetOutlookTokenCachePath(_applicationConfiguration);
-        var cache = await MsalCacheHelper.CreateAsync(new StorageCreationPropertiesBuilder(
-            Path.GetFileName(path), Path.GetDirectoryName(path)!).Build()).ConfigureAwait(false);
-        cache.RegisterCache(localClient.UserTokenCache);
-
-        try
-        {
-            var storedAccount = (await localClient.GetAccountsAsync().ConfigureAwait(false)).FirstOrDefault(
-                a => string.Equals(a.Username?.Trim(), authenticationAddress?.Trim(), StringComparison.OrdinalIgnoreCase));
-
-            if (storedAccount != null)
-            {
-                await localClient.RemoveAsync(storedAccount).ConfigureAwait(false);
-            }
-        }
-        finally
-        {
-            cache.UnregisterCache(localClient.UserTokenCache);
-        }
+        await _host.RemoveLocalAccountAsync(authenticationAddress, cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<string> ResolveMailboxAddressAsync(string accessToken, string fallbackAddress)
+    private static async Task<string> ResolveMailboxAddressAsync(string accessToken, string fallbackAddress, CancellationToken cancellationToken)
     {
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, "https://graph.microsoft.com/v1.0/me?$select=mail,userPrincipalName");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            using var response = await GraphProfileHttpClient.SendAsync(request).ConfigureAwait(false);
+            using var response = await GraphProfileHttpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
                 return fallbackAddress;
 
-            await using var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
-            using var document = await JsonDocument.ParseAsync(responseStream).ConfigureAwait(false);
+            await using var responseStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using var document = await JsonDocument.ParseAsync(responseStream, cancellationToken: cancellationToken).ConfigureAwait(false);
 
             var root = document.RootElement;
             var mail = GetStringProperty(root, "mail");
@@ -316,6 +214,10 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
             var userPrincipalName = GetStringProperty(root, "userPrincipalName");
             return string.IsNullOrWhiteSpace(userPrincipalName) ? fallbackAddress : userPrincipalName;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch
         {
@@ -331,11 +233,11 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
     private async Task<TokenInformationEx> TryGetCachedTokenInformationSafelyAsync(
         MailAccount account,
         IReadOnlyCollection<ProviderFeature> requiredFeatures,
-        bool forceRefresh)
+        bool forceRefresh, CancellationToken cancellationToken)
     {
         try
         {
-            return await TryGetCachedTokenInformationAsync(account, requiredFeatures, forceRefresh).ConfigureAwait(false);
+            return await TryGetCachedTokenInformationAsync(account, requiredFeatures, forceRefresh, cancellationToken).ConfigureAwait(false);
         }
         catch (MsalUiRequiredException)
         {
@@ -343,6 +245,8 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         }
         catch (MsalClientException)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             return null;
         }
     }
@@ -350,10 +254,10 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
     private async Task<TokenInformationEx> TryGetCachedTokenInformationAsync(
         MailAccount account,
         IReadOnlyCollection<ProviderFeature> requiredFeatures,
-        bool forceRefresh)
+        bool forceRefresh, CancellationToken cancellationToken)
     {
         var scopes = GetScope(account, requiredFeatures);
-        var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().ConfigureAwait(false)).ToList();
+        var cachedAccounts = (await _publicClientApplication.GetAccountsAsync().WaitAsync(cancellationToken).ConfigureAwait(false)).ToList();
         var storedAccount = FindStoredAccount(cachedAccounts, account);
 
         if (storedAccount != null)
@@ -361,7 +265,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
             var authResult = await _publicClientApplication
                 .AcquireTokenSilent(scopes, storedAccount)
                 .WithForceRefresh(forceRefresh)
-                .ExecuteAsync()
+                .ExecuteAsync(cancellationToken)
                 .ConfigureAwait(false);
 
             return new TokenInformationEx(authResult.AccessToken, account?.Address, authResult.Account.Username);
@@ -369,7 +273,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
 
         foreach (var cachedAccount in cachedAccounts)
         {
-            var tokenInfo = await TryGetMatchingTokenInformationAsync(account, scopes, cachedAccount, forceRefresh)
+            var tokenInfo = await TryGetMatchingTokenInformationAsync(account, scopes, cachedAccount, forceRefresh, cancellationToken)
                 .ConfigureAwait(false);
 
             if (tokenInfo != null)
@@ -380,24 +284,24 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
             account,
             scopes,
             PublicClientApplication.OperatingSystemAccount,
-            forceRefresh).ConfigureAwait(false);
+            forceRefresh, cancellationToken).ConfigureAwait(false);
     }
 
     private async Task<TokenInformationEx> TryGetMatchingTokenInformationAsync(
         MailAccount account,
         IEnumerable<string> scopes,
         IAccount cachedAccount,
-        bool forceRefresh)
+        bool forceRefresh, CancellationToken cancellationToken)
     {
         try
         {
             var authResult = await _publicClientApplication
                 .AcquireTokenSilent(scopes, cachedAccount)
                 .WithForceRefresh(forceRefresh)
-                .ExecuteAsync()
+                .ExecuteAsync(cancellationToken)
                 .ConfigureAwait(false);
 
-            return await GetValidatedTokenInformationAsync(account, authResult).ConfigureAwait(false);
+            return await GetValidatedTokenInformationAsync(account, authResult, cancellationToken).ConfigureAwait(false);
         }
         catch (MsalUiRequiredException)
         {
@@ -405,11 +309,13 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
         }
         catch (MsalClientException)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             return null;
         }
     }
 
-    private async Task<TokenInformationEx> GetValidatedTokenInformationAsync(MailAccount account, AuthenticationResult authResult)
+    private async Task<TokenInformationEx> GetValidatedTokenInformationAsync(MailAccount account, AuthenticationResult authResult, CancellationToken cancellationToken)
     {
         if (account == null)
             return new TokenInformationEx(authResult.AccessToken, authResult.Account.Username, authResult.Account.Username);
@@ -422,7 +328,7 @@ public class OutlookAuthenticator : BaseAuthenticator, IOutlookAuthenticator, IS
             return new TokenInformationEx(authResult.AccessToken, account.Address, authResult.Account.Username);
         }
 
-        var mailboxAddress = await ResolveMailboxAddressAsync(authResult.AccessToken, authResult.Account.Username)
+        var mailboxAddress = await ResolveMailboxAddressAsync(authResult.AccessToken, authResult.Account.Username, cancellationToken)
             .ConfigureAwait(false);
 
         return AddressesMatch(mailboxAddress, account.Address)

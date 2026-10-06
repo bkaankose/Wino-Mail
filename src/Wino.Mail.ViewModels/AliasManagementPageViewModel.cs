@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography.X509Certificates;
@@ -24,6 +24,8 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     private readonly IAccountService _accountService;
     private readonly ISmimeCertificateService _smimeCertificateService;
     private readonly IWinoLogger _logger;
+    private readonly List<X509Certificate2> _ownedCertificates = [];
+    public bool IsSmimeAvailable { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSynchronizeAliases))]
@@ -50,7 +52,7 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
 
     public bool CanSynchronizeAliases => Account?.IsAliasSyncSupported ?? false;
 
-    public IReadOnlyList<AliasManagementItem> AliasItems => AliasManagementItem.Create(AccountAliases);
+    public IReadOnlyList<AliasManagementItem> AliasItems => AliasManagementItem.Create(AccountAliases, IsSmimeAvailable);
 
     public bool HasAliases => AccountAliases.Count > 0;
 
@@ -92,15 +94,20 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     public AliasManagementPageViewModel(IMailDialogService dialogService,
                                         IAccountService accountService,
                                         ISmimeCertificateService smimeCertificateService,
+                                        IPlatformCapabilities platformCapabilities,
                                         IWinoLogger logger)
     {
         _dialogService = dialogService;
         _accountService = accountService;
         _smimeCertificateService = smimeCertificateService;
+        IsSmimeAvailable = platformCapabilities.Smime;
         _logger = logger;
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeAsync(mode, parameters);
+
+    public async Task InitializeAsync(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
@@ -124,13 +131,15 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     private async Task LoadAliasesAsync()
     {
         var aliases = await _accountService.GetAccountAliasesAsync(Account.Id);
+        ReleaseCertificates();
         foreach (var alias in aliases)
         {
             alias.Certificates.Clear();
             alias.Certificates.Add(null); // First blank optioon
-            var certs = _smimeCertificateService.GetCertificates()
-                .Where(cert => cert.Subject.Contains(alias.AliasAddress, StringComparison.OrdinalIgnoreCase))
-                .ToList();
+            var certs = IsSmimeAvailable
+                ? _smimeCertificateService.GetCertificates(emailAddress: alias.AliasAddress)
+                : Array.Empty<X509Certificate2>();
+            _ownedCertificates.AddRange(certs);
             foreach (var cert in certs)
                 alias.Certificates.Add(cert);
 
@@ -249,11 +258,31 @@ public partial class AliasManagementPageViewModel : MailBaseViewModel
     }
 
     public Task SetAliasSmimeEncryption(MailAccountAlias alias, bool value)
-        => WriteAliasSettingAsync(() => _accountService.SetAliasEncryptionAsync(Account.Id, alias.Id, value));
+        => IsSmimeAvailable
+            ? WriteAliasSettingAsync(() => _accountService.SetAliasEncryptionAsync(Account.Id, alias.Id, value))
+            : Task.CompletedTask;
 
     public Task SetSelectedSigningCertificate(MailAccountAlias alias, X509Certificate2 cert)
-        => WriteAliasSettingAsync(() => _accountService.SetAliasSigningCertificateAsync(Account.Id, alias.Id, cert?.Thumbprint));
+        => IsSmimeAvailable
+            ? WriteAliasSettingAsync(() => _accountService.SetAliasSigningCertificateAsync(Account.Id, alias.Id, cert?.Thumbprint))
+            : Task.CompletedTask;
 
+    private void ReleaseCertificates()
+    {
+        foreach (var alias in AccountAliases)
+        {
+            alias.SelectedSigningCertificate = null;
+            alias.Certificates.Clear();
+        }
+        foreach (var certificate in _ownedCertificates) certificate.Dispose();
+        _ownedCertificates.Clear();
+    }
+
+    public override void OnNavigatedFrom(NavigationMode mode, object parameters)
+    {
+        ReleaseCertificates();
+        base.OnNavigatedFrom(mode, parameters);
+    }
     /// <summary>
     /// Runs one targeted alias write and then reloads, whether it succeeded or not, so the page
     /// shows what is stored rather than the change the user attempted.

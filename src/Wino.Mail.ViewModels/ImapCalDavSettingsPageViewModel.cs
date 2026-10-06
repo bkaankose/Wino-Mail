@@ -11,8 +11,8 @@ using Wino.Core.Domain;
 using Wino.Core.Domain.Entities.Shared;
 using Wino.Core.Domain.Enums;
 using Wino.Core.Domain.Exceptions;
-using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Interfaces;
+using Wino.Core.Domain.Extensions;
 using Wino.Core.Domain.Models.Accounts;
 using Wino.Core.Domain.Models.AutoDiscovery;
 using Wino.Core.Domain.Models.Calendar;
@@ -39,7 +39,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     private readonly IMailServerTestService _mailServerTestService;
     private readonly IKnownImapProviderCatalog _knownImapProviderCatalog;
     private readonly IAccountCapabilityService _accountCapabilityService;
-    private readonly INativeAppService _nativeAppService;
+    private readonly IExternalLauncher _externalLauncher;
 
     private ImapCalDavSettingsPageMode _pageMode;
     private Guid _editingAccountId;
@@ -251,11 +251,11 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
                                            IMailServerTestService mailServerTestService = null,
                                            IKnownImapProviderCatalog knownImapProviderCatalog = null,
                                            IAccountCapabilityService accountCapabilityService = null,
-                                           INativeAppService nativeAppService = null)
+                                           IExternalLauncher externalLauncher = null)
     {
         _knownImapProviderCatalog = knownImapProviderCatalog;
         _accountCapabilityService = accountCapabilityService;
-        _nativeAppService = nativeAppService;
+        _externalLauncher = externalLauncher;
         Capabilities.PropertyChanged += OnCapabilitiesPropertyChanged;
 
         _autoDiscoveryService = autoDiscoveryService;
@@ -269,6 +269,10 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeAsync(mode, parameters);
+
+    /// <summary>Awaitable navigation entry for hosts that own credential hydration.</summary>
+    public async Task InitializeAsync(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 
@@ -531,7 +535,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     private async Task InitializeEditModeAsync(Guid accountId)
     {
-        var account = await _accountService.GetAccountAsync(accountId);
+        var account = await ReadAccountForCredentialEditAsync(accountId);
         if (account == null)
             throw new InvalidOperationException(Translator.Exception_NullAssignedAccount);
 
@@ -549,11 +553,9 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
         ApplyServerInformation(account.ServerInformation);
 
-        // Accounts restored from an older snapshot have no CardDAV endpoint. A known provider's
-        // comes from the catalog, so saving this page does not keep the empty value.
+        // Preserve endpoint recovery for accounts restored from older snapshots.
         if (_isCardDavEnabled && string.IsNullOrWhiteSpace(CardDavServiceUrl))
             CardDavServiceUrl = _knownImapProviderCatalog.ResolveCardDavServiceUrl(account.SpecialImapProvider, IncomingServer);
-
         IsMailSupportEnabled = account.IsMailAccessGranted;
         ShouldAppendMessagesToSentFolder = account.Preferences?.ShouldAppendMessagesToSentFolder ?? true;
 
@@ -572,6 +574,18 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
         // The sign-in password starts as the stored one, so changing it here updates every
         // connection that shares it.
         Password = IsMailSupportEnabled ? IncomingServerPassword : CalDavPassword;
+    }
+
+    private async Task<MailAccount> ReadAccountForCredentialEditAsync(Guid accountId)
+    {
+        try { return await _accountService.GetAccountAsync(accountId); }
+        catch (AccountCredentialMissingException)
+        {
+            // This is endpoint/preference metadata, never a successful secret hydration.
+            // Recovery starts with blank passwords and must validate the user's replacement.
+            await ShowPageErrorAsync(Translator.GeneralTitle_Warning, Translator.MacOSMail_CredentialsMissing);
+            return await _accountService.GetAccountMetadataAsync(accountId);
+        }
     }
 
     private void ApplyCreateContextDefaults(AccountCreationDialogResult accountCreationDialogResult)
@@ -1006,7 +1020,7 @@ public partial class ImapCalDavSettingsPageViewModel : MailBaseViewModel
 
     private async Task SaveEditFlowAsync(CustomServerInformation serverInformation)
     {
-        var account = await _accountService.GetAccountAsync(_editingAccountId);
+        var account = await ReadAccountForCredentialEditAsync(_editingAccountId);
         if (account == null)
             throw new InvalidOperationException(Translator.Exception_NullAssignedAccount);
 

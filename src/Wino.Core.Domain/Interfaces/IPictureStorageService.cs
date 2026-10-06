@@ -7,7 +7,7 @@ namespace Wino.Core.Domain.Interfaces;
 
 /// <summary>
 /// Stores contact and account profile pictures as JPEG files in the application local folder
-/// instead of as base64 in SQLite. Files are named by a Guid and resolved through ms-appdata URIs.
+/// instead of as base64 in SQLite. Files are named by a Guid and resolved by the host.
 /// </summary>
 public interface IPictureStorageService
 {
@@ -17,7 +17,7 @@ public interface IPictureStorageService
     string GetPicturePath(PictureKind kind, Guid fileId);
 
     /// <summary>
-    /// Returns the package-local URI for a stored picture, or null if the file does not exist.
+    /// Returns the host-resolved URI for a stored picture, or null if the file does not exist.
     /// </summary>
     Uri GetPictureUri(PictureKind kind, Guid fileId);
 

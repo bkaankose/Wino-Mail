@@ -1,3 +1,4 @@
+using Wino.Mail.WinUI.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml.Controls;
 using Wino.Core.Domain.Interfaces;

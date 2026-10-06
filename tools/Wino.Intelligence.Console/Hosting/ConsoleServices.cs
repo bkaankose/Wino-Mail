@@ -6,6 +6,9 @@ using Wino.Core.Domain.Interfaces;
 using Wino.Core.Services;
 using Wino.Mail.AI.Abstractions;
 using Wino.Services;
+using Wino.Platform.Windows;
+using Wino.Platform.Windows.Services;
+using Wino.Authentication;
 
 namespace Wino.Intelligence.ConsoleApp.Hosting;
 
@@ -39,9 +42,20 @@ internal static class ConsoleServices
         services.RegisterSharedServices();
 
         // Registered by the WinUI app on top of the shared services.
+        services.AddSingleton<IPlatformCapabilities>(new Wino.Core.Domain.Models.Platform.PlatformCapabilities(MicrosoftStore: true));
+        services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
+        services.AddSingleton<IAccountCredentialPersistence, WindowsAccountCredentialPersistence>();
+        services.AddSingleton<IGoogleTokenStore, WindowsGoogleTokenStore>();
+        services.AddSingleton<IOutlookAuthenticationHost>(provider => new WindowsOutlookAuthenticationHost(
+            provider.GetRequiredService<IApplicationConfiguration>(),
+            provider.GetRequiredService<IAuthenticatorConfig>(), nativeAppService.GetCoreWindowHwnd));
+        services.AddSingleton<IExternalLauncher>(new ConsolePlatformServices(nativeAppService));
+        services.AddSingleton<IShortcutPlatformService, ConsolePlatformServices>();
+        services.AddSingleton<ISmimeCertificateService, SmimeCertificateService>();
+        services.AddSingleton<IApplicationResourceResolver>(provider => new FileSystemApplicationResourceResolver(
+            AppContext.BaseDirectory, provider.GetRequiredService<IApplicationConfiguration>()));
         services.AddSingleton<IConfigurationService, ConsoleConfigurationService>();
         services.AddSingleton(ConsolePreferencesProxy.Create());
-        services.AddSingleton<INativeAppService>(nativeAppService);
         services.AddSingleton<IAppMetadataService>(nativeAppService);
         services.AddSingleton<INotificationBuilder, ConsoleNotificationBuilder>();
         services.AddSingleton(ConsoleDialogProxy.Create());
@@ -65,6 +79,7 @@ internal static class ConsoleServices
 
             return new WinoAccountApiClient(
                 provider.GetRequiredService<IDatabaseService>(),
+                provider.GetRequiredService<IAccountCredentialPersistence>(),
                 new HttpClient(handler) { BaseAddress = GetApiUri(apiTarget) },
                 provider.GetRequiredService<IContentEnvelopeEncryptor>(),
                 provider.GetRequiredService<ITranslationService>(),

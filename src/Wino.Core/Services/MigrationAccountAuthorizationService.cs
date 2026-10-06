@@ -34,7 +34,7 @@ public sealed class MigrationAccountAuthorizationService(
         var authenticator = authenticationProvider.GetAuthenticator(account.ProviderType);
 
         var token = await authenticator
-            .GenerateTokenInformationAsync(account, requestedFeatures)
+            .GenerateTokenInformationAsync(account, requestedFeatures, cancellationToken)
             .ConfigureAwait(false);
 
         cancellationToken.ThrowIfCancellationRequested();

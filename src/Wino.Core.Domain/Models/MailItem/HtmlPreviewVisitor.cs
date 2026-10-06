@@ -61,10 +61,10 @@ public sealed class HtmlPreviewVisitor : MimeVisitor
     private readonly List<Exception> cryptographyErrors = [];
 
     /// <summary>
-    /// Creates a visitor that uses the Windows certificate store for S/MIME operations.
+    /// Creates a portable visitor with unavailable S/MIME; hosts must explicitly supply a context factory.
     /// </summary>
     public HtmlPreviewVisitor()
-        : this(static () => new WindowsSecureMimeContext())
+        : this(static () => throw new PlatformNotSupportedException("S/MIME is unavailable without a platform certificate context."))
     {
     }
 
@@ -77,7 +77,7 @@ public sealed class HtmlPreviewVisitor : MimeVisitor
     {
     }
 
-    internal HtmlPreviewVisitor(Func<SecureMimeContext> secureMimeContextFactory)
+    public HtmlPreviewVisitor(Func<SecureMimeContext> secureMimeContextFactory)
     {
         this.secureMimeContextFactory = secureMimeContextFactory
             ?? throw new ArgumentNullException(nameof(secureMimeContextFactory));

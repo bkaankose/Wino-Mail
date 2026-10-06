@@ -167,6 +167,9 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     /// same list control and the same templates the mail list uses, so it reflects the real thing.
     /// </summary>
     public MailListStore PreviewMailCollection { get; } = new();
+    private readonly object _previewGate = new();
+    private volatile bool _previewActive;
+    public Task PreviewRefreshTask { get; private set; } = Task.CompletedTask;
 
     [ObservableProperty]
     public partial MailListProjectionOptions PreviewMailListOptions { get; set; } = new();
@@ -426,8 +429,12 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeNavigationAsync(mode, parameters);
+
+    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
+        _previewActive = true;
 
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
         PreferencesService.PreferenceChanged += PreferencesServiceChanged;
@@ -438,15 +445,21 @@ public partial class MessageListPageViewModel : MailBaseViewModel
     public override void OnNavigatedFrom(NavigationMode mode, object parameters)
     {
         base.OnNavigatedFrom(mode, parameters);
+        _previewActive = false;
 
         PreferencesService.PreferenceChanged -= PreferencesServiceChanged;
     }
 
-    private async void PreferencesServiceChanged(object sender, string propertyName)
+    private void PreferencesServiceChanged(object sender, string propertyName)
     {
         if (!IsPreviewAffectingPreference(propertyName)) return;
 
-        await RefreshPreviewAsync();
+        _ = ObservePreviewRefreshAsync(RefreshPreviewAsync());
+    }
+    private static async Task ObservePreviewRefreshAsync(Task refresh)
+    {
+        try { await refresh; }
+        catch (Exception exception) { Serilog.Log.Error(exception, "Failed to refresh message-list settings preview."); }
     }
 
     /// <summary>
@@ -464,9 +477,21 @@ public partial class MessageListPageViewModel : MailBaseViewModel
         nameof(IPreferencesService.IsThreadingEnabled) or
         nameof(IPreferencesService.IsNewestThreadMailFirst);
 
-    private async Task RefreshPreviewAsync()
+    private Task RefreshPreviewAsync()
     {
-        PreviewMailListOptions = new MailListProjectionOptions
+        lock (_previewGate)
+        {
+            PreviewRefreshTask = RefreshPreviewCoreAsync(PreviewRefreshTask);
+            return PreviewRefreshTask;
+        }
+    }
+    private async Task RefreshPreviewCoreAsync(Task previous)
+    {
+        // Accepted refreshes drain in order. A later preference change can recover
+        // a failed preview, while callers can still observe each task's outcome.
+        try { await previous; } catch (Exception) { }
+        if (!_previewActive) return;
+        await ExecuteUIThread(() => PreviewMailListOptions = new MailListProjectionOptions
         {
             SortMode = MailListSortMode.Date,
             GroupMode = MailListGroupMode.None,
@@ -475,9 +500,10 @@ public partial class MessageListPageViewModel : MailBaseViewModel
                 ? ThreadMessageOrder.NewestFirst
                 : ThreadMessageOrder.OldestFirst,
             IsPinnedFirst = true,
-        };
+        });
 
         await PreviewMailCollection.ClearAsync();
+        if (!_previewActive) return;
         await PreviewMailCollection.AddAsync(CreatePreviewMailCopy());
     }
 

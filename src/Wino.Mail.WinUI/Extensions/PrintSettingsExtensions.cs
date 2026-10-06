@@ -144,13 +144,13 @@ public static class PrintSettingsExtensions
     }
 
     /// <summary>
-    /// Creates a CoreWebView2PrintSettings object from a WebView2PrintSettingsModel.
+    /// Creates a CoreWebView2PrintSettings object from a MailPrintOptions.
     /// </summary>
     /// <param name="model">The domain model containing the print settings.</param>
     /// <param name="environment">The CoreWebView2Environment to create the settings object.</param>
     /// <returns>A configured CoreWebView2PrintSettings object.</returns>
     public static CoreWebView2PrintSettings ToCoreWebView2PrintSettings(
-        this WebView2PrintSettingsModel model, 
+        this MailPrintOptions model,
         CoreWebView2Environment environment)
     {
         var settings = environment.CreatePrintSettings();
@@ -183,7 +183,7 @@ public static class PrintSettingsExtensions
     /// Printer job options such as copies, duplex, printer name, N-up, and page ranges stay in the WinRT print session.
     /// </summary>
     public static CoreWebView2PrintSettings ToCoreWebView2PdfRenderSettings(
-        this WebView2PrintSettingsModel model,
+        this MailPrintOptions model,
         CoreWebView2Environment environment)
     {
         var settings = environment.CreatePrintSettings();
@@ -206,12 +206,12 @@ public static class PrintSettingsExtensions
     }
 
     /// <summary>
-    /// Updates a WebView2PrintSettingsModel from a CoreWebView2PrintSettings object.
+    /// Updates a MailPrintOptions from a CoreWebView2PrintSettings object.
     /// </summary>
     /// <param name="model">The domain model to update.</param>
     /// <param name="settings">The source CoreWebView2PrintSettings.</param>
     public static void FromCoreWebView2PrintSettings(
-        this WebView2PrintSettingsModel model,
+        this MailPrintOptions model,
         CoreWebView2PrintSettings settings)
     {
         if (settings == null) return;

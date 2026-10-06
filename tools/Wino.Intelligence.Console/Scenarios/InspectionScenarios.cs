@@ -134,7 +134,7 @@ internal static class InspectionScenarios
             return;
 
         var result = await ConsoleOutput.TimedAsync("Export mailboxes", () => context.Get<IWinoAccountDataSyncService>()
-            .ExportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), cancellationToken)).ConfigureAwait(false);
+            .ExportAsync(new WinoAccountSyncSelection(IncludePreferences: false, IncludeAccounts: true), cancellationToken: cancellationToken)).ConfigureAwait(false);
         ConsoleOutput.Success($"Exported {result.ExportedMailboxCount} mailbox(es).");
 
         var after = await apiClient.GetMailboxesAsync(cancellationToken).ConfigureAwait(false);

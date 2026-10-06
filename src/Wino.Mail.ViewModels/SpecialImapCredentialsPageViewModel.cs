@@ -22,7 +22,7 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
     private readonly IDialogServiceBase _dialogService;
     private readonly IKnownImapProviderCatalog _knownImapProviderCatalog;
 
-    private readonly INativeAppService _nativeAppService;
+    private readonly IExternalLauncher _externalLauncher;
 
     public WelcomeWizardContext WizardContext { get; }
 
@@ -130,13 +130,13 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
     public SpecialImapCredentialsPageViewModel(
         IAccountService accountService,
         IDialogServiceBase dialogService,
-        INativeAppService nativeAppService,
+        IExternalLauncher externalLauncher,
         WelcomeWizardContext wizardContext,
         IKnownImapProviderCatalog knownImapProviderCatalog)
     {
         _accountService = accountService;
         _dialogService = dialogService;
-        _nativeAppService = nativeAppService;
+        _externalLauncher = externalLauncher;
         _knownImapProviderCatalog = knownImapProviderCatalog;
         WizardContext = wizardContext;
     }
@@ -230,6 +230,6 @@ public partial class SpecialImapCredentialsPageViewModel : MailBaseViewModel
     {
         var url = AppPasswordHelpUrl;
         if (url != null)
-            await _nativeAppService.LaunchUriAsync(new Uri(url));
+            (await _externalLauncher.LaunchUriAsync(new Uri(url))).ThrowIfNotSucceeded();
     }
 }

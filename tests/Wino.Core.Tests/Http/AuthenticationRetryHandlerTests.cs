@@ -20,10 +20,10 @@ public class AuthenticationRetryHandlerTests
         var transport = new UnauthorizedOnceHandler();
 
         authenticator
-            .Setup(x => x.GetTokenInformationAsync(account))
+            .Setup(x => x.GetTokenInformationAsync(account, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TokenInformationEx("stale-token", account.Address));
         authenticator
-            .Setup(x => x.RefreshTokenInformationAsync(account))
+            .Setup(x => x.RefreshTokenInformationAsync(account, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TokenInformationEx("fresh-token", account.Address));
 
         using var handler = new GmailClientMessageHandler(authenticator.Object, account)
@@ -36,7 +36,7 @@ public class AuthenticationRetryHandlerTests
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         transport.AuthorizationParameters.Should().Equal("stale-token", "fresh-token");
-        authenticator.Verify(x => x.RefreshTokenInformationAsync(account), Times.Once);
+        authenticator.Verify(x => x.RefreshTokenInformationAsync(account, null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -48,10 +48,10 @@ public class AuthenticationRetryHandlerTests
         var currentToken = "stale-token";
 
         authenticator
-            .Setup(x => x.GetTokenInformationAsync(account))
+            .Setup(x => x.GetTokenInformationAsync(account, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => new TokenInformationEx(currentToken, account.Address));
         authenticator
-            .Setup(x => x.RefreshTokenInformationAsync(account))
+            .Setup(x => x.RefreshTokenInformationAsync(account, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
             {
                 currentToken = "fresh-token";
@@ -70,7 +70,7 @@ public class AuthenticationRetryHandlerTests
         try
         {
             responses.Should().OnlyContain(response => response.StatusCode == HttpStatusCode.OK);
-            authenticator.Verify(x => x.RefreshTokenInformationAsync(account), Times.Once);
+            authenticator.Verify(x => x.RefreshTokenInformationAsync(account, null, It.IsAny<CancellationToken>()), Times.Once);
         }
         finally
         {
@@ -87,7 +87,7 @@ public class AuthenticationRetryHandlerTests
         var transport = new UnauthorizedOnceHandler();
 
         authenticator
-            .Setup(x => x.RefreshTokenInformationAsync(account))
+            .Setup(x => x.RefreshTokenInformationAsync(account, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new TokenInformationEx("fresh-token", account.Address));
 
         using var handler = new GraphAuthenticationRetryHandler(account, authenticator.Object)
@@ -102,7 +102,7 @@ public class AuthenticationRetryHandlerTests
 
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         transport.AuthorizationParameters.Should().Equal("stale-token", "fresh-token");
-        authenticator.Verify(x => x.RefreshTokenInformationAsync(account), Times.Once);
+        authenticator.Verify(x => x.RefreshTokenInformationAsync(account, null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private sealed class UnauthorizedOnceHandler : HttpMessageHandler

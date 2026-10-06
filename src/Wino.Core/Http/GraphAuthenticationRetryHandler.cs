@@ -32,7 +32,7 @@ public sealed class GraphAuthenticationRetryHandler(
         response.Dispose();
 
         var refreshedToken = await authenticator
-            .RefreshTokenInformationAsync(account, requiredFeatures)
+            .RefreshTokenInformationAsync(account, requiredFeatures, cancellationToken)
             .ConfigureAwait(false);
 
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", refreshedToken.AccessToken);

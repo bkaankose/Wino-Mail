@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/MacOS/">
+    <Project Path="src/Wino.Mail.MacOS/Wino.Mail.MacOS.csproj" />
+    <Project Path="src/Wino.Platform.MacOS/Wino.Platform.MacOS.csproj" />
+    <Project Path="controls/Wino.Presentation.AppKit/Wino.Presentation.AppKit.csproj" />
+    <Project Path="controls/Wino.Mail.Controls.AppKit/Wino.Mail.Controls.AppKit.csproj" />
+    <Project Path="controls/Wino.Editor.AppKit/Wino.Editor.AppKit.csproj" />
+    <Project Path="controls/Wino.Editor.Core/Wino.Editor.Core.csproj" />
+    <Project Path="src/Wino.Mail.ViewModels/Wino.Mail.ViewModels.csproj" />
+    <Project Path="src/Wino.Core.Domain/Wino.Core.Domain.csproj" />
+    <Project Path="src/Wino.Core/Wino.Core.csproj" />
+    <Project Path="src/Wino.Core.ML/Wino.Core.ML.csproj" />
+    <Project Path="src/Wino.Services/Wino.Services.csproj" />
+    <Project Path="src/Wino.Authentication/Wino.Authentication.csproj" />
+    <Project Path="src/Wino.Messages/Wino.Messaging.csproj" />
+    <Project Path="src/Wino.SourceGenerators/Wino.SourceGenerators.csproj" />
+    <Project Path="controls/Wino.Mail.Controls.Core/Wino.Mail.Controls.Core.csproj" />
+  </Folder>
+</Solution>

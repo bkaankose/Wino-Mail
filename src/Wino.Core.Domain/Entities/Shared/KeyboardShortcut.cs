@@ -58,6 +58,8 @@ public class KeyboardShortcut
                 modifierText += "Shift+";
             if (ModifierKeys.HasFlag(ModifierKeys.Windows))
                 modifierText += "Win+";
+            if (ModifierKeys.HasFlag(ModifierKeys.Command))
+                modifierText += "Cmd+";
 
             return modifierText + Key;
         }

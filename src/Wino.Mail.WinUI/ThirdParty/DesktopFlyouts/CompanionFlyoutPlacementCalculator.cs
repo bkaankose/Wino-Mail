@@ -1,3 +1,4 @@
+using Wino.Mail.WinUI.Models;
 using System;
 using Wino.Core.Domain.Enums;
 

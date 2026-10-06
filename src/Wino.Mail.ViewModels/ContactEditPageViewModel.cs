@@ -137,6 +137,9 @@ public partial class ContactEditPageViewModel : MailBaseViewModel, IConfirmBackN
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeNavigationAsync(mode, parameters);
+
+    public async Task InitializeNavigationAsync(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
         _isSaveInProgress = false;

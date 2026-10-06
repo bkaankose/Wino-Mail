@@ -4,12 +4,14 @@ This file provides guidance for agents working in `controls/`, Wino Mail's reusa
 
 ## Scope
 
-The directory contains four related projects:
+The directory contains shared contracts, native presentation libraries, and the Windows playground:
 
 - `Wino.Mail.Controls.Core` contains platform-neutral models, interfaces, projections, and collection logic. Keep this project free of WinUI dependencies so its `net10.0` target remains usable outside Windows UI code.
-- `Wino.Mail.Controls` contains reusable WinUI 3 controls. Public controls belong in a matching feature folder and namespace, such as `MailListView/WinoMailListView.cs` in `Wino.Mail.Controls.MailListView`.
-- `Wino.Editor` contains the reusable WebView2 mail reader/editor and its embedded HTML, CSS, and JavaScript assets.
-- `Wino.Mail.Controls.Playground` is the development and verification app. It must demonstrate every public UI control.
+- `Wino.Mail.Controls.WinUI` contains reusable WinUI 3 controls. Public controls belong in a matching feature folder and namespace, such as `MailListView/WinoMailListView.cs` in `Wino.Mail.Controls.MailListView`.
+- `Wino.Editor.Core` owns portable sessions, serialization, operation queues, document policies, and the sole embedded HTML, CSS, and JavaScript bundle.
+- `Wino.Editor.WinUI` adapts these contracts to WebView2.
+- `Wino.Presentation.AppKit`, `Wino.Mail.Controls.AppKit`, and `Wino.Editor.AppKit` contain native macOS binding/layout helpers, reusable collection presentation, and WKWebView sessions. Verify them in the production Mac head; do not create an AppKit playground.
+- `Wino.Mail.Controls.Playground.WinUI` is the development and verification app. It must demonstrate every public UI control.
 
 Do not move application-specific mail behavior into these projects. Keep reusable contracts and collection behavior in Core, reusable presentation behavior in the control libraries, and sample-only data or wiring in the playground.
 
@@ -32,13 +34,13 @@ Run commands from the repository root. Use x64 for routine verification.
 dotnet build controls\Wino.Mail.Controls.Core\Wino.Mail.Controls.Core.csproj -c Debug -p:Platform=x64
 
 # WinUI control library
-dotnet build controls\Wino.Mail.Controls\Wino.Mail.Controls.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+dotnet build controls\Wino.Mail.Controls.WinUI\Wino.Mail.Controls.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 
 # WebView2 editor library
-dotnet build controls\Wino.Editor\Wino.Editor.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
+dotnet build controls\Wino.Editor.WinUI\Wino.Editor.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64
 
 # Playground app and all referenced control projects
-dotnet build controls\Wino.Mail.Controls.Playground\Wino.Mail.Controls.Playground.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false -p:AppxPackageSigningEnabled=false
+dotnet build controls\Wino.Mail.Controls.Playground.WinUI\Wino.Mail.Controls.Playground.WinUI.csproj -c Debug -p:Platform=x64 -p:RuntimeIdentifier=win-x64 -p:GenerateAppxPackageOnBuild=false -p:AppxPackageSigningEnabled=false
 ```
 
 After the first successful restore, add `--no-restore` unless package or project references changed. Prefer the narrow affected-project build; build the playground when UI, resources, templates, or public control integration changes.
@@ -48,21 +50,21 @@ If the WinUI compiler reports only `XamlCompiler.exe exited with code 1`, rerun 
 ## Adding or Changing Controls
 
 - Name reusable controls `Wino{ControlName}`.
-- In `Wino.Mail.Controls`, place each control and its support types in a matching `{ControlName}/` folder and `Wino.Mail.Controls.{ControlName}` namespace.
+- In `Wino.Mail.Controls.WinUI`, place each control and its support types in a matching `{ControlName}/` folder and `Wino.Mail.Controls.{ControlName}` namespace.
 - Define visual structure, templates, flyouts, and control declarations in XAML. Keep code-behind limited to event handling and view glue.
-- Put default styles and templates for custom controls in `Wino.Mail.Controls/Themes/Generic.xaml`.
+- Put default styles and templates for custom controls in `Wino.Mail.Controls.WinUI/Themes/Generic.xaml`.
 - Prefer `[GeneratedDependencyProperty]` for new WinUI dependency properties. Do not introduce new manual `DependencyProperty.Register(...)` declarations without a concrete compatibility reason.
 - Do not create `IValueConverter` implementations. Use direct WinUI conversion or an existing helper.
 - Give interactive elements stable, meaningful automation names or IDs. Preserve keyboard, pointer, touch, screen-reader, Light/Dark, and High Contrast behavior.
 - When using `x:Load`, always give the element an `x:Name`.
 - Wire XAML-backed `Loaded`, `Unloaded`, and input events in XAML, not in constructors.
 - Keep public APIs small and host-independent. Avoid references from a reusable control back to `Wino.Mail.WinUI`.
-- Icons use the library's `AccountIcon.WinoFontIcon` / `WinoFontIconSource`. They are backed by the monochrome WinoIcons font that `icons/tools/build_fonts.py` writes into `Wino.Mail.Controls/Assets`.
+- Icons use the library's `AccountIcon.WinoFontIcon` / `WinoFontIconSource`. They are backed by the monochrome WinoIcons font that `icons/tools/build_fonts.py` writes into `Wino.Mail.Controls.WinUI/Assets`.
   - In C#, use the generated `WinoIconCodes` constants, for example `WinoIconCodes.Delete`.
   - In templates, use the codepoint from `icons/manifest.json`, for example `Glyph="&#xEEA6;"`.
-  - Never use Segoe glyphs, `SymbolIcon` or `PathIcon`. `Wino.Editor` references this library for the same icon.
+  - Never use Segoe glyphs, `SymbolIcon` or `PathIcon`. `Wino.Editor.WinUI` references this library for the same icon.
 
-When a public control is added or its important states change, update `Wino.Mail.Controls.Playground` in the same change:
+When a public control is added or its important states change, update `Wino.Mail.Controls.Playground.WinUI` in the same change:
 
 1. Add or update a focused page under `Pages/`.
 2. Keep sample models and view models under `Models/` and `ViewModels/`.
@@ -74,11 +76,11 @@ When a public control is added or its important states change, update `Wino.Mail
 - Keep the `net10.0` target platform-neutral. Windows-only code must be isolated to the Windows target and guarded consistently with the existing project setup.
 - Prefer interfaces and immutable projection/state models at the control boundary.
 - Keep collection projection, selection, grouping, and thread-expansion rules deterministic and independent of XAML controls.
-- Changes to public core contracts must be checked against both `Wino.Mail.Controls` and consumers under `src/`.
+- Changes to public core contracts must be checked against both `Wino.Mail.Controls.WinUI` and consumers under `src/`.
 
 ## Editor Rules
 
-- `Wino.Editor` is the single source for reader/editor HTML, CSS, and JavaScript. Do not create a second asset bundle in the playground or main app.
+- `Wino.Editor.Core` is the single source for reader/editor HTML, CSS, and JavaScript. Do not create a second asset bundle in the playground or main app.
 - Keep web assets embedded through the existing `Editor/**/*` project rule.
 - Preserve the document-ready bridge handshake before invoking rendering or editing commands.
 - Use the source-generated `EditorJsonContext` for every .NET/JavaScript payload. Reflection-based JSON serialization is disabled for trimming and Native AOT compatibility.
@@ -101,8 +103,8 @@ Agent-driven UI automation is retired.
 Match verification to the change:
 
 - Core-only logic: build `Wino.Mail.Controls.Core` and run any directly affected repository tests.
-- WinUI control or template: build `Wino.Mail.Controls` and the playground, then request manual verification of the affected control in the app with the local lab.
-- Editor C#, XAML, or web assets: build `Wino.Editor` and the playground, then request manual lab checks for initialization, editing/rendering, theme changes, navigation, and disposal.
+- WinUI control or template: build `Wino.Mail.Controls.WinUI` and the playground, then request manual verification of the affected control in the app with the local lab.
+- Editor C#, XAML, or web assets: build `Wino.Editor.WinUI` and the playground, then request manual lab checks for initialization, editing/rendering, theme changes, navigation, and disposal.
 - Public API change: search CodeGraph for consumers and build each affected project.
 
 Do not report a UI change as verified from compilation alone. If interactive verification is unavailable, state that clearly in the handoff.

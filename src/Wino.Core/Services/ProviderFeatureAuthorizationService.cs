@@ -45,7 +45,7 @@ public class ProviderFeatureAuthorizationService(
         var authenticator = authenticationProvider.GetAuthenticator(account.ProviderType);
 
         var token = await authenticator
-            .GenerateTokenInformationAsync(account, requestedFeatures)
+            .GenerateTokenInformationAsync(account, requestedFeatures, cancellationToken)
             .ConfigureAwait(false);
 
         if (!string.IsNullOrWhiteSpace(token.AccountAddress))

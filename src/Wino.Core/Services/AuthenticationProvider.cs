@@ -9,29 +9,21 @@ namespace Wino.Core.Services;
 
 public class AuthenticationProvider : IAuthenticationProvider
 {
-    private readonly INativeAppService _nativeAppService;
-    private readonly IApplicationConfiguration _applicationConfiguration;
-    private readonly IAuthenticatorConfig _authenticatorConfig;
-    private readonly IExternalBrowserAuthenticationPresenter _authenticationPresenter;
+    private readonly Func<IOutlookAuthenticator> _outlookFactory;
+    private readonly Func<IGmailAuthenticator> _gmailFactory;
 
-    public AuthenticationProvider(INativeAppService nativeAppService,
-                                  IApplicationConfiguration applicationConfiguration,
-                                  IAuthenticatorConfig authenticatorConfig,
-                                  IExternalBrowserAuthenticationPresenter authenticationPresenter)
+    public AuthenticationProvider(Func<IOutlookAuthenticator> outlookFactory, Func<IGmailAuthenticator> gmailFactory)
     {
-        _nativeAppService = nativeAppService;
-        _applicationConfiguration = applicationConfiguration;
-        _authenticatorConfig = authenticatorConfig;
-        _authenticationPresenter = authenticationPresenter;
+        _outlookFactory = outlookFactory;
+        _gmailFactory = gmailFactory;
     }
 
     public IAuthenticator GetAuthenticator(MailProviderType providerType)
     {
-        // TODO: Move DI
         return providerType switch
         {
-            MailProviderType.Outlook => new OutlookAuthenticator(_nativeAppService, _applicationConfiguration, _authenticatorConfig),
-            MailProviderType.Gmail => new GmailAuthenticator(_authenticatorConfig, _nativeAppService, _authenticationPresenter),
+            MailProviderType.Outlook => _outlookFactory(),
+            MailProviderType.Gmail => _gmailFactory(),
             _ => throw new ArgumentException(Translator.Exception_UnsupportedProvider),
         };
     }

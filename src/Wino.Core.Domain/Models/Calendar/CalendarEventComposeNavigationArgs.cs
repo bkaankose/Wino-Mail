@@ -20,6 +20,8 @@ public class CalendarEventComposeNavigationArgs
     public List<string> AccountAddressHints { get; set; } = [];
     public bool RequireCalendarPickerWhenUnresolved { get; set; }
     public bool HasUnsupportedImportContent { get; set; }
+    /// <summary>Transferred quick-event input remains unsaved until explicit creation or discard.</summary>
+    public bool HasPendingInput { get; set; }
 }
 
 public sealed record CalendarEventAttendeeDraft(string Name, string Email);

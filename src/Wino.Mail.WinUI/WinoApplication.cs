@@ -54,15 +54,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
         UnhandledException += OnAppUnhandledException;
 
-        LogInitializer = Services.GetRequiredService<IWinoLogger>();
         AppConfiguration = Services.GetRequiredService<IApplicationConfiguration>();
-
-        NewThemeService = Services.GetRequiredService<INewThemeService>();
-        DatabaseService = Services.GetRequiredService<IDatabaseService>();
-        TranslationService = Services.GetRequiredService<ITranslationService>();
-        _windowManager = Services.GetRequiredService<IWinoWindowManager>();
-        _windowManager.ActiveWindowChanged += WindowManagerActiveWindowChanged;
-        UnderlyingThemeService = Services.GetRequiredService<IUnderlyingThemeService>();
 
         // Make sure the paths are setup on app start.
         AppConfiguration.ApplicationDataFolderPath = ApplicationData.Current.LocalFolder.Path;
@@ -74,6 +66,16 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
             ? ApplicationData.Current.GetPublisherCacheFolder(ApplicationConfiguration.SharedFolderName).Path
             : string.Empty;
         AppConfiguration.ApplicationTempFolderPath = ApplicationData.Current.TemporaryFolder.Path;
+
+        // Constructors in the service graph may read paths. Configure them before
+        // resolving logging, storage, authentication, themes or window services.
+        LogInitializer = Services.GetRequiredService<IWinoLogger>();
+        NewThemeService = Services.GetRequiredService<INewThemeService>();
+        DatabaseService = Services.GetRequiredService<IDatabaseService>();
+        TranslationService = Services.GetRequiredService<ITranslationService>();
+        _windowManager = Services.GetRequiredService<IWinoWindowManager>();
+        _windowManager.ActiveWindowChanged += WindowManagerActiveWindowChanged;
+        UnderlyingThemeService = Services.GetRequiredService<IUnderlyingThemeService>();
 
         // Keep new contact thumbnails beside the existing avatar cache. The new
         // loader uses distinct file names and leaves legacy cache entries untouched.
@@ -97,15 +99,7 @@ public abstract class WinoApplication : Application, IRecipient<LanguageChanged>
         e.Handled = true;
     }
 
-    public IEnumerable<IInitializeAsync> GetActivationServices()
-    {
-        yield return DatabaseService;
-        yield return Services.GetRequiredService<IMailIntelligenceStore>();
-        yield return TranslationService;
-        yield return Services.GetRequiredService<SynchronizationManagerInitializer>();
-    }
-
-    public Task InitializeServicesAsync() => GetActivationServices().Select(a => a.InitializeAsync()).WhenAll();
+    public Task InitializeServicesAsync() => Services.GetRequiredService<IApplicationRuntime>().InitializeAsync();
 
     public bool IsInteractiveLaunchArgs(object args) => args is IActivatedEventArgs;
 

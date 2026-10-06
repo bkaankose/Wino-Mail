@@ -42,6 +42,10 @@ public interface IAccountService
     /// </summary>
     /// <param name="accountId">AccountId.</param>
     Task<MailAccount> GetAccountAsync(Guid accountId);
+    /// <summary>Detached account/preferences/server endpoint metadata for explicit recovery.
+    /// Every credential or opaque credential reference is removed; this is never a hydrated account.
+    /// Does not access credential storage and must not be used to authenticate.</summary>
+    Task<MailAccount> GetAccountMetadataAsync(Guid accountId);
 
     /// <summary>
     /// Deletes all information about the account, including token information.

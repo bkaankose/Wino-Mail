@@ -12,8 +12,8 @@ namespace Wino.Services;
 
 internal sealed class AttachmentFileService(
     IContentTypeDetectionService contentTypeDetectionService,
-    INativeAppService nativeAppService,
-    IWindowsAttachmentPolicyService windowsAttachmentPolicyService,
+    IExternalLauncher externalLauncher,
+    IAttachmentPlatformService attachmentPlatformService,
     IWinoLogger logger) : IAttachmentFileService
 {
     private static readonly string[] ReservedNames =
@@ -70,32 +70,21 @@ internal sealed class AttachmentFileService(
                 !string.IsNullOrWhiteSpace(source.LocalFilePath) &&
                 File.Exists(source.LocalFilePath))
             {
-                await nativeAppService.LaunchFileAsync(source.LocalFilePath);
+                var launch = await externalLauncher.LaunchFileAsync(source.LocalFilePath, cancellationToken);
                 return new AttachmentFileOperationResult(
-                    AttachmentFileOperationStatus.Succeeded,
+                    MapLaunchStatus(launch.Status),
                     source.LocalFilePath,
-                    detection);
+                    detection,
+                    launch.ErrorMessage);
             }
 
             var materializedPath = await MaterializeReceivedFileAsync(source, workingFolderPath, cancellationToken);
-            windowsAttachmentPolicyService.Execute(materializedPath, nativeAppService.GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero);
-
-            return new AttachmentFileOperationResult(
-                AttachmentFileOperationStatus.Succeeded,
-                materializedPath,
-                detection);
+            var opened = await attachmentPlatformService.OpenReceivedAsync(materializedPath, cancellationToken);
+            return opened with { FilePath = materializedPath, Detection = detection };
         }
         catch (OperationCanceledException)
         {
             return new AttachmentFileOperationResult(AttachmentFileOperationStatus.Cancelled);
-        }
-        catch (WindowsAttachmentPolicyException ex)
-        {
-            logger.CaptureException(ex, "AttachmentFileOpenPolicy");
-            var status = ex.IsCancellation
-                ? AttachmentFileOperationStatus.Cancelled
-                : AttachmentFileOperationStatus.PolicyBlocked;
-            return new AttachmentFileOperationResult(status, ErrorMessage: ex.Message);
         }
         catch (Exception ex)
         {
@@ -141,7 +130,9 @@ internal sealed class AttachmentFileService(
                     await output.FlushAsync(cancellationToken);
                 }
 
-                windowsAttachmentPolicyService.ApplySavePolicy(destination);
+                var policy = await attachmentPlatformService.ApplySavePolicyAsync(destination, cancellationToken);
+                if (!policy.IsSuccess)
+                    return policy with { FilePath = destination };
             }
 
             return new AttachmentFileOperationResult(AttachmentFileOperationStatus.Succeeded, destination);
@@ -150,20 +141,21 @@ internal sealed class AttachmentFileService(
         {
             return new AttachmentFileOperationResult(AttachmentFileOperationStatus.Cancelled);
         }
-        catch (WindowsAttachmentPolicyException ex)
-        {
-            logger.CaptureException(ex, "AttachmentFileSavePolicy");
-            var status = ex.IsCancellation
-                ? AttachmentFileOperationStatus.Cancelled
-                : AttachmentFileOperationStatus.PolicyBlocked;
-            return new AttachmentFileOperationResult(status, ErrorMessage: ex.Message);
-        }
         catch (Exception ex)
         {
             logger.CaptureException(ex, "AttachmentFileSave");
             return new AttachmentFileOperationResult(AttachmentFileOperationStatus.Failed, ErrorMessage: ex.Message);
         }
     }
+
+    private static AttachmentFileOperationStatus MapLaunchStatus(PlatformOperationStatus status)
+        => status switch
+        {
+            PlatformOperationStatus.Succeeded => AttachmentFileOperationStatus.Succeeded,
+            PlatformOperationStatus.Cancelled => AttachmentFileOperationStatus.Cancelled,
+            PlatformOperationStatus.Unavailable => AttachmentFileOperationStatus.Unavailable,
+            _ => AttachmentFileOperationStatus.Failed
+        };
 
     internal static string SanitizeFileName(string? fileName)
     {
@@ -201,11 +193,27 @@ internal sealed class AttachmentFileService(
         if (!destination.StartsWith(expectedPrefix, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("The attachment filename resolves outside its working directory.");
 
-        await using var input = await source.OpenReadAsync(cancellationToken).ConfigureAwait(false);
-        await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true);
-        await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
-        await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await using var input = await source.OpenReadAsync(cancellationToken).ConfigureAwait(false);
+            await using var output = new FileStream(destination, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true);
+            await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+            await output.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-        return destination;
+            return destination;
+        }
+        catch
+        {
+            // Only this operation owns this newly created directory. Successful launches
+            // retain their files for the external application and host temp cleanup.
+            try
+            {
+                Directory.Delete(operationFolder, recursive: true);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+
+            throw;
+        }
     }
 }

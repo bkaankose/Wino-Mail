@@ -8,24 +8,34 @@ using Wino.Core.Domain.Interfaces;
 
 namespace Wino.Services;
 
-public sealed class WinoAccountSessionService(IDatabaseService databaseService) : IWinoAccountSessionService
+public sealed class WinoAccountSessionService(IDatabaseService databaseService, IAccountCredentialPersistence credentialPersistence) : IWinoAccountSessionService
 {
     private static readonly ConditionalWeakTable<IDatabaseService, WinoAccountSessionService> Shared = new();
+    private static readonly object SharedLock = new();
+    private readonly IAccountCredentialPersistence _credentialPersistence = credentialPersistence;
     private readonly SemaphoreSlim _stateLock = new(1, 1);
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
     private CancellationTokenSource _sessionCancellation = new();
     private long _generation;
 
     // Keeps manually constructed clients and profile services on the same coordinator too.
-    internal static IWinoAccountSessionService For(IDatabaseService databaseService)
-        => Shared.GetValue(databaseService, static database => new(database));
+    internal static IWinoAccountSessionService For(IDatabaseService databaseService, IAccountCredentialPersistence credentialPersistence)
+    {
+        lock (SharedLock)
+        {
+            var service = Shared.GetValue(databaseService, database => new(database, credentialPersistence));
+            if (!ReferenceEquals(service._credentialPersistence, credentialPersistence))
+                throw new InvalidOperationException("A database cannot use multiple credential persistence policies.");
+            return service;
+        }
+    }
 
     public async Task<WinoAccountSession?> CaptureAsync(CancellationToken cancellationToken = default)
     {
         await _stateLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            var account = await ReadAsync().ConfigureAwait(false);
+            var account = await ReadMetadataAsync().ConfigureAwait(false);
             return account is null ? null : new(account.Id, _generation, _sessionCancellation.Token);
         }
         finally { _stateLock.Release(); }
@@ -40,7 +50,7 @@ public sealed class WinoAccountSessionService(IDatabaseService databaseService) 
         try
         {
             if (session.Generation != _generation || session.CancellationToken.IsCancellationRequested ||
-                (await ReadAsync().ConfigureAwait(false))?.Id != session.AccountId)
+                (await ReadMetadataAsync().ConfigureAwait(false))?.Id != session.AccountId)
                 return false;
 
             await commit().ConfigureAwait(false);
@@ -54,6 +64,8 @@ public sealed class WinoAccountSessionService(IDatabaseService databaseService) 
         await _stateLock.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
+            var previous = await databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
+            var stored = account is null ? null : await _credentialPersistence.PrepareWinoAccountForStorageAsync(account, cancellationToken).ConfigureAwait(false);
             _generation++;
             _sessionCancellation.Cancel();
             _sessionCancellation = new();
@@ -62,8 +74,10 @@ public sealed class WinoAccountSessionService(IDatabaseService databaseService) 
             await databaseService.Connection.RunInTransactionAsync(connection =>
             {
                 connection.DeleteAll<WinoAccount>();
-                if (account is not null) connection.Insert(account, typeof(WinoAccount));
+                if (stored is not null) connection.Insert(stored, typeof(WinoAccount));
             }).ConfigureAwait(false);
+            if (previous is not null && previous.Id != account?.Id)
+                await _credentialPersistence.DeleteWinoAccountSecretsAsync(previous.Id, CancellationToken.None).ConfigureAwait(false);
         }
         finally { _stateLock.Release(); }
     }
@@ -96,7 +110,8 @@ public sealed class WinoAccountSessionService(IDatabaseService databaseService) 
                 committed.AccessTokenExpiresAtUtc = refreshed.AccessTokenExpiresAtUtc;
                 committed.RefreshToken = refreshed.RefreshToken;
                 committed.RefreshTokenExpiresAtUtc = refreshed.RefreshTokenExpiresAtUtc;
-                await databaseService.Connection.UpdateAsync(committed, typeof(WinoAccount)).ConfigureAwait(false);
+                var stored = await _credentialPersistence.PrepareWinoAccountForStorageAsync(committed, linked.Token).ConfigureAwait(false);
+                await databaseService.Connection.UpdateAsync(stored, typeof(WinoAccount)).ConfigureAwait(false);
             }, linked.Token).ConfigureAwait(false);
 
             return saved ? committed : null;
@@ -105,5 +120,13 @@ public sealed class WinoAccountSessionService(IDatabaseService databaseService) 
     }
 
     private async Task<WinoAccount?> ReadAsync()
+    {
+        var account = await ReadMetadataAsync().ConfigureAwait(false);
+        if (account is not null)
+            await _credentialPersistence.RestoreWinoAccountSecretsAsync(account).ConfigureAwait(false);
+        return account;
+    }
+
+    private async Task<WinoAccount?> ReadMetadataAsync()
         => await databaseService.Connection.Table<WinoAccount>().FirstOrDefaultAsync().ConfigureAwait(false);
 }

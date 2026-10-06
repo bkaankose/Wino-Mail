@@ -325,7 +325,7 @@ public class HtmlPreviewVisitorTests
         {
             Body = MultipartSigned.Create(context, signer, body)
         };
-        var visitor = new HtmlPreviewVisitor();
+        var visitor = new HtmlPreviewVisitor(static () => new WindowsSecureMimeContext());
 
         // Act
         message.Accept(visitor);
@@ -349,7 +349,7 @@ public class HtmlPreviewVisitorTests
         {
             Body = ApplicationPkcs7Mime.Sign(context, signer, body)
         };
-        var visitor = new HtmlPreviewVisitor();
+        var visitor = new HtmlPreviewVisitor(static () => new WindowsSecureMimeContext());
 
         // Act
         message.Accept(visitor);
@@ -374,7 +374,7 @@ public class HtmlPreviewVisitorTests
         ((TextPart)signed[0]).Text = "Tampered but still renderable body";
 
         var message = new MimeMessage { Body = signed };
-        var visitor = new HtmlPreviewVisitor();
+        var visitor = new HtmlPreviewVisitor(static () => new WindowsSecureMimeContext());
 
         // Act
         message.Accept(visitor);

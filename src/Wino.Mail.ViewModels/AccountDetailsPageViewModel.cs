@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -42,6 +42,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     private readonly IMailServerTestService _mailServerTestService;
     private readonly INotificationBuilder _notificationBuilder;
     private readonly IApplicationConfiguration _applicationConfiguration;
+    private readonly IApplicationResourceResolver _resourceResolver;
     private readonly IFileService _fileService;
     private readonly IPreferencesService _preferencesService;
     private readonly IPictureStorageService _accountProfilePictureFileService;
@@ -50,6 +51,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     private readonly ISynchronizationManager _synchronizationManager;
     private readonly IWinoAccountIntelligenceSnapshotService? _entitlementService;
     private bool isLoaded = false;
+    private readonly object _preferenceWriteGate = new();
+    private Task _preferenceWrites = Task.CompletedTask;
+    public bool HasPendingPreferenceWrites { get { lock (_preferenceWriteGate) return !_preferenceWrites.IsCompleted; } }
+    public Task DrainPreferenceWritesAsync() { lock (_preferenceWriteGate) return _preferenceWrites; }
 
     [ObservableProperty]
     public partial MailAccount Account { get; set; }
@@ -184,9 +189,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         => source == AccountIntegrationSource.Local
             ? Translator.AccountDetailsPage_IntegrationSourceLocal
             : Translator.AccountDetailsPage_IntegrationSourceProvider;
-    public string ProviderIconPath => Account?.SpecialImapProvider != SpecialImapProvider.None
-        ? $"ms-appx:///Assets/Providers/{Account.SpecialImapProvider}.png"
-        : $"ms-appx:///Assets/Providers/{Account?.ProviderType}.png";
+    public string ProviderIconPath => _resourceResolver.ResolvePackagedResource(
+        Account?.SpecialImapProvider != SpecialImapProvider.None
+            ? $"Assets/Providers/{Account?.SpecialImapProvider}.png"
+            : $"Assets/Providers/{Account?.ProviderType}.png").ToString();
     public string Address => Account?.Address ?? string.Empty;
     public bool IsInitialSynchronizationSummaryVisible => Account?.CreatedAt.HasValue == true && Account.InitialSynchronizationRange != InitialSynchronizationRange.Everything;
     public string InitialSynchronizationSummary => Account?.CreatedAt is not DateTime createdAtUtc
@@ -232,6 +238,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IMailServerTestService mailServerTestService,
         INotificationBuilder notificationBuilder,
         IApplicationConfiguration applicationConfiguration,
+        IApplicationResourceResolver resourceResolver,
         IFileService fileService,
         IPictureStorageService accountProfilePictureFileService,
         IPreferencesService preferencesService,
@@ -249,6 +256,7 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         _mailServerTestService = mailServerTestService;
         _notificationBuilder = notificationBuilder;
         _applicationConfiguration = applicationConfiguration;
+        _resourceResolver = resourceResolver;
         _fileService = fileService;
         _accountProfilePictureFileService = accountProfilePictureFileService;
         _preferencesService = preferencesService;
@@ -860,7 +868,12 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeAsync(mode, parameters);
+
+    public async Task InitializeAsync(NavigationMode mode, object parameters)
     {
+        await DrainPreferenceWritesAsync();
+        isLoaded = false;
         base.OnNavigatedTo(mode, parameters);
 
         var accountId = parameters switch
@@ -1003,8 +1016,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         if (calendar == null || calendar.IsSynchronizationEnabled == isEnabled)
             return;
 
+        var previous = calendar.IsSynchronizationEnabled;
         calendar.IsSynchronizationEnabled = isEnabled;
-        await _calendarService.UpdateAccountCalendarAsync(calendar);
+        try { await _calendarService.UpdateAccountCalendarAsync(calendar); }
+        catch { calendar.IsSynchronizationEnabled = previous; throw; }
     }
 
     public async Task UpdateCalendarDefaultShowAsAsync(AccountCalendar calendar, AccountCalendarShowAsOption option)
@@ -1012,8 +1027,10 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         if (calendar == null || option == null || calendar.DefaultShowAs == option.ShowAs)
             return;
 
+        var previous = calendar.DefaultShowAs;
         calendar.DefaultShowAs = option.ShowAs;
-        await _calendarService.UpdateAccountCalendarAsync(calendar);
+        try { await _calendarService.UpdateAccountCalendarAsync(calendar); }
+        catch { calendar.DefaultShowAs = previous; throw; }
     }
 
     public async Task UpdateCalendarColorAsync(AccountCalendarSettingsItemViewModel calendarItem, AppColorViewModel color)
@@ -1021,9 +1038,19 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         if (calendarItem?.Calendar == null || color == null || calendarItem.Calendar.BackgroundColorHex == color.Hex)
             return;
 
+        var previousColor = calendarItem.SelectedColor;
+        var previousHex = calendarItem.Calendar.BackgroundColorHex;
+        var previousOverride = calendarItem.Calendar.IsBackgroundColorUserOverridden;
         calendarItem.SetBackgroundColor(color);
         calendarItem.Calendar.IsBackgroundColorUserOverridden = true;
-        await _calendarService.UpdateAccountCalendarAsync(calendarItem.Calendar);
+        try { await _calendarService.UpdateAccountCalendarAsync(calendarItem.Calendar); }
+        catch
+        {
+            calendarItem.SetBackgroundColor(previousColor ?? new AppColorViewModel(previousHex));
+            calendarItem.Calendar.BackgroundColorHex = previousHex;
+            calendarItem.Calendar.IsBackgroundColorUserOverridden = previousOverride;
+            throw;
+        }
     }
 
     [RelayCommand]
@@ -1040,7 +1067,8 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
 
     partial void OnAccountChanged(MailAccount value)
     {
-        SelectedCapabilityOption = ResolveCapabilityOption(value?.IsMailAccessGranted == true, value?.IsCalendarAccessGranted == true);
+        SelectedCapabilityOption = value is null ? null! :
+            ResolveCapabilityOption(value.IsMailAccessGranted, value.IsCalendarAccessGranted);
         OnPropertyChanged(nameof(IsFocusedInboxSupportedForAccount));
         OnPropertyChanged(nameof(ProviderIconPath));
         OnPropertyChanged(nameof(Address));
@@ -1067,30 +1095,41 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
         IsTasksCapabilitySelected = value?.IsTaskAccessGranted == true;
     }
 
-    protected override async void OnPropertyChanged(PropertyChangedEventArgs e)
+    protected override void OnPropertyChanged(PropertyChangedEventArgs e)
     {
         base.OnPropertyChanged(e);
 
-        if (!isLoaded) return;
+        if (!isLoaded || Account is null) return;
+        if (e.PropertyName is not (nameof(IsFocusedInboxEnabled) or nameof(IsAppendMessageSettinEnabled) or
+            nameof(IsSignatureEnabled) or nameof(IsJumpListEnabled) or nameof(SelectedPrimaryCalendar))) return;
 
-        switch (e.PropertyName)
+        var write = PersistPreferenceChangeAsync(e.PropertyName, Account);
+        lock (_preferenceWriteGate)
+            _preferenceWrites = _preferenceWrites.IsCompleted ? write : Task.WhenAll(_preferenceWrites, write);
+    }
+
+    private async Task PersistPreferenceChangeAsync(string propertyName, MailAccount account)
+    {
+        try
+        {
+        switch (propertyName)
         {
             case nameof(IsFocusedInboxEnabled) when IsFocusedInboxSupportedForAccount:
-                Account.Preferences.IsFocusedInboxEnabled = IsFocusedInboxEnabled;
-                await _accountService.UpdateAccountAsync(Account);
+                account.Preferences.IsFocusedInboxEnabled = IsFocusedInboxEnabled;
+                await _accountService.UpdateAccountAsync(account);
                 await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
                 break;
             case nameof(IsAppendMessageSettinEnabled):
-                Account.Preferences.ShouldAppendMessagesToSentFolder = IsAppendMessageSettinEnabled;
-                await _accountService.UpdateAccountAsync(Account);
+                account.Preferences.ShouldAppendMessagesToSentFolder = IsAppendMessageSettinEnabled;
+                await _accountService.UpdateAccountAsync(account);
                 break;
             case nameof(IsSignatureEnabled):
-                Account.Preferences.IsSignatureEnabled = IsSignatureEnabled;
-                await _accountService.UpdateAccountAsync(Account);
+                account.Preferences.IsSignatureEnabled = IsSignatureEnabled;
+                await _accountService.UpdateAccountAsync(account);
                 break;
             case nameof(IsJumpListEnabled):
-                Account.Preferences.IsJumpListEnabled = IsJumpListEnabled;
-                await _accountService.UpdateAccountAsync(Account);
+                account.Preferences.IsJumpListEnabled = IsJumpListEnabled;
+                await _accountService.UpdateAccountAsync(account);
                 break;
             case nameof(SelectedPrimaryCalendar) when SelectedPrimaryCalendar != null:
                 foreach (var calendar in AccountCalendars)
@@ -1098,15 +1137,22 @@ public partial class AccountDetailsPageViewModel : MailBaseViewModel, IRecipient
                     calendar.IsPrimary = calendar.Id == SelectedPrimaryCalendar.Id;
                 }
 
-                await _calendarService.SetPrimaryCalendarAsync(Account.Id, SelectedPrimaryCalendar.Id);
+                await _calendarService.SetPrimaryCalendarAsync(account.Id, SelectedPrimaryCalendar.Id);
                 break;
+        }
+        }
+        catch (Exception)
+        {
+            _dialogService.InfoBarMessage(Translator.GeneralTitle_Error, Translator.MacOSMail_OperationFailed, InfoBarMessageType.Error);
         }
     }
 
     private AccountCapabilityOption ResolveCapabilityOption(bool isMailAccessGranted, bool isCalendarAccessGranted)
-        => CapabilityOptions.First(option =>
+        => CapabilityOptions.FirstOrDefault(option =>
             option.IsMailAccessGranted == isMailAccessGranted &&
-            option.IsCalendarAccessGranted == isCalendarAccessGranted);
+            option.IsCalendarAccessGranted == isCalendarAccessGranted)
+           // Preserve contacts/tasks-only state without adding a legacy picker choice.
+           ?? new AccountCapabilityOption(isMailAccessGranted, isCalendarAccessGranted, string.Empty);
 
     private async Task UpdateOAuthCapabilityAsync(AccountCapabilityOption selectedOption)
     {

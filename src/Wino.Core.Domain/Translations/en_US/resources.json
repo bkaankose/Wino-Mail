@@ -3687,5 +3687,9 @@
   "ProviderSelection_SetupHint_SeparateEmailPasswordRequired": "{0} uses a separate email password for mail apps. It is created in your customer center, not your account password.",
   "ProviderSelection_SetupHint_TwoFactorCodeSuffix": "If two-factor authentication is on, enter your password followed by the current code.",
   "ProviderSelection_SetupHint_Help": "Show me how",
-  "ProviderSelection_CalendarMode_CalDavDescription": "Your calendar events are synced to {0} servers between your devices."
+  "ProviderSelection_CalendarMode_CalDavDescription": "Your calendar events are synced to {0} servers between your devices.",
+  "MacOSMail_ConsentPolicyVersion": "Policy version: {0}",
+  "MacOSMail_OperationFailed": "Wino could not complete this action. Try again.",
+  "MacOSMail_ConsentPolicyChanged": "The privacy policy changed. Read the current policy before accepting.",
+  "MacOSMail_CredentialsMissing": "Stored credentials are missing. Sign in again or enter new server credentials to recover this account."
 }

@@ -53,7 +53,8 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
                                       ICalDavClient calDavClient,
                                       IMicrosoftStoreService storeService,
                                       IAuthenticationProvider authenticationProvider,
-                                      IPreferencesService preferencesService) : base(dialogService, navigationService, accountService, providerCatalog, billingService, winoAccountProfileService, authenticationProvider, preferencesService)
+                                      IPreferencesService preferencesService,
+                                      IPlatformCapabilities platformCapabilities) : base(dialogService, navigationService, accountService, providerCatalog, billingService, winoAccountProfileService, authenticationProvider, preferencesService, platformCapabilities)
     {
         MailDialogService = dialogService;
         _syncService = syncService;
@@ -116,6 +117,12 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     [RelayCommand]
     private async Task PurchaseUnlimitedAccountAsync()
     {
+        if (!PlatformCapabilities.MicrosoftStore)
+        {
+            await PurchaseUnlimitedAccountWithWinoAccountAsync();
+            return;
+        }
+
         var channel = await MailDialogService.ShowUnlimitedAccountsPurchaseChannelDialogAsync();
 
         if (channel == UnlimitedAccountsPurchaseChannel.WinoAccount)
@@ -127,7 +134,7 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
         if (channel != UnlimitedAccountsPurchaseChannel.MicrosoftStore)
             return;
 
-        if (await UnlimitedAccountsStorePurchase.PurchaseAsync(_storeService, DialogService, _winoLogger).ConfigureAwait(false))
+        if (await UnlimitedAccountsStorePurchase.PurchaseAsync(_storeService, DialogService, _winoLogger, PlatformCapabilities).ConfigureAwait(false))
         {
             await ManageStorePurchasesAsync().ConfigureAwait(false);
         }
@@ -318,6 +325,9 @@ public partial class AccountManagementViewModel : AccountManagementPageViewModel
     }
 
     public override async void OnNavigatedTo(NavigationMode mode, object parameters)
+        => await InitializeAsync(mode, parameters);
+
+    public async Task InitializeAsync(NavigationMode mode, object parameters)
     {
         base.OnNavigatedTo(mode, parameters);
 

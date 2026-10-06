@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -57,6 +57,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     IRecipient<WinoIntelligenceAccessChanged>
 {
     private const int InitialFocusRetryCount = 3;
+    public IHtmlMailEditorSession EditorSession { get; private set; } = null!;
 
     private bool _isPoppedOut;
     private bool _isInitialFocusHandled;
@@ -85,6 +86,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     public ComposePage()
     {
         InitializeComponent();
+        EditorSession = new WindowsHtmlMailEditorSession(WebViewEditor);
         WebViewEditor.IsEditorDarkMode = WinoApplication.Current.UnderlyingThemeService.IsUnderlyingThemeDark();
         ViewModel.CloseRequested += ViewModel_CloseRequested;
         BuildRewriteModesFlyout();
@@ -132,9 +134,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
 
     public string GetEditorThemeToolTip(bool isDarkMode) => isDarkMode ? Translator.Composer_LightTheme : Translator.Composer_DarkTheme;
 
-    private void ToggleEditorThemeClicked(object sender, RoutedEventArgs e)
+    private async void ToggleEditorThemeClicked(object sender, RoutedEventArgs e)
     {
-        WebViewEditor.ToggleEditorTheme();
+        await EditorSession.SetThemeAsync(!WebViewEditor.IsEditorDarkMode);
     }
 
     private async void EmailTemplateSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -142,7 +144,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         if (sender is not ComboBox comboBox || comboBox.SelectedItem is not EmailTemplate template)
             return;
 
-        await WebViewEditor.RenderHtmlAsync(template.HtmlContent);
+        await EditorSession.RenderHtmlAsync(template.HtmlContent);
         comboBox.SelectedItem = null;
     }
 
@@ -154,7 +156,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
 
         e.Handled = true;
-        await WebViewEditor.FocusEditorAsync(true);
+        await EditorSession.FocusEditorAsync(true);
     }
 
     private static bool IsShiftKeyDown()
@@ -285,7 +287,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
                     }
                 }
 
-                await WebViewEditor.InsertImagesAsync(
+                await EditorSession.InsertImagesAsync(
                     imagesInformation.Select(image => new EditorImageInfo(image.Data, image.Name)));
             }
         }
@@ -359,9 +361,9 @@ public sealed partial class ComposePage : ComposePageAbstract,
         _disposables.Add(GetSuggestionBoxDisposable(ToBox));
         _disposables.Add(GetSuggestionBoxDisposable(CCBox));
         _disposables.Add(GetSuggestionBoxDisposable(BccBox));
-        _disposables.Add(WebViewEditor);
-        WebViewEditor.ApplicationShortcutRequested -= WebViewEditor_ApplicationShortcutRequested;
-        WebViewEditor.ApplicationShortcutRequested += WebViewEditor_ApplicationShortcutRequested;
+
+        EditorSession.ApplicationShortcutRequested -= WebViewEditor_ApplicationShortcutRequested;
+        EditorSession.ApplicationShortcutRequested += WebViewEditor_ApplicationShortcutRequested;
         _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
         _keyboardShortcutService.KeyboardShortcutsChanged += KeyboardShortcutService_KeyboardShortcutsChanged;
 
@@ -764,9 +766,12 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
     }
 
-    void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
+    async void IRecipient<ApplicationThemeChanged>.Receive(ApplicationThemeChanged message)
     {
-        WebViewEditor.IsEditorDarkMode = message.IsUnderlyingThemeDark;
+        if (_isNavigatingFrom) return;
+
+        try { await EditorSession.SetThemeAsync(message.IsUnderlyingThemeDark); }
+        catch (ObjectDisposedException) when (_isNavigatingFrom) { }
     }
 
     public async Task RefreshDraftAsync(MailItemViewModel draftMailItemViewModel)
@@ -872,9 +877,10 @@ public sealed partial class ComposePage : ComposePageAbstract,
         }
         finally
         {
-            WebViewEditor.ApplicationShortcutRequested -= WebViewEditor_ApplicationShortcutRequested;
+            EditorSession.ApplicationShortcutRequested -= WebViewEditor_ApplicationShortcutRequested;
             _keyboardShortcutService.KeyboardShortcutsChanged -= KeyboardShortcutService_KeyboardShortcutsChanged;
             ViewModel.GetHTMLBodyFunction = null;
+            await EditorSession.DisposeAsync();
             DisposeDisposables();
             _editorLifecycleCancellationSource?.Dispose();
             _editorLifecycleCancellationSource = null;
@@ -885,7 +891,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         try
         {
-            return await WebViewEditor.GetHtmlBodyAsync() ?? string.Empty;
+            return await EditorSession.GetHtmlBodyAsync() ?? string.Empty;
         }
         catch (ObjectDisposedException) when (_isNavigatingFrom)
         {
@@ -1044,7 +1050,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
         {
             if (ShouldFocusEditor())
             {
-                await WebViewEditor.FocusEditorAsync(true);
+                await EditorSession.FocusEditorAsync(true);
 
                 if (FocusManager.GetFocusedElement() is WebView2)
                 {
@@ -1077,7 +1083,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 _spellCheckLanguageCode);
             await WebViewEditor.ConfigureAutoCorrectAsync(ViewModel.PreferencesService.IsComposerAutoCorrectEnabled);
 
-            await WebViewEditor.SetDefaultTypographyAsync(
+            await EditorSession.SetDefaultTypographyAsync(
                 ViewModel.PreferencesService.ComposerFont,
                 ViewModel.PreferencesService.ComposerFontSize);
 
@@ -1086,10 +1092,13 @@ public sealed partial class ComposePage : ComposePageAbstract,
             if (editorLifecycleToken.IsCancellationRequested)
                 return;
 
-            await WebViewEditor.RenderHtmlAsync(html);
+            await EditorSession.RenderHtmlAsync(html, editorLifecycleToken);
 
             if (!editorLifecycleToken.IsCancellationRequested)
                 await ApplyInitialFocusAsync();
+        }
+        catch (OperationCanceledException) when (editorLifecycleToken.IsCancellationRequested)
+        {
         }
         catch (ObjectDisposedException) when (editorLifecycleToken.IsCancellationRequested || _isNavigatingFrom)
         {
@@ -1123,6 +1132,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
     {
         var gestures = _keyboardShortcutService.EnabledShortcutsSnapshot
             .Where(shortcut => shortcut.Mode == WinoApplicationMode.Mail && shortcut.Action == KeyboardShortcutAction.Send)
+            .Where(shortcut => !shortcut.ModifierKeys.HasFlag(ModifierKeys.Command))
             .Select(shortcut => new EditorApplicationShortcutGesture(
                 shortcut.Key,
                 shortcut.ModifierKeys.HasFlag(ModifierKeys.Control),
@@ -1130,7 +1140,7 @@ public sealed partial class ComposePage : ComposePageAbstract,
                 shortcut.ModifierKeys.HasFlag(ModifierKeys.Shift)))
             .ToList();
 
-        return WebViewEditor.SetApplicationShortcutsAsync(gestures);
+        return EditorSession.SetApplicationShortcutsAsync(gestures);
     }
 
     private async void WebViewEditor_ApplicationShortcutRequested(object? sender, EditorApplicationShortcutGesture gesture)

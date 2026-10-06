@@ -3,10 +3,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.ViewModels;
-using Wino.Core.WinUI.Services;
 using Wino.Mail.WinUI.Interfaces;
 using Wino.Mail.WinUI.Services;
 using Wino.Services;
+using Wino.Platform.Windows;
+using Wino.Platform.Windows.Services;
+using Wino.Authentication;
+using Wino.Core.Domain.Models.Platform;
 
 namespace Wino.Mail.WinUI;
 
@@ -20,16 +23,37 @@ public static class CoreUWPContainerSetup
 
         services.AddSingleton<IUnderlyingThemeService, UnderlyingThemeService>();
         services.AddSingleton<IWinoWindowManager, WinoWindowManager>();
-        services.AddSingleton<NativeAppService>();
+        // Capture the host UI dispatcher before background initialization resolves it.
+        services.AddSingleton(new NativeAppService());
         services.AddSingleton<INativeAppService>(provider => provider.GetRequiredService<NativeAppService>());
+        services.AddSingleton<IExternalLauncher>(provider => provider.GetRequiredService<NativeAppService>());
+        services.AddSingleton<IClipboardService>(provider => provider.GetRequiredService<NativeAppService>());
+        services.AddSingleton<IShortcutPlatformService>(provider => provider.GetRequiredService<NativeAppService>());
+        services.AddSingleton<ITaskCompletionSound>(provider => provider.GetRequiredService<NativeAppService>());
+        services.AddSingleton<IWindowsAttachmentPolicyService, WindowsAttachmentPolicyService>();
+        services.AddSingleton<IAttachmentPlatformService, WindowsAttachmentPlatformService>();
         services.AddSingleton<IAppMetadataService>(provider => provider.GetRequiredService<NativeAppService>());
         services.AddSingleton<IUserPresenceStateProvider>(provider => provider.GetRequiredService<NativeAppService>());
         services.AddSingleton<IPreferencesService, PreferencesService>();
+        services.AddSingleton<ISecretProtector, DpapiSecretProtector>();
+        services.AddSingleton<IAccountCredentialPersistence, WindowsAccountCredentialPersistence>();
+        services.AddSingleton<IApplicationResourceResolver, WindowsApplicationResourceResolver>();
+        services.AddSingleton<IStartupIntegrationService, WindowsStartupIntegrationService>();
+        services.AddSingleton<IReaderRuntimeService, WindowsReaderRuntimeService>();
+        services.AddSingleton<IPlatformCapabilities>(_ => new PlatformCapabilities(
+            Printing: Windows.Graphics.Printing.PrintManager.IsSupported(), PdfExport: true,
+            Smime: true, AdditionalWindows: true, Notifications: true, NotificationActions: true,
+            StartupIntegration: true, Tray: true, GlobalHotkeys: true, GeneralActivation: true,
+            MicrosoftStore: true));
+        services.AddSingleton<IOutlookAuthenticationHost>(provider => new WindowsOutlookAuthenticationHost(
+            provider.GetRequiredService<IApplicationConfiguration>(),
+            provider.GetRequiredService<IAuthenticatorConfig>(),
+            () => provider.GetRequiredService<NativeAppService>().GetCoreWindowHwnd?.Invoke() ?? IntPtr.Zero));
+        services.AddSingleton<IGoogleTokenStore, WindowsGoogleTokenStore>();
         services.AddSingleton<INewThemeService, NewThemeService>();
         services.AddSingleton<IStatePersistanceService, StatePersistenceService>();
         services.AddSingleton<ISmimeCertificateService, SmimeCertificateService>();
 
-        services.AddSingleton<IThumbnailService, ThumbnailService>();
         // One dialog stack, one presentation semaphore: the base interface forwards to the mail dialog service.
         services.AddSingleton<IDialogServiceBase>(provider => provider.GetRequiredService<IMailDialogService>());
         services.AddSingleton<IExternalBrowserAuthenticationPresenter, ExternalBrowserAuthenticationPresenter>();
@@ -44,7 +68,7 @@ public static class CoreUWPContainerSetup
         services.AddSingleton<INotificationHostClient, NotificationHostClient>();
         services.AddTransient<INotificationBuilder, NotificationBuilder>();
         services.AddSingleton<ICalendarReminderServer, CalendarReminderServer>();
-        services.AddSingleton<IPrintService, PrintService>();
+        services.AddSingleton<IWindowsPrintService, PrintService>();
 
     }
 

@@ -315,6 +315,7 @@ public class FolderServiceTests : IAsyncLifetime
             Mock.Of<IAuthenticationProvider>(),
             Mock.Of<IMimeFileService>(),
             Mock.Of<IPreferencesService>(),
-            Mock.Of<IPictureStorageService>());
+            Mock.Of<IPictureStorageService>(),
+            credentialPersistence: Wino.Core.Tests.Helpers.TestAccountCredentialPersistence.Instance);
     }
 }

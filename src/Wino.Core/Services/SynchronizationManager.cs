@@ -54,6 +54,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     private IAccountService _accountService;
     private IAuthenticationProvider _authenticationProvider;
     private INotificationBuilder _notificationBuilder;
+    private bool _notificationsEnabled = true;
     private IWinoTelemetryService _telemetryService;
     private IPreferencesService _preferencesService;
     private IDraftSyncRetryService _draftSyncRetryService;
@@ -66,6 +67,18 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
 
     private SynchronizationManager() { }
 
+    internal static async Task PublishMailSynchronizationNotificationsAsync(
+        MailSynchronizationResult result, INotificationBuilder notifications, bool notificationsEnabled)
+    {
+        // An unavailable native integration must not turn successful provider work into failed sync.
+        if (!notificationsEnabled) return;
+
+        if (result.DownloadedMessages?.Any() ?? false)
+            await notifications.CreateNotificationsAsync(result.DownloadedMessages).ConfigureAwait(false);
+
+        await notifications.UpdateTaskbarIconBadgeAsync().ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Initializes the SynchronizationManager with required dependencies.
     /// This must be called before using any other methods.
@@ -75,6 +88,16 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
     /// <param name="mailServerTestService">Service for testing IMAP connectivity</param>
     /// <param name="accountService">Service for account operations</param>
     /// <param name="authenticationProvider">Provider for OAuth authentication</param>
+    public Task InitializeAsync(ISynchronizerFactory synchronizerFactory,
+        IMailServerTestService mailServerTestService, IAccountService accountService,
+        INotificationBuilder notificationBuilder, IAuthenticationProvider authenticationProvider,
+        IWinoTelemetryService telemetryService, IPreferencesService preferencesService,
+        IDraftSyncRetryService draftSyncRetryService,
+        IDraftUpdateCoordinator draftUpdateCoordinator = null, IMailService draftMailService = null)
+        => InitializeAsync(synchronizerFactory, mailServerTestService, accountService, notificationBuilder,
+            authenticationProvider, telemetryService, preferencesService, draftSyncRetryService,
+            draftUpdateCoordinator, draftMailService, null);
+
     public async Task InitializeAsync(ISynchronizerFactory synchronizerFactory,
                                      IMailServerTestService mailServerTestService,
                                      IAccountService accountService,
@@ -83,7 +106,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
                                      IWinoTelemetryService telemetryService,
                                      IPreferencesService preferencesService,
                                      IDraftSyncRetryService draftSyncRetryService,
-                        IDraftUpdateCoordinator draftUpdateCoordinator = null, IMailService draftMailService = null)
+                        IDraftUpdateCoordinator draftUpdateCoordinator, IMailService draftMailService,
+                        IPlatformCapabilities platformCapabilities)
     {
         await _initializationSemaphore.WaitAsync();
 
@@ -96,6 +120,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _accountService = accountService ?? throw new ArgumentNullException(nameof(accountService));
             _authenticationProvider = authenticationProvider ?? throw new ArgumentNullException(nameof(authenticationProvider));
             _notificationBuilder = notificationBuilder ?? throw new ArgumentNullException(nameof(notificationBuilder));
+            _notificationsEnabled = platformCapabilities?.Notifications ?? true;
             _telemetryService = telemetryService ?? throw new ArgumentNullException(nameof(telemetryService));
             _preferencesService = preferencesService ?? throw new ArgumentNullException(nameof(preferencesService));
             _draftUpdateCoordinator = draftUpdateCoordinator;
@@ -293,11 +318,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _logger.Information("Mail synchronization completed for account {AccountId} with state {State}",
                               options.AccountId, result.CompletedState);
 
-            // Create notifications.
-            if (result.DownloadedMessages?.Any() ?? false)
-                await _notificationBuilder.CreateNotificationsAsync(result.DownloadedMessages);
-
-            await _notificationBuilder.UpdateTaskbarIconBadgeAsync();
+            await PublishMailSynchronizationNotificationsAsync(result, _notificationBuilder, _notificationsEnabled).ConfigureAwait(false);
 
             TrackMailSynchronizationSummary(options, synchronizer, result, stopwatch.Elapsed);
             return result;
@@ -322,7 +343,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             await SetInvalidCredentialAttentionAsync(authEx.Account).ConfigureAwait(false);
 
             // Create app notification for authentication attention
-            _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
+            if (_notificationsEnabled)
+                _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
 
             var result = MailSynchronizationResult
                 .Failed(authEx)
@@ -335,7 +357,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             if (TryGetCertificateException(ex, out _))
             {
                 await SetAttentionAsync(synchronizer.Account, AccountAttentionReason.CertificateValidationFailed).ConfigureAwait(false);
-                _notificationBuilder.CreateAttentionRequiredNotification(synchronizer.Account);
+                if (_notificationsEnabled)
+                    _notificationBuilder.CreateAttentionRequiredNotification(synchronizer.Account);
             }
 
             _logger.Error(ex, "Mail synchronization failed for account {AccountId}", options.AccountId);
@@ -1120,7 +1143,7 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             _logger.Information("Calendar synchronization completed for account {AccountId} with state {State}",
                               options.AccountId, result.CompletedState);
 
-            if (downloadedEventCount > 0)
+            if (_notificationsEnabled && downloadedEventCount > 0)
             {
                 await _notificationBuilder.AddCalendarTaskbarBadgeCountAsync(downloadedEventCount).ConfigureAwait(false);
             }
@@ -1148,7 +1171,8 @@ public class SynchronizationManager : ISynchronizationManager, IRecipient<Accoun
             await SetInvalidCredentialAttentionAsync(authEx.Account).ConfigureAwait(false);
 
             // Create app notification for authentication attention
-            _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
+            if (_notificationsEnabled)
+                _notificationBuilder.CreateAttentionRequiredNotification(authEx.Account);
 
             var result = CalendarSynchronizationResult
                 .Failed(authEx)

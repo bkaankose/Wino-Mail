@@ -210,7 +210,7 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
         }
     }
 
-    private void ApplyCapabilities(EditorCapabilities capabilities)
+    private void ApplyCapabilities(EditorCommandCapabilities capabilities)
     {
         var wasApplyingState = _isApplyingState;
         _isApplyingState = true;
@@ -224,8 +224,8 @@ public sealed partial class EditorTabbedCommandBarControl : UserControl, IEditor
             SetItemsSourceIfChanged(FontFamilyComboBox, fonts);
             SetItemsSourceIfChanged(FontSizeComboBox, fontSizes);
             SetItemsSourceIfChanged(ParagraphStyleComboBox, paragraphStyles);
-            _textColorOptions = capabilities.TextColors.ToArray();
-            _highlightColorOptions = capabilities.HighlightColors.ToArray();
+            _textColorOptions = capabilities.TextColors.Select(color => new EditorColorOption(color.Name, color.Value)).ToArray();
+            _highlightColorOptions = capabilities.HighlightColors.Select(color => new EditorColorOption(color.Name, color.Value)).ToArray();
             SetItemsSourceIfChanged(TextColorGridView, _textColorOptions);
             SetItemsSourceIfChanged(HighlightColorGridView, _highlightColorOptions);
 

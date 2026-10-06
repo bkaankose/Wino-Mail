@@ -64,7 +64,7 @@ Run the commands below with `icons\.venv\Scripts\python`, or activate the enviro
 
    - the new SVG files in `icons/svg`
    - `icons/manifest.json`
-   - every regenerated font: the three fonts in `src/Wino.Mail.WinUI/Assets` and `controls/Wino.Mail.Controls/Assets/WinoIcons.ttf`
+   - every regenerated font: the three fonts in `src/Wino.Mail.WinUI/Assets` and `controls/Wino.Mail.Controls.WinUI/Assets/WinoIcons.ttf`
 
 ### Do not
 
@@ -118,7 +118,7 @@ icons/
   tools/          scripts that edit the manifest and build the fonts
 ```
 
-The build writes three fonts into `src/Wino.Mail.WinUI/Assets`. It also writes the monochrome font into `controls/Wino.Mail.Controls/Assets`, because the reusable controls library packages its own copy.
+The build writes three fonts into `src/Wino.Mail.WinUI/Assets`. It also writes the monochrome font into `controls/Wino.Mail.Controls.WinUI/Assets`, because the reusable controls library packages its own copy.
 
 | Font | Used when |
 | --- | --- |

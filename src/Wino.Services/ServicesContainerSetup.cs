@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using Wino.Core.Domain.Interfaces;
 using Wino.Core.Domain.Intelligence.Keys;
 using CommunityToolkit.Mvvm.Messaging;
@@ -35,7 +35,6 @@ public static class ServicesContainerSetup
         services.AddSingleton<IMimeFileService, MimeFileService>();
         services.AddSingleton<IContentTypeClassificationModel, MagikaContentTypeClassificationModel>();
         services.AddSingleton<IContentTypeDetectionService, ContentTypeDetectionService>();
-        services.AddSingleton<IWindowsAttachmentPolicyService, WindowsAttachmentPolicyService>();
         services.AddSingleton<IAttachmentFileService, AttachmentFileService>();
         services.AddSingleton<ICalendarIcsFileService, CalendarIcsFileService>();
         services.AddSingleton<IActivationFileImportService, ActivationFileImportService>();
@@ -64,7 +63,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<IKnownImapProviderCatalog, EmbeddedKnownImapProviderCatalog>();
         services.AddTransient<ISpecialImapProviderConfigResolver, SpecialImapProviderConfigResolver>();
         services.AddSingleton<IKeyboardShortcutService, KeyboardShortcutService>();
-        services.AddSingleton<IWinoAccountSessionService>(provider => WinoAccountSessionService.For(provider.GetRequiredService<IDatabaseService>()));
+        services.AddSingleton<IWinoAccountSessionService>(provider => WinoAccountSessionService.For(provider.GetRequiredService<IDatabaseService>(), provider.GetRequiredService<IAccountCredentialPersistence>()));
         services.AddSingleton<IWinoAccountApiClient, WinoAccountApiClient>();
         services.AddSingleton<IIntelligenceBackend, CloudIntelligenceBackend>();
         services.AddSingleton<IWinoAccountProfileService, WinoAccountProfileService>();
@@ -82,7 +81,6 @@ public static class ServicesContainerSetup
         services.AddSingleton<MailIntelligenceStore>();
         services.AddSingleton<IMailIntelligenceStore>(provider => provider.GetRequiredService<MailIntelligenceStore>());
         services.AddSingleton<IIntelligenceResultKeyRows>(provider => provider.GetRequiredService<MailIntelligenceStore>());
-        services.AddSingleton<IIntelligenceKeyProtector, DpapiIntelligenceKeyProtector>();
         services.AddSingleton<IntelligenceResultKeyPresence>();
         services.AddSingleton<IIntelligenceResultKeyStore, IntelligenceResultKeyStore>();
         services.AddSingleton<IntelligenceResultKeyLifecycle>();
@@ -94,6 +92,7 @@ public static class ServicesContainerSetup
         services.AddSingleton<ISyncSnapshotKeyService, SyncSnapshotKeyService>();
         services.AddTransient<IWinoAccountDataSyncService, WinoAccountDataSyncService>();
         services.AddSingleton<IPictureStorageService, PictureStorageService>();
+        services.AddSingleton<IThumbnailService, ThumbnailService>();
         services.AddSingleton<AccountProfilePictureMaintenance>();
         services.AddSingleton<AccountSenderPictureDirectory>();
 
